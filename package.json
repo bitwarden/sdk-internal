@@ -21,11 +21,11 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@openapitools/openapi-generator-cli": "2.29.0",
+    "@openapitools/openapi-generator-cli": "2.31.0",
     "@types/node": "25.2.3",
     "husky": "9.1.7",
     "json5": "2.2.3",
-    "lint-staged": "16.2.7",
+    "lint-staged": "16.4.0",
     "prettier": "3.7.4",
     "tsx": "4.21.0"
   }

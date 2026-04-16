@@ -2,7 +2,7 @@ use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestMode
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -23,7 +23,8 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher_view_type::CipherViewType,
     password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
@@ -109,10 +110,10 @@ impl TryFrom<CipherView> for CipherEditRequest {
 impl CipherEditRequest {
     pub(super) fn generate_cipher_key(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        wrapping_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
-        let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let old_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &self.key)?;
 
         let new_key = ctx.generate_symmetric_key();
 
@@ -122,6 +123,7 @@ impl CipherEditRequest {
             .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
             .transpose()?;
         AttachmentView::reencrypt_keys(&mut self.attachments, ctx, old_key, new_key)?;
+        self.key = Some(ctx.wrap_symmetric_key(wrapping_key, new_key)?);
         Ok(())
     }
 }
@@ -188,13 +190,13 @@ impl CipherEditRequestInternal {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
     for CipherEditRequestInternal
 {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<CipherRequestModel, CryptoError> {
         let mut cipher_data = (*self).clone();
         cipher_data.generate_checksums();
@@ -310,32 +312,37 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherEditRequest {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for CipherEditRequest {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
-            None => SymmetricKeyId::User,
+            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
+            None => SymmetricKeySlotId::User,
         }
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherEditRequestInternal {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for CipherEditRequestInternal {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         self.edit_request.key_identifier()
     }
 }
 
 async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
     request: CipherEditRequest,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
     let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
-    let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
+    let original_cipher_view: CipherView = if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(original_cipher.clone()))?
+    } else {
+        key_store.decrypt(&original_cipher)?
+    };
 
     let request = CipherEditRequestInternal::new(request, &original_cipher_view);
 
@@ -347,11 +354,15 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         .put(cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?
-        .try_into()?;
+        .merge_with_cipher(Some(original_cipher))?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -378,6 +389,7 @@ impl CiphersClient {
                 .client
                 .internal
                 .get_flags()
+                .await
                 .enable_cipher_key_encryption
         {
             let key = request.key_identifier();
@@ -390,6 +402,7 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             request,
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -425,14 +438,17 @@ impl CiphersClient {
             response
         };
 
-        Ok(self.decrypt(cipher).map_err(|_| CryptoError::KeyDecrypt)?)
+        Ok(self
+            .decrypt(cipher)
+            .await
+            .map_err(|_| CryptoError::KeyDecrypt)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
-    use bitwarden_core::key_management::SymmetricKeyId;
+    use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use chrono::TimeZone;
@@ -497,7 +513,7 @@ mod tests {
 
     async fn repository_add_cipher(
         repository: &MemoryRepository<Cipher>,
-        store: &KeyStore<KeyIds>,
+        store: &KeyStore<KeySlotIds>,
         cipher_id: CipherId,
         name: &str,
     ) {
@@ -510,16 +526,16 @@ mod tests {
                 folder_id: None,
                 collection_ids: vec![],
                 key: None,
-                name: name.encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
+                name: name.encrypt(&mut ctx, SymmetricKeySlotId::User).unwrap(),
                 notes: None,
                 r#type: CipherType::Login,
                 login: Some(Login {
                     username: Some("test@example.com")
-                        .map(|u| u.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .map(|u| u.encrypt(&mut ctx, SymmetricKeySlotId::User))
                         .transpose()
                         .unwrap(),
                     password: Some("password123")
-                        .map(|p| p.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .map(|p| p.encrypt(&mut ctx, SymmetricKeySlotId::User))
                         .transpose()
                         .unwrap(),
                     password_revision_date: None,
@@ -555,11 +571,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -609,8 +625,15 @@ mod tests {
                 .once();
         });
 
+        let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+
         let repository = MemoryRepository::<Cipher>::default();
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
+        // Update the stored cipher to include a collection_id so we can verify it is preserved.
+        let mut stored = repository.get(cipher_id).await.unwrap().unwrap();
+        stored.collection_ids = vec![collection_id];
+        repository.set(cipher_id, stored).await.unwrap();
+
         let cipher_view = generate_test_cipher();
 
         let request = cipher_view.try_into().unwrap();
@@ -621,17 +644,20 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await
         .unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "Test Login");
+        // collection_ids must be preserved even though CipherResponseModel omits them.
+        assert_eq!(result.collection_ids, vec![collection_id]);
     }
 
     #[tokio::test]
     async fn test_edit_cipher_does_not_exist() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
 
         let repository = MemoryRepository::<Cipher>::default();
 
@@ -646,6 +672,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 
@@ -658,11 +685,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -688,6 +715,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 

@@ -7,7 +7,7 @@ use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{MissingPrivateKeyError, key_management::PrivateKeyId};
+use crate::{MissingPrivateKeyError, key_management::PrivateKeySlotId};
 
 /// Request to generate a fingerprint.
 #[derive(Serialize, Deserialize, Debug)]
@@ -66,7 +66,7 @@ pub(crate) fn generate_user_fingerprint(
     // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
     // fingerprints
     #[allow(deprecated)]
-    let private_key = ctx.dangerous_get_private_key(PrivateKeyId::UserPrivateKey)?;
+    let private_key = ctx.dangerous_get_private_key(PrivateKeySlotId::UserPrivateKey)?;
 
     let public_key = private_key.to_public_key().to_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;
@@ -110,6 +110,7 @@ mod tests {
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.parse().unwrap(),
                 },
+                &None,
             )
             .unwrap();
 

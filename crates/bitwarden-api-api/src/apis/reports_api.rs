@@ -32,10 +32,7 @@ pub trait ReportsApi: Send + Sync {
         password_health_report_application_model: Option<
             models::PasswordHealthReportApplicationModel,
         >,
-    ) -> Result<
-        models::PasswordHealthReportApplication,
-        Error<AddPasswordHealthReportApplicationError>,
-    >;
+    ) -> Result<models::PasswordHealthReportApplication, Error>;
 
     /// POST /reports/password-health-report-applications
     async fn add_password_health_report_applications<'a>(
@@ -43,10 +40,7 @@ pub trait ReportsApi: Send + Sync {
         password_health_report_application_model: Option<
             Vec<models::PasswordHealthReportApplicationModel>,
         >,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<AddPasswordHealthReportApplicationsError>,
-    >;
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error>;
 
     /// DELETE /reports/password-health-report-application
     async fn drop_password_health_report_application<'a>(
@@ -54,28 +48,25 @@ pub trait ReportsApi: Send + Sync {
         drop_password_health_report_application_request: Option<
             models::DropPasswordHealthReportApplicationRequest,
         >,
-    ) -> Result<(), Error<DropPasswordHealthReportApplicationError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/member-access/{orgId}
     async fn get_member_access_report<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error<GetMemberAccessReportError>>;
+    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error>;
 
     /// GET /reports/member-cipher-details/{orgId}
     async fn get_member_cipher_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error<GetMemberCipherDetailsError>>;
+    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error>;
 
     /// GET /reports/password-health-report-applications/{orgId}
     async fn get_password_health_report_applications<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<GetPasswordHealthReportApplicationsError>,
-    >;
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error>;
 }
 
 pub struct ReportsApiClient {
@@ -96,10 +87,7 @@ impl ReportsApi for ReportsApiClient {
         password_health_report_application_model: Option<
             models::PasswordHealthReportApplicationModel,
         >,
-    ) -> Result<
-        models::PasswordHealthReportApplication,
-        Error<AddPasswordHealthReportApplicationError>,
-    > {
+    ) -> Result<models::PasswordHealthReportApplication, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -111,49 +99,11 @@ impl ReportsApi for ReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&password_health_report_application_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PasswordHealthReportApplication`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PasswordHealthReportApplication`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<AddPasswordHealthReportApplicationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn add_password_health_report_applications<'a>(
@@ -161,10 +111,7 @@ impl ReportsApi for ReportsApiClient {
         password_health_report_application_model: Option<
             Vec<models::PasswordHealthReportApplicationModel>,
         >,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<AddPasswordHealthReportApplicationsError>,
-    > {
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -176,49 +123,11 @@ impl ReportsApi for ReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&password_health_report_application_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::PasswordHealthReportApplication&gt;`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::PasswordHealthReportApplication&gt;`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<AddPasswordHealthReportApplicationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn drop_password_health_report_application<'a>(
@@ -226,7 +135,7 @@ impl ReportsApi for ReportsApiClient {
         drop_password_health_report_application_request: Option<
             models::DropPasswordHealthReportApplicationRequest,
         >,
-    ) -> Result<(), Error<DropPasswordHealthReportApplicationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -238,38 +147,17 @@ impl ReportsApi for ReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&drop_password_health_report_application_request);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DropPasswordHealthReportApplicationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_member_access_report<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error<GetMemberAccessReportError>>
-    {
+    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -282,54 +170,15 @@ impl ReportsApi for ReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::MemberAccessDetailReportResponseModel&gt;`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::MemberAccessDetailReportResponseModel&gt;`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetMemberAccessReportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_member_cipher_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error<GetMemberCipherDetailsError>>
-    {
+    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -342,56 +191,15 @@ impl ReportsApi for ReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::MemberCipherDetailsResponseModel&gt;`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::MemberCipherDetailsResponseModel&gt;`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetMemberCipherDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_password_health_report_applications<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<GetPasswordHealthReportApplicationsError>,
-    > {
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -404,83 +212,8 @@ impl ReportsApi for ReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::PasswordHealthReportApplication&gt;`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::PasswordHealthReportApplication&gt;`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetPasswordHealthReportApplicationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ReportsApi::add_password_health_report_application`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddPasswordHealthReportApplicationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::add_password_health_report_applications`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddPasswordHealthReportApplicationsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::drop_password_health_report_application`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DropPasswordHealthReportApplicationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::get_member_access_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMemberAccessReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::get_member_cipher_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMemberCipherDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::get_password_health_report_applications`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPasswordHealthReportApplicationsError {
-    UnknownValue(serde_json::Value),
 }

@@ -6,7 +6,7 @@ use bitwarden_core::{
     NotAuthenticatedError,
     auth::{TokenHandler, login::LoginError},
     client::login_method::LoginMethod,
-    key_management::KeyIds,
+    key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
 use chrono::Utc;
@@ -33,12 +33,13 @@ struct PasswordManagerTokenHandlerInner {
     identity_config: Option<bitwarden_api_api::Configuration>,
 }
 
+#[async_trait::async_trait]
 impl TokenHandler for PasswordManagerTokenHandler {
     fn initialize_middleware(
         &self,
         login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         identity_config: bitwarden_api_api::Configuration,
-        _key_store: KeyStore<KeyIds>,
+        _key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         {
             let mut inner = self.inner.write().expect("RwLock is not poisoned");
@@ -48,7 +49,12 @@ impl TokenHandler for PasswordManagerTokenHandler {
         Arc::new(MiddlewareWrapper(self.clone()))
     }
 
-    fn set_tokens(&self, access_token: String, refresh_token: Option<String>, expires_in: u64) {
+    async fn set_tokens(
+        &self,
+        access_token: String,
+        refresh_token: Option<String>,
+        expires_in: u64,
+    ) {
         let mut inner = self.inner.write().expect("RwLock is not poisoned");
         inner.access_token = Some(access_token);
         inner.refresh_token = refresh_token;
@@ -85,6 +91,7 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             .clone()
             .ok_or(NotAuthenticatedError)?;
 
+        #[allow(irrefutable_let_patterns)]
         let LoginMethod::User(user_login_method) = login_method.as_ref() else {
             return Err(NotAuthenticatedError.into());
         };
@@ -97,7 +104,8 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             )
             .await?;
 
-        self.set_tokens(access_token.clone(), refresh_token, expires_in);
+        self.set_tokens(access_token.clone(), refresh_token, expires_in)
+            .await;
         Ok(Some(access_token))
     }
 }
@@ -109,7 +117,7 @@ mod tests {
     use bitwarden_core::{
         auth::TokenHandler,
         client::login_method::{LoginMethod, UserLoginMethod},
-        key_management::KeyIds,
+        key_management::KeySlotIds,
     };
     use bitwarden_crypto::{Kdf, KeyStore};
     use wiremock::MockServer;
@@ -134,15 +142,17 @@ mod tests {
         let identity_server = MockServer::start().await;
 
         let handler = PasswordManagerTokenHandler::default();
-        handler.set_tokens(
-            "original-token".to_string(),
-            Some("refresh".to_string()),
-            5000,
-        );
+        handler
+            .set_tokens(
+                "original-token".to_string(),
+                Some("refresh".to_string()),
+                5000,
+            )
+            .await;
         let client = build_client(handler.initialize_middleware(
             api_key_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;
@@ -158,16 +168,18 @@ mod tests {
 
         let handler = PasswordManagerTokenHandler::default();
         // expires_in=0 means the token is considered expired as it's less than the margin
-        handler.set_tokens(
-            "expired-token".to_string(),
-            Some("old-refresh".to_string()),
-            0,
-        );
+        handler
+            .set_tokens(
+                "expired-token".to_string(),
+                Some("old-refresh".to_string()),
+                0,
+            )
+            .await;
 
         let client = build_client(handler.initialize_middleware(
             api_key_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;

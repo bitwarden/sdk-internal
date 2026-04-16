@@ -5,7 +5,7 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_core::{
     UserId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
 };
 use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStoreContext};
 use bitwarden_send::SendView;
@@ -34,9 +34,9 @@ pub(super) fn reencrypt_data(
     folders: &[bitwarden_vault::Folder],
     ciphers: &[bitwarden_vault::Cipher],
     sends: &[bitwarden_send::Send],
-    current_user_key_id: SymmetricKeyId,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<AccountDataRequestModel, DataReencryptionError> {
     // Fully re-encrypt all user data with the new user key
     let reencrypted_folders =
@@ -69,15 +69,7 @@ pub(super) fn reencrypt_data(
         sends: Some(
             reencrypted_sends
                 .into_iter()
-                .map(|send| {
-                    Ok(SendWithIdRequestModel {
-                        id: send.id.ok_or(DataReencryptionError::DataConversion)?,
-                        key: send.key.to_string(),
-                        // During key-rotation only the "key" (encrypted seed) and id are used,
-                        // since we only re-encrypt the "key"
-                        ..Default::default()
-                    })
-                })
+                .map(|send| Ok(send.into()))
                 .collect::<Result<Vec<SendWithIdRequestModel>, DataReencryptionError>>()?,
         ),
     })
@@ -86,9 +78,9 @@ pub(super) fn reencrypt_data(
 #[instrument(name = "reencrypt_folders", skip(folders, ctx))]
 fn reencrypt_folders(
     folders: &[bitwarden_vault::Folder],
-    current_key: SymmetricKeyId,
-    new_key: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_key: SymmetricKeySlotId,
+    new_key: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<bitwarden_vault::Folder>, DataReencryptionError> {
     folders
         .iter()
@@ -107,9 +99,9 @@ fn reencrypt_folders(
 #[instrument(name = "reencrypt_ciphers", skip(ciphers, ctx))]
 fn reencrypt_ciphers(
     ciphers: &[bitwarden_vault::Cipher],
-    current_key: SymmetricKeyId,
-    new_key: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_key: SymmetricKeySlotId,
+    new_key: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError> {
     ciphers
         .iter()
@@ -144,9 +136,9 @@ fn reencrypt_ciphers(
 #[instrument(name = "reencrypt_sends", skip(sends, ctx))]
 fn reencrypt_sends(
     sends: &[bitwarden_send::Send],
-    current_key: SymmetricKeyId,
-    new_key: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_key: SymmetricKeySlotId,
+    new_key: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<bitwarden_send::Send>, DataReencryptionError> {
     sends
         .iter()
@@ -164,7 +156,7 @@ fn reencrypt_sends(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::KeyIds;
+    use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStore};
     use bitwarden_send::SendView;
     use chrono::Utc;
@@ -172,7 +164,7 @@ mod tests {
     #[test]
     fn test_ciphers() {
         use bitwarden_vault::{CipherType, CipherView, LoginView};
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let user_key_old =
@@ -245,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_folders() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let user_key_old =
@@ -276,7 +268,7 @@ mod tests {
 
     #[test]
     fn test_sends() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let user_key_old =

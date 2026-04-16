@@ -1,7 +1,7 @@
 use bitwarden_api_api::{apis::ApiClient, models::CipherCollectionsRequestModel};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
-    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeyIds,
+    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
-    cipher::cipher::PartialCipher,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
     cipher_client::edit::{CipherEditRequest, CipherEditRequestInternal},
 };
 
@@ -48,13 +48,18 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherAdminError {
 }
 
 async fn edit_cipher(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     encrypted_for: UserId,
     original_cipher_view: CipherView,
     request: CipherEditRequest,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let cipher_id = request.id;
+    // CipherMiniResponseModel does not include folder_id or favorite — save them from the
+    // request before it is consumed so they can be applied to the merged result.
+    let folder_id = request.folder_id;
+    let favorite = request.favorite;
     let request = CipherEditRequestInternal::new(request, &original_cipher_view);
 
     let mut cipher_request = key_store.encrypt(request)?;
@@ -62,14 +67,21 @@ async fn edit_cipher(
 
     let orig_cipher = key_store.encrypt(original_cipher_view)?;
 
-    let cipher: Cipher = api_client
+    let mut cipher: Cipher = api_client
         .ciphers_api()
         .put_admin(cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?
         .merge_with_cipher(Some(orig_cipher))?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    cipher.folder_id = folder_id;
+    cipher.favorite = favorite;
+
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 /// Adds the cipher matched by [CipherId] to any number of collections on the server.
@@ -77,7 +89,8 @@ pub async fn add_to_collections(
     cipher_id: CipherId,
     collection_ids: Vec<CollectionId>,
     api_client: &ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let req = CipherCollectionsRequestModel {
         collection_ids: collection_ids
@@ -92,7 +105,11 @@ pub async fn add_to_collections(
         .await?
         .merge_with_cipher(None)?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -119,6 +136,7 @@ impl CipherAdminClient {
                 .client
                 .internal
                 .get_flags()
+                .await
                 .enable_cipher_key_encryption
         {
             let key = request.key_identifier();
@@ -131,6 +149,7 @@ impl CipherAdminClient {
             user_id,
             original_cipher_view,
             request,
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -146,6 +165,7 @@ impl CipherAdminClient {
             collection_ids,
             &self.client.internal.get_api_configurations().api_client,
             self.client.internal.get_key_store(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -154,7 +174,7 @@ impl CipherAdminClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherMiniResponseModel};
-    use bitwarden_core::key_management::SymmetricKeyId;
+    use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 
     use super::*;
@@ -206,10 +226,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
@@ -250,9 +270,15 @@ mod tests {
                 .once();
         });
 
-        let original_cipher_view = generate_test_cipher();
+        let folder_a: crate::FolderId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+        let folder_b: crate::FolderId = "b5e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+
+        let mut original_cipher_view = generate_test_cipher();
+        original_cipher_view.folder_id = Some(folder_a);
         let mut cipher_view = original_cipher_view.clone();
         cipher_view.name = "New Cipher Name".to_string();
+        // Change folder: request carries folder_b, original has folder_a.
+        cipher_view.folder_id = Some(folder_b);
 
         let request: CipherEditRequest = cipher_view.try_into().unwrap();
 
@@ -262,20 +288,23 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             original_cipher_view,
             request,
+            false,
         )
         .await
         .unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "New Cipher Name");
+        // folder_id must come from the request, not from the original cipher.
+        assert_eq!(result.folder_id, Some(folder_b));
     }
 
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
@@ -297,6 +326,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             orig_cipher_view,
             request,
+            false,
         )
         .await;
 

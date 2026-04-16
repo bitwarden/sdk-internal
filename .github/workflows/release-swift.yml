@@ -119,7 +119,7 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Generate GH App token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         id: app-token-sdk-swift
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
@@ -138,7 +138,7 @@ jobs:
           persist-credentials: true
 
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
           gpg_private_key: ${{ steps.get-kv-secrets-ci.outputs.github-gpg-private-key }}
           passphrase: ${{ steps.get-kv-secrets-ci.outputs.github-gpg-private-key-passphrase }}
@@ -227,7 +227,7 @@ jobs:
             "BitwardenFFI-$_PKG_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip"
 
       - name: Generate GH App token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
         id: app-token-ios
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}

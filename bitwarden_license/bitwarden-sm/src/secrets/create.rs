@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::SecretCreateRequestModel;
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
+use bitwarden_core::key_management::SymmetricKeySlotId;
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
+    SecretsManagerClient,
     error::{SecretsManagerError, validate_only_whitespaces},
     secrets::SecretResponse,
 };
@@ -30,13 +31,18 @@ pub struct SecretCreateRequest {
 }
 
 pub(crate) async fn create_secret(
-    client: &Client,
+    client: &SecretsManagerClient,
     input: &SecretCreateRequest,
 ) -> Result<SecretResponse, SecretsManagerError> {
+    let core_client = client.client();
     input.validate()?;
 
-    let key_store = client.internal.get_key_store();
-    let key = SymmetricKeyId::Organization(OrganizationId::new(input.organization_id));
+    let key_store = core_client.internal.get_key_store();
+    let organization_id = client
+        .get_access_token_organization()
+        .expect("Access token isn't associated with an organization");
+
+    let key = SymmetricKeySlotId::Organization(organization_id);
 
     let secret = {
         let mut ctx = key_store.context();
@@ -54,11 +60,11 @@ pub(crate) async fn create_secret(
         })
     };
 
-    let config = client.internal.get_api_configurations();
+    let config = core_client.internal.get_api_configurations();
     let res = config
         .api_client
         .secrets_api()
-        .create(input.organization_id, secret)
+        .create(organization_id.into(), secret)
         .await?;
 
     SecretResponse::process_response(res, &mut key_store.context())
@@ -81,7 +87,7 @@ mod tests {
             project_ids: Some(vec![Uuid::new_v4()]),
         };
 
-        super::create_secret(&Client::new(None), &input).await
+        super::create_secret(&SecretsManagerClient::new(None), &input).await
     }
 
     #[tokio::test]

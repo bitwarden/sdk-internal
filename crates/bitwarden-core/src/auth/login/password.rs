@@ -39,11 +39,14 @@ pub(crate) async fn login_password(
     if let IdentityTokenResponse::Authenticated(r) = &response {
         use crate::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 
-        client.internal.set_tokens(
-            r.access_token.clone(),
-            r.refresh_token.clone(),
-            r.expires_in,
-        );
+        client
+            .internal
+            .set_tokens(
+                r.access_token.clone(),
+                r.refresh_token.clone(),
+                r.expires_in,
+            )
+            .await;
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 
@@ -62,6 +65,7 @@ pub(crate) async fn login_password(
                     input.password.clone(),
                     master_password_unlock.clone(),
                     user_key_state,
+                    &None,
                 )?;
 
             client
@@ -70,7 +74,8 @@ pub(crate) async fn login_password(
                     client_id: "web".to_owned(),
                     email: master_password_unlock.salt,
                     kdf: master_password_unlock.kdf,
-                }));
+                }))
+                .await;
         }
     }
 

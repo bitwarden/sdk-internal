@@ -1,16 +1,18 @@
 //! This module contains the definition for the key identifiers used by the rest of the crates.
 //! Any code that needs to interact with the [KeyStore] should use these types.
 //!
-//! - [SymmetricKeyId] is used to identify symmetric keys.
-//! - [PrivateKeyId] is used to identify private keys.
-//! - [KeyIds] is a helper type that combines both symmetric and private key identifiers. This is
-//!   usually used in the type bounds of [KeyStore],
+//! - [SymmetricKeySlotId] is used to identify symmetric keys.
+//! - [PrivateKeySlotId] is used to identify private keys.
+//! - [KeySlotIds] is a helper type that combines both symmetric and private key identifiers. This
+//!   is usually used in the type bounds of [KeyStore],
 //!   [KeyStoreContext](bitwarden_crypto::KeyStoreContext),
 //!   [PrimitiveEncryptable](bitwarden_crypto::PrimitiveEncryptable),
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
+use bitwarden_crypto::{
+    EncString, KeyStore, SymmetricCryptoKey, key_slot_ids, safe::PasswordProtectedKeyEnvelope,
+};
 
 #[cfg(feature = "internal")]
 pub mod account_cryptographic_state;
@@ -41,11 +43,20 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
+#[cfg(feature = "internal")]
+mod v2_upgrade_token;
+#[cfg(feature = "internal")]
+pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
 #[cfg(all(feature = "internal", feature = "wasm"))]
 mod wasm_unlock_state;
 
-use crate::OrganizationId;
+#[cfg(feature = "internal")]
+mod local_user_data_key;
+#[cfg(feature = "internal")]
+mod local_user_data_key_state;
+
+use crate::{OrganizationId, UserId};
 
 /// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
 /// client.
@@ -59,43 +70,65 @@ pub struct UserKeyState {
 
 bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 
-key_ids! {
+/// Represents the local user data key, wrapped by user key.
+/// This key is used to encrypt local user data (e.g., password generator history).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct LocalUserDataKeyState {
+    wrapped_key: EncString,
+}
+
+bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");
+
+/// Represents the PIN envelope in memory, when ephemeral PIN unlock is used.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct EphemeralPinEnvelopeState {
+    pin_envelope: PasswordProtectedKeyEnvelope,
+}
+
+bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
+
+key_slot_ids! {
     #[symmetric]
-    pub enum SymmetricKeyId {
+    pub enum SymmetricKeySlotId {
         Master,
         User,
         Organization(OrganizationId),
+        LocalUserData,
         #[local]
         Local(LocalId),
     }
 
     #[private]
-    pub enum PrivateKeyId {
+    pub enum PrivateKeySlotId {
         UserPrivateKey,
         #[local]
         Local(LocalId),
     }
 
     #[signing]
-    pub enum SigningKeyId {
+    pub enum SigningKeySlotId {
         UserSigningKey,
         #[local]
         Local(LocalId),
     }
 
-    pub KeyIds => SymmetricKeyId, PrivateKeyId, SigningKeyId;
+    pub KeySlotIds => SymmetricKeySlotId, PrivateKeySlotId, SigningKeySlotId;
 }
 
 /// This is a helper function to create a test KeyStore with a single user key.
 /// While this function is not marked as #[cfg(test)], it should only be used for testing purposes.
 /// It's only public so that other crates can make use of it in their own tests.
-pub fn create_test_crypto_with_user_key(key: SymmetricCryptoKey) -> KeyStore<KeyIds> {
+pub fn create_test_crypto_with_user_key(key: SymmetricCryptoKey) -> KeyStore<KeySlotIds> {
     let store = KeyStore::default();
 
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(SymmetricKeyId::User, key.clone())
+        .set_symmetric_key(SymmetricKeySlotId::User, key.clone())
         .expect("Mutable context");
 
     store
@@ -109,19 +142,19 @@ pub fn create_test_crypto_with_user_and_org_key(
     key: SymmetricCryptoKey,
     org_id: OrganizationId,
     org_key: SymmetricCryptoKey,
-) -> KeyStore<KeyIds> {
+) -> KeyStore<KeySlotIds> {
     let store = KeyStore::default();
 
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(SymmetricKeyId::User, key.clone())
+        .set_symmetric_key(SymmetricKeySlotId::User, key.clone())
         .expect("Mutable context");
 
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(SymmetricKeyId::Organization(org_id), org_key.clone())
+        .set_symmetric_key(SymmetricKeySlotId::Organization(org_id), org_key.clone())
         .expect("Mutable context");
 
     store

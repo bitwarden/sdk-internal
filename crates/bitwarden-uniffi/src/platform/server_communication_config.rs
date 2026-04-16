@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_server_communication_config::{
     AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigPlatformApi,
+    SetCommunicationTypeRequest,
 };
 
 use crate::error::Result;
@@ -33,7 +34,7 @@ impl ServerCommunicationConfigClient {
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl ServerCommunicationConfigClient {
     /// Retrieves the server communication configuration for a hostname
     pub async fn get_config(&self, hostname: String) -> Result<ServerCommunicationConfig> {
@@ -59,12 +60,15 @@ impl ServerCommunicationConfigClient {
     ///
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
+    /// Previously acquired cookies are preserved automatically.
     pub async fn set_communication_type(
         &self,
         hostname: String,
-        config: ServerCommunicationConfig,
+        request: SetCommunicationTypeRequest,
     ) -> Result<()> {
-        self.client.set_communication_type(hostname, config).await?;
+        self.client
+            .set_communication_type(hostname, request)
+            .await?;
         Ok(())
     }
 
@@ -137,7 +141,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for UniffiPlatformApiBridge<T> {
 impl<'a> ServerCommunicationConfigPlatformApi
     for UniffiPlatformApiBridge<Arc<dyn ServerCommunicationConfigPlatformApi + 'a>>
 {
-    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>> {
-        self.0.acquire_cookies(hostname).await
+    async fn acquire_cookies(&self, vault_url: String) -> Option<Vec<AcquiredCookie>> {
+        self.0.acquire_cookies(vault_url).await
     }
 }

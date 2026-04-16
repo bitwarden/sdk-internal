@@ -27,33 +27,33 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationConnectionsApi: Send + Sync {
     /// GET /organizations/connections/enabled
-    async fn connections_enabled(&self) -> Result<bool, Error<ConnectionsEnabledError>>;
+    async fn connections_enabled(&self) -> Result<bool, Error>;
 
     /// POST /organizations/connections
     async fn create_connection<'a>(
         &self,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<CreateConnectionError>>;
+    ) -> Result<models::OrganizationConnectionResponseModel, Error>;
 
     /// DELETE /organizations/connections/{organizationConnectionId}
     async fn delete_connection<'a>(
         &self,
         organization_connection_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteConnectionError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/connections/{organizationId}/{type}
     async fn get_connection<'a>(
         &self,
         organization_id: uuid::Uuid,
         r#type: models::OrganizationConnectionType,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<GetConnectionError>>;
+    ) -> Result<models::OrganizationConnectionResponseModel, Error>;
 
     /// PUT /organizations/connections/{organizationConnectionId}
     async fn update_connection<'a>(
         &self,
         organization_connection_id: uuid::Uuid,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<UpdateConnectionError>>;
+    ) -> Result<models::OrganizationConnectionResponseModel, Error>;
 }
 
 pub struct OrganizationConnectionsApiClient {
@@ -69,7 +69,7 @@ impl OrganizationConnectionsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
-    async fn connections_enabled(&self) -> Result<bool, Error<ConnectionsEnabledError>> {
+    async fn connections_enabled(&self) -> Result<bool, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -81,53 +81,15 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `bool`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `bool`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<ConnectionsEnabledError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn create_connection<'a>(
         &self,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<CreateConnectionError>> {
+    ) -> Result<models::OrganizationConnectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -139,54 +101,16 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_connection_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<CreateConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn delete_connection<'a>(
         &self,
         organization_connection_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteConnectionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -199,36 +123,16 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_connection<'a>(
         &self,
         organization_id: uuid::Uuid,
         r#type: models::OrganizationConnectionType,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<GetConnectionError>> {
+    ) -> Result<models::OrganizationConnectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -237,54 +141,16 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn update_connection<'a>(
         &self,
         organization_connection_id: uuid::Uuid,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<UpdateConnectionError>> {
+    ) -> Result<models::OrganizationConnectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -297,78 +163,9 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_connection_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationConnectionResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<UpdateConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationConnectionsApi::connections_enabled`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ConnectionsEnabledError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::create_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateConnectionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::delete_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteConnectionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::get_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetConnectionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::update_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateConnectionError {
-    UnknownValue(serde_json::Value),
 }

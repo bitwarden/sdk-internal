@@ -1,5 +1,6 @@
 //! Integration tests for the registration process
 
+use bitwarden_core::key_management::LocalUserDataKeyState;
 use bitwarden_test::MemoryRepository;
 
 /// Integration test for registering a new user and unlocking the vault
@@ -11,7 +12,7 @@ async fn test_register_initialize_crypto() {
     use bitwarden_core::{
         Client, UserId,
         key_management::{
-            MasterPasswordUnlockData, UserKeyState,
+            EphemeralPinEnvelopeState, MasterPasswordUnlockData, UserKeyState,
             account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
         },
@@ -20,11 +21,25 @@ async fn test_register_initialize_crypto() {
 
     let client = Client::new(None);
 
-    let repository = MemoryRepository::<UserKeyState>::default();
+    let user_key_repository = MemoryRepository::<UserKeyState>::default();
     client
         .platform()
         .state()
-        .register_client_managed(std::sync::Arc::new(repository));
+        .register_client_managed(std::sync::Arc::new(user_key_repository));
+
+    client
+        .platform()
+        .state()
+        .register_client_managed(std::sync::Arc::new(
+            MemoryRepository::<LocalUserDataKeyState>::default(),
+        ));
+
+    client
+        .platform()
+        .state()
+        .register_client_managed(std::sync::Arc::new(MemoryRepository::<
+            EphemeralPinEnvelopeState,
+        >::default()));
 
     let email = "test@bitwarden.com";
     let password = "test123";
@@ -55,6 +70,7 @@ async fn test_register_initialize_crypto() {
                     salt: email.to_owned(),
                 },
             },
+            upgrade_token: None,
         })
         .await
         .unwrap();

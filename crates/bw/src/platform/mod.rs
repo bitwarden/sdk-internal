@@ -1,15 +1,8 @@
-use clap::{Args, Subcommand};
+use clap::Subcommand;
 
 use crate::render::CommandResult;
-
-#[derive(Args, Clone)]
-pub struct SyncArgs {
-    #[arg(short = 'f', long, help = "Force a full sync.")]
-    pub force: bool,
-
-    #[arg(long, help = "Get the last sync date.")]
-    pub last: bool,
-}
+mod sync;
+pub(crate) use sync::SyncArgs;
 
 #[derive(Subcommand, Clone)]
 pub enum ConfigCommand {

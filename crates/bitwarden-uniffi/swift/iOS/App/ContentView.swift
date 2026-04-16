@@ -202,7 +202,8 @@ struct ContentView: View {
                         masterKeyWrappedUserKey: loginData.Key,
                         salt: EMAIL
                     )
-                )
+                ),
+                upgradeToken: nil
             ))
 
         accessToken = loginData.access_token
@@ -221,7 +222,7 @@ struct ContentView: View {
         }
 
         if setupPin {
-            let pinOptions = try clientCrypto.derivePinKey(pin: PIN)
+            let pinOptions = try await clientCrypto.derivePinKey(pin: PIN)
 
             let defaults = UserDefaults.standard
             defaults.set(loginData.PrivateKey, forKey: "privateKey")
@@ -259,7 +260,8 @@ struct ContentView: View {
             accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
-            )
+            ),
+            upgradeToken: nil
         ))
     }
 
@@ -284,7 +286,8 @@ struct ContentView: View {
             kdfParams: kdf,
             email: EMAIL,
             accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
-            method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
+            method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey),
+            upgradeToken: nil
         ))
     }
 
@@ -383,6 +386,7 @@ struct ContentView: View {
                     idpLoginUrl: "https://example.com/login",
                     cookieName: "TestCookie",
                     cookieDomain: "example.com",
+                    vaultUrl: "https://example.com",
                     cookieValue: nil
                 )
             )

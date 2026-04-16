@@ -1,0 +1,38 @@
+[package]
+name = "bitwarden-logging"
+description = """
+Flight Recorder infrastructure for capturing and exporting diagnostic logs.
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = ["dep:tsify", "dep:wasm-bindgen"]
+
+[dependencies]
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = "0.8.0"
+
+[[bench]]
+name = "flight_recorder_performance"
+harness = false
+
+[lints]
+workspace = true

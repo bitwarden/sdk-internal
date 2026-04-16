@@ -1,6 +1,6 @@
 use std::{cmp::max, pin::Pin};
 
-use generic_array::GenericArray;
+use hybrid_array::Array;
 use typenum::U32;
 
 use super::Aes256CbcHmacKey;
@@ -9,7 +9,7 @@ use crate::{CryptoError, Result, util::hkdf_expand};
 /// Stretch the given key using HKDF.
 /// This can be either a kdf-derived key (PIN/Master password) or
 /// a random key from key connector
-pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Aes256CbcHmacKey {
+pub(super) fn stretch_key(key: &Pin<Box<Array<u8, U32>>>) -> Aes256CbcHmacKey {
     Aes256CbcHmacKey {
         // this is safe because the key length is always 32 bytes
         enc_key: hkdf_expand(key, Some("enc")).expect("HKDF expand to succeed"),
