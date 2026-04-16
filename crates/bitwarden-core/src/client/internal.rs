@@ -65,7 +65,7 @@ impl ApiConfigurations {
         })
     }
 
-    pub(crate) fn get_key_connector_client(
+    pub fn get_key_connector_client(
         self: &Arc<Self>,
         key_connector_url: String,
     ) -> bitwarden_api_key_connector::apis::ApiClient {

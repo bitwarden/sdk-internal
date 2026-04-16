@@ -14,7 +14,7 @@ use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
-use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
+use bitwarden_user_crypto_management::{KeyConnectorClientExt, UserCryptoManagementClientExt};
 use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};
 
 #[cfg(feature = "uniffi")]
@@ -108,6 +108,10 @@ impl PasswordManagerClient {
         &self,
     ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
         self.0.user_crypto_management()
+    }
+
+    pub fn key_connector(&self) -> bitwarden_user_crypto_management::KeyConnectorClient {
+        self.0.key_connector()
     }
 
     /// Vault item operations
