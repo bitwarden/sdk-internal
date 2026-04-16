@@ -1,13 +1,12 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
-use bitwarden_organizations::{
-    OrganizationUserStatusType, OrganizationUserType, ProfileOrganization,
-};
+use bitwarden_organizations::ProfileOrganization;
 
 use crate::filter::{DefaultPolicyDefinition, Policy, PolicyType, PolicyView, filter};
 
-trait ErasedPolicy {
-    fn policy_type(&self) -> PolicyType;
+trait ErasedPolicy: Send + Sync {
     fn filter_raw<'a>(
         &self,
         policies: &'a [PolicyView],
@@ -16,10 +15,6 @@ trait ErasedPolicy {
 }
 
 impl<P: Policy> ErasedPolicy for P {
-    fn policy_type(&self) -> PolicyType {
-        self.policy_type()
-    }
-
     fn filter_raw<'a>(
         &self,
         policies: &'a [PolicyView],
@@ -72,6 +67,7 @@ impl PolicyRegistryBuilder {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
     use uuid::Uuid;
 
     use super::*;
