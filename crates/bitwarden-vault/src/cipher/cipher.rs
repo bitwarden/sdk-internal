@@ -184,6 +184,7 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             identity: cipher.identity.map(|i| Box::new(i.into())),
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
+            bank_account: None,
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -254,6 +255,7 @@ impl From<EncryptionContext> for CipherRequestModel {
             identity: cipher.identity.map(|i| Box::new(i.into())),
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
+            bank_account: None,
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -1305,7 +1307,8 @@ impl TryFrom<bitwarden_api_api::models::CipherType> for CipherType {
             bitwarden_api_api::models::CipherType::Card => CipherType::Card,
             bitwarden_api_api::models::CipherType::Identity => CipherType::Identity,
             bitwarden_api_api::models::CipherType::SSHKey => CipherType::SshKey,
-            bitwarden_api_api::models::CipherType::__Unknown(_) => {
+            bitwarden_api_api::models::CipherType::BankAccount
+            | bitwarden_api_api::models::CipherType::__Unknown(_) => {
                 return Err(MissingFieldError("type"));
             }
         })

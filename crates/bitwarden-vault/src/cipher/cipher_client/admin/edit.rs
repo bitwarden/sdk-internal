@@ -261,6 +261,7 @@ mod tests {
                         identity: body.identity,
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
+                        bank_account: None,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,
