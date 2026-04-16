@@ -23,7 +23,7 @@ pub use server_communication_config::{
 #[derive(uniffi::Object)]
 pub struct PlatformClient(pub(crate) bitwarden_core::Client);
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl PlatformClient {
     /// Fingerprint (public key)
     pub fn fingerprint(&self, req: FingerprintRequest) -> Result<String> {
@@ -36,8 +36,8 @@ impl PlatformClient {
     }
 
     /// Load feature flags into the client
-    pub fn load_flags(&self, flags: std::collections::HashMap<String, bool>) -> Result<()> {
-        self.0.internal.load_flags(flags);
+    pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) -> Result<()> {
+        self.0.internal.load_flags(flags).await;
         Ok(())
     }
 

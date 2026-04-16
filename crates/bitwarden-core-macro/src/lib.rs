@@ -21,7 +21,7 @@ use syn::{DeriveInput, parse_macro_input};
 ///
 /// #[derive(FromClient)]
 /// pub struct FoldersClient {
-///     key_store: KeyStore<KeyIds>,
+///     key_store: KeyStore<KeySlotIds>,
 ///     api_configurations: Arc<ApiConfigurations>,
 ///     repository: Option<Arc<dyn Repository<Folder>>>,
 /// }
@@ -33,7 +33,7 @@ use syn::{DeriveInput, parse_macro_input};
 /// impl FromClient for FoldersClient {
 ///     fn from_client(client: &Client) -> Self {
 ///         Self {
-///             key_store: FromClientPart::<KeyStore<KeyIds>>::get_part(client),
+///             key_store: FromClientPart::<KeyStore<KeySlotIds>>::get_part(client),
 ///             api_configs: FromClientPart::<Arc<ApiConfigurations>>::get_part(client),
 ///             repository: FromClientPart::<Option<Arc<dyn Repository<Folder>>>>::get_part(client),
 ///         }

@@ -31,19 +31,13 @@ pub trait ProviderBillingApi: Send + Sync {
         &self,
         provider_id: uuid::Uuid,
         invoice_id: &'a str,
-    ) -> Result<(), Error<GenerateClientInvoiceReportError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/invoices
-    async fn get_invoices<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetInvoicesError>>;
+    async fn get_invoices<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/subscription
-    async fn get_subscription<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetSubscriptionError>>;
+    async fn get_subscription<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct ProviderBillingApiClient {
@@ -63,7 +57,7 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         &self,
         provider_id: uuid::Uuid,
         invoice_id: &'a str,
-    ) -> Result<(), Error<GenerateClientInvoiceReportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -82,10 +76,7 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_invoices<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetInvoicesError>> {
+    async fn get_invoices<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -103,10 +94,7 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_subscription<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetSubscriptionError>> {
+    async fn get_subscription<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -123,23 +111,4 @@ impl ProviderBillingApi for ProviderBillingApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ProviderBillingApi::generate_client_invoice_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GenerateClientInvoiceReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingApi::get_invoices`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetInvoicesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingApi::get_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSubscriptionError {
-    UnknownValue(serde_json::Value),
 }

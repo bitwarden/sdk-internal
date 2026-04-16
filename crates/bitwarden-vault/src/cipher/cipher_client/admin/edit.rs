@@ -1,7 +1,7 @@
 use bitwarden_api_api::{apis::ApiClient, models::CipherCollectionsRequestModel};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
-    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeyIds,
+    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
@@ -48,7 +48,7 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherAdminError {
 }
 
 async fn edit_cipher(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     encrypted_for: UserId,
     original_cipher_view: CipherView,
@@ -89,7 +89,7 @@ pub async fn add_to_collections(
     cipher_id: CipherId,
     collection_ids: Vec<CollectionId>,
     api_client: &ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let req = CipherCollectionsRequestModel {
@@ -136,6 +136,7 @@ impl CipherAdminClient {
                 .client
                 .internal
                 .get_flags()
+                .await
                 .enable_cipher_key_encryption
         {
             let key = request.key_identifier();
@@ -148,7 +149,7 @@ impl CipherAdminClient {
             user_id,
             original_cipher_view,
             request,
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -164,7 +165,7 @@ impl CipherAdminClient {
             collection_ids,
             &self.client.internal.get_api_configurations().api_client,
             self.client.internal.get_key_store(),
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -173,7 +174,7 @@ impl CipherAdminClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherMiniResponseModel};
-    use bitwarden_core::key_management::SymmetricKeyId;
+    use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 
     use super::*;
@@ -225,10 +226,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
@@ -300,10 +301,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 

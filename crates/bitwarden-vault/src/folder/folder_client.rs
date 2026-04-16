@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_core::{FromClient, client::ApiConfigurations, key_management::KeyIds};
+use bitwarden_core::{FromClient, client::ApiConfigurations, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::repository::Repository;
 #[cfg(feature = "wasm")]
@@ -15,7 +15,7 @@ use crate::{
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct FoldersClient {
-    pub(crate) key_store: KeyStore<KeyIds>,
+    pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
     pub(crate) repository: Option<Arc<dyn Repository<Folder>>>,
 }

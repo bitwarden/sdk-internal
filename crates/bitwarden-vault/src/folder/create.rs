@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::FolderRequestModel;
 use bitwarden_core::{
     ApiError, MissingFieldError,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -28,11 +28,13 @@ pub struct FolderAddEditRequest {
     pub name: String,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, FolderRequestModel> for FolderAddEditRequest {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, FolderRequestModel>
+    for FolderAddEditRequest
+{
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<FolderRequestModel, CryptoError> {
         Ok(FolderRequestModel {
             name: self.name.encrypt(ctx, key)?.to_string(),
@@ -40,9 +42,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, FolderRequestModel> for Folder
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for FolderAddEditRequest {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::User
+impl IdentifyKey<SymmetricKeySlotId> for FolderAddEditRequest {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::User
     }
 }
 

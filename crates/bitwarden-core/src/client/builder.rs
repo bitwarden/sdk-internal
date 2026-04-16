@@ -1,7 +1,6 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
-#[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
@@ -20,6 +19,8 @@ use crate::{
 pub struct ClientBuilder {
     settings: Option<ClientSettings>,
     token_handler: Arc<dyn TokenHandler>,
+    state_registry: Option<StateRegistry>,
+    middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
 }
 
 impl ClientBuilder {
@@ -28,6 +29,8 @@ impl ClientBuilder {
         Self {
             settings: None,
             token_handler: Arc::new(NoopTokenHandler),
+            state_registry: None,
+            middleware: Vec::new(),
         }
     }
 
@@ -40,6 +43,22 @@ impl ClientBuilder {
     /// Sets a custom [`TokenHandler`] for managing authentication tokens.
     pub fn with_token_handler(mut self, token_handler: Arc<dyn TokenHandler>) -> Self {
         self.token_handler = token_handler;
+        self
+    }
+
+    /// Sets additional middleware to be chained outermost (before auth middleware).
+    pub fn with_middleware(
+        mut self,
+        middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    ) -> Self {
+        self.middleware = middleware;
+        self
+    }
+
+    /// Sets a custom [`StateRegistry`] for the client being built.
+    /// If not set, defaults to [`StateRegistry::new_with_memory_db`].
+    pub fn with_state(mut self, state_registry: StateRegistry) -> Self {
+        self.state_registry = Some(state_registry);
         self
     }
 
@@ -57,13 +76,13 @@ impl ClientBuilder {
         let key_store = KeyStore::default();
 
         // Create the HTTP client for the Identity service, without authentication middleware.
-        let bw_http_client = new_http_client_builder()
-            .default_headers(headers)
+        let identity_http_client = new_http_client_builder()
+            .default_headers(headers.clone())
             .build()
             .expect("Bw HTTP Client build should not fail");
         let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,
-            client: bw_http_client.clone().into(),
+            client: identity_http_client.into(),
         };
 
         // Create the client for the API service, with authentication middleware.
@@ -72,9 +91,37 @@ impl ClientBuilder {
             identity.clone(),
             key_store.clone(),
         );
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware)
-            .build();
+
+        // Build the API HTTP client conditionally: disable auto-redirect when additional
+        // middleware is present so the outermost middleware can observe raw 3xx responses.
+        // reqwest::redirect is not available on wasm32 targets; on WASM the middleware uses
+        // a proactive cookie strategy instead of reactive 302/307 detection.
+        #[cfg(not(target_arch = "wasm32"))]
+        let api_http_client = if self.middleware.is_empty() {
+            new_http_client_builder()
+                .default_headers(headers)
+                .build()
+                .expect("Bw HTTP Client build should not fail")
+        } else {
+            new_http_client_builder()
+                .default_headers(headers)
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .expect("Bw HTTP Client (no redirect) build should not fail")
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let api_http_client = new_http_client_builder()
+            .default_headers(headers)
+            .build()
+            .expect("Bw HTTP Client build should not fail");
+
+        // Chain additional middleware outermost, then auth middleware innermost.
+        let mut middleware_builder = reqwest_middleware::ClientBuilder::new(api_http_client);
+        for mw in self.middleware {
+            middleware_builder = middleware_builder.with_arc(mw);
+        }
+        let bw_http_client = middleware_builder.with_arc(auth_middleware).build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             client: bw_http_client,
@@ -92,8 +139,9 @@ impl ClientBuilder {
                 key_store,
                 #[cfg(feature = "internal")]
                 security_state: RwLock::new(None),
-                #[cfg(feature = "internal")]
-                repository_map: StateRegistry::new(),
+                state_registry: self
+                    .state_registry
+                    .unwrap_or_else(StateRegistry::new_with_memory_db),
             }),
         }
     }
@@ -211,6 +259,45 @@ mod tests {
         let _b = ClientBuilder::new()
             .with_token_handler(Arc::new(NoopTokenHandler) as Arc<dyn TokenHandler>)
             .with_settings(ClientSettings::default())
+            .build();
+    }
+
+    #[test]
+    fn test_client_builder_with_state_builds() {
+        use bitwarden_state::registry::StateRegistry;
+        let registry = StateRegistry::new_with_memory_db();
+        let _client = ClientBuilder::new().with_state(registry).build();
+    }
+
+    #[test]
+    fn test_client_builder_with_state_in_chain() {
+        use bitwarden_state::registry::StateRegistry;
+        let registry = StateRegistry::new_with_memory_db();
+        let _client = ClientBuilder::new()
+            .with_settings(ClientSettings::default())
+            .with_state(registry)
+            .build();
+    }
+
+    #[test]
+    fn test_client_builder_with_middleware_compiles() {
+        struct StubMiddleware;
+
+        #[async_trait::async_trait]
+        impl reqwest_middleware::Middleware for StubMiddleware {
+            async fn handle(
+                &self,
+                req: reqwest::Request,
+                extensions: &mut http::Extensions,
+                next: reqwest_middleware::Next<'_>,
+            ) -> reqwest_middleware::Result<reqwest::Response> {
+                next.run(req, extensions).await
+            }
+        }
+
+        let arc_middleware: Arc<dyn reqwest_middleware::Middleware> = Arc::new(StubMiddleware);
+        let _client = ClientBuilder::new()
+            .with_middleware(vec![arc_middleware])
             .build();
     }
 }

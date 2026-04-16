@@ -33,7 +33,7 @@ pub trait SecretsManagerEventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountEventsError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 }
 
 pub struct SecretsManagerEventsApiClient {
@@ -55,8 +55,7 @@ impl SecretsManagerEventsApi for SecretsManagerEventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountEventsError>>
-    {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -85,11 +84,4 @@ impl SecretsManagerEventsApi for SecretsManagerEventsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SecretsManagerEventsApi::get_service_account_events`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetServiceAccountEventsError {
-    UnknownValue(serde_json::Value),
 }
