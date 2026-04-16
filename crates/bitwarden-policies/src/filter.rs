@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A newtype representing the policy type.
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct PolicyType(pub u8);
 
 /// An organization policy.
@@ -32,7 +32,7 @@ pub struct PolicyView {
 /// Implement this trait to control how a policy is enforced.
 pub trait Policy: Send + Sync + 'static {
     /// The wire-format integer for this policy type.
-    const TYPE: PolicyType;
+    fn policy_type(&self) -> PolicyType;
 
     /// Returns the organization roles that are exempt from this policy.
     ///
@@ -61,10 +61,12 @@ pub trait Policy: Send + Sync + 'static {
     }
 }
 
-pub struct DefaultPolicyDefinition;
+pub struct DefaultPolicyDefinition(pub PolicyType);
 
 impl Policy for DefaultPolicyDefinition {
-    const TYPE: PolicyType = PolicyType(u8::MAX);
+    fn policy_type(&self) -> PolicyType {
+        self.0
+    }
 }
 
 /// Filters `policies` to those that should be enforced against the user.
@@ -82,7 +84,7 @@ pub fn filter<'a, P: Policy>(
 
     policies
         .iter()
-        .filter(|p| p.r#type == P::TYPE)
+        .filter(|p| p.r#type == policy.policy_type())
         .filter(|p| p.enabled)
         .filter(|p| {
             match org_map.get(&p.organization_id) {
@@ -131,7 +133,9 @@ mod tests {
 
     struct TestPolicy;
     impl Policy for TestPolicy {
-        const TYPE: PolicyType = PolicyType(1);
+        fn policy_type(&self) -> PolicyType {
+            PolicyType(1)
+        }
 
         // These happen to match the default impl, but repeating here
         // to decouple the filter tests from the default impl

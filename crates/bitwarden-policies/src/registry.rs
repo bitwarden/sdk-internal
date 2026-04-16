@@ -17,7 +17,7 @@ trait ErasedPolicy {
 
 impl<P: Policy> ErasedPolicy for P {
     fn policy_type(&self) -> PolicyType {
-        P::TYPE
+        self.policy_type()
     }
 
     fn filter_raw<'a>(
@@ -48,7 +48,7 @@ impl PolicyRegistry {
     ) -> Vec<&'a PolicyView> {
         match self.policies.get(&policy_type) {
             Some(p) => p.filter_raw(policies, organizations),
-            None => DefaultPolicyDefinition.filter_raw(policies, organizations),
+            None => DefaultPolicyDefinition(policy_type).filter_raw(policies, organizations),
         }
     }
 }
@@ -59,7 +59,7 @@ pub struct PolicyRegistryBuilder {
 
 impl PolicyRegistryBuilder {
     pub fn register<P: Policy>(mut self, policy: P) -> Self {
-        self.policies.insert(P::TYPE, Box::new(policy));
+        self.policies.insert(policy.policy_type(), Box::new(policy));
         self
     }
 
@@ -103,6 +103,37 @@ mod tests {
     }
 
     #[test]
+    fn registry_uses_registered_definition() {
+        let org_id = Uuid::new_v4();
+        let policies = [policy_view(org_id, 1, true)];
+        // Owner — exempt under default rules, not exempt under NoExemptionPolicy
+        let orgs = [organization(
+            org_id,
+            OrganizationUserType::Owner,
+            OrganizationUserStatusType::Confirmed,
+            false,
+        )];
+
+        struct NoExemptionPolicy;
+        impl Policy for NoExemptionPolicy {
+            fn policy_type(&self) -> PolicyType {
+                PolicyType(1)
+            }
+            fn exempt_roles(&self) -> &[OrganizationUserType] {
+                &[]
+            }
+        }
+
+        let registry = PolicyRegistry::builder()
+            .register(NoExemptionPolicy)
+            .build();
+
+        let result = registry.filter_by_type(&policies, &orgs, PolicyType(1));
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
     fn registry_uses_default_policy_definition() {
         let org_id = Uuid::new_v4();
         let policies = [policy_view(org_id, 1, true)];
@@ -113,7 +144,7 @@ mod tests {
             false,
         )];
 
-        // empty builder
+        // empty registry
         let registry = PolicyRegistry::builder().build();
 
         let result = registry.filter_by_type(&policies, &orgs, PolicyType(1));
