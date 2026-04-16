@@ -98,6 +98,8 @@ pub mod checkout_billing_address_request;
 pub use self::checkout_billing_address_request::CheckoutBillingAddressRequest;
 pub mod cipher_attachment_model;
 pub use self::cipher_attachment_model::CipherAttachmentModel;
+pub mod cipher_bank_account_model;
+pub use self::cipher_bank_account_model::CipherBankAccountModel;
 pub mod cipher_bulk_archive_request_model;
 pub use self::cipher_bulk_archive_request_model::CipherBulkArchiveRequestModel;
 pub mod cipher_bulk_delete_request_model;
