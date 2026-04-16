@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherIdentityModel;
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
     PrimitiveEncryptable,
@@ -62,11 +62,11 @@ pub struct IdentityView {
     pub license_number: Option<String>,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Identity> for IdentityView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Identity> for IdentityView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Identity, CryptoError> {
         Ok(Identity {
             title: self.title.encrypt(ctx, key)?,
@@ -91,11 +91,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Identity> for IdentityView {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, IdentityView> for Identity {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, IdentityView> for Identity {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<IdentityView, CryptoError> {
         Ok(IdentityView {
             title: self.title.decrypt(ctx, key).ok().flatten(),
@@ -120,11 +120,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, IdentityView> for Identity {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, IdentityView> for StrictDecrypt<&Identity> {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, IdentityView> for StrictDecrypt<&Identity> {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<IdentityView, CryptoError> {
         Ok(IdentityView {
             title: self.0.title.decrypt(ctx, key)?,
@@ -204,8 +204,8 @@ impl From<Identity> for bitwarden_api_api::models::CipherIdentityModel {
 impl CipherKind for Identity {
     fn decrypt_subtitle(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<String, CryptoError> {
         let first_name = self
             .first_name

@@ -1,7 +1,7 @@
 //! Functionality for re-encrypting unlock method data during user key rotation.
 
 use bitwarden_api_api::models::{self, UnlockMethodRequestModel};
-use bitwarden_core::key_management::{KeyIds, MasterPasswordUnlockData, SymmetricKeyId};
+use bitwarden_core::key_management::{KeySlotIds, MasterPasswordUnlockData, SymmetricKeySlotId};
 use bitwarden_crypto::{Kdf, KeyStoreContext};
 
 use crate::key_rotation::{
@@ -49,8 +49,8 @@ impl PrimaryUnlockMethod {
 /// Re-encrypt the unlock method data for the given input and new user key id.
 pub(super) fn reencrypt_unlock_method_data(
     input: PrimaryUnlockMethod,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<UnlockMethodRequestModel, ReencryptError> {
     match input {
         PrimaryUnlockMethod::Password {
@@ -77,7 +77,7 @@ mod tests {
 
     use bitwarden_api_api::models::UnlockMethod;
     use bitwarden_core::key_management::{
-        KeyIds, MasterPasswordUnlockData,
+        KeySlotIds, MasterPasswordUnlockData,
         account_cryptographic_state::WrappedAccountCryptographicState,
     };
     use bitwarden_crypto::{Kdf, KeyStore, KeyStoreContext};
@@ -86,7 +86,7 @@ mod tests {
     use crate::key_rotation::{rotate_user_keys::KeyRotationMethod, sync::SyncedAccountData};
 
     fn make_synced_account_data(kdf_and_salt: Option<(Kdf, String)>) -> SyncedAccountData {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (_, wrapped_account_cryptographic_state) =
             WrappedAccountCryptographicState::make(&mut ctx)
@@ -119,9 +119,9 @@ mod tests {
     }
 
     fn assert_symmetric_keys_equal(
-        key_id_1: SymmetricKeyId,
-        key_id_2: SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        key_id_1: SymmetricKeySlotId,
+        key_id_2: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) {
         #[allow(deprecated)]
         let key_1 = ctx
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn test_reencrypt_unlock_method_data_password_pbkdf2() {
         let mock_password = "test_password".to_string();
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key_id = ctx.generate_symmetric_key();
 
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_reencrypt_unlock_method_data_password_argon2id() {
         let mock_password = "test_password".to_string();
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key_id = ctx.generate_symmetric_key();
 

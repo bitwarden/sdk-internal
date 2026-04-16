@@ -51,6 +51,11 @@
       groupName: "wasm-bindgen group",
       matchPackageNames: ["/wasm-bindgen*/"],
     },
+    {
+      matchManagers: ["cargo"],
+      groupName: "reqwest + TLS crates",
+      matchPackageNames: ["reqwest", "reqwest-middleware", "rustls", "rustls-platform-verifier"],
+    },
 
     // ========================= Team review assignment =========================
     {
@@ -82,6 +87,8 @@
         "reqwest",
         "reqwest-middleware",
         "rsa",
+        "rustls",
+        "rustls-platform-verifier",
         "schemars",
         "serde",
         "serde-wasm-bindgen",

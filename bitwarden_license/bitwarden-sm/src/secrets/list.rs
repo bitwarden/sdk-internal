@@ -3,7 +3,7 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_core::{
     OrganizationId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
@@ -73,7 +73,7 @@ pub struct SecretIdentifiersResponse {
 impl SecretIdentifiersResponse {
     pub(crate) fn process_response(
         response: SecretWithProjectsListResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
         Ok(SecretIdentifiersResponse {
             data: response
@@ -98,10 +98,10 @@ pub struct SecretIdentifierResponse {
 impl SecretIdentifierResponse {
     pub(crate) fn process_response(
         response: SecretsWithProjectsInnerSecret,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretIdentifierResponse, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let enc_key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
+        let enc_key = SymmetricKeySlotId::Organization(OrganizationId::new(organization_id));
 
         let key = require!(response.key)
             .parse::<EncString>()?

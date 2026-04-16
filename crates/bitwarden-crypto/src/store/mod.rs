@@ -9,7 +9,7 @@
 //! identifiers in its API. These key identifiers are user-defined types that contain no key
 //! material, and are used to uniquely identify each key in the store. The key store doesn't specify
 //! how these traits should be implemented, but we recommend using `enums`, and we provide an
-//! optional macro ([key_ids](crate::key_ids)) that makes it easier to define them.
+//! optional macro ([key_slot_ids](crate::key_slot_ids)) that makes it easier to define them.
 //!
 //! ### Key Store
 //! [KeyStore] is a thread-safe in-memory key store and the main entry point for using this module.
@@ -50,43 +50,43 @@ pub use key_rotation::*;
 /// # use bitwarden_crypto::*;
 ///
 /// // We need to define our own key identifier types. We provide a macro to make this easier.
-/// key_ids! {
+/// key_slot_ids! {
 ///     #[symmetric]
-///     pub enum SymmKeyId {
+///     pub enum SymmKeySlotIds {
 ///         User,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///     #[private]
-///     pub enum PrivateKeyId {
+///     pub enum PrivateKeySlotIds {
 ///         UserPrivate,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///     #[signing]
-///     pub enum SigningKeyId {
+///     pub enum SigningKeySlotIds {
 ///        UserSigning,
 ///        #[local]
 ///        Local(LocalId),
 ///     }
-///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
+///     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
 /// }
 ///
 /// // Initialize the store and insert a test key
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+/// store.context_mut().set_symmetric_key(SymmKeySlotIds::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
-/// impl IdentifyKey<SymmKeyId> for Data {
-///    fn key_identifier(&self) -> SymmKeyId {
-///        SymmKeyId::User
+/// impl IdentifyKey<SymmKeySlotIds> for Data {
+///    fn key_identifier(&self) -> SymmKeySlotIds {
+///        SymmKeySlotIds::User
 ///    }
 /// }
-/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeySlotIds, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeySlotIds) -> Result<EncString, CryptoError> {
 ///         self.0.encrypt(ctx, key)
 ///     }
 /// }
