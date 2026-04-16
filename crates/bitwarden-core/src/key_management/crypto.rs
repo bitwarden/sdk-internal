@@ -31,7 +31,11 @@ use crate::key_management::wasm_unlock_state::{
 };
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
-    client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
+    client::{
+        LoginMethod, UserLoginMethod,
+        encryption_settings::EncryptionSettingsError,
+        persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationSharedKey},
+    },
     error::StatefulCryptoError,
     key_management::{
         MasterPasswordError, PrivateKeySlotId, SecurityState, SignedSecurityState,
@@ -193,7 +197,7 @@ pub(super) async fn initialize_user_crypto(
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
     if let Some(user_id) = req.user_id {
-        client.internal.init_user_id(user_id)?;
+        client.internal.init_user_id(user_id).await?;
     }
 
     tracing::Span::current().record(
@@ -358,6 +362,12 @@ pub(super) async fn initialize_user_crypto(
         }))
         .await;
 
+    if let Ok(setting) = client.internal.state_registry.setting(ACCOUNT_CRYPTO_STATE)
+        && let Err(e) = setting.update(req.account_cryptographic_state).await
+    {
+        tracing::warn!("Failed to persist account crypto state: {e}");
+    }
+
     info!("User crypto initialized successfully");
 
     Ok(())
@@ -378,8 +388,27 @@ pub(super) async fn initialize_org_crypto(
     client: &Client,
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
-    let organization_keys = req.organization_keys.into_iter().collect();
-    client.internal.initialize_org_crypto(organization_keys)?;
+    let organization_keys: Vec<_> = req.organization_keys.into_iter().collect();
+    client
+        .internal
+        .initialize_org_crypto(organization_keys.clone())?;
+
+    // Persist org keys for rehydration
+    if let Ok(repo) = client
+        .internal
+        .state_registry
+        .get::<OrganizationSharedKey>()
+    {
+        for (org_id, key) in organization_keys {
+            if let Err(e) = repo
+                .set(org_id, OrganizationSharedKey { org_id, key })
+                .await
+            {
+                tracing::warn!("Failed to persist org key for {org_id}: {e}");
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -2212,6 +2241,75 @@ mod tests {
             .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
             .expect("decryption with local user data key should succeed");
         assert_eq!(decrypted, plaintext);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_org_crypto_persists_org_keys() {
+        use crate::{OrganizationId, client::persisted_state::OrganizationSharedKey};
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+
+        let repo = client
+            .internal
+            .state_registry
+            .get::<OrganizationSharedKey>()
+            .expect("OrganizationSharedKey repository should be available");
+
+        let persisted = repo
+            .get(org_id)
+            .await
+            .expect("repository get should not fail");
+
+        let entry = persisted.expect("org key should be persisted after initialize_org_crypto");
+        assert_eq!(entry.org_id, org_id);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_persists_account_crypto_state() {
+        use crate::client::persisted_state::ACCOUNT_CRYPTO_STATE;
+
+        let account_crypto_state = WrappedAccountCryptographicState::V1 {
+            private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
+        };
+
+        let client = Client::new_test(None);
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: TEST_USER_EMAIL.into(),
+                account_cryptographic_state: account_crypto_state.clone(),
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: TEST_USER_PASSWORD.into(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 600_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                        salt: TEST_USER_EMAIL.to_string(),
+                    },
+                },
+                upgrade_token: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let persisted = client
+            .internal
+            .state_registry
+            .setting(ACCOUNT_CRYPTO_STATE)
+            .expect("ACCOUNT_CRYPTO_STATE setting should be available")
+            .get()
+            .await
+            .expect("setting get should not fail");
+
+        assert_eq!(persisted, Some(account_crypto_state));
     }
 
     #[tokio::test]
