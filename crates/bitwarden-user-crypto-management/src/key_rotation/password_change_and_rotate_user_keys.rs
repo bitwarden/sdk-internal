@@ -3,7 +3,7 @@ use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
 use bitwarden_core::key_management::{KeySlotIds, MasterPasswordAuthenticationData};
 use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
-use tracing::{info, info_span};
+use tracing::{info, instrument};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -48,12 +48,17 @@ impl UserCryptoManagementClient {
     }
 }
 
+#[instrument(
+    name = "password_change_and_rotate_user_keys",
+    level = "info",
+    skip_all,
+    err
+)]
 async fn internal_password_change_and_rotate_user_keys(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     request: PasswordChangeAndRotateUserKeysRequest,
 ) -> Result<(), RotateUserKeysError> {
-    let _span = info_span!("password_change_and_rotate_user_keys").entered();
     let sync = sync_current_account_data(api_client)
         .await
         .map_err(|_| RotateUserKeysError::ApiError)?;
