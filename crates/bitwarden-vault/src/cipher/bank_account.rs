@@ -29,7 +29,7 @@ pub struct BankAccount {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -166,6 +166,60 @@ mod tests {
 
     use super::*;
     use crate::cipher::cipher::CopyableCipherFields;
+
+    const TEST_VECTOR_BANK_KEY: &str =
+        "87OtUxruEdWbBBltgpTWDvfEN2SkB47dlsolBL9VTzQPCb5Y2lssAf6IsX4sbLrCHnsefRg8Ytl/mO448St8vg==";
+    const TEST_VECTOR_BANK_JSON: &str = r#"{"bankName":"2.eqcWQjGiNAVqUAf5RJvRFQ==|YM9+btP60yWBbVssawdeAA==|BZLLWJoD8ADuc38jbxQssJhiUkQBe8ch62jpY/AUwDM=","nameOnAccount":"2.j7P0TX6M5kUcQQTqBG/20Q==|I2mGyc88/VhW0bBws4ZDJg==|g8COyKMEP7XKUQbFr3Rv77QrAfmpTss2U4LBxTs13AQ=","accountType":"2.lBE1RRgEkOvu0q5v1JceRg==|S30rS63nMW5RWS8ezjjKFg==|PA0mDwAq8R6xDkb/PEFCdDvzlsvBMWRDFmV6s6Vp5cc=","accountNumber":"2.Ug7T5mTCpdFFnRJ/lA3rxg==|P0fXXwA5TwoM7KNi9Pb0Tw==|EGrQpm9ijZLfS1DIhgeCObmi2hjSN7xRjmhv43BdFhY=","routingNumber":"2.PaY/GIqJBPCbW4qWCn2XdA==|CHca6ALtCXYSpaKgGWnTCQ==|Xzp3oG5VkPkAoZnPbO+x5GOlBdw8Lif14vdh4WImoIw=","branchNumber":"2.91kPZnZCtEh7BZ0Lt4x9mQ==|L7CrT5suvLlI33EHnaNblA==|eO4449EVHBgZ0Suf+TRQ0BqQQa0nNTYZZBwj2GBsP3o=","pin":"2.JVEfmyd2PCTGhxz55riZ8g==|LyhlwYJnI2crRG5XFU8AhA==|SG+QGCbbJ471eIgieZxhD8IxxGoKR029lrfJq0V8BI8=","swiftCode":"2.Bv7iudCC9csI6oRgN7Xf0w==|2kiKO0AfaeVfcnDaH17rGA==|XETLOedxHsIcmrfKN+z1hJOElILYEUisCPQtJziUDBs=","iban":"2.QV8nLQgAA9rrGyA49kzqCw==|LjZxJYUTzRogkMRb+vTns11yMuGXPvWVIvDN+Bqz074=|6AFItuC2kJolnXY6e02MtDd3Q6kD8+i/Pkrep8djqnw=","bankContactPhone":"2.bS2uYl/iIKXO1esIFEvzog==|mBLhybB2I6+5j1/tRB6lDA==|eBDl337l2AcDcL1HDFqJ+NwP+IEVNGhYqUsQsT4zilY="}"#;
+
+    fn test_bank_account_view() -> BankAccountView {
+        BankAccountView {
+            bank_name: Some("Test Bank".to_string()),
+            name_on_account: Some("John Doe".to_string()),
+            account_type: Some("Checking".to_string()),
+            account_number: Some("1234567890".to_string()),
+            routing_number: Some("021000021".to_string()),
+            branch_number: Some("001".to_string()),
+            pin: Some("1234".to_string()),
+            swift_code: Some("TESTUS33".to_string()),
+            iban: Some("US12345678901234567890".to_string()),
+            bank_contact_phone: Some("555-0123".to_string()),
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn generate_test_vector() {
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key_b64 = key.to_base64();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key_slot = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let encrypted = test_bank_account_view()
+            .encrypt_composite(&mut ctx, key_slot)
+            .unwrap();
+        let json = serde_json::to_string(&encrypted).unwrap();
+
+        println!("const TEST_VECTOR_BANK_KEY: &str = \"{key_b64}\";");
+        println!("const TEST_VECTOR_BANK_JSON: &str = r#\"{json}\"#;");
+    }
+
+    #[test]
+    fn test_recorded_bank_account_test_vector() {
+        let key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_BANK_KEY.to_string()).expect("valid test key");
+        let key_store = create_test_crypto_with_user_key(key);
+        let key_slot = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let encrypted: BankAccount =
+            serde_json::from_str(TEST_VECTOR_BANK_JSON).expect("valid test vector JSON");
+        let decrypted: BankAccountView = encrypted
+            .decrypt(&mut ctx, key_slot)
+            .expect("BankAccount has changed in a backwards-incompatible way. Existing encrypted data must remain decryptable. If a new format is needed, create a new version instead of modifying the existing one.");
+
+        assert_eq!(decrypted, test_bank_account_view());
+    }
 
     #[test]
     fn test_subtitle_bank_account() {
