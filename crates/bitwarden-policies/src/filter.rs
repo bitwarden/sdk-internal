@@ -1,5 +1,10 @@
 #![allow(dead_code)]
 
+//! Policy filtering logic.
+//!
+//! Provides the [`filter`] function and [`PolicyDefinition`] trait for determining
+//! which policies should be enforced against the current user based on business rules.
+
 use std::collections::HashMap;
 
 use bitwarden_organizations::{
@@ -8,9 +13,11 @@ use bitwarden_organizations::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// A newtype representing the policy type.
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RawPolicyType(pub i32);
 
+/// An organization policy.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RawPolicy {
     id: Uuid,
@@ -20,19 +27,32 @@ pub struct RawPolicy {
     enabled: bool,
 }
 
+/// Defines the filtering behavior for a specific policy type.
+///
+/// Implement this trait to control how a policy is enforced.
 pub trait PolicyDefinition: Send + Sync + 'static {
-    /// The wire-format integer for this policy type. Known at compile time
-    /// and usable in static contexts.
+    /// The wire-format integer for this policy type.
     const TYPE: RawPolicyType;
 
+    /// Returns the organization roles that are exempt from this policy.
+    ///
+    /// Defaults to [`Owner`](OrganizationUserType::Owner) and
+    /// [`Admin`](OrganizationUserType::Admin).
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[OrganizationUserType::Owner, OrganizationUserType::Admin]
     }
 
+    /// Returns whether provider users are exempt from this policy.
+    ///
+    /// Defaults to `true`.
     fn exempt_providers(&self) -> bool {
         true
     }
 
+    /// Returns the organization membership statuses for which this policy applies.
+    ///
+    /// Defaults to [`Accepted`](OrganizationUserStatusType::Accepted) and
+    /// [`Confirmed`](OrganizationUserStatusType::Confirmed).
     fn applicable_statuses(&self) -> &[OrganizationUserStatusType] {
         &[
             OrganizationUserStatusType::Accepted,
@@ -41,6 +61,11 @@ pub trait PolicyDefinition: Send + Sync + 'static {
     }
 }
 
+/// Filters `policies` to those that should be enforced against the user.
+/// This evaluates common business rules (e.g. the policy is enabled),
+/// as well as policy-specific rules according to its [`PolicyDefinition`].
+///
+/// If a policy's organization is not present in `organizations`, the policy is enforced by default.
 pub fn filter<'a, P: PolicyDefinition>(
     policy_definition: &P,
     policies: &'a [RawPolicy],
