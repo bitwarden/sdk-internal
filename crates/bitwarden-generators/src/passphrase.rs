@@ -46,8 +46,10 @@ impl Default for PassphraseGeneratorRequest {
     }
 }
 
-const MINIMUM_PASSPHRASE_NUM_WORDS: u8 = 3;
-const MAXIMUM_PASSPHRASE_NUM_WORDS: u8 = 20;
+/// Minimum number of words allowed in a generated passphrase.
+pub const MINIMUM_PASSPHRASE_NUM_WORDS: u8 = 3;
+/// Maximum number of words allowed in a generated passphrase.
+pub const MAXIMUM_PASSPHRASE_NUM_WORDS: u8 = 20;
 
 /// Represents a set of valid options to generate a passhprase with.
 /// To get an instance of it, use

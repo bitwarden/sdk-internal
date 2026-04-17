@@ -48,6 +48,68 @@ fn test_generate_length_clamped_to_5() {
 }
 
 #[test]
+fn test_generate_length_clamped_to_128() {
+    let output = bw()
+        .args(["generate", "--length", "200"])
+        .output()
+        .expect("Failed to execute");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout.trim().len(),
+        128,
+        "Length above 128 should be clamped to 128"
+    );
+}
+
+#[test]
+fn test_generate_min_number_clamped_to_9() {
+    // `min_number` above 9 would cause the SDK to fail with an InvalidLength error
+    // because `min_number + min_special > length`. The CLI silently clamps to 9
+    // (matching the legacy CLI / Angular clients' `fitToBounds` behavior).
+    let output = bw()
+        .args(["generate", "-ln", "--length", "20", "--min-number", "20"])
+        .output()
+        .expect("Failed to execute");
+    assert!(output.status.success(), "min-number > 9 should be clamped");
+    let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    assert_eq!(password.len(), 20);
+}
+
+#[test]
+fn test_generate_min_number_enables_numbers() {
+    // Only lowercase is explicitly selected, but `--min-number 3` should cascade
+    // into enabling numbers — matching `PasswordGeneratorOptionsEvaluator.applyPolicy`.
+    let output = bw()
+        .args(["generate", "-l", "--min-number", "3", "--length", "20"])
+        .output()
+        .expect("Failed to execute");
+    assert!(output.status.success());
+    let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    assert!(
+        password.chars().any(|c| c.is_ascii_digit()),
+        "--min-number should cascade into enabling numbers, got: {}",
+        password
+    );
+}
+
+#[test]
+fn test_generate_min_special_enables_special() {
+    let output = bw()
+        .args(["generate", "-l", "--min-special", "3", "--length", "20"])
+        .output()
+        .expect("Failed to execute");
+    assert!(output.status.success());
+    let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let special_chars = ['!', '@', '#', '$', '%', '^', '&', '*'];
+    assert!(
+        password.chars().any(|c| special_chars.contains(&c)),
+        "--min-special should cascade into enabling special chars, got: {}",
+        password
+    );
+}
+
+#[test]
 fn test_generate_uppercase_only() {
     let output = bw()
         .args(["generate", "--uppercase"])
@@ -172,6 +234,18 @@ fn test_generate_passphrase_words_clamped_to_3() {
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let word_count = stdout.split('-').count();
     assert_eq!(word_count, 3, "Words below 3 should be clamped to 3");
+}
+
+#[test]
+fn test_generate_passphrase_words_clamped_to_20() {
+    let output = bw()
+        .args(["generate", "-p", "--words", "50"])
+        .output()
+        .expect("Failed to execute");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let word_count = stdout.split('-').count();
+    assert_eq!(word_count, 20, "Words above 20 should be clamped to 20");
 }
 
 #[test]
