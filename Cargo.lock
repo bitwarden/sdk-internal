@@ -849,6 +849,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organizations"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-core",
+ "chrono",
+ "serde",
+ "serde_repr",
+ "uniffi",
+ "uuid",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
@@ -878,6 +890,7 @@ version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-organizations",
  "serde",
  "serde_json",
  "serde_repr",
