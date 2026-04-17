@@ -21,8 +21,11 @@ impl Policy for DefaultPolicy {
     }
 }
 
+/// Type-erased wrapper around [`Policy`] that allows calling the generic [`filter`] function
+/// through dynamic dispatch, enabling storage of heterogeneous [`Policy`] implementations in the
+/// registry.
 trait ErasedPolicy: Send + Sync {
-    fn filter_raw<'a>(
+    fn filter<'a>(
         &self,
         policies: &'a [PolicyView],
         organizations: &[ProfileOrganization],
@@ -30,7 +33,7 @@ trait ErasedPolicy: Send + Sync {
 }
 
 impl<P: Policy> ErasedPolicy for P {
-    fn filter_raw<'a>(
+    fn filter<'a>(
         &self,
         policies: &'a [PolicyView],
         organizations: &[ProfileOrganization],
@@ -65,8 +68,8 @@ impl PolicyRegistry {
         policy_type: PolicyType,
     ) -> Vec<&'a PolicyView> {
         match self.policies.get(&policy_type) {
-            Some(p) => p.filter_raw(policies, organizations),
-            None => DefaultPolicy(policy_type).filter_raw(policies, organizations),
+            Some(p) => p.filter(policies, organizations),
+            None => DefaultPolicy(policy_type).filter(policies, organizations),
         }
     }
 }
