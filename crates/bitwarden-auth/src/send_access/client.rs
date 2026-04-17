@@ -3,7 +3,8 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::send_access::{
-    SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
+    AccessSendError, GetFileDownloadDataError, SendAccessTokenError, SendAccessTokenRequest,
+    SendAccessTokenResponse, SendAccessView, SendFileDownloadData,
     access_token_response::UnexpectedIdentityError,
     api::{
         SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
@@ -26,6 +27,71 @@ impl SendAccessClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl SendAccessClient {
+    /// Accesses a send using the V1 (legacy) API endpoint.
+    /// The `password` is the SHA256 hash of the user-entered password, if the send is
+    /// password-protected. The returned [SendAccessView] contains encrypted fields that must
+    /// be decrypted client-side using the key derived from the URL fragment.
+    pub async fn access_send_v1(
+        &self,
+        send_id: String,
+        password: Option<String>,
+    ) -> Result<SendAccessView, AccessSendError> {
+        let configurations = self.client.internal.get_api_configurations();
+        crate::send_access::access_send::access_send_v1(
+            &configurations.api_config,
+            &send_id,
+            password,
+        )
+        .await
+    }
+
+    /// Accesses a send using the V2 API endpoint, authenticated with a send access token.
+    /// The returned [SendAccessView] contains encrypted fields that must be decrypted
+    /// client-side using the key derived from the URL fragment.
+    pub async fn access_send(
+        &self,
+        access_token: String,
+    ) -> Result<SendAccessView, AccessSendError> {
+        let configurations = self.client.internal.get_api_configurations();
+        crate::send_access::access_send::access_send(&configurations.api_config, &access_token)
+            .await
+    }
+
+    /// Gets file download data for a file send using the V1 (legacy) API endpoint.
+    /// The `password` is the SHA256 hash of the user-entered password, if the send is
+    /// password-protected.
+    pub async fn get_file_download_data_v1(
+        &self,
+        send_id: String,
+        file_id: String,
+        password: Option<String>,
+    ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
+        let configurations = self.client.internal.get_api_configurations();
+        crate::send_access::access_send::get_file_download_data_v1(
+            &configurations.api_config,
+            &send_id,
+            &file_id,
+            password,
+        )
+        .await
+    }
+
+    /// Gets file download data for a file send using the V2 API endpoint, authenticated
+    /// with a send access token.
+    pub async fn get_file_download_data(
+        &self,
+        access_token: String,
+        file_id: String,
+    ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
+        let configurations = self.client.internal.get_api_configurations();
+        crate::send_access::access_send::get_file_download_data(
+            &configurations.api_config,
+            &access_token,
+            &file_id,
+        )
+        .await
+    }
+
     /// Requests a new send access token.
     pub async fn request_send_access_token(
         &self,
