@@ -917,7 +917,6 @@ version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
- "bitwarden-state",
  "serde",
  "serde_json",
  "serde_repr",

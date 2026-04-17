@@ -7,7 +7,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 
 /// Represents a policy that can be applied to an organization.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Policy {
     id: Uuid,
     organization_id: Uuid,
@@ -16,9 +16,7 @@ pub struct Policy {
     enabled: bool,
 }
 
-bitwarden_state::register_repository_item!(Uuid => Policy, "Policy");
-
-#[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
+#[derive(Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u8)]
 pub enum PolicyType {
     /// Requires users to have 2fa enabled
