@@ -4,6 +4,8 @@ use data_encoding::BASE64URL_NOPAD;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::chunked::chunked_encode;
+
 /// Base64URL encoded data
 ///
 /// Is indifferent about padding when decoding, but always produces padding when encoding.
@@ -48,7 +50,7 @@ impl From<B64Url> for String {
 
 impl From<&B64Url> for String {
     fn from(src: &B64Url) -> Self {
-        BASE64URL_NOPAD.encode(&src.0)
+        chunked_encode(&BASE64URL_NOPAD, &src.0)
     }
 }
 
