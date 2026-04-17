@@ -25,7 +25,6 @@ bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-pm = { workspace = true }
-bitwarden-policies = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-vault = { workspace = true }
 clap = { version = "4.5.4", features = ["derive", "env"] }

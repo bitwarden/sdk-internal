@@ -18,28 +18,6 @@ pub struct Policy {
 
 bitwarden_state::register_repository_item!(Uuid => Policy, "Policy");
 
-impl Policy {
-    /// Returns the unique identifier for this policy.
-    pub fn id(&self) -> Uuid {
-        self.id
-    }
-
-    /// Returns the type of this policy.
-    pub fn policy_type(&self) -> &PolicyType {
-        &self.r#type
-    }
-
-    /// Returns the policy's configuration data as a generic JSON map, if present.
-    pub fn policy_data(&self) -> Option<&HashMap<String, serde_json::Value>> {
-        self.data.as_ref()
-    }
-
-    /// Returns whether this policy is enabled.
-    pub fn enabled(&self) -> bool {
-        self.enabled
-    }
-}
-
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[repr(u8)]
 pub enum PolicyType {

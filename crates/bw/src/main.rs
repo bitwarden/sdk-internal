@@ -74,19 +74,11 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
     // If the session was invalid, we'd just return an error immediately
     // This would allow each command to match on the client type that they need, and we don't need
     // to do two matches over the whole command tree
-    let client = bitwarden_pm::PasswordManagerClient::new_with_sync(None);
+    let client = bitwarden_pm::PasswordManagerClient::new(None);
 
     // Temporary until rehydration
     if let (Ok(email), Ok(password)) = (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD")) {
         temp_login(&client.0, email, password).await?;
-
-        // Auto-sync to fetch policies and vault data after login
-        client
-            .sync()
-            .sync(bitwarden_sync::SyncRequest {
-                exclude_subdomains: None,
-            })
-            .await?;
     }
 
     match command {
@@ -144,7 +136,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Move(_args) => todo!(),
 
         // Tools commands
-        Commands::Generate(arg) => arg.run(&client).await,
+        Commands::Generate(arg) => arg.run(&client),
         Commands::Import(_args) => todo!(),
         Commands::Export(_args) => todo!(),
         Commands::Send(_args) => todo!(),
