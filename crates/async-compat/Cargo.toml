@@ -1,0 +1,28 @@
+[package]
+name = "async-compat"
+description = """
+Adapter that runs futures on a dedicated multi-threaded tokio runtime.
+Internal crate for the bitwarden crate. Do not use.
+"""
+# Must satisfy `uniffi_core`'s requirement of `async-compat = "0.2.1"`
+# for the workspace `[patch.crates-io]` to resolve
+version = "0.2.100"
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[dependencies]
+futures = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["time"] }
+
+[lints]
+workspace = true

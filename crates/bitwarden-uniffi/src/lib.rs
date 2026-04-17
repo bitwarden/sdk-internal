@@ -210,6 +210,10 @@ fn setup_error_converter() {
         crate::error::BitwardenError::Conversion(e.to_string()).into()
     });
 }
+
+// Validate that we're using our version of the crate
+const _: () = ::uniffi::deps::async_compat::__BITWARDEN_PATCHED;
+
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;

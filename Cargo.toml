@@ -138,6 +138,9 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]
 
+[patch.crates-io]
+async-compat = { path = "crates/async-compat" }
+
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out
 [profile.dev]
