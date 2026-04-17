@@ -209,6 +209,8 @@ pub(super) async fn initialize_user_crypto(
         InitUserCryptoMethod::MasterPasswordUnlock { .. }
             | InitUserCryptoMethod::DecryptedKey { .. }
             | InitUserCryptoMethod::PinEnvelope { .. }
+            | InitUserCryptoMethod::KeyConnectorUrl { .. }
+            | InitUserCryptoMethod::AuthRequest { .. }
     );
 
     match req.method {
