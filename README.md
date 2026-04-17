@@ -193,7 +193,7 @@ See [Licensing](#licensing) for details on why we have multiple packages.
 
 Every commit to `main` in `sdk-internal` will trigger a
 [publish](https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/publish-wasm-internal.yml)
-of these packages, with versions structured as follows:
+of these packages (via the build workflow), with versions structured as follows:
 
 ```
 {SemanticVersion}-main.{actionRunNumber}
@@ -212,7 +212,35 @@ For example:
 
 When you have completed development of changes in `sdk-internal` and need to consume them in the
 client application, you will need to update the npm dependency in your feature branch to reference
-the new SDK version:
+the new SDK version.
+
+You can do this in two different ways - automatically through a pull request, or manually using
+`npm install`.
+
+#### Through a pull request (preferred)
+
+1. Merge the `sdk-internal` pull request. This will automatically trigger a build and publish of the
+   latest changes to npm, and open a pull request against `main` in the `clients` repo with the
+   updated SDK version.
+2. Merge the pull request to `main` on `clients`.
+3. Pull the change into your feature branch to continue development.
+
+> [!NOTE]
+>
+> **When your SDK changes include breaking changes**, the auto-generated `clients` PR will contain
+> TypeScript compilation errors and cannot be merged as-is. You have two options:
+>
+> 1. **Update the auto-generated PR directly**: Fix the type errors in the generated PR to make it
+>    compile (e.g. adapt call sites to the new API). This is appropriate when the changes needed in
+>    `clients` are small and straightforward.
+> 2. **Merge your own feature PR in `clients` instead**: If the `clients` changes are substantial or
+>    already in progress on a feature branch, merge that feature PR (which includes the updated SDK
+>    version and the necessary code changes) and close the auto-generated PR.
+>
+> In either case, breaking changes must be resolved promptly after the SDK PR merges to avoid
+> blocking other teams.
+
+#### The manual option
 
 1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
 2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
@@ -228,9 +256,6 @@ the new SDK version:
    `sdk-internal` version.
 
 ### Mobile clients
-
-The iOS and Android applications use an automated, reactive approach to integrating `sdk-internal`
-changes into their repositories.
 
 When you need to integrate `sdk-internal` changes into the iOS or Android applications, you should
 use the automatically-generated pull requests for each repository:
