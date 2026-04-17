@@ -5,7 +5,5 @@ uniffi::setup_scaffolding!();
 
 mod filter;
 mod master_password_policy_response;
-mod policy;
 
 pub use master_password_policy_response::MasterPasswordPolicyResponse;
-pub use policy::Policy;
