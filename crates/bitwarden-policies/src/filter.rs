@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 /// A newtype representing the policy type.
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
-pub struct RawPolicyType(pub i32);
+pub struct RawPolicyType(pub u8);
 
 /// An organization policy.
 #[derive(Serialize, Deserialize, Debug)]
@@ -99,7 +99,7 @@ pub fn filter<'a, P: PolicyDefinition>(
 mod tests {
     use super::*;
 
-    fn raw_policy(organization_id: Uuid, policy_type: i32, enabled: bool) -> RawPolicy {
+    fn raw_policy(organization_id: Uuid, policy_type: u8, enabled: bool) -> RawPolicy {
         RawPolicy {
             id: Uuid::new_v4(),
             organization_id,
