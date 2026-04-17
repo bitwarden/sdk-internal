@@ -3,7 +3,7 @@ use bitwarden_api_api::models::RotateUserKeysRequestModel;
 use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
-use tracing::{info, info_span};
+use tracing::{info, instrument};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -60,12 +60,12 @@ impl UserCryptoManagementClient {
     }
 }
 
+#[instrument(name = "rotate_user_keys", level = "info", skip_all, err)]
 async fn internal_rotate_user_keys(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     request: RotateUserKeysRequest,
 ) -> Result<(), RotateUserKeysError> {
-    let _span = info_span!("rotate_user_keys").entered();
     // This guard should be removed once other key rotation methods are implemented.
     match &request.key_rotation_method {
         KeyRotationMethod::KeyConnector => {
