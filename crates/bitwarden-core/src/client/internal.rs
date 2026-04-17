@@ -21,6 +21,7 @@ use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
 use crate::{
     client::{
         encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
+        persisted_state::USER_ID,
     },
     error::NotAuthenticatedError,
     key_management::{
@@ -216,17 +217,24 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
+    pub async fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);
 
         // Only return an error if the user_id is already set to a different value,
         // as we want an SDK client to be tied to a single user_id.
         // If it's the same value, we can just do nothing.
         if *set_uuid != user_id {
-            Err(UserIdAlreadySetError)
-        } else {
-            Ok(())
+            return Err(UserIdAlreadySetError);
         }
+
+        #[cfg(feature = "internal")]
+        if let Ok(setting) = self.state_registry.setting(USER_ID)
+            && let Err(e) = setting.update(user_id).await
+        {
+            tracing::warn!("Failed to persist user_id: {e}");
+        }
+
+        Ok(())
     }
 
     #[allow(missing_docs)]
@@ -432,23 +440,41 @@ mod tests {
     const TEST_ACCOUNT_EMAIL: &str = "test@bitwarden.com";
     const TEST_ACCOUNT_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
 
-    #[test]
-    fn initializing_user_multiple_times() {
+    #[tokio::test]
+    async fn initializing_user_multiple_times() {
         use super::*;
+        use crate::client::persisted_state::USER_ID;
 
         let client = Client::new(None);
         let user_id = UserId::new_v4();
 
         // Setting the user ID for the first time should work.
-        assert!(client.internal.init_user_id(user_id).is_ok());
+        assert!(client.internal.init_user_id(user_id).await.is_ok());
         assert_eq!(client.internal.get_user_id(), Some(user_id));
 
+        // The user ID should be persisted to the settings repository.
+        let persisted = client
+            .internal
+            .state_registry
+            .setting(USER_ID)
+            .unwrap()
+            .get()
+            .await
+            .unwrap();
+        assert_eq!(persisted, Some(user_id));
+
         // Trying to set the same user_id again should not return an error.
-        assert!(client.internal.init_user_id(user_id).is_ok());
+        assert!(client.internal.init_user_id(user_id).await.is_ok());
 
         // Trying to set a different user_id should return an error.
         let different_user_id = UserId::new_v4();
-        assert!(client.internal.init_user_id(different_user_id).is_err());
+        assert!(
+            client
+                .internal
+                .init_user_id(different_user_id)
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
