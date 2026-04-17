@@ -3,7 +3,8 @@
 //! Policy filtering logic.
 //!
 //! Provides the [`filter`] function and [`Policy`] trait for determining
-//! which policies should be enforced against the current user based on business rules.
+//! which raw policies apply to the current user, based on organization membership,
+//! user role, and status.
 
 use std::collections::HashMap;
 
@@ -13,26 +14,27 @@ use bitwarden_organizations::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// A newtype representing the policy type.
-#[derive(PartialEq, Serialize, Deserialize, Debug)]
+/// A raw numeric policy type identifier as received from the server.
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct PolicyType(pub u8);
 
-/// An organization policy.
+/// A raw policy as received from the server, prior to any interpretation.
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PolicyView {
-    id: Uuid,
-    organization_id: Uuid,
-    r#type: PolicyType,
-    data: Option<HashMap<String, serde_json::Value>>,
-    enabled: bool,
+    pub(crate) id: Uuid,
+    pub(crate) organization_id: Uuid,
+    pub(crate) r#type: PolicyType,
+    pub(crate) data: Option<HashMap<String, serde_json::Value>>,
+    pub(crate) enabled: bool,
 }
 
 /// Defines the filtering behavior for a specific policy type.
 ///
 /// Implement this trait to control how a policy is enforced.
 pub trait Policy: Send + Sync + 'static {
-    /// The wire-format integer for this policy type.
-    const TYPE: PolicyType;
+    /// Returns the policy type this definition handles.
+    fn policy_type(&self) -> PolicyType;
 
     /// Returns the organization roles that are exempt from this policy.
     ///
@@ -76,7 +78,7 @@ pub fn filter<'a, P: Policy>(
 
     policies
         .iter()
-        .filter(|p| p.r#type == P::TYPE)
+        .filter(|p| p.r#type == policy.policy_type())
         .filter(|p| p.enabled)
         .filter(|p| {
             match org_map.get(&p.organization_id) {
@@ -125,7 +127,9 @@ mod tests {
 
     struct TestPolicy;
     impl Policy for TestPolicy {
-        const TYPE: PolicyType = PolicyType(1);
+        fn policy_type(&self) -> PolicyType {
+            PolicyType(1)
+        }
 
         // These happen to match the default impl, but repeating here
         // to decouple the filter tests from the default impl
