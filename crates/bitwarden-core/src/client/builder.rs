@@ -153,7 +153,7 @@ impl Default for ClientBuilder {
     }
 }
 
-fn new_http_client_builder() -> reqwest::ClientBuilder {
+pub(crate) fn new_http_client_builder() -> reqwest::ClientBuilder {
     #[allow(unused_mut)]
     let mut client_builder = reqwest::Client::builder();
 
@@ -176,7 +176,7 @@ fn new_http_client_builder() -> reqwest::ClientBuilder {
 }
 
 /// Build default headers for Bitwarden HttpClient
-fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
+pub(crate) fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
     let mut headers = header::HeaderMap::new();
 
     // Handle optional headers

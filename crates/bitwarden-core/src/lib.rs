@@ -8,6 +8,7 @@ mod uniffi_support;
 pub mod auth;
 pub mod client;
 mod error;
+pub mod global;
 pub mod key_management;
 pub use error::{
     ApiError, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError, WrongPasswordError,

@@ -1,8 +1,10 @@
-use bitwarden_pm::PasswordManagerClient;
 use bitwarden_sync::SyncRequest;
 use clap::Args;
 
-use crate::render::CommandResult;
+use crate::{
+    client_state::{BwCommand, LoggedIn},
+    render::CommandResult,
+};
 
 #[derive(Args, Clone)]
 pub struct SyncArgs {
@@ -13,9 +15,10 @@ pub struct SyncArgs {
     pub last: bool,
 }
 
-impl SyncArgs {
-    /// Temporary sync implementation so you can call `bw sync` and have it do something.
-    pub(crate) async fn execute_sync(&self, client: PasswordManagerClient) -> CommandResult {
+impl BwCommand for SyncArgs {
+    type Client = LoggedIn;
+
+    async fn run(self, LoggedIn { client, .. }: LoggedIn) -> CommandResult {
         client
             .sync()
             .sync(SyncRequest {

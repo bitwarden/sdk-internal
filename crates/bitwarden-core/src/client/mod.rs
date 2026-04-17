@@ -23,6 +23,7 @@ mod flags;
 pub mod persisted_state;
 
 pub use builder::ClientBuilder;
+pub(crate) use builder::{build_default_headers, new_http_client_builder};
 pub use client::Client;
 pub use client_settings::{ClientName, ClientSettings, DeviceType};
 

@@ -1,8 +1,10 @@
 use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest};
-use bitwarden_pm::PasswordManagerClient;
 use clap::{Args, Subcommand};
 
-use crate::render::CommandResult;
+use crate::{
+    client_state::{BwCommand, LoggedIn},
+    render::CommandResult,
+};
 
 #[derive(Args, Clone)]
 pub struct GenerateArgs {
@@ -53,8 +55,10 @@ pub struct GenerateArgs {
     pub include_number: bool,
 }
 
-impl GenerateArgs {
-    pub fn run(mut self, client: &PasswordManagerClient) -> CommandResult {
+impl BwCommand for GenerateArgs {
+    type Client = LoggedIn;
+
+    async fn run(mut self, LoggedIn { client, .. }: LoggedIn) -> CommandResult {
         let result = if self.passphrase {
             client.generator().passphrase(PassphraseGeneratorRequest {
                 num_words: self.words,

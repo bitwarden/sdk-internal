@@ -10,6 +10,8 @@ pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,
     SendEncryptFileError,
 };
+mod send_global_client;
+pub use send_global_client::SendGlobalClientExt;
 mod create;
 pub use create::{CreateSendError, SendAddRequest};
 mod edit;
