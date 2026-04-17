@@ -4,7 +4,7 @@
 //!
 //! The [`PolicyRegistry`] maps policy types to their definitions
 //! and provides an interface for filtering policies according to their registered definition.
-//! Unregistered policy types fall back to [`DefaultPolicyDefinition`].
+//! Unregistered policy types fall back to [`DefaultPolicy`].
 
 use std::collections::HashMap;
 
@@ -13,9 +13,9 @@ use bitwarden_organizations::ProfileOrganization;
 use crate::filter::{Policy, PolicyType, PolicyView, filter};
 
 /// A [`Policy`] that uses the default filtering behavior for any policy type.
-struct DefaultPolicyDefinition(PolicyType);
+struct DefaultPolicy(PolicyType);
 
-impl Policy for DefaultPolicyDefinition {
+impl Policy for DefaultPolicy {
     fn policy_type(&self) -> PolicyType {
         self.0
     }
@@ -57,7 +57,7 @@ impl PolicyRegistry {
     /// Filters `policies` to those of `policy_type` that should be enforced.
     ///
     /// Uses the registered [`Policy`] for `policy_type` if one exists,
-    /// otherwise falls back to [`DefaultPolicyDefinition`].
+    /// otherwise falls back to [`DefaultPolicy`].
     pub(crate) fn filter_by_type<'a>(
         &self,
         policies: &'a [PolicyView],
@@ -66,7 +66,7 @@ impl PolicyRegistry {
     ) -> Vec<&'a PolicyView> {
         match self.policies.get(&policy_type) {
             Some(p) => p.filter_raw(policies, organizations),
-            None => DefaultPolicyDefinition(policy_type).filter_raw(policies, organizations),
+            None => DefaultPolicy(policy_type).filter_raw(policies, organizations),
         }
     }
 }
