@@ -82,7 +82,7 @@ mod tests {
         use crate::{CipherType, ImportingCipher, cxf::import::parse_item};
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "My Important Note".to_string(),
