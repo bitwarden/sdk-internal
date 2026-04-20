@@ -6,12 +6,16 @@
 ///
 /// **Note:** This struct while public, is intended for internal use and may change in future
 /// releases.
-#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Flags {
     /// Enable cipher key encryption.
     #[serde(alias = "enableCipherKeyEncryption", alias = "cipher-key-encryption")]
     pub enable_cipher_key_encryption: bool,
+
+    /// Enable strict cipher field decryption (propagates errors instead of nulling fields).
+    #[serde(alias = "pm-34500-strict-cipher-decryption")]
+    pub strict_cipher_decryption: bool,
 }
 
 impl Flags {

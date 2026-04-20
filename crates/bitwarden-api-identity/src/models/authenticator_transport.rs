@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 ///
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum AuthenticatorTransport {
     #[serde(rename = "usb")]
     Usb,
@@ -23,6 +23,10 @@ pub enum AuthenticatorTransport {
     Ble,
     #[serde(rename = "internal")]
     Internal,
+
+    /// Unknown value returned from the server. This is used to handle forward compatibility.
+    #[serde(untagged)]
+    __Unknown(String),
 }
 
 impl std::fmt::Display for AuthenticatorTransport {
@@ -32,6 +36,7 @@ impl std::fmt::Display for AuthenticatorTransport {
             Self::Nfc => write!(f, "nfc"),
             Self::Ble => write!(f, "ble"),
             Self::Internal => write!(f, "internal"),
+            Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }

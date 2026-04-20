@@ -23,10 +23,10 @@ pub(super) fn namespace(
         .rest
         .iter()
         .find_map(|(key, value)| {
-            if let Label::Int(key) = key {
-                if *key == SIGNING_NAMESPACE {
-                    return value.as_integer();
-                }
+            if let Label::Int(key) = key
+                && *key == SIGNING_NAMESPACE
+            {
+                return value.as_integer();
             }
             None
         })

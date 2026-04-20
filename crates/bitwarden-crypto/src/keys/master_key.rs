@@ -1,11 +1,10 @@
 use std::pin::Pin;
 
 use bitwarden_encoding::B64;
-use generic_array::GenericArray;
-use rand::Rng;
+use hybrid_array::Array;
+use rand::RngExt;
 use tracing::instrument;
 use typenum::U32;
-use zeroize::Zeroize;
 
 use super::{
     kdf::{Kdf, KdfDerivedKeyMaterial},
@@ -34,7 +33,7 @@ pub enum HashPurpose {
 #[cfg_attr(feature = "dangerous-crypto-debug", derive(Debug))]
 pub enum MasterKey {
     KdfKey(KdfDerivedKeyMaterial),
-    KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
+    KeyConnectorKey(Pin<Box<Array<u8, U32>>>),
 }
 
 impl MasterKey {
@@ -43,14 +42,14 @@ impl MasterKey {
     }
 
     /// Generate a new random master key for KeyConnector.
-    pub fn generate(mut rng: impl rand::RngCore) -> Self {
-        let mut key = Box::pin(GenericArray::<u8, U32>::default());
+    pub fn generate(mut rng: impl rand::Rng) -> Self {
+        let mut key = Box::pin(Array::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
         Self::KeyConnectorKey(key)
     }
 
-    fn inner_bytes(&self) -> &Pin<Box<GenericArray<u8, U32>>> {
+    fn inner_bytes(&self) -> &Pin<Box<Array<u8, U32>>> {
         match self {
             Self::KdfKey(key) => &key.0,
             Self::KeyConnectorKey(key) => key,
@@ -75,7 +74,7 @@ impl MasterKey {
 
     /// Generate a new random user key and encrypt it with the master key.
     pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
-        make_user_key(rand::thread_rng(), self)
+        make_user_key(rand::rng(), self)
     }
 
     /// Encrypt the users user key
@@ -98,18 +97,13 @@ impl MasterKey {
     }
 }
 
-impl TryFrom<&mut [u8]> for MasterKey {
+impl TryFrom<Vec<u8>> for MasterKey {
     type Error = CryptoError;
 
-    fn try_from(value: &mut [u8]) -> Result<Self> {
-        if value.len() != 32 {
-            value.zeroize();
-            return Err(CryptoError::InvalidKey);
-        }
-
-        let material =
-            KdfDerivedKeyMaterial(Box::pin(GenericArray::<u8, U32>::clone_from_slice(value)));
-        value.zeroize();
+    fn try_from(value: Vec<u8>) -> Result<Self> {
+        let material = KdfDerivedKeyMaterial(Box::pin(
+            Array::<u8, U32>::try_from(value).map_err(|_| CryptoError::InvalidKey)?,
+        ));
         Ok(Self::new(material))
     }
 }
@@ -135,17 +129,17 @@ impl TryFrom<&SymmetricCryptoKey> for MasterKey {
 
 /// Helper function to encrypt a user key with a master or pin key.
 pub(super) fn encrypt_user_key(
-    master_key: &Pin<Box<GenericArray<u8, U32>>>,
+    master_key: &Pin<Box<Array<u8, U32>>>,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
-    let stretched_master_key = stretch_key(master_key)?;
+    let stretched_master_key = stretch_key(master_key);
     let user_key_bytes = user_key.to_encoded();
     EncString::encrypt_aes256_hmac(user_key_bytes.as_ref(), &stretched_master_key)
 }
 
 /// Helper function to decrypt a user key with a master or pin key or key-connector-key.
 pub(super) fn decrypt_user_key(
-    key: &Pin<Box<GenericArray<u8, U32>>>,
+    key: &Pin<Box<Array<u8, U32>>>,
     user_key: EncString,
 ) -> Result<SymmetricCryptoKey> {
     let dec: Vec<u8> = match user_key {
@@ -154,12 +148,12 @@ pub(super) fn decrypt_user_key(
         // decrypting these old keys.
         EncString::Aes256Cbc_B64 { .. } => {
             let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
-                enc_key: Box::pin(GenericArray::clone_from_slice(key)),
+                enc_key: key.clone(),
             });
             user_key.decrypt_with_key(&legacy_key)?
         }
         EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
-            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
+            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key));
             user_key.decrypt_with_key(&stretched_key)?
         }
         EncString::Cose_Encrypt0_B64 { .. } => {
@@ -179,7 +173,7 @@ pub(super) fn decrypt_user_key(
 ///
 /// This function is only split out from [MasterKey::make_user_key], to make it unit testable.
 fn make_user_key(
-    rng: impl rand::RngCore + rand::CryptoRng,
+    rng: impl rand::CryptoRng,
     master_key: &MasterKey,
 ) -> Result<(UserKey, EncString)> {
     let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(rng);

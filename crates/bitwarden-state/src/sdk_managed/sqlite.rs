@@ -19,7 +19,7 @@ fn validate_identifier(name: &'static str) -> Result<&'static str, DatabaseError
         Ok(name)
     } else {
         Err(DatabaseError::Internal(
-            rusqlite::Error::InvalidParameterName(name.to_string()),
+            rusqlite::Error::InvalidParameterName(name.to_string()).to_string(),
         ))
     }
 }
@@ -80,7 +80,7 @@ impl Database for SqliteDatabase {
         else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
-        path.set_file_name(format!("{db_name}.sqlite"));
+        path.push(format!("{db_name}.sqlite"));
 
         let db = rusqlite::Connection::open(path)?;
         Self::initialize_internal(db, migrations)
@@ -156,6 +156,28 @@ impl Database for SqliteDatabase {
         Ok(())
     }
 
+    async fn set_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        values: Vec<(String, T)>,
+    ) -> Result<(), DatabaseError> {
+        let mut conn = self.0.lock().await;
+        let transaction = conn.transaction()?;
+
+        // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
+        // validated to only contain valid characters, so it's safe to interpolate here.
+        let sql = format!(
+            "INSERT OR REPLACE INTO \"{}\" (key, value) VALUES (?1, ?2)",
+            validate_identifier(T::NAME)?,
+        );
+        for (key, value) in values {
+            let value = serde_json::to_string(&value)?;
+            transaction.execute(&sql, [&key, &value])?;
+        }
+
+        transaction.commit()?;
+        Ok(())
+    }
+
     async fn remove<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
         key: &str,
@@ -176,6 +198,44 @@ impl Database for SqliteDatabase {
         transaction.commit()?;
         Ok(())
     }
+
+    async fn remove_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        keys: Vec<String>,
+    ) -> Result<(), DatabaseError> {
+        let mut conn = self.0.lock().await;
+        let transaction = conn.transaction()?;
+
+        // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
+        // validated to only contain valid characters, so it's safe to interpolate here.
+        let sql = format!(
+            "DELETE FROM \"{}\" WHERE key = ?1",
+            validate_identifier(T::NAME)?
+        );
+        for key in keys {
+            transaction.execute(&sql, [&key])?;
+        }
+
+        transaction.commit()?;
+        Ok(())
+    }
+
+    async fn remove_all<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+    ) -> Result<(), DatabaseError> {
+        let mut conn = self.0.lock().await;
+        let transaction = conn.transaction()?;
+
+        // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
+        // validated to only contain valid characters, so it's safe to interpolate here.
+        transaction.execute(
+            &format!("DELETE FROM \"{}\"", validate_identifier(T::NAME)?),
+            [],
+        )?;
+
+        transaction.commit()?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -189,11 +249,11 @@ mod tests {
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestA(usize);
-        register_repository_item!(TestA, "TestItem_A");
+        register_repository_item!(String => TestA, "TestItem_A");
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestB(usize);
-        register_repository_item!(TestB, "TestItem_B");
+        register_repository_item!(String => TestB, "TestItem_B");
 
         let steps = vec![
             // Test that deleting a table that doesn't exist is fine
@@ -215,5 +275,24 @@ mod tests {
         db.remove::<TestA>("key1").await.unwrap();
 
         assert_eq!(db.get::<TestA>("key1").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_database_path_construction() {
+        let temp_dir = std::env::temp_dir().join("bitwarden_state_test");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let config = DatabaseConfiguration::Sqlite {
+            db_name: "test_db".to_string(),
+            folder_path: temp_dir.clone(),
+        };
+
+        SqliteDatabase::initialize(config, RepositoryMigrations::new(vec![]))
+            .await
+            .unwrap();
+
+        assert!(temp_dir.join("test_db.sqlite").exists());
+
+        std::fs::remove_dir_all(&temp_dir).ok();
     }
 }

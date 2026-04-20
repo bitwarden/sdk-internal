@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -31,21 +31,22 @@ pub trait SendsApi: Send + Sync {
         &self,
         id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error<AccessError>>;
+    ) -> Result<(), Error>;
+
+    /// POST /sends/access
+    async fn access_using_auth(&self) -> Result<(), Error>;
 
     /// POST /sends/file/validate/azure
-    async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>>;
+    async fn azure_validate_file(&self) -> Result<(), Error>;
 
     /// DELETE /sends/{id}
-    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error>;
 
     /// GET /sends/{id}
-    async fn get<'a>(&self, id: &'a str) -> Result<models::SendResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: &'a str) -> Result<models::SendResponseModel, Error>;
 
     /// GET /sends
-    async fn get_all(
-        &self,
-    ) -> Result<models::SendResponseModelListResponseModel, Error<GetAllError>>;
+    async fn get_all(&self) -> Result<models::SendResponseModelListResponseModel, Error>;
 
     /// POST /sends/{encodedSendId}/access/file/{fileId}
     async fn get_send_file_download_data<'a>(
@@ -53,46 +54,55 @@ pub trait SendsApi: Send + Sync {
         encoded_send_id: &'a str,
         file_id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error<GetSendFileDownloadDataError>>;
+    ) -> Result<(), Error>;
+
+    /// POST /sends/access/file/{fileId}
+    async fn get_send_file_download_data_using_auth<'a>(
+        &self,
+        file_id: &'a str,
+    ) -> Result<(), Error>;
 
     /// POST /sends
     async fn post<'a>(
         &self,
         send_request_model: Option<models::SendRequestModel>,
-    ) -> Result<models::SendResponseModel, Error<PostError>>;
+    ) -> Result<models::SendResponseModel, Error>;
 
     /// POST /sends/file/v2
     async fn post_file<'a>(
         &self,
         send_request_model: Option<models::SendRequestModel>,
-    ) -> Result<models::SendFileUploadDataResponseModel, Error<PostFileError>>;
+    ) -> Result<models::SendFileUploadDataResponseModel, Error>;
 
     /// POST /sends/{id}/file/{fileId}
     async fn post_file_for_existing_send<'a>(
         &self,
         id: &'a str,
         file_id: &'a str,
-    ) -> Result<(), Error<PostFileForExistingSendError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /sends/{id}
     async fn put<'a>(
         &self,
         id: &'a str,
         send_request_model: Option<models::SendRequestModel>,
-    ) -> Result<models::SendResponseModel, Error<PutError>>;
+    ) -> Result<models::SendResponseModel, Error>;
+
+    /// PUT /sends/{id}/remove-auth
+    async fn put_remove_auth<'a>(&self, id: &'a str) -> Result<models::SendResponseModel, Error>;
 
     /// PUT /sends/{id}/remove-password
     async fn put_remove_password<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::SendResponseModel, Error<PutRemovePasswordError>>;
+    ) -> Result<models::SendResponseModel, Error>;
 
     /// GET /sends/{id}/file/{fileId}
     async fn renew_file_upload<'a>(
         &self,
         id: &'a str,
         file_id: &'a str,
-    ) -> Result<models::SendFileUploadDataResponseModel, Error<RenewFileUploadError>>;
+    ) -> Result<models::SendFileUploadDataResponseModel, Error>;
 }
 
 pub struct SendsApiClient {
@@ -112,7 +122,7 @@ impl SendsApi for SendsApiClient {
         &self,
         id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error<AccessError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -125,36 +135,27 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&send_access_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AccessError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>> {
+    async fn access_using_auth(&self) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!("{}/sends/access", local_var_configuration.base_path);
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn azure_validate_file(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -166,35 +167,12 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AzureValidateFileError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -207,35 +185,12 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get<'a>(&self, id: &'a str) -> Result<models::SendResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: &'a str) -> Result<models::SendResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -248,54 +203,12 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SendResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get_all(
-        &self,
-    ) -> Result<models::SendResponseModelListResponseModel, Error<GetAllError>> {
+    async fn get_all(&self) -> Result<models::SendResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -304,50 +217,9 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SendResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_send_file_download_data<'a>(
@@ -355,7 +227,7 @@ impl SendsApi for SendsApiClient {
         encoded_send_id: &'a str,
         file_id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error<GetSendFileDownloadDataError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -369,39 +241,37 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&send_access_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
 
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+    async fn get_send_file_download_data_using_auth<'a>(
+        &self,
+        file_id: &'a str,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetSendFileDownloadDataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/sends/access/file/{fileId}",
+            local_var_configuration.base_path,
+            fileId = crate::apis::urlencode(file_id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post<'a>(
         &self,
         send_request_model: Option<models::SendRequestModel>,
-    ) -> Result<models::SendResponseModel, Error<PostError>> {
+    ) -> Result<models::SendResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -410,56 +280,16 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&send_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SendResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_file<'a>(
         &self,
         send_request_model: Option<models::SendRequestModel>,
-    ) -> Result<models::SendFileUploadDataResponseModel, Error<PostFileError>> {
+    ) -> Result<models::SendFileUploadDataResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -468,58 +298,17 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&send_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SendFileUploadDataResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendFileUploadDataResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostFileError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_file_for_existing_send<'a>(
         &self,
         id: &'a str,
         file_id: &'a str,
-    ) -> Result<(), Error<PostFileForExistingSendError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -533,39 +322,16 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostFileForExistingSendError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn put<'a>(
         &self,
         id: &'a str,
         send_request_model: Option<models::SendRequestModel>,
-    ) -> Result<models::SendResponseModel, Error<PutError>> {
+    ) -> Result<models::SendResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -578,56 +344,34 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&send_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
 
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
+    async fn put_remove_auth<'a>(&self, id: &'a str) -> Result<models::SendResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SendResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/sends/{id}/remove-auth",
+            local_var_configuration.base_path,
+            id = crate::apis::urlencode(id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_remove_password<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::SendResponseModel, Error<PutRemovePasswordError>> {
+    ) -> Result<models::SendResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -640,57 +384,16 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SendResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PutRemovePasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn renew_file_upload<'a>(
         &self,
         id: &'a str,
         file_id: &'a str,
-    ) -> Result<models::SendFileUploadDataResponseModel, Error<RenewFileUploadError>> {
+    ) -> Result<models::SendFileUploadDataResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -704,122 +407,8 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SendFileUploadDataResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendFileUploadDataResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<RenewFileUploadError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SendsApi::access`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AccessError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::azure_validate_file`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AzureValidateFileError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::get_send_file_download_data`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSendFileDownloadDataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::post_file`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostFileError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::post_file_for_existing_send`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostFileForExistingSendError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::put_remove_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutRemovePasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SendsApi::renew_file_upload`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RenewFileUploadError {
-    UnknownValue(serde_json::Value),
 }

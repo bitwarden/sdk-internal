@@ -1,0 +1,354 @@
+//! V2 Upgrade Token is created during V1→V2 key rotation and holds both user keys wrapped by
+//! each other. This allows V1 devices to retrieve the V2 key (to complete the upgrade), and V2
+//! devices to retrieve the V1 key (e.g. to rotate local device unlock methods still encrypted
+//! with V1).
+//!
+//! On unwrapping, both directions are validated - an attacker can't modify one wrapped key
+//! without breaking the other direction's validation.
+
+use bitwarden_api_api::models::V2UpgradeTokenResponseModel;
+use bitwarden_crypto::{
+    Decryptable, EncString, KeySlotIds, KeyStoreContext, SymmetricKeyAlgorithm,
+};
+use thiserror::Error;
+use tracing::instrument;
+
+/// Holds both V1 and V2 user keys, each wrapped by the other.
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct V2UpgradeToken {
+    /// V1 user key encrypted with V2 key (Cose_Encrypt0_B64 format)
+    pub wrapped_user_key_1: EncString,
+    /// V2 user key encrypted with V1 key (Aes256Cbc_HmacSha256_B64 format)
+    pub wrapped_user_key_2: EncString,
+}
+
+impl V2UpgradeToken {
+    /// Creates a new [`V2UpgradeToken`] from `v1_key_id` (Aes256CbcHmac) and `v2_key_id`
+    /// (XChaCha20Poly1305) in the KeyStore. Type-checks both keys, then wraps V1 with V2 and
+    /// V2 with V1.
+    #[instrument(skip(ctx))]
+    pub fn create<Ids: KeySlotIds>(
+        v1_key_id: Ids::Symmetric,
+        v2_key_id: Ids::Symmetric,
+        ctx: &KeyStoreContext<Ids>,
+    ) -> Result<Self, V2UpgradeTokenError> {
+        // Type-check the keys
+        if ctx
+            .get_symmetric_key_algorithm(v1_key_id)
+            .map_err(|_| V2UpgradeTokenError::KeyMissing)?
+            != SymmetricKeyAlgorithm::Aes256CbcHmac
+        {
+            return Err(V2UpgradeTokenError::WrongKeyType);
+        }
+
+        if ctx
+            .get_symmetric_key_algorithm(v2_key_id)
+            .map_err(|_| V2UpgradeTokenError::KeyMissing)?
+            != SymmetricKeyAlgorithm::XChaCha20Poly1305
+        {
+            return Err(V2UpgradeTokenError::WrongKeyType);
+        }
+
+        // Wrap V1 key with V2 key
+        let wrapped_user_key_1 = ctx
+            .wrap_symmetric_key(v2_key_id, v1_key_id)
+            .map_err(|_| V2UpgradeTokenError::EncryptionFailed)?;
+
+        // Wrap V2 key with V1 key
+        let wrapped_user_key_2 = ctx
+            .wrap_symmetric_key(v1_key_id, v2_key_id)
+            .map_err(|_| V2UpgradeTokenError::EncryptionFailed)?;
+
+        Ok(V2UpgradeToken {
+            wrapped_user_key_1,
+            wrapped_user_key_2,
+        })
+    }
+
+    /// Unwraps `wrapped_user_key_1` using `v2_key_id`, validates the result can unwrap
+    /// `wrapped_user_key_2`, then adds the V1 key to the KeyStore and returns its key ID.
+    #[instrument(skip(self, ctx))]
+    pub fn unwrap_v1<Ids: KeySlotIds>(
+        &self,
+        v2_key_id: Ids::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+    ) -> Result<Ids::Symmetric, V2UpgradeTokenError> {
+        // Decrypt wrapped V1 key with V2 key and add V1 key to the store
+        let v1_key_id = ctx
+            .unwrap_symmetric_key(v2_key_id, &self.wrapped_user_key_1)
+            .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
+
+        // Validate: unwrapped V1 should be able to decrypt wrapped V2 key
+        let _: Vec<u8> = self
+            .wrapped_user_key_2
+            .decrypt(ctx, v1_key_id)
+            .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
+
+        Ok(v1_key_id)
+    }
+
+    /// Unwraps `wrapped_user_key_2` using `v1_key_id`, validates the result can unwrap
+    /// `wrapped_user_key_1`, then adds the V2 key to the KeyStore and returns its key ID.
+    #[instrument(skip(self, ctx))]
+    pub fn unwrap_v2<Ids: KeySlotIds>(
+        &self,
+        v1_key_id: Ids::Symmetric,
+        ctx: &mut KeyStoreContext<Ids>,
+    ) -> Result<Ids::Symmetric, V2UpgradeTokenError> {
+        // Decrypt rapped V2 key with V1 key and add V2 key to the store
+        let v2_key_id = ctx
+            .unwrap_symmetric_key(v1_key_id, &self.wrapped_user_key_2)
+            .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
+
+        // Validate: unwrapped V2 should be able to decrypt wrapped V1 key
+        let _: Vec<u8> = self
+            .wrapped_user_key_1
+            .decrypt(ctx, v2_key_id)
+            .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
+
+        Ok(v2_key_id)
+    }
+}
+
+impl TryFrom<&V2UpgradeTokenResponseModel> for V2UpgradeToken {
+    type Error = V2UpgradeTokenError;
+
+    fn try_from(response: &V2UpgradeTokenResponseModel) -> Result<Self, Self::Error> {
+        let wrapped_user_key_1 = response
+            .wrapped_user_key1
+            .as_deref()
+            .ok_or(V2UpgradeTokenError::ResponseModelMalformed)?
+            .parse()
+            .map_err(|_| V2UpgradeTokenError::ResponseModelMalformed)?;
+
+        let wrapped_user_key_2 = response
+            .wrapped_user_key2
+            .as_deref()
+            .ok_or(V2UpgradeTokenError::ResponseModelMalformed)?
+            .parse()
+            .map_err(|_| V2UpgradeTokenError::ResponseModelMalformed)?;
+
+        Ok(V2UpgradeToken {
+            wrapped_user_key_1,
+            wrapped_user_key_2,
+        })
+    }
+}
+
+/// Errors that can occur when working with V2UpgradeToken
+#[derive(Debug, Error)]
+pub enum V2UpgradeTokenError {
+    /// Decryption of a wrapped key failed
+    #[error("Decryption failed")]
+    DecryptionFailed,
+    /// Bidirectional validation failed - token may be tampered with
+    #[error("Validation failed")]
+    ValidationFailed,
+    /// Serialization or deserialization failed
+    #[error("Serialization error")]
+    Serialization,
+    /// Wrong key type provided (expected V1 or V2)
+    #[error("Wrong key type")]
+    WrongKeyType,
+    /// Key not found in KeyStore
+    #[error("Key missing")]
+    KeyMissing,
+    /// Failed to encrypt a key
+    #[error("Encryption failed")]
+    EncryptionFailed,
+    /// Response model is malformed (missing or unparseable fields)
+    #[error("Response model malformed")]
+    ResponseModelMalformed,
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
+
+    use super::*;
+    use crate::key_management::KeySlotIds;
+
+    #[test]
+    fn test_create_and_round_trip() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        // Create V1 and V2 keys
+        let v1_key_id = ctx.generate_symmetric_key();
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        // Create token
+        let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
+            .expect("Token creation should succeed");
+
+        // Serialize and deserialize
+        let serialized = serde_json::to_string(&token).expect("Serialization should succeed");
+        let deserialized: V2UpgradeToken =
+            serde_json::from_str(&serialized).expect("Deserialization should succeed");
+
+        // Unwrap V2 using V1
+        let unwrapped_v2_id = deserialized
+            .unwrap_v2(v1_key_id, &mut ctx)
+            .expect("Unwrapping V2 should succeed");
+
+        // Verify the unwrapped V2 key matches original
+        #[allow(deprecated)]
+        let original_v2 = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap();
+        #[allow(deprecated)]
+        let unwrapped_v2 = ctx.dangerous_get_symmetric_key(unwrapped_v2_id).unwrap();
+        assert_eq!(original_v2, unwrapped_v2);
+    }
+
+    #[test]
+    fn test_unwrap_bidirectional() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        // Create V1 and V2 keys
+        let v1_key_id = ctx.generate_symmetric_key();
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        // Create token
+        let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
+            .expect("Token creation should succeed");
+
+        // Unwrap V2 using V1
+        let unwrapped_v2_id = token
+            .unwrap_v2(v1_key_id, &mut ctx)
+            .expect("Unwrapping V2 should succeed");
+
+        // Unwrap V1 using the unwrapped V2
+        let unwrapped_v1_id = token
+            .unwrap_v1(unwrapped_v2_id, &mut ctx)
+            .expect("Unwrapping V1 should succeed");
+
+        // Verify both unwrapped keys match originals
+        #[allow(deprecated)]
+        let original_v1 = ctx.dangerous_get_symmetric_key(v1_key_id).unwrap();
+        #[allow(deprecated)]
+        let original_v2 = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap();
+        #[allow(deprecated)]
+        let unwrapped_v1 = ctx.dangerous_get_symmetric_key(unwrapped_v1_id).unwrap();
+        #[allow(deprecated)]
+        let unwrapped_v2 = ctx.dangerous_get_symmetric_key(unwrapped_v2_id).unwrap();
+
+        assert_eq!(original_v1, unwrapped_v1);
+        assert_eq!(original_v2, unwrapped_v2);
+    }
+
+    #[test]
+    fn test_create_wrong_key_type_error() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        // Try to create token with two V1 keys
+        let v1_key_1 = ctx.generate_symmetric_key();
+        let v1_key_2 = ctx.generate_symmetric_key();
+
+        let result = V2UpgradeToken::create(v1_key_1, v1_key_2, &ctx);
+        assert!(matches!(result, Err(V2UpgradeTokenError::WrongKeyType)));
+    }
+
+    #[test]
+    fn test_serialization_round_trip() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let v1_key_id = ctx.generate_symmetric_key();
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
+            .expect("Token creation should succeed");
+
+        // Verify serialization produces a JSON object with the expected fields
+        let serialized = serde_json::to_string(&token).expect("Serialization should succeed");
+        let json: serde_json::Value =
+            serde_json::from_str(&serialized).expect("Should be valid JSON");
+        assert!(json.is_object());
+        assert!(json.get("wrapped_user_key_1").is_some());
+        assert!(json.get("wrapped_user_key_2").is_some());
+
+        // Verify round-trip: deserialize and re-serialize produces identical output
+        let deserialized: V2UpgradeToken =
+            serde_json::from_str(&serialized).expect("Deserialization should succeed");
+        let reserialized =
+            serde_json::to_string(&deserialized).expect("Reserialization should succeed");
+        assert_eq!(serialized, reserialized);
+    }
+
+    fn build_response_model<Ids: bitwarden_crypto::KeySlotIds>(
+        v1_key_id: Ids::Symmetric,
+        v2_key_id: Ids::Symmetric,
+        ctx: &KeyStoreContext<Ids>,
+    ) -> V2UpgradeTokenResponseModel {
+        let wrapped_user_key_1 = ctx.wrap_symmetric_key(v2_key_id, v1_key_id).unwrap();
+        let wrapped_user_key_2 = ctx.wrap_symmetric_key(v1_key_id, v2_key_id).unwrap();
+        V2UpgradeTokenResponseModel {
+            wrapped_user_key1: Some(wrapped_user_key_1.to_string()),
+            wrapped_user_key2: Some(wrapped_user_key_2.to_string()),
+        }
+    }
+
+    #[test]
+    fn test_from_response_model_missing_wrapped_uk1() {
+        let response = V2UpgradeTokenResponseModel {
+            wrapped_user_key1: None,
+            wrapped_user_key2: None,
+        };
+        assert!(matches!(
+            V2UpgradeToken::try_from(&response),
+            Err(V2UpgradeTokenError::ResponseModelMalformed)
+        ));
+    }
+
+    #[test]
+    fn test_from_response_model_missing_wrapped_uk2() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let v1_key_id = ctx.generate_symmetric_key();
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let mut response = build_response_model(v1_key_id, v2_key_id, &ctx);
+        response.wrapped_user_key2 = None;
+
+        assert!(matches!(
+            V2UpgradeToken::try_from(&response),
+            Err(V2UpgradeTokenError::ResponseModelMalformed)
+        ));
+    }
+
+    #[test]
+    fn test_serde_round_trip() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let v1_key_id = ctx.generate_symmetric_key();
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
+            .expect("Token creation should succeed");
+
+        // Serialize via serde — produces a JSON object
+        let serialized = serde_json::to_string(&token).expect("Serialization should succeed");
+
+        // Deserialize back and verify the token is still functional
+        let deserialized: V2UpgradeToken =
+            serde_json::from_str(&serialized).expect("Deserialization should succeed");
+        let unwrapped_v2_id = deserialized
+            .unwrap_v2(v1_key_id, &mut ctx)
+            .expect("Unwrapping V2 from serde-deserialized token should succeed");
+
+        #[allow(deprecated)]
+        let original_v2 = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap();
+        #[allow(deprecated)]
+        let unwrapped_v2 = ctx.dangerous_get_symmetric_key(unwrapped_v2_id).unwrap();
+        assert_eq!(original_v2, unwrapped_v2);
+    }
+}

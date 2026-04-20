@@ -14,6 +14,13 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[package.metadata.cargo-udeps.ignore]
+normal = [
+    "getrandom2",
+    "getrandom3",
+    "getrandom4",
+] # Only used to enable WASM support, not used directly
+
 [features]
 internal = ["dep:zxcvbn"]
 no-memory-hardening = [
@@ -32,6 +39,9 @@ wasm = [
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
     "bitwarden-state/wasm",
+    "getrandom2/js",
+    "getrandom3/wasm_js",
+    "getrandom4/wasm_js",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:tsify",
@@ -40,22 +50,31 @@ wasm = [
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
 dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
+test-fixtures = ["bitwarden-test"]
 
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
+bitwarden-api-base = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-api-key-connector = { workspace = true }
+bitwarden-core-macro = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-test = { workspace = true, optional = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
-# We don't use this directly (it's used by rand), but we need it here to enable WASM support
-getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
-rand = ">=0.8.5, <0.9"
+# We don't use these directly (they're used by rand), but we need them here to enable WASM support
+# Unfortunately we have a lof of dependencies that use different versions of getrandom, so we
+# need to enable WASM support for all of them.
+getrandom2 = { package = "getrandom", version = "0.2", optional = true }
+getrandom3 = { package = "getrandom", version = "0.3", optional = true }
+getrandom4 = { package = "getrandom", version = "0.4", optional = true }
+http = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 schemars = { workspace = true }
@@ -71,7 +90,7 @@ uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
-zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
+zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zxcvbn = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch="wasm32"))'.dependencies]
@@ -82,9 +101,10 @@ rustls = { version = "0.23.19", default-features = false }
 rustls-platform-verifier = "0.6.0"
 
 [dev-dependencies]
-rand_chacha = "0.3.1"
+rand_chacha = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
-zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
+wiremock = { workspace = true }
+zeroize = { workspace = true, features = ["derive", "aarch64"] }
 
 [lints]
 workspace = true

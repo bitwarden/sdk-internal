@@ -4,12 +4,12 @@ use std::{
     str::FromStr,
 };
 
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use data_encoding::BASE32_NOPAD;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, percent_encode};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -86,11 +86,14 @@ pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpRes
 ///
 /// See [generate_totp] for more information.
 pub fn generate_totp_cipher_view(
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
     view: CipherListView,
     time: Option<DateTime<Utc>>,
 ) -> Result<TotpResponse, TotpError> {
-    let key = view.get_totp_key(ctx)?.ok_or(TotpError::MissingSecret)?;
+    let key = view
+        .get_totp_key(ctx)?
+        .filter(|s| !s.is_empty())
+        .ok_or(TotpError::MissingSecret)?;
 
     generate_totp(key, time)
 }
@@ -756,6 +759,12 @@ mod tests {
             copyable_fields: vec![CopyableCipherFields::LoginTotp],
             local_data: None,
             archived_date: None,
+            #[cfg(feature = "wasm")]
+            notes: None,
+            #[cfg(feature = "wasm")]
+            fields: None,
+            #[cfg(feature = "wasm")]
+            attachment_names: None,
         };
 
         let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();

@@ -1,6 +1,6 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
@@ -70,7 +70,7 @@ impl Fido2CredentialAutofillView {
     #[allow(missing_docs)]
     pub fn from_cipher_view(
         cipher: &CipherView,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
         let credentials = cipher.decrypt_fido2_credentials(ctx)?;
 
@@ -223,8 +223,6 @@ impl TryFrom<PublicKeyCredentialDescriptor>
     }
 }
 
-pub type Extensions = Option<String>;
-
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct MakeCredentialRequest {
@@ -234,25 +232,276 @@ pub struct MakeCredentialRequest {
     pub pub_key_cred_params: Vec<PublicKeyCredentialParameters>,
     pub exclude_list: Option<Vec<PublicKeyCredentialDescriptor>>,
     pub options: Options,
-    pub extensions: Extensions,
+
+    /// WebAuthn client extension inputs for credential creation requests.
+    ///
+    /// Cf. <https://www.w3.org/TR/webauthn-3/#dom-publickeycredentialcreationoptions-extensions>.
+    pub extensions: Option<MakeCredentialExtensionsInput>,
 }
 
-#[allow(missing_docs)]
+/// Fields corresponding to a WebAuthn [PublicKeyCredential][pub-key-cred]
+/// with an [AuthenticatorAttestationResponse][authenticator-attestation-response].
+///
+/// [pub-key-cred]: https://www.w3.org/TR/webauthn-3/#publickeycredential
+/// [authenticator-attestation-response]: https://www.w3.org/TR/webauthn-3/#authenticatorattestationresponse
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct MakeCredentialResult {
+    /// The authenticator data extracted from within the
+    /// [`attestation_object`][Self::attestation_object].
     pub authenticator_data: Vec<u8>,
+
+    /// [WebAuthn attestation object][webauthn-attestation-object] for the
+    /// authenticator response containing both the authenticator data and
+    /// attestation statement for the credential.
+    ///
+    /// [webauthn-attestation-object]: https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-attestationobject
     pub attestation_object: Vec<u8>,
+
+    /// ID for this credential, corresponding to [PublicKeyCredential.rawId][raw-id].
+    ///
+    /// [raw-id]: https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-rawid
     pub credential_id: Vec<u8>,
+
+    /// Mix of CTAP [unsigned extension output][unsigned-extensions] and
+    /// [WebAuthn client extensions][webauthn-client-extensions] output returned
+    /// by the authenticator.
+    ///
+    /// [unsigned-extensions]: https://www.w3.org/TR/webauthn-3/#unsigned-extension-outputs
+    /// [webauthn-client-extensions]: https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-clientextensionsresults-slot
+    pub extensions: MakeCredentialExtensionsOutput,
+}
+
+/// WebAuthn extension input for WebAuthn registration extensions.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug, Default)]
+pub struct MakeCredentialExtensionsInput {
+    /// PRF input for WebAuthn registration request.
+    pub prf: Option<MakeCredentialPrfInput>,
+}
+
+impl From<MakeCredentialExtensionsInput>
+    for passkey::types::ctap2::make_credential::ExtensionInputs
+{
+    fn from(value: MakeCredentialExtensionsInput) -> Self {
+        Self {
+            hmac_secret: None,
+            hmac_secret_mc: None,
+            prf: value
+                .prf
+                .map(passkey::types::ctap2::extensions::AuthenticatorPrfInputs::from),
+        }
+    }
+}
+
+/// WebAuthn extension output for registration extensions.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct MakeCredentialExtensionsOutput {
+    /// PRF output for registration extensions.
+    pub prf: Option<MakeCredentialPrfOutput>,
+}
+
+impl From<Option<passkey::types::ctap2::make_credential::UnsignedExtensionOutputs>>
+    for MakeCredentialExtensionsOutput
+{
+    fn from(
+        value: Option<passkey::types::ctap2::make_credential::UnsignedExtensionOutputs>,
+    ) -> Self {
+        if let Some(ext) = value {
+            MakeCredentialExtensionsOutput::from(ext)
+        } else {
+            MakeCredentialExtensionsOutput { prf: None }
+        }
+    }
+}
+
+impl From<passkey::types::ctap2::make_credential::UnsignedExtensionOutputs>
+    for MakeCredentialExtensionsOutput
+{
+    fn from(value: passkey::types::ctap2::make_credential::UnsignedExtensionOutputs) -> Self {
+        let prf = value.prf.map(|prf| MakeCredentialPrfOutput {
+            enabled: prf.enabled,
+            results: prf.results.map(|results| results.into()),
+        });
+        MakeCredentialExtensionsOutput { prf }
+    }
+}
+
+/// WebAuthn PRF extension input for use during registration.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct MakeCredentialPrfInput {
+    /// PRF inputs.
+    pub eval: Option<PrfInputValues>,
+}
+
+impl From<MakeCredentialPrfInput> for passkey::types::ctap2::extensions::AuthenticatorPrfInputs {
+    fn from(value: MakeCredentialPrfInput) -> Self {
+        Self {
+            eval: value.eval.map(|v| v.into()),
+            eval_by_credential: None,
+        }
+    }
+}
+
+/// WebAuthn PRF extension output used during registration.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct MakeCredentialPrfOutput {
+    /// Whether PRF is successfully processed for the newly created credential.
+    pub enabled: bool,
+
+    /// PRF outputs.
+    pub results: Option<PrfOutputValues>,
 }
 
 #[allow(missing_docs)]
+/// Type representing data from WebAuthn's
+/// [`PublicKeyCredentialRequestOptions`][pubkey-cred-request-options].
+///
+/// [pubkey-cred-request-options]: https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptions
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct GetAssertionRequest {
+    /// The RP ID for the request used to select credentials.
     pub rp_id: String,
+
+    /// Hash of the clientDataJSON for the request.
     pub client_data_hash: Vec<u8>,
+
+    /// Credential IDs known to the RP. If specified, it is a list of
+    /// credentials to filter by, ordered from most to least preferable. If
+    /// empty, only discoverable credentials will be returned.
     pub allow_list: Option<Vec<PublicKeyCredentialDescriptor>>,
+
     pub options: Options,
-    pub extensions: Extensions,
+
+    /// WebAuthn extension input for use during assertion.
+    pub extensions: Option<GetAssertionExtensionsInput>,
+}
+
+/// Fields corresponding to a WebAuthn [PublicKeyCredential][pub-key-cred]
+/// with an [AuthenticatorAssertionResponse][authenticator-assertion-response].
+///
+/// [pub-key-cred]: https://www.w3.org/TR/webauthn-3/#publickeycredential
+/// [authenticator-assertion-response]: https://www.w3.org/TR/webauthn-3/#authenticatorassertionresponse
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct GetAssertionResult {
+    /// ID for this credential, corresponding to [PublicKeyCredential.rawId][raw-id].
+    ///
+    /// [raw-id]: https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-rawid
+    pub credential_id: Vec<u8>,
+
+    /// The authenticator data from the authenticator response.
+    pub authenticator_data: Vec<u8>,
+
+    /// Signature over the authenticator data.
+    pub signature: Vec<u8>,
+
+    /// The user handle returned from the authenticator.
+    pub user_handle: Vec<u8>,
+
+    /// A reference to the Bitwarden cipher for the selected credential.
+    pub selected_credential: SelectedCredential,
+
+    /// Mix of CTAP unsigned extension output and WebAuthn client extension output.
+    /// Signed extensions can be retrieved from authenticator data.
+    pub extensions: GetAssertionExtensionsOutput,
+}
+
+/// WebAuthn extension input for WebAuthn authentication extensions.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct GetAssertionExtensionsInput {
+    /// PRF input for the authentication ceremony.
+    pub prf: Option<GetAssertionPrfInput>,
+}
+
+impl From<GetAssertionExtensionsInput> for passkey::types::ctap2::get_assertion::ExtensionInputs {
+    fn from(value: GetAssertionExtensionsInput) -> Self {
+        Self {
+            hmac_secret: None,
+            prf: value
+                .prf
+                .map(passkey::types::ctap2::extensions::AuthenticatorPrfInputs::from),
+        }
+    }
+}
+
+/// WebAuthn extension output of an authentication ceremony.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct GetAssertionExtensionsOutput {
+    /// PRF output for an authentication ceremony.
+    pub prf: Option<GetAssertionPrfOutput>,
+}
+
+impl From<Option<passkey::types::ctap2::get_assertion::UnsignedExtensionOutputs>>
+    for GetAssertionExtensionsOutput
+{
+    fn from(value: Option<passkey::types::ctap2::get_assertion::UnsignedExtensionOutputs>) -> Self {
+        if let Some(value) = value {
+            value.into()
+        } else {
+            Self { prf: None }
+        }
+    }
+}
+
+impl From<passkey::types::ctap2::get_assertion::UnsignedExtensionOutputs>
+    for GetAssertionExtensionsOutput
+{
+    fn from(value: passkey::types::ctap2::get_assertion::UnsignedExtensionOutputs) -> Self {
+        let prf = value.prf.map(|prf| GetAssertionPrfOutput {
+            results: prf.results.into(),
+        });
+        GetAssertionExtensionsOutput { prf }
+    }
+}
+
+/// Input for WebAuthn PRF extension during authentication ceremonies.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct GetAssertionPrfInput {
+    /// A PRF input to use for authentication. If a map of credential IDs to PRF
+    /// inputs is specified in [`Self::eval_by_credential`] along with this
+    /// value, the extension will fallback to this
+    /// value if the returned credential ID is not contained in the map.
+    pub eval: Option<PrfInputValues>,
+
+    /// A map of credential IDs to PRF input for a set of credentials specified in the
+    /// [`GetAssertionRequest::allow_list`] field of the request. If a key of
+    /// this map does not exist in the allow list, the extension will fail.
+    pub eval_by_credential: Option<HashMap<Vec<u8>, PrfInputValues>>,
+}
+
+impl From<GetAssertionPrfInput> for passkey::types::ctap2::extensions::AuthenticatorPrfInputs {
+    fn from(value: GetAssertionPrfInput) -> Self {
+        let eval_by_credential = if let Some(values) = value.eval_by_credential {
+            let map: HashMap<
+                passkey::types::Bytes,
+                passkey::types::ctap2::extensions::AuthenticatorPrfValues,
+            > = values
+                .into_iter()
+                .map(|(k, v)| (k.into(), v.into()))
+                .collect();
+            Some(map)
+        } else {
+            None
+        };
+        Self {
+            eval: value.eval.map(|v| v.into()),
+            eval_by_credential,
+        }
+    }
+}
+
+/// WebAuthn PRF extension output during an authentication ceremony.
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct GetAssertionPrfOutput {
+    /// The PRF output for the ceremony.
+    pub results: PrfOutputValues,
 }
 
 #[allow(missing_docs)]
@@ -319,17 +568,6 @@ impl From<UserVerificationRequirement> for UV {
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-pub struct GetAssertionResult {
-    pub credential_id: Vec<u8>,
-    pub authenticator_data: Vec<u8>,
-    pub signature: Vec<u8>,
-    pub user_handle: Vec<u8>,
-
-    pub selected_credential: SelectedCredential,
-}
-
-#[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum ClientData {
     DefaultWithExtraData { android_package_name: String },
@@ -362,6 +600,75 @@ impl passkey::client::ClientData<Option<AndroidClientData>> for ClientData {
     }
 }
 
+/// Salt inputs for WebAuthn PRF extension.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct PrfInputValues {
+    /// An input on which to evaluate PRF. Required.
+    pub first: Vec<u8>,
+
+    /// An optional secondary input on which to evaluate PRF.
+    pub second: Option<Vec<u8>>,
+}
+
+impl PrfInputValues {
+    const WEBAUTHN_PRF_CONTEXT_STRING: &[u8] = b"WebAuthn PRF\0";
+
+    fn hash_webauthn_prf_input(input: &[u8]) -> [u8; 32] {
+        passkey::types::crypto::sha256(&[Self::WEBAUTHN_PRF_CONTEXT_STRING, input].concat())
+    }
+}
+
+impl std::fmt::Debug for PrfInputValues {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PrfInputValues")
+            .field("first", &"********")
+            .field("second", &self.second.as_ref().map(|_| "********"))
+            .finish()
+    }
+}
+
+impl From<PrfInputValues> for passkey::types::ctap2::extensions::AuthenticatorPrfValues {
+    /// This converts PRF input received from a client into the format that
+    /// passkey-rs expects. This is not valid for converting output received from passkey-rs.
+    fn from(value: PrfInputValues) -> Self {
+        // passkey-rs expects the salt input to be hashed already according to
+        // WebAuthn PRF extension client processing rules.
+        let first = PrfInputValues::hash_webauthn_prf_input(value.first.as_ref());
+        let second = value
+            .second
+            .as_deref()
+            .map(PrfInputValues::hash_webauthn_prf_input);
+        Self { first, second }
+    }
+}
+
+/// WebAuthn PRF output values.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct PrfOutputValues {
+    /// The output of the PRF evaluation of the first PRF input.
+    pub first: Vec<u8>,
+
+    /// The output of the PRF evaluation of the second PRF input, if it was specified.
+    pub second: Option<Vec<u8>>,
+}
+
+impl std::fmt::Debug for PrfOutputValues {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PrfOutputValues")
+            .field("first", &"********")
+            .field("second", &self.second.as_ref().map(|_| "********"))
+            .finish()
+    }
+}
+
+impl From<passkey::types::ctap2::extensions::AuthenticatorPrfValues> for PrfOutputValues {
+    fn from(value: passkey::types::ctap2::extensions::AuthenticatorPrfValues) -> Self {
+        Self {
+            first: value.first.to_vec(),
+            second: value.second.map(|s| s.to_vec()),
+        }
+    }
+}
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ClientExtensionResults {
     pub cred_props: Option<CredPropsResult>,
@@ -489,9 +796,44 @@ impl TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use passkey::types::ctap2::{
+        extensions::{
+            AuthenticatorPrfGetOutputs, AuthenticatorPrfMakeOutputs, AuthenticatorPrfValues,
+        },
+        get_assertion, make_credential,
+    };
     use serde::{Deserialize, Serialize};
 
-    use super::AndroidClientData;
+    use super::{
+        AndroidClientData, GetAssertionExtensionsInput, GetAssertionExtensionsOutput,
+        GetAssertionPrfInput, MakeCredentialExtensionsInput, MakeCredentialExtensionsOutput,
+        MakeCredentialPrfInput, PrfInputValues,
+    };
+
+    /// Raw PRF input for testing.
+    static TEST_SALT1_RAW_INPUT: &[u8] = b"salt1";
+
+    /// PRF input of after applying WebAuthn PRF domain separation to [TEST_SALT1_RAW_INPUT].
+    // SHA-256(UTF-8("WebAuthn PRF") || 0x00 || TEST_SALT1_RAW_INPUT)
+    static TEST_SALT1_WEBAUTHN_INPUT: [u8; 32] = [
+        0x2A, 0x19, 0x90, 0xF9, 0xC9, 0xBB, 0xFE, 0x1B, 0xBF, 0x56, 0xAB, 0xEE, 0x2B, 0x5A, 0x0F,
+        0x59, 0xBE, 0x5F, 0x63, 0x3A, 0x35, 0xC2, 0xA5, 0xF0, 0x7D, 0x85, 0x53, 0x3E, 0xEE, 0xCB,
+        0xDD, 0x3C,
+    ];
+
+    /// Raw PRF input for testing.
+    static TEST_SALT2_RAW_INPUT: &[u8] = b"salt2";
+
+    /// PRF input after applying WebAuthn PRF domain separation to [TEST_SALT2_RAW_INPUT].
+    ///
+    /// SHA-256(UTF-8("WebAuthn PRF") || 0x00 || TEST_SALT2_RAW_INPUT)
+    static TEST_SALT2_WEBAUTHN_INPUT: [u8; 32] = [
+        0xA6, 0x42, 0xFA, 0x8B, 0x6E, 0xAC, 0x68, 0xD3, 0x73, 0xCF, 0x08, 0xEA, 0xC8, 0x5E, 0x1D,
+        0x62, 0x9B, 0x50, 0x10, 0x6D, 0x60, 0xEB, 0x92, 0x48, 0xEC, 0xB6, 0x54, 0xE2, 0x94, 0x9A,
+        0xDD, 0x65,
+    ];
 
     // This is a stripped down of the passkey-rs implementation, to test the
     // serialization of the `ClientData` enum, and to make sure that () and None
@@ -544,5 +886,92 @@ mod tests {
             serialized,
             r#"{"origin":"https://example.com","androidPackageName":"com.example.app"}"#
         );
+    }
+
+    #[test]
+    fn test_transform_make_credential_extension_input() {
+        let input = MakeCredentialExtensionsInput {
+            prf: Some(MakeCredentialPrfInput {
+                eval: Some(PrfInputValues {
+                    first: TEST_SALT1_RAW_INPUT.to_vec(),
+                    second: Some(TEST_SALT2_RAW_INPUT.to_vec()),
+                }),
+            }),
+        };
+        let transformed = make_credential::ExtensionInputs::from(input);
+        let eval = transformed.prf.unwrap().eval.unwrap();
+        assert_eq!(TEST_SALT1_WEBAUTHN_INPUT, eval.first);
+        assert_eq!(TEST_SALT2_WEBAUTHN_INPUT, eval.second.unwrap());
+    }
+
+    #[test]
+    fn test_transform_make_credential_extension_output() {
+        let prf1: Vec<u8> = (0..32).collect();
+        let output = make_credential::UnsignedExtensionOutputs {
+            prf: Some(AuthenticatorPrfMakeOutputs {
+                enabled: true,
+                results: Some(AuthenticatorPrfValues {
+                    first: prf1.clone().try_into().unwrap(),
+                    second: None,
+                }),
+            }),
+        };
+        let transformed = MakeCredentialExtensionsOutput::from(output);
+        assert!(transformed.prf.as_ref().unwrap().enabled);
+        assert_eq!(prf1, transformed.prf.unwrap().results.unwrap().first);
+    }
+
+    #[test]
+    fn test_transform_get_assertion_extension_input() {
+        let input = GetAssertionExtensionsInput {
+            prf: Some(GetAssertionPrfInput {
+                eval: Some(PrfInputValues {
+                    first: TEST_SALT1_RAW_INPUT.to_vec(),
+                    second: Some(TEST_SALT2_RAW_INPUT.to_vec()),
+                }),
+                eval_by_credential: None,
+            }),
+        };
+        let transformed = get_assertion::ExtensionInputs::from(input);
+        let eval = transformed.prf.unwrap().eval.unwrap();
+        assert_eq!(TEST_SALT1_WEBAUTHN_INPUT, eval.first);
+        assert_eq!(TEST_SALT2_WEBAUTHN_INPUT, eval.second.unwrap());
+    }
+
+    #[test]
+    fn test_transform_get_assertion_extension_input_with_eval_by_credential() {
+        let cred_id = b"credential_id1".to_vec();
+        let input = GetAssertionExtensionsInput {
+            prf: Some(GetAssertionPrfInput {
+                eval: None,
+                eval_by_credential: Some(HashMap::from([(
+                    cred_id.clone(),
+                    PrfInputValues {
+                        first: TEST_SALT1_RAW_INPUT.to_vec(),
+                        second: Some(TEST_SALT2_RAW_INPUT.to_vec()),
+                    },
+                )])),
+            }),
+        };
+        let transformed = get_assertion::ExtensionInputs::from(input);
+        let output = transformed.prf.unwrap().eval_by_credential.unwrap();
+        let results = output.get(&cred_id.into()).unwrap();
+        assert_eq!(TEST_SALT1_WEBAUTHN_INPUT, results.first);
+        assert_eq!(TEST_SALT2_WEBAUTHN_INPUT, results.second.unwrap());
+    }
+
+    #[test]
+    fn test_transform_get_assertion_extension_output() {
+        let prf1: Vec<u8> = (0..32).collect();
+        let output = get_assertion::UnsignedExtensionOutputs {
+            prf: Some(AuthenticatorPrfGetOutputs {
+                results: AuthenticatorPrfValues {
+                    first: prf1.clone().try_into().unwrap(),
+                    second: None,
+                },
+            }),
+        };
+        let transformed = GetAssertionExtensionsOutput::from(output);
+        assert_eq!(prf1, transformed.prf.unwrap().results.first);
     }
 }

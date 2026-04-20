@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -32,7 +32,7 @@ pub trait ProviderUsersApi: Send + Sync {
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
         provider_user_accept_request_model: Option<models::ProviderUserAcceptRequestModel>,
-    ) -> Result<(), Error<AcceptError>>;
+    ) -> Result<(), Error>;
 
     /// POST /providers/{providerId}/users/confirm
     async fn bulk_confirm<'a>(
@@ -41,21 +41,21 @@ pub trait ProviderUsersApi: Send + Sync {
         provider_user_bulk_confirm_request_model: Option<
             models::ProviderUserBulkConfirmRequestModel,
         >,
-    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error<BulkConfirmError>>;
+    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error>;
 
     /// DELETE /providers/{providerId}/users
     async fn bulk_delete<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error<BulkDeleteError>>;
+    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error>;
 
     /// POST /providers/{providerId}/users/reinvite
     async fn bulk_reinvite<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error<BulkReinviteError>>;
+    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error>;
 
     /// POST /providers/{providerId}/users/{id}/confirm
     async fn confirm<'a>(
@@ -63,34 +63,30 @@ pub trait ProviderUsersApi: Send + Sync {
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
         provider_user_confirm_request_model: Option<models::ProviderUserConfirmRequestModel>,
-    ) -> Result<(), Error<ConfirmError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /providers/{providerId}/users/{id}
-    async fn delete<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/users/{id}
     async fn get<'a>(
         &self,
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::ProviderUserResponseModel, Error<GetError>>;
+    ) -> Result<models::ProviderUserResponseModel, Error>;
 
     /// GET /providers/{providerId}/users
     async fn get_all<'a>(
         &self,
         provider_id: uuid::Uuid,
-    ) -> Result<models::ProviderUserUserDetailsResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::ProviderUserUserDetailsResponseModelListResponseModel, Error>;
 
     /// POST /providers/{providerId}/users/invite
     async fn invite<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_invite_request_model: Option<models::ProviderUserInviteRequestModel>,
-    ) -> Result<(), Error<InviteError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /providers/{providerId}/users/{id}
     async fn put<'a>(
@@ -98,24 +94,17 @@ pub trait ProviderUsersApi: Send + Sync {
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
         provider_user_update_request_model: Option<models::ProviderUserUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>>;
+    ) -> Result<(), Error>;
 
     /// POST /providers/{providerId}/users/{id}/reinvite
-    async fn reinvite<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<ReinviteError>>;
+    async fn reinvite<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /providers/{providerId}/users/public-keys
     async fn user_public_keys<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-    ) -> Result<
-        models::ProviderUserPublicKeyResponseModelListResponseModel,
-        Error<UserPublicKeysError>,
-    >;
+    ) -> Result<models::ProviderUserPublicKeyResponseModelListResponseModel, Error>;
 }
 
 pub struct ProviderUsersApiClient {
@@ -136,7 +125,7 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
         provider_user_accept_request_model: Option<models::ProviderUserAcceptRequestModel>,
-    ) -> Result<(), Error<AcceptError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -150,33 +139,10 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_user_accept_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AcceptError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn bulk_confirm<'a>(
@@ -185,8 +151,7 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         provider_user_bulk_confirm_request_model: Option<
             models::ProviderUserBulkConfirmRequestModel,
         >,
-    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error<BulkConfirmError>>
-    {
+    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -199,60 +164,18 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&provider_user_bulk_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkConfirmError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_delete<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error<BulkDeleteError>>
-    {
+    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -265,59 +188,17 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkDeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_reinvite<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error<BulkReinviteError>>
-    {
+    ) -> Result<models::ProviderUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -330,51 +211,10 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkReinviteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn confirm<'a>(
@@ -382,7 +222,7 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
         provider_user_confirm_request_model: Option<models::ProviderUserConfirmRequestModel>,
-    ) -> Result<(), Error<ConfirmError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -396,40 +236,13 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_user_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<ConfirmError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -443,39 +256,16 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get<'a>(
         &self,
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::ProviderUserResponseModel, Error<GetError>> {
+    ) -> Result<models::ProviderUserResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -489,56 +279,15 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProviderUserResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderUserResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_all<'a>(
         &self,
         provider_id: uuid::Uuid,
-    ) -> Result<models::ProviderUserUserDetailsResponseModelListResponseModel, Error<GetAllError>>
-    {
+    ) -> Result<models::ProviderUserUserDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -551,57 +300,16 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProviderUserUserDetailsResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderUserUserDetailsResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn invite<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_invite_request_model: Option<models::ProviderUserInviteRequestModel>,
-    ) -> Result<(), Error<InviteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -614,33 +322,10 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_user_invite_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<InviteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn put<'a>(
@@ -648,7 +333,7 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
         provider_user_update_request_model: Option<models::ProviderUserUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -662,39 +347,13 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_user_update_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn reinvite<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<ReinviteError>> {
+    async fn reinvite<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -708,42 +367,16 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<ReinviteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn user_public_keys<'a>(
         &self,
         provider_id: uuid::Uuid,
         provider_user_bulk_request_model: Option<models::ProviderUserBulkRequestModel>,
-    ) -> Result<
-        models::ProviderUserPublicKeyResponseModelListResponseModel,
-        Error<UserPublicKeysError>,
-    > {
+    ) -> Result<models::ProviderUserPublicKeyResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -756,123 +389,9 @@ impl ProviderUsersApi for ProviderUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProviderUserPublicKeyResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderUserPublicKeyResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<UserPublicKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ProviderUsersApi::accept`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AcceptError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::bulk_confirm`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkConfirmError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::bulk_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::bulk_reinvite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkReinviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::confirm`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ConfirmError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::invite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum InviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::reinvite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ReinviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderUsersApi::user_public_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UserPublicKeysError {
-    UnknownValue(serde_json::Value),
 }

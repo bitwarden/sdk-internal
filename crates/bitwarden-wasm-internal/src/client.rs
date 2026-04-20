@@ -4,6 +4,7 @@ use std::{fmt::Display, sync::Arc};
 use bitwarden_core::ClientSettings;
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
+use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
@@ -76,6 +77,11 @@ impl PasswordManagerClient {
         self.0.0.crypto()
     }
 
+    /// User crypto management related operations.
+    pub fn user_crypto_management(&self) -> UserCryptoManagementClient {
+        self.0.0.user_crypto_management()
+    }
+
     /// Vault item related operations.
     pub fn vault(&self) -> VaultClient {
         self.0.vault()
@@ -94,6 +100,11 @@ impl PasswordManagerClient {
     /// Exporter related operations.
     pub fn exporters(&self) -> ExporterClient {
         self.0.exporters()
+    }
+
+    /// Send related operations.
+    pub fn sends(&self) -> SendClient {
+        self.0.sends()
     }
 }
 

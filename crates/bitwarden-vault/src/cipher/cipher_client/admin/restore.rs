@@ -1,5 +1,5 @@
 use bitwarden_api_api::{apis::ApiClient, models::CipherBulkRestoreRequestModel};
-use bitwarden_core::{ApiError, OrganizationId, key_management::KeyIds};
+use bitwarden_core::{ApiError, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, DecryptCipherListResult, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_client::admin::CipherAdminClient,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher_client::admin::CipherAdminClient,
 };
 
 #[allow(missing_docs)]
@@ -33,7 +34,8 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for RestoreCipherAdminError {
 pub async fn restore_as_admin(
     cipher_id: CipherId,
     api_client: &ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
@@ -42,7 +44,11 @@ pub async fn restore_as_admin(
         .await?
         .merge_with_cipher(None)?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -50,7 +56,7 @@ pub async fn restore_many_as_admin(
     cipher_ids: Vec<CipherId>,
     org_id: OrganizationId,
     api_client: &ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
 ) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
@@ -80,15 +86,16 @@ impl CipherAdminClient {
         &self,
         cipher_id: CipherId,
     ) -> Result<CipherView, RestoreCipherAdminError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
-        restore_as_admin(cipher_id, api_client, key_store).await
+        restore_as_admin(
+            cipher_id,
+            api_client,
+            key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
     /// Restores multiple soft-deleted ciphers on the server.
     pub async fn restore_many(
@@ -96,12 +103,7 @@ impl CipherAdminClient {
         cipher_ids: Vec<CipherId>,
         org_id: OrganizationId,
     ) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
         restore_many_as_admin(cipher_ids, org_id, api_client, key_store).await
@@ -114,7 +116,7 @@ mod tests {
         apis::ApiClient,
         models::{CipherMiniResponseModel, CipherMiniResponseModelListResponseModel},
     };
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use chrono::Utc;
 
@@ -189,16 +191,17 @@ mod tests {
             })
         };
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         let start_time = Utc::now();
-        let updated_cipher = restore_as_admin(TEST_CIPHER_ID.parse().unwrap(), &api_client, &store)
-            .await
-            .unwrap();
+        let updated_cipher =
+            restore_as_admin(TEST_CIPHER_ID.parse().unwrap(), &api_client, &store, false)
+                .await
+                .unwrap();
         let end_time = Utc::now();
 
         assert!(updated_cipher.deleted_date.is_none());
@@ -248,10 +251,10 @@ mod tests {
                     })
                 });
         });
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 

@@ -8,7 +8,7 @@ use mockall::automock;
 use reqwest;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize, de::Error as _};
-use crate::{apis::ResponseContent, models};
+use crate::{apis::{ResponseContent, AuthRequired}, models};
 use super::{Error, configuration};
 use crate::apis::ContentType;
 
@@ -62,7 +62,7 @@ pub trait {{{classname}}}: Send + Sync {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>>;
+    }}, Error>;
 {{/vendorExtensions.x-group-parameters}}
 {{/isDeprecated}}
 {{/operation}}
@@ -141,7 +141,7 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
+    }}, Error> {
         {{#allParams}}{{#-first}}
         let {{{vendorExtensions.x-action-name}}}Params {
             {{#allParams}}
@@ -176,7 +176,7 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Regular return type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
+    }}, Error> {
     {{/vendorExtensions.x-group-parameters}}
         let local_var_configuration = &self.configuration;
 
@@ -288,49 +288,6 @@ impl {{classname}} for {{classname}}Client {
         }
         {{/required}}
         {{/queryParams}}
-        {{#hasAuthMethods}}
-        {{#authMethods}}
-        {{#isApiKey}}
-        {{#isKeyInQuery}}
-        if let Some(ref local_var_apikey) = local_var_configuration.api_key {
-            let local_var_key = local_var_apikey.key.clone();
-            let local_var_value = match local_var_apikey.prefix {
-                Some(ref local_var_prefix) => format!("{} {}", local_var_prefix, local_var_key),
-                None => local_var_key,
-            };
-            local_var_req_builder = local_var_req_builder.query(&[("{{{keyParamName}}}", local_var_value)]);
-        }
-        {{/isKeyInQuery}}
-        {{/isApiKey}}
-        {{/authMethods}}
-        {{/hasAuthMethods}}
-        {{#hasAuthMethods}}
-        {{#withAWSV4Signature}}
-        if let Some(ref local_var_aws_v4_key) = local_var_configuration.aws_v4_key {
-            let local_var_new_headers = match local_var_aws_v4_key.sign(
-            &local_var_uri_str,
-            "{{{httpMethod}}}",
-            {{#hasBodyParam}}
-            {{#bodyParams}}
-            &serde_json::to_string(&{{{paramName}}}).expect("param should serialize to string"),
-            {{/bodyParams}}
-            {{/hasBodyParam}}
-            {{^hasBodyParam}}
-            "",
-            {{/hasBodyParam}}
-            ) {
-            Ok(new_headers) => new_headers,
-            Err(err) => return Err(Error::AWSV4SignatureError(err)),
-            };
-        for (local_var_name, local_var_value) in local_var_new_headers.iter() {
-            local_var_req_builder = local_var_req_builder.header(local_var_name.as_str(), local_var_value.as_str());
-        }
-        }
-        {{/withAWSV4Signature}}
-        {{/hasAuthMethods}}
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         {{#hasHeaderParams}}
         {{#headerParams}}
         {{#required}}
@@ -354,44 +311,25 @@ impl {{classname}} for {{classname}}Client {
         {{#hasAuthMethods}}
         {{#authMethods}}
         {{#-first}}
-        {{#supportTokenSource}}
-        // Obtain a token from source provider.
-        // Tokens can be Id or access tokens depending on the provider type and configuration.
-        let token = local_var_configuration.token_source.token().await.map_err(Error::TokenSource)?;
-        // The token format is the responsibility of the provider, thus we just set the authorization header with whatever is given.
-        local_var_req_builder = local_var_req_builder.header(reqwest::header::AUTHORIZATION, token);
-        {{/supportTokenSource}}
-        {{^supportTokenSource}}
         {{#isApiKey}}
+        {{#isKeyInQuery}}
+        unimplemented!("API key in query param is not supported");
+        {{/isKeyInQuery}}
         {{#isKeyInHeader}}
-        if let Some(ref local_var_apikey) = local_var_configuration.api_key {
-            let local_var_key = local_var_apikey.key.clone();
-            let local_var_value = match local_var_apikey.prefix {
-                Some(ref local_var_prefix) => format!("{} {}", local_var_prefix, local_var_key),
-                None => local_var_key,
-            };
-            local_var_req_builder = local_var_req_builder.header("{{{keyParamName}}}", local_var_value);
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Header("{{{keyParamName}}}"));
         {{/isKeyInHeader}}
         {{/isApiKey}}
         {{#isBasic}}
         {{#isBasicBasic}}
-        if let Some(ref local_var_auth_conf) = local_var_configuration.basic_auth {
-            local_var_req_builder = local_var_req_builder.basic_auth(local_var_auth_conf.0.to_owned(), local_var_auth_conf.1.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Basic);
         {{/isBasicBasic}}
         {{#isBasicBearer}}
-        if let Some(ref local_var_token) = local_var_configuration.bearer_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         {{/isBasicBearer}}
         {{/isBasic}}
         {{#isOAuth}}
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         {{/isOAuth}}
-        {{/supportTokenSource}}
         {{/-first}}
         {{/authMethods}}
         {{/hasAuthMethods}}
@@ -474,99 +412,19 @@ impl {{classname}} for {{classname}}Client {
         {{/bodyParams}}
         {{/hasBodyParam}}
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        {{^supportMultipleResponses}}
-        {{#returnType}}
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        {{^returnType}}
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
         {{/returnType}}
+        {{#returnType}}
+        {{^supportMultipleResponses}}
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
         {{/supportMultipleResponses}}
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            {{^supportMultipleResponses}}
-            {{^returnType}}
-            Ok(())
-            {{/returnType}}
-            {{#returnType}}
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                {{#vendorExtensions.x-supports-plain-text}}
-                ContentType::Text => return Ok(local_var_content),
-                {{/vendorExtensions.x-supports-plain-text}}
-                {{^vendorExtensions.x-supports-plain-text}}
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `{{returnType}}`"))),
-                {{/vendorExtensions.x-supports-plain-text}}
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `{{returnType}}`")))),
-            }
-            {{/returnType}}
-            {{/supportMultipleResponses}}
-            {{#supportMultipleResponses}}
-            let local_var_entity: Option<{{{vendorExtensions.x-action-name}}}Success> = serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
-            Ok(local_var_result)
-            {{/supportMultipleResponses}}
-        } else {
-            let local_var_entity: Option<{{{vendorExtensions.x-action-name}}}Error> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
-            Err(Error::ResponseError(local_var_error))
-        }
+        {{#supportMultipleResponses}}
+        unimplemented!("Multiple response types are unimplemented")
+        {{/supportMultipleResponses}}
+        {{/returnType}}
     }
     {{/isDeprecated}}
     {{/operation}}
     {{/operations}}
 }
-
-{{#supportMultipleResponses}}
-{{#operations}}
-{{#operation}}
-{{^isDeprecated}}
-/// struct for typed successes of method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum {{{vendorExtensions.x-action-name}}}Success {
-    {{#responses}}
-    {{#is2xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is2xx}}
-    {{#is3xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is3xx}}
-    {{/responses}}
-    UnknownValue(serde_json::Value),
-}
-
-{{/isDeprecated}}
-{{/operation}}
-{{/operations}}
-{{/supportMultipleResponses}}
-{{#operations}}
-{{#operation}}
-{{^isDeprecated}}
-/// struct for typed errors of method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum {{{vendorExtensions.x-action-name}}}Error {
-    {{#responses}}
-    {{#is4xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is4xx}}
-    {{#is5xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is5xx}}
-    {{#isDefault}}
-    DefaultResponse({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/isDefault}}
-    {{/responses}}
-    UnknownValue(serde_json::Value),
-}
-{{/isDeprecated}}
-{{/operation}}
-{{/operations}}

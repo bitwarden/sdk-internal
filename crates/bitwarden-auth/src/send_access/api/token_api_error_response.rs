@@ -18,7 +18,7 @@ pub enum SendAccessTokenInvalidRequestError {
     EmailRequired,
 
     #[allow(missing_docs)]
-    EmailAndOtpRequiredOtpSent,
+    EmailAndOtpRequired,
 
     /// Fallback for unknown variants for forward compatibility
     #[serde(other)]
@@ -36,15 +36,6 @@ pub enum SendAccessTokenInvalidGrantError {
 
     #[allow(missing_docs)]
     PasswordHashB64Invalid,
-
-    #[allow(missing_docs)]
-    EmailInvalid,
-
-    #[allow(missing_docs)]
-    OtpInvalid,
-
-    #[allow(missing_docs)]
-    OtpGenerationFailed,
 
     /// Fallback for unknown variants for forward compatibility
     #[serde(other)]
@@ -157,8 +148,8 @@ mod tests {
                     "\"email_required\"",
                 ),
                 (
-                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
-                    "\"email_and_otp_required_otp_sent\"",
+                    SendAccessTokenInvalidRequestError::EmailAndOtpRequired,
+                    "\"email_and_otp_required\"",
                 ),
             ];
 
@@ -326,18 +317,6 @@ mod tests {
                     SendAccessTokenInvalidGrantError::PasswordHashB64Invalid,
                     "\"password_hash_b64_invalid\"",
                 ),
-                (
-                    SendAccessTokenInvalidGrantError::EmailInvalid,
-                    "\"email_invalid\"",
-                ),
-                (
-                    SendAccessTokenInvalidGrantError::OtpInvalid,
-                    "\"otp_invalid\"",
-                ),
-                (
-                    SendAccessTokenInvalidGrantError::OtpGenerationFailed,
-                    "\"otp_generation_failed\"",
-                ),
             ];
 
             for (expected_variant, send_access_error_type_json) in cases {
@@ -406,7 +385,7 @@ mod tests {
             let payload = r#"
             {
                 "error": "invalid_grant",
-                "send_access_error_type": "otp_invalid"
+                "send_access_error_type": "password_hash_b64_invalid"
             }"#;
 
             let parsed: SendAccessTokenApiErrorResponse = serde_json::from_str(payload).unwrap();
@@ -418,7 +397,7 @@ mod tests {
                     assert!(error_description.is_none());
                     assert_eq!(
                         send_access_error_type,
-                        Some(SendAccessTokenInvalidGrantError::OtpInvalid)
+                        Some(SendAccessTokenInvalidGrantError::PasswordHashB64Invalid)
                     );
                 }
                 _ => panic!("expected invalid_grant"),

@@ -1,10 +1,8 @@
-use bitwarden_core::{ApiError, MissingFieldError, key_management::KeyIds};
+use bitwarden_core::{ApiError, MissingFieldError, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Folder, FolderAddEditRequest, FolderId, FolderView, ItemNotFoundError, VaultParseError,
@@ -31,7 +29,7 @@ pub enum EditFolderError {
 }
 
 pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     folder_id: FolderId,
@@ -40,7 +38,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
     let id = folder_id.to_string();
 
     // Verify the folder we're updating exists
-    repository.get(id.clone()).await?.ok_or(ItemNotFoundError)?;
+    repository.get(folder_id).await?.ok_or(ItemNotFoundError)?;
 
     let folder_request = key_store.encrypt(request)?;
 
@@ -54,7 +52,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
     debug_assert!(folder.id.unwrap_or_default() == folder_id);
 
-    repository.set(id, folder.clone()).await?;
+    repository.set(folder_id, folder.clone()).await?;
 
     Ok(key_store.decrypt(&folder)?)
 }
@@ -62,7 +60,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::FolderResponseModel};
-    use bitwarden_core::key_management::SymmetricKeyId;
+    use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::{PrimitiveEncryptable, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
@@ -72,27 +70,27 @@ mod tests {
 
     async fn repository_add_folder(
         repository: &MemoryRepository<Folder>,
-        store: &KeyStore<KeyIds>,
+        store: &KeyStore<KeySlotIds>,
         folder_id: FolderId,
         name: &str,
     ) {
         let folder = Folder {
             id: Some(folder_id),
             name: name
-                .encrypt(&mut store.context(), SymmetricKeyId::User)
+                .encrypt(&mut store.context(), SymmetricKeySlotId::User)
                 .unwrap(),
             revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
         };
-        repository.set(folder_id.to_string(), folder).await.unwrap();
+        repository.set(folder_id, folder).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_edit_folder() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -140,7 +138,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_folder_does_not_exist() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
 
         let repository = MemoryRepository::<Folder>::default();
         let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
@@ -167,11 +165,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_folder_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 

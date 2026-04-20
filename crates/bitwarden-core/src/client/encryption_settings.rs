@@ -7,12 +7,12 @@ use bitwarden_crypto::UnsignedSharedKey;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "internal")]
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
 #[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::key_management::{KeyIds, SymmetricKeyId};
+use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
 use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
 
 #[allow(missing_docs)]
@@ -33,6 +33,28 @@ pub enum EncryptionSettingsError {
 
     #[error("Wrong Pin")]
     WrongPin,
+
+    /// The user-key could not be set to the state, and the sdk will remain locked
+    #[error("Unable to set user-key to state")]
+    UserKeyStateUpdateFailed,
+
+    #[error("Unable to retrieve user-key from state")]
+    UserKeyStateRetrievalFailed,
+
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
+
+    /// Retrieval of the key-connector-key from key-connector failed
+    #[error("Key connector retrieval failed")]
+    KeyConnectorRetrievalFailed,
+
+    /// The local user data key could not be initialized.
+    #[error("Unable to initialize local user data key")]
+    LocalUserDataKeyInitFailed,
+
+    /// The local user data key could not be loaded into the key store context.
+    #[error("Unable to load local user data key into key store")]
+    LocalUserDataKeyLoadFailed,
 }
 
 #[allow(missing_docs)]
@@ -45,13 +67,13 @@ impl EncryptionSettings {
     pub(crate) fn new_single_org_key(
         organization_id: OrganizationId,
         key: SymmetricCryptoKey,
-        store: &KeyStore<KeyIds>,
+        store: &KeyStore<KeySlotIds>,
     ) {
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::Organization(organization_id), key)
+            .set_symmetric_key(SymmetricKeySlotId::Organization(organization_id), key)
             .expect("Mutable context");
     }
 
@@ -59,32 +81,51 @@ impl EncryptionSettings {
     #[instrument(err, skip_all)]
     pub(crate) fn set_org_keys(
         org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
-        store: &KeyStore<KeyIds>,
+        store: &KeyStore<KeySlotIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use crate::key_management::PrivateKeyId;
+        use crate::key_management::PrivateKeySlotId;
 
         let mut ctx = store.context_mut();
 
         // FIXME: [PM-11690] - Early abort to handle private key being corrupt
         if org_enc_keys.is_empty() {
+            info!("No organization keys to set");
             return Ok(());
         }
 
-        if !ctx.has_private_key(PrivateKeyId::UserPrivateKey) {
+        if !ctx.has_private_key(PrivateKeySlotId::UserPrivateKey) {
+            info!("User private key is missing, cannot set organization keys");
             return Err(MissingPrivateKeyError.into());
         }
 
         // Make sure we only keep the keys given in the arguments and not any of the previous
         // ones, which might be from organizations that the user is no longer a part of anymore
-        ctx.retain_symmetric_keys(|key_ref| !matches!(key_ref, SymmetricKeyId::Organization(_)));
+        ctx.retain_symmetric_keys(|key_ref| {
+            !matches!(key_ref, SymmetricKeySlotId::Organization(_))
+        });
 
+        info!("Decrypting organization keys");
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
-            ctx.decapsulate_key_unsigned(
-                PrivateKeyId::UserPrivateKey,
-                SymmetricKeyId::Organization(org_id),
-                &org_enc_key,
-            )?;
+            let _span =
+                tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
+                    .entered();
+            match org_enc_key.decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx) {
+                Err(e) => {
+                    tracing::error!("Failed to decapsulate organization key: {}", e);
+                    return Err(e.into());
+                }
+                Ok(org_symmetric_key) => {
+                    tracing::info!(
+                        org_id = %org_id,
+                        "Successfully decapsulated organization key for org",
+                    );
+                    ctx.persist_symmetric_key(
+                        org_symmetric_key,
+                        SymmetricKeySlotId::Organization(org_id),
+                    )?;
+                }
+            }
         }
 
         Ok(())

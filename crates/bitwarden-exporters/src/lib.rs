@@ -243,6 +243,7 @@ impl From<ImportingCipher> for CipherView {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: {
                 let fields: Vec<FieldView> = value.fields.into_iter().map(Into::into).collect();
                 if fields.is_empty() {
@@ -320,6 +321,50 @@ pub struct Login {
     pub totp: Option<String>,
 
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
+}
+
+impl Login {
+    /// Sanitizes all login URIs by ensuring they have a proper scheme.
+    ///
+    /// URIs that are already valid are left unchanged. For invalid URIs:
+    /// - If the URI is an IP address, `http://` is prepended.
+    /// - Otherwise, `https://` is prepended (unless it already starts with `http`).
+    pub fn sanitize_uris(&mut self) {
+        for login_uri in &mut self.login_uris {
+            if let Some(uri) = &login_uri.uri {
+                login_uri.uri = Some(sanitize_uri(uri));
+            }
+        }
+    }
+}
+
+/// Sanitizes a single URI string by ensuring it has a proper scheme.
+///
+/// Mirrors the logic from the iOS `fixURLIfNeeded()` method:
+/// 1. If the URI is already a valid URL, return as-is.
+/// 2. If prepending `http://` yields a URL whose host is an IPv4 address, use `http://`.
+/// 3. If the URI doesn't already start with `http`, prepend `https://`.
+/// 4. Otherwise, return as-is.
+fn sanitize_uri(uri: &str) -> String {
+    if let Ok(parsed) = url::Url::parse(uri)
+        && parsed.has_host()
+    {
+        return uri.to_string();
+    }
+
+    let with_http = format!("http://{uri}");
+    if let Ok(parsed) = url::Url::parse(&with_http)
+        && let Some(host) = parsed.host()
+        && matches!(host, url::Host::Ipv4(_))
+    {
+        return with_http;
+    }
+
+    if !uri.starts_with("http://") || !uri.starts_with("https://") {
+        return format!("https://{uri}");
+    }
+
+    uri.to_string()
 }
 
 #[allow(missing_docs)]
@@ -620,5 +665,115 @@ mod tests {
         assert_eq!(identity.first_name, Some("Jane".to_string()));
         assert_eq!(identity.last_name, Some("Smith".to_string()));
         assert_eq!(identity.email, Some("jane@example.com".to_string()));
+    }
+
+    #[test]
+    fn test_sanitize_uri_valid_url_unchanged() {
+        assert_eq!(
+            sanitize_uri("https://bitwarden.com"),
+            "https://bitwarden.com"
+        );
+        assert_eq!(
+            sanitize_uri("https://bitwarden.com/path?q=1"),
+            "https://bitwarden.com/path?q=1"
+        );
+        assert_eq!(
+            sanitize_uri("http://192.168.0.1:8080"),
+            "http://192.168.0.1:8080"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_uri_ip_address_gets_http() {
+        assert_eq!(sanitize_uri("192.168.0.1:8080"), "http://192.168.0.1:8080");
+        assert_eq!(sanitize_uri("10.0.0.1"), "http://10.0.0.1");
+        assert_eq!(
+            sanitize_uri("192.168.0.1:8080/path"),
+            "http://192.168.0.1:8080/path"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_uri_non_ip_gets_https() {
+        assert_eq!(sanitize_uri("bitwarden.com"), "https://bitwarden.com");
+        assert_eq!(
+            sanitize_uri("bitwarden.co.uk/login"),
+            "https://bitwarden.co.uk/login"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_uri_broken_http_prefix_unchanged() {
+        // testing parity with iOS logic: expect http:// prepended to input
+        assert_eq!(
+            sanitize_uri("ht tp://bitwarden.com"),
+            "https://ht tp://bitwarden.com"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_uri_schemeless_host_port() {
+        assert_eq!(sanitize_uri("localhost:8080"), "https://localhost:8080");
+    }
+
+    #[test]
+    fn test_sanitize_uri_scheme_on_string() {
+        assert_eq!(sanitize_uri("foo:bar"), "https://foo:bar");
+    }
+
+    #[test]
+    fn test_sanitize_uri_with_real_schemes_no_change() {
+        assert_eq!(
+            sanitize_uri("ftp://files.example.com"),
+            "ftp://files.example.com"
+        );
+        assert_eq!(
+            sanitize_uri("androidapp://com.example"),
+            "androidapp://com.example"
+        );
+    }
+
+    #[test]
+    fn test_login_sanitize_uris() {
+        let mut login = Login {
+            username: None,
+            password: None,
+            login_uris: vec![
+                LoginUri {
+                    uri: Some("https://bitwarden.com".to_string()),
+                    r#match: None,
+                },
+                LoginUri {
+                    uri: Some("192.168.0.1:8080".to_string()),
+                    r#match: None,
+                },
+                LoginUri {
+                    uri: Some("example.com".to_string()),
+                    r#match: None,
+                },
+                LoginUri {
+                    uri: None,
+                    r#match: None,
+                },
+            ],
+            totp: None,
+            fido2_credentials: None,
+        };
+
+        login.sanitize_uris();
+
+        assert_eq!(
+            login.login_uris[0].uri,
+            Some("https://bitwarden.com".to_string())
+        );
+        assert_eq!(
+            login.login_uris[1].uri,
+            Some("http://192.168.0.1:8080".to_string())
+        );
+        assert_eq!(
+            login.login_uris[2].uri,
+            Some("https://example.com".to_string())
+        );
+        assert_eq!(login.login_uris[3].uri, None);
     }
 }

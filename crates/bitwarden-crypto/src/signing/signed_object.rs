@@ -7,10 +7,11 @@ use super::{
     verifying_key::VerifyingKey,
 };
 use crate::{
-    CoseSign1Bytes, CryptoError,
+    CoseSign1Bytes, CryptoError, KEY_ID_SIZE,
     content_format::CoseSign1ContentFormat,
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
+    keys::KeyId,
 };
 
 /// A signed object is a message containing a payload and signature that attests the payload's
@@ -26,11 +27,43 @@ impl From<CoseSign1> for SignedObject {
     }
 }
 
+impl PartialEq for SignedObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_cose() == other.to_cose()
+    }
+}
+
 impl SignedObject {
     /// Parses the signature headers and returns the content type of the signed data. The content
     /// type indicates how the serialized message that was signed was encoded.
     pub fn content_type(&self) -> Result<CoapContentFormat, CryptoError> {
         content_type(&self.0.protected)
+    }
+
+    /// Returns the signing key ID from the COSE protected header.
+    pub fn signed_by_id(&self) -> Result<KeyId, CryptoError> {
+        let key_id_bytes = &self.0.protected.header.key_id;
+        let key_id: [u8; KEY_ID_SIZE] = key_id_bytes
+            .clone()
+            .try_into()
+            .map_err(|_| SignatureError::InvalidSignature)?;
+        Ok(KeyId::from(key_id))
+    }
+
+    /// Deserializes the payload without verifying the signature.
+    /// This is intended for debug logging only, to debug structs without having to explicitly
+    /// verify their signature first. WARNING: YOU MUST NOT USE THIS EXCEPT FOR DEBUG LOGGING.
+    #[doc(hidden)]
+    pub fn dangerous_unverified_decode_do_not_use_except_for_debug_logs<
+        Message: DeserializeOwned,
+    >(
+        &self,
+    ) -> Option<Message> {
+        let payload = self.0.payload.as_deref()?;
+        let content_type = self.content_type().ok()?;
+        SerializedMessage::from_bytes(payload.to_vec(), content_type)
+            .decode()
+            .ok()
     }
 
     fn inner(&self) -> &CoseSign1 {

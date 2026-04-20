@@ -1,10 +1,11 @@
 //! Tests for the bw CLI version flags
 
-use std::process::Command;
+mod common;
+use common::bw;
 
 /// Helper function to test version output
 fn assert_version_output(args: &[&str]) {
-    let output = Command::new(env!("CARGO_BIN_EXE_bw"))
+    let output = bw()
         .args(args)
         .output()
         .expect("Failed to execute bw command");

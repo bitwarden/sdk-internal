@@ -10,7 +10,7 @@ use thiserror::Error;
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
-use crate::{Client, key_management::SymmetricKeyId};
+use crate::{Client, key_management::SymmetricKeySlotId};
 
 /// Response for `new_auth_request`.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -53,6 +53,7 @@ pub(crate) fn auth_request_decrypt_user_key(
     user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     let key = PrivateKey::from_der(&private_key.as_bytes().into())?;
+    #[expect(deprecated)]
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
     Ok(key)
 }
@@ -67,6 +68,7 @@ pub(crate) fn auth_request_decrypt_master_key(
     use bitwarden_crypto::MasterKey;
 
     let key = PrivateKey::from_der(&private_key.as_bytes().into())?;
+    #[expect(deprecated)]
     let master_key: SymmetricCryptoKey = master_key.decapsulate_key_unsigned(&key)?;
     let master_key = MasterKey::try_from(&master_key)?;
 
@@ -95,8 +97,9 @@ pub(crate) fn approve_auth_request(
 
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
-    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
+    #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
@@ -113,7 +116,7 @@ mod tests {
     use crate::{
         UserId,
         key_management::{
-            MasterPasswordUnlockData, SymmetricKeyId,
+            MasterPasswordUnlockData, SymmetricKeySlotId,
             account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
         },
@@ -133,6 +136,7 @@ mod tests {
         let private_key = PrivateKey::from_der(&request.private_key.as_bytes().into()).unwrap();
 
         let secret = BitwardenLegacyKeyBytes::from(secret);
+        #[expect(deprecated)]
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(&secret).unwrap(),
             &private_key.to_public_key(),
@@ -162,6 +166,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
+                &None,
             )
             .unwrap();
 
@@ -236,11 +241,12 @@ mod tests {
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.clone(),
                 },
+                &None,
             )
             .unwrap();
 
         // Initialize a new device which will request to be logged in
-        let new_device = Client::new(None);
+        let new_device = Client::new_test(None);
 
         // Initialize an auth request, and approve it on the existing device
         let auth_req = new_auth_request(email).unwrap();
@@ -260,6 +266,7 @@ mod tests {
                         protected_user_key: approved_req,
                     },
                 },
+                upgrade_token: None,
             })
             .await
             .unwrap();
@@ -271,7 +278,7 @@ mod tests {
             let key_store = existing_device.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -280,7 +287,7 @@ mod tests {
             let key_store = new_device.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };

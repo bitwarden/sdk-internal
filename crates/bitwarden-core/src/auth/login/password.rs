@@ -39,11 +39,14 @@ pub(crate) async fn login_password(
     if let IdentityTokenResponse::Authenticated(r) = &response {
         use crate::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 
-        client.internal.set_tokens(
-            r.access_token.clone(),
-            r.refresh_token.clone(),
-            r.expires_in,
-        );
+        client
+            .internal
+            .set_tokens(
+                r.access_token.clone(),
+                r.refresh_token.clone(),
+                r.expires_in,
+            )
+            .await;
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 
@@ -62,6 +65,7 @@ pub(crate) async fn login_password(
                     input.password.clone(),
                     master_password_unlock.clone(),
                     user_key_state,
+                    &None,
                 )?;
 
             client
@@ -70,7 +74,8 @@ pub(crate) async fn login_password(
                     client_id: "web".to_owned(),
                     email: master_password_unlock.salt,
                     kdf: master_password_unlock.kdf,
-                }));
+                }))
+                .await;
         }
     }
 
@@ -85,7 +90,7 @@ async fn request_identity_tokens(
 ) -> Result<IdentityTokenResponse, LoginError> {
     use crate::DeviceType;
 
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     PasswordTokenRequest::new(
         &input.email,
         password_hash,
@@ -93,7 +98,7 @@ async fn request_identity_tokens(
         "b86dd6ab-4265-4ddf-a7f1-eb28d5677f33",
         &input.two_factor,
     )
-    .send(&config)
+    .send(&config.identity_config)
     .await
 }
 

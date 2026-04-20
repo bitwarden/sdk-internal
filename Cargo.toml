@@ -10,7 +10,7 @@ version = "2.0.0"
 authors = ["Bitwarden Inc"]
 edition = "2024"
 # Important: Changing rust-version should be considered a breaking change
-rust-version = "1.85.1"
+rust-version = "1.88.0"
 homepage = "https://bitwarden.com"
 repository = "https://github.com/bitwarden/sdk-internal"
 license-file = "LICENSE"
@@ -19,8 +19,12 @@ keywords = ["bitwarden"]
 
 # Define dependencies that are expected to be consistent across all crates
 [workspace.dependencies]
+
+# External crates that are expected to maintain a consistent version across all crates
+async-trait = ">=0.1.80, <0.2"
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
+bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=2.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=2.0.0" }
 bitwarden-api-key-connector = { path = "crates/bitwarden-api-key-connector", version = "=2.0.0" }
 bitwarden-auth = { path = "crates/bitwarden-auth", version = "=2.0.0" }
@@ -28,52 +32,61 @@ bitwarden-cli = { path = "crates/bitwarden-cli", version = "=2.0.0" }
 bitwarden-collections = { path = "crates/bitwarden-collections", version = "=2.0.0" }
 bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-vault", version = "=2.0.0" }
 bitwarden-core = { path = "crates/bitwarden-core", version = "=2.0.0" }
+bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=2.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=2.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=2.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=2.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=2.0.0" }
 bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=2.0.0" }
+bitwarden-ffi = { path = "crates/bitwarden-ffi", version = "=2.0.0" }
+bitwarden-ffi-macro = { path = "crates/bitwarden-ffi-macro", version = "=2.0.0" }
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=2.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=2.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
+bitwarden-logging = { path = "crates/bitwarden-logging", version = "=2.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=2.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
+bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=2.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=2.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=2.0.0" }
+bitwarden-sync = { path = "crates/bitwarden-sync", version = "=2.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=2.0.0" }
+bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=2.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=2.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=2.0.0" }
+bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-management", version = "=2.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
-
-# External crates that are expected to maintain a consistent version across all crates
-async-trait = ">=0.1.80, <0.2"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",
     "std",
 ], default-features = false }
+ciborium = ">=0.2.2, <0.3"
 data-encoding = ">=2.0, <3"
-ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
+ed25519-dalek = { version = "3.0.0-pre.6" }
 futures = ">=0.3.31, <0.4"
+hmac = "0.13.0"
+http = ">=1.4.0, <2.0"
 js-sys = { version = ">=0.3.72, <0.4" }
 mockall = { version = ">=0.13.1, <0.15" }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
-rand = ">=0.8.5, <0.9"
-reqwest = { version = ">=0.12.5, <0.13", features = [
+rand = ">=0.10.0, <0.11"
+rand_chacha = ">=0.10.0, <0.11"
+reqwest = { version = "0.12.28", features = [
     "json",
     "multipart",
     "http2",
 ], default-features = false }
-reqwest-middleware = { version = ">=0.4.2, <0.5", features = [
+reqwest-middleware = { version = "0.4.2", features = [
     "json",
     "multipart",
 ] }
-rsa = ">=0.9.2, <0.10"
+rsa = "0.10.0-rc.17"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"
@@ -81,7 +94,8 @@ serde_bytes = { version = ">=0.11.17, <0.12.0" }
 serde_json = ">=1.0.96, <2.0"
 serde_qs = ">=0.12.0, <0.16"
 serde_repr = ">=0.1.12, <0.2"
-sha1 = ">=0.10.5, <0.11"
+sha1 = "0.11.0"
+sha2 = "0.11.0"
 subtle = ">=2.5.0, <3.0"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
@@ -95,21 +109,25 @@ tracing-subscriber = { version = "0.3.20", features = [
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
-uniffi = "=0.29.4"
+uniffi = "=0.31.0"
+url = ">=2.5.8, <3.0"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
 validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
-wasm-bindgen = { version = "=0.2.105", features = ["serde-serialize"] }
-wasm-bindgen-cli = "=0.2.105"
-wasm-bindgen-futures = "0.4.55"
-wasm-bindgen-test = "0.3.55"
+wasm-bindgen = { version = "=0.2.114", features = ["serde-serialize"] }
+wasm-bindgen-cli = "=0.2.114"
+wasm-bindgen-futures = "0.4.64"
+wasm-bindgen-test = "0.3.64"
 wiremock = ">=0.6.0, <0.7"
+zeroize = { version = ">=1.7.0, <2.0" }
 zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]
 disallowed-macros = "deny"
-unused_async = "deny"
+unused_async = "warn"
 unwrap_used = "deny"
 string_slice = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
@@ -119,15 +137,6 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]
-
-[patch.crates-io]
-
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
 
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -27,14 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SlackIntegrationApi: Send + Sync {
     /// GET /organizations/integrations/slack/create
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>>;
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/slack/redirect
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>>;
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct SlackIntegrationApiClient {
@@ -50,11 +46,7 @@ impl SlackIntegrationApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SlackIntegrationApi for SlackIntegrationApiClient {
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>> {
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -74,35 +66,12 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("state", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<CreateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>> {
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -115,44 +84,8 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RedirectError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SlackIntegrationApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SlackIntegrationApi::redirect`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RedirectError {
-    UnknownValue(serde_json::Value),
 }

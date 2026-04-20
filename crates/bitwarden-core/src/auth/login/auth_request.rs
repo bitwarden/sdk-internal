@@ -33,7 +33,7 @@ pub(crate) async fn send_new_auth_request(
     email: String,
     device_identifier: String,
 ) -> Result<NewAuthRequestResponse, LoginError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
 
     let auth = new_auth_request(&email)?;
 
@@ -66,7 +66,7 @@ pub(crate) async fn complete_auth_request(
     client: &Client,
     auth_req: NewAuthRequestResponse,
 ) -> Result<(), LoginError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .auth_requests_api()
@@ -87,15 +87,18 @@ pub(crate) async fn complete_auth_request(
         config.device_type,
         &auth_req.device_identifier,
     )
-    .send(&config)
+    .send(&config.identity_config)
     .await?;
 
     if let IdentityTokenResponse::Authenticated(r) = response {
-        client.internal.set_tokens(
-            r.access_token.clone(),
-            r.refresh_token.clone(),
-            r.expires_in,
-        );
+        client
+            .internal
+            .set_tokens(
+                r.access_token.clone(),
+                r.refresh_token.clone(),
+                r.expires_in,
+            )
+            .await;
 
         let method = match res.master_password_hash {
             Some(_) => AuthRequestMethod::MasterKey {
@@ -135,6 +138,7 @@ pub(crate) async fn complete_auth_request(
                     request_private_key: auth_req.private_key,
                     method,
                 },
+                upgrade_token: None,
             })
             .await?;
 

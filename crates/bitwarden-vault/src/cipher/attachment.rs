@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherAttachmentModel;
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
     OctetStreamBytes, PrimitiveEncryptable,
@@ -64,9 +64,9 @@ pub struct AttachmentView {
 impl AttachmentView {
     pub(crate) fn reencrypt_key(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        old_key: SymmetricKeyId,
-        new_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        old_key: SymmetricKeySlotId,
+        new_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         if let Some(attachment_key) = &mut self.key {
             let tmp_attachment_key_id = ctx.unwrap_symmetric_key(old_key, attachment_key)?;
@@ -77,9 +77,9 @@ impl AttachmentView {
 
     pub(crate) fn reencrypt_keys(
         attachment_views: &mut Vec<AttachmentView>,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        old_key: SymmetricKeyId,
-        new_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        old_key: SymmetricKeySlotId,
+        new_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         for attachment in attachment_views {
             attachment.reencrypt_key(ctx, old_key, new_key)?;
@@ -116,24 +116,24 @@ pub struct AttachmentFileView<'a> {
     pub contents: &'a [u8],
 }
 
-impl IdentifyKey<SymmetricKeyId> for AttachmentFileView<'_> {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for AttachmentFileView<'_> {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         self.cipher.key_identifier()
     }
 }
-impl IdentifyKey<SymmetricKeyId> for AttachmentFile {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for AttachmentFile {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         self.cipher.key_identifier()
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, AttachmentEncryptResult>
     for AttachmentFileView<'_>
 {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<AttachmentEncryptResult, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
@@ -169,11 +169,11 @@ fn size_name(size: usize) -> String {
     format!("{} {}", size_round, units[unit])
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Vec<u8>, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
 
@@ -188,11 +188,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Attachment> for AttachmentView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Attachment, CryptoError> {
         Ok(Attachment {
             id: self.id.clone(),
@@ -205,12 +205,15 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Attachment> for AttachmentView
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, AttachmentView> for Attachment {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<AttachmentView, CryptoError> {
+        // Decrypt the file name or return an error if decryption fails
+        let file_name = self.file_name.decrypt(ctx, key)?;
+
         #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
             let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
@@ -228,12 +231,45 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
             url: self.url.clone(),
             size: self.size.clone(),
             size_name: self.size_name.clone(),
-            file_name: self.file_name.decrypt(ctx, key)?,
+            file_name,
             key: self.key.clone(),
             #[cfg(feature = "wasm")]
             decrypted_key: decrypted_key.map(|k| k.to_string()),
         })
     }
+}
+
+/// Decrypts a list of attachments, separating successful decryptions from failures.
+///
+/// Returns a tuple of (successful_attachments, failed_attachments).
+pub(crate) fn decrypt_attachments_with_failures(
+    attachments: &[Attachment],
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+) -> (Vec<AttachmentView>, Vec<AttachmentView>) {
+    let mut successes = Vec::new();
+    let mut failures = Vec::new();
+
+    for attachment in attachments {
+        match attachment.decrypt(ctx, key) {
+            Ok(decrypted) => successes.push(decrypted),
+            Err(e) => {
+                tracing::warn!(attachment_id = ?attachment.id, error = %e, "Failed to decrypt attachment");
+                failures.push(AttachmentView {
+                    id: attachment.id.clone(),
+                    url: attachment.url.clone(),
+                    size: attachment.size.clone(),
+                    size_name: attachment.size_name.clone(),
+                    file_name: None,
+                    key: attachment.key.clone(),
+                    #[cfg(feature = "wasm")]
+                    decrypted_key: None,
+                });
+            }
+        }
+    }
+
+    (successes, failures)
 }
 
 impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment {

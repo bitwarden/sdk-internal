@@ -3,11 +3,13 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
+use std::fmt::Debug;
+
 use coset::{
-    CborSerializable, ContentType, Header, Label,
+    CborSerializable, ContentType, CoseEncrypt0, CoseEncrypt0Builder, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
-use generic_array::GenericArray;
+use hybrid_array::Array;
 use thiserror::Error;
 use tracing::instrument;
 use typenum::U32;
@@ -19,17 +21,25 @@ use crate::{
     xchacha20,
 };
 
+// Custom COSE algorithm values
+// NOTE: Any algorithm value below -65536 is reserved for private use in the IANA allocations and
+// can be used freely.
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
-const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
-
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
+
+// Custom labels for COSE headers
+// NOTE: Any label below -65536 is reserved for private use in the IANA allocations and can be used
+// freely.
 pub(crate) const ARGON2_SALT: i64 = -71001;
 pub(crate) const ARGON2_ITERATIONS: i64 = -71002;
 pub(crate) const ARGON2_MEMORY: i64 = -71003;
 pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
+/// Indicates for any object containing a key (wrapped key, password protected key envelope) which
+/// key ID that contained key has
+pub(crate) const CONTAINED_KEY_ID: i64 = -71005;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
@@ -38,12 +48,102 @@ pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-
 const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
-// Labels
-//
 /// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
-/// The label used for the namespace ensuring strong domain separation when using data envelopes.
-pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
+
+// Domain separation / Namespaces
+//
+// Cryptographic objects are strongly domain separated so that items can only be decrypted
+// in the correct context, making cryptographic analysis significantly easier and preventing
+// misuse of cryptographic objects. For this, there is a partitioning at two layers. First,
+// the object types are partitioned into e.g. EncString, DataEnvelope, Signature, KeyEnvelope, and
+// so on. Second, within each of these types, each of these spans their own namespace for usages.
+// For instance, a DataEnvelope may describe that the contained item is only valid as a vault item,
+// or as account settings.
+
+/// MUST be placed in the protected header of cose objects
+pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SafeObjectNamespace {
+    PasswordProtectedKeyEnvelope = 1,
+    DataEnvelope = 2,
+    SymmetricKeyEnvelope = 3,
+    //Reserved:
+    //PrivateKeyEnvelope = 4,
+    //SigningKeyEnvelope = 5,
+}
+
+impl TryFrom<i128> for SafeObjectNamespace {
+    type Error = ();
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(SafeObjectNamespace::PasswordProtectedKeyEnvelope),
+            2 => Ok(SafeObjectNamespace::DataEnvelope),
+            3 => Ok(SafeObjectNamespace::SymmetricKeyEnvelope),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<SafeObjectNamespace> for i128 {
+    fn from(namespace: SafeObjectNamespace) -> Self {
+        namespace as i128
+    }
+}
+
+pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq + Debug {}
+
+/// Each type of object has it's own namespace for strong domain separation to eliminate
+/// attacks which attempt to confuse object types. For signatures, this refers to signature
+/// namespaces, for data envelopes to data envelope namespaces and so on.
+pub(crate) const SAFE_CONTENT_NAMESPACE: i64 = -80001;
+
+const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
+
+/// Encrypt a plaintext message with a given key
+pub(crate) fn encrypt_cose(
+    cose_encrypt0_builder: CoseEncrypt0Builder,
+    plaintext: &[u8],
+    key: &XChaCha20Poly1305Key,
+) -> CoseEncrypt0 {
+    let mut nonce = [0u8; xchacha20::NONCE_SIZE];
+    cose_encrypt0_builder
+        .create_ciphertext(plaintext, &[], |data, aad| {
+            let ciphertext =
+                crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
+            nonce = ciphertext.nonce();
+            ciphertext.encrypted_bytes().to_vec()
+        })
+        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
+        .build()
+}
+
+pub struct DecryptFailed;
+/// Decrypt a CoseEncrypt0 message with a CoseKey
+pub(crate) fn decrypt_cose(
+    cose_encrypt0: &CoseEncrypt0,
+    key: &XChaCha20Poly1305Key,
+) -> Result<Vec<u8>, DecryptFailed> {
+    let nonce: [u8; xchacha20::NONCE_SIZE] = cose_encrypt0
+        .unprotected
+        .iv
+        .clone()
+        .try_into()
+        .map_err(|_| DecryptFailed)?;
+    cose_encrypt0
+        .clone()
+        .decrypt_ciphertext(
+            &[],
+            || CryptoError::MissingField("ciphertext"),
+            |data, aad| {
+                xchacha20::decrypt_xchacha20_poly1305(&nonce, &(*key.enc_key).into(), data, aad)
+            },
+        )
+        .map_err(|_| DecryptFailed)
+}
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
@@ -54,7 +154,9 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     let mut plaintext = plaintext.to_vec();
 
     let header_builder: coset::HeaderBuilder = content_format.into();
-    let mut protected_header = header_builder.key_id(key.key_id.to_vec()).build();
+    let mut protected_header = header_builder
+        .key_id(key.key_id.as_slice().to_vec())
+        .build();
     // This should be adjusted to use the builder pattern once implemented in coset.
     // The related coset upstream issue is:
     // https://github.com/google/coset/issues/105
@@ -106,7 +208,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     let content_format = ContentFormat::try_from(&msg.protected.header)
         .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
 
-    if key.key_id != *msg.protected.header.key_id {
+    if key.key_id.as_slice() != msg.protected.header.key_id {
         return Err(CryptoError::WrongCoseKeyId);
     }
 
@@ -173,12 +275,9 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
 
         match alg {
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
-                // Ensure the length is correct since `GenericArray::clone_from_slice` panics if it
-                // receives the wrong length.
-                if key_bytes.len() != xchacha20::KEY_SIZE {
-                    return Err(CryptoError::InvalidKey);
-                }
-                let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(key_bytes));
+                let enc_key = Box::pin(
+                    Array::<u8, U32>::try_from(key_bytes).map_err(|_| CryptoError::InvalidKey)?,
+                );
                 let key_id = cose_key
                     .key_id
                     .as_slice()
@@ -315,9 +414,25 @@ pub(crate) enum CoseExtractError {
     MissingValue(String),
 }
 
+/// Helper function to convert a COSE KeyOperation to a debug string
+pub(crate) fn debug_key_operation(key_operation: KeyOperation) -> &'static str {
+    match key_operation {
+        KeyOperation::Sign => "Sign",
+        KeyOperation::Verify => "Verify",
+        KeyOperation::Encrypt => "Encrypt",
+        KeyOperation::Decrypt => "Decrypt",
+        KeyOperation::WrapKey => "WrapKey",
+        KeyOperation::UnwrapKey => "UnwrapKey",
+        KeyOperation::DeriveKey => "DeriveKey",
+        KeyOperation::DeriveBits => "DeriveBits",
+        _ => "Unknown",
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::keys::KeyId;
 
     const KEY_ID: [u8; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
     const KEY_DATA: [u8; 32] = [
@@ -398,8 +513,8 @@ mod test {
     #[test]
     fn test_decrypt_test_vector() {
         let key = XChaCha20Poly1305Key {
-            key_id: KEY_ID,
-            enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            key_id: KeyId::from(KEY_ID),
+            enc_key: Box::pin(Array::from(KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -419,8 +534,8 @@ mod test {
     #[test]
     fn test_fail_wrong_key_id() {
         let key = XChaCha20Poly1305Key {
-            key_id: [1; 16], // Different key ID
-            enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            key_id: KeyId::from([1; 16]), // Different key ID
+            enc_key: Box::pin(Array::from(KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -449,8 +564,8 @@ mod test {
         let serialized_message = CoseEncrypt0Bytes::from(cose_encrypt0.to_vec().unwrap());
 
         let key = XChaCha20Poly1305Key {
-            key_id: KEY_ID,
-            enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            key_id: KeyId::from(KEY_ID),
+            enc_key: Box::pin(Array::from(KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,

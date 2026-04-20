@@ -11,16 +11,18 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
-#[cfg(feature = "wasm")]
-use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::DecryptCipherListResult, cipher_client::admin::CipherAdminClient,
+    cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
+    cipher_client::admin::CipherAdminClient,
 };
+#[cfg(feature = "wasm")]
+use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
 mod create;
 mod delete;
+mod delete_attachment;
 mod edit;
 mod get;
 mod restore;
@@ -35,7 +37,10 @@ pub struct CiphersClient {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     #[allow(missing_docs)]
-    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<EncryptionContext, EncryptError> {
+    pub async fn encrypt(
+        &self,
+        mut cipher_view: CipherView,
+    ) -> Result<EncryptionContext, EncryptError> {
         let user_id = self
             .client
             .internal
@@ -50,6 +55,7 @@ impl CiphersClient {
                 .client
                 .internal
                 .get_flags()
+                .await
                 .enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
@@ -74,7 +80,7 @@ impl CiphersClient {
     /// generated using the new key. Otherwise, the cipher's data will be encrypted with the new
     /// key directly.
     #[cfg(feature = "wasm")]
-    pub fn encrypt_cipher_for_rotation(
+    pub async fn encrypt_cipher_for_rotation(
         &self,
         mut cipher_view: CipherView,
         new_key: B64,
@@ -86,19 +92,20 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
+        let enable_cipher_key_encryption = self
+            .client
+            .internal
+            .get_flags()
+            .await
+            .enable_cipher_key_encryption;
+
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
 
         // Set the new key in the key store context
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
-        if cipher_view.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .enable_cipher_key_encryption
-        {
+        if cipher_view.key.is_none() && enable_cipher_key_encryption {
             cipher_view.generate_cipher_key(&mut ctx, new_key_id)?;
         } else {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
@@ -112,27 +119,121 @@ impl CiphersClient {
         })
     }
 
-    #[allow(missing_docs)]
-    pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
+    /// Encrypt a list of cipher views.
+    ///
+    /// This method attempts to encrypt all ciphers in the list. If any cipher
+    /// fails to encrypt, the entire operation fails and an error is returned.
+    #[cfg(feature = "wasm")]
+    pub async fn encrypt_list(
+        &self,
+        cipher_views: Vec<CipherView>,
+    ) -> Result<Vec<EncryptionContext>, EncryptError> {
+        let user_id = self
+            .client
+            .internal
+            .get_user_id()
+            .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let cipher_view = key_store.decrypt(&cipher)?;
-        Ok(cipher_view)
+        let enable_cipher_key = self
+            .client
+            .internal
+            .get_flags()
+            .await
+            .enable_cipher_key_encryption;
+
+        let mut ctx = key_store.context();
+
+        let prepared_views: Vec<CipherView> = cipher_views
+            .into_iter()
+            .map(|mut cv| {
+                if cv.key.is_none() && enable_cipher_key {
+                    let key = cv.key_identifier();
+                    cv.generate_cipher_key(&mut ctx, key)?;
+                }
+                Ok(cv)
+            })
+            .collect::<Result<Vec<_>, bitwarden_crypto::CryptoError>>()?;
+
+        let ciphers: Vec<Cipher> = key_store.encrypt_list(&prepared_views)?;
+
+        Ok(ciphers
+            .into_iter()
+            .map(|cipher| EncryptionContext {
+                cipher,
+                encrypted_for: user_id,
+            })
+            .collect())
     }
 
     #[allow(missing_docs)]
-    pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, DecryptError> {
+    pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        let cipher_views = key_store.decrypt_list(&ciphers)?;
-        Ok(cipher_views)
+        if self.is_strict_decrypt().await {
+            Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+        } else {
+            Ok(key_store.decrypt(&cipher)?)
+        }
+    }
+
+    #[allow(missing_docs)]
+    pub async fn decrypt_list(
+        &self,
+        ciphers: Vec<Cipher>,
+    ) -> Result<Vec<CipherListView>, DecryptError> {
+        let key_store = self.client.internal.get_key_store();
+        if self.is_strict_decrypt().await {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            Ok(key_store.decrypt_list(&strict)?)
+        } else {
+            Ok(key_store.decrypt_list(&ciphers)?)
+        }
     }
 
     /// Decrypt cipher list with failures
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
-    pub fn decrypt_list_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
+    pub async fn decrypt_list_with_failures(
+        &self,
+        ciphers: Vec<Cipher>,
+    ) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
+        if self.is_strict_decrypt().await {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
+        }
+    }
+
+    /// Decrypt full cipher list
+    /// Returns both successfully fully decrypted ciphers and any that failed to decrypt
+    #[cfg(feature = "wasm")]
+    pub async fn decrypt_list_full_with_failures(
+        &self,
+        ciphers: Vec<Cipher>,
+    ) -> DecryptCipherResult {
+        let key_store = self.client.internal.get_key_store();
+        if self.is_strict_decrypt().await {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            return DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            };
+        }
         let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
 
-        DecryptCipherListResult {
+        DecryptCipherResult {
             successes,
             failures: failures.into_iter().cloned().collect(),
         }
@@ -201,6 +302,14 @@ impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
         Ok(self.client.platform().state().get::<Cipher>()?)
     }
+
+    async fn is_strict_decrypt(&self) -> bool {
+        self.client
+            .internal
+            .get_flags()
+            .await
+            .strict_cipher_decryption
+    }
 }
 
 #[cfg(test)]
@@ -211,7 +320,7 @@ mod tests {
     use bitwarden_crypto::CryptoError;
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, Login, LoginView, VaultClientExt};
+    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -254,11 +363,12 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "wasm")]
     fn test_cipher_view() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
             r#type: CipherType::Login,
-            login: Some(LoginView {
+            login: Some(crate::LoginView {
                 username: Some("test_username".to_string()),
                 password: Some("test_password".to_string()),
                 password_revision_date: None,
@@ -286,6 +396,7 @@ mod tests {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: None,
             password_history: None,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
@@ -357,7 +468,7 @@ mod tests {
                 archived_date: None,
                 data: None,
             }])
-
+            .await
             .unwrap();
 
         assert_eq!(dec[0].name, "Test item");
@@ -372,7 +483,8 @@ mod tests {
         let result = client
             .vault()
             .ciphers()
-            .decrypt_list_with_failures(vec![valid_cipher]);
+            .decrypt_list_with_failures(vec![valid_cipher])
+            .await;
 
         assert_eq!(result.successes.len(), 1);
         assert!(result.failures.is_empty());
@@ -389,7 +501,11 @@ mod tests {
 
         let ciphers = vec![valid_cipher, invalid_cipher.clone()];
 
-        let result = client.vault().ciphers().decrypt_list_with_failures(ciphers);
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_with_failures(ciphers)
+            .await;
 
         assert_eq!(result.successes.len(), 1);
         assert_eq!(result.failures.len(), 1);
@@ -404,7 +520,12 @@ mod tests {
         let mut cipher = test_cipher();
         cipher.attachments = Some(vec![test_attachment_legacy()]);
 
-        let view = client.vault().ciphers().decrypt(cipher.clone()).unwrap();
+        let view = client
+            .vault()
+            .ciphers()
+            .decrypt(cipher.clone())
+            .await
+            .unwrap();
 
         //  Move cipher to organization
         let res = client.vault().ciphers().move_to_organization(
@@ -423,7 +544,12 @@ mod tests {
         let attachment = test_attachment_legacy();
         cipher.attachments = Some(vec![attachment.clone()]);
 
-        let view = client.vault().ciphers().decrypt(cipher.clone()).unwrap();
+        let view = client
+            .vault()
+            .ciphers()
+            .decrypt(cipher.clone())
+            .await
+            .unwrap();
 
         assert!(cipher.key.is_none());
 
@@ -431,10 +557,10 @@ mod tests {
         let EncryptionContext {
             cipher: new_cipher,
             encrypted_for: _,
-        } = client.vault().ciphers().encrypt(view).unwrap();
+        } = client.vault().ciphers().encrypt(view).await.unwrap();
         assert!(new_cipher.key.is_some());
 
-        let view = client.vault().ciphers().decrypt(new_cipher).unwrap();
+        let view = client.vault().ciphers().decrypt(new_cipher).await.unwrap();
         let attachments = view.clone().attachments.unwrap();
         let attachment_view = attachments.first().unwrap().clone();
         assert!(attachment_view.key.is_none());
@@ -465,7 +591,12 @@ mod tests {
         let attachment = test_attachment_v2();
         cipher.attachments = Some(vec![attachment.clone()]);
 
-        let view = client.vault().ciphers().decrypt(cipher.clone()).unwrap();
+        let view = client
+            .vault()
+            .ciphers()
+            .decrypt(cipher.clone())
+            .await
+            .unwrap();
 
         assert!(cipher.key.is_none());
 
@@ -473,13 +604,14 @@ mod tests {
         let EncryptionContext {
             cipher: new_cipher,
             encrypted_for: _,
-        } = client.vault().ciphers().encrypt(view).unwrap();
+        } = client.vault().ciphers().encrypt(view).await.unwrap();
         assert!(new_cipher.key.is_some());
 
         let view = client
             .vault()
             .ciphers()
             .decrypt(new_cipher.clone())
+            .await
             .unwrap();
         let attachments = view.clone().attachments.unwrap();
         let attachment_view = attachments.first().unwrap().clone();
@@ -520,7 +652,7 @@ mod tests {
         let EncryptionContext {
             cipher: new_cipher,
             encrypted_for: _,
-        } = client.vault().ciphers().encrypt(new_view).unwrap();
+        } = client.vault().ciphers().encrypt(new_view).await.unwrap();
 
         let attachment = new_cipher
             .clone()
@@ -547,6 +679,84 @@ mod tests {
 
     #[tokio::test]
     #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_all_success() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let valid_cipher = test_cipher();
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(vec![valid_cipher])
+            .await;
+
+        assert_eq!(result.successes.len(), 1);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].name, "234234");
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_mixed_results() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let valid_cipher = test_cipher();
+        let mut invalid_cipher = test_cipher();
+        // Set an invalid encrypted key to cause decryption failure
+        invalid_cipher.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+
+        let ciphers = vec![valid_cipher, invalid_cipher.clone()];
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(ciphers)
+            .await;
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.failures.len(), 1);
+
+        assert_eq!(result.successes[0].name, "234234");
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_all_failures() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let mut invalid_cipher1 = test_cipher();
+        let mut invalid_cipher2 = test_cipher();
+        // Set invalid encrypted keys to cause decryption failures
+        invalid_cipher1.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+        invalid_cipher2.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+
+        let ciphers = vec![invalid_cipher1, invalid_cipher2];
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(ciphers)
+            .await;
+
+        assert!(result.successes.is_empty());
+        assert_eq!(result.failures.len(), 2);
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_empty_list() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(vec![])
+            .await;
+
+        assert!(result.successes.is_empty());
+        assert!(result.failures.is_empty());
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
@@ -559,14 +769,92 @@ mod tests {
             .vault()
             .ciphers()
             .encrypt_cipher_for_rotation(cipher_view, new_key_b64)
+            .await
             .unwrap();
 
         assert!(ctx.cipher.key.is_some());
 
         // Decrypting the cipher "normally" will fail because it was encrypted with a new key
         assert!(matches!(
-            client.vault().ciphers().decrypt(ctx.cipher).err(),
+            client.vault().ciphers().decrypt(ctx.cipher).await.err(),
             Some(DecryptError::Crypto(CryptoError::Decrypt))
         ));
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn test_encrypt_list() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let cipher_views = vec![test_cipher_view(), test_cipher_view()];
+
+        let result = client.vault().ciphers().encrypt_list(cipher_views).await;
+
+        assert!(result.is_ok());
+        let contexts = result.unwrap();
+        assert_eq!(contexts.len(), 2);
+
+        // Verify each encrypted cipher has a key (cipher key encryption is enabled)
+        for ctx in &contexts {
+            assert!(ctx.cipher.key.is_some());
+        }
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn test_encrypt_list_empty() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client.vault().ciphers().encrypt_list(vec![]).await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn test_encrypt_list_roundtrip() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let original_views = vec![test_cipher_view(), test_cipher_view()];
+        let original_names: Vec<_> = original_views.iter().map(|v| v.name.clone()).collect();
+
+        let contexts = client
+            .vault()
+            .ciphers()
+            .encrypt_list(original_views)
+            .await
+            .unwrap();
+
+        // Decrypt each cipher and verify the name matches
+        for (ctx, original_name) in contexts.iter().zip(original_names.iter()) {
+            let decrypted = client
+                .vault()
+                .ciphers()
+                .decrypt(ctx.cipher.clone())
+                .await
+                .unwrap();
+            assert_eq!(&decrypted.name, original_name);
+        }
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn test_encrypt_list_preserves_user_id() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let expected_user_id = client.internal.get_user_id().unwrap();
+
+        let cipher_views = vec![test_cipher_view(), test_cipher_view(), test_cipher_view()];
+        let contexts = client
+            .vault()
+            .ciphers()
+            .encrypt_list(cipher_views)
+            .await
+            .unwrap();
+
+        for ctx in contexts {
+            assert_eq!(ctx.encrypted_for, expected_user_id);
+        }
     }
 }

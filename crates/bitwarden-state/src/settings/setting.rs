@@ -21,7 +21,7 @@ use crate::{
 pub struct SettingItem(pub(crate) serde_json::Value);
 
 // Register SettingItem for repository usage
-crate::register_repository_item!(SettingItem, "Setting");
+crate::register_repository_item!(String => SettingItem, "Setting");
 
 /// A handle to a single setting value in storage.
 ///

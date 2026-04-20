@@ -12,7 +12,7 @@ use crate::{
 /// This function generates a new user key and key pair, initializes the client's crypto with the
 /// generated user key, and encrypts the user key with the organization public key for admin
 /// password reset. If remember_device is true, it also generates a device key.
-pub(super) fn make_register_tde_keys(
+pub(super) async fn make_register_tde_keys(
     client: &Client,
     email: String,
     org_public_key: B64,
@@ -23,6 +23,7 @@ pub(super) fn make_register_tde_keys(
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;
 
+    #[expect(deprecated)]
     let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key.0, &public_key)?;
 
     let device_key = if remember_device {
@@ -38,6 +39,7 @@ pub(super) fn make_register_tde_keys(
         WrappedAccountCryptographicState::V1 {
             private_key: key_pair.private.clone(),
         },
+        &None,
     )?;
 
     client
@@ -48,7 +50,8 @@ pub(super) fn make_register_tde_keys(
                 email,
                 kdf: Kdf::default_pbkdf2(),
             },
-        ));
+        ))
+        .await;
 
     Ok(RegisterTdeKeyResponse {
         private_key: key_pair.private,

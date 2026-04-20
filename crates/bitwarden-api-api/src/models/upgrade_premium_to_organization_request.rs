@@ -18,24 +18,39 @@ pub struct UpgradePremiumToOrganizationRequest {
     pub organization_name: String,
     #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "tier", alias = "Tier")]
-    pub tier: models::ProductTierType,
-    #[serde(rename = "cadence", alias = "Cadence")]
-    pub cadence: models::PlanCadenceType,
+    #[serde(rename = "publicKey", alias = "PublicKey")]
+    pub public_key: String,
+    #[serde(rename = "encryptedPrivateKey", alias = "EncryptedPrivateKey")]
+    pub encrypted_private_key: String,
+    #[serde(
+        rename = "collectionName",
+        alias = "CollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub collection_name: Option<String>,
+    #[serde(rename = "targetProductTierType", alias = "TargetProductTierType")]
+    pub target_product_tier_type: models::ProductTierType,
+    #[serde(rename = "billingAddress", alias = "BillingAddress")]
+    pub billing_address: Box<models::CheckoutBillingAddressRequest>,
 }
 
 impl UpgradePremiumToOrganizationRequest {
     pub fn new(
         organization_name: String,
         key: String,
-        tier: models::ProductTierType,
-        cadence: models::PlanCadenceType,
+        public_key: String,
+        encrypted_private_key: String,
+        target_product_tier_type: models::ProductTierType,
+        billing_address: models::CheckoutBillingAddressRequest,
     ) -> UpgradePremiumToOrganizationRequest {
         UpgradePremiumToOrganizationRequest {
             organization_name,
             key,
-            tier,
-            cadence,
+            public_key,
+            encrypted_private_key,
+            collection_name: None,
+            target_product_tier_type,
+            billing_address: Box::new(billing_address),
         }
     }
 }

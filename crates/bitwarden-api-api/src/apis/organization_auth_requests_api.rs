@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -33,16 +33,13 @@ pub trait OrganizationAuthRequestsApi: Send + Sync {
         bulk_deny_admin_auth_request_request_model: Option<
             models::BulkDenyAdminAuthRequestRequestModel,
         >,
-    ) -> Result<(), Error<BulkDenyRequestsError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/auth-requests
     async fn get_pending_requests<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::PendingOrganizationAuthRequestResponseModelListResponseModel,
-        Error<GetPendingRequestsError>,
-    >;
+    ) -> Result<models::PendingOrganizationAuthRequestResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{orgId}/auth-requests/{requestId}
     async fn update_auth_request<'a>(
@@ -50,7 +47,7 @@ pub trait OrganizationAuthRequestsApi: Send + Sync {
         org_id: uuid::Uuid,
         request_id: uuid::Uuid,
         admin_auth_request_update_request_model: Option<models::AdminAuthRequestUpdateRequestModel>,
-    ) -> Result<(), Error<UpdateAuthRequestError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/auth-requests
     async fn update_many_auth_requests<'a>(
@@ -59,7 +56,7 @@ pub trait OrganizationAuthRequestsApi: Send + Sync {
         organization_auth_request_update_many_request_model: Option<
             Vec<models::OrganizationAuthRequestUpdateManyRequestModel>,
         >,
-    ) -> Result<(), Error<UpdateManyAuthRequestsError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationAuthRequestsApiClient {
@@ -81,7 +78,7 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         bulk_deny_admin_auth_request_request_model: Option<
             models::BulkDenyAdminAuthRequestRequestModel,
         >,
-    ) -> Result<(), Error<BulkDenyRequestsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -94,43 +91,17 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&bulk_deny_admin_auth_request_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<BulkDenyRequestsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_pending_requests<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::PendingOrganizationAuthRequestResponseModelListResponseModel,
-        Error<GetPendingRequestsError>,
-    > {
+    ) -> Result<models::PendingOrganizationAuthRequestResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -143,50 +114,9 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PendingOrganizationAuthRequestResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PendingOrganizationAuthRequestResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetPendingRequestsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn update_auth_request<'a>(
@@ -194,7 +124,7 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         org_id: uuid::Uuid,
         request_id: uuid::Uuid,
         admin_auth_request_update_request_model: Option<models::AdminAuthRequestUpdateRequestModel>,
-    ) -> Result<(), Error<UpdateAuthRequestError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -208,34 +138,11 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&admin_auth_request_update_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateAuthRequestError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn update_many_auth_requests<'a>(
@@ -244,7 +151,7 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         organization_auth_request_update_many_request_model: Option<
             Vec<models::OrganizationAuthRequestUpdateManyRequestModel>,
         >,
-    ) -> Result<(), Error<UpdateManyAuthRequestsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -257,58 +164,10 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_auth_request_update_many_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateManyAuthRequestsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::bulk_deny_requests`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDenyRequestsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::get_pending_requests`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPendingRequestsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::update_auth_request`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateAuthRequestError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::update_many_auth_requests`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateManyAuthRequestsError {
-    UnknownValue(serde_json::Value),
 }

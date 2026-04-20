@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyIds, KeyStoreContext,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotIds, KeyStoreContext,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
     UnsignedSharedKey,
 };
@@ -36,7 +36,7 @@ pub struct RotateableKeySet {
 impl RotateableKeySet {
     /// Create a set of keys to allow access to the downstream key via the provided
     /// upstream key while allowing the downstream key to be rotated.
-    pub fn new<Ids: KeyIds>(
+    pub fn new<Ids: KeySlotIds>(
         ctx: &KeyStoreContext<Ids>,
         upstream_key: &SymmetricCryptoKey,
         downstream_key_id: Ids::Symmetric,
@@ -49,6 +49,7 @@ impl RotateableKeySet {
         #[allow(deprecated)]
         let downstream_key = ctx.dangerous_get_symmetric_key(downstream_key_id)?;
         // encapsulate downstream key
+        #[expect(deprecated)]
         let encapsulated_downstream_key =
             UnsignedSharedKey::encapsulate_key_unsigned(downstream_key, &key_pair.to_public_key())?;
 
@@ -75,7 +76,7 @@ impl RotateableKeySet {
     // TODO: Eventually, the webauthn-login-strategy service should be migrated
     // to use this method, and we can remove the #[allow(dead_code)] attribute.
     #[allow(dead_code)]
-    fn unlock<Ids: KeyIds>(
+    fn unlock<Ids: KeySlotIds>(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         upstream_key: &SymmetricCryptoKey,
@@ -85,6 +86,7 @@ impl RotateableKeySet {
             .encrypted_decapsulation_key
             .decrypt_with_key(upstream_key)?;
         let decapsulation_key = PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(priv_key_bytes))?;
+        #[expect(deprecated)]
         let downstream_key = self
             .encapsulated_downstream_key
             .decapsulate_key_unsigned(&decapsulation_key)?;
@@ -95,7 +97,7 @@ impl RotateableKeySet {
 }
 
 #[allow(dead_code)]
-fn rotate_key_set<Ids: KeyIds>(
+fn rotate_key_set<Ids: KeySlotIds>(
     ctx: &KeyStoreContext<Ids>,
     key_set: RotateableKeySet,
     old_downstream_key_id: Ids::Symmetric,
@@ -111,6 +113,7 @@ fn rotate_key_set<Ids: KeyIds>(
     // have pull out the downstream key to encapsulate it manually.
     #[allow(deprecated)]
     let new_downstream_key = ctx.dangerous_get_symmetric_key(new_downstream_key_id)?;
+    #[expect(deprecated)]
     let new_encapsulated_key =
         UnsignedSharedKey::encapsulate_key_unsigned(new_downstream_key, &encapsulation_key)?;
     let new_encrypted_encapsulation_key = pub_key.encrypt_with_key(new_downstream_key)?;

@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 
 mod create;
 mod delete;
+mod delete_attachment;
 mod edit;
 mod get;
 mod restore;
@@ -13,4 +14,14 @@ mod restore;
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CipherAdminClient {
     pub(crate) client: Client,
+}
+
+impl CipherAdminClient {
+    async fn is_strict_decrypt(&self) -> bool {
+        self.client
+            .internal
+            .get_flags()
+            .await
+            .strict_cipher_decryption
+    }
 }

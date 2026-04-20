@@ -17,13 +17,19 @@
 //! checking of the content format, and the risk of using the wrong content format is limited to
 //! converting untyped bytes into a `Bytes<C>`
 
-use crate::{ContentFormat, CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
+use crate::{ContentFormat, CryptoError, EncString, KeySlotId, KeySlotIds, store::KeyStoreContext};
 
 /// An encryption operation that takes the input value and encrypts the fields on it recursively.
 /// Implementations should generally consist of calling [PrimitiveEncryptable::encrypt] for all the
 /// fields of the type. Sometimes, it is necessary to call
 /// [CompositeEncryptable::encrypt_composite], if the object is not a flat struct.
-pub trait CompositeEncryptable<Ids: KeyIds, Key: KeyId, Output> {
+pub trait CompositeEncryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
+    /// # ⚠️ IMPORTANT NOTE ⚠️
+    /// This is not intended to be used for new designs, and only meant to support old designs.
+    /// Composite encryption does not provide integrity over the entire document, just individual
+    /// parts of it and is subject to specific tampering attacks where fields can be rearranged
+    /// or replaced with fields from other documents. Use [`crate::safe::DataEnvelope`] instead!
+    ///
     /// For a struct made up of many small encstrings, such as a cipher, this takes the struct
     /// and recursively encrypts all the fields / sub-structs.
     fn encrypt_composite(
@@ -33,7 +39,7 @@ pub trait CompositeEncryptable<Ids: KeyIds, Key: KeyId, Output> {
     ) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
+impl<Ids: KeySlotIds, Key: KeySlotId, T: CompositeEncryptable<Ids, Key, Output>, Output>
     CompositeEncryptable<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt_composite(
@@ -47,7 +53,7 @@ impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
     }
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
+impl<Ids: KeySlotIds, Key: KeySlotId, T: CompositeEncryptable<Ids, Key, Output>, Output>
     CompositeEncryptable<Ids, Key, Vec<Output>> for Vec<T>
 {
     fn encrypt_composite(
@@ -63,12 +69,16 @@ impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
 
 /// An encryption operation that takes the input value - a primitive such as `String` and encrypts
 /// it into the output value. The implementation decides the content format.
-pub trait PrimitiveEncryptable<Ids: KeyIds, Key: KeyId, Output> {
+pub trait PrimitiveEncryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
+    /// # ⚠️ IMPORTANT NOTE ⚠️
+    /// Most likely, you do not want to use this but want to use [`crate::safe::DataEnvelope`]
+    /// instead.
+    ///
     /// Encrypts a primitive without requiring an externally provided content type
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
+impl<Ids: KeySlotIds, Key: KeySlotId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
     PrimitiveEncryptable<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt(
@@ -82,7 +92,7 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptable<Ids, Key, Output>, Output>
     }
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for &str {
+impl<Ids: KeySlotIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for &str {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -92,7 +102,7 @@ impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for &str 
     }
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for String {
+impl<Ids: KeySlotIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for String {
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -104,7 +114,11 @@ impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for Strin
 
 /// An encryption operation that takes the input value - a primitive such as `Vec<u8>` - and
 /// encrypts it into the output value. The caller must specify the content format.
-pub(crate) trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Output> {
+pub(crate) trait PrimitiveEncryptableWithContentType<Ids: KeySlotIds, Key: KeySlotId, Output> {
+    /// # ⚠️ IMPORTANT NOTE ⚠️
+    /// Most likely, you do not want to use this but want to use [`crate::safe::DataEnvelope`]
+    /// instead.
+    ///
     /// Encrypts a primitive, given an externally provided content type
     fn encrypt(
         &self,
@@ -114,7 +128,9 @@ pub(crate) trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Ou
     ) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for &[u8] {
+impl<Ids: KeySlotIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString>
+    for &[u8]
+{
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -125,7 +141,9 @@ impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncSt
     }
 }
 
-impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString> for Vec<u8> {
+impl<Ids: KeySlotIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncString>
+    for Vec<u8>
+{
     fn encrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -136,8 +154,12 @@ impl<Ids: KeyIds> PrimitiveEncryptableWithContentType<Ids, Ids::Symmetric, EncSt
     }
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, Output>, Output>
-    PrimitiveEncryptableWithContentType<Ids, Key, Option<Output>> for Option<T>
+impl<
+    Ids: KeySlotIds,
+    Key: KeySlotId,
+    T: PrimitiveEncryptableWithContentType<Ids, Key, Output>,
+    Output,
+> PrimitiveEncryptableWithContentType<Ids, Key, Option<Output>> for Option<T>
 {
     fn encrypt(
         &self,
@@ -151,8 +173,12 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, O
     }
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, Output>, Output>
-    PrimitiveEncryptableWithContentType<Ids, Key, Vec<Output>> for Vec<T>
+impl<
+    Ids: KeySlotIds,
+    Key: KeySlotId,
+    T: PrimitiveEncryptableWithContentType<Ids, Key, Output>,
+    Output,
+> PrimitiveEncryptableWithContentType<Ids, Key, Vec<Output>> for Vec<T>
 {
     fn encrypt(
         &self,

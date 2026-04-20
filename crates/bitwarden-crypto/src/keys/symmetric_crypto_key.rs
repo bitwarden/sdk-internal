@@ -2,8 +2,8 @@ use std::pin::Pin;
 
 use bitwarden_encoding::B64;
 use coset::{CborSerializable, RegisteredLabelWithPrivate, iana::KeyOperation};
-use generic_array::GenericArray;
-use rand::Rng;
+use hybrid_array::Array;
+use rand::RngExt;
 #[cfg(test)]
 use rand::SeedableRng;
 #[cfg(test)]
@@ -14,10 +14,7 @@ use subtle::{Choice, ConstantTimeEq};
 use typenum::U32;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{
-    key_encryptable::CryptoKey,
-    key_id::{KEY_ID_SIZE, KeyId},
-};
+use super::{key_encryptable::CryptoKey, key_id::KeyId};
 use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
 
 /// The symmetric key algorithm to use when generating a new symmetric key.
@@ -35,7 +32,7 @@ pub enum SymmetricKeyAlgorithm {
 #[derive(ZeroizeOnDrop, Clone)]
 pub struct Aes256CbcKey {
     /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
 }
 
 impl ConstantTimeEq for Aes256CbcKey {
@@ -55,9 +52,9 @@ impl PartialEq for Aes256CbcKey {
 #[derive(ZeroizeOnDrop, Clone)]
 pub struct Aes256CbcHmacKey {
     /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
     /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-    pub(crate) mac_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) mac_key: Pin<Box<Array<u8, U32>>>,
 }
 
 impl ConstantTimeEq for Aes256CbcHmacKey {
@@ -78,8 +75,8 @@ impl PartialEq for Aes256CbcHmacKey {
 /// CoseEncrypt0 messages.
 #[derive(Zeroize, Clone)]
 pub struct XChaCha20Poly1305Key {
-    pub(crate) key_id: [u8; KEY_ID_SIZE],
-    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
+    pub(crate) key_id: KeyId,
+    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
     /// Controls which key operations are allowed with this key. Note: Only checking decrypt is
     /// implemented right now, and implementing is tracked here <https://bitwarden.atlassian.net/browse/PM-27513>.
     /// Further, disabling decrypt will also disable unwrap. The only use-case so far is
@@ -91,11 +88,10 @@ pub struct XChaCha20Poly1305Key {
 impl XChaCha20Poly1305Key {
     /// Creates a new XChaCha20Poly1305Key with a securely sampled cryptographic key and key id.
     pub fn make() -> Self {
-        let mut rng = rand::thread_rng();
-        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+        let mut rng = rand::rng();
+        let mut enc_key = Box::pin(Array::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
-        let mut key_id = [0u8; KEY_ID_SIZE];
-        rng.fill(&mut key_id);
+        let key_id = KeyId::make();
 
         Self {
             enc_key,
@@ -150,11 +146,9 @@ impl SymmetricCryptoKey {
     /// WARNING: This function should only be used with a proper cryptographic RNG. If you do not
     /// have a good reason for using this function, use
     /// [SymmetricCryptoKey::make_aes256_cbc_hmac_key] instead.
-    pub(crate) fn make_aes256_cbc_hmac_key_internal(
-        mut rng: impl rand::RngCore + rand::CryptoRng,
-    ) -> Self {
-        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-        let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+    pub(crate) fn make_aes256_cbc_hmac_key_internal(mut rng: impl rand::CryptoRng) -> Self {
+        let mut enc_key = Box::pin(Array::<u8, U32>::default());
+        let mut mac_key = Box::pin(Array::<u8, U32>::default());
 
         rng.fill(enc_key.as_mut_slice());
         rng.fill(mac_key.as_mut_slice());
@@ -172,18 +166,18 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random AES256_CBC_HMAC [SymmetricCryptoKey]
     pub fn make_aes256_cbc_hmac_key() -> Self {
-        let rng = rand::thread_rng();
+        let rng = rand::rng();
         Self::make_aes256_cbc_hmac_key_internal(rng)
     }
 
     /// Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
     pub fn make_xchacha20_poly1305_key() -> Self {
-        let mut rng = rand::thread_rng();
-        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+        let mut rng = rand::rng();
+        let mut enc_key = Box::pin(Array::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
         Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key,
-            key_id: KeyId::make().into(),
+            key_id: KeyId::make(),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -222,8 +216,8 @@ impl SymmetricCryptoKey {
     pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
         // Keep this separate from the other generate function to not break test vectors.
         let mut seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());
-        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
-        let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+        let mut enc_key = Box::pin(Array::<u8, U32>::default());
+        let mut mac_key = Box::pin(Array::<u8, U32>::default());
 
         seeded_rng.fill(enc_key.as_mut_slice());
         seeded_rng.fill(mac_key.as_mut_slice());
@@ -255,7 +249,7 @@ impl SymmetricCryptoKey {
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
-                let mut cose_key = builder.key_id(key.key_id.to_vec());
+                let mut cose_key = builder.key_id((&key.key_id).into());
                 for op in &key.supported_operations {
                     cose_key = cose_key.add_key_op(*op);
                 }
@@ -283,6 +277,16 @@ impl SymmetricCryptoKey {
     #[allow(missing_docs)]
     pub fn to_base64(&self) -> B64 {
         B64::from(self.to_encoded().as_ref())
+    }
+
+    /// Returns the key ID of the key, if it has one. Only
+    /// [SymmetricCryptoKey::XChaCha20Poly1305Key] has a key ID.
+    pub fn key_id(&self) -> Option<KeyId> {
+        match self {
+            Self::Aes256CbcKey(_) => None,
+            Self::Aes256CbcHmacKey(_) => None,
+            Self::XChaCha20Poly1305Key(key) => Some(key.key_id.clone()),
+        }
     }
 }
 
@@ -358,17 +362,17 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
             EncodedSymmetricKey::BitwardenLegacyKey(key)
                 if key.as_ref().len() == Self::AES256_CBC_KEY_LEN =>
             {
-                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+                let mut enc_key = Box::pin(Array::<u8, U32>::default());
                 enc_key.copy_from_slice(&key.as_ref()[..Self::AES256_CBC_KEY_LEN]);
                 Ok(Self::Aes256CbcKey(Aes256CbcKey { enc_key }))
             }
             EncodedSymmetricKey::BitwardenLegacyKey(key)
                 if key.as_ref().len() == Self::AES256_CBC_HMAC_KEY_LEN =>
             {
-                let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+                let mut enc_key = Box::pin(Array::<u8, U32>::default());
                 enc_key.copy_from_slice(&key.as_ref()[..32]);
 
-                let mut mac_key = Box::pin(GenericArray::<u8, U32>::default());
+                let mut mac_key = Box::pin(Array::<u8, U32>::default());
                 mac_key.copy_from_slice(&key.as_ref()[32..]);
 
                 Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey {
@@ -387,45 +391,48 @@ impl CryptoKey for SymmetricCryptoKey {}
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SymmetricCryptoKey")
-            .field(
-                "inner_type",
-                match self {
-                    SymmetricCryptoKey::Aes256CbcKey(key) => key,
-                    SymmetricCryptoKey::Aes256CbcHmacKey(key) => key,
-                    SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
-                },
-            )
-            .finish()
+        match self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => key.fmt(f),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => key.fmt(f),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.fmt(f),
+        }
     }
 }
 
 impl std::fmt::Debug for Aes256CbcKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("Aes256CbcKey");
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256Cbc");
         #[cfg(feature = "dangerous-crypto-debug")]
-        debug_struct.field("enc_key", &self.enc_key.as_slice());
+        debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
         debug_struct.finish()
     }
 }
 
 impl std::fmt::Debug for Aes256CbcHmacKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("Aes256CbcHmacKey");
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256CbcHmac");
         #[cfg(feature = "dangerous-crypto-debug")]
         debug_struct
-            .field("enc_key", &self.enc_key.as_slice())
-            .field("mac_key", &self.mac_key.as_slice());
+            .field("enc_key", &hex::encode(self.enc_key.as_slice()))
+            .field("mac_key", &hex::encode(self.mac_key.as_slice()));
         debug_struct.finish()
     }
 }
 
 impl std::fmt::Debug for XChaCha20Poly1305Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("XChaCha20Poly1305Key");
+        let mut debug_struct = f.debug_struct("SymmetricKey::XChaCha20Poly1305");
         debug_struct.field("key_id", &self.key_id);
+        debug_struct.field(
+            "supported_operations",
+            &self
+                .supported_operations
+                .iter()
+                .map(|key_operation: &KeyOperation| cose::debug_key_operation(*key_operation))
+                .collect::<Vec<_>>(),
+        );
         #[cfg(feature = "dangerous-crypto-debug")]
-        debug_struct.field("enc_key", &self.enc_key.as_slice());
+        debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
         debug_struct.finish()
     }
 }
@@ -500,14 +507,26 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
 mod tests {
     use bitwarden_encoding::B64;
     use coset::iana::KeyOperation;
-    use generic_array::GenericArray;
+    use hybrid_array::Array;
     use typenum::U32;
 
     use super::{SymmetricCryptoKey, derive_symmetric_key};
     use crate::{
         Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, XChaCha20Poly1305Key,
-        keys::symmetric_crypto_key::{pad_key, unpad_key},
+        keys::{
+            KeyId,
+            symmetric_crypto_key::{pad_key, unpad_key},
+        },
     };
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_key_debug() {
+        let aes_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        println!("{:?}", aes_key);
+        let xchacha_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        println!("{:?}", xchacha_key);
+    }
 
     #[test]
     fn test_symmetric_crypto_key() {
@@ -618,11 +637,11 @@ mod tests {
     #[test]
     fn test_neq_different_key_types() {
         let key1 = SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
-            enc_key: Box::pin(GenericArray::<u8, U32>::default()),
+            enc_key: Box::pin(Array::<u8, U32>::default()),
         });
         let key2 = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
-            enc_key: Box::pin(GenericArray::<u8, U32>::default()),
-            key_id: [0; 16],
+            enc_key: Box::pin(Array::<u8, U32>::default()),
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -636,19 +655,13 @@ mod tests {
     #[test]
     fn test_eq_variant_aes256_cbc() {
         let key1 = Aes256CbcKey {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![1u8; 32].as_slice(),
-            )),
+            enc_key: Box::pin(Array::from([1u8; 32])),
         };
         let key2 = Aes256CbcKey {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![1u8; 32].as_slice(),
-            )),
+            enc_key: Box::pin(Array::from([1u8; 32])),
         };
         let key3 = Aes256CbcKey {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![2u8; 32].as_slice(),
-            )),
+            enc_key: Box::pin(Array::from([2u8; 32])),
         };
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
@@ -657,28 +670,16 @@ mod tests {
     #[test]
     fn test_eq_variant_aes256_cbc_hmac() {
         let key1 = Aes256CbcHmacKey {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![1u8; 32].as_slice(),
-            )),
-            mac_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![2u8; 32].as_slice(),
-            )),
+            enc_key: Box::pin(Array::from([1u8; 32])),
+            mac_key: Box::pin(Array::from([2u8; 32])),
         };
         let key2 = Aes256CbcHmacKey {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![1u8; 32].as_slice(),
-            )),
-            mac_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![2u8; 32].as_slice(),
-            )),
+            enc_key: Box::pin(Array::from([1u8; 32])),
+            mac_key: Box::pin(Array::from([2u8; 32])),
         };
         let key3 = Aes256CbcHmacKey {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![3u8; 32].as_slice(),
-            )),
-            mac_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![4u8; 32].as_slice(),
-            )),
+            enc_key: Box::pin(Array::from([3u8; 32])),
+            mac_key: Box::pin(Array::from([4u8; 32])),
         };
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
@@ -687,10 +688,8 @@ mod tests {
     #[test]
     fn test_eq_variant_xchacha20_poly1305() {
         let key1 = XChaCha20Poly1305Key {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![1u8; 32].as_slice(),
-            )),
-            key_id: [0; 16],
+            enc_key: Box::pin(Array::from([1u8; 32])),
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -699,10 +698,8 @@ mod tests {
             ],
         };
         let key2 = XChaCha20Poly1305Key {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![1u8; 32].as_slice(),
-            )),
-            key_id: [0; 16],
+            enc_key: Box::pin(Array::from([1u8; 32])),
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -711,10 +708,8 @@ mod tests {
             ],
         };
         let key3 = XChaCha20Poly1305Key {
-            enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
-                vec![2u8; 32].as_slice(),
-            )),
-            key_id: [1; 16],
+            enc_key: Box::pin(Array::from([2u8; 32])),
+            key_id: KeyId::from([1; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -729,8 +724,8 @@ mod tests {
     #[test]
     fn test_neq_different_key_id() {
         let key1 = XChaCha20Poly1305Key {
-            enc_key: Box::pin(GenericArray::<u8, U32>::default()),
-            key_id: [0; 16],
+            enc_key: Box::pin(Array::<u8, U32>::default()),
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -739,8 +734,8 @@ mod tests {
             ],
         };
         let key2 = XChaCha20Poly1305Key {
-            enc_key: Box::pin(GenericArray::<u8, U32>::default()),
-            key_id: [1; 16],
+            enc_key: Box::pin(Array::<u8, U32>::default()),
+            key_id: KeyId::from([1; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,

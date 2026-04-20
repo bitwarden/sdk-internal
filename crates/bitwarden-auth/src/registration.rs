@@ -75,7 +75,6 @@ pub struct JitMasterPasswordRegistrationRequest {
 
 /// Client for initializing a user account.
 #[derive(Clone)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct RegistrationClient {
     #[allow(dead_code)]
@@ -88,7 +87,6 @@ impl RegistrationClient {
     }
 }
 
-#[cfg_attr(feature = "uniffi", uniffi::export)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls in
@@ -98,7 +96,7 @@ impl RegistrationClient {
         request: TdeRegistrationRequest,
     ) -> Result<TdeRegistrationResponse, RegistrationError> {
         let client = &self.client.internal;
-        let api_client = &client.get_api_configurations().await.api_client;
+        let api_client = &client.get_api_configurations().api_client;
         internal_post_keys_for_tde_registration(self, api_client, request).await
     }
 
@@ -108,10 +106,9 @@ impl RegistrationClient {
         &self,
         key_connector_url: String,
         sso_org_identifier: String,
-        user_id: UserId,
     ) -> Result<KeyConnectorRegistrationResult, RegistrationError> {
         let client = &self.client.internal;
-        let configuration = &client.get_api_configurations().await;
+        let configuration = &client.get_api_configurations();
         let key_connector_client = client.get_key_connector_client(key_connector_url);
 
         internal_post_keys_for_key_connector_registration(
@@ -119,7 +116,6 @@ impl RegistrationClient {
             &configuration.api_client,
             &key_connector_client,
             sso_org_identifier,
-            user_id,
         )
         .await
     }
@@ -131,7 +127,7 @@ impl RegistrationClient {
         request: JitMasterPasswordRegistrationRequest,
     ) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
         let client = &self.client.internal;
-        let api_client = &client.get_api_configurations().await.api_client;
+        let api_client = &client.get_api_configurations().api_client;
         internal_post_keys_for_jit_password_registration(self, api_client, request).await
     }
 }
@@ -146,7 +142,7 @@ async fn internal_post_keys_for_tde_registration(
     let tde_registration_crypto_result = registration_client
         .client
         .crypto()
-        .make_user_tde_registration(request.user_id, request.org_public_key.clone())
+        .make_user_tde_registration(request.org_public_key.clone())
         .map_err(|_| RegistrationError::Crypto)?;
 
     // Post the generated keys to the API here. The user now has keys and is "registered", but
@@ -265,14 +261,13 @@ async fn internal_post_keys_for_key_connector_registration(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
     sso_org_identifier: String,
-    user_id: UserId,
 ) -> Result<KeyConnectorRegistrationResult, RegistrationError> {
     // First call crypto API to get all keys
     info!("Initializing account cryptography");
     let registration_crypto_result = registration_client
         .client
         .crypto()
-        .make_user_key_connector_registration(user_id)
+        .make_user_key_connector_registration()
         .map_err(|_| RegistrationError::Crypto)?;
 
     info!("Posting key connector key to key connector server");
@@ -374,7 +369,6 @@ async fn internal_post_keys_for_jit_password_registration(
         .client
         .crypto()
         .make_user_jit_master_password_registration(
-            request.user_id,
             request.master_password,
             request.salt,
             request.org_public_key,
@@ -556,6 +550,7 @@ mod tests {
                         r#type: None,
                         identifier: None,
                         creation_date: None,
+                        last_activity_date: None,
                         is_trusted: None,
                         encrypted_user_key: None,
                         encrypted_public_key: None,
@@ -819,7 +814,6 @@ mod tests {
             &api_client,
             &key_connector_api_client,
             TEST_SSO_ORG_IDENTIFIER.to_string(),
-            UserId::new(uuid::uuid!(TEST_USER_ID)),
         )
         .await;
         assert!(result.is_ok());
@@ -875,7 +869,6 @@ mod tests {
             &api_client,
             &key_connector_api_client,
             TEST_SSO_ORG_IDENTIFIER.to_string(),
-            UserId::new(uuid::uuid!(TEST_USER_ID)),
         )
         .await;
 
@@ -936,7 +929,6 @@ mod tests {
             &api_client,
             &key_connector_api_client,
             TEST_SSO_ORG_IDENTIFIER.to_string(),
-            UserId::new(uuid::uuid!(TEST_USER_ID)),
         )
         .await;
 
@@ -1006,7 +998,7 @@ mod tests {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
                         );
                         assert!(req.master_password_authentication.is_some());
@@ -1022,7 +1014,7 @@ mod tests {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
                         );
                         true
@@ -1082,7 +1074,7 @@ mod tests {
             Kdf::Argon2id {
                 iterations: NonZeroU32::new(6).unwrap(),
                 memory: NonZeroU32::new(32).unwrap(),
-                parallelism: NonZeroU32::new(3).unwrap(),
+                parallelism: NonZeroU32::new(4).unwrap(),
             }
         );
 

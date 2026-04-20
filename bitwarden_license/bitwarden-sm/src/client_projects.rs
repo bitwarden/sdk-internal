@@ -1,6 +1,5 @@
-use bitwarden_core::Client;
-
 use crate::{
+    SecretsManagerClient,
     error::SecretsManagerError,
     projects::{
         ProjectCreateRequest, ProjectGetRequest, ProjectPutRequest, ProjectResponse,
@@ -9,17 +8,14 @@ use crate::{
     },
 };
 
-/// Aliases to maintain backward compatibility
-pub type ClientProjects = ProjectsClient;
-
 #[allow(missing_docs)]
 pub struct ProjectsClient {
-    pub client: Client,
+    client: SecretsManagerClient,
 }
 
 impl ProjectsClient {
     #[allow(missing_docs)]
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: SecretsManagerClient) -> Self {
         Self { client }
     }
 
@@ -61,29 +57,5 @@ impl ProjectsClient {
         input: ProjectsDeleteRequest,
     ) -> Result<ProjectsDeleteResponse, SecretsManagerError> {
         delete_projects(&self.client, input).await
-    }
-}
-
-/// This trait is for backward compatibility
-pub trait ClientProjectsExt {
-    #[allow(missing_docs)]
-    fn projects(&self) -> ClientProjects;
-}
-
-impl ClientProjectsExt for Client {
-    fn projects(&self) -> ClientProjects {
-        ProjectsClient::new(self.clone())
-    }
-}
-
-#[allow(missing_docs)]
-pub trait ProjectsClientExt {
-    #[allow(missing_docs)]
-    fn projects(&self) -> ProjectsClient;
-}
-
-impl ProjectsClientExt for Client {
-    fn projects(&self) -> ProjectsClient {
-        ProjectsClient::new(self.clone())
     }
 }

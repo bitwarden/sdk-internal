@@ -6,16 +6,18 @@ use bitwarden_core::{
         TwoFactorRequest,
     },
 };
+use bitwarden_sync::{SyncClientExt, SyncRequest};
 use color_eyre::eyre::{Result, bail};
 use inquire::{Password, Text};
 use tracing::{debug, error, info};
 
-use crate::vault::{SyncRequest, sync};
-
 pub(crate) async fn login_password(client: Client, email: Option<String>) -> Result<()> {
     let email = text_prompt_when_none("Email", email)?;
 
-    let password = Password::new("Password").without_confirmation().prompt()?;
+    let password = match std::env::var("BW_PASSWORD") {
+        Ok(pw) => pw,
+        Err(_) => Password::new("Password").without_confirmation().prompt()?,
+    };
 
     let result = client
         .auth()
@@ -75,13 +77,12 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         debug!(?result);
     }
 
-    let res = sync(
-        &client,
-        &SyncRequest {
-            exclude_subdomains: Some(true),
-        },
-    )
-    .await?;
+    let res = client
+        .sync()
+        .sync(SyncRequest {
+            exclude_subdomains: None,
+        })
+        .await?;
     info!(?res);
 
     Ok(())
@@ -95,7 +96,10 @@ pub(crate) async fn login_api_key(
     let client_id = text_prompt_when_none("Client ID", client_id)?;
     let client_secret = text_prompt_when_none("Client Secret", client_secret)?;
 
-    let password = Password::new("Password").without_confirmation().prompt()?;
+    let password = match std::env::var("BW_PASSWORD") {
+        Ok(pw) => pw,
+        Err(_) => Password::new("Password").without_confirmation().prompt()?,
+    };
 
     let result = client
         .auth()

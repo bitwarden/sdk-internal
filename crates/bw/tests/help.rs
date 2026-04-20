@@ -1,12 +1,11 @@
 //! Tests for the bw CLI help functionality
 
-use std::process::Command;
+mod common;
+use common::bw;
 
 #[test]
 fn test_no_args_shows_help() {
-    let output = Command::new(env!("CARGO_BIN_EXE_bw"))
-        .output()
-        .expect("Failed to execute bw command");
+    let output = bw().output().expect("Failed to execute bw command");
 
     assert!(output.status.success(), "Command should exit successfully");
 

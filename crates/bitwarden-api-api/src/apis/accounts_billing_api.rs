@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -27,22 +27,17 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AccountsBillingApi: Send + Sync {
     /// GET /accounts/billing/history
-    async fn get_billing_history(
-        &self,
-    ) -> Result<models::BillingHistoryResponseModel, Error<GetBillingHistoryError>>;
+    async fn get_billing_history(&self) -> Result<models::BillingHistoryResponseModel, Error>;
 
     /// GET /accounts/billing/invoices
     async fn get_invoices<'a>(
         &self,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>>;
+    ) -> Result<(), Error>;
 
     /// GET /accounts/billing/transactions
-    async fn get_transactions<'a>(
-        &self,
-        start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>>;
+    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error>;
 }
 
 pub struct AccountsBillingApiClient {
@@ -58,9 +53,7 @@ impl AccountsBillingApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AccountsBillingApi for AccountsBillingApiClient {
-    async fn get_billing_history(
-        &self,
-    ) -> Result<models::BillingHistoryResponseModel, Error<GetBillingHistoryError>> {
+    async fn get_billing_history(&self) -> Result<models::BillingHistoryResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -72,57 +65,16 @@ impl AccountsBillingApi for AccountsBillingApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::BillingHistoryResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::BillingHistoryResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetBillingHistoryError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_invoices<'a>(
         &self,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -142,38 +94,12 @@ impl AccountsBillingApi for AccountsBillingApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("startAfter", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetInvoicesError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_transactions<'a>(
-        &self,
-        start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>> {
+    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -189,50 +115,8 @@ impl AccountsBillingApi for AccountsBillingApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("startAfter", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetTransactionsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`AccountsBillingApi::get_billing_history`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingHistoryError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsBillingApi::get_invoices`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetInvoicesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsBillingApi::get_transactions`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTransactionsError {
-    UnknownValue(serde_json::Value),
 }

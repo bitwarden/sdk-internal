@@ -11,12 +11,11 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeyIds, LocalId,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotId, KeySlotIds, LocalId,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm,
-    UnsignedSharedKey, VerifyingKey, derive_shareable_key, error::UnsupportedOperationError,
-    signing, store::backend::StoreBackend,
+    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
+    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -38,47 +37,47 @@ use crate::{
 ///
 /// ```rust
 /// # use bitwarden_crypto::*;
-/// # key_ids! {
+/// # key_slot_ids! {
 /// #     #[symmetric]
-/// #     pub enum SymmKeyId {
+/// #     pub enum SymmKeySlotIds {
 /// #         User,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[private]
-/// #     pub enum PrivateKeyId {
+/// #     pub enum PrivateKeySlotIds {
 /// #         UserPrivate,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[signing]
-/// #     pub enum SigningKeyId {
+/// #     pub enum SigningKeySlotIds {
 /// #         UserSigning,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
-/// #     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
+/// #     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
 /// # }
 /// struct Data {
 ///     key: EncString,
 ///     name: String,
 /// }
-/// # impl IdentifyKey<SymmKeyId> for Data {
-/// #    fn key_identifier(&self) -> SymmKeyId {
-/// #        SymmKeyId::User
+/// # impl IdentifyKey<SymmKeySlotIds> for Data {
+/// #    fn key_identifier(&self) -> SymmKeySlotIds {
+/// #        SymmKeySlotIds::User
 /// #    }
 /// # }
 ///
 ///
-/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeySlotIds, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeySlotIds) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
 /// }
 /// ```
 #[must_use]
-pub struct KeyStoreContext<'a, Ids: KeyIds> {
+pub struct KeyStoreContext<'a, Ids: KeySlotIds> {
     pub(super) global_keys: GlobalKeys<'a, Ids>,
 
     pub(super) local_symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
@@ -96,12 +95,12 @@ pub struct KeyStoreContext<'a, Ids: KeyIds> {
 /// encryption/decryption. We also have the option to create a read/write context, which allows us
 /// to modify the global keys, but only allows one context at a time. This is controlled by a
 /// [std::sync::RwLock] on the global keys, and this struct stores both types of guards.
-pub(crate) enum GlobalKeys<'a, Ids: KeyIds> {
+pub(crate) enum GlobalKeys<'a, Ids: KeySlotIds> {
     ReadOnly(RwLockReadGuard<'a, KeyStoreInner<Ids>>),
     ReadWrite(RwLockWriteGuard<'a, KeyStoreInner<Ids>>),
 }
 
-impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
+impl<Ids: KeySlotIds> GlobalKeys<'_, Ids> {
     /// Get a shared reference to the underlying `KeyStoreInner`.
     ///
     /// This returns a shared reference regardless of whether the global keys were locked
@@ -130,7 +129,7 @@ impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
     }
 }
 
-impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
+impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// Clears all the local keys stored in this context
     /// This will not affect the global keys even if this context has write access.
     /// To clear the global keys, you need to use [super::KeyStore::clear] instead.
@@ -243,7 +242,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 }
             }
             _ => {
-                tracing::warn!("Unsupported unwrap operation for the given key and data");
+                tracing::warn!(
+                    "Unsupported unwrap operation for the given key and data {:?}, {:?}",
+                    wrapping_key,
+                    wrapped_key
+                );
                 return Err(CryptoError::InvalidKey);
             }
         };
@@ -461,51 +464,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         }
     }
 
-    /// Decapsulate a symmetric key into the context by using an already existing private key
-    ///
-    /// # Arguments
-    ///
-    /// * `decapsulation_key` - The key id used to decrypt the `encrypted_key`. It must already
-    ///   exist in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
-    ///   will be overwritten
-    /// * `encapsulated_shared_key` - The symmetric key to decrypt
-    pub fn decapsulate_key_unsigned(
-        &mut self,
-        decapsulation_key: Ids::Private,
-        new_key_id: Ids::Symmetric,
-        encapsulated_shared_key: &UnsignedSharedKey,
-    ) -> Result<Ids::Symmetric> {
-        let decapsulation_key = self.get_private_key(decapsulation_key)?;
-        let decapsulated_key =
-            encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
-
-        #[allow(deprecated)]
-        self.set_symmetric_key(new_key_id, decapsulated_key)?;
-
-        // Returning the new key identifier for convenience
-        Ok(new_key_id)
-    }
-
-    /// Encapsulate and return a symmetric key from the context by using an already existing
-    /// private key
-    ///
-    /// # Arguments
-    ///
-    /// * `encapsulation_key` - The key id used to encrypt the `encapsulated_key`. It must already
-    ///   exist in the context
-    /// * `shared_key` - The key id to encrypt. It must already exist in the context
-    pub fn encapsulate_key_unsigned(
-        &self,
-        encapsulation_key: Ids::Private,
-        shared_key: Ids::Symmetric,
-    ) -> Result<UnsignedSharedKey> {
-        UnsignedSharedKey::encapsulate_key_unsigned(
-            self.get_symmetric_key(shared_key)?,
-            &self.get_private_key(encapsulation_key)?.to_public_key(),
-        )
-    }
-
     /// Returns `true` if the context has a symmetric key with the given identifier
     pub fn has_symmetric_key(&self, key_id: Ids::Symmetric) -> bool {
         self.get_symmetric_key(key_id).is_ok()
@@ -578,6 +536,21 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_id: Ids::Symmetric,
     ) -> Result<&SymmetricCryptoKey> {
         self.get_symmetric_key(key_id)
+    }
+
+    /// Return a reference to a signing key stored in the context.
+    ///
+    /// Deprecated: intended only for internal use and tests. This exposes the underlying
+    /// `SigningKey` reference directly and should not be used by external code. Use the
+    /// higher-level APIs (for example signing helpers) or `get_signing_key` internally when
+    /// possible
+    ///
+    /// # Errors
+    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in
+    /// the context.
+    #[deprecated(note = "This function should ideally never be used outside this crate")]
+    pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+        self.get_signing_key(key_id)
     }
 
     /// Return a reference to an asymmetric (private) key stored in the context.
@@ -1101,7 +1074,7 @@ mod tests {
         let key_id = TestSymmKey::A(0);
         // Key with only Decrypt allowed
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            key_id: [0u8; 16],
+            key_id: [0u8; 16].into(),
             enc_key: Box::pin([0u8; 32].into()),
             supported_operations: vec![KeyOperation::Decrypt],
         });

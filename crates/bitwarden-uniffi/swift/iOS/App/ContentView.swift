@@ -202,7 +202,8 @@ struct ContentView: View {
                         masterKeyWrappedUserKey: loginData.Key,
                         salt: EMAIL
                     )
-                )
+                ),
+                upgradeToken: nil
             ))
 
         accessToken = loginData.access_token
@@ -221,7 +222,7 @@ struct ContentView: View {
         }
 
         if setupPin {
-            let pinOptions = try clientCrypto.derivePinKey(pin: PIN)
+            let pinOptions = try await clientCrypto.derivePinKey(pin: PIN)
 
             let defaults = UserDefaults.standard
             defaults.set(loginData.PrivateKey, forKey: "privateKey")
@@ -259,7 +260,8 @@ struct ContentView: View {
             accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
-            )
+            ),
+            upgradeToken: nil
         ))
     }
 
@@ -284,7 +286,8 @@ struct ContentView: View {
             kdfParams: kdf,
             email: EMAIL,
             accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
-            method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
+            method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey),
+            upgradeToken: nil
         ))
     }
 
@@ -368,6 +371,41 @@ struct ContentView: View {
         ))
 
         let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "", userHandle: nil)
+    }
+
+    func serverCommunicationConfigTest() {
+        // Test ServerCommunicationConfig types compilation
+        let directConfig = ServerCommunicationConfig(
+            bootstrap: BootstrapConfig.direct
+        )
+        print("Direct config: \(directConfig)")
+
+        let ssoCookieConfig = ServerCommunicationConfig(
+            bootstrap: BootstrapConfig.ssoCookieVendor(
+                SsoCookieVendorConfig(
+                    idpLoginUrl: "https://example.com/login",
+                    cookieName: "TestCookie",
+                    cookieDomain: "example.com",
+                    vaultUrl: "https://example.com",
+                    cookieValue: nil
+                )
+            )
+        )
+        print("SSO cookie config: \(ssoCookieConfig)")
+
+        // Test AcquiredCookie type - single name/value pair
+        let unshardedCookie = AcquiredCookie(
+            name: "TestCookie",
+            value: "cookie-value"
+        )
+        print("Unsharded cookie: \(unshardedCookie)")
+
+        // Test sharded cookies - multiple AcquiredCookie objects with -N suffix
+        let shardedCookies = [
+            AcquiredCookie(name: "TestCookie-0", value: "shard1"),
+            AcquiredCookie(name: "TestCookie-1", value: "shard2")
+        ]
+        print("Sharded cookies: \(shardedCookies)")
     }
 
 }

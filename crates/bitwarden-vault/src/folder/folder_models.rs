@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::{FolderResponseModel, FolderWithIdRequestModel};
 use bitwarden_core::{
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -28,7 +28,7 @@ pub struct Folder {
     pub revision_date: DateTime<Utc>,
 }
 
-bitwarden_state::register_repository_item!(Folder, "Folder");
+bitwarden_state::register_repository_item!(FolderId => Folder, "Folder");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -41,22 +41,22 @@ pub struct FolderView {
     pub revision_date: DateTime<Utc>,
 }
 
-impl IdentifyKey<SymmetricKeyId> for Folder {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::User
+impl IdentifyKey<SymmetricKeySlotId> for Folder {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::User
     }
 }
-impl IdentifyKey<SymmetricKeyId> for FolderView {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::User
+impl IdentifyKey<SymmetricKeySlotId> for FolderView {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::User
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Folder> for FolderView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Folder> for FolderView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Folder, CryptoError> {
         Ok(Folder {
             id: self.id,
@@ -66,11 +66,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Folder> for FolderView {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, FolderView> for Folder {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, FolderView> for Folder {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<FolderView, CryptoError> {
         Ok(FolderView {
             id: self.id,

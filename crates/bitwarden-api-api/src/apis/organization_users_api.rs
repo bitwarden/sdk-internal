@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -32,7 +32,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         organization_user_id: uuid::Uuid,
         organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-    ) -> Result<(), Error<AcceptError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/{organizationUserId}/accept-init
     async fn accept_init<'a>(
@@ -42,7 +42,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_accept_init_request_model: Option<
             models::OrganizationUserAcceptInitRequestModel,
         >,
-    ) -> Result<(), Error<AcceptInitError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/{id}/auto-confirm
     async fn automatically_confirm_organization_user<'a>(
@@ -52,7 +52,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<AutomaticallyConfirmOrganizationUserError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/confirm
     async fn bulk_confirm<'a>(
@@ -61,52 +61,49 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_bulk_confirm_request_model: Option<
             models::OrganizationUserBulkConfirmRequestModel,
         >,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkConfirmError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// DELETE /organizations/{orgId}/users/delete-account
     async fn bulk_delete_account<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserBulkResponseModelListResponseModel,
-        Error<BulkDeleteAccountError>,
-    >;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/users/enable-secrets-manager
     async fn bulk_enable_secrets_manager<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<(), Error<BulkEnableSecretsManagerError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/reinvite
     async fn bulk_reinvite<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkReinviteError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// DELETE /organizations/{orgId}/users
     async fn bulk_remove<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRemoveError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/users/restore
     async fn bulk_restore<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRestoreError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/users/revoke
     async fn bulk_revoke<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRevokeError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/{id}/confirm
     async fn confirm<'a>(
@@ -116,14 +113,10 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<ConfirmError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/users/{id}/delete-account
-    async fn delete_account<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteAccountError>>;
+    async fn delete_account<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/users/{id}
     async fn get<'a>(
@@ -131,17 +124,14 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         include_groups: Option<bool>,
-    ) -> Result<models::OrganizationUserDetailsResponseModel, Error<GetError>>;
+    ) -> Result<models::OrganizationUserDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/account-recovery-details
     async fn get_account_recovery_details<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel,
-        Error<GetAccountRecoveryDetailsError>,
-    >;
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users
     async fn get_all<'a>(
@@ -149,33 +139,27 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         include_groups: Option<bool>,
         include_collections: Option<bool>,
-    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users/mini-details
     async fn get_mini_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
-        Error<GetMiniDetailsError>,
-    >;
+    ) -> Result<models::OrganizationUserUserMiniDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users/{id}/reset-password-details
     async fn get_reset_password_details<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModel,
-        Error<GetResetPasswordDetailsError>,
-    >;
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/invite
     async fn invite<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_invite_request_model: Option<models::OrganizationUserInviteRequestModel>,
-    ) -> Result<(), Error<InviteError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}
     async fn put<'a>(
@@ -183,7 +167,17 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>>;
+    ) -> Result<(), Error>;
+
+    /// PUT /organizations/{orgId}/users/{id}/recover-account
+    async fn put_recover_account<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        organization_user_reset_password_request_model: Option<
+            models::OrganizationUserResetPasswordRequestModel,
+        >,
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}/reset-password
     async fn put_reset_password<'a>(
@@ -193,7 +187,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{userId}/reset-password-enrollment
     async fn put_reset_password_enrollment<'a>(
@@ -203,48 +197,34 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_reset_password_enrollment_request_model: Option<
             models::OrganizationUserResetPasswordEnrollmentRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordEnrollmentError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/{id}/reinvite
-    async fn reinvite<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<ReinviteError>>;
+    async fn reinvite<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/users/{id}
-    async fn remove<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveError>>;
+    async fn remove<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
-    /// PUT /organizations/{orgId}/users/{id}/restore
-    async fn restore<'a>(
+    /// PUT /organizations/{orgId}/users/{id}/restore/vnext
+    async fn restore_async_v_next<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<(), Error<RestoreError>>;
+        organization_user_restore_request: Option<models::OrganizationUserRestoreRequest>,
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}/revoke
-    async fn revoke<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RevokeError>>;
+    async fn revoke<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/revoke-self
-    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error<RevokeSelfError>>;
+    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/public-keys
     async fn user_public_keys<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserPublicKeyResponseModelListResponseModel,
-        Error<UserPublicKeysError>,
-    >;
+    ) -> Result<models::OrganizationUserPublicKeyResponseModelListResponseModel, Error>;
 }
 
 pub struct OrganizationUsersApiClient {
@@ -265,7 +245,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         organization_user_id: uuid::Uuid,
         organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-    ) -> Result<(), Error<AcceptError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -279,33 +259,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_accept_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AcceptError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn accept_init<'a>(
@@ -315,7 +272,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_accept_init_request_model: Option<
             models::OrganizationUserAcceptInitRequestModel,
         >,
-    ) -> Result<(), Error<AcceptInitError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -329,34 +286,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_accept_init_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AcceptInitError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn automatically_confirm_organization_user<'a>(
@@ -366,7 +300,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<AutomaticallyConfirmOrganizationUserError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -380,34 +314,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AutomaticallyConfirmOrganizationUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn bulk_confirm<'a>(
@@ -416,8 +327,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_bulk_confirm_request_model: Option<
             models::OrganizationUserBulkConfirmRequestModel,
         >,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkConfirmError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -430,62 +340,18 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_bulk_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkConfirmError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_delete_account<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserBulkResponseModelListResponseModel,
-        Error<BulkDeleteAccountError>,
-    > {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -498,58 +364,17 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkDeleteAccountError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_enable_secrets_manager<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<(), Error<BulkEnableSecretsManagerError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -562,41 +387,17 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<BulkEnableSecretsManagerError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn bulk_reinvite<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkReinviteError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -609,59 +410,17 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkReinviteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_remove<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRemoveError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -674,59 +433,17 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkRemoveError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_restore<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRestoreError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -739,59 +456,17 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkRestoreError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_revoke<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRevokeError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -804,51 +479,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserBulkResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkRevokeError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn confirm<'a>(
@@ -858,7 +492,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<ConfirmError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -872,41 +506,14 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<ConfirmError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete_account<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteAccountError>> {
+    async fn delete_account<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -920,32 +527,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteAccountError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get<'a>(
@@ -953,7 +537,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         include_groups: Option<bool>,
-    ) -> Result<models::OrganizationUserDetailsResponseModel, Error<GetError>> {
+    ) -> Result<models::OrganizationUserDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -971,59 +555,17 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("includeGroups", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserDetailsResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_account_recovery_details<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel,
-        Error<GetAccountRecoveryDetailsError>,
-    > {
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel, Error>
+    {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1036,51 +578,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAccountRecoveryDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_all<'a>(
@@ -1088,8 +589,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         include_groups: Option<bool>,
         include_collections: Option<bool>,
-    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error<GetAllError>>
-    {
+    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1110,59 +610,15 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("includeCollections", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserUserDetailsResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserUserDetailsResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_mini_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
-        Error<GetMiniDetailsError>,
-    > {
+    ) -> Result<models::OrganizationUserUserMiniDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1175,60 +631,16 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserUserMiniDetailsResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetMiniDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_reset_password_details<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModel,
-        Error<GetResetPasswordDetailsError>,
-    > {
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1242,57 +654,16 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserResetPasswordDetailsResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetResetPasswordDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn invite<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_invite_request_model: Option<models::OrganizationUserInviteRequestModel>,
-    ) -> Result<(), Error<InviteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1305,33 +676,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_invite_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<InviteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn put<'a>(
@@ -1339,7 +687,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1353,32 +701,38 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_update_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
 
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+    async fn put_recover_account<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        organization_user_reset_password_request_model: Option<
+            models::OrganizationUserResetPasswordRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/{id}/recover-account",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&organization_user_reset_password_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn put_reset_password<'a>(
@@ -1388,7 +742,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1402,34 +756,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutResetPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn put_reset_password_enrollment<'a>(
@@ -1439,7 +770,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_reset_password_enrollment_request_model: Option<
             models::OrganizationUserResetPasswordEnrollmentRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordEnrollmentError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1453,41 +784,14 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_enrollment_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutResetPasswordEnrollmentError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn reinvite<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<ReinviteError>> {
+    async fn reinvite<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1501,39 +805,12 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<ReinviteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn remove<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveError>> {
+    async fn remove<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1547,45 +824,23 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RemoveError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn restore<'a>(
+    async fn restore_async_v_next<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<(), Error<RestoreError>> {
+        organization_user_restore_request: Option<models::OrganizationUserRestoreRequest>,
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organizations/{orgId}/users/{id}/restore",
+            "{}/organizations/{orgId}/users/{id}/restore/vnext",
             local_var_configuration.base_path,
             orgId = org_id,
             id = id
@@ -1593,39 +848,13 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&organization_user_restore_request);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RestoreError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn revoke<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RevokeError>> {
+    async fn revoke<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1639,35 +868,12 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RevokeError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error<RevokeSelfError>> {
+    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1680,42 +886,16 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RevokeSelfError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn user_public_keys<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserPublicKeyResponseModelListResponseModel,
-        Error<UserPublicKeysError>,
-    > {
+    ) -> Result<models::OrganizationUserPublicKeyResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1728,214 +908,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationUserPublicKeyResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<UserPublicKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationUsersApi::accept`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AcceptError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::accept_init`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AcceptInitError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`OrganizationUsersApi::automatically_confirm_organization_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AutomaticallyConfirmOrganizationUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_confirm`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkConfirmError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_delete_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteAccountError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_enable_secrets_manager`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkEnableSecretsManagerError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_reinvite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkReinviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_remove`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkRemoveError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_restore`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkRestoreError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_revoke`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkRevokeError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::confirm`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ConfirmError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::delete_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteAccountError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_account_recovery_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAccountRecoveryDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_mini_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMiniDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_reset_password_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetResetPasswordDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::invite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum InviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::put_reset_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutResetPasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::put_reset_password_enrollment`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutResetPasswordEnrollmentError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::reinvite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ReinviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::remove`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RemoveError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::restore`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestoreError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::revoke`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RevokeError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::revoke_self`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RevokeSelfError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::user_public_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UserPublicKeysError {
-    UnknownValue(serde_json::Value),
 }

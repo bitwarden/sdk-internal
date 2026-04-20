@@ -1,6 +1,9 @@
-use bitwarden_core::key_management::crypto::{
-    DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
-    InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
+use bitwarden_core::key_management::{
+    V2UpgradeToken,
+    crypto::{
+        DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
+        InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
+    },
 };
 use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -34,21 +37,24 @@ impl CryptoClient {
     /// Create the data necessary to update the user's password. The user's encryption key is
     /// re-encrypted with the new password. This returns the new encrypted user key and the new
     /// password hash but does not update sdk state.
-    pub fn make_update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
-        Ok(self.0.make_update_password(new_password)?)
+    pub async fn make_update_password(
+        &self,
+        new_password: String,
+    ) -> Result<UpdatePasswordResponse> {
+        Ok(self.0.make_update_password(new_password).await?)
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
     /// used to initialize another client instance by using the PIN and the PIN key with
     /// `initialize_user_crypto`.
-    pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse> {
-        Ok(self.0.derive_pin_key(pin)?)
+    pub async fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse> {
+        Ok(self.0.derive_pin_key(pin).await?)
     }
 
     /// Derives the pin protected user key from encrypted pin. Used when pin requires master
     /// password on first unlock.
-    pub fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
-        Ok(self.0.derive_pin_user_key(encrypted_pin)?)
+    pub async fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
+        Ok(self.0.derive_pin_user_key(encrypted_pin).await?)
     }
 
     /// Protects the current user key with the provided PIN. The result can be stored and later
@@ -88,7 +94,14 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
     /// user key and the new password hash but does not update sdk state.
-    pub fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
-        Ok(self.0.make_update_kdf(password, kdf)?)
+    pub async fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
+        Ok(self.0.make_update_kdf(password, kdf).await?)
+    }
+
+    /// Gets the upgraded V2 user key using an upgrade token.
+    /// If the current key is already V2, returns it directly.
+    /// If the current key is V1 and a token is provided, extracts the V2 key.
+    pub fn get_upgraded_user_key(&self, upgrade_token: Option<V2UpgradeToken>) -> Result<B64> {
+        Ok(self.0.get_upgraded_user_key(upgrade_token)?)
     }
 }

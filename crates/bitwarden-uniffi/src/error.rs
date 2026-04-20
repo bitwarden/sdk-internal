@@ -28,6 +28,8 @@ pub enum BitwardenError {
     ApproveAuthRequest(#[from] bitwarden_core::auth::ApproveAuthRequestError),
     #[error(transparent)]
     TrustDevice(#[from] bitwarden_core::auth::auth_client::TrustDeviceError),
+    #[error(transparent)]
+    Registration(#[from] bitwarden_auth::registration::RegistrationError),
 
     #[error(transparent)]
     Fingerprint(#[from] bitwarden_core::platform::FingerprintError),
@@ -94,6 +96,19 @@ pub enum BitwardenError {
     #[error(transparent)]
     SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
 
+    #[error(transparent)]
+    AcquireCookie(#[from] bitwarden_server_communication_config::AcquireCookieError),
+
+    #[error("Callback invocation failed")]
+    CallbackError,
+
     #[error("A conversion error occurred: {0}")]
     Conversion(String),
+}
+/// Required From implementation for UNIFFI callback error handling
+/// Converts unexpected mobile exceptions into BitwardenError
+impl From<uniffi::UnexpectedUniFFICallbackError> for BitwardenError {
+    fn from(_: uniffi::UnexpectedUniFFICallbackError) -> Self {
+        Self::CallbackError
+    }
 }

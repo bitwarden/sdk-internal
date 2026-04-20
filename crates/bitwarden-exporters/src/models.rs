@@ -1,4 +1,4 @@
-use bitwarden_core::{MissingFieldError, key_management::KeyIds, require};
+use bitwarden_core::{MissingFieldError, key_management::KeySlotIds, require};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
     CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
@@ -18,7 +18,7 @@ impl TryFrom<FolderView> for crate::Folder {
 
 impl crate::Cipher {
     pub(crate) fn from_cipher(
-        key_store: &KeyStore<KeyIds>,
+        key_store: &KeyStore<KeySlotIds>,
         cipher: Cipher,
     ) -> Result<Self, crate::error::ExportError> {
         let view: CipherView = key_store.decrypt(&cipher)?;
@@ -67,7 +67,7 @@ impl crate::Cipher {
 /// Convert a `LoginView` into a `crate::Login`.
 fn from_login(
     view: &CipherView,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
 ) -> Result<crate::Login, MissingFieldError> {
     let l = require!(view.login.clone());
 
@@ -275,6 +275,7 @@ mod tests {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: None,
             password_history: None,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
@@ -327,6 +328,7 @@ mod tests {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: None,
             password_history: None,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
