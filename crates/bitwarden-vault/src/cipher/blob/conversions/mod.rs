@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
 
 use super::v1::*;
@@ -54,8 +54,8 @@ impl CipherBlobV1 {
     #[allow(dead_code)]
     pub(crate) fn from_cipher_view(
         view: &CipherView,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Self, CryptoError> {
         let type_data = match view.r#type {
             CipherType::Login => {
@@ -139,8 +139,8 @@ impl CipherBlobV1 {
     pub(crate) fn apply_to_cipher_view(
         &self,
         view: &mut CipherView,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         view.name = self.name.clone();
         view.notes = self.notes.clone();
@@ -221,7 +221,7 @@ impl CipherBlobV1 {
 #[cfg(test)]
 mod test_support {
     use bitwarden_core::key_management::{
-        KeyIds, SymmetricKeyId, create_test_crypto_with_user_key,
+        KeySlotIds, SymmetricKeySlotId, create_test_crypto_with_user_key,
     };
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use chrono::{TimeZone, Utc};
@@ -231,13 +231,13 @@ mod test_support {
         cipher::cipher::{CipherRepromptType, CipherType},
     };
 
-    pub(crate) fn create_test_key_store() -> (KeyStore<KeyIds>, SymmetricKeyId) {
+    pub(crate) fn create_test_key_store() -> (KeyStore<KeySlotIds>, SymmetricKeySlotId) {
         let key = SymmetricCryptoKey::try_from(
             "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string(),
         )
         .unwrap();
         let key_store = create_test_crypto_with_user_key(key);
-        (key_store, SymmetricKeyId::User)
+        (key_store, SymmetricKeySlotId::User)
     }
 
     pub(crate) fn create_shell_cipher_view(cipher_type: CipherType) -> CipherView {
