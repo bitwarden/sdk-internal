@@ -16,7 +16,9 @@ pub use internal::ApiConfigurations;
 pub mod login_method;
 #[cfg(feature = "secrets")]
 pub(crate) use login_method::ServiceAccountLoginMethod;
-pub(crate) use login_method::{LoginMethod, UserLoginMethod};
+#[cfg(any(feature = "internal", feature = "secrets"))]
+pub(crate) use login_method::LoginMethod;
+pub(crate) use login_method::UserLoginMethod;
 #[cfg(feature = "internal")]
 mod flags;
 #[cfg(feature = "internal")]
