@@ -9,6 +9,7 @@ use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
+    key_management::SymmetricKeyId,
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
@@ -50,6 +51,13 @@ impl PasswordManagerClient {
         builder.build()
     }
 
+    /// Initialize a new instance of the SDK client by loading state from disk, if available.
+    pub fn load_from_state() -> Result<Self, ()> {
+        // bitwarden_core::Client.load_from_state().map(Self)
+
+        todo!()
+    }
+
     /// Returns a [`PasswordManagerClientBuilder`] for constructing a new [`PasswordManagerClient`].
     pub fn builder() -> PasswordManagerClientBuilder {
         PasswordManagerClientBuilder::new()
@@ -80,6 +88,16 @@ impl PasswordManagerClient {
         // TODO: Add more sync handlers here!
 
         client
+    }
+
+    /// Check if the client's vault is currently unlocked (i.e. if the symmetric key for the user is
+    /// available in the keystore).
+    pub fn is_unlocked(&self) -> bool {
+        self.0
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeyId::User)
     }
 
     /// Platform operations

@@ -3,7 +3,10 @@ use clap::{Args, Subcommand};
 
 mod login;
 
-use crate::render::CommandResult;
+use crate::{
+    client_state::{BwCommand, LoggedOut},
+    render::CommandResult,
+};
 
 // TODO(CLI): This is incompatible with the current node CLI
 #[derive(Args, Clone)]
@@ -32,8 +35,10 @@ pub enum LoginCommands {
     },
 }
 
-impl LoginArgs {
-    pub async fn run(self) -> CommandResult {
+impl BwCommand for LoginArgs {
+    type Client = LoggedOut;
+
+    async fn run(self, _client: LoggedOut) -> CommandResult {
         let settings = self.server.map(|server| ClientSettings {
             api_url: format!("{server}/api"),
             identity_url: format!("{server}/identity"),
