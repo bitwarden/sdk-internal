@@ -1,6 +1,12 @@
+use bw_macro::bw_command;
 use clap::Args;
 
 #[derive(Args, Clone)]
+#[bw_command(
+    path = "unlock",
+    todo,
+    about = "Unlock the vault and return a session key."
+)]
 pub(crate) struct UnlockArgs {
     pub(crate) password: Option<String>,
 

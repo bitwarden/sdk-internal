@@ -1,4 +1,7 @@
+use bw_macro::bw_command;
+
 #[derive(clap::Args, Clone)]
+#[bw_command(path = "serve", todo, about = "Start a RESTful API webserver.")]
 pub struct ServeArgs {
     #[arg(long, help = "Port number to listen on.", default_value = "8087")]
     pub port: u16,

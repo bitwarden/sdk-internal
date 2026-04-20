@@ -45,12 +45,16 @@ pub fn assemble_cli(root: clap::Command) -> clap::Command {
         }
     }
 
-    // Attach top-level commands.
+    // Sort entries so help output is deterministic. Inventory iteration order is unspecified.
+    top_level.sort_by_key(|e| e.path);
+    for entries in grouped.values_mut() {
+        entries.sort_by_key(|e| e.path);
+    }
+
     let mut root = top_level
         .into_iter()
         .fold(root, |cmd, entry| (entry.augment)(cmd));
 
-    // Attach grouped commands under a parent subcommand per group.
     for (group_name, entries) in grouped {
         let group_about = group_about_text(group_name);
         let group_cmd = clap::Command::new(group_name).about(group_about);
@@ -65,34 +69,33 @@ pub fn assemble_cli(root: clap::Command) -> clap::Command {
 
 /// Dispatches a parsed `ArgMatches` to the registered handler.
 ///
-/// Walks `matches` from the root down, resolving `subcommand()` at each step, and compares the
-/// traversed path against registered entries. The first entry whose `path` matches exactly is
-/// invoked.
+/// Walks `matches` from the root down, descending through each subcommand. At each depth, checks
+/// whether the current path matches a registered entry; if so, invokes that entry with the
+/// `ArgMatches` at that depth. Subcommands nested inside a handler's own args (e.g., `bw get
+/// template folder`, where `folder` is a variant of `TemplateCommands` and not a separately
+/// registered entry) are parsed by that handler's `FromArgMatches` impl, not by this walker.
 pub async fn dispatch(matches: &clap::ArgMatches, ctx: ClientContext) -> CommandResult {
-    let (traversed_path, leaf_matches) = walk_subcommands(matches);
+    let mut path: Vec<String> = Vec::new();
+    let mut current = matches;
 
-    for entry in inventory::iter::<BwCommandEntry> {
-        if entry.path == traversed_path.as_slice() {
-            return (entry.dispatch)(leaf_matches, ctx).await;
+    while let Some((name, sub)) = current.subcommand() {
+        path.push(name.to_string());
+
+        // Check if the current path is a registered entry. If so, dispatch here rather than
+        // descending further — any deeper subcommands belong to the handler's own args.
+        for entry in inventory::iter::<BwCommandEntry> {
+            if entry.path == path.as_slice() {
+                return (entry.dispatch)(sub, ctx).await;
+            }
         }
+
+        current = sub;
     }
 
     Err(eyre!(
         "No handler registered for command path: {}",
-        traversed_path.join(" ")
+        path.join(" ")
     ))
-}
-
-/// Walks the nested `subcommand()` structure of a matched `ArgMatches`, returning the full path
-/// of subcommand names and the leaf `ArgMatches` that holds the actual args.
-fn walk_subcommands(root: &clap::ArgMatches) -> (Vec<String>, &clap::ArgMatches) {
-    let mut path = Vec::new();
-    let mut current = root;
-    while let Some((name, sub)) = current.subcommand() {
-        path.push(name.to_string());
-        current = sub;
-    }
-    (path, current)
 }
 
 /// Static descriptions for each command group. Deferred convenience; if the set grows or teams

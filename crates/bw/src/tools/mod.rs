@@ -94,11 +94,13 @@ impl GenerateArgs {
 }
 
 #[derive(Args, Clone)]
+#[bw_command(path = "get send", todo, about = "Get a Bitwarden Send.")]
 pub struct GetSendArgs {
     pub id: String,
 }
 
 #[derive(Args, Clone)]
+#[bw_command(path = "import", todo, about = "Import vault data from a file.")]
 pub struct ImportArgs {
     /// Format to import from
     pub format: Option<String>,
@@ -117,6 +119,11 @@ pub struct ImportArgs {
 }
 
 #[derive(Args, Clone)]
+#[bw_command(
+    path = "export",
+    todo,
+    about = "Export vault data to a CSV, JSON or ZIP file."
+)]
 pub struct ExportArgs {
     #[arg(long, help = "Output directory or filename.")]
     pub output: Option<String>,
@@ -139,6 +146,11 @@ pub struct ExportArgs {
 }
 
 #[derive(Args, Clone)]
+#[bw_command(
+    path = "send",
+    todo,
+    about = "Work with Bitwarden sends. A Send can be quickly created using this command or subcommands can be used to fine-tune the Send."
+)]
 pub struct SendArgs {
     /// The data to Send
     pub data: Option<String>,
@@ -288,6 +300,7 @@ pub enum SendCommands {
 }
 
 #[derive(Args, Clone)]
+#[bw_command(path = "receive", todo, about = "Access a Bitwarden Send from a url.")]
 pub struct ReceiveArgs {
     /// URL to access Send from
     pub url: String,
