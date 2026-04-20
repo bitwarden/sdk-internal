@@ -13,3 +13,5 @@ pub use bitwarden_server_communication_config::wasm::*;
 pub use client::PasswordManagerClient;
 pub use flight_recorder::FlightRecorderClient;
 pub use init::init_sdk;
+
+pub use wasm_bindgen_rayon::init_thread_pool;
