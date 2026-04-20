@@ -91,10 +91,7 @@ impl ApiConfigurations {
 #[allow(missing_docs)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
-    #[cfg_attr(
-        not(any(feature = "internal", feature = "secrets")),
-        allow(dead_code)
-    )]
+    #[cfg_attr(not(any(feature = "internal", feature = "secrets")), allow(dead_code))]
     pub(crate) token_handler: Arc<dyn TokenHandler>,
 
     #[cfg(feature = "internal")]
