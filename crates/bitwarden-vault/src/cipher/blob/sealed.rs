@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     EncString, KeyStoreContext,
     safe::{DataEnvelope, DataEnvelopeError},
@@ -44,8 +44,8 @@ impl SealedCipherBlob {
     /// wrapped by the provided wrapping key.
     pub(super) fn seal(
         data: CipherBlob,
-        wrapping_key: &SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        wrapping_key: &SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, SealedCipherBlobError> {
         let (envelope, wrapped_cek) =
             DataEnvelope::seal_with_wrapping_key(data, wrapping_key, ctx)?;
@@ -59,8 +59,8 @@ impl SealedCipherBlob {
     /// Unseals the `CipherBlob` from this container using the provided wrapping key.
     pub(super) fn unseal(
         &self,
-        wrapping_key: &SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        wrapping_key: &SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<CipherBlob, SealedCipherBlobError> {
         if self.format_version != FORMAT_VERSION {
             return Err(SealedCipherBlobError::UnsupportedFormatVersion(
@@ -92,7 +92,7 @@ impl SealedCipherBlob {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::KeyIds;
+    use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use bitwarden_encoding::B64;
 
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_seal_unseal_round_trip() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let wrapping_key = ctx.generate_symmetric_key();
 
@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_opaque_string_round_trip() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let wrapping_key = ctx.generate_symmetric_key();
 
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_unsupported_format_version() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let wrapping_key = ctx.generate_symmetric_key();
 
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     #[ignore]
     fn generate_sealed_test_vector() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let wrapping_key = ctx.generate_symmetric_key();
 
@@ -203,7 +203,7 @@ mod tests {
         let wrapping_key =
             SymmetricCryptoKey::try_from(B64::try_from(TEST_VECTOR_WRAPPING_KEY).unwrap()).unwrap();
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let wrapping_key_id = ctx.add_local_symmetric_key(wrapping_key);
 

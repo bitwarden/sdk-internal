@@ -1,7 +1,10 @@
 //! Functionality for syncing the latest account data from the server
 use std::str::FromStr;
 
-use bitwarden_api_api::{apis::ApiClient, models::WebAuthnPrfStatus};
+use bitwarden_api_api::{
+    apis::ApiClient,
+    models::{EmergencyAccessStatusType, WebAuthnPrfStatus},
+};
 use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 use bitwarden_crypto::{EncString, Kdf, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -143,12 +146,21 @@ pub(crate) async fn sync_emergency_access(
         .data
         .ok_or(SyncError::DataError)?
         .into_iter()
+        .filter(|ea| {
+            ea.status == Some(EmergencyAccessStatusType::Confirmed)
+                || ea.status == Some(EmergencyAccessStatusType::RecoveryInitiated)
+                || ea.status == Some(EmergencyAccessStatusType::RecoveryApproved)
+        })
         .map(async |ea| {
             let user_id = ea.grantee_id.ok_or(SyncError::DataError)?;
             let public_key = fetch_user_public_key(api_client, user_id).await?;
             Ok(V1EmergencyAccessMembership {
                 id: ea.id.ok_or(SyncError::DataError)?,
-                name: ea.name.ok_or(SyncError::DataError)?,
+                grantee_id: user_id,
+                // The name can be null if a user does not set a name.
+                name: ea
+                    .name
+                    .unwrap_or_else(|| ea.email.unwrap_or_else(|| "Unknown".to_string())),
                 public_key,
             })
         })
@@ -383,6 +395,7 @@ mod tests {
         },
     };
     use bitwarden_encoding::B64;
+    use bitwarden_send::SendId;
     use bitwarden_vault::{CipherId, FolderId};
 
     use super::*;
@@ -436,6 +449,7 @@ mod tests {
             identity: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             fields: None,
             password_history: None,
             attachments: None,
@@ -560,6 +574,7 @@ mod tests {
                 id: Some(ea_id),
                 grantee_id: Some(grantee_id),
                 name: Some("Emergency Contact".to_string()),
+                status: Some(EmergencyAccessStatusType::Confirmed),
                 ..EmergencyAccessGranteeDetailsResponseModel::new()
             }]),
             continuation_token: None,
@@ -670,7 +685,7 @@ mod tests {
 
         // Verify sends
         assert_eq!(data.sends.len(), 1);
-        assert_eq!(data.sends[0].id, Some(send_id));
+        assert_eq!(data.sends[0].id, Some(SendId::new(send_id)));
         assert_eq!(data.sends[0].name, TEST_ENC_STRING.parse().unwrap());
         assert_eq!(data.sends[0].key, KEY_ENC_STRING.parse().unwrap());
 
@@ -1291,18 +1306,21 @@ mod tests {
                                     id: Some(ea_id1),
                                     grantee_id: Some(grantee_id1),
                                     name: Some(ea_name1.clone()),
+                                    status: Some(EmergencyAccessStatusType::Confirmed),
                                     ..EmergencyAccessGranteeDetailsResponseModel::new()
                                 },
                                 EmergencyAccessGranteeDetailsResponseModel {
                                     id: Some(ea_id2),
                                     grantee_id: Some(grantee_id2),
                                     name: Some(ea_name2.clone()),
+                                    status: Some(EmergencyAccessStatusType::RecoveryInitiated),
                                     ..EmergencyAccessGranteeDetailsResponseModel::new()
                                 },
                                 EmergencyAccessGranteeDetailsResponseModel {
                                     id: Some(ea_id3),
                                     grantee_id: Some(grantee_id3),
                                     name: Some(ea_name3.clone()),
+                                    status: Some(EmergencyAccessStatusType::RecoveryApproved),
                                     ..EmergencyAccessGranteeDetailsResponseModel::new()
                                 },
                             ]),
@@ -1395,6 +1413,7 @@ mod tests {
                                 id: Some(ea_id),
                                 grantee_id: Some(grantee_id),
                                 name: Some("Test Contact".to_string()),
+                                status: Some(EmergencyAccessStatusType::Confirmed),
                                 ..EmergencyAccessGranteeDetailsResponseModel::new()
                             }]),
                             continuation_token: None,
@@ -1414,6 +1433,142 @@ mod tests {
 
         let result = sync_emergency_access(&api_client).await;
         assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.emergency_access_api.checkpoint();
+            mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_emergency_access_filters_contacts_with_non_allowed_statuses() {
+        let confirmed_id = uuid::Uuid::new_v4();
+        let recovery_initiated_id = uuid::Uuid::new_v4();
+        let recovery_approved_id = uuid::Uuid::new_v4();
+        let expected_public_key_b64 = test_public_key_b64();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.emergency_access_api
+                .expect_get_contacts()
+                .once()
+                .returning(move || {
+                    Ok(
+                        EmergencyAccessGranteeDetailsResponseModelListResponseModel {
+                            object: None,
+                            data: Some(vec![
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(confirmed_id),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: Some(EmergencyAccessStatusType::Confirmed),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(recovery_initiated_id),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: Some(EmergencyAccessStatusType::RecoveryInitiated),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(recovery_approved_id),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: Some(EmergencyAccessStatusType::RecoveryApproved),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(uuid::Uuid::new_v4()),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: Some(EmergencyAccessStatusType::Invited),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(uuid::Uuid::new_v4()),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: Some(EmergencyAccessStatusType::Accepted),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(uuid::Uuid::new_v4()),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: None,
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                            ]),
+                            continuation_token: None,
+                        },
+                    )
+                });
+
+            let expected_public_key_b64 = expected_public_key_b64.clone();
+            mock.users_api
+                .expect_get_public_key()
+                // Only called for the 3 contacts that pass the filter.
+                .times(3)
+                .returning(move |_| {
+                    Ok(UserKeyResponseModel {
+                        object: None,
+                        user_id: None,
+                        public_key: Some(expected_public_key_b64.clone()),
+                    })
+                });
+        });
+
+        let result = sync_emergency_access(&api_client).await;
+        let memberships = result.unwrap();
+
+        // Only Confirmed, RecoveryInitiated, and RecoveryApproved should be included.
+        assert_eq!(memberships.len(), 3);
+        assert_eq!(memberships[0].id, confirmed_id);
+        assert_eq!(memberships[1].id, recovery_initiated_id);
+        assert_eq!(memberships[2].id, recovery_approved_id);
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.emergency_access_api.checkpoint();
+            mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_emergency_access_all_non_allowed_statuses_returns_empty() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.emergency_access_api
+                .expect_get_contacts()
+                .once()
+                .returning(move || {
+                    Ok(
+                        EmergencyAccessGranteeDetailsResponseModelListResponseModel {
+                            object: None,
+                            data: Some(vec![
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(uuid::Uuid::new_v4()),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: Some(EmergencyAccessStatusType::Invited),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(uuid::Uuid::new_v4()),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: Some(EmergencyAccessStatusType::Accepted),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(uuid::Uuid::new_v4()),
+                                    grantee_id: Some(uuid::Uuid::new_v4()),
+                                    status: None,
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                            ]),
+                            continuation_token: None,
+                        },
+                    )
+                });
+
+            mock.users_api.expect_get_public_key().never();
+        });
+
+        let result = sync_emergency_access(&api_client).await;
+        let memberships = result.unwrap();
+
+        assert!(memberships.is_empty());
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.emergency_access_api.checkpoint();

@@ -27,20 +27,13 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait StripeApi: Send + Sync {
     /// POST /setup-intent/bank-account
-    async fn create_setup_intent_for_bank_account(
-        &self,
-    ) -> Result<(), Error<CreateSetupIntentForBankAccountError>>;
+    async fn create_setup_intent_for_bank_account(&self) -> Result<(), Error>;
 
     /// POST /setup-intent/card
-    async fn create_setup_intent_for_card(
-        &self,
-    ) -> Result<(), Error<CreateSetupIntentForCardError>>;
+    async fn create_setup_intent_for_card(&self) -> Result<(), Error>;
 
     /// GET /tax/is-country-supported
-    async fn is_country_supported<'a>(
-        &self,
-        country: Option<&'a str>,
-    ) -> Result<(), Error<IsCountrySupportedError>>;
+    async fn is_country_supported<'a>(&self, country: Option<&'a str>) -> Result<(), Error>;
 }
 
 pub struct StripeApiClient {
@@ -56,9 +49,7 @@ impl StripeApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl StripeApi for StripeApiClient {
-    async fn create_setup_intent_for_bank_account(
-        &self,
-    ) -> Result<(), Error<CreateSetupIntentForBankAccountError>> {
+    async fn create_setup_intent_for_bank_account(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -72,28 +63,10 @@ impl StripeApi for StripeApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<CreateSetupIntentForBankAccountError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn create_setup_intent_for_card(
-        &self,
-    ) -> Result<(), Error<CreateSetupIntentForCardError>> {
+    async fn create_setup_intent_for_card(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -104,29 +77,10 @@ impl StripeApi for StripeApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<CreateSetupIntentForCardError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn is_country_supported<'a>(
-        &self,
-        country: Option<&'a str>,
-    ) -> Result<(), Error<IsCountrySupportedError>> {
+    async fn is_country_supported<'a>(&self, country: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -144,41 +98,6 @@ impl StripeApi for StripeApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<IsCountrySupportedError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`StripeApi::create_setup_intent_for_bank_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateSetupIntentForBankAccountError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`StripeApi::create_setup_intent_for_card`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateSetupIntentForCardError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`StripeApi::is_country_supported`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum IsCountrySupportedError {
-    UnknownValue(serde_json::Value),
 }

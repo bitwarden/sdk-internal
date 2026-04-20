@@ -40,7 +40,8 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
     fn get(
         &self,
         hostname: String,
-    ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>;
+    ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>
+    + Send;
 
     /// Saves configuration for a hostname
     ///
@@ -59,7 +60,7 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
         &self,
         hostname: String,
         config: ServerCommunicationConfig,
-    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>> + Send;
 }
 
 #[cfg(test)]
@@ -112,6 +113,7 @@ mod tests {
                 idp_login_url: Some("https://example.com/login".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "cookie-value-123".to_string(),
@@ -161,6 +163,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("Cookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -192,6 +195,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("Cookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };

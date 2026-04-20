@@ -30,31 +30,31 @@ pub trait PushApi: Send + Sync {
     async fn add_organization<'a>(
         &self,
         push_update_request_model: Option<models::PushUpdateRequestModel>,
-    ) -> Result<(), Error<AddOrganizationError>>;
+    ) -> Result<(), Error>;
 
     /// POST /push/delete
     async fn delete<'a>(
         &self,
         push_device_request_model: Option<models::PushDeviceRequestModel>,
-    ) -> Result<(), Error<DeleteError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /push/delete-organization
     async fn delete_organization<'a>(
         &self,
         push_update_request_model: Option<models::PushUpdateRequestModel>,
-    ) -> Result<(), Error<DeleteOrganizationError>>;
+    ) -> Result<(), Error>;
 
     /// POST /push/register
     async fn register<'a>(
         &self,
         push_registration_request_model: Option<models::PushRegistrationRequestModel>,
-    ) -> Result<(), Error<RegisterError>>;
+    ) -> Result<(), Error>;
 
     /// POST /push/send
     async fn send<'a>(
         &self,
         json_element_push_send_request_model: Option<models::JsonElementPushSendRequestModel>,
-    ) -> Result<(), Error<SendError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct PushApiClient {
@@ -73,7 +73,7 @@ impl PushApi for PushApiClient {
     async fn add_organization<'a>(
         &self,
         push_update_request_model: Option<models::PushUpdateRequestModel>,
-    ) -> Result<(), Error<AddOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -88,29 +88,13 @@ impl PushApi for PushApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&push_update_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AddOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn delete<'a>(
         &self,
         push_device_request_model: Option<models::PushDeviceRequestModel>,
-    ) -> Result<(), Error<DeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -122,29 +106,13 @@ impl PushApi for PushApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&push_device_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn delete_organization<'a>(
         &self,
         push_update_request_model: Option<models::PushUpdateRequestModel>,
-    ) -> Result<(), Error<DeleteOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -159,29 +127,13 @@ impl PushApi for PushApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&push_update_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn register<'a>(
         &self,
         push_registration_request_model: Option<models::PushRegistrationRequestModel>,
-    ) -> Result<(), Error<RegisterError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -193,29 +145,13 @@ impl PushApi for PushApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&push_registration_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RegisterError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn send<'a>(
         &self,
         json_element_push_send_request_model: Option<models::JsonElementPushSendRequestModel>,
-    ) -> Result<(), Error<SendError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -227,52 +163,6 @@ impl PushApi for PushApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&json_element_push_send_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<SendError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`PushApi::add_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PushApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PushApi::delete_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PushApi::register`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RegisterError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PushApi::send`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SendError {
-    UnknownValue(serde_json::Value),
 }

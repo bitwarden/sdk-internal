@@ -1,5 +1,6 @@
 //! Bitwarden SDK Client
 
+mod builder;
 #[allow(clippy::module_inception)]
 mod client;
 #[allow(missing_docs)]
@@ -18,7 +19,10 @@ pub(crate) use login_method::ServiceAccountLoginMethod;
 pub(crate) use login_method::{LoginMethod, UserLoginMethod};
 #[cfg(feature = "internal")]
 mod flags;
+#[cfg(feature = "internal")]
+pub mod persisted_state;
 
+pub use builder::ClientBuilder;
 pub use client::Client;
 pub use client_settings::{ClientName, ClientSettings, DeviceType};
 

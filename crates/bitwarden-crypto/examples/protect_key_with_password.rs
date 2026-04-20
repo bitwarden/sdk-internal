@@ -2,7 +2,7 @@
 //! [PasswordProtectedKeyEnvelope].
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, key_ids,
+    KeyStore, KeyStoreContext, key_slot_ids,
     safe::{
         PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError,
         PasswordProtectedKeyEnvelopeNamespace,
@@ -47,7 +47,7 @@ fn main() {
             .expect("Loading from disk should work"),
     )
     .expect("Deserializing envelope should work");
-    deserialized
+    let _unsealed_vault_key = deserialized
         .unseal(
             pin,
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
@@ -108,7 +108,7 @@ impl MockDisk {
     }
 }
 
-key_ids! {
+key_slot_ids! {
     #[symmetric]
     pub enum ExampleSymmetricKey {
         #[local]

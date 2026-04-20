@@ -2,7 +2,7 @@ use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -21,7 +21,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher_view_type::CipherViewType,
+    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -87,8 +87,8 @@ impl CipherCreateRequestInternal {
     /// encrypted key to the cipher data.
     pub(crate) fn generate_cipher_key(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -110,13 +110,13 @@ impl CipherCreateRequestInternal {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
     for CipherCreateRequestInternal
 {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<CipherRequestModel, CryptoError> {
         // Clone self so we can generating the checksums before encrypting.
         let mut cipher_data = (*self).clone();
@@ -190,6 +190,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .map(|s| s.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
+            bank_account: None,
             fields: Some(
                 cipher_data
                     .create_request
@@ -211,17 +212,17 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherCreateRequestInternal {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for CipherCreateRequestInternal {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         match self.create_request.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
-            None => SymmetricKeyId::User,
+            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
+            None => SymmetricKeySlotId::User,
         }
     }
 }
 
 async fn create_cipher<R: Repository<Cipher> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
@@ -231,17 +232,18 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let cipher: Cipher;
+    let mut cipher: Cipher;
     if !collection_ids.is_empty() {
         cipher = api_client
             .ciphers_api()
             .post_create(Some(CipherCreateRequestModel {
-                collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
+                collection_ids: Some(collection_ids.iter().cloned().map(Into::into).collect()),
                 cipher: Box::new(cipher_request),
             }))
             .await
             .map_err(ApiError::from)?
-            .try_into()?;
+            .merge_with_cipher(None)?;
+        cipher.collection_ids = collection_ids;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     } else {
         cipher = api_client
@@ -249,7 +251,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
             .post(Some(cipher_request))
             .await
             .map_err(ApiError::from)?
-            .try_into()?;
+            .merge_with_cipher(None)?;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
 
@@ -279,6 +281,7 @@ impl CiphersClient {
             .client
             .internal
             .get_flags()
+            .await
             .enable_cipher_key_encryption
         {
             let key = internal_request.key_identifier();
@@ -343,11 +346,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_cipher() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -386,6 +389,7 @@ mod tests {
                         identity: body.identity,
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
+                        bank_account: None,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,
@@ -438,11 +442,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_cipher_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -495,13 +499,13 @@ mod tests {
                 .once();
         });
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
             ctx.persist_symmetric_key(
                 local_key_id,
-                SymmetricKeyId::Organization(TEST_ORG_ID.parse().unwrap()),
+                SymmetricKeySlotId::Organization(TEST_ORG_ID.parse().unwrap()),
             )
             .unwrap();
         }

@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::{CipherLoginModel, CipherLoginUriModel};
 use bitwarden_core::{
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -17,7 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[allow(missing_docs)]
@@ -203,11 +203,13 @@ impl From<Fido2CredentialFullView> for Fido2CredentialNewView {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialFullView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Fido2Credential>
+    for Fido2CredentialFullView
+{
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
             credential_id: self.credential_id.encrypt(ctx, key)?,
@@ -231,11 +233,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialFullView> for Fido2Credential {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialFullView> for Fido2Credential {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Fido2CredentialFullView, CryptoError> {
         Ok(Fido2CredentialFullView {
             credential_id: self.credential_id.decrypt(ctx, key)?,
@@ -255,11 +257,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialFullView> for Fido2Crede
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialFullView> for Fido2CredentialView {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialFullView> for Fido2CredentialView {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Fido2CredentialFullView, CryptoError> {
         Ok(Fido2CredentialFullView {
             credential_id: self.credential_id.clone(),
@@ -327,9 +329,9 @@ impl LoginView {
     /// Re-encrypts the fido2 credentials with a new key, replacing the old encrypted values.
     pub fn reencrypt_fido2_credentials(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        old_key: SymmetricKeyId,
-        new_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        old_key: SymmetricKeySlotId,
+        new_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         if let Some(creds) = &mut self.fido2_credentials {
             let decrypted_creds: Vec<Fido2CredentialFullView> = creds.decrypt(ctx, old_key)?;
@@ -382,11 +384,11 @@ pub struct LoginListView {
     pub uris: Option<Vec<LoginUriView>>,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, LoginUri> for LoginUriView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<LoginUri, CryptoError> {
         Ok(LoginUri {
             uri: self.uri.encrypt(ctx, key)?,
@@ -396,29 +398,33 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, LoginUri> for LoginUriView {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Login> for LoginView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Login, CryptoError> {
         Ok(Login {
             username: self.username.encrypt(ctx, key)?,
             password: self.password.encrypt(ctx, key)?,
             password_revision_date: self.password_revision_date,
             uris: self.uris.encrypt_composite(ctx, key)?,
-            totp: self.totp.encrypt(ctx, key)?,
+            totp: self
+                .totp
+                .clone()
+                .filter(|s| !s.is_empty())
+                .encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
         })
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, LoginUriView> for LoginUri {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginUriView> for LoginUri {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<LoginUriView, CryptoError> {
         Ok(LoginUriView {
             uri: self.uri.decrypt(ctx, key)?,
@@ -428,11 +434,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginUriView> for LoginUri {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, LoginView> for Login {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for Login {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<LoginView, CryptoError> {
         Ok(LoginView {
             username: self.username.decrypt(ctx, key).ok().flatten(),
@@ -446,18 +452,17 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginView> for Login {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginListView> for Login {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<LoginListView, CryptoError> {
         Ok(LoginListView {
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
-                .map(|fido2_credentials| fido2_credentials.decrypt(ctx, key))
-                .transpose()?,
+                .and_then(|fido2_credentials| fido2_credentials.decrypt(ctx, key).ok()),
             has_fido2: self.fido2_credentials.is_some(),
             username: self.username.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.clone(),
@@ -466,11 +471,50 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2CredentialView {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for StrictDecrypt<&Login> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<LoginView, CryptoError> {
+        Ok(LoginView {
+            username: self.0.username.decrypt(ctx, key)?,
+            password: self.0.password.decrypt(ctx, key)?,
+            password_revision_date: self.0.password_revision_date,
+            uris: self.0.uris.decrypt(ctx, key)?,
+            totp: self.0.totp.decrypt(ctx, key)?,
+            autofill_on_page_load: self.0.autofill_on_page_load,
+            fido2_credentials: self.0.fido2_credentials.clone(),
+        })
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginListView> for StrictDecrypt<&Login> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<LoginListView, CryptoError> {
+        Ok(LoginListView {
+            fido2_credentials: self
+                .0
+                .fido2_credentials
+                .as_ref()
+                .map(|fido2_credentials| fido2_credentials.decrypt(ctx, key))
+                .transpose()?,
+            has_fido2: self.0.fido2_credentials.is_some(),
+            username: self.0.username.decrypt(ctx, key)?,
+            totp: self.0.totp.clone(),
+            uris: self.0.uris.decrypt(ctx, key)?,
+        })
+    }
+}
+
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Fido2Credential> for Fido2CredentialView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Fido2Credential, CryptoError> {
         Ok(Fido2Credential {
             credential_id: self.credential_id.encrypt(ctx, key)?,
@@ -498,11 +542,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialView> for Fido2Credential {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialView> for Fido2Credential {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Fido2CredentialView, CryptoError> {
         Ok(Fido2CredentialView {
             credential_id: self.credential_id.decrypt(ctx, key)?,
@@ -522,11 +566,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialView> for Fido2Credentia
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialListView> for Fido2Credential {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialListView> for Fido2Credential {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Fido2CredentialListView, CryptoError> {
         Ok(Fido2CredentialListView {
             credential_id: self.credential_id.decrypt(ctx, key)?,
@@ -689,8 +733,8 @@ impl From<Login> for bitwarden_api_api::models::CipherLoginModel {
 impl CipherKind for Login {
     fn decrypt_subtitle(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<String, CryptoError> {
         let username: Option<String> = self.username.decrypt(ctx, key)?;
 
