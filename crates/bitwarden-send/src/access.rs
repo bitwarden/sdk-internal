@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+use crate::send_client::SendClient;
 
 // ===== Request body for V1 (password-protected sends) =====
 
@@ -139,7 +143,7 @@ pub enum GetFileDownloadDataError {
 /// POST /sends/access/{id} — V1 (legacy) send access, using Send-Id header.
 /// The `password` is the SHA256 hash of the user-entered password, if the send is
 /// password-protected.
-pub(crate) async fn access_send_v1(
+async fn access_send_v1(
     api_config: &bitwarden_api_api::Configuration,
     send_id: &str,
     password: Option<String>,
@@ -167,7 +171,7 @@ pub(crate) async fn access_send_v1(
 }
 
 /// POST /sends/access — V2 send access, using Authorization Bearer token.
-pub(crate) async fn access_send(
+async fn access_send(
     api_config: &bitwarden_api_api::Configuration,
     access_token: &str,
 ) -> Result<SendAccessView, AccessSendError> {
@@ -196,7 +200,7 @@ pub(crate) async fn access_send(
 
 /// POST /sends/{sendId}/access/file/{fileId} — V1 (legacy) file download data, using Send-Id
 /// header.
-pub(crate) async fn get_file_download_data_v1(
+async fn get_file_download_data_v1(
     api_config: &bitwarden_api_api::Configuration,
     send_id: &str,
     file_id: &str,
@@ -228,7 +232,7 @@ pub(crate) async fn get_file_download_data_v1(
 }
 
 /// POST /sends/access/file/{fileId} — V2 file download data, using Authorization Bearer token.
-pub(crate) async fn get_file_download_data(
+async fn get_file_download_data(
     api_config: &bitwarden_api_api::Configuration,
     access_token: &str,
     file_id: &str,
@@ -286,5 +290,58 @@ impl From<SendFileDownloadDataApiResponse> for SendFileDownloadData {
             id: r.id,
             url: r.url,
         }
+    }
+}
+
+// ===== SendClient methods =====
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Accesses a send using the V1 (legacy) API endpoint.
+    /// The `password` is the SHA256 hash of the user-entered password, if the send is
+    /// password-protected. The returned [SendAccessView] contains encrypted fields that must
+    /// be decrypted client-side using the key derived from the URL fragment.
+    pub async fn access_send_v1(
+        &self,
+        send_id: String,
+        password: Option<String>,
+    ) -> Result<SendAccessView, AccessSendError> {
+        let configurations = self.client.internal.get_api_configurations();
+        access_send_v1(&configurations.api_config, &send_id, password).await
+    }
+
+    /// Accesses a send using the V2 API endpoint, authenticated with a send access token.
+    /// The returned [SendAccessView] contains encrypted fields that must be decrypted
+    /// client-side using the key derived from the URL fragment.
+    pub async fn access_send(
+        &self,
+        access_token: String,
+    ) -> Result<SendAccessView, AccessSendError> {
+        let configurations = self.client.internal.get_api_configurations();
+        access_send(&configurations.api_config, &access_token).await
+    }
+
+    /// Gets file download data for a file send using the V1 (legacy) API endpoint.
+    /// The `password` is the SHA256 hash of the user-entered password, if the send is
+    /// password-protected.
+    pub async fn get_file_download_data_v1(
+        &self,
+        send_id: String,
+        file_id: String,
+        password: Option<String>,
+    ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
+        let configurations = self.client.internal.get_api_configurations();
+        get_file_download_data_v1(&configurations.api_config, &send_id, &file_id, password).await
+    }
+
+    /// Gets file download data for a file send using the V2 API endpoint, authenticated
+    /// with a send access token.
+    pub async fn get_file_download_data(
+        &self,
+        access_token: String,
+        file_id: String,
+    ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
+        let configurations = self.client.internal.get_api_configurations();
+        get_file_download_data(&configurations.api_config, &access_token, &file_id).await
     }
 }

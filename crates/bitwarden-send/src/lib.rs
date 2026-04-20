@@ -5,6 +5,11 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
+mod access;
+pub use access::{
+    AccessSendError, GetFileDownloadDataError, SendAccessFileView, SendAccessTextView,
+    SendAccessView, SendFileDownloadData,
+};
 mod send_client;
 pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,

@@ -8,17 +8,12 @@
 //! If you request an access token for a password protected send, you must provide a correct
 //! password hash. If you request an access token for an email protected send, you must provide the
 //! email address and a one-time passcode (OTP) sent to that email address.
-mod access_send;
 mod access_token_request;
 mod access_token_response;
 mod client;
 
 pub mod api;
 
-pub use access_send::{
-    AccessSendError, GetFileDownloadDataError, SendAccessFileView, SendAccessTextView,
-    SendAccessView, SendFileDownloadData,
-};
 pub use access_token_request::{
     SendAccessCredentials, SendAccessTokenRequest, SendEmailCredentials, SendEmailOtpCredentials,
     SendPasswordCredentials,
