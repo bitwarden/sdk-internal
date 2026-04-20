@@ -1,4 +1,6 @@
-use std::sync::{Arc, OnceLock, RwLock};
+#[cfg(feature = "internal")]
+use std::sync::RwLock;
+use std::sync::{Arc, OnceLock};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -11,9 +13,11 @@ use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info, instrument};
 
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::client::login_method::LoginMethod;
 use crate::{
-    DeviceType, UserId, auth::auth_tokens::TokenHandler, client::login_method::LoginMethod,
-    error::UserIdAlreadySetError, key_management::KeySlotIds,
+    DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
+    key_management::KeySlotIds,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
@@ -84,16 +88,7 @@ impl ApiConfigurations {
 #[allow(missing_docs)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
-    #[allow(
-        unused,
-        reason = "This is not used directly by SM, but it's used via the middleware"
-    )]
     pub(crate) token_handler: Arc<dyn TokenHandler>,
-    #[allow(
-        unused,
-        reason = "This is not used directly by SM, but it's used via the middleware"
-    )]
-    pub(crate) login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
 
     #[cfg(feature = "internal")]
     pub(super) flags: RwLock<Flags>,
@@ -108,9 +103,6 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
-    // TODO(PM-31876): Remove once Flags are migrated to Setting, which will add an in-crate
-    // read path and satisfy the dead_code lint without suppression.
-    #[allow(dead_code)]
     pub(crate) state_registry: StateRegistry,
 }
 
@@ -131,23 +123,35 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    #[expect(clippy::unused_async)]
     pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
-        let lm = self.login_method.read().expect("RwLock is not poisoned");
-        match lm.as_deref()? {
-            LoginMethod::User(ulm) => Some(ulm.clone()),
-            #[allow(unreachable_patterns)]
-            _ => None,
-        }
+        use crate::client::persisted_state::USER_LOGIN_METHOD;
+        self.state_registry
+            .setting(USER_LOGIN_METHOD)
+            .ok()?
+            .get()
+            .await
+            .ok()
+            .flatten()
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
-    #[expect(clippy::unused_async)]
     pub(crate) async fn set_login_method(&self, login_method: LoginMethod) {
-        use tracing::debug;
-
-        debug!(?login_method, "setting login method.");
-        *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
+        match login_method {
+            #[cfg(feature = "internal")]
+            LoginMethod::User(lm) => {
+                use crate::client::persisted_state::USER_LOGIN_METHOD;
+                if let Ok(setting) = self.state_registry.setting(USER_LOGIN_METHOD) {
+                    setting.update(lm).await.ok();
+                }
+            }
+            #[cfg(feature = "secrets")]
+            LoginMethod::ServiceAccount(lm) => {
+                self.token_handler.set_sm_login_method(lm).await;
+            }
+            #[cfg(not(feature = "internal"))]
+            #[allow(unreachable_patterns)]
+            _ => {}
+        }
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -164,18 +168,12 @@ impl InternalClient {
 
     #[allow(missing_docs)]
     #[cfg(feature = "internal")]
-    #[expect(clippy::unused_async)]
     pub async fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
-        match self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .as_deref()
-        {
-            Some(LoginMethod::User(
-                UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. },
-            )) => Ok(kdf.clone()),
-            _ => Err(NotAuthenticatedError),
+        match self.get_login_method().await {
+            Some(UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. }) => {
+                Ok(kdf)
+            }
+            None => Err(NotAuthenticatedError),
         }
     }
 

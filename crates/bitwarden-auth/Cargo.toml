@@ -41,6 +41,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-policies = { workspace = true }
+bitwarden-state = { workspace = true }
 chrono = { workspace = true }
 http = { workspace = true }
 reqwest = { workspace = true }
