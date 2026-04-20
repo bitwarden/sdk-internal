@@ -2,14 +2,16 @@ use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest}
 use bw_macro::bw_command;
 use clap::{Args, Subcommand};
 
-use crate::{client_state::LoggedIn, render::CommandResult};
+use crate::{
+    client_state::{BwCommand, LoggedIn},
+    render::CommandResult,
+};
 
 #[derive(Args, Clone)]
 #[bw_command(
     path = "generate",
-    state = LoggedIn,
     about = "Generate a password/passphrase.",
-    after_help = "Notes:\n    Default options are `-uln --length 14`.\n    Minimum `length` is 5.\n    Minimum `words` is 3.\n\nExamples:\n    bw generate\n    bw generate -u -l --length 18\n    bw generate -ulns --length 25\n    bw generate -ul\n    bw generate -p --separator _\n    bw generate -p --words 5 --separator space\n    bw generate -p --words 5 --separator empty",
+    after_help = "Notes:\n    Default options are `-uln --length 14`.\n    Minimum `length` is 5.\n    Minimum `words` is 3.\n\nExamples:\n    bw generate\n    bw generate -u -l --length 18\n    bw generate -ulns --length 25\n    bw generate -ul\n    bw generate -p --separator _\n    bw generate -p --words 5 --separator space\n    bw generate -p --words 5 --separator empty"
 )]
 pub struct GenerateArgs {
     // Password arguments
@@ -59,7 +61,9 @@ pub struct GenerateArgs {
     pub include_number: bool,
 }
 
-impl GenerateArgs {
+impl BwCommand for GenerateArgs {
+    type Client = LoggedIn;
+
     async fn run(mut self, LoggedIn { client, .. }: LoggedIn) -> CommandResult {
         let result = if self.passphrase {
             client.generator().passphrase(PassphraseGeneratorRequest {
@@ -91,108 +95,6 @@ impl GenerateArgs {
 
         Ok(result.into())
     }
-}
-
-#[derive(Args, Clone)]
-#[bw_command(path = "get send", todo, about = "Get a Bitwarden Send.")]
-pub struct GetSendArgs {
-    pub id: String,
-}
-
-#[derive(Args, Clone)]
-#[bw_command(path = "import", todo, about = "Import vault data from a file.")]
-pub struct ImportArgs {
-    /// Format to import from
-    pub format: Option<String>,
-    /// Filepath to data to import
-    pub input: Option<String>,
-
-    #[arg(long, help = "List formats")]
-    pub formats: bool,
-
-    #[arg(
-        long,
-        alias = "organizationid",
-        help = "ID of the organization to import to."
-    )]
-    pub organization_id: Option<String>,
-}
-
-#[derive(Args, Clone)]
-#[bw_command(
-    path = "export",
-    todo,
-    about = "Export vault data to a CSV, JSON or ZIP file."
-)]
-pub struct ExportArgs {
-    #[arg(long, help = "Output directory or filename.")]
-    pub output: Option<String>,
-
-    #[arg(long, help = "Export file format.")]
-    pub format: Option<String>,
-
-    #[arg(
-        long,
-        help = "Use password to encrypt instead of your Bitwarden account encryption key."
-    )]
-    pub password: Option<String>,
-
-    #[arg(
-        long,
-        alias = "organizationid",
-        help = "Organization id for an organization."
-    )]
-    pub organization_id: Option<String>,
-}
-
-#[derive(Args, Clone)]
-#[bw_command(
-    path = "send",
-    todo,
-    about = "Work with Bitwarden sends. A Send can be quickly created using this command or subcommands can be used to fine-tune the Send."
-)]
-pub struct SendArgs {
-    /// The data to Send
-    pub data: Option<String>,
-
-    #[arg(short = 'f', long, help = "Specifies that <data> is a filepath.")]
-    pub file: bool,
-
-    #[arg(
-        short = 'd',
-        long = "deleteInDays",
-        help = "The number of days in the future to set deletion date.",
-        default_value = "7"
-    )]
-    pub delete_in_days: String,
-
-    #[arg(long, help = "Optional password to access this Send.")]
-    pub password: Option<String>,
-
-    #[arg(
-        short = 'a',
-        long = "maxAccessCount",
-        help = "The amount of max possible accesses."
-    )]
-    pub max_access_count: Option<u32>,
-
-    #[arg(long, help = "Hide <data> in web by default.")]
-    pub hidden: bool,
-
-    #[arg(short = 'n', long, help = "The name of the Send.")]
-    pub name: Option<String>,
-
-    #[arg(long, help = "Notes to add to the Send.")]
-    pub notes: Option<String>,
-
-    #[arg(
-        long = "fullObject",
-        help = "Specifies that the full Send object should be returned."
-    )]
-    pub full_object: bool,
-
-    #[command(subcommand)]
-    pub command: Option<SendCommands>,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -297,17 +199,4 @@ pub enum SendCommands {
 
     #[command(about = "Delete a Send.")]
     Delete { id: String },
-}
-
-#[derive(Args, Clone)]
-#[bw_command(path = "receive", todo, about = "Access a Bitwarden Send from a url.")]
-pub struct ReceiveArgs {
-    /// URL to access Send from
-    pub url: String,
-
-    #[arg(long, help = "Optional password for the Send.")]
-    pub password: Option<String>,
-
-    #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-    pub obj: Option<String>,
 }

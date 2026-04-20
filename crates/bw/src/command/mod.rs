@@ -5,8 +5,7 @@
 //! so no `Commands` enum is defined here.
 
 use bitwarden_cli::Color;
-use bw_macro::bw_command;
-use clap::{Args, Parser};
+use clap::Parser;
 
 use crate::render::Output;
 
@@ -65,45 +64,4 @@ pub struct Cli {
     // https://github.com/clap-rs/clap/issues/138
     #[arg(short = 'v', long, action = clap::builder::ArgAction::Version)]
     pub version: (),
-}
-
-// Top-level commands with no natural team owner. Each registers itself into the command inventory
-// via `#[bw_command]` so it surfaces in the CLI alongside team-owned commands.
-
-#[derive(Args, Clone)]
-#[bw_command(path = "logout", todo, about = "Log out of the current user account.")]
-pub struct LogoutArgs;
-
-#[derive(Args, Clone)]
-#[bw_command(
-    path = "lock",
-    todo,
-    about = "Lock the vault and destroy active session keys."
-)]
-pub struct LockArgs;
-
-#[derive(Args, Clone)]
-#[bw_command(path = "encode", todo, about = "Base 64 encode stdin.")]
-pub struct EncodeArgs;
-
-#[derive(Args, Clone)]
-#[bw_command(path = "update", todo, about = "Check for updates.")]
-pub struct UpdateArgs {
-    #[arg(long, help = "Return only the download URL for the update.")]
-    pub raw: bool,
-}
-
-#[derive(Args, Clone)]
-#[bw_command(
-    path = "device-approval",
-    todo,
-    about = "Manage device approval requests sent to organizations that use SSO with trusted devices."
-)]
-pub struct DeviceApprovalArgs;
-
-#[derive(Args, Clone)]
-#[bw_command(path = "completion", todo, about = "Generate shell completions.")]
-pub struct CompletionArgs {
-    #[arg(long, help = "The shell to generate completions for.")]
-    pub shell: Option<String>,
 }

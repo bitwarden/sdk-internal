@@ -2,14 +2,13 @@ use bitwarden_sync::SyncRequest;
 use bw_macro::bw_command;
 use clap::Args;
 
-use crate::{client_state::LoggedIn, render::CommandResult};
+use crate::{
+    client_state::{BwCommand, LoggedIn},
+    render::CommandResult,
+};
 
 #[derive(Args, Clone)]
-#[bw_command(
-    path = "sync",
-    state = LoggedIn,
-    about = "Pull the latest vault data from server."
-)]
+#[bw_command(path = "sync", about = "Pull the latest vault data from server.")]
 pub struct SyncArgs {
     #[arg(short = 'f', long, help = "Force a full sync.")]
     pub force: bool,
@@ -18,7 +17,9 @@ pub struct SyncArgs {
     pub last: bool,
 }
 
-impl SyncArgs {
+impl BwCommand for SyncArgs {
+    type Client = LoggedIn;
+
     async fn run(self, LoggedIn { client, .. }: LoggedIn) -> CommandResult {
         client
             .sync()
