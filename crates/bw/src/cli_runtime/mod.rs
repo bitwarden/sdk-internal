@@ -57,7 +57,12 @@ pub fn assemble_cli(root: clap::Command) -> clap::Command {
 
     for (group_name, entries) in grouped {
         let group_about = group_about_text(group_name);
-        let group_cmd = clap::Command::new(group_name).about(group_about);
+        let group_cmd = clap::Command::new(group_name)
+            .about(group_about)
+            // Make clap emit its standard "required subcommand" error / help instead of reaching
+            // our dispatcher with an empty subcommand path.
+            .subcommand_required(true)
+            .arg_required_else_help(true);
         let group_cmd = entries
             .into_iter()
             .fold(group_cmd, |cmd, entry| (entry.augment)(cmd));
