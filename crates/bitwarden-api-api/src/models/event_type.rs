@@ -128,6 +128,9 @@ pub enum EventType {
     ServiceAccount_GroupRemoved,
     ServiceAccount_Created,
     ServiceAccount_Deleted,
+    PhishingBlocker_SiteAccessed,
+    PhishingBlocker_SiteExited,
+    PhishingBlocker_Bypassed,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -250,6 +253,9 @@ impl EventType {
             Self::ServiceAccount_GroupRemoved => 2303,
             Self::ServiceAccount_Created => 2304,
             Self::ServiceAccount_Deleted => 2305,
+            Self::PhishingBlocker_SiteAccessed => 2400,
+            Self::PhishingBlocker_SiteExited => 2401,
+            Self::PhishingBlocker_Bypassed => 2402,
             Self::__Unknown(v) => *v,
         }
     }
@@ -374,6 +380,9 @@ impl EventType {
             2303 => Self::ServiceAccount_GroupRemoved,
             2304 => Self::ServiceAccount_Created,
             2305 => Self::ServiceAccount_Deleted,
+            2400 => Self::PhishingBlocker_SiteAccessed,
+            2401 => Self::PhishingBlocker_SiteExited,
+            2402 => Self::PhishingBlocker_Bypassed,
             v => Self::__Unknown(v),
         }
     }
