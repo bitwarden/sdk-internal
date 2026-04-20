@@ -1,7 +1,7 @@
 //! Integration tests for the registration process
 
 use bitwarden_core::key_management::LocalUserDataKeyState;
-use bitwarden_test::MemoryRepository;
+use bitwarden_test::{MemoryRepository, MemoryValue};
 
 /// Integration test for registering a new user and unlocking the vault
 #[cfg(feature = "internal")]
@@ -21,11 +21,11 @@ async fn test_register_initialize_crypto() {
 
     let client = Client::new(None);
 
-    let user_key_repository = MemoryRepository::<UserKeyState>::default();
+    let user_key_value = MemoryValue::<UserKeyState>::default();
     client
         .platform()
         .state()
-        .register_client_managed(std::sync::Arc::new(user_key_repository));
+        .register_client_managed_value(std::sync::Arc::new(user_key_value));
 
     client
         .platform()
@@ -37,7 +37,7 @@ async fn test_register_initialize_crypto() {
     client
         .platform()
         .state()
-        .register_client_managed(std::sync::Arc::new(MemoryRepository::<
+        .register_client_managed_value(std::sync::Arc::new(MemoryValue::<
             EphemeralPinEnvelopeState,
         >::default()));
 

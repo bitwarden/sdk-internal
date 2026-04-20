@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
-use crate::platform::repository::create_wasm_repositories;
+use crate::platform::repository::{create_wasm_repositories, create_wasm_values};
 
 mod repository;
 pub mod token_provider;
@@ -49,6 +49,7 @@ impl StateClient {
 }
 
 bitwarden_pm::create_client_managed_repositories!(Repositories, create_wasm_repositories);
+bitwarden_pm::create_client_managed_values!(Values, create_wasm_values);
 
 #[wasm_bindgen]
 impl StateClient {
@@ -68,5 +69,9 @@ impl StateClient {
 
     pub fn register_client_managed_repositories(&self, repositories: Repositories) {
         repositories.register_all(&self.0.platform().state());
+    }
+
+    pub fn register_client_managed_values(&self, values: Values) {
+        values.register_all(&self.0.platform().state());
     }
 }

@@ -12,7 +12,11 @@ pub mod registry;
 /// Type-safe settings repository for storing application configuration and state.
 pub mod settings;
 
+/// Single-value state items registered and retrieved by type.
+pub mod value;
+
 pub(crate) mod sdk_managed;
 
 pub use sdk_managed::DatabaseConfiguration;
 pub use settings::{Key, Setting, SettingItem, SettingsError};
+pub use value::{Value, ValueItem};

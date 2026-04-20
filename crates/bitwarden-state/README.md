@@ -245,3 +245,37 @@ async fn example(client: &TestClient) -> Result<(), Box<dyn std::error::Error>> 
 The `Key<T>` type associates a string key name with a value type at compile time, preventing type
 mismatches while maintaining ergonomic usage. The `Setting<T>` handle provides async methods to get,
 update, and delete the setting value.
+
+## Values
+
+For state that is naturally a single value per type (e.g. a session snapshot, feature-flag blob, or
+current-user profile), this crate exposes a [`Value<V>`](crate::value::Value) trait alongside
+`Repository<V>`. Unlike `Repository`, `Value` has no keys and no bulk/list semantics — just `get`,
+`set`, and `remove` for one value.
+
+Values are currently **client-managed only**: the application provides a `Value<V>` implementation
+that the SDK passes through to.
+
+```rust,ignore
+use std::sync::Arc;
+use bitwarden_state::{register_value_item, Value};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+struct Session {
+    user: String,
+}
+
+// Register the type once, in the crate that defines it.
+register_value_item!(Session, "Session");
+
+// Application supplies an impl of `Value<Session>` and registers it:
+// client.platform().state().register_client_managed_value(my_session_store);
+
+// SDK-side code retrieves it by type:
+async fn example(client: &bitwarden_core::Client) -> Result<(), Box<dyn std::error::Error>> {
+    let session: Arc<dyn Value<Session>> = client.platform().state().get_value::<Session>()?;
+    let current: Option<Session> = session.get().await?;
+    Ok(())
+}
+```

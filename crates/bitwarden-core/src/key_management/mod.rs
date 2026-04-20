@@ -68,7 +68,7 @@ pub struct UserKeyState {
     decrypted_user_key: B64,
 }
 
-bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
+bitwarden_state::register_value_item!(UserKeyState, "UserKey");
 
 /// Represents the local user data key, wrapped by user key.
 /// This key is used to encrypt local user data (e.g., password generator history).
@@ -89,7 +89,7 @@ pub struct EphemeralPinEnvelopeState {
     pin_envelope: PasswordProtectedKeyEnvelope,
 }
 
-bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
+bitwarden_state::register_value_item!(EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
 
 key_slot_ids! {
     #[symmetric]

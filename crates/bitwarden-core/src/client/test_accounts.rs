@@ -5,7 +5,7 @@ use std::collections::HashMap;
 #[cfg(feature = "test-fixtures")]
 use bitwarden_crypto::{EncString, Kdf};
 #[cfg(feature = "test-fixtures")]
-use bitwarden_test::MemoryRepository;
+use bitwarden_test::{MemoryRepository, MemoryValue};
 
 #[cfg(feature = "test-fixtures")]
 use crate::{
@@ -26,9 +26,7 @@ impl Client {
         client
             .platform()
             .state()
-            .register_client_managed(std::sync::Arc::new(
-                MemoryRepository::<UserKeyState>::default(),
-            ));
+            .register_client_managed_value(std::sync::Arc::new(MemoryValue::<UserKeyState>::default()));
         client
             .platform()
             .state()

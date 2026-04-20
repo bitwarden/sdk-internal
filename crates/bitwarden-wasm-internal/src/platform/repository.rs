@@ -35,7 +35,10 @@
 
 use std::{future::Future, marker::PhantomData, rc::Rc};
 
-use bitwarden_state::repository::{Repository, RepositoryError, RepositoryItem};
+use bitwarden_state::{
+    repository::{Repository, RepositoryError, RepositoryItem},
+    value::{Value, ValueItem},
+};
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
@@ -52,6 +55,15 @@ pub(crate) trait WasmRepository<T> {
     async fn remove_all(&self) -> Result<JsValue, JsValue>;
 }
 
+/// This trait defines the methods that a [::wasm_bindgen] value must implement.
+/// The trait itself exists to provide a generic way of handling the [::wasm_bindgen] interface,
+/// which is !Send + !Sync, and only deals with [JsValue].
+pub(crate) trait WasmValue<T> {
+    async fn get(&self) -> Result<JsValue, JsValue>;
+    async fn set(&self, value: T) -> Result<JsValue, JsValue>;
+    async fn remove(&self) -> Result<JsValue, JsValue>;
+}
+
 /// This struct wraps a [WasmRepository] in a [ThreadBoundRunner] to allow it to be used as a
 /// [Repository] in a thread-safe manner. It implements the [Repository] trait directly, by
 /// converting the values as needed with [tsify::serde_wasm_bindgen].
@@ -60,9 +72,20 @@ pub(crate) struct WasmRepositoryChannel<T, R: WasmRepository<T> + 'static>(
     PhantomData<T>,
 );
 
+/// This struct wraps a [WasmValue] in a [ThreadBoundRunner] to allow it to be used as a
+/// [Value] in a thread-safe manner. It implements the [Value] trait directly, by converting
+/// the values as needed with [tsify::serde_wasm_bindgen].
+pub(crate) struct WasmValueChannel<T, V: WasmValue<T> + 'static>(ThreadBoundRunner<V>, PhantomData<T>);
+
 impl<T, R: WasmRepository<T> + 'static> WasmRepositoryChannel<T, R> {
     pub(crate) fn new(repository: R) -> Self {
         Self(ThreadBoundRunner::new(repository), PhantomData)
+    }
+}
+
+impl<T, V: WasmValue<T> + 'static> WasmValueChannel<T, V> {
+    pub(crate) fn new(value: V) -> Self {
+        Self(ThreadBoundRunner::new(value), PhantomData)
     }
 }
 
@@ -113,6 +136,19 @@ impl<T: RepositoryItem, R: WasmRepository<T> + 'static> Repository<T>
     }
 }
 
+#[async_trait::async_trait]
+impl<T: ValueItem, V: WasmValue<T> + 'static> Value<T> for WasmValueChannel<T, V> {
+    async fn get(&self) -> Result<Option<T>, RepositoryError> {
+        run_convert(&self.0, |s| async move { s.get().await }).await
+    }
+    async fn set(&self, value: T) -> Result<(), RepositoryError> {
+        run_convert(&self.0, |s| async move { s.set(value).await.and(UNIT) }).await
+    }
+    async fn remove(&self) -> Result<(), RepositoryError> {
+        run_convert(&self.0, |s| async move { s.remove().await.and(UNIT) }).await
+    }
+}
+
 #[wasm_bindgen(typescript_custom_section)]
 const REPOSITORY_CUSTOM_TS_TYPE: &'static str = r#"
 export interface Repository<T> {
@@ -123,6 +159,15 @@ export interface Repository<T> {
     remove(id: string): Promise<void>;
     removeBulk(keys: string[]): Promise<void>;
     removeAll(): Promise<void>;
+}
+"#;
+
+#[wasm_bindgen(typescript_custom_section)]
+const VALUE_CUSTOM_TS_TYPE: &'static str = r#"
+export interface Value<T> {
+    get(): Promise<T | null>;
+    set(value: T): Promise<void>;
+    remove(): Promise<void>;
 }
 "#;
 
@@ -262,6 +307,95 @@ macro_rules! create_wasm_repositories {
     };
 }
 pub(crate) use create_wasm_repositories;
+
+/// This macro generates a [::wasm_bindgen] interface for a value type, and provides the
+/// implementation of [WasmValue] and a way to convert it into something that implements
+/// the [Value] trait.
+macro_rules! create_wasm_values {
+    ( $container_name:ident ; $( $qualified_type_name:ty, $type_name:ident, $field_name:ident, $value_name:ident );+ $(;)? ) => {
+
+        const _: () = {
+            #[wasm_bindgen(typescript_custom_section)]
+            const VALUES_CUSTOM_TS_TYPE: &'static str = concat!(
+                "export interface ",
+                stringify!($container_name),
+                "{\n",
+                $( stringify!($field_name), ": Value<", stringify!($type_name), "> | null;\n", )+
+                "}\n"
+            );
+        };
+
+        #[wasm_bindgen]
+        extern "C" {
+            #[wasm_bindgen(typescript_type = $container_name)]
+            pub type $container_name;
+
+            $(
+                #[wasm_bindgen(method, getter)]
+                pub fn $field_name(this: &$container_name) -> Option<$value_name>;
+            )+
+        }
+
+        impl $container_name {
+            pub fn register_all(self, client: &bitwarden_core::platform::StateClient) {
+                $(
+                    if let Some(value) = self.$field_name() {
+                        let value = value.into_channel_impl();
+                        client.register_client_managed_value(value);
+                    }
+                )+
+            }
+        }
+
+        $(
+            #[wasm_bindgen]
+            extern "C" {
+                #[wasm_bindgen]
+                pub type $value_name;
+
+                #[wasm_bindgen(method, catch)]
+                async fn get(this: &$value_name)
+                    -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
+                #[wasm_bindgen(method, catch)]
+                async fn set(
+                    this: &$value_name,
+                    value: $qualified_type_name,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
+                #[wasm_bindgen(method, catch)]
+                async fn remove(
+                    this: &$value_name,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
+            }
+
+            impl $crate::platform::repository::WasmValue<$qualified_type_name> for $value_name {
+                async fn get(&self) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
+                    self.get().await
+                }
+                async fn set(
+                    &self,
+                    value: $qualified_type_name,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
+                    self.set(value).await
+                }
+                async fn remove(
+                    &self,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
+                    self.remove().await
+                }
+            }
+
+            impl $value_name {
+                pub fn into_channel_impl(
+                    self,
+                ) -> ::std::sync::Arc<impl bitwarden_state::value::Value<$qualified_type_name>> {
+                    use $crate::platform::repository::WasmValueChannel;
+                    ::std::sync::Arc::new(WasmValueChannel::new(self))
+                }
+            }
+        )+
+    };
+}
+pub(crate) use create_wasm_values;
 
 const UNIT: Result<JsValue, JsValue> = Ok(JsValue::UNDEFINED);
 

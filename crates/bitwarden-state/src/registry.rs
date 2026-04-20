@@ -11,6 +11,7 @@ use crate::{
     repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, MemoryDatabase, SystemDatabase},
     settings::{Key, Setting, SettingItem},
+    value::{Value, ValueItem},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -18,6 +19,7 @@ use crate::{
 pub struct StateRegistry {
     sdk_managed: RwLock<Vec<RepositoryItemData>>,
     client_managed: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+    client_managed_values: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
 
     database: OnceLock<SystemDatabase>,
 }
@@ -36,6 +38,8 @@ pub enum StateRegistryError {
     DatabaseAlreadyInitialized,
     #[error("Database is not initialized")]
     DatabaseNotInitialized,
+    #[error("Value is not registered")]
+    ValueNotRegistered,
 
     #[error(transparent)]
     Database(#[from] crate::sdk_managed::DatabaseError),
@@ -47,6 +51,7 @@ impl StateRegistry {
     pub fn new() -> Self {
         StateRegistry {
             client_managed: RwLock::new(HashMap::new()),
+            client_managed_values: RwLock::new(HashMap::new()),
             database: OnceLock::new(),
             sdk_managed: RwLock::new(Vec::new()),
         }
@@ -150,6 +155,28 @@ impl StateRegistry {
         }
 
         self.get_sdk_managed::<T>()
+    }
+
+    /// Registers a client-managed single-value store, associating it with its type.
+    pub fn register_client_managed_value<T: ValueItem>(&self, value: Arc<dyn Value<T>>) {
+        self.client_managed_values
+            .write()
+            .expect("RwLock should not be poisoned")
+            .insert(TypeId::of::<T>(), Box::new(value));
+    }
+
+    /// Retrieves a client-managed single-value store for the given type.
+    ///
+    /// # Errors
+    /// Returns `StateRegistryError::ValueNotRegistered` if no store has been registered for `T`.
+    pub fn get_value<T: ValueItem>(&self) -> Result<Arc<dyn Value<T>>, StateRegistryError> {
+        self.client_managed_values
+            .read()
+            .expect("RwLock should not be poisoned")
+            .get(&TypeId::of::<T>())
+            .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Value<T>>>())
+            .map(Arc::clone)
+            .ok_or(StateRegistryError::ValueNotRegistered)
     }
 }
 
