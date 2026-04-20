@@ -60,6 +60,7 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
+bw-macro = { path = "crates/bw-macro", version = "=2.0.0" }
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",

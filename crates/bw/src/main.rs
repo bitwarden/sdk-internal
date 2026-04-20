@@ -5,25 +5,20 @@
     reason = "The CLI uses stdout/stderr for user interaction"
 )]
 
-use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
 use bitwarden_core::global::GlobalClient;
 use bitwarden_pm::PasswordManagerClient;
-use clap::{CommandFactory, Parser};
-use clap_complete::Shell;
+use clap::{CommandFactory, FromArgMatches};
 use color_eyre::eyre::Result;
 use tracing_subscriber::{
     EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
 };
 
-use crate::{
-    client_state::{BwCommand as _, ClientContext},
-    command::*,
-    render::CommandResult,
-};
+use crate::{client_state::ClientContext, command::Cli, render::CommandResult};
 
 mod admin_console;
 mod auth;
+mod cli_runtime;
 mod client_state;
 mod command;
 mod dirt;
@@ -55,23 +50,24 @@ async fn main() -> Result<()> {
         .with(filter)
         .init();
 
-    let cli = Cli::parse();
+    let cli_command = cli_runtime::assemble_cli(Cli::command());
+    let matches = cli_command.get_matches();
+    let cli = Cli::from_arg_matches(&matches)?;
+
     install_color_eyre(cli.color)?;
     let render_config = render::RenderConfig::new(&cli);
 
-    let Some(command) = cli.command else {
-        let mut cmd = Cli::command();
+    if matches.subcommand().is_none() {
+        let mut cmd = cli_runtime::assemble_cli(Cli::command());
         cmd.print_help()?;
         return Ok(());
-    };
+    }
 
-    let result = process_commands(command, cli.session).await;
-
-    // Render the result of the command
+    let result = process_command(&matches).await;
     render_config.render_result(result)
 }
 
-async fn process_commands(command: Commands, _session: Option<String>) -> CommandResult {
+async fn process_command(matches: &clap::ArgMatches) -> CommandResult {
     // Temporary until rehydration
     let user_client = if let (Ok(email), Ok(password)) =
         (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD"))
@@ -83,73 +79,12 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         None
     };
 
-    let ctx: ClientContext = ClientContext {
+    let ctx = ClientContext {
         global: GlobalClient::new(None),
         user: user_client,
-        //user: PasswordManagerClient::load_from_state().ok(),
     };
 
-    match command {
-        // Auth commands
-        Commands::Login(args) => args.run(ctx.try_into()?).await,
-        Commands::Logout => todo!(),
-
-        // KM commands
-        Commands::Lock => todo!(),
-        Commands::Unlock(_args) => todo!(),
-
-        // Platform commands
-        Commands::Sync(args) => args.run(ctx.try_into()?).await,
-
-        Commands::Encode => {
-            let input = std::io::read_to_string(std::io::stdin())?;
-            let encoded = STANDARD.encode(input);
-            Ok(encoded.into())
-        }
-
-        Commands::Config { command } => command.run().await,
-
-        Commands::Update { .. } => todo!(),
-
-        Commands::Completion { shell } => {
-            let Some(shell) = shell.or_else(Shell::from_env) else {
-                return Ok(
-                    "Couldn't autodetect a valid shell. Run `bw completion --help` for more info."
-                        .into(),
-                );
-            };
-
-            let mut cmd = Cli::command();
-            let name = cmd.get_name().to_string();
-            clap_complete::generate(shell, &mut cmd, name, &mut std::io::stdout());
-            Ok(().into())
-        }
-
-        Commands::Status(_) => todo!(),
-
-        // Vault commands
-        Commands::List { .. } => todo!(),
-        Commands::Get { command } => command.run(ctx).await,
-        Commands::Create { command } => command.run(ctx).await,
-        Commands::Edit { .. } => todo!(),
-        Commands::Delete { .. } => todo!(),
-        Commands::Restore(_args) => todo!(),
-
-        // Admin console commands
-        Commands::Confirm { .. } => todo!(),
-        Commands::DeviceApproval => todo!(),
-        Commands::Move(_args) => todo!(),
-
-        // Tools commands
-        Commands::Generate(arg) => arg.run(ctx.try_into()?).await,
-        Commands::Import(_args) => todo!(),
-        Commands::Export(_args) => todo!(),
-        Commands::Send(_args) => todo!(),
-        Commands::Receive(_args) => todo!(),
-
-        // Server commands
-        Commands::Serve(_args) => todo!(),
-    }
+    cli_runtime::dispatch(matches, ctx).await
 }
 
 // Stop-gap solution for login until we have a proper session management solution in place. This

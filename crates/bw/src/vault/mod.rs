@@ -127,6 +127,7 @@ pub struct EditFolderArgs {
 }
 
 #[derive(Args, Clone)]
+#[bw_macro::bw_command(path = "get item", todo, about = "Get an item from the vault.")]
 pub struct GetItemArgs {
     pub id: String,
 }

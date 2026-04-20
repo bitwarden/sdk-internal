@@ -1,28 +1,15 @@
 use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest};
+use bw_macro::bw_command;
 use clap::{Args, Subcommand};
 
-use crate::{
-    client_state::{BwCommand, LoggedIn},
-    render::CommandResult,
-};
+use crate::{client_state::LoggedIn, render::CommandResult};
 
 #[derive(Args, Clone)]
-#[command(
+#[bw_command(
+    path = "generate",
+    state = LoggedIn,
     about = "Generate a password/passphrase.",
-    after_help = r#"Notes:
-    Default options are `-uln --length 14`.
-    Minimum `length` is 5.
-    Minimum `words` is 3.
-
-Examples:
-    bw generate
-    bw generate -u -l --length 18
-    bw generate -ulns --length 25
-    bw generate -ul
-    bw generate -p --separator _
-    bw generate -p --words 5 --separator space
-    bw generate -p --words 5 --separator empty
-    "#
+    after_help = "Notes:\n    Default options are `-uln --length 14`.\n    Minimum `length` is 5.\n    Minimum `words` is 3.\n\nExamples:\n    bw generate\n    bw generate -u -l --length 18\n    bw generate -ulns --length 25\n    bw generate -ul\n    bw generate -p --separator _\n    bw generate -p --words 5 --separator space\n    bw generate -p --words 5 --separator empty",
 )]
 pub struct GenerateArgs {
     // Password arguments
@@ -72,9 +59,7 @@ pub struct GenerateArgs {
     pub include_number: bool,
 }
 
-impl BwCommand for GenerateArgs {
-    type Client = LoggedIn;
-
+impl GenerateArgs {
     async fn run(mut self, LoggedIn { client, .. }: LoggedIn) -> CommandResult {
         let result = if self.passphrase {
             client.generator().passphrase(PassphraseGeneratorRequest {
