@@ -20,8 +20,9 @@ pub trait BwCommand {
     async fn run(self, client: Self::Client) -> CommandResult;
 }
 
-/// Client state for commands that do not require authentication.
-/// Contains only the global client.
+/// Client state for commands that require no active user session.
+/// Fails at dispatch if a user session already exists.
+/// For commands that should work regardless of login state, use [`AnyState`] instead.
 pub struct LoggedOut {
     pub global: GlobalClient,
 }
@@ -44,6 +45,11 @@ impl TryFrom<ClientContext> for LoggedOut {
     type Error = Error;
 
     fn try_from(ctx: ClientContext) -> Result<Self, Error> {
+        if ctx.user.is_some() {
+            return Err(eyre!(
+                "You are already logged in. Log out first with `bw logout`."
+            ));
+        }
         Ok(LoggedOut { global: ctx.global })
     }
 }
