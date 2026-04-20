@@ -13,19 +13,22 @@ use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info, instrument};
 
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::client::login_method::LoginMethod;
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
     key_management::KeySlotIds,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
+use crate::{
+    OrganizationId, client::encryption_settings::EncryptionSettings,
+    client::login_method::LoginMethod,
+};
 #[cfg(feature = "internal")]
 use crate::{
     client::{
-        encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
-        persisted_state::USER_ID,
+        encryption_settings::EncryptionSettingsError,
+        flags::Flags,
+        login_method::UserLoginMethod,
+        persisted_state::{USER_ID, USER_LOGIN_METHOD},
     },
     error::NotAuthenticatedError,
     key_management::{
@@ -124,7 +127,6 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
-        use crate::client::persisted_state::USER_LOGIN_METHOD;
         self.state_registry
             .setting(USER_LOGIN_METHOD)
             .ok()?
@@ -139,7 +141,6 @@ impl InternalClient {
         match login_method {
             #[cfg(feature = "internal")]
             LoginMethod::User(lm) => {
-                use crate::client::persisted_state::USER_LOGIN_METHOD;
                 if let Ok(setting) = self.state_registry.setting(USER_LOGIN_METHOD) {
                     setting.update(lm).await.ok();
                 }
@@ -148,9 +149,6 @@ impl InternalClient {
             LoginMethod::ServiceAccount(lm) => {
                 self.token_handler.set_sm_login_method(lm).await;
             }
-            #[cfg(not(feature = "internal"))]
-            #[allow(unreachable_patterns)]
-            _ => {}
         }
     }
 

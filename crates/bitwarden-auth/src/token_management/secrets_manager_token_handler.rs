@@ -26,13 +26,9 @@ struct SecretsManagerTokenHandlerInner {
     access_token: Option<String>,
     expires_on: Option<i64>,
 
-    // SM login method lives in-memory on the handler itself (tokens aren't persisted). Wrapped in
-    // `Arc` so the inner struct can derive `Clone` — `ServiceAccountLoginMethod` holds key
-    // material and deliberately does not implement `Clone`.
-    login_method: Option<Arc<ServiceAccountLoginMethod>>,
-
     // The following are passed as optional as they are filled in when instantiating the
     // middleware.
+    login_method: Option<Arc<ServiceAccountLoginMethod>>,
     identity_config: Option<bitwarden_api_api::Configuration>,
     key_store: Option<KeyStore<KeySlotIds>>,
 }
