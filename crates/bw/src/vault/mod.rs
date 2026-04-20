@@ -1,6 +1,10 @@
-use clap::Subcommand;
+use bw_macro::bw_command;
+use clap::{Args, Subcommand};
 
-use crate::render::{CommandOutput, CommandResult};
+use crate::{
+    client_state::{AnyState, BwCommand},
+    render::{CommandOutput, CommandResult},
+};
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum TemplateCommands {
@@ -50,16 +54,21 @@ impl TemplateCommands {
     }
 }
 
-#[derive(clap::Args, Clone)]
-pub struct RestoreArgs {
-    /// Type of object to restore
-    pub object: RestoreObject,
-    /// Object ID to restore
-    pub id: String,
+#[derive(Args, Clone)]
+#[bw_command(
+    path = "get template",
+    about = "Get a JSON template for creating objects."
+)]
+pub struct GetTemplateArgs {
+    #[command(subcommand)]
+    pub command: TemplateCommands,
 }
 
-#[derive(clap::ValueEnum, Clone, Debug)]
-#[value(rename_all = "kebab-case")]
-pub enum RestoreObject {
-    Item,
+impl BwCommand for GetTemplateArgs {
+    type Client = AnyState;
+
+    #[allow(clippy::unused_async)]
+    async fn run(self, _state: AnyState) -> CommandResult {
+        self.command.run()
+    }
 }

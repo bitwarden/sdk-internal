@@ -38,7 +38,7 @@ impl From<()> for CommandOutput {
 pub struct RenderConfig {
     pub output: Output,
     pub color: Color,
-    pub cleanexit: bool,
+    pub clean_exit: bool,
     pub quiet: bool,
 }
 
@@ -47,7 +47,7 @@ impl RenderConfig {
         Self {
             output: cli.output,
             color: cli.color,
-            cleanexit: cli.cleanexit,
+            clean_exit: cli.clean_exit,
             quiet: cli.quiet,
         }
     }
@@ -73,8 +73,8 @@ impl RenderConfig {
             // Errors will be passed through to the caller, and rendered by the main function
             Err(e) => Err(e),
 
-            // With cleanexit, we don't print anything on success
-            Ok(_) if self.cleanexit => Ok(()),
+            // With clean_exit, we don't print anything on success
+            Ok(_) if self.clean_exit => Ok(()),
 
             // Plain text is just output as is
             Ok(CommandOutput::Plain(text)) => {

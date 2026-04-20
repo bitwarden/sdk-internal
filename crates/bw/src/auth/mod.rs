@@ -1,4 +1,5 @@
 use bitwarden_core::ClientSettings;
+use bw_macro::bw_command;
 use clap::{Args, Subcommand};
 
 mod login;
@@ -10,6 +11,7 @@ use crate::{
 
 // TODO(CLI): This is incompatible with the current node CLI
 #[derive(Args, Clone)]
+#[bw_command(path = "login", about = "Log into a user account.")]
 pub struct LoginArgs {
     #[command(subcommand)]
     pub command: LoginCommands,

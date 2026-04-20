@@ -1,4 +1,5 @@
 use bitwarden_sync::SyncRequest;
+use bw_macro::bw_command;
 use clap::Args;
 
 use crate::{
@@ -7,6 +8,7 @@ use crate::{
 };
 
 #[derive(Args, Clone)]
+#[bw_command(path = "sync", about = "Pull the latest vault data from server.")]
 pub struct SyncArgs {
     #[arg(short = 'f', long, help = "Force a full sync.")]
     pub force: bool,

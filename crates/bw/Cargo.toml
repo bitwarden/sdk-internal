@@ -27,11 +27,12 @@ bitwarden-generators = { workspace = true }
 bitwarden-pm = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-vault = { workspace = true }
+bw-macro = { workspace = true }
 clap = { version = "4.5.4", features = ["derive", "env"] }
-clap_complete = "4.5.55"
 color-eyre = "0.6.3"
 erased-serde = "0.4.6"
 inquire = "0.9.1"
+inventory = "0.3.15"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = "0.9.33"

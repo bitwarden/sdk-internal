@@ -1,8 +1,7 @@
-use clap::Subcommand;
-
-use crate::render::CommandResult;
+mod serve;
 mod sync;
-pub(crate) use sync::SyncArgs;
+
+use clap::Subcommand;
 
 #[derive(Subcommand, Clone)]
 pub enum ConfigCommand {
@@ -44,11 +43,4 @@ pub enum ConfigCommand {
         #[arg(long, help = "Provides the URL for your Key Connector server.")]
         key_connector: Option<String>,
     },
-}
-
-impl ConfigCommand {
-    #[allow(clippy::unused_async)]
-    pub async fn run(self) -> CommandResult {
-        todo!()
-    }
 }
