@@ -122,18 +122,18 @@ impl IdentifyKey<SymmetricKeySlotId> for Collection {
 }
 
 #[allow(missing_docs)]
-impl IdentifyKey<SymmetricKeyId> for CollectionView {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::Organization(self.organization_id)
+impl IdentifyKey<SymmetricKeySlotId> for CollectionView {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::Organization(self.organization_id)
     }
 }
 
 #[allow(missing_docs)]
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Collection> for CollectionView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Collection> for CollectionView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Collection, CryptoError> {
         Ok(Collection {
             id: self.id,
