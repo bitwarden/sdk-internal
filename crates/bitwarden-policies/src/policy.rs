@@ -52,6 +52,8 @@ pub enum PolicyType {
     AutomaticUserConfirmation = 18,
     BlockClaimedDomainAccountCreation = 19,
     OrganizationUserNotification = 20,
+    /// Configure Send-related behavior: disabling Sends, email visibility, access controls,
+    /// Send types, and deletion
     SendControls = 21,
 }
 
