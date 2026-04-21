@@ -52,7 +52,7 @@ pub(crate) struct PersistentTransportState {
     // and is never reset to a lower value. Re-using nonces results in catastrophic
     // cryptographic failure.
     send_nonce: u64,
-    // For receiving, skipping nonces is alowed, but never going back.
+    // For receiving, skipping nonces is allowed, but never going back.
     receive_nonce: u64,
 
     last_handshake_time: u64,
