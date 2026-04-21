@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`cd4e44cb04f4b80ef035df80df7ff5991cd0e64b`](https://github.com/bitwarden/server/commit/cd4e44cb04f4b80ef035df80df7ff5991cd0e64b)
+  [`a714278b9a8893ac8b2a9de53777793768acbd74`](https://github.com/bitwarden/server/commit/a714278b9a8893ac8b2a9de53777793768acbd74)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -265,7 +265,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationConnectionsApi_              | [**update_connection**](docs/OrganizationConnectionsApi.md#organization_connections_update_connection)                                                           | **PUT** /organizations/connections/{organizationConnectionId}                                            |
 | _OrganizationDomainApi_                   | [**get**](docs/OrganizationDomainApi.md#organization_domain_get)                                                                                                 | **GET** /organizations/{orgId}/domain/{id}                                                               |
 | _OrganizationDomainApi_                   | [**get_all**](docs/OrganizationDomainApi.md#organization_domain_get_all)                                                                                         | **GET** /organizations/{orgId}/domain                                                                    |
-| _OrganizationDomainApi_                   | [**get_org_domain_sso_details**](docs/OrganizationDomainApi.md#organization_domain_get_org_domain_sso_details)                                                   | **POST** /organizations/domain/sso/details                                                               |
 | _OrganizationDomainApi_                   | [**get_verified_org_domain_sso_details**](docs/OrganizationDomainApi.md#organization_domain_get_verified_org_domain_sso_details)                                 | **POST** /organizations/domain/sso/verified                                                              |
 | _OrganizationDomainApi_                   | [**post**](docs/OrganizationDomainApi.md#organization_domain_post)                                                                                               | **POST** /organizations/{orgId}/domain                                                                   |
 | _OrganizationDomainApi_                   | [**remove_domain**](docs/OrganizationDomainApi.md#organization_domain_remove_domain)                                                                             | **DELETE** /organizations/{orgId}/domain/{id}                                                            |
@@ -729,7 +728,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationDomainResponseModel](docs/OrganizationDomainResponseModel.md)
 - [OrganizationDomainResponseModelListResponseModel](docs/OrganizationDomainResponseModelListResponseModel.md)
 - [OrganizationDomainSsoDetailsRequestModel](docs/OrganizationDomainSsoDetailsRequestModel.md)
-- [OrganizationDomainSsoDetailsResponseModel](docs/OrganizationDomainSsoDetailsResponseModel.md)
 - [OrganizationIntegrationConfigurationRequestModel](docs/OrganizationIntegrationConfigurationRequestModel.md)
 - [OrganizationIntegrationConfigurationResponseModel](docs/OrganizationIntegrationConfigurationResponseModel.md)
 - [OrganizationIntegrationRequestModel](docs/OrganizationIntegrationRequestModel.md)
