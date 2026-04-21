@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn test_parse_empty_item() {
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "Bitwarden".to_string(),
@@ -538,7 +538,7 @@ mod tests {
     #[test]
     fn test_credit_card() {
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "My MasterCard".to_string(),
@@ -589,7 +589,7 @@ mod tests {
         use credential_exchange_format::{OTPHashAlgorithm, TotpCredential};
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "My TOTP".to_string(),
@@ -650,7 +650,7 @@ mod tests {
         use credential_exchange_format::{BasicAuthCredential, OTPHashAlgorithm, TotpCredential};
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "Login with TOTP".to_string(),
@@ -701,7 +701,7 @@ mod tests {
         use credential_exchange_format::{BasicAuthCredential, Credential, Item, NoteCredential};
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "Login with Note".to_string(),
@@ -744,7 +744,7 @@ mod tests {
         use credential_exchange_format::{ApiKeyCredential, Credential, Item, NoteCredential};
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "API Key with Note".to_string(),
@@ -795,7 +795,7 @@ mod tests {
         use credential_exchange_format::{Credential, CreditCardCredential, Item, NoteCredential};
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "Credit Card with Note".to_string(),
@@ -851,7 +851,7 @@ mod tests {
         };
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "WiFi with Note".to_string(),
@@ -899,7 +899,7 @@ mod tests {
     #[test]
     fn test_credit_card_empty_title_uses_cardholder_name() {
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "".to_string(), // Empty title
@@ -943,7 +943,7 @@ mod tests {
     #[test]
     fn test_credit_card_blank_title_uses_cardholder_name() {
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "   ".to_string(), // Blank/whitespace title
@@ -974,7 +974,7 @@ mod tests {
     #[test]
     fn test_credit_card_empty_title_no_cardholder_uses_fallback() {
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "".to_string(), // Empty title
@@ -1005,7 +1005,7 @@ mod tests {
     #[test]
     fn test_credit_card_with_title_ignores_cardholder_name() {
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "My Business Card".to_string(), // Has title
@@ -1038,7 +1038,7 @@ mod tests {
         use credential_exchange_format::{AddressCredential, Credential, Item, NoteCredential};
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "Address with Note".to_string(),
@@ -1089,7 +1089,7 @@ mod tests {
         };
 
         let item = Item {
-            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            id: vec![0, 1, 2, 3, 4, 5, 6].into(),
             creation_at: Some(1706613834),
             modified_at: Some(1706623773),
             title: "Wireless Router".to_string(),
