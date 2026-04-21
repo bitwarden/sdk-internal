@@ -47,7 +47,7 @@ ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
 hex = { version = ">=0.4.0, <0.5" }
 hkdf = "0.13.0"
 hmac = { workspace = true, features = ["zeroize"] }
-hybrid-array = { version = "0.4.10", features = ["alloc", "serde"] }
+hybrid-array = { version = "0.4.10", features = ["alloc", "serde", "zeroize"] }
 ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
