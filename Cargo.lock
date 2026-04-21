@@ -3615,7 +3615,7 @@ dependencies = [
  "hybrid-array",
  "module-lattice",
  "pkcs8 0.11.0-rc.11",
- "rand_core 0.10.0",
+ "rand_core 0.10.1",
  "sha3",
  "signature 3.0.0-rc.10",
  "zeroize",
