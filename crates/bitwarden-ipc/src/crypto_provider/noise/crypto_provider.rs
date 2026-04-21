@@ -2,7 +2,7 @@ use std::{sync::LazyLock, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use tokio::time::timeout;
-use tracing::info;
+use tracing::{error, info, warn};
 
 use crate::{
     crypto_provider::noise::{
@@ -20,6 +20,20 @@ use crate::{
 
 pub struct NoiseCryptoProvider;
 
+#[derive(Debug)]
+pub enum NoiseCryptoProviderError {
+    /// A protocol error (missing message, malformed message)
+    HandshakeProtocol,
+    /// A timeout waiting for a message
+    Timeout,
+    /// Could not send via the underlying transport
+    TransportSend,
+    /// Could not receive via the underlying transport
+    TransportReceive,
+    /// A cryptographic error. In most cases, such messages are just dropped.
+    DecryptionFailure,
+}
+
 // Serialize send operations to prevent concurrent reads of the same persisted
 // transport state, which can cause nonce reuse.
 static SEND_GUARD: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
@@ -29,11 +43,13 @@ impl NoiseCryptoProvider {
         communication: &Com,
         sessions: &Ses,
         destination: crate::endpoint::Endpoint,
-    ) -> Result<(), ()>
+    ) -> Result<(), NoiseCryptoProviderError>
     where
         Com: CommunicationBackend,
         Ses: SessionRepository<NoiseCryptoProviderState>,
     {
+        info!("Starting noise handshake with {:?}", destination);
+
         let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
         let message = initiator
             .write_start_message()
@@ -48,28 +64,39 @@ impl NoiseCryptoProvider {
                 topic: None,
             })
             .await
-            .map_err(|_| ())?;
+            .map_err(|_| NoiseCryptoProviderError::TransportSend)?;
 
         // Wait for the handshake response (with timeout)
-        timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
+        let Ok(_) = timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
             loop {
-                let incoming = receiver.receive().await.map_err(|_| ());
-                let Ok(incoming) = incoming else {
+                let incoming = receiver.receive().await;
+                let incoming = incoming.map_err(|_| NoiseCryptoProviderError::TransportReceive)?;
+                // For concurrent handshakes, ignore messages
+                if incoming.source.to_endpoint() != destination {
                     continue;
-                };
+                }
                 let Ok(response_frame) = Frame::from_cbor(&incoming.payload) else {
+                    warn!("Received malformed cbor message during handshake, ignoring");
                     continue;
                 };
                 if let Frame::HandshakeFinish(handshake_finish) = response_frame {
-                    let _ = initiator
-                        .read_response_message(&handshake_finish)
-                        .map_err(|_| ());
+                    if initiator.read_response_message(&handshake_finish).is_err() {
+                        error!("Failed to read handshake response message");
+                        return Err(NoiseCryptoProviderError::HandshakeProtocol);
+                    }
                     break;
                 }
             }
+            Ok(())
         })
         .await
-        .map_err(|_| ())?;
+        else {
+            info!(
+                "Noise handshake with {:?} timed out after {} seconds",
+                destination, HANDSHAKE_TIMEOUT_SECS
+            );
+            return Err(NoiseCryptoProviderError::Timeout);
+        };
 
         let crypto_state = NoiseCryptoProviderState {
             state: (&mut initiator).into(),
@@ -78,8 +105,9 @@ impl NoiseCryptoProvider {
             .save(destination.clone(), crypto_state)
             .await
             .expect("Save session should not fail");
+
         info!(
-            "[IPC Crypto] Handshake with {:?} completed, session established",
+            "Noise handshake with {:?} completed, session established",
             destination
         );
 
@@ -106,8 +134,8 @@ where
     Ses: SessionRepository<NoiseCryptoProviderState>,
 {
     type Session = NoiseCryptoProviderState;
-    type SendError = ();
-    type ReceiveError = ();
+    type SendError = NoiseCryptoProviderError;
+    type ReceiveError = NoiseCryptoProviderError;
 
     async fn send(
         &self,
@@ -132,7 +160,7 @@ where
             && state.state.should_rehandshake(REHANDSHAKE_INTERVAL_SECS)
         {
             info!(
-                "[IPC Crypto] Session with {:?} is older than {}s, re-handshaking",
+                "Noise session with {:?} is older than {}s, re-handshaking",
                 destination, REHANDSHAKE_INTERVAL_SECS
             );
             sessions
@@ -145,12 +173,12 @@ where
         if should_handshake {
             if crypto_state.is_none() {
                 info!(
-                    "[IPC Crypto] No session for {:?}, starting handshake",
+                    "Noise handshake with {:?} initiated for new session establishment",
                     destination
                 );
             } else {
                 info!(
-                    "[IPC Crypto] Re-handshaking with {:?} due to re-handshake interval",
+                    "Noise re-handshake with {:?} due to re-handshake interval",
                     destination
                 );
             }
@@ -168,7 +196,7 @@ where
         let transport_frame = crypto_state
             .state
             .send(message.payload.into())
-            .map_err(|_| ())?;
+            .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
         communication
             .send(OutgoingMessage {
                 payload: Frame::TransportFrame(transport_frame).to_cbor(),
@@ -176,7 +204,7 @@ where
                 topic: message.topic,
             })
             .await
-            .map_err(|_| ())?;
+            .map_err(|_| NoiseCryptoProviderError::TransportSend)?;
 
         sessions
             .save(destination, crypto_state)
@@ -193,7 +221,10 @@ where
         sessions: &Ses,
     ) -> Result<IncomingMessage, Self::ReceiveError> {
         loop {
-            let message = receiver.receive().await.map_err(|_| ())?;
+            let message = receiver
+                .receive()
+                .await
+                .map_err(|_| NoiseCryptoProviderError::TransportReceive)?;
 
             // Ensure session exists
             let source_endpoint: crate::endpoint::Endpoint = message.source.clone().into();
@@ -204,6 +235,7 @@ where
 
             // Decode outer transport frame from wire
             let Ok(transport_frame) = Frame::from_cbor(&message.payload) else {
+                warn!("Received malformed cbor message, ignoring");
                 continue;
             };
 
@@ -212,8 +244,10 @@ where
                     let mut responder = HandshakeResponder::new(&handshake_start.ciphersuite);
                     responder
                         .read_start_message(&handshake_start)
-                        .map_err(|_| ())?;
-                    let response_message = responder.write_response_message().map_err(|_| ())?;
+                        .map_err(|_| NoiseCryptoProviderError::HandshakeProtocol)?;
+                    let response_message = responder
+                        .write_response_message()
+                        .map_err(|_| NoiseCryptoProviderError::HandshakeProtocol)?;
                     let handshake_frame = Frame::HandshakeFinish(response_message);
                     communication
                         .send(OutgoingMessage {
@@ -222,7 +256,7 @@ where
                             topic: None,
                         })
                         .await
-                        .map_err(|_| ())?;
+                        .map_err(|_| NoiseCryptoProviderError::TransportSend)?;
 
                     let crypto_state = NoiseCryptoProviderState {
                         state: (&mut responder).into(),
@@ -243,11 +277,14 @@ where
                                 topic: None,
                             })
                             .await
-                            .map_err(|_| ())?;
+                            .map_err(|_| NoiseCryptoProviderError::TransportSend)?;
                         continue;
                     };
 
-                    let payload = state.state.receive(&transport_frame).map_err(|_| ())?;
+                    let payload = state
+                        .state
+                        .receive(&transport_frame)
+                        .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
                     sessions
                         .save(source_endpoint, state)
                         .await

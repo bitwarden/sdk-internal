@@ -20,22 +20,13 @@ use crate::crypto_provider::noise::transport_state::{
     PersistentTransportState, SymmetricKey, TransportCipher,
 };
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub(crate) enum CipherSuite {
     #[allow(non_camel_case_types)]
     Noise_NN_25519_ChaChaPoly_BLAKE2s,
     #[allow(non_camel_case_types)]
+    #[default]
     Noise_NN_25519_AESGCM_SHA256,
-}
-
-impl Default for CipherSuite {
-    fn default() -> Self {
-        if cfg!(feature = "fips") {
-            Self::Noise_NN_25519_AESGCM_SHA256
-        } else {
-            Self::Noise_NN_25519_ChaChaPoly_BLAKE2s
-        }
-    }
 }
 
 impl CipherSuite {

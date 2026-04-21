@@ -870,7 +870,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "web-time",
 ]
 
 [[package]]

@@ -177,10 +177,7 @@ pub(crate) enum ReceiveError {
 pub(crate) fn current_epoch_secs() -> u64 {
     #[cfg(feature = "wasm")]
     {
-        web_time::SystemTime::now()
-            .duration_since(web_time::UNIX_EPOCH)
-            .expect("System clock is before Unix epoch")
-            .as_secs()
+        js_sys::Date::now() as u64 / 1000
     }
     #[cfg(not(feature = "wasm"))]
     {
