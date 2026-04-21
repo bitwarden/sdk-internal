@@ -126,7 +126,6 @@ impl PersistentTransportState {
         &mut self,
         transport_frame: &TransportFrame,
     ) -> Result<Payload, ReceiveError> {
-        // Try decryption with current receive key first.
         if transport_frame.nonce > self.receive_nonce {
             if let Ok(plaintext) = self.try_decrypt(&self.receive_key, transport_frame) {
                 self.receive_nonce = transport_frame.nonce;
