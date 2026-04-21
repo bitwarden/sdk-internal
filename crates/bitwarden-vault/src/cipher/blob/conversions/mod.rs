@@ -152,6 +152,12 @@ impl CipherBlobV1 {
                 .collect(),
         );
 
+        view.login = None;
+        view.card = None;
+        view.identity = None;
+        view.secure_note = None;
+        view.ssh_key = None;
+
         match &self.type_data {
             CipherTypeDataV1::Login(login_data) => {
                 let fido2_credentials = if login_data.fido2_credentials.is_empty() {
@@ -175,42 +181,22 @@ impl CipherBlobV1 {
                     autofill_on_page_load: login_data.autofill_on_page_load,
                     fido2_credentials,
                 });
-                view.card = None;
-                view.identity = None;
-                view.secure_note = None;
-                view.ssh_key = None;
             }
             CipherTypeDataV1::Card(card_data) => {
                 view.r#type = CipherType::Card;
                 view.card = Some(CardView::from(card_data));
-                view.login = None;
-                view.identity = None;
-                view.secure_note = None;
-                view.ssh_key = None;
             }
             CipherTypeDataV1::Identity(identity_data) => {
                 view.r#type = CipherType::Identity;
                 view.identity = Some(IdentityView::from(identity_data));
-                view.login = None;
-                view.card = None;
-                view.secure_note = None;
-                view.ssh_key = None;
             }
             CipherTypeDataV1::SecureNote(secure_note_data) => {
                 view.r#type = CipherType::SecureNote;
                 view.secure_note = Some(SecureNoteView::from(secure_note_data));
-                view.login = None;
-                view.card = None;
-                view.identity = None;
-                view.ssh_key = None;
             }
             CipherTypeDataV1::SshKey(ssh_key_data) => {
                 view.r#type = CipherType::SshKey;
                 view.ssh_key = Some(SshKeyView::from(ssh_key_data));
-                view.login = None;
-                view.card = None;
-                view.identity = None;
-                view.secure_note = None;
             }
         }
 
