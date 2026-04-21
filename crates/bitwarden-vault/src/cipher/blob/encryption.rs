@@ -198,14 +198,18 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::cipher::{
-        blob::conversions::test_support::{create_shell_cipher_view, create_test_key_store},
-        card::CardView,
-        cipher::{CipherId, CipherRepromptType, CipherType},
-        identity::IdentityView,
-        login::LoginView,
-        secure_note::{SecureNoteType, SecureNoteView},
-        ssh_key::SshKeyView,
+    use crate::{
+        cipher::{
+            blob::conversions::test_support::{create_shell_cipher_view, create_test_key_store},
+            card::CardView,
+            cipher::{CipherId, CipherRepromptType, CipherType},
+            field::{FieldType, FieldView},
+            identity::IdentityView,
+            login::LoginView,
+            secure_note::{SecureNoteType, SecureNoteView},
+            ssh_key::SshKeyView,
+        },
+        password_history::PasswordHistoryView,
     };
 
     fn make_test_cipher_with_data(
@@ -495,6 +499,17 @@ mod tests {
             autofill_on_page_load: None,
             fido2_credentials: None,
         });
+        view.fields = Some(vec![FieldView {
+            name: Some("custom".to_string()),
+            value: Some("field-value".to_string()),
+            r#type: FieldType::Text,
+            linked_id: None,
+        }]);
+        let history_date = chrono::Utc::now();
+        view.password_history = Some(vec![PasswordHistoryView {
+            password: "old-p@ssw0rd".to_string(),
+            last_used_date: history_date,
+        }]);
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
         assert!(is_blob_encrypted(&cipher));
@@ -507,6 +522,17 @@ mod tests {
         let login = restored.login.unwrap();
         assert_eq!(login.username, Some("testuser@example.com".to_string()));
         assert_eq!(login.password, Some("p@ssw0rd".to_string()));
+
+        let fields = restored.fields.unwrap();
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].name, Some("custom".to_string()));
+        assert_eq!(fields[0].value, Some("field-value".to_string()));
+        assert_eq!(fields[0].r#type, FieldType::Text);
+
+        let history = restored.password_history.unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].password, "old-p@ssw0rd");
+        assert_eq!(history[0].last_used_date, history_date);
     }
 
     #[test]
