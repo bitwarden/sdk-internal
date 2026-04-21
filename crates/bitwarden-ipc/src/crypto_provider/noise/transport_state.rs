@@ -17,11 +17,7 @@ pub(crate) enum TransportCipher {
 
 impl Default for TransportCipher {
     fn default() -> Self {
-        if cfg!(feature = "fips") {
-            Self::Aes256Gcm
-        } else {
-            Self::ChaCha20Poly1305
-        }
+        Self::Aes256Gcm
     }
 }
 
