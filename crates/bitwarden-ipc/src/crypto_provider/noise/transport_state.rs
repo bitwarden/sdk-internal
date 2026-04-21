@@ -167,11 +167,11 @@ pub(crate) enum ReceiveError {
 
 /// Returns the current time as seconds since the Unix epoch.
 pub(crate) fn current_epoch_secs() -> u64 {
-    #[cfg(feature = "wasm")]
+    #[cfg(target_family = "wasm")]
     {
         js_sys::Date::now() as u64 / 1000
     }
-    #[cfg(not(feature = "wasm"))]
+    #[cfg(not(target_arch = "wasm32"))]
     {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
