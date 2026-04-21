@@ -116,7 +116,7 @@ where
         message: OutgoingMessage,
     ) -> Result<(), Self::SendError> {
         // Send operations *MUST* be serialized, otherwise nonce re-use may happen since
-        // concurrent sends may aquire the same copy of the transport state before nonce
+        // concurrent sends may acquire the same copy of the transport state before nonce
         // updating.
         let _send_guard = SEND_GUARD.lock().await;
 
