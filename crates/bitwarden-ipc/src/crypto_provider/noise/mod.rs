@@ -20,7 +20,7 @@
 //!     |<-- TransportFrame (encrypted) -------|
 //!     |              ...                     |
 //!     |                                      |
-//!     | [After REHANDSHAKE_INTERVAL (300s),  |
+//!     | [After REHANDSHAKE_INTERVAL          |
 //!     |  initiator starts a new handshake]   |
 //!     |                                      |
 //!     |--- HandshakeStart ------------------>|
