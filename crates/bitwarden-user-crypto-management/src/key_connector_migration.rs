@@ -2,7 +2,7 @@
 
 use bitwarden_api_api::models::KeyConnectorEnrollmentRequestModel;
 use bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel;
-use bitwarden_core::key_management::SymmetricKeyId;
+use bitwarden_core::key_management::SymmetricKeySlotId;
 use bitwarden_crypto::{EncString, KeyConnectorKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -61,7 +61,7 @@ async fn internal_migrate_to_key_connector(
             .get_key_store();
         let ctx = key_store.context();
         key_connector_key
-            .wrap_user_key(SymmetricKeyId::User, &ctx)
+            .wrap_user_key(SymmetricKeySlotId::User, &ctx)
             .map_err(|_| MigrateToKeyConnectorError::UserKeyNotAvailable)?
     };
 
@@ -159,7 +159,7 @@ mod tests {
             let mut ctx = key_store.context_mut();
             let local_user_key =
                 ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeyId::User);
+            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeySlotId::User);
         }
 
         UserCryptoManagementClient::new(client)

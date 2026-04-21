@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::SecretsSyncResponseModel;
-use bitwarden_core::{key_management::KeyIds, require};
+use bitwarden_core::{key_management::KeySlotIds, require};
 use bitwarden_crypto::KeyStoreContext;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
@@ -48,7 +48,7 @@ pub struct SecretsSyncResponse {
 impl SecretsSyncResponse {
     pub(crate) fn process_response(
         response: SecretsSyncResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretsSyncResponse, SecretsManagerError> {
         let has_changes = require!(response.has_changes);
 

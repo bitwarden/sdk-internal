@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::ProjectResponseModelListResponseModel;
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::KeyStoreContext;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ pub struct ProjectsResponse {
 impl ProjectsResponse {
     pub(crate) fn process_response(
         response: ProjectResponseModelListResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, SecretsManagerError> {
         let data = response.data.unwrap_or_default();
 

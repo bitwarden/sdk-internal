@@ -94,7 +94,7 @@ impl AuthClient {
 
     #[allow(missing_docs)]
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         make_key_connector_keys(&mut rng)
     }
 
@@ -223,13 +223,13 @@ pub enum TrustDeviceError {
 
 #[cfg(feature = "internal")]
 fn trust_device(client: &Client) -> Result<TrustDeviceResponse, TrustDeviceError> {
-    use crate::key_management::SymmetricKeyId;
+    use crate::key_management::SymmetricKeySlotId;
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // FIXME: [PM-18099] Once DeviceKey deals with KeyIds, this should be updated
+    // FIXME: [PM-18099] Once DeviceKey deals with KeySlotIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
     Ok(DeviceKey::trust_device(user_key)?)
 }

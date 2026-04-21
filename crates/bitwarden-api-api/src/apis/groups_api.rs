@@ -29,33 +29,33 @@ pub trait GroupsApi: Send + Sync {
     /// DELETE /organizations/{orgId}/groups
     async fn bulk_delete<'a>(
         &self,
-        org_id: &'a str,
+        org_id: uuid::Uuid,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
     ) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/groups/{id}
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error>;
+    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/groups/{id}/user/{orgUserId}
     async fn delete_user<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
-        org_user_id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        org_user_id: uuid::Uuid,
     ) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/groups/{id}
     async fn get<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
     ) -> Result<models::GroupResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/{id}/details
     async fn get_details<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
     ) -> Result<models::GroupDetailsResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/details
@@ -71,7 +71,11 @@ pub trait GroupsApi: Send + Sync {
     ) -> Result<models::GroupResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/{id}/users
-    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error>;
+    async fn get_users<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+    ) -> Result<Vec<uuid::Uuid>, Error>;
 
     /// POST /organizations/{orgId}/groups
     async fn post<'a>(
@@ -104,7 +108,7 @@ impl GroupsApiClient {
 impl GroupsApi for GroupsApiClient {
     async fn bulk_delete<'a>(
         &self,
-        org_id: &'a str,
+        org_id: uuid::Uuid,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -114,7 +118,7 @@ impl GroupsApi for GroupsApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/groups",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id)
+            orgId = org_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
@@ -125,7 +129,7 @@ impl GroupsApi for GroupsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error> {
+    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -133,8 +137,8 @@ impl GroupsApi for GroupsApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/groups/{id}",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id),
-            id = crate::apis::urlencode(id)
+            orgId = org_id,
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
@@ -146,9 +150,9 @@ impl GroupsApi for GroupsApiClient {
 
     async fn delete_user<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
-        org_user_id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        org_user_id: uuid::Uuid,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -157,9 +161,9 @@ impl GroupsApi for GroupsApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/groups/{id}/user/{orgUserId}",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id),
-            id = crate::apis::urlencode(id),
-            orgUserId = crate::apis::urlencode(org_user_id)
+            orgId = org_id,
+            id = id,
+            orgUserId = org_user_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
@@ -171,8 +175,8 @@ impl GroupsApi for GroupsApiClient {
 
     async fn get<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
     ) -> Result<models::GroupResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -181,8 +185,8 @@ impl GroupsApi for GroupsApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/groups/{id}",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id),
-            id = crate::apis::urlencode(id)
+            orgId = org_id,
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -194,8 +198,8 @@ impl GroupsApi for GroupsApiClient {
 
     async fn get_details<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
     ) -> Result<models::GroupDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -204,8 +208,8 @@ impl GroupsApi for GroupsApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/groups/{id}/details",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id),
-            id = crate::apis::urlencode(id)
+            orgId = org_id,
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -257,7 +261,11 @@ impl GroupsApi for GroupsApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error> {
+    async fn get_users<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+    ) -> Result<Vec<uuid::Uuid>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -265,8 +273,8 @@ impl GroupsApi for GroupsApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/groups/{id}/users",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id),
-            id = crate::apis::urlencode(id)
+            orgId = org_id,
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());

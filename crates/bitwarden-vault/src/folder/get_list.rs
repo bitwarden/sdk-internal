@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -19,7 +19,7 @@ pub enum GetFolderError {
 }
 
 pub(super) async fn get_folder(
-    store: &KeyStore<KeyIds>,
+    store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Folder>,
     id: FolderId,
 ) -> Result<FolderView, GetFolderError> {
@@ -29,7 +29,7 @@ pub(super) async fn get_folder(
 }
 
 pub(super) async fn list_folders(
-    store: &KeyStore<KeyIds>,
+    store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Folder>,
 ) -> Result<Vec<FolderView>, GetFolderError> {
     let folders = repository.list().await?;

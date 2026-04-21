@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`3dd72f611838d732b96b30c0f7837a84e3a36e8a`](https://github.com/bitwarden/server/commit/3dd72f611838d732b96b30c0f7837a84e3a36e8a)
+  [`cd4e44cb04f4b80ef035df80df7ff5991cd0e64b`](https://github.com/bitwarden/server/commit/cd4e44cb04f4b80ef035df80df7ff5991cd0e64b)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -403,11 +403,11 @@ All URIs are relative to *https://api.bitwarden.com*
 | _ProviderUsersApi_                        | [**put**](docs/ProviderUsersApi.md#provider_users_put)                                                                                                           | **PUT** /providers/{providerId}/users/{id}                                                               |
 | _ProviderUsersApi_                        | [**reinvite**](docs/ProviderUsersApi.md#provider_users_reinvite)                                                                                                 | **POST** /providers/{providerId}/users/{id}/reinvite                                                     |
 | _ProviderUsersApi_                        | [**user_public_keys**](docs/ProviderUsersApi.md#provider_users_user_public_keys)                                                                                 | **POST** /providers/{providerId}/users/public-keys                                                       |
-| _ProvidersApi_                            | [**delete**](docs/ProvidersApi.md#providers_delete)                                                                                                              | **DELETE** /providers/{id}                                                                               |
-| _ProvidersApi_                            | [**get**](docs/ProvidersApi.md#providers_get)                                                                                                                    | **GET** /providers/{id}                                                                                  |
-| _ProvidersApi_                            | [**post_delete_recover_token**](docs/ProvidersApi.md#providers_post_delete_recover_token)                                                                        | **POST** /providers/{id}/delete-recover-token                                                            |
-| _ProvidersApi_                            | [**put**](docs/ProvidersApi.md#providers_put)                                                                                                                    | **PUT** /providers/{id}                                                                                  |
-| _ProvidersApi_                            | [**setup**](docs/ProvidersApi.md#providers_setup)                                                                                                                | **POST** /providers/{id}/setup                                                                           |
+| _ProvidersApi_                            | [**delete**](docs/ProvidersApi.md#providers_delete)                                                                                                              | **DELETE** /providers/{providerId}                                                                       |
+| _ProvidersApi_                            | [**get**](docs/ProvidersApi.md#providers_get)                                                                                                                    | **GET** /providers/{providerId}                                                                          |
+| _ProvidersApi_                            | [**post_delete_recover_token**](docs/ProvidersApi.md#providers_post_delete_recover_token)                                                                        | **POST** /providers/{providerId}/delete-recover-token                                                    |
+| _ProvidersApi_                            | [**put**](docs/ProvidersApi.md#providers_put)                                                                                                                    | **PUT** /providers/{providerId}                                                                          |
+| _ProvidersApi_                            | [**setup**](docs/ProvidersApi.md#providers_setup)                                                                                                                | **POST** /providers/{providerId}/setup                                                                   |
 | _PushApi_                                 | [**add_organization**](docs/PushApi.md#push_add_organization)                                                                                                    | **PUT** /push/add-organization                                                                           |
 | _PushApi_                                 | [**delete**](docs/PushApi.md#push_delete)                                                                                                                        | **POST** /push/delete                                                                                    |
 | _PushApi_                                 | [**delete_organization**](docs/PushApi.md#push_delete_organization)                                                                                              | **PUT** /push/delete-organization                                                                        |
@@ -570,6 +570,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ChangePlanFrequencyRequest](docs/ChangePlanFrequencyRequest.md)
 - [CheckoutBillingAddressRequest](docs/CheckoutBillingAddressRequest.md)
 - [CipherAttachmentModel](docs/CipherAttachmentModel.md)
+- [CipherBankAccountModel](docs/CipherBankAccountModel.md)
 - [CipherBulkArchiveRequestModel](docs/CipherBulkArchiveRequestModel.md)
 - [CipherBulkDeleteRequestModel](docs/CipherBulkDeleteRequestModel.md)
 - [CipherBulkMoveRequestModel](docs/CipherBulkMoveRequestModel.md)

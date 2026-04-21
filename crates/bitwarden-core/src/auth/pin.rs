@@ -6,7 +6,7 @@ use tracing::info;
 
 use crate::{
     Client, NotAuthenticatedError, auth::AuthValidateError, client::UserLoginMethod,
-    key_management::SymmetricKeyId,
+    key_management::SymmetricKeySlotId,
 };
 
 pub(crate) async fn validate_pin(
@@ -25,9 +25,9 @@ pub(crate) async fn validate_pin(
         | UserLoginMethod::ApiKey { email, kdf, .. } => {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
-            // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
+            // FIXME: [PM-18099] Once PinKey deals with KeySlotIds, this should be updated
             #[allow(deprecated)]
-            let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+            let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
             let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), &kdf)?;
 
@@ -152,7 +152,7 @@ mod tests {
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
         let envelope = PasswordProtectedKeyEnvelope::seal(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             pin,
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &ctx,
@@ -174,7 +174,7 @@ mod tests {
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
         let envelope = PasswordProtectedKeyEnvelope::seal(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             correct_pin,
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &ctx,
@@ -197,7 +197,7 @@ mod tests {
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
         let envelope = PasswordProtectedKeyEnvelope::seal(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             pin,
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &ctx,
