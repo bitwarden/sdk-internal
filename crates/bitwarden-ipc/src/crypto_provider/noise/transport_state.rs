@@ -27,7 +27,7 @@ impl Default for TransportCipher {
 
 /// A newtype for symmetric keys used in noise. A noise key is always 256-bits.
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct SymmetricKey(pub(crate) [u8; KEY_SIZE]);
+pub(super) struct SymmetricKey(pub(crate) [u8; KEY_SIZE]);
 
 /// Implement Debug manually to avoid accidentally logging the key material.
 impl std::fmt::Debug for SymmetricKey {
