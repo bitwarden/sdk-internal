@@ -29,22 +29,19 @@ pub trait AccountsApi: Send + Sync {
     /// GET /accounts/webauthn/assertion-options
     async fn get_web_authn_login_assertion_options(
         &self,
-    ) -> Result<
-        models::WebAuthnLoginAssertionOptionsResponseModel,
-        Error<GetWebAuthnLoginAssertionOptionsError>,
-    >;
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error>;
 
     /// POST /accounts/prelogin/password
     async fn post_password_prelogin<'a>(
         &self,
         password_prelogin_request_model: Option<models::PasswordPreloginRequestModel>,
-    ) -> Result<models::PasswordPreloginResponseModel, Error<PostPasswordPreloginError>>;
+    ) -> Result<models::PasswordPreloginResponseModel, Error>;
 
     /// POST /accounts/register/finish
     async fn post_register_finish<'a>(
         &self,
         register_finish_request_model: Option<models::RegisterFinishRequestModel>,
-    ) -> Result<models::RegisterFinishResponseModel, Error<PostRegisterFinishError>>;
+    ) -> Result<models::RegisterFinishResponseModel, Error>;
 
     /// POST /accounts/register/send-verification-email
     async fn post_register_send_verification_email<'a>(
@@ -52,7 +49,7 @@ pub trait AccountsApi: Send + Sync {
         register_send_verification_email_request_model: Option<
             models::RegisterSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterSendVerificationEmailError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/register/verification-email-clicked
     async fn post_register_verification_email_clicked<'a>(
@@ -60,7 +57,7 @@ pub trait AccountsApi: Send + Sync {
         register_verification_email_clicked_request_model: Option<
             models::RegisterVerificationEmailClickedRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterVerificationEmailClickedError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/trial/send-verification-email
     async fn post_trial_initiation_send_verification_email<'a>(
@@ -68,7 +65,7 @@ pub trait AccountsApi: Send + Sync {
         trial_send_verification_email_request_model: Option<
             models::TrialSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostTrialInitiationSendVerificationEmailError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct AccountsApiClient {
@@ -86,10 +83,7 @@ impl AccountsApiClient {
 impl AccountsApi for AccountsApiClient {
     async fn get_web_authn_login_assertion_options(
         &self,
-    ) -> Result<
-        models::WebAuthnLoginAssertionOptionsResponseModel,
-        Error<GetWebAuthnLoginAssertionOptionsError>,
-    > {
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -107,7 +101,7 @@ impl AccountsApi for AccountsApiClient {
     async fn post_password_prelogin<'a>(
         &self,
         password_prelogin_request_model: Option<models::PasswordPreloginRequestModel>,
-    ) -> Result<models::PasswordPreloginResponseModel, Error<PostPasswordPreloginError>> {
+    ) -> Result<models::PasswordPreloginResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -127,7 +121,7 @@ impl AccountsApi for AccountsApiClient {
     async fn post_register_finish<'a>(
         &self,
         register_finish_request_model: Option<models::RegisterFinishRequestModel>,
-    ) -> Result<models::RegisterFinishResponseModel, Error<PostRegisterFinishError>> {
+    ) -> Result<models::RegisterFinishResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -149,7 +143,7 @@ impl AccountsApi for AccountsApiClient {
         register_send_verification_email_request_model: Option<
             models::RegisterSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterSendVerificationEmailError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -172,7 +166,7 @@ impl AccountsApi for AccountsApiClient {
         register_verification_email_clicked_request_model: Option<
             models::RegisterVerificationEmailClickedRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterVerificationEmailClickedError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -195,7 +189,7 @@ impl AccountsApi for AccountsApiClient {
         trial_send_verification_email_request_model: Option<
             models::TrialSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostTrialInitiationSendVerificationEmailError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -212,41 +206,4 @@ impl AccountsApi for AccountsApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`AccountsApi::get_web_authn_login_assertion_options`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetWebAuthnLoginAssertionOptionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_password_prelogin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostPasswordPreloginError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_register_finish`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostRegisterFinishError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_register_send_verification_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostRegisterSendVerificationEmailError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_register_verification_email_clicked`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostRegisterVerificationEmailClickedError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_trial_initiation_send_verification_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostTrialInitiationSendVerificationEmailError {
-    UnknownValue(serde_json::Value),
 }
