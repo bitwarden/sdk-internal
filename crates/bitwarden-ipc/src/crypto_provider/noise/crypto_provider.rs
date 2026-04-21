@@ -282,7 +282,7 @@ pub(super) enum Frame {
     // Handshake Frames
     HandshakeStart(HandshakeStartMessage),
     HandshakeFinish(HandshakeFinishMessage),
-    // After the handsahke is done, transport frames are used to wrap ciphertexts
+    // After the handshake is done, transport frames are used to wrap ciphertexts
     TransportFrame(TransportFrame),
     // If crypto is invalidated, this message is sent by the device noticing
     // the invalidation so that both sides reset the crypto.
