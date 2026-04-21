@@ -9,16 +9,11 @@ use crate::crypto_provider::noise::NOISE_MAX_MESSAGE_LEN;
 const KEY_SIZE: usize = 32;
 
 /// Supported ciphers for the transport mode of noise.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub(crate) enum TransportCipher {
     ChaCha20Poly1305 = 0,
+    #[default]
     Aes256Gcm = 1,
-}
-
-impl Default for TransportCipher {
-    fn default() -> Self {
-        Self::Aes256Gcm
-    }
 }
 
 /// A newtype for symmetric keys used in noise. A noise key is always 256-bits.
