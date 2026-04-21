@@ -38,7 +38,7 @@ pub(crate) struct PersistentTransportState {
     transport_cipher: TransportCipher,
 
     // Noise has two keys, the initiator to responder key (i2r) and the responder to initiator key
-    // (r2i). 
+    // (r2i).
     // For the initiator, send_key = i2r and receive_key = r2i.
     // For the responder, send_key = r2i and receive_key = i2r.
     send_key: SymmetricKey,
