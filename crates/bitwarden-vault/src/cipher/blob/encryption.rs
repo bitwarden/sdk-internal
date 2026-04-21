@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, IdentifyKey, KeyStoreContext,
     PrimitiveEncryptable,
@@ -37,7 +37,7 @@ pub(crate) fn is_legacy_cipher(cipher: &Cipher) -> bool {
 /// Seals a `CipherView` into an opaque blob string.
 fn seal_cipher(
     view: &CipherView,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<String, BlobEncryptionError> {
     let outer_key = view.key_identifier();
     let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &view.key)?;
@@ -51,7 +51,7 @@ fn seal_cipher(
 /// Unseals a cipher's blob data, returning the latest blob version.
 fn unseal_cipher(
     cipher: &Cipher,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<CipherBlobLatest, BlobEncryptionError> {
     let outer_key = cipher.key_identifier();
     let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &cipher.key)?;
@@ -74,7 +74,7 @@ fn unseal_cipher(
 /// and encrypts attachments and local data separately.
 pub(crate) fn encrypt_blob_cipher(
     view: &mut CipherView,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Cipher, BlobEncryptionError> {
     if view.key.is_none() {
         view.generate_cipher_key(ctx, view.key_identifier())?;
@@ -135,7 +135,7 @@ pub(crate) fn encrypt_blob_cipher(
 /// the blob content fields onto the view.
 pub(crate) fn decrypt_blob_cipher(
     cipher: &Cipher,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<CipherView, BlobEncryptionError> {
     let outer_key = cipher.key_identifier();
     let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &cipher.key)?;
@@ -209,11 +209,14 @@ mod tests {
     };
 
     fn make_test_cipher_with_data(
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
         data: Option<String>,
     ) -> Cipher {
         let name = "test"
-            .encrypt(ctx, bitwarden_core::key_management::SymmetricKeyId::User)
+            .encrypt(
+                ctx,
+                bitwarden_core::key_management::SymmetricKeySlotId::User,
+            )
             .unwrap();
         Cipher {
             id: None,
