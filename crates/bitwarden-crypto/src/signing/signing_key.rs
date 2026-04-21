@@ -87,14 +87,15 @@ impl SigningKey {
                 ))),
             },
             SignatureAlgorithm::MlDsa44 => {
-                let mut seed = [0u8; 32];
+                // This is heap allocated from the start, so will be zeroized on drop
+                let mut seed = Box::pin(Array::from([0u8; 32]));
                 rand::rng().fill_bytes(&mut seed);
-                let seed = Array::from(seed);
+
                 let kp = MlDsa44::from_seed(&seed);
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa44 {
-                        seed: Box::pin(seed),
+                        seed,
                         signing_key: Box::pin(kp.signing_key().clone()),
                         verifying_key: Box::new(kp.verifying_key().clone()),
                     },
