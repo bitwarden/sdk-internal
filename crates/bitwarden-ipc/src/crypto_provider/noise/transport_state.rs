@@ -107,7 +107,7 @@ impl AsRef<[u8]> for Payload {
 
 impl PersistentTransportState {
     /// Encrypts the message, mutates the state and returns the transport frame to be sent over
-    /// IPC.s
+    /// IPC.
     pub(crate) fn send(&mut self, payload: Payload) -> Result<TransportFrame, ()> {
         // Increase nonce. WARNING: Re-used nonces lead to catastrophic
         // crypto failure. Ensure this increases always.
