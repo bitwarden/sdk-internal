@@ -6,7 +6,7 @@
 //! prevents MITM with active tampering.
 //!
 //! Protocol flow:
-//! 1. Initiator -> Ressponder: `HandshakeStartMessage { ciphersuite, noise_frame }`
+//! 1. Initiator -> Responder: `HandshakeStartMessage { ciphersuite, noise_frame }`
 //! 2. Responder -> Initiator: `HandshakeFinishMessage { noise_frame }`
 //!
 //! After both messages are processed, each side derives split transport keys from the
