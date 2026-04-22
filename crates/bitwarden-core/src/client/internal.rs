@@ -107,6 +107,8 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
+    // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the feature flags are removed.
+    #[allow(dead_code)]
     pub(crate) state_registry: StateRegistry,
 }
 
