@@ -4,8 +4,6 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
-#[cfg(feature = "internal")]
-use crate::client::flags::Flags;
 use crate::{
     auth::auth_tokens::{NoopTokenHandler, TokenHandler},
     client::{
@@ -132,8 +130,6 @@ impl ClientBuilder {
                 user_id: OnceLock::new(),
                 token_handler: self.token_handler,
                 login_method,
-                #[cfg(feature = "internal")]
-                flags: RwLock::new(Flags::default()),
                 api_configurations: ApiConfigurations::new(identity, api, settings.device_type),
                 external_http_client,
                 key_store,
