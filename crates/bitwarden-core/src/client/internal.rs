@@ -20,7 +20,9 @@ use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
 #[cfg(feature = "internal")]
 use crate::{
     client::{
-        encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
+        encryption_settings::EncryptionSettingsError,
+        flags::Flags,
+        login_method::UserLoginMethod,
         persisted_state::{FLAGS, USER_ID},
     },
     error::NotAuthenticatedError,
