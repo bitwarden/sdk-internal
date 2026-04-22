@@ -53,8 +53,18 @@ pub struct RegisterFinishRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub user_symmetric_key: Option<String>,
-    #[serde(rename = "userAsymmetricKeys", alias = "UserAsymmetricKeys")]
-    pub user_asymmetric_keys: Box<models::KeysRequestModel>,
+    #[serde(
+        rename = "userAsymmetricKeys",
+        alias = "UserAsymmetricKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_asymmetric_keys: Option<Box<models::KeysRequestModel>>,
+    #[serde(
+        rename = "accountKeys",
+        alias = "AccountKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub account_keys: Option<Box<models::AccountKeysRequestModel>>,
     #[serde(rename = "kdf", alias = "Kdf", skip_serializing_if = "Option::is_none")]
     pub kdf: Option<models::KdfType>,
     #[serde(
@@ -120,10 +130,7 @@ pub struct RegisterFinishRequestModel {
 }
 
 impl RegisterFinishRequestModel {
-    pub fn new(
-        email: Option<String>,
-        user_asymmetric_keys: models::KeysRequestModel,
-    ) -> RegisterFinishRequestModel {
+    pub fn new(email: Option<String>) -> RegisterFinishRequestModel {
         RegisterFinishRequestModel {
             email,
             email_verification_token: None,
@@ -132,7 +139,8 @@ impl RegisterFinishRequestModel {
             master_password_hash: None,
             master_password_hint: None,
             user_symmetric_key: None,
-            user_asymmetric_keys: Box::new(user_asymmetric_keys),
+            user_asymmetric_keys: None,
+            account_keys: None,
             kdf: None,
             kdf_iterations: None,
             kdf_memory: None,
