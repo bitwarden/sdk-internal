@@ -106,7 +106,9 @@ impl PersistentTransportState {
         // within the lifetime of a session. Nonetheless, the cryptographic guarantees are
         // not upheld, should a nonce ever be re-used, thus we panic in the event that an
         // overflow would occur.
-        self.send_nonce.checked_add(1)
+        self.send_nonce = self
+            .send_nonce
+            .checked_add(1)
             .expect("Nonce should never overflow. It is impossible to send 2^64 messages within the lifetime of a session.");
 
         let encrypted_message = self.encrypt(&self.send_key, self.send_nonce, &payload);
