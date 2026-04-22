@@ -124,6 +124,7 @@ pub(crate) fn encrypt_blob_cipher(
         card: None,
         secure_note: None,
         ssh_key: None,
+        bank_account: None,
         fields: None,
         password_history: None,
     })
@@ -183,6 +184,7 @@ pub(crate) fn decrypt_blob_cipher(
         card: None,
         secure_note: None,
         ssh_key: None,
+        bank_account: None,
         fields: None,
         password_history: None,
     };
@@ -200,6 +202,7 @@ mod tests {
     use super::*;
     use crate::{
         cipher::{
+            bank_account::BankAccountView,
             blob::conversions::test_support::{create_shell_cipher_view, create_test_key_store},
             card::CardView,
             cipher::{CipherId, CipherRepromptType, CipherType},
@@ -236,6 +239,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -347,6 +351,7 @@ mod tests {
         assert!(cipher.identity.is_none());
         assert!(cipher.secure_note.is_none());
         assert!(cipher.ssh_key.is_none());
+        assert!(cipher.bank_account.is_none());
         assert!(cipher.notes.is_none());
         assert!(cipher.fields.is_none());
         assert!(cipher.password_history.is_none());
@@ -477,6 +482,26 @@ mod tests {
                 private_key: "private".to_string(),
                 public_key: "public".to_string(),
                 fingerprint: "fingerprint".to_string(),
+            });
+            assert!(encrypt_blob_cipher(&mut view, &mut ctx).is_ok());
+        }
+
+        // BankAccount
+        {
+            let mut ctx = key_store.context_mut();
+            let mut view = create_shell_cipher_view(CipherType::BankAccount);
+            view.name = "Bank".to_string();
+            view.bank_account = Some(BankAccountView {
+                bank_name: Some("Bank".to_string()),
+                name_on_account: None,
+                account_type: None,
+                account_number: None,
+                routing_number: None,
+                branch_number: None,
+                pin: None,
+                swift_code: None,
+                iban: None,
+                bank_contact_phone: None,
             });
             assert!(encrypt_blob_cipher(&mut view, &mut ctx).is_ok());
         }

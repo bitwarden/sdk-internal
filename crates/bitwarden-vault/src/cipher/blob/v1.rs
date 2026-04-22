@@ -31,6 +31,7 @@ pub(crate) enum CipherTypeDataV1 {
     Identity(IdentityDataV1),
     SecureNote(SecureNoteDataV1),
     SshKey(SshKeyDataV1),
+    BankAccount(BankAccountDataV1),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -119,6 +120,21 @@ pub(crate) struct SshKeyDataV1 {
     pub private_key: String,
     pub public_key: String,
     pub fingerprint: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BankAccountDataV1 {
+    pub bank_name: Option<String>,
+    pub name_on_account: Option<String>,
+    pub account_type: Option<String>,
+    pub account_number: Option<String>,
+    pub routing_number: Option<String>,
+    pub branch_number: Option<String>,
+    pub pin: Option<String>,
+    pub swift_code: Option<String>,
+    pub iban: Option<String>,
+    pub bank_contact_phone: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
