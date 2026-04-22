@@ -61,37 +61,45 @@ pub trait Policy: Send + Sync + 'static {
     }
 }
 
-/// Filters `policies` to those that should be enforced against the user.
-/// This evaluates common business rules (e.g. the policy is enabled),
-/// as well as policy-specific rules according to its [`Policy`].
+/// Extension trait that adds a [`filter`](PolicyExt::filter) method to every [`Policy`].
 ///
-/// If a policy's organization is not present in `organizations`, the policy is enforced by default.
-pub fn filter<'a, P: Policy>(
-    policy: &P,
-    policies: &'a [PolicyView],
-    organizations: &[ProfileOrganization],
-) -> Vec<&'a PolicyView> {
-    let org_map: HashMap<&Uuid, &ProfileOrganization> =
-        organizations.iter().map(|o| (&o.id, o)).collect();
+/// Implemented automatically for all `T: Policy`.
+pub trait PolicyExt: Policy {
+    /// Filters `policies` to those that should be enforced against the user.
+    /// This evaluates common business rules (e.g. the policy is enabled),
+    /// as well as policy-specific rules according to its [`Policy`].
+    ///
+    /// If a policy's organization is not present in `organizations`, the policy is enforced by
+    /// default.
+    fn filter<'a>(
+        &self,
+        policies: &'a [PolicyView],
+        organizations: &[ProfileOrganization],
+    ) -> Vec<&'a PolicyView> {
+        let org_map: HashMap<&Uuid, &ProfileOrganization> =
+            organizations.iter().map(|o| (&o.id, o)).collect();
 
-    policies
-        .iter()
-        .filter(|p| p.r#type == P::TYPE)
-        .filter(|p| p.enabled)
-        .filter(|p| {
-            match org_map.get(&p.organization_id) {
-                Some(org) => {
-                    org.enabled
-                        && org.use_policies
-                        && policy.applicable_statuses().contains(&org.status)
-                        && !policy.exempt_roles().contains(&org.r#type)
-                        && !(org.is_provider_user && policy.exempt_providers())
+        policies
+            .iter()
+            .filter(|p| p.r#type == Self::TYPE)
+            .filter(|p| p.enabled)
+            .filter(|p| {
+                match org_map.get(&p.organization_id) {
+                    Some(org) => {
+                        org.enabled
+                            && org.use_policies
+                            && self.applicable_statuses().contains(&org.status)
+                            && !self.exempt_roles().contains(&org.r#type)
+                            && !(org.is_provider_user && self.exempt_providers())
+                    }
+                    None => true, // Unknown org: enforce by default
                 }
-                None => true, // Unknown org: enforce by default
-            }
-        })
-        .collect()
+            })
+            .collect()
+    }
 }
+
+impl<T: Policy> PolicyExt for T {}
 
 #[cfg(test)]
 mod tests {
@@ -156,7 +164,7 @@ mod tests {
             false,
         )];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert_eq!(result.len(), 1);
     }
 
@@ -174,7 +182,7 @@ mod tests {
         }];
         let policies = [policy_view(org_id, 1, true)];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
     }
 
@@ -189,7 +197,7 @@ mod tests {
             false,
         )];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
     }
 
@@ -204,7 +212,7 @@ mod tests {
             false,
         )];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
     }
 
@@ -221,7 +229,7 @@ mod tests {
         }];
         let policies = [policy_view(org_id, 1, true)];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
     }
 
@@ -236,7 +244,7 @@ mod tests {
             false,
         )];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
     }
 
@@ -251,7 +259,7 @@ mod tests {
             false,
         )];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
     }
 
@@ -266,7 +274,7 @@ mod tests {
             true,
         )];
 
-        let result = filter(&TestPolicy, &policies, &orgs);
+        let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
     }
 
@@ -274,7 +282,7 @@ mod tests {
     fn missing_org_enforces_by_default() {
         let policies = [policy_view(Uuid::new_v4(), 1, true)];
 
-        let result = filter(&TestPolicy, &policies, &[]);
+        let result = TestPolicy.filter(&policies, &[]);
         assert_eq!(result.len(), 1);
     }
 }
