@@ -36,7 +36,8 @@ pub enum NoiseCryptoProviderError {
 
 // Serialize send operations to prevent concurrent reads of the same persisted
 // transport state, which can cause nonce reuse.
-static CRYPTO_STATE_GUARD: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
+static CRYPTO_STATE_GUARD: LazyLock<tokio::sync::Mutex<()>> =
+    LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 impl NoiseCryptoProvider {
     async fn perform_handshake<Com, Ses>(
