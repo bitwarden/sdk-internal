@@ -2,8 +2,8 @@
 
 //! Policy filtering logic.
 //!
-//! Provides the [`filter`] function and [`PolicyDefinition`] trait for determining
-//! which policies should be enforced against the current user based on business rules.
+//! Provides the [`Policy`] trait for determining which policies
+//! should be enforced against the current user based on business rules.
 
 use std::collections::HashMap;
 
