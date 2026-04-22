@@ -21,7 +21,7 @@ use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
 use crate::{
     client::{
         encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
-        persisted_state::USER_ID,
+        persisted_state::{FLAGS, USER_ID},
     },
     error::NotAuthenticatedError,
     key_management::{
@@ -95,9 +95,6 @@ pub struct InternalClient {
     )]
     pub(crate) login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
 
-    #[cfg(feature = "internal")]
-    pub(super) flags: RwLock<Flags>,
-
     pub(super) api_configurations: Arc<ApiConfigurations>,
 
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
@@ -108,9 +105,6 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
-    // TODO(PM-31876): Remove once Flags are migrated to Setting, which will add an in-crate
-    // read path and satisfy the dead_code lint without suppression.
-    #[allow(dead_code)]
     pub(crate) state_registry: StateRegistry,
 }
 
@@ -118,16 +112,36 @@ impl InternalClient {
     /// Load feature flags. This is intentionally a collection and not the internal `Flag` enum as
     /// we want to avoid changes in feature flags from being a breaking change.
     #[cfg(feature = "internal")]
-    #[expect(clippy::unused_async)]
     pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
-        *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
+        let flags = Flags::load_from_map(flags);
+        match self.state_registry.setting(FLAGS) {
+            Ok(setting) => {
+                if let Err(e) = setting.update(flags).await {
+                    tracing::warn!("Failed to persist flags: {e}");
+                }
+            }
+            Err(e) => tracing::warn!("Flags setting unavailable: {e}"),
+        }
     }
 
     /// Retrieve the active feature flags.
     #[cfg(feature = "internal")]
-    #[expect(clippy::unused_async)]
     pub async fn get_flags(&self) -> Flags {
-        self.flags.read().expect("RwLock is not poisoned").clone()
+        let setting = match self.state_registry.setting(FLAGS) {
+            Ok(setting) => setting,
+            Err(e) => {
+                tracing::warn!("Flags setting unavailable, using defaults: {e}");
+                return Flags::default();
+            }
+        };
+        match setting.get().await {
+            Ok(Some(flags)) => flags,
+            Ok(None) => Flags::default(),
+            Err(e) => {
+                tracing::warn!("Failed to read flags, using defaults: {e}");
+                Flags::default()
+            }
+        }
     }
 
     #[cfg(feature = "internal")]
