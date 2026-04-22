@@ -1030,6 +1030,234 @@ impl CipherView {
             .collect();
         self.password_history = Some(changes)
     }
+
+    /// Projects this [`CipherView`] into a [`CipherListView`].
+    ///
+    /// Used by the blob decryption path: blob ciphers are fully unsealed to a
+    /// `CipherView` by [`decrypt_blob_cipher`], and this method then derives the
+    /// list-view shape without re-decrypting any sensitive fields.
+    ///
+    /// The login `totp` is re-encrypted under the cipher key because
+    /// [`LoginListView::totp`] stores an [`EncString`] (decrypted lazily via
+    /// [`CipherListView::get_totp_key`]); avoids a breaking change by keeping the
+    /// existing API contract
+    pub(crate) fn to_list_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherListView, CryptoError> {
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+
+        let attachments_count = self
+            .attachments
+            .as_ref()
+            .map(|a| a.len() as u32)
+            .unwrap_or(0);
+        let has_old_attachments = self
+            .attachments
+            .as_ref()
+            .map(|a| a.iter().any(|att| att.key.is_none()))
+            .unwrap_or(false);
+
+        let list_type = match self.r#type {
+            CipherType::Login => {
+                let login = self
+                    .login
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("login"))?;
+                CipherListViewType::Login(login.to_list_view(ctx, ciphers_key)?)
+            }
+            CipherType::SecureNote => CipherListViewType::SecureNote,
+            CipherType::Card => {
+                let card = self
+                    .card
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("card"))?;
+                CipherListViewType::Card(CardListView {
+                    brand: card.brand.clone(),
+                })
+            }
+            CipherType::Identity => CipherListViewType::Identity,
+            CipherType::SshKey => CipherListViewType::SshKey,
+            CipherType::BankAccount => CipherListViewType::BankAccount,
+        };
+
+        Ok(CipherListView {
+            id: self.id,
+            organization_id: self.organization_id,
+            folder_id: self.folder_id,
+            collection_ids: self.collection_ids.clone(),
+            key: self.key.clone(),
+            name: self.name.clone(),
+            subtitle: self.subtitle(),
+            r#type: list_type,
+            favorite: self.favorite,
+            reprompt: self.reprompt,
+            organization_use_totp: self.organization_use_totp,
+            edit: self.edit,
+            permissions: self.permissions,
+            view_password: self.view_password,
+            attachments: attachments_count,
+            has_old_attachments,
+            creation_date: self.creation_date,
+            deleted_date: self.deleted_date,
+            revision_date: self.revision_date,
+            archived_date: self.archived_date,
+            copyable_fields: self.get_copyable_fields(),
+            local_data: self.local_data.clone(),
+            #[cfg(feature = "wasm")]
+            notes: self.notes.clone(),
+            #[cfg(feature = "wasm")]
+            fields: self.fields.as_ref().map(|fields| {
+                fields
+                    .iter()
+                    .cloned()
+                    .map(field::FieldListView::from)
+                    .collect()
+            }),
+            #[cfg(feature = "wasm")]
+            attachment_names: self.attachments.as_ref().map(|attachments| {
+                attachments
+                    .iter()
+                    .filter_map(|a| a.file_name.clone())
+                    .collect()
+            }),
+        })
+    }
+
+    /// Derives the list-view subtitle from the decrypted view fields.
+    ///
+    /// Mirrors the per-type logic that [`CipherKind::decrypt_subtitle`] runs against
+    /// encrypted fields, but operates on the already-decrypted view.
+    fn subtitle(&self) -> String {
+        match self.r#type {
+            CipherType::Login => self
+                .login
+                .as_ref()
+                .and_then(|l| l.username.clone())
+                .unwrap_or_default(),
+            CipherType::Card => self
+                .card
+                .as_ref()
+                .map(|c| card::build_subtitle_card(c.brand.clone(), c.number.clone()))
+                .unwrap_or_default(),
+            CipherType::Identity => self
+                .identity
+                .as_ref()
+                .map(|i| {
+                    identity::build_subtitle_identity(i.first_name.clone(), i.last_name.clone())
+                })
+                .unwrap_or_default(),
+            CipherType::SshKey => self
+                .ssh_key
+                .as_ref()
+                .map(|s| s.fingerprint.clone())
+                .unwrap_or_default(),
+            CipherType::SecureNote => String::new(),
+            CipherType::BankAccount => self
+                .bank_account
+                .as_ref()
+                .map(|b| b.bank_name.clone().unwrap_or_default())
+                .unwrap_or_default(),
+        }
+    }
+
+    /// Derives copyable-field hints from the decrypted view fields.
+    ///
+    /// Mirrors the per-type logic that [`CipherKind::get_copyable_fields`] runs on
+    /// encrypted types.
+    fn get_copyable_fields(&self) -> Vec<CopyableCipherFields> {
+        match self.r#type {
+            CipherType::Login => self
+                .login
+                .as_ref()
+                .map(|l| {
+                    [
+                        l.username
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::LoginUsername),
+                        l.password
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::LoginPassword),
+                        l.totp.as_ref().map(|_| CopyableCipherFields::LoginTotp),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+                })
+                .unwrap_or_default(),
+            CipherType::Card => self
+                .card
+                .as_ref()
+                .map(|c| {
+                    [
+                        c.number.as_ref().map(|_| CopyableCipherFields::CardNumber),
+                        c.code
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::CardSecurityCode),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+                })
+                .unwrap_or_default(),
+            CipherType::Identity => self
+                .identity
+                .as_ref()
+                .map(|i| {
+                    [
+                        i.username
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::IdentityUsername),
+                        i.email
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::IdentityEmail),
+                        i.phone
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::IdentityPhone),
+                        i.address1
+                            .as_ref()
+                            .or(i.address2.as_ref())
+                            .or(i.address3.as_ref())
+                            .or(i.city.as_ref())
+                            .or(i.state.as_ref())
+                            .or(i.postal_code.as_ref())
+                            .map(|_| CopyableCipherFields::IdentityAddress),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+                })
+                .unwrap_or_default(),
+            CipherType::SshKey => vec![CopyableCipherFields::SshKey],
+            CipherType::SecureNote => self
+                .notes
+                .as_ref()
+                .map(|_| vec![CopyableCipherFields::SecureNotes])
+                .unwrap_or_default(),
+            CipherType::BankAccount => self
+                .bank_account
+                .as_ref()
+                .map(|b| {
+                    [
+                        b.account_number
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::BankAccountAccountNumber),
+                        b.routing_number
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::BankAccountRoutingNumber),
+                        b.pin.as_ref().map(|_| CopyableCipherFields::BankAccountPin),
+                        b.iban
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::BankAccountIban),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+                })
+                .unwrap_or_default(),
+        }
+    }
 }
 
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
