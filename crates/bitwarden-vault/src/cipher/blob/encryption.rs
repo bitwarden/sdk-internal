@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::KeySlotIds;
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, IdentifyKey, KeyStoreContext,
     PrimitiveEncryptable,
@@ -34,13 +34,14 @@ pub(crate) fn is_legacy_cipher(cipher: &Cipher) -> bool {
     !is_blob_encrypted(cipher)
 }
 
-/// Seals a `CipherView` into an opaque blob string.
+/// Seals a `CipherView` into an opaque blob string, using `wrapping_key` as
+/// the outer key that protects the cipher's wrapped CEK.
 fn seal_cipher(
     view: &CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
-    let outer_key = view.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &view.key)?;
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
 
     let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
     let versioned: CipherBlob = blob.into();
@@ -68,22 +69,38 @@ fn unseal_cipher(
     }
 }
 
-/// Encrypts a `CipherView` into a blob-encrypted `Cipher`
+/// Encrypts a `CipherView` into a blob-encrypted `Cipher`.
 ///
 /// Generates a cipher key if missing, seals the sensitive data into a single blob,
-/// and encrypts attachments and local data separately.
+/// and encrypts attachments and local data separately. The outer wrapping key is
+/// derived from `view.key_identifier()`; see
+/// [`encrypt_blob_cipher_with_wrapping_key`] for the rotation case where the
+/// caller supplies an explicit wrapping key.
 pub(crate) fn encrypt_blob_cipher(
     view: &mut CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Cipher, BlobEncryptionError> {
+    let wrapping_key = view.key_identifier();
+    encrypt_blob_cipher_with_wrapping_key(view, ctx, wrapping_key)
+}
+
+/// Variant of [`encrypt_blob_cipher`] that accepts an explicit outer wrapping
+/// key. Used by key rotation, where the new user/org key is installed under a
+/// `Local` slot id and `view.key` has been rewrapped under that slot — calling
+/// `key_identifier()` would resolve to the original `User`/`Organization` slot
+/// and fail to unwrap the CEK.
+pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
+    view: &mut CipherView,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
+) -> Result<Cipher, BlobEncryptionError> {
     if view.key.is_none() {
-        view.generate_cipher_key(ctx, view.key_identifier())?;
+        view.generate_cipher_key(ctx, wrapping_key)?;
     }
 
-    let outer_key = view.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &view.key)?;
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
 
-    let sealed_string = seal_cipher(view, ctx)?;
+    let sealed_string = seal_cipher(view, ctx, wrapping_key)?;
 
     let attachments = view.attachments.encrypt_composite(ctx, cipher_key)?;
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
@@ -309,7 +326,7 @@ mod tests {
         view.generate_cipher_key(&mut ctx, view.key_identifier())
             .unwrap();
 
-        let sealed_string = seal_cipher(&view, &mut ctx).unwrap();
+        let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();
 
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
         cipher.key = view.key.clone();

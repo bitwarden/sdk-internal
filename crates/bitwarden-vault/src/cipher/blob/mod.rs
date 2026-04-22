@@ -9,8 +9,8 @@ use bitwarden_crypto::{
 };
 #[allow(unused_imports)]
 pub(crate) use encryption::{
-    BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher, is_blob_encrypted,
-    is_legacy_cipher,
+    BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher,
+    encrypt_blob_cipher_with_wrapping_key, is_blob_encrypted, is_legacy_cipher,
 };
 use sealed::{SealedCipherBlob, SealedCipherBlobError};
 use serde::{Deserialize, Serialize};

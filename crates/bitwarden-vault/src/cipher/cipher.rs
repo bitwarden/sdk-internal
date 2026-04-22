@@ -27,7 +27,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
-    blob::{BlobEncryptionError, decrypt_blob_cipher, is_blob_encrypted},
+    blob::{BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher, is_blob_encrypted},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -1717,6 +1717,65 @@ fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
         BlobEncryptionError::Crypto(c) => c,
         BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
             CryptoError::Decrypt
+        }
+    }
+}
+
+/// Dispatches cipher-view encryption between the blob-encrypted path and the
+/// legacy field-level path. The variant is chosen at the [`CiphersClient`]
+/// layer via [`should_use_blob_encryption`], so eligibility is fixed per call
+/// rather than inferred from the view itself.
+///
+/// An enum (rather than a `BlobEncrypt<T>` newtype) lets both variants share a
+/// single concrete type, which satisfies the homogeneous-slice requirement of
+/// `key_store.encrypt_list` and keeps the single and batch call sites
+/// identical.
+///
+/// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
+/// [`should_use_blob_encryption`]: crate::cipher::cipher_client::CiphersClient::should_use_blob_encryption
+pub(crate) enum CipherEncryptMode {
+    Blob(CipherView),
+    Legacy(CipherView),
+}
+
+impl CipherEncryptMode {
+    fn view(&self) -> &CipherView {
+        match self {
+            Self::Blob(v) | Self::Legacy(v) => v,
+        }
+    }
+}
+
+/// Maps blob-seal failures onto [`CryptoError`].
+pub(crate) fn blob_encrypt_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
+    match err {
+        BlobEncryptionError::Crypto(c) => c,
+        BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
+            CryptoError::Decrypt
+        }
+    }
+}
+
+impl IdentifyKey<SymmetricKeySlotId> for CipherEncryptMode {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        self.view().key_identifier()
+    }
+}
+
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherEncryptMode {
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<Cipher, CryptoError> {
+        match self {
+            Self::Blob(view) => {
+                // `encrypt_blob_cipher` takes `&mut CipherView` because it may
+                // generate a cipher key; so we operate on a local clone
+                let mut owned = view.clone();
+                encrypt_blob_cipher(&mut owned, ctx).map_err(blob_encrypt_err_to_crypto)
+            }
+            Self::Legacy(view) => view.encrypt_composite(ctx, key),
         }
     }
 }
@@ -3999,6 +4058,123 @@ mod tests {
                 blob_list.has_old_attachments,
                 legacy_list.has_old_attachments,
             );
+        }
+    }
+
+    // ---------- CipherEncryptMode ----------
+
+    mod cipher_encrypt_mode {
+        use bitwarden_crypto::{IdentifyKey, KeyStore};
+
+        use super::*;
+
+        fn make_key_store() -> KeyStore<KeySlotIds> {
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
+        }
+
+        fn base_login_view() -> CipherView {
+            let mut view = generate_cipher();
+            view.name = "Round Trip".to_string();
+            view.login = Some(LoginView {
+                username: Some("alice@example.com".to_string()),
+                password: Some("hunter2".to_string()),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            });
+            view
+        }
+
+        /// Blob variant produces a blob-shaped cipher: sealed `data`, placeholder
+        /// `name`, and every per-type sensitive field cleared.
+        #[test]
+        fn blob_variant_produces_blob_shaped_cipher() {
+            let key_store = make_key_store();
+            let mode = CipherEncryptMode::Blob(base_login_view());
+
+            let cipher: Cipher = key_store.encrypt(mode).unwrap();
+
+            assert!(is_blob_encrypted(&cipher));
+            assert!(cipher.data.is_some());
+            assert!(cipher.login.is_none());
+            assert!(cipher.card.is_none());
+            assert!(cipher.identity.is_none());
+            assert!(cipher.secure_note.is_none());
+            assert!(cipher.ssh_key.is_none());
+            assert!(cipher.bank_account.is_none());
+            assert!(cipher.fields.is_none());
+            assert!(cipher.password_history.is_none());
+            assert!(cipher.notes.is_none());
+        }
+
+        /// Legacy variant produces a legacy-shaped cipher: `data` empty, and the
+        /// matching per-type field populated.
+        #[test]
+        fn legacy_variant_produces_legacy_shaped_cipher() {
+            let key_store = make_key_store();
+            let mode = CipherEncryptMode::Legacy(base_login_view());
+
+            let cipher: Cipher = key_store.encrypt(mode).unwrap();
+
+            assert!(!is_blob_encrypted(&cipher));
+            assert!(cipher.data.is_none());
+            assert!(cipher.login.is_some());
+        }
+
+        /// Blob variant round-trips through decryption
+        #[test]
+        fn blob_variant_round_trips_through_decrypt() {
+            let key_store = make_key_store();
+            let original = base_login_view();
+            let mode = CipherEncryptMode::Blob(original.clone());
+
+            let cipher: Cipher = key_store.encrypt(mode).unwrap();
+            let restored: CipherView = key_store
+                .decrypt(&cipher)
+                .unwrap();
+
+            assert_eq!(restored.name, original.name);
+            let login = restored.login.expect("round-trip should restore login");
+            assert_eq!(login.username, original.login.as_ref().unwrap().username);
+            assert_eq!(login.password, original.login.as_ref().unwrap().password);
+        }
+
+        /// `key_identifier` must delegate to the inner view so `encrypt_list`
+        /// selects the correct scope key.
+        #[test]
+        fn key_identifier_delegates_to_inner_view() {
+            let view = base_login_view();
+            let expected = view.key_identifier();
+            let mode = CipherEncryptMode::Blob(view);
+            assert_eq!(mode.key_identifier(), expected);
+        }
+
+        /// A mixed-batch `encrypt_list` preserves input order and produces a
+        /// cipher shaped per-variant.
+        #[test]
+        fn mixed_batch_encrypt_list_preserves_per_item_shape() {
+            let key_store = make_key_store();
+            let mut legacy_view = base_login_view();
+            legacy_view.name = "Legacy".to_string();
+            let mut blob_view = base_login_view();
+            blob_view.name = "Blob".to_string();
+
+            let modes = vec![
+                CipherEncryptMode::Legacy(legacy_view),
+                CipherEncryptMode::Blob(blob_view),
+            ];
+            let ciphers: Vec<Cipher> = key_store.encrypt_list(&modes).unwrap();
+
+            assert_eq!(ciphers.len(), 2);
+            assert!(
+                !is_blob_encrypted(&ciphers[0]),
+                "first item should be legacy"
+            );
+            assert!(is_blob_encrypted(&ciphers[1]), "second item should be blob");
+            assert!(ciphers[0].login.is_some());
+            assert!(ciphers[1].login.is_none());
         }
     }
 }
