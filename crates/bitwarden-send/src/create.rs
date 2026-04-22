@@ -1,6 +1,6 @@
 use bitwarden_core::{
     ApiError, MissingFieldError,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -69,13 +69,17 @@ pub struct SendAddRequest {
     pub auth: SendAuthType,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::SendRequestModel>
-    for SendAddRequest
+impl
+    CompositeEncryptable<
+        KeySlotIds,
+        SymmetricKeySlotId,
+        bitwarden_api_api::models::SendRequestModel,
+    > for SendAddRequest
 {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<bitwarden_api_api::models::SendRequestModel, CryptoError> {
         // Generate the send key
         let k = generate_random_bytes::<[u8; 16]>().to_vec();
@@ -113,14 +117,14 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for SendAddRequest {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::User
+impl IdentifyKey<SymmetricKeySlotId> for SendAddRequest {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::User
     }
 }
 
 async fn create_send<R: Repository<Send> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     request: SendAddRequest,
@@ -166,11 +170,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_send() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -265,7 +269,7 @@ mod tests {
         // Confirm the send was stored in the repository
         assert_eq!(
             store
-                .decrypt::<SymmetricKeyId, Send, SendView>(
+                .decrypt::<SymmetricKeySlotId, Send, SendView>(
                     &repository.get(SendId::new(send_id)).await.unwrap().unwrap()
                 )
                 .unwrap(),
@@ -275,11 +279,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_send_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 

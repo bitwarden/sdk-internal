@@ -233,7 +233,7 @@ mod tests {
     use bitwarden_crypto::KeyStore;
 
     use super::*;
-    use crate::key_management::{KeyIds, SymmetricKeyId};
+    use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
 
     const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
     const TEST_INVALID_USER_KEY: &str = "-1.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=";
@@ -513,10 +513,10 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let key_id = data
-            .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
+            .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
             .expect("Failed to unwrap to context");
 
         // Verify that the key was added to the context
@@ -541,9 +541,9 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Attempt to unwrap with wrong password
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
-        let result = data.unwrap_to_context::<KeyIds>("wrong_password", &mut ctx);
+        let result = data.unwrap_to_context::<KeySlotIds>("wrong_password", &mut ctx);
 
         assert!(matches!(result, Err(MasterPasswordError::WrongPassword)));
     }
@@ -559,20 +559,20 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = data
-                .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
+                .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
                 .expect("Failed to unwrap to context");
 
             // Persist the local key to the User key slot
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .expect("Failed to persist symmetric key");
         }
 
         // Verify the key is accessible with the User key id in a new context
         let ctx = store.context();
-        assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
+        assert!(ctx.has_symmetric_key(SymmetricKeySlotId::User));
     }
 }

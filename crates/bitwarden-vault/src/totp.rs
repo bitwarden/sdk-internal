@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
@@ -86,7 +86,7 @@ pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpRes
 ///
 /// See [generate_totp] for more information.
 pub fn generate_totp_cipher_view(
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
     view: CipherListView,
     time: Option<DateTime<Utc>>,
 ) -> Result<TotpResponse, TotpError> {

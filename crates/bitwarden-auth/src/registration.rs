@@ -550,6 +550,7 @@ mod tests {
                         r#type: None,
                         identifier: None,
                         creation_date: None,
+                        last_activity_date: None,
                         is_trusted: None,
                         encrypted_user_key: None,
                         encrypted_public_key: None,
@@ -980,7 +981,7 @@ mod tests {
                         let signature_key_pair = account_keys.signature_key_pair.as_ref().unwrap();
                         assert_eq!(
                             signature_key_pair.signature_algorithm,
-                            Some("ed25519".to_string())
+                            Some("mldsa44".to_string())
                         );
                         assert!(signature_key_pair.verifying_key.is_some());
                         assert!(signature_key_pair.wrapped_signing_key.is_some());

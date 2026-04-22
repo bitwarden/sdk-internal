@@ -1,9 +1,9 @@
 //! Functionality for rotating user keys, bundled with a password change.
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::key_management::{KeyIds, MasterPasswordAuthenticationData};
+use bitwarden_core::key_management::{KeySlotIds, MasterPasswordAuthenticationData};
 use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
-use tracing::{info, info_span};
+use tracing::{info, instrument};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -48,12 +48,17 @@ impl UserCryptoManagementClient {
     }
 }
 
+#[instrument(
+    name = "password_change_and_rotate_user_keys",
+    level = "info",
+    skip_all,
+    err
+)]
 async fn internal_password_change_and_rotate_user_keys(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     request: PasswordChangeAndRotateUserKeysRequest,
 ) -> Result<(), RotateUserKeysError> {
-    let _span = info_span!("password_change_and_rotate_user_keys").entered();
     let sync = sync_current_account_data(api_client)
         .await
         .map_err(|_| RotateUserKeysError::ApiError)?;
@@ -149,19 +154,19 @@ mod tests {
             UserDecryptionResponseModel, WebAuthnCredentialResponseModelListResponseModel,
         },
     };
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
 
     use super::*;
 
-    fn make_test_key_store_and_sync_response() -> (KeyStore<KeyIds>, SyncResponseModel) {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+    fn make_test_key_store_and_sync_response() -> (KeyStore<KeySlotIds>, SyncResponseModel) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let wrapped_private_key = {
             let mut ctx = store.context_mut();
             let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let _ = ctx.persist_symmetric_key(user_key, SymmetricKeyId::User);
+            let _ = ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User);
             let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-            ctx.wrap_private_key(SymmetricKeyId::User, private_key)
+            ctx.wrap_private_key(SymmetricKeySlotId::User, private_key)
                 .unwrap()
         };
 
@@ -250,7 +255,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_password_change_and_rotate_user_keys_sync_api_failure_returns_api_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let api_client = ApiClient::new_mocked(|mock| {
             mock.sync_api.expect_get().once().returning(|_| {
                 Err(bitwarden_api_api::apis::Error::Serde(

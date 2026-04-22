@@ -6,7 +6,7 @@ use bitwarden_core::{
     NotAuthenticatedError, OrganizationId,
     auth::{TokenHandler, login::LoginError},
     client::login_method::{LoginMethod, ServiceAccountLoginMethod},
-    key_management::KeyIds,
+    key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
 use chrono::Utc;
@@ -29,7 +29,7 @@ struct SecretsManagerTokenHandlerInner {
     // middleware.
     login_method: Option<Arc<RwLock<Option<Arc<LoginMethod>>>>>,
     identity_config: Option<bitwarden_api_api::Configuration>,
-    key_store: Option<KeyStore<KeyIds>>,
+    key_store: Option<KeyStore<KeySlotIds>>,
 }
 
 #[async_trait::async_trait]
@@ -38,7 +38,7 @@ impl TokenHandler for SecretsManagerTokenHandler {
         &self,
         login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         identity_config: bitwarden_api_api::Configuration,
-        key_store: KeyStore<KeyIds>,
+        key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         {
             let mut inner = self.inner.write().expect("RwLock is not poisoned");
@@ -136,7 +136,7 @@ mod tests {
     use bitwarden_core::{
         auth::{AccessToken, TokenHandler},
         client::login_method::{LoginMethod, ServiceAccountLoginMethod},
-        key_management::KeyIds,
+        key_management::KeySlotIds,
     };
     use bitwarden_crypto::KeyStore;
     use wiremock::MockServer;
@@ -172,7 +172,7 @@ mod tests {
         let client = build_client(handler.initialize_middleware(
             service_account_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;
@@ -195,7 +195,7 @@ mod tests {
         let client = build_client(handler.initialize_middleware(
             service_account_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;
