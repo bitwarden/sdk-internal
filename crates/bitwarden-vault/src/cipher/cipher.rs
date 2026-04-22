@@ -4131,9 +4131,7 @@ mod tests {
             let mode = CipherEncryptMode::Blob(original.clone());
 
             let cipher: Cipher = key_store.encrypt(mode).unwrap();
-            let restored: CipherView = key_store
-                .decrypt(&cipher)
-                .unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
 
             assert_eq!(restored.name, original.name);
             let login = restored.login.expect("round-trip should restore login");
