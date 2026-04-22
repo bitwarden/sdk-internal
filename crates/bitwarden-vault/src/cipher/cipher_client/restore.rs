@@ -1,5 +1,5 @@
 use bitwarden_api_api::{apis::ApiClient, models::CipherBulkRestoreRequestModel};
-use bitwarden_core::{ApiError, key_management::KeyIds};
+use bitwarden_core::{ApiError, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -38,7 +38,7 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
     cipher_id: CipherId,
     api_client: &ApiClient,
     repository: &R,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
 ) -> Result<CipherView, RestoreCipherError> {
     let api = api_client.ciphers_api();
@@ -62,7 +62,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
     cipher_ids: Vec<CipherId>,
     api_client: &ApiClient,
     repository: &R,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
 ) -> Result<DecryptCipherListResult, RestoreCipherError> {
     let api = api_client.ciphers_api();
 
@@ -111,7 +111,7 @@ impl CiphersClient {
             api_client,
             &*self.get_repository()?,
             key_store,
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -138,7 +138,7 @@ mod tests {
         },
     };
     use bitwarden_collections::collection::CollectionId;
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
@@ -150,11 +150,11 @@ mod tests {
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_CIPHER_ID_2: &str = "6faa9684-c793-4a2d-8a12-b33900187098";
 
-    fn setup_key_store() -> KeyStore<KeyIds> {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+    fn setup_key_store() -> KeyStore<KeySlotIds> {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         store
@@ -222,10 +222,10 @@ mod tests {
         });
 
         let repository: MemoryRepository<Cipher> = Default::default();
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
@@ -322,10 +322,10 @@ mod tests {
         };
 
         let repository: MemoryRepository<Cipher> = Default::default();
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 

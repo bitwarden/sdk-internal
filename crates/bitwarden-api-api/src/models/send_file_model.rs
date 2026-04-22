@@ -27,7 +27,7 @@ pub struct SendFileModel {
         alias = "Size",
         skip_serializing_if = "Option::is_none"
     )]
-    pub size: Option<i64>,
+    pub size: Option<String>,
     #[serde(
         rename = "sizeName",
         alias = "SizeName",

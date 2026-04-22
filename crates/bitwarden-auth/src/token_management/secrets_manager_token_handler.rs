@@ -6,7 +6,7 @@ use bitwarden_core::{
     NotAuthenticatedError, OrganizationId,
     auth::{TokenHandler, login::LoginError},
     client::login_method::{LoginMethod, ServiceAccountLoginMethod},
-    key_management::KeyIds,
+    key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
 use chrono::Utc;
@@ -29,15 +29,16 @@ struct SecretsManagerTokenHandlerInner {
     // middleware.
     login_method: Option<Arc<RwLock<Option<Arc<LoginMethod>>>>>,
     identity_config: Option<bitwarden_api_api::Configuration>,
-    key_store: Option<KeyStore<KeyIds>>,
+    key_store: Option<KeyStore<KeySlotIds>>,
 }
 
+#[async_trait::async_trait]
 impl TokenHandler for SecretsManagerTokenHandler {
     fn initialize_middleware(
         &self,
         login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         identity_config: bitwarden_api_api::Configuration,
-        key_store: KeyStore<KeyIds>,
+        key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         {
             let mut inner = self.inner.write().expect("RwLock is not poisoned");
@@ -48,7 +49,12 @@ impl TokenHandler for SecretsManagerTokenHandler {
         Arc::new(MiddlewareWrapper(self.clone()))
     }
 
-    fn set_tokens(&self, access_token: String, _refresh_token: Option<String>, expires_in: u64) {
+    async fn set_tokens(
+        &self,
+        access_token: String,
+        _refresh_token: Option<String>,
+        expires_in: u64,
+    ) {
         let mut inner = self.inner.write().expect("RwLock is not poisoned");
         inner.access_token = Some(access_token);
         inner.expires_on = Some(Utc::now().timestamp() + expires_in as i64);
@@ -114,7 +120,8 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
             )
             .await?;
 
-        self.set_tokens(access_token.clone(), refresh_token, expires_in);
+        self.set_tokens(access_token.clone(), refresh_token, expires_in)
+            .await;
         Ok(Some(access_token))
     }
 }
@@ -129,7 +136,7 @@ mod tests {
     use bitwarden_core::{
         auth::{AccessToken, TokenHandler},
         client::login_method::{LoginMethod, ServiceAccountLoginMethod},
-        key_management::KeyIds,
+        key_management::KeySlotIds,
     };
     use bitwarden_crypto::KeyStore;
     use wiremock::MockServer;
@@ -158,12 +165,14 @@ mod tests {
         let identity_server = MockServer::start().await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler.set_tokens("original-token".to_string(), None, 3600);
+        handler
+            .set_tokens("original-token".to_string(), None, 3600)
+            .await;
 
         let client = build_client(handler.initialize_middleware(
             service_account_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;
@@ -179,12 +188,14 @@ mod tests {
 
         let handler = SecretsManagerTokenHandler::default();
         // expires_in=0 means the token is immediately considered expired
-        handler.set_tokens("expired-token".to_string(), None, 0);
+        handler
+            .set_tokens("expired-token".to_string(), None, 0)
+            .await;
 
         let client = build_client(handler.initialize_middleware(
             service_account_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;

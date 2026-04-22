@@ -17,7 +17,11 @@ pub struct CipherAdminClient {
 }
 
 impl CipherAdminClient {
-    fn is_strict_decrypt(&self) -> bool {
-        self.client.internal.get_flags().strict_cipher_decryption
+    async fn is_strict_decrypt(&self) -> bool {
+        self.client
+            .internal
+            .get_flags()
+            .await
+            .strict_cipher_decryption
     }
 }

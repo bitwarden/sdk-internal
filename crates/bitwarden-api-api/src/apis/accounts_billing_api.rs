@@ -27,22 +27,17 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AccountsBillingApi: Send + Sync {
     /// GET /accounts/billing/history
-    async fn get_billing_history(
-        &self,
-    ) -> Result<models::BillingHistoryResponseModel, Error<GetBillingHistoryError>>;
+    async fn get_billing_history(&self) -> Result<models::BillingHistoryResponseModel, Error>;
 
     /// GET /accounts/billing/invoices
     async fn get_invoices<'a>(
         &self,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>>;
+    ) -> Result<(), Error>;
 
     /// GET /accounts/billing/transactions
-    async fn get_transactions<'a>(
-        &self,
-        start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>>;
+    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error>;
 }
 
 pub struct AccountsBillingApiClient {
@@ -58,9 +53,7 @@ impl AccountsBillingApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AccountsBillingApi for AccountsBillingApiClient {
-    async fn get_billing_history(
-        &self,
-    ) -> Result<models::BillingHistoryResponseModel, Error<GetBillingHistoryError>> {
+    async fn get_billing_history(&self) -> Result<models::BillingHistoryResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -81,7 +74,7 @@ impl AccountsBillingApi for AccountsBillingApiClient {
         &self,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -106,10 +99,7 @@ impl AccountsBillingApi for AccountsBillingApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_transactions<'a>(
-        &self,
-        start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>> {
+    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -129,23 +119,4 @@ impl AccountsBillingApi for AccountsBillingApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`AccountsBillingApi::get_billing_history`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingHistoryError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsBillingApi::get_invoices`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetInvoicesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsBillingApi::get_transactions`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTransactionsError {
-    UnknownValue(serde_json::Value),
 }

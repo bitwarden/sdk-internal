@@ -40,7 +40,8 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
     fn get(
         &self,
         domain: String,
-    ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>;
+    ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>
+    + Send;
 
     /// Saves configuration for a domain
     ///
@@ -59,7 +60,7 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
         &self,
         domain: String,
         config: ServerCommunicationConfig,
-    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>> + Send;
 }
 
 #[cfg(test)]

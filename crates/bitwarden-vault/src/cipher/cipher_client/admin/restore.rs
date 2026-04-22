@@ -1,5 +1,5 @@
 use bitwarden_api_api::{apis::ApiClient, models::CipherBulkRestoreRequestModel};
-use bitwarden_core::{ApiError, OrganizationId, key_management::KeyIds};
+use bitwarden_core::{ApiError, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -34,7 +34,7 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for RestoreCipherAdminError {
 pub async fn restore_as_admin(
     cipher_id: CipherId,
     api_client: &ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
 ) -> Result<CipherView, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
@@ -56,7 +56,7 @@ pub async fn restore_many_as_admin(
     cipher_ids: Vec<CipherId>,
     org_id: OrganizationId,
     api_client: &ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
 ) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
@@ -89,7 +89,13 @@ impl CipherAdminClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
-        restore_as_admin(cipher_id, api_client, key_store, self.is_strict_decrypt()).await
+        restore_as_admin(
+            cipher_id,
+            api_client,
+            key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
     /// Restores multiple soft-deleted ciphers on the server.
     pub async fn restore_many(
@@ -110,7 +116,7 @@ mod tests {
         apis::ApiClient,
         models::{CipherMiniResponseModel, CipherMiniResponseModelListResponseModel},
     };
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use chrono::Utc;
 
@@ -185,10 +191,10 @@ mod tests {
             })
         };
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         let start_time = Utc::now();
@@ -245,10 +251,10 @@ mod tests {
                     })
                 });
         });
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 

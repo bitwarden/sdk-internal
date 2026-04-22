@@ -21,7 +21,7 @@ use syn::{DeriveInput, parse_macro_input};
 ///
 /// #[derive(FromClient)]
 /// pub struct FoldersClient {
-///     key_store: KeyStore<KeyIds>,
+///     key_store: KeyStore<KeySlotIds>,
 ///     api_configurations: Arc<ApiConfigurations>,
 ///     repository: Arc<dyn Repository<Folder>>,
 /// }
@@ -31,12 +31,12 @@ use syn::{DeriveInput, parse_macro_input};
 ///
 /// ```ignore
 /// impl FromClient for FoldersClient {
-///     fn from_client(client: &Client) -> Result<Self, String> {
-///         Ok(Self {
-///             key_store: FromClientPart::<KeyStore<KeyIds>>::get_part(client).map_err(|e| e.to_string())?,
-///             api_configs: FromClientPart::<Arc<ApiConfigurations>>::get_part(client).map_err(|e| e.to_string())?,
-///             repository: FromClientPart::<Arc<dyn Repository<Folder>>>::get_part(client).map_err(|e| e.to_string())?,
-///         })
+///     fn from_client(client: &Client) -> Self {
+///         Self {
+///             key_store: FromClientPart::<KeyStore<KeySlotIds>>::get_part(client),
+///             api_configs: FromClientPart::<Arc<ApiConfigurations>>::get_part(client),
+///             repository: FromClientPart::<Option<Arc<dyn Repository<Folder>>>>::get_part(client),
+///         }
 ///     }
 /// }
 /// ```
@@ -64,16 +64,16 @@ pub fn derive_from_client(item: TokenStream) -> TokenStream {
         let field_name = f.ident.as_ref()?;
         let field_type = &f.ty;
         Some(quote! {
-            #field_name: ::bitwarden_core::client::FromClientPart::<#field_type>::get_part(client).map_err(|e| e.to_string())?
+            #field_name: ::bitwarden_core::client::FromClientPart::<#field_type>::get_part(client)
         })
     });
 
     let expanded = quote! {
         impl #impl_generics ::bitwarden_core::client::FromClient for #struct_name #ty_generics #where_clause {
-            fn from_client(client: &::bitwarden_core::Client) -> Result<Self, String> {
-                Ok(Self {
+            fn from_client(client: &::bitwarden_core::Client) -> Self {
+                Self {
                     #(#field_inits),*
-                })
+                }
             }
         }
     };
