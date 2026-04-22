@@ -90,6 +90,15 @@ pub(crate) fn passphrase(request: PassphraseGeneratorRequest) -> Result<String, 
 
 fn passphrase_with_rng(mut rng: impl Rng, options: ValidPassphraseGeneratorOptions) -> String {
     let mut passphrase_words = gen_words(&mut rng, options.num_words);
+    // Regenerate any words that contain the separator to avoid ambiguous output
+    for word in passphrase_words.iter_mut() {
+        while word.contains(options.word_separator.as_str()) {
+            *word = EFF_LONG_WORD_LIST
+                .choose(&mut rng)
+                .expect("slice is not empty")
+                .to_string();
+        }
+    }
     if options.include_number {
         include_number_in_words(&mut rng, &mut passphrase_words);
     }
