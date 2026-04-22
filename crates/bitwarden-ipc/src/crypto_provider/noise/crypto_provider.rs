@@ -36,7 +36,7 @@ pub enum NoiseCryptoProviderError {
 
 // Serialize send operations to prevent concurrent reads of the same persisted
 // transport state, which can cause nonce reuse.
-static SEND_GUARD: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
+static CRYPTO_STATE_GUARD: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 impl NoiseCryptoProvider {
     async fn perform_handshake<Com, Ses>(
@@ -146,7 +146,7 @@ where
         // Send operations *MUST* be serialized, otherwise nonce re-use may happen since
         // concurrent sends may acquire the same copy of the transport state before nonce
         // updating.
-        let _send_guard = SEND_GUARD.lock().await;
+        let _crypto_state_guard = CRYPTO_STATE_GUARD.lock().await;
 
         let destination = message.destination.clone();
 
@@ -228,10 +228,6 @@ where
 
             // Ensure session exists
             let source_endpoint: crate::endpoint::Endpoint = message.source.clone().into();
-            let crypto_state = sessions
-                .get(source_endpoint.clone())
-                .await
-                .expect("Get session should not fail");
 
             // Decode outer transport frame from wire
             let Ok(transport_frame) = Frame::from_cbor(&message.payload) else {
@@ -267,6 +263,11 @@ where
                         .expect("Save session should not fail");
                 }
                 Frame::TransportFrame(transport_frame) => {
+                    let _crypto_state_guard = CRYPTO_STATE_GUARD.lock().await;
+                    let crypto_state = sessions
+                        .get(source_endpoint.clone())
+                        .await
+                        .expect("Get session should not fail");
                     let Some(mut state) = crypto_state else {
                         info!("No session for {:?}, waiting for handshake", message.source);
                         let frame = Frame::CryptoInvalidated.to_cbor();
