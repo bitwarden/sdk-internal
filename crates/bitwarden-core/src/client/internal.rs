@@ -492,6 +492,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn load_flags_round_trips_through_setting() {
+        use std::collections::HashMap;
+
+        use super::*;
+
+        let client = Client::new(None);
+
+        // With no flags loaded yet, get_flags should return defaults.
+        let initial = client.internal.get_flags().await;
+        assert!(!initial.enable_cipher_key_encryption);
+        assert!(!initial.strict_cipher_decryption);
+
+        // Loading flags should persist them via the FLAGS setting.
+        let mut map = HashMap::new();
+        map.insert("enableCipherKeyEncryption".to_string(), true);
+        map.insert("pm-34500-strict-cipher-decryption".to_string(), true);
+        client.internal.load_flags(map).await;
+
+        // get_flags should now return the loaded values.
+        let loaded = client.internal.get_flags().await;
+        assert!(loaded.enable_cipher_key_encryption);
+        assert!(loaded.strict_cipher_decryption);
+
+        // The values should be readable directly from the setting too.
+        let persisted = client
+            .internal
+            .state_registry
+            .setting(FLAGS)
+            .unwrap()
+            .get()
+            .await
+            .unwrap()
+            .expect("flags should be persisted after load_flags");
+        assert!(persisted.enable_cipher_key_encryption);
+        assert!(persisted.strict_cipher_decryption);
+    }
+
+    #[tokio::test]
     async fn test_set_user_master_password_unlock_kdf_updated() {
         let new_kdf = Kdf::Argon2id {
             iterations: NonZeroU32::new(4).unwrap(),
