@@ -38,6 +38,7 @@ where
     P: ServerCommunicationConfigPlatformApi + Send + 'static,
 {
     async fn cookies(&self, hostname: &str) -> Vec<(String, String)> {
+        #[allow(deprecated)]
         self.cookies(hostname.to_string()).await
     }
 
