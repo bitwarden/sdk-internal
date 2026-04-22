@@ -26,7 +26,9 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    attachment, bank_account, card,
+    attachment, bank_account,
+    blob::{BlobEncryptionError, decrypt_blob_cipher, is_blob_encrypted},
+    card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
     drivers_license, field, identity,
@@ -1080,6 +1082,8 @@ impl CipherView {
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
             CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::DriversLicense => CipherListViewType::DriversLicense,
+            CipherType::Passport => CipherListViewType::Passport,
         };
 
         Ok(CipherListView {
@@ -1158,6 +1162,21 @@ impl CipherView {
                 .bank_account
                 .as_ref()
                 .map(|b| b.bank_name.clone().unwrap_or_default())
+                .unwrap_or_default(),
+            CipherType::DriversLicense => self
+                .drivers_license
+                .as_ref()
+                .map(|d| {
+                    drivers_license::build_subtitle_drivers_license(
+                        d.first_name.clone(),
+                        d.last_name.clone(),
+                    )
+                })
+                .unwrap_or_default(),
+            CipherType::Passport => self
+                .passport
+                .as_ref()
+                .map(|p| passport::build_subtitle_passport(p.given_name.clone(), p.surname.clone()))
                 .unwrap_or_default(),
         }
     }
@@ -1250,6 +1269,52 @@ impl CipherView {
                         b.iban
                             .as_ref()
                             .map(|_| CopyableCipherFields::BankAccountIban),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+                })
+                .unwrap_or_default(),
+            CipherType::DriversLicense => self
+                .drivers_license
+                .as_ref()
+                .map(|d| {
+                    [
+                        d.first_name
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::DriversLicenseFirstName),
+                        d.middle_name
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::DriversLicenseMiddleName),
+                        d.last_name
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::DriversLicenseLastName),
+                        d.license_number
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::DriversLicenseLicenseNumber),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+                })
+                .unwrap_or_default(),
+            CipherType::Passport => self
+                .passport
+                .as_ref()
+                .map(|p| {
+                    [
+                        p.given_name
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::PassportGivenName),
+                        p.surname
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::PassportSurname),
+                        p.passport_number
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::PassportPassportNumber),
+                        p.national_identification_number
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::PassportNationalIdentificationNumber),
                     ]
                     .into_iter()
                     .flatten()
@@ -1397,85 +1462,91 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
-
-        // Separate successful and failed attachment decryptions
-        let (attachments, attachment_decryption_failures) =
-            attachment::decrypt_attachments_with_failures(
-                self.0.attachments.as_deref().unwrap_or_default(),
-                ctx,
-                ciphers_key,
-            );
-
-        let mut cipher = CipherView {
-            id: self.0.id,
-            organization_id: self.0.organization_id,
-            folder_id: self.0.folder_id,
-            collection_ids: self.0.collection_ids.clone(),
-            key: self.0.key.clone(),
-            name: self.0.name.decrypt(ctx, ciphers_key)?,
-            notes: self.0.notes.decrypt(ctx, ciphers_key)?,
-            r#type: self.0.r#type,
-            login: self
-                .0
-                .login
-                .as_ref()
-                .map(|l| StrictDecrypt(l).decrypt(ctx, ciphers_key))
-                .transpose()?,
-            identity: self
-                .0
-                .identity
-                .as_ref()
-                .map(|i| StrictDecrypt(i).decrypt(ctx, ciphers_key))
-                .transpose()?,
-            card: self
-                .0
-                .card
-                .as_ref()
-                .map(|c| StrictDecrypt(c).decrypt(ctx, ciphers_key))
-                .transpose()?,
-            secure_note: self.0.secure_note.decrypt(ctx, ciphers_key)?,
-            ssh_key: self.0.ssh_key.decrypt(ctx, ciphers_key)?,
-            bank_account: self.0.bank_account.decrypt(ctx, ciphers_key)?,
-            drivers_license: self.0.drivers_license.decrypt(ctx, ciphers_key)?,
-            passport: self.0.passport.decrypt(ctx, ciphers_key)?,
-            favorite: self.0.favorite,
-            reprompt: self.0.reprompt,
-            organization_use_totp: self.0.organization_use_totp,
-            edit: self.0.edit,
-            permissions: self.0.permissions,
-            view_password: self.0.view_password,
-            local_data: self.0.local_data.decrypt(ctx, ciphers_key)?,
-            attachments: Some(attachments),
-            attachment_decryption_failures: Some(attachment_decryption_failures),
-            fields: self
-                .0
-                .fields
-                .as_ref()
-                .map(|fields| {
-                    fields
-                        .iter()
-                        .map(|f| StrictDecrypt(f).decrypt(ctx, ciphers_key))
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()?,
-            password_history: self.0.password_history.decrypt(ctx, ciphers_key)?,
-            creation_date: self.0.creation_date,
-            deleted_date: self.0.deleted_date,
-            revision_date: self.0.revision_date,
-            archived_date: self.0.archived_date,
-        };
-
-        // For compatibility we only remove URLs with invalid checksums if the cipher has a key
-        // or the user is on Crypto V2
-        if cipher.key.is_some()
-            || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
-        {
-            cipher.remove_invalid_checksums();
-        }
-
-        Ok(cipher)
+        strict_decrypt_cipher_view(&self.0, ctx, key)
     }
+}
+
+/// Strict Cipher → CipherView decryption body, shared between the `StrictDecrypt<Cipher>`
+/// impl and `BlobAwareDecrypt<Cipher>` when it dispatches to the legacy strict path.
+fn strict_decrypt_cipher_view(
+    cipher: &Cipher,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+) -> Result<CipherView, CryptoError> {
+    let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
+
+    // Separate successful and failed attachment decryptions
+    let (attachments, attachment_decryption_failures) =
+        attachment::decrypt_attachments_with_failures(
+            cipher.attachments.as_deref().unwrap_or_default(),
+            ctx,
+            ciphers_key,
+        );
+
+    let mut view = CipherView {
+        id: cipher.id,
+        organization_id: cipher.organization_id,
+        folder_id: cipher.folder_id,
+        collection_ids: cipher.collection_ids.clone(),
+        key: cipher.key.clone(),
+        name: cipher.name.decrypt(ctx, ciphers_key)?,
+        notes: cipher.notes.decrypt(ctx, ciphers_key)?,
+        r#type: cipher.r#type,
+        login: cipher
+            .login
+            .as_ref()
+            .map(|l| StrictDecrypt(l).decrypt(ctx, ciphers_key))
+            .transpose()?,
+        identity: cipher
+            .identity
+            .as_ref()
+            .map(|i| StrictDecrypt(i).decrypt(ctx, ciphers_key))
+            .transpose()?,
+        card: cipher
+            .card
+            .as_ref()
+            .map(|c| StrictDecrypt(c).decrypt(ctx, ciphers_key))
+            .transpose()?,
+        secure_note: cipher.secure_note.decrypt(ctx, ciphers_key)?,
+        ssh_key: cipher.ssh_key.decrypt(ctx, ciphers_key)?,
+        bank_account: cipher.bank_account.decrypt(ctx, ciphers_key)?,
+        drivers_license: cipher.drivers_license.decrypt(ctx, ciphers_key)?,
+        passport: cipher.passport.decrypt(ctx, ciphers_key)?,
+        favorite: cipher.favorite,
+        reprompt: cipher.reprompt,
+        organization_use_totp: cipher.organization_use_totp,
+        edit: cipher.edit,
+        permissions: cipher.permissions,
+        view_password: cipher.view_password,
+        local_data: cipher.local_data.decrypt(ctx, ciphers_key)?,
+        attachments: Some(attachments),
+        attachment_decryption_failures: Some(attachment_decryption_failures),
+        fields: cipher
+            .fields
+            .as_ref()
+            .map(|fields| {
+                fields
+                    .iter()
+                    .map(|f| StrictDecrypt(f).decrypt(ctx, ciphers_key))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?,
+        password_history: cipher.password_history.decrypt(ctx, ciphers_key)?,
+        creation_date: cipher.creation_date,
+        deleted_date: cipher.deleted_date,
+        revision_date: cipher.revision_date,
+        archived_date: cipher.archived_date,
+    };
+
+    // For compatibility we only remove URLs with invalid checksums if the cipher has a key
+    // or the user is on Crypto V2
+    if view.key.is_some()
+        || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
+    {
+        view.remove_invalid_checksums();
+    }
+
+    Ok(view)
 }
 
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecrypt<Cipher> {
@@ -1484,96 +1555,168 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
+        strict_decrypt_cipher_list_view(&self.0, ctx, key)
+    }
+}
 
-        Ok(CipherListView {
-            id: self.0.id,
-            organization_id: self.0.organization_id,
-            folder_id: self.0.folder_id,
-            collection_ids: self.0.collection_ids.clone(),
-            key: self.0.key.clone(),
-            name: self.0.name.decrypt(ctx, ciphers_key)?,
-            subtitle: self.0.decrypt_subtitle(ctx, ciphers_key)?,
-            r#type: match self.0.r#type {
-                CipherType::Login => {
-                    let login = self
-                        .0
-                        .login
-                        .as_ref()
-                        .ok_or(CryptoError::MissingField("login"))?;
-                    CipherListViewType::Login(StrictDecrypt(login).decrypt(ctx, ciphers_key)?)
-                }
-                CipherType::SecureNote => CipherListViewType::SecureNote,
-                CipherType::Card => {
-                    let card = self
-                        .0
-                        .card
-                        .as_ref()
-                        .ok_or(CryptoError::MissingField("card"))?;
-                    CipherListViewType::Card(StrictDecrypt(card).decrypt(ctx, ciphers_key)?)
-                }
-                CipherType::Identity => CipherListViewType::Identity,
-                CipherType::SshKey => CipherListViewType::SshKey,
-                CipherType::BankAccount => CipherListViewType::BankAccount,
-                CipherType::Passport => CipherListViewType::Passport,
-                CipherType::DriversLicense => CipherListViewType::DriversLicense,
-            },
-            favorite: self.0.favorite,
-            reprompt: self.0.reprompt,
-            organization_use_totp: self.0.organization_use_totp,
-            edit: self.0.edit,
-            permissions: self.0.permissions,
-            view_password: self.0.view_password,
-            attachments: self
-                .0
-                .attachments
-                .as_ref()
-                .map(|a| a.len() as u32)
-                .unwrap_or(0),
-            has_old_attachments: self
-                .0
-                .attachments
-                .as_ref()
-                .map(|a| a.iter().any(|att| att.key.is_none()))
-                .unwrap_or(false),
-            creation_date: self.0.creation_date,
-            deleted_date: self.0.deleted_date,
-            revision_date: self.0.revision_date,
-            copyable_fields: self.0.get_copyable_fields(),
-            local_data: self.0.local_data.decrypt(ctx, ciphers_key)?,
-            archived_date: self.0.archived_date,
-            #[cfg(feature = "wasm")]
-            notes: self.0.notes.decrypt(ctx, ciphers_key)?,
-            #[cfg(feature = "wasm")]
-            fields: self
-                .0
-                .fields
-                .as_ref()
-                .map(|fields| {
-                    fields
-                        .iter()
-                        .map(|f| {
-                            StrictDecrypt(f)
-                                .decrypt(ctx, ciphers_key)
-                                .map(field::FieldListView::from)
-                        })
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()?,
-            #[cfg(feature = "wasm")]
-            attachment_names: self
-                .0
-                .attachments
-                .as_ref()
-                .map(|attachments| {
-                    attachments
-                        .iter()
-                        .map(|a| a.file_name.decrypt(ctx, ciphers_key))
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()?
-                .map(|names| names.into_iter().flatten().collect()),
-        })
+/// Strict Cipher → CipherListView decryption body, shared between the
+/// `StrictDecrypt<Cipher>` impl and `BlobAwareDecrypt<Cipher>` when it dispatches to the
+/// legacy strict path.
+fn strict_decrypt_cipher_list_view(
+    cipher: &Cipher,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+) -> Result<CipherListView, CryptoError> {
+    let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
+
+    Ok(CipherListView {
+        id: cipher.id,
+        organization_id: cipher.organization_id,
+        folder_id: cipher.folder_id,
+        collection_ids: cipher.collection_ids.clone(),
+        key: cipher.key.clone(),
+        name: cipher.name.decrypt(ctx, ciphers_key)?,
+        subtitle: cipher.decrypt_subtitle(ctx, ciphers_key)?,
+        r#type: match cipher.r#type {
+            CipherType::Login => {
+                let login = cipher
+                    .login
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("login"))?;
+                CipherListViewType::Login(StrictDecrypt(login).decrypt(ctx, ciphers_key)?)
+            }
+            CipherType::SecureNote => CipherListViewType::SecureNote,
+            CipherType::Card => {
+                let card = cipher
+                    .card
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("card"))?;
+                CipherListViewType::Card(StrictDecrypt(card).decrypt(ctx, ciphers_key)?)
+            }
+            CipherType::Identity => CipherListViewType::Identity,
+            CipherType::SshKey => CipherListViewType::SshKey,
+            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::Passport => CipherListViewType::Passport,
+            CipherType::DriversLicense => CipherListViewType::DriversLicense,
+        },
+        favorite: cipher.favorite,
+        reprompt: cipher.reprompt,
+        organization_use_totp: cipher.organization_use_totp,
+        edit: cipher.edit,
+        permissions: cipher.permissions,
+        view_password: cipher.view_password,
+        attachments: cipher
+            .attachments
+            .as_ref()
+            .map(|a| a.len() as u32)
+            .unwrap_or(0),
+        has_old_attachments: cipher
+            .attachments
+            .as_ref()
+            .map(|a| a.iter().any(|att| att.key.is_none()))
+            .unwrap_or(false),
+        creation_date: cipher.creation_date,
+        deleted_date: cipher.deleted_date,
+        revision_date: cipher.revision_date,
+        copyable_fields: cipher.get_copyable_fields(),
+        local_data: cipher.local_data.decrypt(ctx, ciphers_key)?,
+        archived_date: cipher.archived_date,
+        #[cfg(feature = "wasm")]
+        notes: cipher.notes.decrypt(ctx, ciphers_key)?,
+        #[cfg(feature = "wasm")]
+        fields: cipher
+            .fields
+            .as_ref()
+            .map(|fields| {
+                fields
+                    .iter()
+                    .map(|f| {
+                        StrictDecrypt(f)
+                            .decrypt(ctx, ciphers_key)
+                            .map(field::FieldListView::from)
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?,
+        #[cfg(feature = "wasm")]
+        attachment_names: cipher
+            .attachments
+            .as_ref()
+            .map(|attachments| {
+                attachments
+                    .iter()
+                    .map(|a| a.file_name.decrypt(ctx, ciphers_key))
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?
+            .map(|names| names.into_iter().flatten().collect()),
+    })
+}
+
+/// Generic wrapper that auto-dispatches between blob-encrypted and legacy
+/// field-level decryption. Blob-encrypted ciphers are detected at runtime via
+/// [`is_blob_encrypted`]; legacy ciphers fall through to the standard field-level
+/// decryption path (strict or lenient, controlled by `use_strict`).
+///
+/// Selected at the [`CiphersClient`] layer so the homogeneous-slice requirement of
+/// `key_store.decrypt_list` is satisfied with a single concrete wrapper type.
+///
+/// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
+pub(crate) struct BlobAwareDecrypt<T> {
+    pub(crate) inner: T,
+    pub(crate) use_strict: bool,
+}
+
+/// Maps the blob module's error type onto [`CryptoError`] for the [`Decryptable`]
+/// impls. The `NoBlobData` variant is unreachable here because dispatch is gated
+/// by [`is_blob_encrypted`]; format and envelope errors collapse to
+/// [`CryptoError::Decrypt`] since callers only need to know "decryption failed".
+fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
+    match err {
+        BlobEncryptionError::Crypto(c) => c,
+        BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
+            CryptoError::Decrypt
+        }
+    }
+}
+
+impl IdentifyKey<SymmetricKeySlotId> for BlobAwareDecrypt<Cipher> {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        self.inner.key_identifier()
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for BlobAwareDecrypt<Cipher> {
+    #[instrument(err, skip_all, fields(cipher_id = ?self.inner.id, org_id = ?self.inner.organization_id, kind = ?self.inner.r#type))]
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherView, CryptoError> {
+        if is_blob_encrypted(&self.inner) {
+            decrypt_blob_cipher(&self.inner, ctx).map_err(blob_err_to_crypto)
+        } else if self.use_strict {
+            strict_decrypt_cipher_view(&self.inner, ctx, key)
+        } else {
+            self.inner.decrypt(ctx, key)
+        }
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for BlobAwareDecrypt<Cipher> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherListView, CryptoError> {
+        if is_blob_encrypted(&self.inner) {
+            let view = decrypt_blob_cipher(&self.inner, ctx).map_err(blob_err_to_crypto)?;
+            view.to_list_view(ctx, key)
+        } else if self.use_strict {
+            strict_decrypt_cipher_list_view(&self.inner, ctx, key)
+        } else {
+            self.inner.decrypt(ctx, key)
+        }
     }
 }
 
@@ -3327,5 +3470,331 @@ mod tests {
             cipher.view_password,
             "view_password should default to true for CipherMiniDetailsResponseModel"
         );
+    }
+
+    // ---------- BlobAwareDecrypt + CipherView::to_list_view ----------
+
+    mod blob_aware_decrypt {
+        use bitwarden_crypto::{IdentifyKey, KeyStore};
+
+        use super::*;
+        use crate::{
+            BankAccountView, CardView, IdentityView, SecureNoteType, SecureNoteView, SshKeyView,
+            cipher::blob::encrypt_blob_cipher,
+        };
+
+        fn make_key_store() -> KeyStore<KeySlotIds> {
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
+        }
+
+        /// Encrypt a view through the legacy field-level path.
+        fn encrypt_legacy(view: CipherView, key_store: &KeyStore<KeySlotIds>) -> Cipher {
+            key_store.encrypt(view).unwrap()
+        }
+
+        /// Encrypt a view through the blob path.
+        fn encrypt_blob(mut view: CipherView, key_store: &KeyStore<KeySlotIds>) -> Cipher {
+            let mut ctx = key_store.context_mut();
+            encrypt_blob_cipher(&mut view, &mut ctx).unwrap()
+        }
+
+        fn base_login_view() -> CipherView {
+            let mut view = generate_cipher();
+            view.name = "Test Login".to_string();
+            view.login = Some(LoginView {
+                username: Some("alice@example.com".to_string()),
+                password: Some("hunter2".to_string()),
+                password_revision_date: None,
+                uris: None,
+                totp: Some("otpauth://totp/test?secret=SECRET".to_string()),
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            });
+            view
+        }
+
+        /// Blob cipher → `CipherView` dispatch works end-to-end.
+        #[test]
+        fn dispatches_blob_to_cipher_view() {
+            let key_store = make_key_store();
+            let cipher = encrypt_blob(base_login_view(), &key_store);
+
+            let wrapped = BlobAwareDecrypt {
+                inner: cipher,
+                use_strict: false,
+            };
+            let view: CipherView = key_store.decrypt(&wrapped).unwrap();
+
+            assert_eq!(view.name, "Test Login");
+            let login = view.login.expect("blob decrypt should restore login");
+            assert_eq!(login.username.as_deref(), Some("alice@example.com"));
+            assert_eq!(login.password.as_deref(), Some("hunter2"));
+        }
+
+        /// Legacy cipher → `CipherView` dispatch works for both strict and lenient modes.
+        #[test]
+        fn dispatches_legacy_to_cipher_view() {
+            let key_store = make_key_store();
+
+            for use_strict in [false, true] {
+                let cipher = encrypt_legacy(base_login_view(), &key_store);
+                let wrapped = BlobAwareDecrypt {
+                    inner: cipher,
+                    use_strict,
+                };
+                let view: CipherView = key_store.decrypt(&wrapped).unwrap();
+
+                assert_eq!(view.name, "Test Login", "use_strict = {use_strict}");
+                assert_eq!(
+                    view.login.unwrap().username.as_deref(),
+                    Some("alice@example.com"),
+                    "use_strict = {use_strict}",
+                );
+            }
+        }
+
+        /// Blob ciphers of every type produce a well-formed `CipherListView`.
+        ///
+        /// Exercises each arm of [`CipherView::to_list_view`]: subtitle derivation,
+        /// list-view type discriminant, and `copyable_fields`.
+        #[test]
+        fn blob_to_list_view_per_type() {
+            let key_store = make_key_store();
+
+            // --- Login ---
+            {
+                let list_view = decrypt_blob_list_view(&key_store, base_login_view());
+                assert_eq!(list_view.name, "Test Login");
+                assert_eq!(list_view.subtitle, "alice@example.com");
+                assert!(matches!(list_view.r#type, CipherListViewType::Login(_)));
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::LoginUsername)
+                );
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::LoginPassword)
+                );
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::LoginTotp)
+                );
+            }
+
+            // --- Card ---
+            {
+                let mut view = generate_cipher();
+                view.r#type = CipherType::Card;
+                view.login = None;
+                view.name = "My Card".to_string();
+                view.card = Some(CardView {
+                    cardholder_name: Some("John Doe".to_string()),
+                    exp_month: Some("12".to_string()),
+                    exp_year: Some("2030".to_string()),
+                    code: Some("123".to_string()),
+                    brand: Some("Visa".to_string()),
+                    number: Some("4111111111111111".to_string()),
+                });
+                let list_view = decrypt_blob_list_view(&key_store, view);
+                assert_eq!(list_view.name, "My Card");
+                assert!(list_view.subtitle.contains("Visa"));
+                assert!(list_view.subtitle.contains("1111"));
+                match &list_view.r#type {
+                    CipherListViewType::Card(card) => {
+                        assert_eq!(card.brand.as_deref(), Some("Visa"))
+                    }
+                    other => panic!("expected Card, got {other:?}"),
+                }
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::CardNumber)
+                );
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::CardSecurityCode)
+                );
+            }
+
+            // --- Identity ---
+            {
+                let mut view = generate_cipher();
+                view.r#type = CipherType::Identity;
+                view.login = None;
+                view.name = "My Identity".to_string();
+                view.identity = Some(IdentityView {
+                    title: None,
+                    first_name: Some("Jane".to_string()),
+                    middle_name: None,
+                    last_name: Some("Doe".to_string()),
+                    address1: Some("123 Main St".to_string()),
+                    address2: None,
+                    address3: None,
+                    city: None,
+                    state: None,
+                    postal_code: None,
+                    country: None,
+                    company: None,
+                    email: Some("jane@example.com".to_string()),
+                    phone: None,
+                    ssn: None,
+                    username: None,
+                    passport_number: None,
+                    license_number: None,
+                });
+                let list_view = decrypt_blob_list_view(&key_store, view);
+                assert_eq!(list_view.name, "My Identity");
+                assert!(list_view.subtitle.contains("Jane"));
+                assert!(list_view.subtitle.contains("Doe"));
+                assert!(matches!(list_view.r#type, CipherListViewType::Identity));
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::IdentityEmail)
+                );
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::IdentityAddress)
+                );
+            }
+
+            // --- SecureNote ---
+            {
+                let mut view = generate_cipher();
+                view.r#type = CipherType::SecureNote;
+                view.login = None;
+                view.name = "My Note".to_string();
+                view.notes = Some("secret".to_string());
+                view.secure_note = Some(SecureNoteView {
+                    r#type: SecureNoteType::Generic,
+                });
+                let list_view = decrypt_blob_list_view(&key_store, view);
+                assert_eq!(list_view.name, "My Note");
+                assert_eq!(list_view.subtitle, "");
+                assert!(matches!(list_view.r#type, CipherListViewType::SecureNote));
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::SecureNotes)
+                );
+            }
+
+            // --- SshKey ---
+            {
+                let mut view = generate_cipher();
+                view.r#type = CipherType::SshKey;
+                view.login = None;
+                view.name = "My SSH".to_string();
+                view.ssh_key = Some(SshKeyView {
+                    private_key: "-----BEGIN PRIVATE KEY-----".to_string(),
+                    public_key: "ssh-ed25519 AAAA".to_string(),
+                    fingerprint: "SHA256:abcdef".to_string(),
+                });
+                let list_view = decrypt_blob_list_view(&key_store, view);
+                assert_eq!(list_view.name, "My SSH");
+                assert_eq!(list_view.subtitle, "SHA256:abcdef");
+                assert!(matches!(list_view.r#type, CipherListViewType::SshKey));
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::SshKey)
+                );
+            }
+
+            // --- BankAccount ---
+            {
+                let mut view = generate_cipher();
+                view.r#type = CipherType::BankAccount;
+                view.login = None;
+                view.name = "My Bank Account".to_string();
+                view.bank_account = Some(BankAccountView {
+                    bank_name: Some("Some Bank".to_string()),
+                    account_number: Some("123456".to_string()),
+                    ..Default::default()
+                });
+                let list_view = decrypt_blob_list_view(&key_store, view);
+                assert_eq!(list_view.name, "My Bank Account");
+                assert_eq!(list_view.subtitle, "Some Bank");
+                assert!(matches!(list_view.r#type, CipherListViewType::BankAccount));
+                assert!(
+                    list_view
+                        .copyable_fields
+                        .contains(&CopyableCipherFields::BankAccountAccountNumber)
+                );
+            }
+        }
+
+        /// Blob path unseals plaintext TOTP; the projection re-encrypts it under the
+        /// cipher key so [`CipherListView::get_totp_key`] (which decrypts on demand)
+        /// still returns the original plaintext.
+        #[test]
+        fn login_list_view_preserves_totp_round_trip() {
+            let key_store = make_key_store();
+            let list_view = decrypt_blob_list_view(&key_store, base_login_view());
+
+            match &list_view.r#type {
+                CipherListViewType::Login(login) => assert!(login.totp.is_some()),
+                other => panic!("expected Login, got {other:?}"),
+            }
+            let totp = list_view.get_totp_key(&mut key_store.context()).unwrap();
+            assert_eq!(totp.as_deref(), Some("otpauth://totp/test?secret=SECRET"));
+        }
+
+        /// `decrypt_list` handles a slice containing both blob and legacy ciphers
+        #[test]
+        fn mixed_batch_decrypt_list() {
+            let key_store = make_key_store();
+            let blob = encrypt_blob(base_login_view(), &key_store);
+            let legacy = encrypt_legacy(base_login_view(), &key_store);
+
+            let wrapped: Vec<_> = vec![blob, legacy]
+                .into_iter()
+                .map(|inner| BlobAwareDecrypt {
+                    inner,
+                    use_strict: false,
+                })
+                .collect();
+
+            let views: Vec<CipherListView> = key_store.decrypt_list(&wrapped).unwrap();
+
+            assert_eq!(views.len(), 2);
+            for v in &views {
+                assert_eq!(v.name, "Test Login");
+                assert_eq!(v.subtitle, "alice@example.com");
+            }
+        }
+
+        /// `BlobAwareDecrypt` must forward `IdentifyKey` to the inner cipher so
+        /// `decrypt_list` selects the right scope key (user vs organization).
+        #[test]
+        fn key_identifier_delegates_to_inner() {
+            let key_store = make_key_store();
+            let cipher = encrypt_legacy(base_login_view(), &key_store);
+            let inner_key = cipher.key_identifier();
+
+            let wrapped = BlobAwareDecrypt {
+                inner: cipher,
+                use_strict: false,
+            };
+            assert_eq!(wrapped.key_identifier(), inner_key);
+        }
+
+        fn decrypt_blob_list_view(
+            key_store: &KeyStore<KeySlotIds>,
+            view: CipherView,
+        ) -> CipherListView {
+            let cipher = encrypt_blob(view, key_store);
+            key_store
+                .decrypt(&BlobAwareDecrypt {
+                    inner: cipher,
+                    use_strict: false,
+                })
+                .unwrap()
+        }
     }
 }

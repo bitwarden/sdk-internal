@@ -108,12 +108,7 @@ impl CipherKind for DriversLicense {
             .as_ref()
             .map(|l| l.decrypt(ctx, key))
             .transpose()?;
-        let parts: Vec<String> = [first_name, last_name]
-            .into_iter()
-            .flatten()
-            .filter(|s| !s.is_empty())
-            .collect();
-        Ok(parts.join(" "))
+        Ok(build_subtitle_drivers_license(first_name, last_name))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
@@ -135,6 +130,19 @@ impl CipherKind for DriversLicense {
         .flatten()
         .collect()
     }
+}
+
+/// Builds the subtitle for a driver's license cipher
+pub(super) fn build_subtitle_drivers_license(
+    first_name: Option<String>,
+    last_name: Option<String>,
+) -> String {
+    [first_name, last_name]
+        .into_iter()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 impl TryFrom<CipherDriversLicenseModel> for DriversLicense {
