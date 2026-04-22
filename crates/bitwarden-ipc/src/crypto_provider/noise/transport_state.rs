@@ -102,8 +102,11 @@ impl PersistentTransportState {
     /// IPC.
     pub(crate) fn send(&mut self, payload: Payload) -> Result<TransportFrame, ()> {
         // Increase nonce. WARNING: Re-used nonces lead to catastrophic
-        // crypto failure. Ensure this increases always.
-        self.send_nonce += 1;
+        // crypto failure. Ensure this increases always. It is impossible to send 2^64 messages within the lifetime
+        // of a session. Nonetheless, the cryptographic guarantees are not upheld, should a nonce ever be re-used, thus
+        // we panic in the event that an overflow would occur.
+        self.send_nonce.checked_add(1)
+            .expect("Nonce should never overflow. It is impossible to send 2^64 messages within the lifetime of a session.");
 
         let encrypted_message = self.encrypt(&self.send_key, self.send_nonce, &payload);
 
