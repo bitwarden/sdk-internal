@@ -65,6 +65,45 @@ pub struct CipherCreateRequest {
     pub fields: Vec<FieldView>,
 }
 
+impl From<CipherCreateRequest> for CipherView {
+    fn from(r: CipherCreateRequest) -> Self {
+        // `creation_date` / `revision_date` are overwritten by the server on
+        // merge; `Utc::now()` is a safe placeholder.
+        let now = chrono::Utc::now();
+        CipherView {
+            id: None,
+            organization_id: r.organization_id,
+            folder_id: r.folder_id,
+            collection_ids: r.collection_ids,
+            key: None,
+            name: r.name,
+            notes: r.notes,
+            r#type: r.r#type.get_cipher_type(),
+            login: r.r#type.as_login_view().cloned(),
+            identity: r.r#type.as_identity_view().cloned(),
+            card: r.r#type.as_card_view().cloned(),
+            secure_note: r.r#type.as_secure_note_view().cloned(),
+            ssh_key: r.r#type.as_ssh_key_view().cloned(),
+            bank_account: r.r#type.as_bank_account_view().cloned(),
+            favorite: r.favorite,
+            reprompt: r.reprompt,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            attachment_decryption_failures: None,
+            fields: Some(r.fields),
+            password_history: None,
+            creation_date: now,
+            deleted_date: None,
+            revision_date: now,
+            archived_date: None,
+        }
+    }
+}
+
 /// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
 /// value. This allows us to manage the cipher key creation internally.
 #[derive(Clone, Debug)]
