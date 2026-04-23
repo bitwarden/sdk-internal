@@ -37,11 +37,11 @@ mod tests {
                 account_type: Some("Checking".to_string()),
                 account_number: Some("1234567890".to_string()),
                 routing_number: Some("021000021".to_string()),
-                branch_number: None,
+                branch_number: Some("001".to_string()),
                 pin: Some("1234".to_string()),
-                swift_code: None,
-                iban: None,
-                bank_contact_phone: None,
+                swift_code: Some("TESTUS33".to_string()),
+                iban: Some("US12345678901234567890".to_string()),
+                bank_contact_phone: Some("555-0123".to_string()),
             }),
             ..create_shell_cipher_view(CipherType::BankAccount)
         };
