@@ -106,6 +106,8 @@ impl From<CipherCreateRequest> for CipherView {
 
 /// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
 /// value. This allows us to manage the cipher key creation internally.
+// TODO: Delete once all call sites are migrated to the view-based encrypt flow.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub(super) struct CipherCreateRequestInternal {
     pub(super) create_request: CipherCreateRequest,
@@ -121,6 +123,7 @@ impl From<CipherCreateRequest> for CipherCreateRequestInternal {
     }
 }
 
+#[allow(dead_code)]
 impl CipherCreateRequestInternal {
     /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
     /// encrypted key to the cipher data.
@@ -272,10 +275,12 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
-    request: CipherCreateRequestInternal,
+    view: CipherView,
 ) -> Result<CipherView, CreateCipherError> {
-    let collection_ids = request.create_request.collection_ids.clone();
-    let mut cipher_request = key_store.encrypt(request)?;
+    let collection_ids = view.collection_ids.clone();
+
+    let cipher: Cipher = key_store.encrypt(view)?;
+    let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
     let mut cipher: Cipher;
@@ -313,7 +318,6 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
-        let mut internal_request: CipherCreateRequestInternal = request.into();
 
         let user_id = self
             .client
@@ -321,17 +325,20 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
+        let mut view: CipherView = request.into();
+
         // TODO: Once this flag is removed, the key generation logic should
-        // be moved closer to the actual encryption logic.
-        if self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption
+        // be moved directly into the CompositeEncryptable implementation.
+        if view.key.is_none()
+            && self
+                .client
+                .internal
+                .get_flags()
+                .await
+                .enable_cipher_key_encryption
         {
-            let key = internal_request.key_identifier();
-            internal_request.generate_cipher_key(&mut key_store.context(), key)?;
+            let key = view.key_identifier();
+            view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
         create_cipher(
@@ -339,7 +346,7 @@ impl CiphersClient {
             &config.api_client,
             repository.as_ref(),
             user_id,
-            internal_request,
+            view,
         )
         .await
     }

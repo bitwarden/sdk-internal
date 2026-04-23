@@ -146,6 +146,8 @@ impl From<CipherEditRequest> for CipherView {
     }
 }
 
+// TODO: Delete once all call sites are migrated to the view-based encrypt flow.
+#[allow(dead_code)]
 impl CipherEditRequest {
     pub(super) fn generate_cipher_key(
         &mut self,
@@ -169,12 +171,15 @@ impl CipherEditRequest {
 
 /// Used as an intermediary between the public-facing [CipherEditRequest], and the encrypted
 /// value. This allows us to calculate password history safely, without risking misuse.
+// TODO: Delete once all call sites are migrated to the view-based encrypt flow.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub(super) struct CipherEditRequestInternal {
     pub(super) edit_request: CipherEditRequest,
     pub(super) password_history: Vec<PasswordHistoryView>,
 }
 
+#[allow(dead_code)]
 impl CipherEditRequestInternal {
     pub(super) fn new(edit_request: CipherEditRequest, orig_cipher: &CipherView) -> Self {
         let mut internal_req = Self {
@@ -380,6 +385,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     request: CipherEditRequest,
     use_strict_decryption: bool,
+    enable_cipher_key_encryption: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
@@ -390,9 +396,18 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         key_store.decrypt(&original_cipher)?
     };
 
-    let request = CipherEditRequestInternal::new(request, &original_cipher_view);
+    let mut view: CipherView = request.into();
+    view.update_password_history(&original_cipher_view);
 
-    let mut cipher_request = key_store.encrypt(request)?;
+    // TODO: Once this flag is removed, the key generation logic should be
+    // moved directly into the CompositeEncryptable implementation.
+    if view.key.is_none() && enable_cipher_key_encryption {
+        let key = view.key_identifier();
+        view.generate_cipher_key(&mut key_store.context(), key)?;
+    }
+
+    let cipher: Cipher = key_store.encrypt(view)?;
+    let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
     let cipher: Cipher = api_client
@@ -416,7 +431,7 @@ impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(
         &self,
-        mut request: CipherEditRequest,
+        request: CipherEditRequest,
     ) -> Result<CipherView, EditCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations();
@@ -428,19 +443,12 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved closer to the actual encryption logic.
-        if request.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
-        {
-            let key = request.key_identifier();
-            request.generate_cipher_key(&mut key_store.context(), key)?;
-        }
+        let enable_cipher_key_encryption = self
+            .client
+            .internal
+            .get_flags()
+            .await
+            .enable_cipher_key_encryption;
 
         edit_cipher(
             key_store,
@@ -449,6 +457,7 @@ impl CiphersClient {
             user_id,
             request,
             self.is_strict_decrypt().await,
+            enable_cipher_key_encryption,
         )
         .await
     }
@@ -694,6 +703,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             request,
             false,
+            false,
         )
         .await
         .unwrap();
@@ -721,6 +731,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
             false,
         )
         .await;
@@ -764,6 +775,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
             false,
         )
         .await;
