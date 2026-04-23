@@ -8,6 +8,7 @@ use crate::{
         bank_account::BankAccountView,
         card::CardView,
         cipher::CipherType,
+        cipher_view_type::CipherViewType,
         drivers_license::DriversLicenseView,
         field::FieldView,
         identity::IdentityView,

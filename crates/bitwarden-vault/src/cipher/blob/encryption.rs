@@ -42,8 +42,18 @@ fn seal_cipher(
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
     let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
-
     let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
+    seal_blob_content(blob, cipher_key, ctx)
+}
+
+/// Seals a constructed `CipherBlobLatest` under `cipher_key`, returning the
+/// opaque string form. Shared by all `CipherBlobLatest` producers so they
+/// don't each re-implement the versioned-enum wrap + COSE seal + base64 chain.
+pub(crate) fn seal_blob_content(
+    blob: CipherBlobLatest,
+    cipher_key: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+) -> Result<String, BlobEncryptionError> {
     let versioned: CipherBlob = blob.into();
     let sealed = SealedCipherBlob::seal(versioned, &cipher_key, ctx)?;
     Ok(sealed.to_opaque_string()?)

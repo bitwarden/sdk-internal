@@ -19,9 +19,7 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
     cipher::{
         blob::encrypt_blob_cipher_with_wrapping_key,
-        cipher::{
-            CipherEncryptMode, DecryptCipherListResult, StrictDecrypt, blob_encrypt_err_to_crypto,
-        },
+        cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt, blob_encrypt_err_to_crypto},
     },
     cipher_client::admin::CipherAdminClient,
 };
@@ -109,9 +107,9 @@ impl CiphersClient {
         }
 
         let mode = if self.should_use_blob_encryption(cipher_view.organization_id) {
-            CipherEncryptMode::Blob(cipher_view)
+            EncryptMode::Blob(cipher_view)
         } else {
-            CipherEncryptMode::Legacy(cipher_view)
+            EncryptMode::Legacy(cipher_view)
         };
         let cipher = key_store.encrypt(mode)?;
         Ok(EncryptionContext {
@@ -193,7 +191,7 @@ impl CiphersClient {
 
         let mut ctx = key_store.context();
 
-        let prepared_modes: Vec<CipherEncryptMode> = cipher_views
+        let prepared_modes: Vec<EncryptMode<CipherView>> = cipher_views
             .into_iter()
             .map(|mut cv| {
                 if cv.key.is_none() && enable_cipher_key {
@@ -201,9 +199,9 @@ impl CiphersClient {
                     cv.generate_cipher_key(&mut ctx, key)?;
                 }
                 let mode = if self.should_use_blob_encryption(cv.organization_id) {
-                    CipherEncryptMode::Blob(cv)
+                    EncryptMode::Blob(cv)
                 } else {
-                    CipherEncryptMode::Legacy(cv)
+                    EncryptMode::Legacy(cv)
                 };
                 Ok(mode)
             })

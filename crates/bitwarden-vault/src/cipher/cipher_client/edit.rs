@@ -21,7 +21,10 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::{
+        blob::{CipherBlobLatest, seal_blob_content},
+        cipher::{EncryptMode, PartialCipher, StrictDecrypt, blob_encrypt_err_to_crypto},
+    },
     cipher_view_type::CipherViewType,
 };
 
@@ -173,6 +176,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     request: CipherEditRequest,
     use_strict_decryption: bool,
     enable_cipher_key_encryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
@@ -193,7 +197,13 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         view.generate_cipher_key(&mut key_store.context(), key)?;
     }
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -265,6 +275,8 @@ impl CiphersClient {
         let enable_cipher_key_encryption =
             self.client.flags().get().await.enable_cipher_key_encryption;
 
+        let use_blob = self.should_use_blob_encryption(request.organization_id);
+
         edit_cipher(
             key_store,
             &config.api_client,
@@ -273,6 +285,7 @@ impl CiphersClient {
             request,
             self.is_strict_decrypt().await,
             enable_cipher_key_encryption,
+            use_blob,
         )
         .await
     }
@@ -550,6 +563,7 @@ mod tests {
             request,
             false,
             false,
+            false,
         )
         .await
         .unwrap();
@@ -689,6 +703,7 @@ mod tests {
             request,
             false,
             false,
+            false,
         )
         .await;
 
@@ -729,6 +744,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
             false,
             false,
         )
