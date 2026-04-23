@@ -2,13 +2,9 @@ use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
-    require,
+    key_management::KeySlotIds, require,
 };
-use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, EncString, IdentifyKey, KeyStore, KeyStoreContext,
-    PrimitiveEncryptable,
-};
+use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use serde::{Deserialize, Serialize};
@@ -100,172 +96,6 @@ impl From<CipherCreateRequest> for CipherView {
             deleted_date: None,
             revision_date: now,
             archived_date: None,
-        }
-    }
-}
-
-/// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
-/// value. This allows us to manage the cipher key creation internally.
-// TODO: Delete once all call sites are migrated to the view-based encrypt flow.
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
-pub(super) struct CipherCreateRequestInternal {
-    pub(super) create_request: CipherCreateRequest,
-    key: Option<EncString>,
-}
-
-impl From<CipherCreateRequest> for CipherCreateRequestInternal {
-    fn from(create_request: CipherCreateRequest) -> Self {
-        Self {
-            create_request,
-            key: None,
-        }
-    }
-}
-
-#[allow(dead_code)]
-impl CipherCreateRequestInternal {
-    /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
-    /// encrypted key to the cipher data.
-    pub(crate) fn generate_cipher_key(
-        &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
-        let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
-
-        let new_key = ctx.generate_symmetric_key();
-        self.create_request
-            .r#type
-            .as_login_view_mut()
-            .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
-            .transpose()?;
-
-        self.key = Some(ctx.wrap_symmetric_key(key, new_key)?);
-        Ok(())
-    }
-
-    fn generate_checksums(&mut self) {
-        if let Some(login) = &mut self.create_request.r#type.as_login_view_mut() {
-            login.generate_checksums();
-        }
-    }
-}
-
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
-    for CipherCreateRequestInternal
-{
-    fn encrypt_composite(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<CipherRequestModel, CryptoError> {
-        // Clone self so we can generating the checksums before encrypting.
-        let mut cipher_data = (*self).clone();
-        cipher_data.generate_checksums();
-
-        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &cipher_data.key)?;
-
-        let cipher_request = CipherRequestModel {
-            encrypted_for: None,
-            r#type: Some(cipher_data.create_request.r#type.get_cipher_type().into()),
-            organization_id: cipher_data
-                .create_request
-                .organization_id
-                .map(|id| id.to_string()),
-            folder_id: cipher_data
-                .create_request
-                .folder_id
-                .map(|id| id.to_string()),
-            favorite: Some(cipher_data.create_request.favorite),
-            reprompt: Some(cipher_data.create_request.reprompt.into()),
-            key: cipher_data.key.map(|k| k.to_string()),
-            name: cipher_data
-                .create_request
-                .name
-                .encrypt(ctx, cipher_key)?
-                .to_string(),
-            notes: cipher_data
-                .create_request
-                .notes
-                .as_ref()
-                .map(|n| n.encrypt(ctx, cipher_key))
-                .transpose()?
-                .map(|n| n.to_string()),
-            login: cipher_data
-                .create_request
-                .r#type
-                .as_login_view()
-                .as_ref()
-                .map(|l| l.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|l| Box::new(l.into())),
-            card: cipher_data
-                .create_request
-                .r#type
-                .as_card_view()
-                .as_ref()
-                .map(|c| c.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|c| Box::new(c.into())),
-            identity: cipher_data
-                .create_request
-                .r#type
-                .as_identity_view()
-                .as_ref()
-                .map(|i| i.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|i| Box::new(i.into())),
-            secure_note: cipher_data
-                .create_request
-                .r#type
-                .as_secure_note_view()
-                .as_ref()
-                .map(|s| s.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|s| Box::new(s.into())),
-            ssh_key: cipher_data
-                .create_request
-                .r#type
-                .as_ssh_key_view()
-                .as_ref()
-                .map(|s| s.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|s| Box::new(s.into())),
-            bank_account: cipher_data
-                .create_request
-                .r#type
-                .as_bank_account_view()
-                .as_ref()
-                .map(|b| b.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|b| Box::new(b.into())),
-            fields: Some(
-                cipher_data
-                    .create_request
-                    .fields
-                    .iter()
-                    .map(|f| f.encrypt_composite(ctx, cipher_key))
-                    .map(|f| f.map(|f| f.into()))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-            password_history: None,
-            attachments: None,
-            attachments2: None,
-            last_known_revision_date: None,
-            archived_date: None,
-            data: None,
-        };
-
-        Ok(cipher_request)
-    }
-}
-
-impl IdentifyKey<SymmetricKeySlotId> for CipherCreateRequestInternal {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        match self.create_request.organization_id {
-            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
-            None => SymmetricKeySlotId::User,
         }
     }
 }
@@ -363,6 +193,7 @@ impl CiphersClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
+    use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
     use chrono::Utc;
