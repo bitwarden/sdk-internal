@@ -1,0 +1,3 @@
+mod pin_settings_client;
+
+pub use pin_settings_client::{PinLockType, PinSettingsClient, PinSettingsError};
