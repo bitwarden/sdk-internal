@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::CipherCreateRequestModel;
+use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
@@ -11,10 +11,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     Cipher, CipherView, VaultParseError,
     cipher::cipher::{PartialCipher, StrictDecrypt},
-    cipher_client::{
-        admin::CipherAdminClient,
-        create::{CipherCreateRequest, CipherCreateRequestInternal},
-    },
+    cipher_client::{admin::CipherAdminClient, create::CipherCreateRequest},
 };
 
 #[allow(missing_docs)]
@@ -41,18 +38,20 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherAdminError {
 
 /// Wraps the API call to create a cipher using the admin endpoint, for easier testing.
 async fn create_cipher(
-    request: CipherCreateRequestInternal,
+    view: CipherView,
     encrypted_for: UserId,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
 ) -> Result<CipherView, CreateCipherAdminError> {
-    let collection_ids = request.create_request.collection_ids.clone();
+    let collection_ids = view.collection_ids.clone();
     // CipherMiniResponseModel does not include folder_id, favorite, or edit — save them from
-    // the request before it is consumed so they can be applied to the merged result.
-    let folder_id = request.create_request.folder_id;
-    let favorite = request.create_request.favorite;
-    let mut cipher_request = key_store.encrypt(request)?;
+    // the view before it is consumed so they can be applied to the merged result.
+    let folder_id = view.folder_id;
+    let favorite = view.favorite;
+
+    let cipher: Cipher = key_store.encrypt(view)?;
+    let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
     let mut cipher: Cipher = api_client
@@ -87,7 +86,6 @@ impl CipherAdminClient {
     ) -> Result<CipherView, CreateCipherAdminError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations();
-        let mut internal_request: CipherCreateRequestInternal = request.into();
 
         let user_id = self
             .client
@@ -95,21 +93,24 @@ impl CipherAdminClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
+        let mut view: CipherView = request.into();
+
         // TODO: Once this flag is removed, the key generation logic should
-        // be moved closer to the actual encryption logic.
-        if self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption
+        // be moved directly into the CompositeEncryptable implementation.
+        if view.key.is_none()
+            && self
+                .client
+                .internal
+                .get_flags()
+                .await
+                .enable_cipher_key_encryption
         {
-            let key = internal_request.key_identifier();
-            internal_request.generate_cipher_key(&mut key_store.context(), key)?;
+            let key = view.key_identifier();
+            view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
         create_cipher(
-            internal_request,
+            view,
             user_id,
             &config.api_client,
             key_store,
@@ -178,7 +179,7 @@ mod tests {
         let test_collection_id: bitwarden_collections::collection::CollectionId =
             TEST_COLLECTION_ID.parse().unwrap();
 
-        let cipher_request: CipherCreateRequestInternal = CipherCreateRequest {
+        let view: CipherView = CipherCreateRequest {
             organization_id: Some(TEST_ORG_ID.parse().unwrap()),
             collection_ids: vec![test_collection_id],
             folder_id: Some(test_folder_id),
@@ -200,7 +201,7 @@ mod tests {
         .into();
 
         let response = create_cipher(
-            cipher_request.clone(),
+            view.clone(),
             TEST_USER_ID.parse().unwrap(),
             &api_client,
             &store,
@@ -210,17 +211,11 @@ mod tests {
         .unwrap();
 
         assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
-        assert_eq!(
-            response.organization_id,
-            cipher_request.create_request.organization_id
-        );
+        assert_eq!(response.organization_id, view.organization_id);
         // Fields omitted from CipherMiniResponseModel must be preserved from the request.
-        assert_eq!(
-            response.collection_ids,
-            cipher_request.create_request.collection_ids
-        );
-        assert_eq!(response.folder_id, cipher_request.create_request.folder_id);
-        assert_eq!(response.favorite, cipher_request.create_request.favorite);
+        assert_eq!(response.collection_ids, view.collection_ids);
+        assert_eq!(response.folder_id, view.folder_id);
+        assert_eq!(response.favorite, view.favorite);
         assert!(response.edit, "edit should be true after admin create");
         assert!(
             response.view_password,
