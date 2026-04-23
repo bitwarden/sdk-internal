@@ -175,15 +175,50 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Vec<u8>, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key)?;
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key).map_err(|e| {
+            tracing::warn!(
+                attachment_id = ?self.attachment.id,
+                cipher_id = ?self.cipher.id,
+                has_cipher_key = self.cipher.key.is_some(),
+                error = %e,
+                "Failed to decrypt cipher key for attachment"
+            );
+            e
+        })?;
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key = ctx.unwrap_symmetric_key(ciphers_key, attachment_key)?;
-            self.contents.decrypt(ctx, content_key)
+            let content_key = ctx
+                .unwrap_symmetric_key(ciphers_key, attachment_key)
+                .map_err(|e| {
+                    tracing::warn!(
+                        attachment_id = ?self.attachment.id,
+                        cipher_id = ?self.cipher.id,
+                        error = %e,
+                        "Failed to unwrap attachment key (v2/v3)"
+                    );
+                    e
+                })?;
+            self.contents.decrypt(ctx, content_key).map_err(|e| {
+                tracing::warn!(
+                    attachment_id = ?self.attachment.id,
+                    cipher_id = ?self.cipher.id,
+                    error = %e,
+                    "Failed to decrypt attachment contents with attachment key (v2/v3)"
+                );
+                e
+            })
         } else {
             // Legacy attachment version 1, use user/org key
-            self.contents.decrypt(ctx, key)
+            self.contents.decrypt(ctx, key).map_err(|e| {
+                tracing::warn!(
+                    attachment_id = ?self.attachment.id,
+                    cipher_id = ?self.cipher.id,
+                    error = %e,
+                    "Failed to decrypt attachment contents with user/org key (legacy v1)"
+                );
+                e
+            })
         }
     }
 }
@@ -345,6 +380,7 @@ mod tests {
                 card: None,
                 secure_note: None,
                 ssh_key: None,
+                bank_account: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: false,
@@ -402,6 +438,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -463,6 +500,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,

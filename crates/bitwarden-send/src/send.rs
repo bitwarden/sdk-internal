@@ -203,7 +203,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                 Some(Box::new(bitwarden_api_api::models::SendFileModel {
                     id: f.id.clone(),
                     file_name: Some(f.file_name.encrypt(ctx, key)?.to_string()),
-                    size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
+                    size: f.size.clone(),
                     size_name: f.size_name.clone(),
                 })),
                 None,
@@ -671,7 +671,7 @@ impl From<SendFile> for SendFileModel {
         SendFileModel {
             id: file.id,
             file_name: Some(file.file_name.to_string()),
-            size: file.size.and_then(|size| size.parse::<i64>().ok()),
+            size: file.size,
             size_name: file.size_name,
         }
     }
@@ -1048,7 +1048,7 @@ mod tests {
         let file = model.file.unwrap();
         assert_eq!(file.id.as_deref(), Some("file-id"));
         assert_eq!(file.file_name.as_deref(), Some(file_name));
-        assert_eq!(file.size, Some(1234));
+        assert_eq!(file.size.as_deref(), Some("1234"));
         assert_eq!(file.size_name.as_deref(), Some("1.2 KB"));
 
         let text = model.text.unwrap();

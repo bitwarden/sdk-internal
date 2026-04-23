@@ -22,7 +22,6 @@ keywords = ["bitwarden"]
 
 # External crates that are expected to maintain a consistent version across all crates
 async-trait = ">=0.1.80, <0.2"
-bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=2.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=2.0.0" }
@@ -44,11 +43,11 @@ bitwarden-fido = { path = "crates/bitwarden-fido", version = "=2.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=2.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=2.0.0" }
+bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=2.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=2.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=2.0.0" }
-bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=2.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=2.0.0" }
 bitwarden-sync = { path = "crates/bitwarden-sync", version = "=2.0.0" }
@@ -77,12 +76,12 @@ proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"
 rand_chacha = ">=0.10.0, <0.11"
-reqwest = { version = ">=0.12.5, <0.14", features = [
+reqwest = { version = "0.12.28", features = [
     "json",
     "multipart",
     "http2",
 ], default-features = false }
-reqwest-middleware = { version = ">=0.4.2, <0.6", features = [
+reqwest-middleware = { version = "0.4.2", features = [
     "json",
     "multipart",
 ] }

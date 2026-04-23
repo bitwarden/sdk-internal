@@ -88,6 +88,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
             CipherType::Card => value.card.map(CipherViewType::Card),
             CipherType::Identity => value.identity.map(CipherViewType::Identity),
             CipherType::SshKey => value.ssh_key.map(CipherViewType::SshKey),
+            CipherType::BankAccount => value.bank_account.map(CipherViewType::BankAccount),
         };
         Ok(Self {
             id: value.id.ok_or(MissingFieldError("id"))?,
@@ -294,6 +295,13 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
+            bank_account: cipher_data
+                .edit_request
+                .r#type
+                .as_bank_account_view()
+                .map(|b| b.encrypt_composite(ctx, cipher_key))
+                .transpose()?
+                .map(|b| Box::new(b.into())),
 
             last_known_revision_date: Some(
                 cipher_data
@@ -485,6 +493,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -548,6 +557,7 @@ mod tests {
                 card: None,
                 secure_note: None,
                 ssh_key: None,
+                bank_account: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
@@ -614,6 +624,7 @@ mod tests {
                         identity: body.identity,
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
+                        bank_account: body.bank_account,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,

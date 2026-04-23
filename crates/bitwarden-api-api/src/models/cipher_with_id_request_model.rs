@@ -115,6 +115,12 @@ pub struct CipherWithIdRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
+    #[serde(
+        rename = "bankAccount",
+        alias = "BankAccount",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub bank_account: Option<Box<models::CipherBankAccountModel>>,
     /// JSON string containing cipher-specific data
     #[serde(
         rename = "data",
@@ -159,6 +165,7 @@ impl CipherWithIdRequestModel {
             identity: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             data: None,
             last_known_revision_date: None,
             archived_date: None,
