@@ -22,6 +22,8 @@ mod flags;
 #[cfg(feature = "internal")]
 pub mod persisted_state;
 
+pub mod tracing_middleware;
+
 pub use builder::ClientBuilder;
 pub use client::Client;
 pub use client_settings::{
