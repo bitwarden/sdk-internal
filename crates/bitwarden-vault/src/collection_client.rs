@@ -23,14 +23,15 @@ pub struct CollectionsClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CollectionsClient {
-    #[allow(missing_docs)]
+    /// Encrypts a [CollectionView] into an encrypted [Collection] using the organization key.
     pub fn encrypt(&self, collection_view: CollectionView) -> Result<Collection, EncryptError> {
         let key_store = self.client.internal.get_key_store();
         let collection = key_store.encrypt(collection_view)?;
         Ok(collection)
     }
 
-    #[allow(missing_docs)]
+    /// Encrypts a list of [CollectionView]s into encrypted [Collection]s using the organization
+    /// key.
     pub fn encrypt_list(
         &self,
         collection_views: Vec<CollectionView>,
