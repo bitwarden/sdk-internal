@@ -5,6 +5,7 @@ use super::v1::*;
 use crate::{
     CipherView, PasswordHistoryView,
     cipher::{
+        bank_account::BankAccountView,
         card::CardView,
         cipher::CipherType,
         field::FieldView,
@@ -44,6 +45,7 @@ impl_bidirectional_from!(
     [password, last_used_date,]
 );
 
+mod bank_account;
 mod card;
 mod identity;
 mod login;
@@ -116,6 +118,13 @@ impl CipherBlobV1 {
                     .ok_or(CryptoError::MissingField("ssh_key"))?;
                 CipherTypeDataV1::SshKey(SshKeyDataV1::from(ssh_key))
             }
+            CipherType::BankAccount => {
+                let bank_account = view
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherTypeDataV1::BankAccount(BankAccountDataV1::from(bank_account))
+            }
         };
 
         Ok(Self {
@@ -157,6 +166,7 @@ impl CipherBlobV1 {
         view.identity = None;
         view.secure_note = None;
         view.ssh_key = None;
+        view.bank_account = None;
 
         match &self.type_data {
             CipherTypeDataV1::Login(login_data) => {
@@ -197,6 +207,10 @@ impl CipherBlobV1 {
             CipherTypeDataV1::SshKey(ssh_key_data) => {
                 view.r#type = CipherType::SshKey;
                 view.ssh_key = Some(SshKeyView::from(ssh_key_data));
+            }
+            CipherTypeDataV1::BankAccount(bank_account_data) => {
+                view.r#type = CipherType::BankAccount;
+                view.bank_account = Some(BankAccountView::from(bank_account_data));
             }
         }
 
@@ -241,6 +255,7 @@ mod test_support {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
