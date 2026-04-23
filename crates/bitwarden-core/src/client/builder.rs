@@ -142,6 +142,8 @@ impl ClientBuilder {
                 state_registry: self
                     .state_registry
                     .unwrap_or_else(StateRegistry::new_with_memory_db),
+                #[cfg(feature = "internal")]
+                temporary_state_bridge: Arc::new(RwLock::new(None)),
             }),
         }
     }

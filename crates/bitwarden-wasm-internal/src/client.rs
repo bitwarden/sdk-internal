@@ -5,6 +5,7 @@ use bitwarden_core::ClientSettings;
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
 use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
+use bitwarden_core::key_management::state_bridge::client::StateBridgeClient;
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
@@ -75,6 +76,10 @@ impl PasswordManagerClient {
     /// Crypto related operations.
     pub fn crypto(&self) -> CryptoClient {
         self.0.0.crypto()
+    }
+
+    pub fn state_bridge(&self) -> StateBridgeClient {
+        self.0.0.km_state_bridge()
     }
 
     /// User crypto management related operations.

@@ -1,4 +1,7 @@
-use std::sync::{Arc, OnceLock, RwLock};
+use std::{
+    any::Any,
+    sync::{Arc, OnceLock, RwLock},
+};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -112,6 +115,8 @@ pub struct InternalClient {
     // read path and satisfy the dead_code lint without suppression.
     #[allow(dead_code)]
     pub(crate) state_registry: StateRegistry,
+
+    pub(crate) temporary_state_bridge: Arc<RwLock<Option<Box<dyn crate::key_management::state_bridge::StateBridge + Send + Sync>>>>,
 }
 
 impl InternalClient {

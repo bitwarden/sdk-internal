@@ -48,9 +48,8 @@ mod v2_upgrade_token;
 #[cfg(feature = "internal")]
 pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
-#[cfg(all(feature = "internal", feature = "wasm"))]
-mod wasm_unlock_state;
-
+#[cfg(feature = "internal")]
+pub mod state_bridge;
 #[cfg(feature = "internal")]
 mod local_user_data_key;
 #[cfg(feature = "internal")]

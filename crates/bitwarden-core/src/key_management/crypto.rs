@@ -25,10 +25,6 @@ use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-#[cfg(feature = "wasm")]
-use crate::key_management::wasm_unlock_state::{
-    copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
-};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{
@@ -118,6 +114,11 @@ pub enum InitUserCryptoMethod {
     DecryptedKey {
         /// The user's decrypted encryption key, obtained using `get_user_encryption_key`
         decrypted_user_key: String,
+    },
+    /// PIN state, where the PIN envelope is stored in persistent client-managed state
+    PinState {
+        /// The user's PIN
+        pin: String,
     },
     /// PIN
     Pin {
@@ -213,6 +214,7 @@ pub(super) async fn initialize_user_crypto(
         InitUserCryptoMethod::MasterPasswordUnlock { .. }
             | InitUserCryptoMethod::DecryptedKey { .. }
             | InitUserCryptoMethod::PinEnvelope { .. }
+            | InitUserCryptoMethod::PinState { .. }
             | InitUserCryptoMethod::KeyConnectorUrl { .. }
             | InitUserCryptoMethod::AuthRequest { .. }
     );
@@ -233,9 +235,10 @@ pub(super) async fn initialize_user_crypto(
         }
         #[cfg(feature = "wasm")]
         InitUserCryptoMethod::ClientManagedState {} => {
-            let user_key = get_user_key_from_client_managed_state(client)
+            let user_key = client.km_state_bridge()
+                .get_user_key()
                 .await
-                .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
+                .ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
@@ -246,6 +249,28 @@ pub(super) async fn initialize_user_crypto(
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::PinState { pin } => {
+            let mut pin_protected_key_envelope = 
+                client.internal.temporary_state_bridge.write().expect("Failed to acquire write lock on temporary state bridge")
+                    .as_ref()
+                    .ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?
+                    .get_persistent_pin_envelope()
+                    .await;
+            if let None = pin_protected_key_envelope {
+                pin_protected_key_envelope = client.internal.temporary_state_bridge.write().expect("Failed to acquire write lock on temporary state bridge")
+                    .as_mut()
+                    .ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?
+                    .get_ephemeral_pin_envelope()
+                    .await;
+            }
+            let pin_protected_key_envelope = pin_protected_key_envelope.ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
+            client.internal.initialize_user_crypto_pin_envelope(
+                pin,
+                pin_protected_key_envelope,
                 account_crypto_state,
                 &req.upgrade_token,
             )?;
@@ -348,9 +373,13 @@ pub(super) async fn initialize_user_crypto(
 
     #[cfg(feature = "wasm")]
     if should_copy_user_key {
-        copy_user_key_to_client_managed_state(client)
-            .await
-            .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
+        let ctx = client.internal.get_key_store().context();
+        #[allow(deprecated)]
+        let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?.to_owned();
+        drop(ctx);
+        client.km_state_bridge()
+            .set_user_key(&user_key)
+            .await;
     }
 
     initialize_user_local_data_key(client).await?;

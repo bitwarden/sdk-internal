@@ -22,6 +22,7 @@ use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use wasm_bindgen::JsValue;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
 
@@ -358,6 +359,25 @@ impl Serialize for PasswordProtectedKeyEnvelope {
     {
         let serialized: Vec<u8> = self.into();
         serializer.serialize_str(&B64::from(serialized).to_string())
+    }
+}
+
+impl From<PasswordProtectedKeyEnvelope> for JsValue {
+    fn from(envelope: PasswordProtectedKeyEnvelope) -> Self {
+        JsValue::from_str(&String::from(envelope))
+    }
+}
+
+impl TryFrom<JsValue> for PasswordProtectedKeyEnvelope {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: JsValue) -> Result<Self, Self::Error> {
+        let s = value.as_string().ok_or_else(|| {
+            PasswordProtectedKeyEnvelopeError::Parsing(
+                "Expected a string for PasswordProtectedKeyEnvelope".to_string(),
+            )
+        })?;
+        Self::from_str(&s)
     }
 }
 
