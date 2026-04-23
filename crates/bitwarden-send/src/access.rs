@@ -1,3 +1,4 @@
+use bitwarden_api_api::models;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -9,14 +10,6 @@ use wasm_bindgen::prelude::*;
 
 use crate::send_client::SendClient;
 
-// ===== Request body for V1 (password-protected sends) =====
-
-#[derive(Debug, Serialize, Default)]
-struct SendAccessRequestBody {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    password: Option<String>,
-}
-
 // ===== Raw API response types (fields may be encrypted) =====
 
 #[derive(Debug, Deserialize)]
@@ -26,17 +19,10 @@ struct SendAccessApiResponse {
     #[serde(rename = "type")]
     type_: Option<i32>,
     name: Option<String>,
-    text: Option<SendAccessTextApiResponse>,
+    text: Option<models::SendTextModel>,
     file: Option<SendAccessFileApiResponse>,
     expiration_date: Option<String>,
     creator_identifier: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SendAccessTextApiResponse {
-    text: Option<String>,
-    hidden: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -149,7 +135,7 @@ async fn access_send_v1(
     password: Option<String>,
 ) -> Result<SendAccessView, AccessSendError> {
     let url = format!("{}/sends/access/{}", api_config.base_path, send_id);
-    let body = SendAccessRequestBody { password };
+    let body = models::SendAccessRequestModel { password };
 
     let response = api_config
         .client
@@ -210,7 +196,7 @@ async fn get_file_download_data_v1(
         "{}/sends/{}/access/file/{}",
         api_config.base_path, send_id, file_id
     );
-    let body = SendAccessRequestBody { password };
+    let body = models::SendAccessRequestModel { password };
 
     let response = api_config
         .client
