@@ -5,7 +5,7 @@ use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 use crate::platform::repository::create_wasm_repositories;
 
-mod repository;
+pub(crate) mod repository;
 pub mod token_provider;
 
 /// Active feature flags for the SDK.

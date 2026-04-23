@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod agent_access;
 mod client;
 mod custom_types;
 mod flight_recorder;
