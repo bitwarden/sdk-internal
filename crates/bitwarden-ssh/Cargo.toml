@@ -31,6 +31,9 @@ bitwarden-vault = { workspace = true }
 block-padding = { version = "=0.4.2" }
 ed25519 = { version = "3.0.0-rc.4", features = ["pkcs8"] }
 ed25519-dalek = { workspace = true, features = ["alloc", "pkcs8"] }
+# Not used directly; pinned because >=0.14.0-rc.31 breaks p256/p384/p521 0.14.0-rc.8.
+# Remove when p256/p384/p521 release a compatible version.
+elliptic-curve = "=0.14.0-rc.29"
 p256 = { version = "0.14.0-rc.8", features = ["alloc", "pkcs8"], default-features = false }
 p384 = { version = "0.14.0-rc.8", features = ["alloc", "pkcs8"], default-features = false }
 p521 = { version = "0.14.0-rc.8", features = ["alloc", "pkcs8"], default-features = false }

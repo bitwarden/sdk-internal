@@ -190,6 +190,14 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
                 .map(|s| s.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
+            bank_account: cipher_data
+                .create_request
+                .r#type
+                .as_bank_account_view()
+                .as_ref()
+                .map(|b| b.encrypt_composite(ctx, cipher_key))
+                .transpose()?
+                .map(|b| Box::new(b.into())),
             fields: Some(
                 cipher_data
                     .create_request
@@ -388,6 +396,7 @@ mod tests {
                         identity: body.identity,
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
+                        bank_account: body.bank_account,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,

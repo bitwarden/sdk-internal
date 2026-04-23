@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{CardView, IdentityView, LoginView, SecureNoteView, SshKeyView};
+use crate::{BankAccountView, CardView, IdentityView, LoginView, SecureNoteView, SshKeyView};
 
 /// Represents the inner data of a cipher view.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -16,6 +16,7 @@ pub enum CipherViewType {
     Identity(IdentityView),
     SecureNote(SecureNoteView),
     SshKey(SshKeyView),
+    BankAccount(BankAccountView),
 }
 
 impl CipherViewType {
@@ -27,6 +28,7 @@ impl CipherViewType {
             CipherViewType::Identity(_) => crate::CipherType::Identity,
             CipherViewType::SecureNote(_) => crate::CipherType::SecureNote,
             CipherViewType::SshKey(_) => crate::CipherType::SshKey,
+            CipherViewType::BankAccount(_) => crate::CipherType::BankAccount,
         }
     }
 }
@@ -67,6 +69,14 @@ impl CipherViewType {
             _ => None,
         }
     }
+
+    pub(crate) fn as_bank_account_view_mut(&mut self) -> Option<&mut BankAccountView> {
+        match self {
+            CipherViewType::BankAccount(b) => Some(b),
+            _ => None,
+        }
+    }
+
     pub(crate) fn as_login_view(&self) -> Option<&LoginView> {
         match self {
             CipherViewType::Login(l) => Some(l),
@@ -98,6 +108,13 @@ impl CipherViewType {
     pub(crate) fn as_ssh_key_view(&self) -> Option<&SshKeyView> {
         match self {
             CipherViewType::SshKey(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_bank_account_view(&self) -> Option<&BankAccountView> {
+        match self {
+            CipherViewType::BankAccount(b) => Some(b),
             _ => None,
         }
     }
