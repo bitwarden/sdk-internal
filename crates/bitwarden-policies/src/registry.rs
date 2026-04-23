@@ -65,9 +65,15 @@ pub struct PolicyRegistryBuilder {
 impl PolicyRegistryBuilder {
     /// Registers a [`Policy`] for its policy type.
     ///
-    /// If a definition for the same type is already registered, it is replaced.
+    /// # Panics
+    ///
+    /// Panics if a [`Policy`] for the same [`PolicyType`] has already been registered.
     pub fn register<P: Policy>(mut self, policy: P) -> Self {
-        self.policies.insert(policy.policy_type(), Box::new(policy));
+        let policy_type = policy.policy_type();
+        if self.policies.contains_key(&policy_type) {
+            panic!("policy already registered for type {:?}", policy_type);
+        }
+        self.policies.insert(policy_type, Box::new(policy));
         self
     }
 
@@ -110,6 +116,22 @@ mod tests {
             is_provider_user: provider,
             ..Default::default()
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "policy already registered for type")]
+    fn registry_panics_on_duplicate_registration() {
+        struct AnyPolicy;
+        impl Policy for AnyPolicy {
+            fn policy_type(&self) -> PolicyType {
+                PolicyType(1)
+            }
+        }
+
+        PolicyRegistry::builder()
+            .register(AnyPolicy)
+            .register(AnyPolicy)
+            .build();
     }
 
     #[test]
