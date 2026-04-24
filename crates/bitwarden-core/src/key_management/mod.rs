@@ -31,7 +31,8 @@ pub use master_password::{
     MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
 };
 #[cfg(feature = "internal")]
-pub(crate) mod pin_unlock_system;
+pub(crate) mod pin_lock_system;
+pub use pin_lock_system::{PinLockType, PinUnlockStatus, PinLockSystem};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
@@ -59,18 +60,6 @@ mod local_user_data_key_state;
 
 use crate::{OrganizationId, UserId};
 
-/// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
-/// client.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[repr(transparent)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-pub struct UserKeyState {
-    decrypted_user_key: B64,
-}
-
-bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
-
 /// Represents the local user data key, wrapped by user key.
 /// This key is used to encrypt local user data (e.g., password generator history).
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -81,16 +70,6 @@ pub struct LocalUserDataKeyState {
 }
 
 bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");
-
-/// Represents the PIN envelope in memory, when ephemeral PIN unlock is used.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-pub struct EphemeralPinEnvelopeState {
-    pin_envelope: PasswordProtectedKeyEnvelope,
-}
-
-bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
 
 key_slot_ids! {
     #[symmetric]

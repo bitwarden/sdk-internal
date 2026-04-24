@@ -119,7 +119,8 @@ pub struct InternalClient {
     // A bridge used to map in KM state into the SDK, until a more robust solution is implemented by platform.
     // This is not a stable API and other teams should not use it. It will be removed as soon as KM state can be mapped
     // via the platform APIs.
-    pub(crate) state_bridge: Arc<RwLock<Option<Box<dyn crate::key_management::state_bridge::StateBridge + Send + Sync>>>>,
+    #[cfg(feature = "internal")]
+    pub(crate) state_bridge: crate::key_management::state_bridge::StateBridge,
 }
 
 impl InternalClient {
@@ -129,14 +130,6 @@ impl InternalClient {
     #[expect(clippy::unused_async)]
     pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
         *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
-    }
-
-    pub(crate) async fn get_state_bridge(&self) -> &Box<dyn crate::key_management::state_bridge::StateBridge + Send + Sync> {
-        self.state_bridge
-            .read()
-            .expect("RwLock is not poisoned")
-            .as_ref()
-            .expect("StateBridge not registered")
     }
 
     /// Retrieve the active feature flags.
@@ -307,9 +300,7 @@ impl InternalClient {
         // risk of a partial / incorrect setup.
         account_crypto_state
             .set_to_context(&self.security_state, user_key_id, &self.key_store, ctx)
-            .map_err(|_| EncryptionSettingsError::CryptoInitialization);
-
-        pin_unlock_system::on_unlock(&mut self)
+            .map_err(|_| EncryptionSettingsError::CryptoInitialization)
     }
 
     #[cfg(feature = "internal")]

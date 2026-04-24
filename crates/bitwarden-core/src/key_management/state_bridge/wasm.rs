@@ -5,7 +5,7 @@ use bitwarden_crypto::{
 use wasm_bindgen::prelude::*;
 use bitwarden_threading::ThreadBoundRunner;
 
-use crate::key_management::{state_bridge::{StateBridge, client::StateBridgeClient}};
+use crate::key_management::state_bridge::{StateBridgeImpl, client::StateBridgeClient};
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -67,7 +67,7 @@ extern "C" {
 pub struct WasmStateBridge(ThreadBoundRunner<RawWasmStateBridge>);
 
 #[async_trait(?Send)]
-impl StateBridge for WasmStateBridge {
+impl StateBridgeImpl for WasmStateBridge {
     async fn set_user_key(&mut self, user_key: &SymmetricCryptoKey) {
         let key = user_key.to_owned();
         self.0.run_in_thread(|bridge| async move { bridge.set_user_key(key.into()).await }).await.expect("Failed to set user key");
@@ -130,7 +130,9 @@ impl StateBridgeClient {
         &self,
         bridge_impl: RawWasmStateBridge,
     ) {
-        let mut bridge_slot = self.client.internal.state_bridge.write().expect("Failed to acquire write lock on temporary state bridge");
-        *bridge_slot = Some(Box::new(WasmStateBridge(ThreadBoundRunner::new(bridge_impl))));
+        self.client
+            .internal
+            .state_bridge
+            .register(Box::new(WasmStateBridge(ThreadBoundRunner::new(bridge_impl))));
     }
 }

@@ -143,7 +143,7 @@ impl ClientBuilder {
                     .state_registry
                     .unwrap_or_else(StateRegistry::new_with_memory_db),
                 #[cfg(feature = "internal")]
-                state_bridge: Arc::new(RwLock::new(None)),
+                state_bridge: crate::key_management::state_bridge::StateBridge::new(),
             }),
         }
     }

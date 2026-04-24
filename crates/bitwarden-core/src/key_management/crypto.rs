@@ -42,7 +42,7 @@ use crate::{
         local_user_data_key_state::{
             get_local_user_data_key_from_state, initialize_local_user_data_key_into_state,
         },
-        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
+        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData}, pin_lock_system::PinLockSystem,
     },
 };
 
@@ -254,7 +254,15 @@ pub(super) async fn initialize_user_crypto(
             )?;
         }
         InitUserCryptoMethod::PinState { pin } => {
-            
+            PinLockSystem::with_client(client).unlock(pin.as_str()).await;
+            // This should be refactored
+            #[allow(deprecated)]
+            let user_key = client.internal.get_key_store().context().dangerous_get_symmetric_key(SymmetricKeySlotId::User)?.to_owned();
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -364,6 +372,8 @@ pub(super) async fn initialize_user_crypto(
     }
 
     initialize_user_local_data_key(client).await?;
+    PinLockSystem::with_client(client).on_unlock().await
+        .map_err(|_| EncryptionSettingsError::CryptoInitialization)?;
 
     client
         .internal
