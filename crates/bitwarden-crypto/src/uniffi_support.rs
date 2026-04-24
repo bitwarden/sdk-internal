@@ -3,7 +3,8 @@ use std::{num::NonZeroU32, str::FromStr};
 use bitwarden_uniffi_error::convert_result;
 
 use crate::{
-    CryptoError, EncString, EncodingError, PublicKey, SignedPublicKey, UnsignedSharedKey,
+    CryptoError, EncString, EncodingError, PublicKey, SignedPublicKey, SymmetricCryptoKey,
+    UnsignedSharedKey,
     safe::{DataEnvelope, PasswordProtectedKeyEnvelope},
 };
 
@@ -13,6 +14,14 @@ uniffi::custom_type!(NonZeroU32, u32, {
         convert_result(NonZeroU32::new(val).ok_or(CryptoError::ZeroNumber))
     },
     lower: |obj| obj.get(),
+});
+
+uniffi::custom_type!(SymmetricCryptoKey, String, {
+    remote,
+    try_lift: |val| {
+        convert_result(SymmetricCryptoKey::try_from(val.as_str().to_string()))
+    },
+    lower: |obj| obj.to_base64().to_string(),
 });
 
 uniffi::custom_type!(EncString, String, {

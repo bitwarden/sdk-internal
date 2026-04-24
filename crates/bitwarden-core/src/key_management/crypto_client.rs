@@ -132,6 +132,20 @@ impl CryptoClient {
         enroll_pin(&self.client, pin)
     }
 
+    /// Decrypts an encrypted PIN using the current user key.
+    pub fn decrypt_encrypted_pin(
+        &self,
+        encrypted_pin: String,
+    ) -> Result<String, CryptoClientError> {
+        let encrypted_pin: EncString = encrypted_pin.parse()?;
+        encrypted_pin
+            .decrypt(
+                &mut self.client.internal.get_key_store().context_mut(),
+                SymmetricKeySlotId::User,
+            )
+            .map_err(CryptoClientError::Crypto)
+    }
+
     /// Decrypts a `PasswordProtectedKeyEnvelope`, returning the user key, if successful.
     /// This is a stop-gap solution, until initialization of the SDK is used.
     #[cfg(any(feature = "wasm", test))]
