@@ -57,6 +57,17 @@ pub struct PasswordGeneratorRequest {
 
 const DEFAULT_PASSWORD_LENGTH: u8 = 16;
 
+/// Minimum password length accepted by client-facing callers.
+/// The SDK's internal validator allows shorter values, but all Bitwarden clients
+/// silently clamp up to this value for entropy reasons.
+pub const MINIMUM_PASSWORD_LENGTH: u8 = 5;
+/// Maximum password length accepted by Bitwarden clients.
+pub const MAXIMUM_PASSWORD_LENGTH: u8 = 128;
+/// Minimum value for `min_number` / `min_special` (per-charset minimum count).
+pub const MINIMUM_MIN_CHAR_COUNT: u8 = 0;
+/// Maximum value for `min_number` / `min_special` (per-charset minimum count).
+pub const MAXIMUM_MIN_CHAR_COUNT: u8 = 9;
+
 impl Default for PasswordGeneratorRequest {
     fn default() -> Self {
         Self {

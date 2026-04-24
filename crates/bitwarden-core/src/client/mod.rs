@@ -26,7 +26,10 @@ pub mod persisted_state;
 
 pub use builder::ClientBuilder;
 pub use client::Client;
-pub use client_settings::{ClientName, ClientSettings, DeviceType};
+pub use client_settings::{
+    ClientName, ClientSettings, DeviceType, HostPlatformInfo, get_host_platform_info,
+    init_host_platform_info,
+};
 
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]

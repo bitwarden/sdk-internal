@@ -28,7 +28,7 @@ use crate::{
         encryption_settings::EncryptionSettingsError,
         flags::Flags,
         login_method::UserLoginMethod,
-        persisted_state::{USER_ID, USER_LOGIN_METHOD},
+        persisted_state::{FLAGS, USER_ID, USER_LOGIN_METHOD},
     },
     error::NotAuthenticatedError,
     key_management::{
@@ -73,6 +73,25 @@ impl ApiConfigurations {
         })
     }
 
+    /// Create an `ApiConfigurations` from a mocked API client, filling in dummy
+    /// values for the remaining fields. Only available for testing.
+    #[cfg(feature = "test-fixtures")]
+    pub fn from_api_client(api_client: bitwarden_api_api::apis::ApiClient) -> Self {
+        let dummy_config = bitwarden_api_base::Configuration {
+            base_path: String::new(),
+            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
+        };
+        Self {
+            api_client,
+            identity_client: bitwarden_api_identity::apis::ApiClient::new(&std::sync::Arc::new(
+                dummy_config.clone(),
+            )),
+            api_config: dummy_config.clone(),
+            identity_config: dummy_config,
+            device_type: DeviceType::SDK,
+        }
+    }
+
     pub(crate) fn get_key_connector_client(
         self: &Arc<Self>,
         key_connector_url: String,
@@ -94,9 +113,6 @@ pub struct InternalClient {
     #[cfg_attr(not(any(feature = "internal", feature = "secrets")), allow(dead_code))]
     pub(crate) token_handler: Arc<dyn TokenHandler>,
 
-    #[cfg(feature = "internal")]
-    pub(super) flags: RwLock<Flags>,
-
     pub(super) api_configurations: Arc<ApiConfigurations>,
 
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
@@ -107,6 +123,8 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
+    // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the
+    // feature flags are removed.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
     pub(crate) state_registry: StateRegistry,
 }
@@ -115,16 +133,36 @@ impl InternalClient {
     /// Load feature flags. This is intentionally a collection and not the internal `Flag` enum as
     /// we want to avoid changes in feature flags from being a breaking change.
     #[cfg(feature = "internal")]
-    #[expect(clippy::unused_async)]
     pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
-        *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
+        let flags = Flags::load_from_map(flags);
+        match self.state_registry.setting(FLAGS) {
+            Ok(setting) => {
+                if let Err(e) = setting.update(flags).await {
+                    tracing::warn!("Failed to persist flags: {e}");
+                }
+            }
+            Err(e) => tracing::warn!("Flags setting unavailable: {e}"),
+        }
     }
 
     /// Retrieve the active feature flags.
     #[cfg(feature = "internal")]
-    #[expect(clippy::unused_async)]
     pub async fn get_flags(&self) -> Flags {
-        self.flags.read().expect("RwLock is not poisoned").clone()
+        let setting = match self.state_registry.setting(FLAGS) {
+            Ok(setting) => setting,
+            Err(e) => {
+                tracing::warn!("Flags setting unavailable, using defaults: {e}");
+                return Flags::default();
+            }
+        };
+        match setting.get().await {
+            Ok(Some(flags)) => flags,
+            Ok(None) => Flags::default(),
+            Err(e) => {
+                tracing::warn!("Failed to read flags, using defaults: {e}");
+                Flags::default()
+            }
+        }
     }
 
     #[cfg(feature = "internal")]
@@ -473,6 +511,44 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn load_flags_round_trips_through_setting() {
+        use std::collections::HashMap;
+
+        use super::*;
+
+        let client = Client::new(None);
+
+        // With no flags loaded yet, get_flags should return defaults.
+        let initial = client.internal.get_flags().await;
+        assert!(!initial.enable_cipher_key_encryption);
+        assert!(!initial.strict_cipher_decryption);
+
+        // Loading flags should persist them via the FLAGS setting.
+        let mut map = HashMap::new();
+        map.insert("enableCipherKeyEncryption".to_string(), true);
+        map.insert("pm-34500-strict-cipher-decryption".to_string(), true);
+        client.internal.load_flags(map).await;
+
+        // get_flags should now return the loaded values.
+        let loaded = client.internal.get_flags().await;
+        assert!(loaded.enable_cipher_key_encryption);
+        assert!(loaded.strict_cipher_decryption);
+
+        // The values should be readable directly from the setting too.
+        let persisted = client
+            .internal
+            .state_registry
+            .setting(FLAGS)
+            .unwrap()
+            .get()
+            .await
+            .unwrap()
+            .expect("flags should be persisted after load_flags");
+        assert!(persisted.enable_cipher_key_encryption);
+        assert!(persisted.strict_cipher_decryption);
     }
 
     #[tokio::test]
