@@ -31,10 +31,7 @@ impl StateBridgeClient {
 
     /// Registers a bridge implementation used to read and write temporary key-management state.
     pub fn register_bridge(&self, bridge_impl: Box<dyn StateBridgeImpl + Send + Sync>) {
-        self.client
-            .internal
-            .state_bridge
-            .register(bridge_impl);
+        self.client.internal.state_bridge.register(bridge_impl);
     }
 
     pub async fn set_user_key(&self, user_key: &SymmetricCryptoKey) {
@@ -46,19 +43,11 @@ impl StateBridgeClient {
     }
 
     pub async fn get_user_key(&self) -> Option<SymmetricCryptoKey> {
-        self.client
-            .internal
-            .state_bridge
-            .get_user_key()
-            .await
+        self.client.internal.state_bridge.get_user_key().await
     }
 
     pub async fn clear_user_key(&self) {
-        self.client
-            .internal
-            .state_bridge
-            .clear_user_key()
-            .await;
+        self.client.internal.state_bridge.clear_user_key().await;
     }
 
     pub async fn set_persistent_pin_envelope(&self, pin_envelope: PasswordProtectedKeyEnvelope) {
@@ -118,11 +107,7 @@ impl StateBridgeClient {
     }
 
     pub async fn get_encrypted_pin(&self) -> Option<EncString> {
-        self.client
-            .internal
-            .state_bridge
-            .get_encrypted_pin()
-            .await
+        self.client.internal.state_bridge.get_encrypted_pin().await
     }
 
     pub async fn clear_encrypted_pin(&self) {
