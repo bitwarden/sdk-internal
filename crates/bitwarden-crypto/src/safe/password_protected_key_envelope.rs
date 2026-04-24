@@ -361,12 +361,14 @@ impl Serialize for PasswordProtectedKeyEnvelope {
     }
 }
 
+#[cfg(feature = "wasm")]
 impl From<PasswordProtectedKeyEnvelope> for JsValue {
     fn from(envelope: PasswordProtectedKeyEnvelope) -> Self {
         JsValue::from_str(&String::from(envelope))
     }
 }
 
+#[cfg(feature = "wasm")]
 impl TryFrom<JsValue> for PasswordProtectedKeyEnvelope {
     type Error = PasswordProtectedKeyEnvelopeError;
 
