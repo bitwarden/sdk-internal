@@ -70,7 +70,9 @@ impl NoiseCryptoProvider {
         // Wait for the handshake response (with timeout)
         timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
             loop {
-                let incoming = receiver.receive().await
+                let incoming = receiver
+                    .receive()
+                    .await
                     .map_err(|_| NoiseCryptoProviderError::TransportReceive)?;
 
                 // For concurrent handshakes, ignore messages
@@ -95,14 +97,14 @@ impl NoiseCryptoProvider {
             Ok(())
         })
         .await
-            .map_err(|_| {
+        .map_err(|_| {
             info!(
                 "Noise handshake with {:?} timed out after {} seconds",
                 destination, HANDSHAKE_TIMEOUT_SECS
             );
             NoiseCryptoProviderError::Timeout
-        // Both the timeout error, and errors from within the handshake loop are propagated here,
-        // hence the double question mark.
+            // Both the timeout error, and errors from within the handshake loop are propagated
+            // here, hence the double question mark.
         })??;
 
         let crypto_state = NoiseCryptoProviderState {
