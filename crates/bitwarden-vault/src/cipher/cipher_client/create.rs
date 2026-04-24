@@ -198,8 +198,22 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
                 .map(|b| b.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|b| Box::new(b.into())),
-            drivers_license: None,
-            passport: None,
+            passport: cipher_data
+                .create_request
+                .r#type
+                .as_passport_view()
+                .as_ref()
+                .map(|p| p.encrypt_composite(ctx, cipher_key))
+                .transpose()?
+                .map(|p| Box::new(p.into())),
+            drivers_license: cipher_data
+                .create_request
+                .r#type
+                .as_drivers_license_view()
+                .as_ref()
+                .map(|d| d.encrypt_composite(ctx, cipher_key))
+                .transpose()?
+                .map(|d| Box::new(d.into())),
             fields: Some(
                 cipher_data
                     .create_request
@@ -399,8 +413,8 @@ mod tests {
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
                         bank_account: body.bank_account,
-                        drivers_license: None,
-                        passport: None,
+                        passport: body.passport,
+                        drivers_license: body.drivers_license,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,

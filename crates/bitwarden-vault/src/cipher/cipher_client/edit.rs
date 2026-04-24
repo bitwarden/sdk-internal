@@ -89,6 +89,8 @@ impl TryFrom<CipherView> for CipherEditRequest {
             CipherType::Identity => value.identity.map(CipherViewType::Identity),
             CipherType::SshKey => value.ssh_key.map(CipherViewType::SshKey),
             CipherType::BankAccount => value.bank_account.map(CipherViewType::BankAccount),
+            CipherType::Passport => value.passport.map(CipherViewType::Passport),
+            CipherType::DriversLicense => value.drivers_license.map(CipherViewType::DriversLicense),
         };
         Ok(Self {
             id: value.id.ok_or(MissingFieldError("id"))?,
@@ -302,8 +304,21 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
                 .map(|b| b.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|b| Box::new(b.into())),
-            drivers_license: None,
-            passport: None,
+            passport: cipher_data
+                .edit_request
+                .r#type
+                .as_passport_view()
+                .map(|p| p.encrypt_composite(ctx, cipher_key))
+                .transpose()?
+                .map(|p| Box::new(p.into())),
+            drivers_license: cipher_data
+                .edit_request
+                .r#type
+                .as_drivers_license_view()
+                .map(|d| d.encrypt_composite(ctx, cipher_key))
+                .transpose()?
+                .map(|d| Box::new(d.into())),
+
             last_known_revision_date: Some(
                 cipher_data
                     .edit_request
@@ -495,6 +510,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            passport: None,
+            drivers_license: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -559,6 +576,8 @@ mod tests {
                 secure_note: None,
                 ssh_key: None,
                 bank_account: None,
+                passport: None,
+                drivers_license: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
