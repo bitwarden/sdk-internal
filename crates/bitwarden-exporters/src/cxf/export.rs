@@ -108,6 +108,8 @@ impl From<CipherType> for Vec<Credential> {
             CipherType::SecureNote(_) => vec![],
             CipherType::SshKey(ssh) => (*ssh).try_into().unwrap_or_default(),
             CipherType::BankAccount => vec![],
+            CipherType::Passport => vec![],
+            CipherType::DriversLicense => vec![],
         }
     }
 }
