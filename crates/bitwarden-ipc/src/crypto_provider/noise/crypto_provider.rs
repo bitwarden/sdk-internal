@@ -68,18 +68,22 @@ impl NoiseCryptoProvider {
             .map_err(|_| NoiseCryptoProviderError::TransportSend)?;
 
         // Wait for the handshake response (with timeout)
-        let Ok(_) = timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
+        timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
             loop {
-                let incoming = receiver.receive().await;
-                let incoming = incoming.map_err(|_| NoiseCryptoProviderError::TransportReceive)?;
+                let incoming = receiver.receive().await
+                    .map_err(|_| NoiseCryptoProviderError::TransportReceive)?;
+
                 // For concurrent handshakes, ignore messages
                 if incoming.source.to_endpoint() != destination {
                     continue;
                 }
+
+                // Malformed messages will cancel the handshake
                 let Ok(response_frame) = Frame::from_cbor(&incoming.payload) else {
-                    warn!("Received malformed cbor message during handshake, ignoring");
-                    continue;
+                    return Err(NoiseCryptoProviderError::HandshakeProtocol);
                 };
+
+                // Only accept handshake finish messages until the handshake is complete
                 if let Frame::HandshakeFinish(handshake_finish) = response_frame {
                     if initiator.read_response_message(&handshake_finish).is_err() {
                         error!("Failed to read handshake response message");
@@ -91,13 +95,15 @@ impl NoiseCryptoProvider {
             Ok(())
         })
         .await
-        else {
+            .map_err(|_| {
             info!(
                 "Noise handshake with {:?} timed out after {} seconds",
                 destination, HANDSHAKE_TIMEOUT_SECS
             );
-            return Err(NoiseCryptoProviderError::Timeout);
-        };
+            NoiseCryptoProviderError::Timeout
+        // Both the timeout error, and errors from within the handshake loop are propagated here,
+        // hence the double question mark.
+        })??;
 
         let crypto_state = NoiseCryptoProviderState {
             state: (&mut initiator).into(),
