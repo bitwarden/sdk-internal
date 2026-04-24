@@ -91,7 +91,11 @@ pub struct DeleteItemArgs {
 #[derive(Args, Clone)]
 pub struct DeleteAttachmentArgs {
     pub id: String,
-    #[arg(long, alias = "itemid", help = "Item ID that the attachment belongs to")]
+    #[arg(
+        long,
+        alias = "itemid",
+        help = "Item ID that the attachment belongs to"
+    )]
     pub item_id: String,
 }
 
@@ -164,7 +168,11 @@ pub struct GetFolderArgs {
 #[derive(Args, Clone)]
 pub struct GetAttachmentArgs {
     pub filename: String,
-    #[arg(long, alias = "itemid", help = "Item ID that the attachment belongs to.")]
+    #[arg(
+        long,
+        alias = "itemid",
+        help = "Item ID that the attachment belongs to."
+    )]
     pub item_id: String,
     #[arg(long, help = "Output file path. If not specified, outputs to stdout.")]
     pub output: Option<String>,
