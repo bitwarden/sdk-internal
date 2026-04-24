@@ -22,9 +22,8 @@ use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use wasm_bindgen::JsValue;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
+use wasm_bindgen::{JsValue, convert::FromWasmAbi};
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,

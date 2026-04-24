@@ -511,6 +511,7 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
     derive_shareable_key(secret, name, None)
 }
 
+#[cfg(feature = "wasm")]
 impl TryFrom<JsValue> for SymmetricCryptoKey {
     type Error = CryptoError;
 
@@ -520,6 +521,7 @@ impl TryFrom<JsValue> for SymmetricCryptoKey {
     }
 }
 
+#[cfg(feature = "wasm")]
 impl From<SymmetricCryptoKey> for JsValue {
     fn from(key: SymmetricCryptoKey) -> Self {
         JsValue::from_str(&key.to_base64().to_string())
