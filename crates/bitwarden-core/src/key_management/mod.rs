@@ -29,6 +29,7 @@ pub use master_password::{
 };
 #[cfg(feature = "internal")]
 pub(crate) mod pin_lock_system;
+#[cfg(feature = "internal")]
 pub use pin_lock_system::{PinLockSystem, PinLockType, PinUnlockStatus};
 #[cfg(feature = "internal")]
 mod security_state;
