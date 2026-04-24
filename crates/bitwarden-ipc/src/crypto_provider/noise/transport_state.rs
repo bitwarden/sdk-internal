@@ -17,7 +17,7 @@ pub(crate) enum TransportCipher {
 }
 
 /// A newtype for symmetric keys used in noise. A noise key is always 256-bits.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, zeroize::ZeroizeOnDrop)]
 pub(super) struct SymmetricKey(pub(crate) [u8; KEY_SIZE]);
 
 /// Implement Debug manually to avoid accidentally logging the key material.
