@@ -3,7 +3,7 @@ use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKey
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::prelude::*;
 
-use crate::key_management::state_bridge::{StateBridgeImpl, client::StateBridgeClient};
+use crate::key_management::state_bridge::StateBridgeImpl;
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]

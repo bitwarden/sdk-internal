@@ -34,7 +34,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .register(bridge_impl);
     }
 
@@ -50,7 +49,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .get_user_key()
             .await
     }
@@ -59,7 +57,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .clear_user_key()
             .await;
     }
@@ -68,7 +65,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .set_persistent_pin_envelope(pin_envelope)
             .await;
     }
@@ -77,7 +73,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .get_persistent_pin_envelope()
             .await
     }
@@ -86,7 +81,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .clear_persistent_pin_envelope()
             .await;
     }
@@ -95,7 +89,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .set_ephemeral_pin_envelope(pin_envelope)
             .await;
     }
@@ -104,7 +97,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .get_ephemeral_pin_envelope()
             .await
     }
@@ -113,7 +105,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .clear_ephemeral_pin_envelope()
             .await;
     }
@@ -122,7 +113,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .set_encrypted_pin(encrypted_pin)
             .await;
     }
@@ -131,7 +121,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .get_encrypted_pin()
             .await
     }
@@ -140,7 +129,6 @@ impl StateBridgeClient {
         self.client
             .internal
             .state_bridge
-            .clone()
             .clear_encrypted_pin()
             .await;
     }
