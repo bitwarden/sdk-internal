@@ -4,17 +4,36 @@
 //! All output is at TRACE level so it is silent unless the subscriber is configured
 //! to capture TRACE spans for this crate.
 //!
+//! Each request is wrapped in an `http_request` span with a unique `request_id`,
+//! making it easy to correlate request/response log lines when multiple requests
+//! are in flight.
+//!
+//! Sensitive headers (`Authorization`, `Cookie`, `Set-Cookie`, `Proxy-Authorization`)
+//! are redacted in the log output.
+//!
 //! # Warning
 //!
-//! At TRACE level this will include sensitive data such as authorization headers.
+//! At TRACE level this will include request body payloads.
 //! Only enable TRACE logging in development environments.
 
-use std::str::from_utf8;
+use std::{
+    str::from_utf8,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use http::Extensions;
 use reqwest::{Request, Response};
 use reqwest_middleware::{Middleware, Next, Result};
-use tracing::trace;
+use tracing::{Instrument, trace};
+
+const MAX_REQUEST_BODY_LOG_SIZE: usize = 100 * 1024; // 100 KB
+
+const REDACTED_HEADERS: &[&str] = &[
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "proxy-authorization",
+];
 
 /// Reqwest middleware that logs HTTP request and response details via `tracing` at TRACE level.
 pub struct ReqwestTracingMiddleware;
@@ -32,43 +51,57 @@ impl Middleware for ReqwestTracingMiddleware {
             return next.run(req, extensions).await;
         }
 
-        trace!(
-            method = %req.method(),
-            url = %req.url(),
-            "HTTP request"
-        );
+        static REQUEST_ID: AtomicU32 = AtomicU32::new(1);
+        let request_id = REQUEST_ID.fetch_add(1, Ordering::Relaxed);
+        let span = tracing::span!(tracing::Level::TRACE, "http_request", request_id);
 
-        for (name, value) in req.headers() {
+        async move {
             trace!(
-                name = %name,
-                value = ?value,
-                "HTTP request header"
+                method = %req.method(),
+                url = %req.url(),
+                "HTTP request"
             );
-        }
 
-        if let Some(body) = req.body().and_then(|b| b.as_bytes()) {
-            if let Ok(text) = from_utf8(body) {
-                trace!(body = %text, "HTTP request body");
-            } else {
-                trace!(size = body.len(), "HTTP request body (binary)");
+            for (name, value) in req.headers() {
+                if is_sensitive(name) {
+                    trace!(name = %name, value = "<redacted>", "HTTP request header");
+                } else {
+                    trace!(name = %name, value = ?value, "HTTP request header");
+                }
             }
-        }
 
-        let response = next.run(req, extensions).await?;
+            if let Some(body) = req.body().and_then(|b| b.as_bytes()) {
+                if body.len() > MAX_REQUEST_BODY_LOG_SIZE {
+                    trace!(size = body.len(), "HTTP request body (truncated)");
+                } else if let Ok(text) = from_utf8(body) {
+                    trace!(body = %text, "HTTP request body");
+                } else {
+                    trace!(size = body.len(), "HTTP request body (binary)");
+                }
+            }
 
-        trace!(
-            status = %response.status(),
-            "HTTP response"
-        );
+            let response = next.run(req, extensions).await?;
 
-        for (name, value) in response.headers() {
             trace!(
-                name = %name,
-                value = ?value,
-                "HTTP response header"
+                status = %response.status(),
+                "HTTP response"
             );
-        }
 
-        Ok(response)
+            for (name, value) in response.headers() {
+                if is_sensitive(name) {
+                    trace!(name = %name, value = "<redacted>", "HTTP response header");
+                } else {
+                    trace!(name = %name, value = ?value, "HTTP response header");
+                }
+            }
+
+            Ok(response)
+        }
+        .instrument(span)
+        .await
     }
+}
+
+fn is_sensitive(name: &http::HeaderName) -> bool {
+    REDACTED_HEADERS.iter().any(|h| name.as_str() == *h)
 }
