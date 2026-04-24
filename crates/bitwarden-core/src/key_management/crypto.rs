@@ -254,26 +254,7 @@ pub(super) async fn initialize_user_crypto(
             )?;
         }
         InitUserCryptoMethod::PinState { pin } => {
-            let mut pin_protected_key_envelope = 
-                client.internal.temporary_state_bridge.write().expect("Failed to acquire write lock on temporary state bridge")
-                    .as_ref()
-                    .ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?
-                    .get_persistent_pin_envelope()
-                    .await;
-            if let None = pin_protected_key_envelope {
-                pin_protected_key_envelope = client.internal.temporary_state_bridge.write().expect("Failed to acquire write lock on temporary state bridge")
-                    .as_mut()
-                    .ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?
-                    .get_ephemeral_pin_envelope()
-                    .await;
-            }
-            let pin_protected_key_envelope = pin_protected_key_envelope.ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
-            client.internal.initialize_user_crypto_pin_envelope(
-                pin,
-                pin_protected_key_envelope,
-                account_crypto_state,
-                &req.upgrade_token,
-            )?;
+            
         }
         InitUserCryptoMethod::Pin {
             pin,

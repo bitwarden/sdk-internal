@@ -31,6 +31,8 @@ pub use master_password::{
     MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
 };
 #[cfg(feature = "internal")]
+pub(crate) mod pin_unlock_system;
+#[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
 pub use security_state::{

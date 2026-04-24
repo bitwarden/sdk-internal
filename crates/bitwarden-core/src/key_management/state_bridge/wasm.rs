@@ -1,5 +1,7 @@
 use async_trait::async_trait;
-use bitwarden_crypto::{SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope};
+use bitwarden_crypto::{
+    EncString, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope,
+};
 use wasm_bindgen::prelude::*;
 use bitwarden_threading::ThreadBoundRunner;
 
@@ -20,6 +22,10 @@ export interface WasmStateBridge {
     set_ephemeral_pin_envelope(pin_envelope: PasswordProtectedKeyEnvelope): Promise<void>;
     get_ephemeral_pin_envelope(): Promise<PasswordProtectedKeyEnvelope | null>;
     clear_ephemeral_pin_envelope(): Promise<void>;
+
+    set_encrypted_pin(encrypted_pin: string): Promise<void>;
+    get_encrypted_pin(): Promise<string | null>;
+    clear_encrypted_pin(): Promise<void>;
 }
 "#;
 
@@ -49,6 +55,13 @@ extern "C" {
     pub async fn get_ephemeral_pin_envelope(this: &RawWasmStateBridge) -> Option<JsValue>;
     #[wasm_bindgen(method)]
     pub async fn clear_ephemeral_pin_envelope(this: &RawWasmStateBridge);
+
+    #[wasm_bindgen(method)]
+    pub async fn set_encrypted_pin(this: &RawWasmStateBridge, encrypted_pin: String);
+    #[wasm_bindgen(method)]
+    pub async fn get_encrypted_pin(this: &RawWasmStateBridge) -> Option<String>;
+    #[wasm_bindgen(method)]
+    pub async fn clear_encrypted_pin(this: &RawWasmStateBridge);
 }
 
 pub struct WasmStateBridge(ThreadBoundRunner<RawWasmStateBridge>);
@@ -91,6 +104,22 @@ impl StateBridge for WasmStateBridge {
     async fn clear_ephemeral_pin_envelope(&mut self) {
         self.0.run_in_thread(|bridge| async move { bridge.clear_ephemeral_pin_envelope().await }).await.expect("Failed to clear ephemeral pin envelope");
     }
+
+    async fn set_encrypted_pin(&mut self, encrypted_pin: EncString) {
+        self.0.run_in_thread(|bridge| async move { bridge.set_encrypted_pin(encrypted_pin.to_string()).await }).await.expect("Failed to set encrypted pin");
+    }
+
+    async fn get_encrypted_pin(&self) -> Option<EncString> {
+        self.0
+            .run_in_thread(|bridge| async move { bridge.get_encrypted_pin().await })
+            .await
+            .expect("Failed to get encrypted pin")
+            .and_then(|encrypted_pin| encrypted_pin.parse().ok())
+    }
+
+    async fn clear_encrypted_pin(&mut self) {
+        self.0.run_in_thread(|bridge| async move { bridge.clear_encrypted_pin().await }).await.expect("Failed to clear encrypted pin");
+    }
 }
 
 #[wasm_bindgen]
@@ -101,7 +130,7 @@ impl StateBridgeClient {
         &self,
         bridge_impl: RawWasmStateBridge,
     ) {
-        let mut bridge_slot = self.client.internal.temporary_state_bridge.write().expect("Failed to acquire write lock on temporary state bridge");
+        let mut bridge_slot = self.client.internal.state_bridge.write().expect("Failed to acquire write lock on temporary state bridge");
         *bridge_slot = Some(Box::new(WasmStateBridge(ThreadBoundRunner::new(bridge_impl))));
     }
 }
