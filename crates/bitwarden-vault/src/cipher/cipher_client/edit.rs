@@ -373,6 +373,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     }
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.

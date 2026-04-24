@@ -265,6 +265,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     Ok(key_store.decrypt(&cipher)?)
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     async fn create_cipher(

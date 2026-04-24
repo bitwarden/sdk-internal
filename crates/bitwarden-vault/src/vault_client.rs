@@ -38,9 +38,7 @@ impl VaultClient {
 
     /// Cipher related operations.
     pub fn ciphers(&self) -> CiphersClient {
-        CiphersClient {
-            client: self.client.clone(),
-        }
+        CiphersClient::from_client(&self.client)
     }
 
     /// Folder related operations.
