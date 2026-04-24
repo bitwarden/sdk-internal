@@ -18,7 +18,8 @@ pub enum ConfirmCommand {
 #[derive(clap::Args, Clone)]
 pub struct MoveArgs {
     /// Item ID
-    pub itemid: String,
+    #[arg(alias = "itemid")]
+    pub item_id: String,
     /// Organization ID
     #[arg(alias = "organizationid")]
     pub organization_id: String,

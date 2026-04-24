@@ -91,8 +91,8 @@ pub struct DeleteItemArgs {
 #[derive(Args, Clone)]
 pub struct DeleteAttachmentArgs {
     pub id: String,
-    #[arg(long, help = "Item ID that the attachment belongs to")]
-    pub itemid: String,
+    #[arg(long, alias = "itemid", help = "Item ID that the attachment belongs to")]
+    pub item_id: String,
 }
 
 #[derive(Args, Clone)]
@@ -164,8 +164,8 @@ pub struct GetFolderArgs {
 #[derive(Args, Clone)]
 pub struct GetAttachmentArgs {
     pub filename: String,
-    #[arg(long, help = "Item ID that the attachment belongs to.")]
-    pub itemid: String,
+    #[arg(long, alias = "itemid", help = "Item ID that the attachment belongs to.")]
+    pub item_id: String,
     #[arg(long, help = "Output file path. If not specified, outputs to stdout.")]
     pub output: Option<String>,
 }
@@ -194,8 +194,8 @@ pub struct CreateItemArgs {
 pub struct CreateAttachmentArgs {
     #[arg(long, help = "Path to the file to attach")]
     file: String,
-    #[arg(long, help = "Item ID to attach the file to")]
-    itemid: String,
+    #[arg(long, alias = "itemid", help = "Item ID to attach the file to")]
+    item_id: String,
 }
 
 #[derive(clap::Args, Clone)]
