@@ -21,6 +21,10 @@ keywords = ["bitwarden"]
 [workspace.dependencies]
 
 # External crates that are expected to maintain a consistent version across all crates
+ap-client = { version = "0.11.0", default-features = false }
+ap-noise = { version = "0.11.0" }
+ap-proxy-client = { version = "0.11.0", default-features = false }
+ap-proxy-protocol = { version = "0.11.0" }
 async-trait = ">=0.1.80, <0.2"
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=2.0.0" }
