@@ -26,7 +26,7 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    attachment, card,
+    attachment, bank_account, card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
     field, identity,
@@ -100,6 +100,7 @@ pub enum CipherType {
     Card = 3,
     Identity = 4,
     SshKey = 5,
+    BankAccount = 6,
 }
 
 #[allow(missing_docs)]
@@ -184,7 +185,7 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             identity: cipher.identity.map(|i| Box::new(i.into())),
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
-            bank_account: None,
+            bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -255,7 +256,7 @@ impl From<EncryptionContext> for CipherRequestModel {
             identity: cipher.identity.map(|i| Box::new(i.into())),
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
-            bank_account: None,
+            bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -292,6 +293,7 @@ pub struct Cipher {
     pub card: Option<card::Card>,
     pub secure_note: Option<secure_note::SecureNote>,
     pub ssh_key: Option<ssh_key::SshKey>,
+    pub bank_account: Option<bank_account::BankAccount>,
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
@@ -373,6 +375,7 @@ pub struct CipherView {
     pub card: Option<card::CardView>,
     pub secure_note: Option<secure_note::SecureNoteView>,
     pub ssh_key: Option<ssh_key::SshKeyView>,
+    pub bank_account: Option<bank_account::BankAccountView>,
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
@@ -405,6 +408,7 @@ pub enum CipherListViewType {
     Card(CardListView),
     Identity,
     SshKey,
+    BankAccount,
 }
 
 /// Available fields on a cipher and can be copied from a the list view in the UI.
@@ -423,6 +427,10 @@ pub enum CopyableCipherFields {
     IdentityAddress,
     SshKey,
     SecureNotes,
+    BankAccountAccountNumber,
+    BankAccountRoutingNumber,
+    BankAccountPin,
+    BankAccountIban,
 }
 
 #[allow(missing_docs)]
@@ -571,6 +579,9 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
                 .secure_note
                 .encrypt_composite(ctx, ciphers_key)?,
             ssh_key: cipher_view.ssh_key.encrypt_composite(ctx, ciphers_key)?,
+            bank_account: cipher_view
+                .bank_account
+                .encrypt_composite(ctx, ciphers_key)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
@@ -625,6 +636,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
             card: self.card.decrypt(ctx, ciphers_key).ok().flatten(),
             secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
             ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
+            bank_account: self.bank_account.decrypt(ctx, ciphers_key).ok().flatten(),
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
@@ -689,6 +701,7 @@ impl Cipher {
             CipherType::Identity => self.identity.as_ref().map(|v| v as _),
             CipherType::SshKey => self.ssh_key.as_ref().map(|v| v as _),
             CipherType::SecureNote => self.secure_note.as_ref().map(|v| v as _),
+            CipherType::BankAccount => self.bank_account.as_ref().map(|v| v as _),
         }
     }
 
@@ -727,6 +740,7 @@ impl Cipher {
             crate::CipherType::Card => self.card = serde_json::from_str(data)?,
             crate::CipherType::Identity => self.identity = serde_json::from_str(data)?,
             crate::CipherType::SshKey => self.ssh_key = serde_json::from_str(data)?,
+            crate::CipherType::BankAccount => self.bank_account = serde_json::from_str(data)?,
         }
         Ok(())
     }
@@ -962,6 +976,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
                 }
                 CipherType::Identity => CipherListViewType::Identity,
                 CipherType::SshKey => CipherListViewType::SshKey,
+                CipherType::BankAccount => CipherListViewType::BankAccount,
             },
             favorite: self.favorite,
             reprompt: self.reprompt,
@@ -1098,6 +1113,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
                 .transpose()?,
             secure_note: self.0.secure_note.decrypt(ctx, ciphers_key)?,
             ssh_key: self.0.ssh_key.decrypt(ctx, ciphers_key)?,
+            bank_account: self.0.bank_account.decrypt(ctx, ciphers_key)?,
             favorite: self.0.favorite,
             reprompt: self.0.reprompt,
             organization_use_totp: self.0.organization_use_totp,
@@ -1173,6 +1189,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
                 }
                 CipherType::Identity => CipherListViewType::Identity,
                 CipherType::SshKey => CipherListViewType::SshKey,
+                CipherType::BankAccount => CipherListViewType::BankAccount,
             },
             favorite: self.0.favorite,
             reprompt: self.0.reprompt,
@@ -1255,6 +1272,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: cipher.bank_account.map(|b| (*b).try_into()).transpose()?,
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
@@ -1307,8 +1325,8 @@ impl TryFrom<bitwarden_api_api::models::CipherType> for CipherType {
             bitwarden_api_api::models::CipherType::Card => CipherType::Card,
             bitwarden_api_api::models::CipherType::Identity => CipherType::Identity,
             bitwarden_api_api::models::CipherType::SSHKey => CipherType::SshKey,
-            bitwarden_api_api::models::CipherType::BankAccount
-            | bitwarden_api_api::models::CipherType::__Unknown(_) => {
+            bitwarden_api_api::models::CipherType::BankAccount => CipherType::BankAccount,
+            bitwarden_api_api::models::CipherType::__Unknown(_) => {
                 return Err(MissingFieldError("type"));
             }
         })
@@ -1344,6 +1362,7 @@ impl From<CipherType> for bitwarden_api_api::models::CipherType {
             CipherType::Card => bitwarden_api_api::models::CipherType::Card,
             CipherType::Identity => bitwarden_api_api::models::CipherType::Identity,
             CipherType::SshKey => bitwarden_api_api::models::CipherType::SSHKey,
+            CipherType::BankAccount => bitwarden_api_api::models::CipherType::BankAccount,
         }
     }
 }
@@ -1376,6 +1395,7 @@ impl PartialCipher for CipherResponseModel {
             card: self.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
             favorite: self.favorite.unwrap_or(false),
             reprompt: self
                 .reprompt
@@ -1423,6 +1443,7 @@ impl PartialCipher for CipherMiniResponseModel {
             card: self.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
             reprompt: self
                 .reprompt
                 .map(|r| r.try_into())
@@ -1480,6 +1501,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             card: self.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
             reprompt: self
                 .reprompt
                 .map(|r| r.try_into())
@@ -1572,6 +1594,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -1638,6 +1661,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2249,6 +2273,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2295,6 +2320,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2335,6 +2361,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2399,6 +2426,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2556,6 +2584,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2603,6 +2632,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2643,6 +2673,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2701,6 +2732,7 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,

@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::{any::TypeId, sync::Arc};
 
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -22,6 +22,21 @@ pub enum RepositoryError {
     /// State registry error.
     #[error(transparent)]
     StateRegistry(#[from] StateRegistryError),
+}
+
+/// Extension trait for `Option<Arc<dyn Repository<V>>>` to concisely require that a repository
+/// is available.
+pub trait RepositoryOption<V: RepositoryItem> {
+    /// Returns a reference to the repository, or a
+    /// [`StateRegistryError::DatabaseNotInitialized`] error if it is `None`.
+    fn require(&self) -> Result<&Arc<dyn Repository<V>>, RepositoryError>;
+}
+
+impl<V: RepositoryItem> RepositoryOption<V> for Option<Arc<dyn Repository<V>>> {
+    fn require(&self) -> Result<&Arc<dyn Repository<V>>, RepositoryError> {
+        self.as_ref()
+            .ok_or(StateRegistryError::DatabaseNotInitialized.into())
+    }
 }
 
 /// This trait represents a generic repository interface, capable of storing and retrieving
