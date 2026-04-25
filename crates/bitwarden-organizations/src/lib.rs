@@ -8,11 +8,15 @@ mod uniffi_support;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 use uuid::Uuid;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The membership status of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[repr(i8)]
 pub enum OrganizationUserStatusType {
     /// The user's access has been revoked. This may occur at any time from any other status.
@@ -28,6 +32,7 @@ pub enum OrganizationUserStatusType {
 /// The role of a user within an organization.
 #[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[repr(u8)]
 pub enum OrganizationUserType {
     /// Full administrative control over the organization.
@@ -45,6 +50,7 @@ pub enum OrganizationUserType {
 /// The type of provider.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[repr(u8)]
 pub enum ProviderType {
     /// Managed Service Provider - sells and manages its clients' Bitwarden organizations.
@@ -60,6 +66,7 @@ pub enum ProviderType {
 /// The method used to decrypt organization member data.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[repr(u8)]
 pub enum MemberDecryptionType {
     /// Decryption using the user's master password.
@@ -73,6 +80,7 @@ pub enum MemberDecryptionType {
 /// The subscription tier of an organization.
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[repr(u8)]
 pub enum ProductTierType {
     /// Free tier with limited features.
@@ -91,6 +99,7 @@ pub enum ProductTierType {
 /// [`OrganizationUserType::Custom`] role.
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase", default)]
 pub struct Permissions {
     /// Can view the organization's event logs.
@@ -125,6 +134,7 @@ pub struct Permissions {
 /// organization that the current user belongs to.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileOrganization {
     /// Unique identifier for the organization.
@@ -177,9 +187,9 @@ pub struct ProfileOrganization {
     /// Whether organization members receive premium features.
     pub users_get_premium: bool,
     /// The number of licensed seats for the organization.
-    pub seats: u32,
+    pub seats: Option<u32>,
     /// The maximum number of collections the organization can create.
-    pub max_collections: u32,
+    pub max_collections: Option<u32>,
     /// The maximum encrypted storage in gigabytes, if limited.
     pub max_storage_gb: Option<u32>,
     /// Whether the current user's account is bound to this organization via SSO.
@@ -252,6 +262,7 @@ pub struct ProfileOrganization {
     /// Whether the organization can sponsor families plans for members (Families For Enterprises).
     pub use_admin_sponsored_families: bool,
     /// Whether Secrets Manager ads are disabled for users.
+    #[serde(rename = "useDisableSMAdsForUsers")]
     pub use_disable_sm_ads_for_users: bool,
     /// Whether the organization's Families For Enterprises sponsorship was initiated by an admin.
     pub is_admin_initiated: bool,
@@ -294,8 +305,8 @@ impl Default for ProfileOrganization {
             use_automatic_user_confirmation: false,
             self_host: false,
             users_get_premium: false,
-            seats: 0,
-            max_collections: 0,
+            seats: Some(10),
+            max_collections: None,
             max_storage_gb: None,
             sso_bound: false,
             identifier: None,

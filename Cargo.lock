@@ -857,8 +857,10 @@ dependencies = [
  "chrono",
  "serde",
  "serde_repr",
+ "tsify",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -872,6 +874,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
+ "bitwarden-policies",
  "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-state",
@@ -1222,6 +1225,7 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-pm",
+ "bitwarden-policies",
  "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",
