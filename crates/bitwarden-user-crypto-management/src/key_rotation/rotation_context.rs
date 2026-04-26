@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{KeyStoreContext, PublicKey};
 use tracing::{debug, info, warn};
 
@@ -56,15 +56,15 @@ fn filter_trusted_emergency_access(
 pub(super) struct RotationContext {
     pub(super) v1_organization_memberships: Vec<V1OrganizationMembership>,
     pub(super) v1_emergency_access_memberships: Vec<V1EmergencyAccessMembership>,
-    pub(super) current_user_key_id: SymmetricKeyId,
-    pub(super) new_user_key_id: SymmetricKeyId,
+    pub(super) current_user_key_id: SymmetricKeySlotId,
+    pub(super) new_user_key_id: SymmetricKeySlotId,
 }
 
 pub(super) fn make_rotation_context(
     sync: &SyncedAccountData,
     trusted_organization_public_keys: &[PublicKey],
     trusted_emergency_access_public_keys: &[PublicKey],
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<RotationContext, RotateUserKeysError> {
     let v1_organization_memberships = filter_trusted_organization(
         sync.organization_memberships.as_slice(),
@@ -82,7 +82,7 @@ pub(super) fn make_rotation_context(
         "Existing user cryptographic version {:?}",
         sync.wrapped_account_cryptographic_state
     );
-    let current_user_key_id = SymmetricKeyId::User;
+    let current_user_key_id = SymmetricKeySlotId::User;
 
     debug!("Generating new xchacha20-poly1305 user key for key rotation");
     let new_user_key_id =
@@ -99,7 +99,7 @@ pub(super) fn make_rotation_context(
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::{
-        KeyIds, PrivateKeyId, SymmetricKeyId,
+        KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId,
         account_cryptographic_state::WrappedAccountCryptographicState,
     };
     use bitwarden_crypto::{
@@ -117,8 +117,8 @@ mod tests {
     };
 
     fn make_org_membership(
-        ctx: &mut KeyStoreContext<KeyIds>,
-    ) -> (V1OrganizationMembership, PrivateKeyId) {
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> (V1OrganizationMembership, PrivateKeySlotId) {
         let org_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         (
             V1OrganizationMembership {
@@ -131,8 +131,8 @@ mod tests {
     }
 
     fn make_ea_membership(
-        ctx: &mut KeyStoreContext<KeyIds>,
-    ) -> (V1EmergencyAccessMembership, PrivateKeyId) {
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> (V1EmergencyAccessMembership, PrivateKeySlotId) {
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         (
             V1EmergencyAccessMembership {
@@ -167,7 +167,7 @@ mod tests {
     fn make_test_sync(
         org_memberships: Vec<V1OrganizationMembership>,
         ea_memberships: Vec<V1EmergencyAccessMembership>,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> SyncedAccountData {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_org_empty_list() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (org, _) = make_org_membership(&mut ctx);
         let trusted = [org.public_key.clone()];
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_org_all_trusted() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (org1, _) = make_org_membership(&mut ctx);
         let (org2, _) = make_org_membership(&mut ctx);
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_org_one_untrusted() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (org1, _) = make_org_membership(&mut ctx);
         let (org2, _) = make_org_membership(&mut ctx);
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_org_empty_trusted_with_orgs() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (org, _) = make_org_membership(&mut ctx);
 
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_ea_empty_list() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (ea, _) = make_ea_membership(&mut ctx);
         let trusted = [ea.public_key.clone()];
@@ -258,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_ea_all_trusted() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (ea1, _) = make_ea_membership(&mut ctx);
         let (ea2, _) = make_ea_membership(&mut ctx);
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_ea_one_untrusted() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (ea1, _) = make_ea_membership(&mut ctx);
         let (ea2, _) = make_ea_membership(&mut ctx);
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_filter_trusted_ea_empty_trusted_with_memberships() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (ea, _) = make_ea_membership(&mut ctx);
 
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_make_rotation_context_empty_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let sync = make_test_sync(vec![], vec![], &mut ctx);
 
@@ -310,7 +310,7 @@ mod tests {
         let rotation_ctx = result.expect("should succeed");
         assert!(rotation_ctx.v1_organization_memberships.is_empty());
         assert!(rotation_ctx.v1_emergency_access_memberships.is_empty());
-        assert_eq!(rotation_ctx.current_user_key_id, SymmetricKeyId::User);
+        assert_eq!(rotation_ctx.current_user_key_id, SymmetricKeySlotId::User);
         assert_ne!(
             rotation_ctx.new_user_key_id,
             rotation_ctx.current_user_key_id
@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_make_rotation_context_trusted_org_and_ea() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (org, _) = make_org_membership(&mut ctx);
         let (ea, _) = make_ea_membership(&mut ctx);
@@ -339,7 +339,7 @@ mod tests {
             &rotation_ctx.v1_emergency_access_memberships[0],
             &expected_ea,
         );
-        assert_eq!(rotation_ctx.current_user_key_id, SymmetricKeyId::User);
+        assert_eq!(rotation_ctx.current_user_key_id, SymmetricKeySlotId::User);
         assert_ne!(
             rotation_ctx.new_user_key_id,
             rotation_ctx.current_user_key_id
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_make_rotation_context_untrusted_org_returns_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (org, _) = make_org_membership(&mut ctx);
         let sync = make_test_sync(vec![org], vec![], &mut ctx);
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_make_rotation_context_untrusted_ea_returns_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let (ea, _) = make_ea_membership(&mut ctx);
         let sync = make_test_sync(vec![], vec![ea], &mut ctx);

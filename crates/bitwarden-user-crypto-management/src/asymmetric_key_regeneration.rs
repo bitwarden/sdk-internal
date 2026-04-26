@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use bitwarden_api_api::models::KeyRegenerationRequestModel;
 use bitwarden_core::key_management::{
-    KeyIds, PrivateKeyId, SymmetricKeyId,
+    KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId,
     account_cryptographic_state::WrappedAccountCryptographicState,
 };
 use bitwarden_crypto::{EncString, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
@@ -87,13 +87,13 @@ pub(crate) async fn internal_should_regenerate_asymmetric_keys(
         let key_store = client.client.internal.get_key_store();
         let ctx = key_store.context();
 
-        if !ctx.has_symmetric_key(SymmetricKeyId::User) {
+        if !ctx.has_symmetric_key(SymmetricKeySlotId::User) {
             info!("User key not available, skipping asymmetric key regeneration check");
             return Ok(false);
         }
 
         let algorithm = ctx
-            .get_symmetric_key_algorithm(SymmetricKeyId::User)
+            .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
             .map_err(|_| AsymmetricKeyRegenerationError::UserKeyNotAvailable)?;
         if algorithm != SymmetricKeyAlgorithm::Aes256CbcHmac {
             info!("User has non-V1 encryption, asymmetric key regeneration not applicable");
@@ -149,7 +149,7 @@ pub(crate) async fn internal_should_regenerate_asymmetric_keys(
         let mut ctx = key_store.context_mut();
 
         if let Ok(temp_private_key_id) =
-            ctx.unwrap_private_key(SymmetricKeyId::User, &encrypted_private_key)
+            ctx.unwrap_private_key(SymmetricKeySlotId::User, &encrypted_private_key)
         {
             // Private key is decryptable — check if it matches the server's public key
             return match verify_public_key_matches(&ctx, temp_private_key_id, public_key_str) {
@@ -225,8 +225,8 @@ async fn can_decrypt_personal_cipher(
 /// key. Returns `Ok(true)` if they match, `Ok(false)` if they don't, or `Err` if the public key
 /// cannot be derived.
 fn verify_public_key_matches(
-    ctx: &bitwarden_crypto::KeyStoreContext<KeyIds>,
-    private_key_id: PrivateKeyId,
+    ctx: &bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+    private_key_id: PrivateKeySlotId,
     server_public_key_b64: &str,
 ) -> Result<bool, AsymmetricKeyRegenerationError> {
     let derived_public_key = ctx
@@ -252,7 +252,7 @@ pub(crate) async fn internal_regenerate_asymmetric_key_pair(
         let mut ctx = key_store.context_mut();
 
         let algorithm = ctx
-            .get_symmetric_key_algorithm(SymmetricKeyId::User)
+            .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
             .map_err(|_| AsymmetricKeyRegenerationError::UserKeyNotAvailable)?;
         if algorithm != SymmetricKeyAlgorithm::Aes256CbcHmac {
             return Err(AsymmetricKeyRegenerationError::CryptoError);
@@ -260,7 +260,7 @@ pub(crate) async fn internal_regenerate_asymmetric_key_pair(
 
         let new_private_key_id = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let wrapped = ctx
-            .wrap_private_key(SymmetricKeyId::User, new_private_key_id)
+            .wrap_private_key(SymmetricKeySlotId::User, new_private_key_id)
             .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
         let public_key = ctx
             .get_public_key(new_private_key_id)
@@ -297,9 +297,9 @@ pub(crate) async fn internal_regenerate_asymmetric_key_pair(
         let mut ctx = key_store.context_mut();
 
         let temp_private_key_id = ctx
-            .unwrap_private_key(SymmetricKeyId::User, &wrapped_private_key)
+            .unwrap_private_key(SymmetricKeySlotId::User, &wrapped_private_key)
             .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
-        ctx.persist_private_key(temp_private_key_id, PrivateKeyId::UserPrivateKey)
+        ctx.persist_private_key(temp_private_key_id, PrivateKeySlotId::UserPrivateKey)
             .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
 
         WrappedAccountCryptographicState::get_v1_from_key_store(&ctx)
@@ -319,7 +319,7 @@ mod tests {
             KeyRegenerationRequestModel, KeysResponseModel,
         },
     };
-    use bitwarden_core::{Client, key_management::SymmetricKeyId};
+    use bitwarden_core::{Client, key_management::SymmetricKeySlotId};
     use bitwarden_crypto::{
         EncString, PrimitiveEncryptable, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
     };
@@ -334,7 +334,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
             let local_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeyId::User);
+            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeySlotId::User);
         }
         UserCryptoManagementClient::new(client)
     }
@@ -346,7 +346,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
             let local_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeyId::User);
+            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeySlotId::User);
         }
         UserCryptoManagementClient::new(client)
     }
@@ -358,7 +358,7 @@ mod tests {
         let mut ctx = key_store.context_mut();
         let private_key_id = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let wrapped = ctx
-            .wrap_private_key(SymmetricKeyId::User, private_key_id)
+            .wrap_private_key(SymmetricKeySlotId::User, private_key_id)
             .unwrap();
         let public_key = ctx.get_public_key(private_key_id).unwrap();
         let public_key_b64 = B64::from(public_key.to_der().unwrap()).to_string();
@@ -561,7 +561,7 @@ mod tests {
             let mut ctx = key_store.context_mut();
             let name: EncString = "test cipher"
                 .to_string()
-                .encrypt(&mut ctx, SymmetricKeyId::User)
+                .encrypt(&mut ctx, SymmetricKeySlotId::User)
                 .unwrap();
             name.to_string()
         };
@@ -689,7 +689,7 @@ mod tests {
             let key_store = client.client.internal.get_key_store();
             let ctx = key_store.context();
             assert!(
-                ctx.has_private_key(PrivateKeyId::UserPrivateKey),
+                ctx.has_private_key(PrivateKeySlotId::UserPrivateKey),
                 "UserPrivateKey should be set after regeneration"
             );
         }
@@ -725,7 +725,7 @@ mod tests {
             let key_store = client.client.internal.get_key_store();
             let ctx = key_store.context();
             assert!(
-                !ctx.has_private_key(PrivateKeyId::UserPrivateKey),
+                !ctx.has_private_key(PrivateKeySlotId::UserPrivateKey),
                 "UserPrivateKey should NOT be set after API failure"
             );
         }

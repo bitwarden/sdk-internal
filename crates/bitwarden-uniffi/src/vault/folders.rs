@@ -10,16 +10,19 @@ pub struct FoldersClient(pub(crate) bitwarden_vault::FoldersClient);
 impl FoldersClient {
     /// Encrypt folder
     pub fn encrypt(&self, folder: FolderView) -> Result<Folder> {
+        #[allow(deprecated)]
         Ok(self.0.encrypt(folder)?)
     }
 
     /// Decrypt folder
     pub fn decrypt(&self, folder: Folder) -> Result<FolderView> {
+        #[allow(deprecated)]
         Ok(self.0.decrypt(folder)?)
     }
 
     /// Decrypt folder list
     pub fn decrypt_list(&self, folders: Vec<Folder>) -> Result<Vec<FolderView>> {
+        #[allow(deprecated)]
         Ok(self.0.decrypt_list(folders)?)
     }
 }

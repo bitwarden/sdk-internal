@@ -31,6 +31,7 @@ pub(crate) enum CipherTypeDataV1 {
     Identity(IdentityDataV1),
     SecureNote(SecureNoteDataV1),
     SshKey(SshKeyDataV1),
+    BankAccount(BankAccountDataV1),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -123,6 +124,21 @@ pub(crate) struct SshKeyDataV1 {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct BankAccountDataV1 {
+    pub bank_name: Option<String>,
+    pub name_on_account: Option<String>,
+    pub account_type: Option<String>,
+    pub account_number: Option<String>,
+    pub routing_number: Option<String>,
+    pub branch_number: Option<String>,
+    pub pin: Option<String>,
+    pub swift_code: Option<String>,
+    pub iban: Option<String>,
+    pub bank_contact_phone: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct FieldDataV1 {
     pub name: Option<String>,
     pub value: Option<String>,
@@ -139,7 +155,7 @@ pub(crate) struct PasswordHistoryDataV1 {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::KeyIds;
+    use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, safe::DataEnvelope};
     use bitwarden_encoding::B64;
     use chrono::TimeZone;
@@ -168,6 +184,10 @@ mod tests {
     const TEST_VECTOR_SSH_KEY_CEK: &str =
         "pQEEAlApE2RsnNwb3+3FyIr/kcfWAzoAARFvBIEEIFggDk3igU6wYnicl6jRSYILSaPlDWYCjnRUqMLdqfPkVKAB";
     const TEST_VECTOR_SSH_KEY_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFApE2RsnNwb3+3FyIr/kcfWOgABOIECOgABOIABoQVYGHPwqnuSuDHdwTg3twT5B0b3AXKVK+cySVkBSzorjdnfAdt1aNM32x3BPUg4QMkR99SQum3yc4eIT5eqi2FZjHyvEVPMwxfcWqg26g8UTc3dsRW57RYRF4ajx4+MGcJj+wWTrI8jPmthhLAnEHT11eC2YjYIW1INWKGFJTKnTjwHw1LTVJvEzA9MAZRk2y2NC+qkkdDM3wKmhl4PqoEPmt/x6qBjlR5+rlA4rUqkm9ja+NqqEbz8McGXBw8QWOh99/xE1PorFk7S+o9LW1Kcv1/GL+1wv6X7tTo1dYVYa2uCo9Hp9C8D5zXz/iVLm9w98NQFZQlteO8yibEOp+F/VNpgpsmZjOQzJ6wf0hKabFF2eXIUJ2RT1vJT+zUdcfc+TMkypaBbJEagmAiEBnZFcxVEhQ3tn1ZyJFRUcMzm91azIHQMmQ9cS6h/SqTGFF3z+q0H4+8w2S+yl+D5/OVWQHKcSOFvsPA=";
+
+    const TEST_VECTOR_BANK_ACCOUNT_CEK: &str =
+        "pQEEAlCz1mvOGP9yRKdx0pA5WbP7AzoAARFvBIEEIFggF30KGp58Duu4VcVvoFJ+Lhw1yEpfQvTUW2dvOP+WMd0B";
+    const TEST_VECTOR_BANK_ACCOUNT_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFCz1mvOGP9yRKdx0pA5WbP7OgABOIECOgABOIABoQVYGDbBFtW702QwCdi03+f9Uahq4Xf0bJ8i7VkBQxZB8XgvwLS13sHp8iz3VmTVcWJCyoxp6ycEUNSllpzURnZtfTsm9hkHCM0iFvMAXgDHBamHpI+8cX4sZ1qyjrGx4JDkGL1wDPUKMY7pLIN6alssjgYNl/6ijicWk2uNDneAGVgJdAHmxVKYPKbwYp0e8bLeAjgj6FOSFHaXv1a6TdF82iRCF/r5Uh/Ohx1FEbtRnaCSMJ4tLsf8YC9oq3duarJzSB2aINL9EnGAqqUlJ8cy8lyfkopUxV0OMnRWiHpja4CrEphhNeKKPoFRezsVoDYQ3f7kjryVAQ661gVxsEG3FB03+CcvVsT849QfrDcERxsQoKwy1E9yHaoE2kgWiYTHS+6gCH/gikDw1t4GBBUdjeJhP3bqQJbmM4cgRxWMgyswfFAfZok25kcA15EpHabkczydiPtnG2UW9qfu+bfw";
 
     fn test_blob_secure_note() -> CipherBlobV1 {
         CipherBlobV1 {
@@ -284,6 +304,27 @@ mod tests {
         }
     }
 
+    fn test_blob_bank_account() -> CipherBlobV1 {
+        CipherBlobV1 {
+            name: "Test Bank Account".to_string(),
+            notes: Some("Bank account notes".to_string()),
+            type_data: CipherTypeDataV1::BankAccount(BankAccountDataV1 {
+                bank_name: Some("Test Bank".to_string()),
+                name_on_account: Some("John Doe".to_string()),
+                account_type: Some("Checking".to_string()),
+                account_number: Some("1234567890".to_string()),
+                routing_number: Some("021000021".to_string()),
+                branch_number: Some("001".to_string()),
+                pin: Some("1234".to_string()),
+                swift_code: Some("TESTUS33".to_string()),
+                iban: Some("US12345678901234567890".to_string()),
+                bank_contact_phone: Some("555-0123".to_string()),
+            }),
+            fields: Vec::new(),
+            password_history: Vec::new(),
+        }
+    }
+
     #[test]
     #[ignore]
     fn generate_test_vectors() {
@@ -293,11 +334,12 @@ mod tests {
             ("IDENTITY", test_blob_identity()),
             ("SECURE_NOTE", test_blob_secure_note()),
             ("SSH_KEY", test_blob_ssh_key()),
+            ("BANK_ACCOUNT", test_blob_bank_account()),
         ];
 
         for (name, blob) in blobs {
             let data: CipherBlob = blob.into();
-            let store: KeyStore<KeyIds> = KeyStore::default();
+            let store: KeyStore<KeySlotIds> = KeyStore::default();
             let mut ctx = store.context_mut();
             let (envelope, cek_id) = DataEnvelope::seal(data, &mut ctx).unwrap();
 
@@ -320,7 +362,7 @@ mod tests {
     fn verify_test_vector(cek_str: &str, envelope_str: &str, expected: CipherBlobV1) {
         let cek = SymmetricCryptoKey::try_from(B64::try_from(cek_str).unwrap()).unwrap();
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let cek_id = ctx.add_local_symmetric_key(cek);
 
@@ -373,6 +415,15 @@ mod tests {
             TEST_VECTOR_SSH_KEY_CEK,
             TEST_VECTOR_SSH_KEY_ENVELOPE,
             test_blob_ssh_key(),
+        );
+    }
+
+    #[test]
+    fn test_recorded_bank_account_test_vector() {
+        verify_test_vector(
+            TEST_VECTOR_BANK_ACCOUNT_CEK,
+            TEST_VECTOR_BANK_ACCOUNT_ENVELOPE,
+            test_blob_bank_account(),
         );
     }
 }

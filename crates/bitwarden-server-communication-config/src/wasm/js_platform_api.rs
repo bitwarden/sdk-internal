@@ -35,7 +35,7 @@ extern "C" {
     )]
     pub type RawJsServerCommunicationConfigPlatformApi;
 
-    /// Acquires cookies for a hostname
+    /// Acquires cookies for a domain
     #[wasm_bindgen(catch, method, structural, js_name = acquireCookies)]
     pub async fn acquire_cookies(
         this: &RawJsServerCommunicationConfigPlatformApi,

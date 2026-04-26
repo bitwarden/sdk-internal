@@ -3,7 +3,7 @@ use bitwarden_api_api::models::{
     AccountKeysRequestModel, WrappedAccountCryptographicStateRequestModel,
 };
 use bitwarden_core::key_management::{
-    KeyIds, SymmetricKeyId, account_cryptographic_state::WrappedAccountCryptographicState,
+    KeySlotIds, SymmetricKeySlotId, account_cryptographic_state::WrappedAccountCryptographicState,
 };
 use tracing::debug;
 
@@ -12,9 +12,9 @@ use tracing::debug;
 /// account cryptographic state is malformed.
 pub(super) fn rotate_account_cryptographic_state_to_request_model(
     wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
-    current_user_key_id: &SymmetricKeyId,
-    new_user_key_id: &SymmetricKeyId,
-    ctx: &mut bitwarden_crypto::KeyStoreContext<KeyIds>,
+    current_user_key_id: &SymmetricKeySlotId,
+    new_user_key_id: &SymmetricKeySlotId,
+    ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
 ) -> Result<AccountKeysRequestModel, ()> {
     let rotated_account_cryptographic_state = rotate_account_cryptographic_state(
         wrapped_account_cryptographic_state,
@@ -32,13 +32,14 @@ pub(super) fn rotate_account_cryptographic_state_to_request_model(
     Ok(account_keys_model)
 }
 
-// Will be used for user key rotation without master password change, remove once added.
-#[allow(dead_code)]
+/// Rotates an account cryptographic state and upgrades it to V2 if necessary.
+/// This function fails and logs an error via tracing if the passed keys are invalid, or if the
+/// account cryptographic state is malformed.
 pub(super) fn rotate_account_cryptographic_state_to_wrapped_model(
     wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
-    current_user_key_id: &SymmetricKeyId,
-    new_user_key_id: &SymmetricKeyId,
-    ctx: &mut bitwarden_crypto::KeyStoreContext<KeyIds>,
+    current_user_key_id: &SymmetricKeySlotId,
+    new_user_key_id: &SymmetricKeySlotId,
+    ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
 ) -> Result<WrappedAccountCryptographicStateRequestModel, ()> {
     let rotated_account_cryptographic_state = rotate_account_cryptographic_state(
         wrapped_account_cryptographic_state,
@@ -58,9 +59,9 @@ pub(super) fn rotate_account_cryptographic_state_to_wrapped_model(
 
 fn rotate_account_cryptographic_state(
     wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
-    current_user_key_id: &SymmetricKeyId,
-    new_user_key_id: &SymmetricKeyId,
-    ctx: &mut bitwarden_crypto::KeyStoreContext<KeyIds>,
+    current_user_key_id: &SymmetricKeySlotId,
+    new_user_key_id: &SymmetricKeySlotId,
+    ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
 ) -> Result<WrappedAccountCryptographicState, ()> {
     debug!(
         ?current_user_key_id,
@@ -94,8 +95,12 @@ mod tests {
     /// Creates a V1 wrapped state for testing. This mimics what make_v1 does in bitwarden-core,
     /// but is accessible from this crate.
     fn make_v1_wrapped_state(
-        ctx: &mut bitwarden_crypto::KeyStoreContext<KeyIds>,
-    ) -> (SymmetricKeyId, PublicKey, WrappedAccountCryptographicState) {
+        ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+    ) -> (
+        SymmetricKeySlotId,
+        PublicKey,
+        WrappedAccountCryptographicState,
+    ) {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let wrapped_private_key = ctx.wrap_private_key(user_key, private_key).unwrap();
@@ -158,7 +163,7 @@ mod tests {
     #[test]
     fn test_rotate_v1_to_v2_returns_wrapped_request_model() {
         // Create a key store and context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Create a V1-style wrapped state
@@ -182,7 +187,7 @@ mod tests {
     #[test]
     fn test_rotate_v2_to_v2_returns_wrapped_request_model() {
         // Create a key store and context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Create a V2-style wrapped state
@@ -224,7 +229,7 @@ mod tests {
     #[test]
     fn test_rotate_v1_to_v2_returns_account_keys_model() {
         // Create a key store and context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Create a V1-style wrapped state
@@ -299,7 +304,7 @@ mod tests {
     #[test]
     fn test_rotate_v2_to_v2_returns_account_keys_model() {
         // Create a key store and context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Create a V2-style wrapped state
