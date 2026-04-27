@@ -23,7 +23,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::{JsValue, convert::FromWasmAbi};
+use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
@@ -361,27 +361,6 @@ impl Serialize for PasswordProtectedKeyEnvelope {
     }
 }
 
-#[cfg(feature = "wasm")]
-impl From<PasswordProtectedKeyEnvelope> for JsValue {
-    fn from(envelope: PasswordProtectedKeyEnvelope) -> Self {
-        JsValue::from_str(&String::from(envelope))
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl TryFrom<JsValue> for PasswordProtectedKeyEnvelope {
-    type Error = PasswordProtectedKeyEnvelopeError;
-
-    fn try_from(value: JsValue) -> Result<Self, Self::Error> {
-        let s = value.as_string().ok_or_else(|| {
-            PasswordProtectedKeyEnvelopeError::Parsing(
-                "Expected a string for PasswordProtectedKeyEnvelope".to_string(),
-            )
-        })?;
-        Self::from_str(&s)
-    }
-}
-
 /// Raw argon2 settings differ from the [crate::keys::Kdf::Argon2id] struct defined for existing
 /// master-password unlock. The memory is represented in kibibytes (KiB) instead of mebibytes (MiB),
 /// and the salt is a fixed size of 32 bytes, and randomly generated, instead of being derived from
@@ -552,6 +531,23 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
         PasswordProtectedKeyEnvelope::from_str(&string).unwrap_throw()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl OptionFromWasmAbi for PasswordProtectedKeyEnvelope {
+    fn is_none(abi: &Self::Abi) -> bool {
+        <String as OptionFromWasmAbi>::is_none(abi)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl IntoWasmAbi for PasswordProtectedKeyEnvelope {
+    type Abi = <String as IntoWasmAbi>::Abi;
+
+    fn into_abi(self) -> Self::Abi {
+        let string: String = self.into();
+        string.into_abi()
     }
 }
 
