@@ -4,6 +4,8 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
+#[cfg(feature = "internal")]
+use crate::key_management::state_bridge::StateBridge;
 use crate::{
     auth::auth_tokens::{NoopTokenHandler, TokenHandler},
     client::{
@@ -138,6 +140,8 @@ impl ClientBuilder {
                 state_registry: self
                     .state_registry
                     .unwrap_or_else(StateRegistry::new_with_memory_db),
+                #[cfg(feature = "internal")]
+                state_bridge: StateBridge::new(),
             }),
         }
     }
