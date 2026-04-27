@@ -61,42 +61,46 @@ pub struct CipherCreateRequest {
     pub fields: Vec<FieldView>,
 }
 
-impl From<CipherCreateRequest> for CipherView {
-    fn from(r: CipherCreateRequest) -> Self {
-        // `creation_date` / `revision_date` are overwritten by the server on
-        // merge; `Utc::now()` is a safe placeholder.
-        let now = chrono::Utc::now();
-        CipherView {
-            id: None,
-            organization_id: r.organization_id,
-            folder_id: r.folder_id,
-            collection_ids: r.collection_ids,
-            key: None,
-            name: r.name,
-            notes: r.notes,
-            r#type: r.r#type.get_cipher_type(),
-            login: r.r#type.as_login_view().cloned(),
-            identity: r.r#type.as_identity_view().cloned(),
-            card: r.r#type.as_card_view().cloned(),
-            secure_note: r.r#type.as_secure_note_view().cloned(),
-            ssh_key: r.r#type.as_ssh_key_view().cloned(),
-            bank_account: r.r#type.as_bank_account_view().cloned(),
-            favorite: r.favorite,
-            reprompt: r.reprompt,
-            organization_use_totp: false,
-            edit: true,
-            permissions: None,
-            view_password: true,
-            local_data: None,
-            attachments: None,
-            attachment_decryption_failures: None,
-            fields: Some(r.fields),
-            password_history: None,
-            creation_date: now,
-            deleted_date: None,
-            revision_date: now,
-            archived_date: None,
-        }
+/// Internal helper to convert a [`CipherCreateRequest`] into a [`CipherView`]
+/// so the existing `CipherView` encryption pipeline can be reused.
+///
+/// This conversion is lossy and intended for use only within the internal create flow.
+/// Placeholder values are generated to satisfy the CipherView contract; they have
+/// no meaning outside of this flow.
+pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherView {
+    // `creation_date` / `revision_date` are overwritten by the server on
+    // merge; `Utc::now()` is a safe placeholder.
+    let now = chrono::Utc::now();
+    CipherView {
+        id: None,
+        organization_id: r.organization_id,
+        folder_id: r.folder_id,
+        collection_ids: r.collection_ids,
+        key: None,
+        name: r.name,
+        notes: r.notes,
+        r#type: r.r#type.get_cipher_type(),
+        login: r.r#type.as_login_view().cloned(),
+        identity: r.r#type.as_identity_view().cloned(),
+        card: r.r#type.as_card_view().cloned(),
+        secure_note: r.r#type.as_secure_note_view().cloned(),
+        ssh_key: r.r#type.as_ssh_key_view().cloned(),
+        bank_account: r.r#type.as_bank_account_view().cloned(),
+        favorite: r.favorite,
+        reprompt: r.reprompt,
+        organization_use_totp: false,
+        edit: true,
+        permissions: None,
+        view_password: true,
+        local_data: None,
+        attachments: None,
+        attachment_decryption_failures: None,
+        fields: Some(r.fields),
+        password_history: None,
+        creation_date: now,
+        deleted_date: None,
+        revision_date: now,
+        archived_date: None,
     }
 }
 
@@ -155,7 +159,7 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let mut view: CipherView = request.into();
+        let mut view: CipherView = convert_request_to_cipher_view(request);
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
@@ -293,7 +297,7 @@ mod tests {
             &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
-            request.into(),
+            convert_request_to_cipher_view(request),
         )
         .await
         .unwrap();
@@ -351,7 +355,7 @@ mod tests {
             &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
-            request.into(),
+            convert_request_to_cipher_view(request),
         )
         .await;
 
@@ -419,7 +423,7 @@ mod tests {
             &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
-            request.into(),
+            convert_request_to_cipher_view(request),
         )
         .await
         .unwrap();

@@ -10,7 +10,10 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherView, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::{
+        cipher::{PartialCipher, StrictDecrypt},
+        cipher_client::create::convert_request_to_cipher_view,
+    },
     cipher_client::{admin::CipherAdminClient, create::CipherCreateRequest},
 };
 
@@ -93,7 +96,7 @@ impl CipherAdminClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let mut view: CipherView = request.into();
+        let mut view: CipherView = convert_request_to_cipher_view(request);
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
@@ -179,7 +182,7 @@ mod tests {
         let test_collection_id: bitwarden_collections::collection::CollectionId =
             TEST_COLLECTION_ID.parse().unwrap();
 
-        let view: CipherView = CipherCreateRequest {
+        let view: CipherView = convert_request_to_cipher_view(CipherCreateRequest {
             organization_id: Some(TEST_ORG_ID.parse().unwrap()),
             collection_ids: vec![test_collection_id],
             folder_id: Some(test_folder_id),
@@ -197,8 +200,7 @@ mod tests {
                 fido2_credentials: None,
             }),
             fields: vec![],
-        }
-        .into();
+        });
 
         let response = create_cipher(
             view.clone(),

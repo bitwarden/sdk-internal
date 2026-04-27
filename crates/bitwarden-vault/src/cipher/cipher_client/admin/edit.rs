@@ -17,7 +17,7 @@ use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
     cipher::cipher::{PartialCipher, StrictDecrypt},
-    cipher_client::edit::CipherEditRequest,
+    cipher_client::edit::{CipherEditRequest, convert_request_to_cipher_view},
 };
 
 #[allow(missing_docs)]
@@ -65,7 +65,7 @@ async fn edit_cipher(
     let folder_id = request.folder_id;
     let favorite = request.favorite;
 
-    let mut view: CipherView = request.into();
+    let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
 
     // TODO: Once this flag is removed, the key generation logic should be

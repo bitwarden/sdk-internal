@@ -103,41 +103,44 @@ impl TryFrom<CipherView> for CipherEditRequest {
     }
 }
 
-impl From<CipherEditRequest> for CipherView {
-    fn from(r: CipherEditRequest) -> Self {
-        CipherView {
-            id: Some(r.id),
-            organization_id: r.organization_id,
-            folder_id: r.folder_id,
-            // `collection_ids` is empty because collections are updated via a separate endpoint.
-            collection_ids: vec![],
-            key: r.key,
-            name: r.name,
-            notes: r.notes,
-            r#type: r.r#type.get_cipher_type(),
-            login: r.r#type.as_login_view().cloned(),
-            identity: r.r#type.as_identity_view().cloned(),
-            card: r.r#type.as_card_view().cloned(),
-            secure_note: r.r#type.as_secure_note_view().cloned(),
-            ssh_key: r.r#type.as_ssh_key_view().cloned(),
-            bank_account: r.r#type.as_bank_account_view().cloned(),
-            favorite: r.favorite,
-            reprompt: r.reprompt,
-            organization_use_totp: false,
-            edit: true,
-            permissions: None,
-            view_password: true,
-            local_data: None,
-            attachments: Some(r.attachments),
-            attachment_decryption_failures: None,
-            fields: Some(r.fields),
-            password_history: None,
-            // `creation_date` is overwritten by the server on merge
-            creation_date: Utc::now(),
-            deleted_date: None,
-            revision_date: r.revision_date,
-            archived_date: r.archived_date,
-        }
+/// Internal helper to convert a [`CipherEditRequest`] into a [`CipherView`]
+/// so the existing `CipherView` encryption pipeline can be reused.
+///
+/// This conversion is lossy and intended for use only within the edit flow,
+/// as the `CipherView` produced will not have all fields populated (e.g. `collection_ids`).
+pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView {
+    CipherView {
+        id: Some(r.id),
+        organization_id: r.organization_id,
+        folder_id: r.folder_id,
+        // `collection_ids` is empty because collections are updated via a separate endpoint.
+        collection_ids: vec![],
+        key: r.key,
+        name: r.name,
+        notes: r.notes,
+        r#type: r.r#type.get_cipher_type(),
+        login: r.r#type.as_login_view().cloned(),
+        identity: r.r#type.as_identity_view().cloned(),
+        card: r.r#type.as_card_view().cloned(),
+        secure_note: r.r#type.as_secure_note_view().cloned(),
+        ssh_key: r.r#type.as_ssh_key_view().cloned(),
+        bank_account: r.r#type.as_bank_account_view().cloned(),
+        favorite: r.favorite,
+        reprompt: r.reprompt,
+        organization_use_totp: false,
+        edit: true,
+        permissions: None,
+        view_password: true,
+        local_data: None,
+        attachments: Some(r.attachments),
+        attachment_decryption_failures: None,
+        fields: Some(r.fields),
+        password_history: None,
+        // `creation_date` is overwritten by the server on merge
+        creation_date: Utc::now(),
+        deleted_date: None,
+        revision_date: r.revision_date,
+        archived_date: r.archived_date,
     }
 }
 
@@ -159,7 +162,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         key_store.decrypt(&original_cipher)?
     };
 
-    let mut view: CipherView = request.into();
+    let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
 
     // TODO: Once this flag is removed, the key generation logic should be
@@ -547,7 +550,8 @@ mod tests {
     /// Build the edit-side view the way the flow does: request → view, then
     /// fold in password history against the decrypted original.
     fn edit_view_with_history(new_cipher: CipherView, original: &CipherView) -> CipherView {
-        let mut view: CipherView = CipherEditRequest::try_from(new_cipher).unwrap().into();
+        let mut view: CipherView =
+            convert_request_to_cipher_view(CipherEditRequest::try_from(new_cipher).unwrap());
         view.update_password_history(original);
         view
     }
