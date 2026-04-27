@@ -25,10 +25,6 @@ use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-#[cfg(feature = "wasm")]
-use crate::key_management::wasm_unlock_state::{
-    copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
-};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{
@@ -223,6 +219,10 @@ pub(super) async fn initialize_user_crypto(
             | InitUserCryptoMethod::KeyConnectorUrl { .. }
             | InitUserCryptoMethod::AuthRequest { .. }
     );
+    PinLockSystem::with_client(client)
+        .on_unlock()
+        .await
+        .map_err(|_| EncryptionSettingsError::CryptoInitialization)?;
 
     match req.method {
         InitUserCryptoMethod::MasterPasswordUnlock {
@@ -240,9 +240,11 @@ pub(super) async fn initialize_user_crypto(
         }
         #[cfg(feature = "wasm")]
         InitUserCryptoMethod::ClientManagedState {} => {
-            let user_key = get_user_key_from_client_managed_state(client)
+            let user_key = client
+                .km_state_bridge()
+                .get_user_key()
                 .await
-                .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
+                .ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
@@ -376,9 +378,15 @@ pub(super) async fn initialize_user_crypto(
 
     #[cfg(feature = "wasm")]
     if should_copy_user_key {
-        copy_user_key_to_client_managed_state(client)
-            .await
-            .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
+        #[allow(deprecated)]
+        let user_key = client
+            .internal
+            .get_key_store()
+            .context()
+            .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?
+            .to_owned();
+        client.km_state_bridge().set_user_key(&user_key).await;
     }
 
     initialize_user_local_data_key(client).await?;

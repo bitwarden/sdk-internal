@@ -6,8 +6,8 @@ uniffi::setup_scaffolding!();
 
 mod key_connector_migration;
 mod key_rotation;
-mod user_crypto_management_client;
 mod pin_settings;
+mod user_crypto_management_client;
 pub use pin_settings::PinSettingsClient;
 pub use user_crypto_management_client::{
     UserCryptoManagementClient, UserCryptoManagementClientExt,
