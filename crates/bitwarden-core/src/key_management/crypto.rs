@@ -284,6 +284,8 @@ pub(super) async fn initialize_user_crypto(
                 .unlock(pin.as_str())
                 .await
                 .map_err(|_| EncryptionSettingsError::CryptoInitialization)?;
+            // Note: PinLockSystem sets the user-key to state, and this section is reading it from state, then re-setting
+            // it via `initialize_user_crypto_decrypted_key`. This is not ideal and should be refactored in the future.
             #[allow(deprecated)]
             let user_key = client
                 .internal
