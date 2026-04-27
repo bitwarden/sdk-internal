@@ -145,7 +145,8 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    async fn create_cipher(
+    /// Creates a new [Cipher] and saves it to the server.
+    pub async fn create(
         &self,
         request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
@@ -183,14 +184,6 @@ impl CiphersClient {
             view,
         )
         .await
-    }
-
-    /// Creates a new [Cipher] and saves it to the server.
-    pub async fn create(
-        &self,
-        request: CipherCreateRequest,
-    ) -> Result<CipherView, CreateCipherError> {
-        self.create_cipher(request).await
     }
 }
 
