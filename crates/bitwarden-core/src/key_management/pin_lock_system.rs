@@ -80,9 +80,17 @@ impl PinLockSystem<'_> {
     ///
     /// If both envelopes are present, the ephemeral envelope is preferred.
     async fn get_active_pin_envelope(&self) -> Option<PasswordProtectedKeyEnvelope> {
-        let mut pin_protected_key_envelope = self.client.km_state_bridge().get_ephemeral_pin_envelope().await;
+        let mut pin_protected_key_envelope = self
+            .client
+            .km_state_bridge()
+            .get_ephemeral_pin_envelope()
+            .await;
         if pin_protected_key_envelope.is_none() {
-            pin_protected_key_envelope = self.client.km_state_bridge().get_persistent_pin_envelope().await;
+            pin_protected_key_envelope = self
+                .client
+                .km_state_bridge()
+                .get_persistent_pin_envelope()
+                .await;
         }
         pin_protected_key_envelope
     }
