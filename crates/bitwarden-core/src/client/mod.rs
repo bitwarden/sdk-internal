@@ -14,13 +14,17 @@ pub use from_client_part::{FromClient, FromClientPart};
 pub use internal::ApiConfigurations;
 #[allow(missing_docs)]
 pub mod login_method;
+#[cfg(any(feature = "internal", feature = "secrets"))]
+pub(crate) use login_method::LoginMethod;
 #[cfg(feature = "secrets")]
 pub(crate) use login_method::ServiceAccountLoginMethod;
-pub(crate) use login_method::{LoginMethod, UserLoginMethod};
+pub(crate) use login_method::UserLoginMethod;
 #[cfg(feature = "internal")]
 mod flags;
 #[cfg(feature = "internal")]
 pub mod persisted_state;
+
+pub mod tracing_middleware;
 
 pub use builder::ClientBuilder;
 pub use client::Client;

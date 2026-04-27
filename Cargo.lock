@@ -511,6 +511,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-policies",
+ "bitwarden-state",
  "bitwarden-test",
  "chrono",
  "http",
