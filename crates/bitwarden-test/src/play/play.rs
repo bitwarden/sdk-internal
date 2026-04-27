@@ -427,11 +427,6 @@ mod tests {
     #[tokio::test]
     async fn test_clean() {
         let server = MockServer::start().await;
-        Mock::given(method("DELETE"))
-            .respond_with(ResponseTemplate::new(200))
-            .expect(1)
-            .mount(&server)
-            .await;
 
         let config = PlayConfig::new(
             "https://api.example.com",
@@ -439,6 +434,13 @@ mod tests {
             server.uri(),
         );
         let play = Play::new_internal(config);
+
+        Mock::given(method("DELETE"))
+            .and(path(format!("/seed/{}", play.play_id())))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
 
         assert!(play.clean().await.is_ok());
     }

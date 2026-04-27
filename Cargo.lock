@@ -895,7 +895,6 @@ dependencies = [
  "bitwarden-organizations",
  "serde",
  "serde_json",
- "serde_repr",
  "tsify",
  "uniffi",
  "uuid",

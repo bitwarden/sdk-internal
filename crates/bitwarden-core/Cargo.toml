@@ -39,6 +39,7 @@ wasm = [
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
     "bitwarden-state/wasm",
+    "bitwarden-threading/wasm",
     "getrandom2/js",
     "getrandom3/wasm_js",
     "getrandom4/wasm_js",

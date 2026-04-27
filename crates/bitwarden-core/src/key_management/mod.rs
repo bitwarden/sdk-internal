@@ -50,9 +50,16 @@ mod v2_upgrade_token;
 pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
 #[cfg(feature = "internal")]
+mod pin_lock_system;
+
+#[cfg(feature = "internal")]
 mod local_user_data_key;
 #[cfg(feature = "internal")]
 mod local_user_data_key_state;
+/// A temporary bridge to access KM-related state from within the SDK.
+#[cfg(feature = "internal")]
+pub mod state_bridge;
+
 /// A temporary bridge to access KM-related state from within the SDK.
 #[cfg(feature = "internal")]
 pub mod state_bridge;

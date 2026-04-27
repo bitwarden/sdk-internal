@@ -46,7 +46,7 @@ fn test_callback_thread_safety() {
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
     // Initialize logger with callback
-    init_logger(Some(callback));
+    init_logger(Some(callback), None);
 
     let _client = Client::new(Arc::new(MockTokenProvider), None);
 
