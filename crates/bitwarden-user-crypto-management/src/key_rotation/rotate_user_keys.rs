@@ -20,6 +20,7 @@ use crate::{
         unlock::{ReencryptCommonUnlockDataInput, reencrypt_common_unlock_data},
         unlock_method::{PrimaryUnlockMethod, reencrypt_unlock_method_data},
     },
+    public_key_encryption_key_pair_regeneration::internal_regenerate_public_key_encryption_key_pair_if_needed,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -55,6 +56,13 @@ impl UserCryptoManagementClient {
         request: RotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
+
+        // Fix corrupt public key encryption key pair before rotation, otherwise the rotation will
+        // fail.
+        internal_regenerate_public_key_encryption_key_pair_if_needed(self, api_client)
+            .await
+            .map_err(|_| RotateUserKeysError::CryptoError)?;
+
         let key_store = self.client.internal.get_key_store();
         internal_rotate_user_keys(key_store, api_client, request).await
     }
