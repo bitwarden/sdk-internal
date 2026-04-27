@@ -77,6 +77,11 @@ impl PasswordManagerClient {
         self.0.0.crypto()
     }
 
+    /// Key management state bridge operations.
+    pub fn km_state_bridge(&self) -> StateBridgeClient {
+        self.0.0.km_state_bridge()
+    }
+
     /// User crypto management related operations.
     pub fn user_crypto_management(&self) -> UserCryptoManagementClient {
         self.0.0.user_crypto_management()
