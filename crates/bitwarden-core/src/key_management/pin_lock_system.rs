@@ -143,7 +143,8 @@ impl PinLockSystem<'_> {
         };
 
         // Store it to memory
-        self.client.km_state_bridge()
+        self.client
+            .km_state_bridge()
             .set_ephemeral_pin_envelope(pin_envelope)
             .await;
 
@@ -153,8 +154,14 @@ impl PinLockSystem<'_> {
     /// Sets the PIN and stores the generated envelope according to the lock type.
     pub async fn set_pin(&self, pin: String, lock_type: PinLockType) -> Result<(), ()> {
         // Clear the existing configuration
-        self.client.km_state_bridge().clear_persistent_pin_envelope().await;
-        self.client.km_state_bridge().clear_ephemeral_pin_envelope().await;
+        self.client
+            .km_state_bridge()
+            .clear_persistent_pin_envelope()
+            .await;
+        self.client
+            .km_state_bridge()
+            .clear_ephemeral_pin_envelope()
+            .await;
         self.client.km_state_bridge().clear_encrypted_pin().await;
 
         let pin_envelope: PasswordProtectedKeyEnvelope = PasswordProtectedKeyEnvelope::seal(
@@ -171,13 +178,18 @@ impl PinLockSystem<'_> {
             )
             .map_err(|_| ())?;
 
-        self.client.km_state_bridge().set_encrypted_pin(encrypted_pin).await;
-        self.client.km_state_bridge()
+        self.client
+            .km_state_bridge()
+            .set_encrypted_pin(encrypted_pin)
+            .await;
+        self.client
+            .km_state_bridge()
             .set_ephemeral_pin_envelope(pin_envelope.clone())
             .await;
 
         if lock_type == PinLockType::BeforeFirstUnlock {
-            self.client.km_state_bridge()
+            self.client
+                .km_state_bridge()
                 .set_persistent_pin_envelope(pin_envelope)
                 .await;
         }
@@ -187,15 +199,22 @@ impl PinLockSystem<'_> {
 
     /// Clears both persistent and ephemeral PIN envelopes.
     pub async fn unset_pin(&self) {
-        self.client.km_state_bridge().clear_persistent_pin_envelope().await;
-        self.client.km_state_bridge().clear_ephemeral_pin_envelope().await;
+        self.client
+            .km_state_bridge()
+            .clear_persistent_pin_envelope()
+            .await;
+        self.client
+            .km_state_bridge()
+            .clear_ephemeral_pin_envelope()
+            .await;
         self.client.km_state_bridge().clear_encrypted_pin().await;
     }
 
     /// Returns the lock type for the currently configured PIN.
     pub async fn get_pin_lock_type(&self) -> Option<PinLockType> {
         if self
-            .client.km_state_bridge()
+            .client
+            .km_state_bridge()
             .get_persistent_pin_envelope()
             .await
             .is_some()
@@ -204,7 +223,8 @@ impl PinLockSystem<'_> {
         }
 
         if self
-            .client.km_state_bridge()
+            .client
+            .km_state_bridge()
             .get_ephemeral_pin_envelope()
             .await
             .is_some()
@@ -222,7 +242,8 @@ impl PinLockSystem<'_> {
     pub async fn get_pin_status(&self) -> PinUnlockStatus {
         if Self::get_pin_lock_type(self).await.is_some() {
             if self
-                .client.km_state_bridge()
+                .client
+                .km_state_bridge()
                 .get_ephemeral_pin_envelope()
                 .await
                 .is_some()
