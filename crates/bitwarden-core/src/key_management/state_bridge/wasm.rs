@@ -106,9 +106,7 @@ impl StateBridgeImpl for WasmStateBridge {
     async fn set_persistent_pin_envelope(&self, pin_envelope: PasswordProtectedKeyEnvelope) {
         self.0
             .run_in_thread(|bridge| async move {
-                bridge
-                    .set_persistent_pin_envelope(pin_envelope)
-                    .await
+                bridge.set_persistent_pin_envelope(pin_envelope).await
             })
             .await
             .expect("Failed to set persistent pin envelope");
@@ -130,9 +128,9 @@ impl StateBridgeImpl for WasmStateBridge {
 
     async fn set_ephemeral_pin_envelope(&self, pin_envelope: PasswordProtectedKeyEnvelope) {
         self.0
-            .run_in_thread(|bridge| async move {
-                bridge.set_ephemeral_pin_envelope(pin_envelope).await
-            })
+            .run_in_thread(
+                |bridge| async move { bridge.set_ephemeral_pin_envelope(pin_envelope).await },
+            )
             .await
             .expect("Failed to set ephemeral pin envelope");
     }
