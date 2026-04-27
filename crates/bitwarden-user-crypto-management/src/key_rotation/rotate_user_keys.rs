@@ -14,7 +14,7 @@ use crate::{
     key_rotation::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_wrapped_model,
-        data::reencrypt_data,
+        data::{check_for_old_attachments, reencrypt_data},
         rotation_context::make_rotation_context,
         sync::sync_current_account_data,
         unlock::{ReencryptCommonUnlockDataInput, reencrypt_common_unlock_data},
@@ -80,6 +80,9 @@ async fn internal_rotate_user_keys(
     let sync = sync_current_account_data(api_client)
         .await
         .map_err(|_| RotateUserKeysError::ApiError)?;
+
+    // Fail early if any cipher has old attachments that would become irrecoverable
+    check_for_old_attachments(&sync.ciphers)?;
 
     // Create a separate scope so that the mutable context is not held across the await point
     let post_request = {
@@ -438,6 +441,68 @@ mod tests {
         .await;
 
         assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sync_api.checkpoint();
+            mock.organizations_api.checkpoint();
+            mock.emergency_access_api.checkpoint();
+            mock.devices_api.checkpoint();
+            mock.web_authn_api.checkpoint();
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_old_attachments_returns_error() {
+        use bitwarden_api_api::models::{
+            AttachmentResponseModel, CipherDetailsResponseModel, CipherType,
+        };
+
+        let (key_store, mut sync_response) = make_test_key_store_and_sync_response();
+        let enc_string = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
+
+        // Add a cipher with an old attachment (key is None)
+        sync_response.ciphers = Some(vec![CipherDetailsResponseModel {
+            id: Some(uuid::Uuid::new_v4()),
+            organization_id: None,
+            r#type: Some(CipherType::Login),
+            name: Some(enc_string.to_string()),
+            revision_date: Some("2024-01-01T00:00:00Z".to_string()),
+            creation_date: Some("2024-01-01T00:00:00Z".to_string()),
+            attachments: Some(vec![AttachmentResponseModel {
+                id: Some("att1".to_string()),
+                file_name: Some(enc_string.to_string()),
+                key: None, // Old attachment - no per-attachment key
+                ..AttachmentResponseModel::new()
+            }]),
+            ..CipherDetailsResponseModel::new()
+        }]);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sync_api
+                .expect_get()
+                .once()
+                .returning(move |_| Ok(sync_response.clone()));
+            mock_empty_sync_calls(mock);
+            // Rotation API should never be called
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .never();
+        });
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+            },
+        )
+        .await;
+
+        assert!(matches!(result, Err(RotateUserKeysError::OldAttachments)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
             mock.organizations_api.checkpoint();
