@@ -11,7 +11,6 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     UserCryptoManagementClient,
-    asymmetric_key_regeneration::internal_regenerate_asymmetric_key_pair_if_needed,
     key_rotation::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_request_model,
@@ -23,6 +22,7 @@ use crate::{
             reencrypt_master_password_change_unlock_data,
         },
     },
+    public_key_encryption_key_pair_regeneration::internal_regenerate_public_key_encryption_key_pair_if_needed,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -40,17 +40,18 @@ pub struct PasswordChangeAndRotateUserKeysRequest {
 impl UserCryptoManagementClient {
     /// Combines a password change and user key rotation into a single request.
     ///
-    /// Before rotating, this checks whether the user's asymmetric key pair needs regeneration
-    /// and fixes it if necessary. This ensures that key rotation can proceed even if the
-    /// existing private key is corrupt.
+    /// Before rotating, this checks whether the user's public key encryption key pair needs
+    /// regeneration and fixes it if necessary. This ensures that key rotation can proceed even
+    /// if the existing private key is corrupt.
     pub async fn password_change_and_rotate_user_keys(
         &self,
         request: PasswordChangeAndRotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
 
-        // Fix corrupt asymmetric keys before rotation, otherwise the rotation will fail.
-        internal_regenerate_asymmetric_key_pair_if_needed(self, api_client)
+        // Fix corrupt public key encryption key pair before rotation, otherwise the rotation will
+        // fail.
+        internal_regenerate_public_key_encryption_key_pair_if_needed(self, api_client)
             .await
             .map_err(|_| RotateUserKeysError::CryptoError)?;
 

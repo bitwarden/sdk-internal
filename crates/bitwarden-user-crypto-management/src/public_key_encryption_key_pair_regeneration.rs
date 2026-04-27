@@ -1,8 +1,8 @@
-//! Detect and fix corrupt or missing asymmetric key pairs for V1 encryption users.
+//! Detect and fix corrupt or missing public key encryption key pairs for V1 encryption users.
 //!
 //! A user may have a corrupt private key that prevents key rotation or V2 encryption upgrade.
-//! This module checks whether the user's asymmetric key pair needs regeneration, and if so,
-//! generates a new key pair and submits it to the server via
+//! This module checks whether the user's public key encryption key pair needs regeneration, and if
+//! so, generates a new key pair and submits it to the server via
 //! `POST /accounts/key-management/regenerate-keys`.
 
 use std::str::FromStr;
@@ -25,7 +25,7 @@ use crate::UserCryptoManagementClient;
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl UserCryptoManagementClient {
-    /// Checks whether the user's asymmetric key pair needs regeneration, and if so,
+    /// Checks whether the user's public key encryption key pair needs regeneration, and if so,
     /// generates a new key pair and submits it to the server.
     ///
     /// Returns `None` if no regeneration was needed, or the updated
@@ -34,69 +34,70 @@ impl UserCryptoManagementClient {
     ///
     /// Requires the client to be unlocked so the current user key is available in memory.
     /// Only applicable to V1 encryption accounts.
-    pub async fn regenerate_asymmetric_key_pair_if_needed(
+    pub async fn regenerate_public_key_encryption_key_pair_if_needed(
         &self,
-    ) -> Result<Option<WrappedAccountCryptographicState>, AsymmetricKeyRegenerationError> {
+    ) -> Result<Option<WrappedAccountCryptographicState>, KeyPairRegenerationError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
-        internal_regenerate_asymmetric_key_pair_if_needed(self, api_client).await
+        internal_regenerate_public_key_encryption_key_pair_if_needed(self, api_client).await
     }
 
-    /// Checks whether the user's asymmetric key pair needs regeneration.
+    /// Checks whether the user's public key encryption key pair needs regeneration.
     ///
     /// Returns `true` if the key pair is missing, corrupt, or doesn't match the public key on
     /// the server. Returns `false` if the key pair is valid or if regeneration is not applicable
     /// (e.g., user key not available, V2 encryption account).
-    pub async fn should_regenerate_asymmetric_keys(
+    pub async fn should_regenerate_public_key_encryption_key_pair(
         &self,
-    ) -> Result<bool, AsymmetricKeyRegenerationError> {
+    ) -> Result<bool, KeyPairRegenerationError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
-        internal_should_regenerate_asymmetric_keys(self, api_client).await
+        internal_should_regenerate_public_key_encryption_key_pair(self, api_client).await
     }
 }
 
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
-pub enum AsymmetricKeyRegenerationError {
+pub enum KeyPairRegenerationError {
     #[error("User key is not available in key store")]
     UserKeyNotAvailable,
-    #[error("API call failed during asymmetric key regeneration")]
+    #[error("API call failed during key pair regeneration")]
     ApiError,
-    #[error("Cryptographic error during asymmetric key regeneration")]
+    #[error("Cryptographic error during key pair regeneration")]
     CryptoError,
 }
 
-pub(crate) async fn internal_regenerate_asymmetric_key_pair_if_needed(
+pub(crate) async fn internal_regenerate_public_key_encryption_key_pair_if_needed(
     client: &UserCryptoManagementClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<Option<WrappedAccountCryptographicState>, AsymmetricKeyRegenerationError> {
-    let should_regenerate = internal_should_regenerate_asymmetric_keys(client, api_client).await?;
+) -> Result<Option<WrappedAccountCryptographicState>, KeyPairRegenerationError> {
+    let should_regenerate =
+        internal_should_regenerate_public_key_encryption_key_pair(client, api_client).await?;
     if !should_regenerate {
         return Ok(None);
     }
 
-    let state = internal_regenerate_asymmetric_key_pair(client, api_client).await?;
+    let state = internal_regenerate_public_key_encryption_key_pair(client, api_client).await?;
     Ok(Some(state))
 }
 
-pub(crate) async fn internal_should_regenerate_asymmetric_keys(
+pub(crate) async fn internal_should_regenerate_public_key_encryption_key_pair(
     client: &UserCryptoManagementClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<bool, AsymmetricKeyRegenerationError> {
+) -> Result<bool, KeyPairRegenerationError> {
     // Step 1-2: Check user key availability and encryption version
     {
         let key_store = client.client.internal.get_key_store();
         let ctx = key_store.context();
 
         if !ctx.has_symmetric_key(SymmetricKeySlotId::User) {
-            info!("User key not available, skipping asymmetric key regeneration check");
+            info!("User key not available, skipping key pair regeneration check");
             return Ok(false);
         }
 
         let algorithm = ctx
             .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
-            .map_err(|_| AsymmetricKeyRegenerationError::UserKeyNotAvailable)?;
+            .map_err(|_| KeyPairRegenerationError::UserKeyNotAvailable)?;
         if algorithm != SymmetricKeyAlgorithm::Aes256CbcHmac {
-            info!("User has non-V1 encryption, asymmetric key regeneration not applicable");
+            info!("User has non-V1 encryption, key pair regeneration not applicable");
             return Ok(false);
         }
     }
@@ -107,12 +108,12 @@ pub(crate) async fn internal_should_regenerate_asymmetric_keys(
         Err(bitwarden_api_api::apis::Error::ResponseError(e))
             if e.status == reqwest::StatusCode::NOT_FOUND =>
         {
-            info!("User has no asymmetric keys (404), regeneration needed");
+            info!("User has no public key encryption key pair (404), regeneration needed");
             return Ok(true);
         }
         Err(e) => {
             error!("Failed to fetch user keys from server: {e:?}");
-            return Err(AsymmetricKeyRegenerationError::ApiError);
+            return Err(KeyPairRegenerationError::ApiError);
         }
     };
 
@@ -122,12 +123,12 @@ pub(crate) async fn internal_should_regenerate_asymmetric_keys(
     // Step 4: Handle missing key pair, or proceed with verification
     let (public_key_str, private_key_str) = match (public_key_str, private_key_str) {
         (None, None) => {
-            info!("User has no asymmetric key pair, regeneration needed");
+            info!("User has no public key encryption key pair, regeneration needed");
             return Ok(true);
         }
         (Some(_), None) | (None, Some(_)) => {
             warn!(
-                "User has inconsistent asymmetric key pair (one present, one missing), \
+                "User has inconsistent public key encryption key pair (one present, one missing), \
                  skipping regeneration"
             );
             return Ok(false);
@@ -154,7 +155,7 @@ pub(crate) async fn internal_should_regenerate_asymmetric_keys(
             // Private key is decryptable — check if it matches the server's public key
             return match verify_public_key_matches(&ctx, temp_private_key_id, public_key_str) {
                 Ok(true) => {
-                    info!("User's asymmetric key pair is valid, no regeneration needed");
+                    info!("User's public key encryption key pair is valid, no regeneration needed");
                     Ok(false)
                 }
                 Ok(false) => {
@@ -228,24 +229,24 @@ fn verify_public_key_matches(
     ctx: &bitwarden_crypto::KeyStoreContext<KeySlotIds>,
     private_key_id: PrivateKeySlotId,
     server_public_key_b64: &str,
-) -> Result<bool, AsymmetricKeyRegenerationError> {
+) -> Result<bool, KeyPairRegenerationError> {
     let derived_public_key = ctx
         .get_public_key(private_key_id)
-        .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
+        .map_err(|_| KeyPairRegenerationError::CryptoError)?;
     let derived_b64 = B64::from(
         derived_public_key
             .to_der()
-            .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?,
+            .map_err(|_| KeyPairRegenerationError::CryptoError)?,
     );
-    let server_b64 = B64::from_str(server_public_key_b64)
-        .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
+    let server_b64 =
+        B64::from_str(server_public_key_b64).map_err(|_| KeyPairRegenerationError::CryptoError)?;
     Ok(derived_b64.to_string() == server_b64.to_string())
 }
 
-pub(crate) async fn internal_regenerate_asymmetric_key_pair(
+pub(crate) async fn internal_regenerate_public_key_encryption_key_pair(
     client: &UserCryptoManagementClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<WrappedAccountCryptographicState, AsymmetricKeyRegenerationError> {
+) -> Result<WrappedAccountCryptographicState, KeyPairRegenerationError> {
     // Scope 1: Generate new key pair and extract serialized forms
     let (wrapped_private_key, public_key_b64) = {
         let key_store = client.client.internal.get_key_store();
@@ -253,22 +254,22 @@ pub(crate) async fn internal_regenerate_asymmetric_key_pair(
 
         let algorithm = ctx
             .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
-            .map_err(|_| AsymmetricKeyRegenerationError::UserKeyNotAvailable)?;
+            .map_err(|_| KeyPairRegenerationError::UserKeyNotAvailable)?;
         if algorithm != SymmetricKeyAlgorithm::Aes256CbcHmac {
-            return Err(AsymmetricKeyRegenerationError::CryptoError);
+            return Err(KeyPairRegenerationError::CryptoError);
         }
 
         let new_private_key_id = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let wrapped = ctx
             .wrap_private_key(SymmetricKeySlotId::User, new_private_key_id)
-            .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
         let public_key = ctx
             .get_public_key(new_private_key_id)
-            .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
         let public_key_b64 = B64::from(
             public_key
                 .to_der()
-                .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?,
+                .map_err(|_| KeyPairRegenerationError::CryptoError)?,
         )
         .to_string();
 
@@ -276,7 +277,7 @@ pub(crate) async fn internal_regenerate_asymmetric_key_pair(
     };
 
     // POST to server
-    info!("Posting regenerated asymmetric key pair to server");
+    info!("Posting regenerated public key encryption key pair to server");
     let request = KeyRegenerationRequestModel {
         user_public_key: Some(public_key_b64),
         user_key_encrypted_user_private_key: Some(wrapped_private_key.to_string()),
@@ -288,7 +289,7 @@ pub(crate) async fn internal_regenerate_asymmetric_key_pair(
         .await
         .map_err(|e| {
             error!("Failed to post regenerated keys to server: {e:?}");
-            AsymmetricKeyRegenerationError::ApiError
+            KeyPairRegenerationError::ApiError
         })?;
 
     // Scope 2: Persist the new private key and return the wrapped state
@@ -298,15 +299,15 @@ pub(crate) async fn internal_regenerate_asymmetric_key_pair(
 
         let temp_private_key_id = ctx
             .unwrap_private_key(SymmetricKeySlotId::User, &wrapped_private_key)
-            .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
         ctx.persist_private_key(temp_private_key_id, PrivateKeySlotId::UserPrivateKey)
-            .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
 
         WrappedAccountCryptographicState::get_v1_from_key_store(&ctx)
-            .map_err(|_| AsymmetricKeyRegenerationError::CryptoError)?
+            .map_err(|_| KeyPairRegenerationError::CryptoError)?
     };
 
-    info!("Successfully regenerated user asymmetric key pair");
+    info!("Successfully regenerated user public key encryption key pair");
     Ok(state)
 }
 
@@ -375,7 +376,7 @@ mod tests {
         }
     }
 
-    // ── should_regenerate_asymmetric_keys tests ──
+    // ── should_regenerate_public_key_encryption_key_pair tests ──
 
     #[tokio::test]
     async fn test_should_regenerate_no_user_key() {
@@ -385,7 +386,8 @@ mod tests {
             mock.accounts_api.expect_get_keys().never();
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(!result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -401,7 +403,8 @@ mod tests {
             mock.accounts_api.expect_get_keys().never();
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(!result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -425,11 +428,9 @@ mod tests {
             });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
-        assert!(matches!(
-            result,
-            Err(AsymmetricKeyRegenerationError::ApiError)
-        ));
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
+        assert!(matches!(result, Err(KeyPairRegenerationError::ApiError)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();
@@ -452,7 +453,8 @@ mod tests {
             });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -471,7 +473,8 @@ mod tests {
                 .returning(|| Ok(keys_response(None, None)));
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -490,7 +493,8 @@ mod tests {
                 .returning(|| Ok(keys_response(Some("some-public-key".to_string()), None)));
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(!result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -509,7 +513,8 @@ mod tests {
                 .returning(|| Ok(keys_response(None, Some("some-private-key".to_string()))));
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(!result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -534,7 +539,8 @@ mod tests {
                 });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(!result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -567,7 +573,8 @@ mod tests {
             });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(!result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -620,7 +627,8 @@ mod tests {
             });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -649,7 +657,8 @@ mod tests {
             });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -704,7 +713,8 @@ mod tests {
             });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -732,7 +742,8 @@ mod tests {
                 });
         });
 
-        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        let result =
+            internal_should_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
         assert!(result.unwrap());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -766,7 +777,7 @@ mod tests {
                 });
         });
 
-        let state = internal_regenerate_asymmetric_key_pair(&client, &api_client)
+        let state = internal_regenerate_public_key_encryption_key_pair(&client, &api_client)
             .await
             .expect("regeneration should succeed");
         assert!(
@@ -804,11 +815,8 @@ mod tests {
                 });
         });
 
-        let result = internal_regenerate_asymmetric_key_pair(&client, &api_client).await;
-        assert!(matches!(
-            result,
-            Err(AsymmetricKeyRegenerationError::ApiError)
-        ));
+        let result = internal_regenerate_public_key_encryption_key_pair(&client, &api_client).await;
+        assert!(matches!(result, Err(KeyPairRegenerationError::ApiError)));
 
         // Verify the private key was NOT persisted (local state unchanged)
         {
@@ -825,7 +833,7 @@ mod tests {
         }
     }
 
-    // ── regenerate_asymmetric_key_pair_if_needed tests ──
+    // ── regenerate_public_key_encryption_key_pair_if_needed tests ──
 
     #[tokio::test]
     async fn test_regenerate_if_needed_no_regeneration() {
@@ -847,7 +855,9 @@ mod tests {
                 .never();
         });
 
-        let result = internal_regenerate_asymmetric_key_pair_if_needed(&client, &api_client).await;
+        let result =
+            internal_regenerate_public_key_encryption_key_pair_if_needed(&client, &api_client)
+                .await;
         assert!(result.unwrap().is_none());
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -871,7 +881,9 @@ mod tests {
                 .returning(|_body| Ok(()));
         });
 
-        let result = internal_regenerate_asymmetric_key_pair_if_needed(&client, &api_client).await;
+        let result =
+            internal_regenerate_public_key_encryption_key_pair_if_needed(&client, &api_client)
+                .await;
         let state = result.unwrap();
         assert!(state.is_some(), "Should return the updated account state");
         assert!(
