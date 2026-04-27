@@ -410,6 +410,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_should_regenerate_get_keys_api_error() {
+        let client = unlocked_v1_client();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api.expect_get_keys().once().returning(|| {
+                Err(bitwarden_api_api::apis::Error::ResponseError(
+                    bitwarden_api_api::apis::ResponseContent {
+                        status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                        content: "Internal Server Error".to_string(),
+                        entity: None,
+                    },
+                ))
+            });
+        });
+
+        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        assert!(matches!(
+            result,
+            Err(AsymmetricKeyRegenerationError::ApiError)
+        ));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
     async fn test_should_regenerate_get_keys_404() {
         let client = unlocked_v1_client();
 
@@ -627,6 +654,62 @@ mod tests {
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_should_regenerate_decryptable_but_invalid_key() {
+        // Private key decrypts successfully but the decrypted bytes aren't a valid RSA key.
+        // unwrap_private_key fails at DER parsing, falling through to the cipher fallback.
+        let client = unlocked_v1_client();
+
+        let (wrapped_garbage, encrypted_name) = {
+            let key_store = client.client.internal.get_key_store();
+            let mut ctx = key_store.context_mut();
+            let garbage: EncString = "not a valid RSA key"
+                .to_string()
+                .encrypt(&mut ctx, SymmetricKeySlotId::User)
+                .unwrap();
+            let name: EncString = "test cipher"
+                .to_string()
+                .encrypt(&mut ctx, SymmetricKeySlotId::User)
+                .unwrap();
+            (garbage.to_string(), name.to_string())
+        };
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_get_keys()
+                .once()
+                .returning(move || {
+                    Ok(keys_response(
+                        Some("some-public-key".to_string()),
+                        Some(wrapped_garbage.clone()),
+                    ))
+                });
+            mock.ciphers_api.expect_get_all().once().returning(move || {
+                Ok(CipherDetailsResponseModelListResponseModel {
+                    object: None,
+                    data: Some(vec![CipherDetailsResponseModel {
+                        id: Some(uuid::Uuid::new_v4()),
+                        name: Some(encrypted_name.clone()),
+                        organization_id: None,
+                        r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                        revision_date: Some("2024-01-01T00:00:00Z".to_string()),
+                        creation_date: Some("2024-01-01T00:00:00Z".to_string()),
+                        ..CipherDetailsResponseModel::default()
+                    }]),
+                    continuation_token: None,
+                })
+            });
+        });
+
+        let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
+        assert!(result.unwrap());
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+            mock.ciphers_api.checkpoint();
         }
     }
 
