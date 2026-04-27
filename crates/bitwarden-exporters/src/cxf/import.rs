@@ -58,6 +58,8 @@ fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field>
             EditableFieldValue::YearMonth(field) => create_field(field, None::<String>),
             EditableFieldValue::SubdivisionCode(field) => create_field(field, None::<String>),
             EditableFieldValue::CountryCode(field) => create_field(field, None::<String>),
+            EditableFieldValue::Email(field) => create_field(field, None::<String>),
+            EditableFieldValue::Number(field) => create_field(field, None::<String>),
             EditableFieldValue::WifiNetworkSecurityType(field) => {
                 create_field(field, None::<String>)
             }
@@ -65,7 +67,7 @@ fn custom_fields_to_fields(custom_fields: &CustomFieldsCredential) -> Vec<Field>
                 &EditableField {
                     id: None,
                     label: Some("Unknown Field".to_string()),
-                    value: EditableFieldString("".to_string()),
+                    value: EditableFieldString("".to_string()).into(),
                     extensions: None,
                 },
                 None::<String>,
@@ -317,6 +319,43 @@ mod tests {
     use credential_exchange_format::{B64Url, CreditCardCredential, EditableFieldYearMonth};
 
     use super::*;
+
+    /// CustomFields payloads containing `email` and `number` field types should round-trip as
+    /// Text fields with their label and value preserved (previously they fell into a wildcard
+    /// arm that fabricated an "Unknown Field" placeholder with an empty value).
+    #[test]
+    fn test_custom_fields_email_and_number_roundtrip() {
+        use bitwarden_vault::FieldType as BwFieldType;
+
+        let custom_fields: CustomFieldsCredential = serde_json::from_value(serde_json::json!({
+            "fields": [
+                {"fieldType": "email", "value": "user@example.com", "label": "Recovery email"},
+                {"fieldType": "number", "value": "42", "label": "Lucky number"},
+            ],
+            "extensions": [],
+        }))
+        .unwrap();
+
+        let fields = custom_fields_to_fields(&custom_fields);
+
+        assert_eq!(
+            fields,
+            vec![
+                Field {
+                    name: Some("Recovery email".to_string()),
+                    value: Some("user@example.com".to_string()),
+                    r#type: BwFieldType::Text as u8,
+                    linked_id: None,
+                },
+                Field {
+                    name: Some("Lucky number".to_string()),
+                    value: Some("42".to_string()),
+                    r#type: BwFieldType::Text as u8,
+                    linked_id: None,
+                },
+            ]
+        );
+    }
 
     #[test]
     fn test_convert_date() {
