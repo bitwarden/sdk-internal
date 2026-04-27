@@ -127,15 +127,14 @@ impl PinLockSystem<'_> {
         let encrypted_pin = self.state_bridge().get_encrypted_pin().await;
 
         // If PIN unlock is not enabled, do nothing
-        if encrypted_pin.is_none() {
+        let Some(encrypted_pin) = encrypted_pin else {
             return Ok(());
-        }
+        };
 
         // Make the fresh PIN envelope
         let pin_envelope = {
             let mut ctx = self.key_store().context_mut();
             let pin: String = encrypted_pin
-                .unwrap()
                 .decrypt(&mut ctx, SymmetricKeySlotId::User)
                 .map_err(|_| ())?;
             PasswordProtectedKeyEnvelope::seal(
@@ -225,7 +224,7 @@ impl PinLockSystem<'_> {
     /// If a lock type is configured but no ephemeral envelope is currently present,
     /// the status is [`PinUnlockStatus::NeedsUnlock`].
     pub async fn get_pin_status(&self) -> PinUnlockStatus {
-        if let Some(_) = Self::get_pin_lock_type(self).await {
+        if Self::get_pin_lock_type(self).await.is_some() {
             if self
                 .state_bridge()
                 .get_ephemeral_pin_envelope()

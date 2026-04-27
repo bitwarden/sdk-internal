@@ -3,7 +3,7 @@ use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKey
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::prelude::*;
 
-use crate::key_management::state_bridge::StateBridgeImpl;
+use crate::key_management::state_bridge::{StateBridgeClient, StateBridgeImpl};
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -62,6 +62,7 @@ extern "C" {
     pub async fn clear_encrypted_pin(this: &RawWasmStateBridge);
 }
 
+#[cfg(feature = "wasm")]
 pub struct WasmStateBridge(ThreadBoundRunner<RawWasmStateBridge>);
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -165,12 +166,11 @@ impl StateBridgeImpl for WasmStateBridge {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[wasm_bindgen]
-#[allow(missing_docs)]
 impl StateBridgeClient {
-    #[wasm_bindgen(js_name = "registerWasmBridgeImpl")]
-    pub async fn register_bridge_impl(&self, bridge_impl: RawWasmStateBridge) {
+    /// Registers a the state bridge implementation provided by the host environment.
+    pub fn register_bridge_impl(&self, bridge_impl: RawWasmStateBridge) {
         self.client
             .internal
             .state_bridge

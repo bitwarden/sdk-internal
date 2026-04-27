@@ -144,3 +144,9 @@ impl StateBridge {
         call_state_bridge!(self, clear_encrypted_pin);
     }
 }
+
+impl Default for StateBridge {
+    fn default() -> Self {
+        Self::new()
+    }
+}
