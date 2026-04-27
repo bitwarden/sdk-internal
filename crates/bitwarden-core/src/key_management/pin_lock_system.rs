@@ -7,8 +7,6 @@
 //! in memory. The memory copy is always loaded into memory when transitioning from BFU to AFU mode
 //! with an unlock.
 
-#![allow(dead_code)]
-
 use bitwarden_crypto::{
     Decryptable, KeyStore, PrimitiveEncryptable,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
