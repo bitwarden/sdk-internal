@@ -11,6 +11,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 use uuid::Uuid;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The membership status of a user within an organization.

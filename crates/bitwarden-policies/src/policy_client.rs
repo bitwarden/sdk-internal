@@ -23,6 +23,12 @@ pub struct PolicyClient {
     registry: PolicyRegistry,
 }
 
+impl Default for PolicyClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PolicyClient {
     /// Creates a new [`PolicyClient`] with a freshly built registry.
     pub fn new() -> Self {
