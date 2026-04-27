@@ -1,11 +1,14 @@
 //! Trait definitions and basic implementations for handling authentication tokens in the SDK. The
 //! complete implementations are located in the `bitwarden-auth` crate.
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use bitwarden_crypto::KeyStore;
+use bitwarden_state::registry::StateRegistry;
 
-use crate::{client::LoginMethod, key_management::KeySlotIds};
+#[cfg(feature = "secrets")]
+use crate::client::login_method::ServiceAccountLoginMethod;
+use crate::key_management::KeySlotIds;
 
 /// Trait for handling token usage and renewal.
 #[async_trait::async_trait]
@@ -16,7 +19,7 @@ pub trait TokenHandler: 'static + Send + Sync {
     /// including pausing and retrying requests to renew tokens.
     fn initialize_middleware(
         &self,
-        login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
+        state_registry: &StateRegistry,
         identity_config: bitwarden_api_base::Configuration,
         key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware>;
@@ -27,6 +30,15 @@ pub trait TokenHandler: 'static + Send + Sync {
     /// which case it would be up to the auth crate to internally set those tokens when initializing
     /// the client.
     async fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64);
+
+    /// Secrets-Manager-only hook for storing the Service Account login method on the handler
+    /// itself. SM tokens are not persisted, so the login method lives in-memory on the
+    /// [SecretsManagerTokenHandler](crate::auth::auth_tokens::TokenHandler) implementation.
+    /// The default no-op implementation is intentional: handlers that do not back Secrets Manager
+    /// (PM, Noop, ClientManaged) should ignore this call. This will be removed once the auth
+    /// crate fully owns the login process.
+    #[cfg(feature = "secrets")]
+    async fn set_sm_login_method(&self, _login_method: ServiceAccountLoginMethod) {}
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.
@@ -54,7 +66,7 @@ impl ClientManagedTokenHandler {
 impl TokenHandler for ClientManagedTokenHandler {
     fn initialize_middleware(
         &self,
-        _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
+        _state_registry: &StateRegistry,
         _identity_config: bitwarden_api_base::Configuration,
         _key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
@@ -104,7 +116,7 @@ pub struct NoopTokenHandler;
 impl TokenHandler for NoopTokenHandler {
     fn initialize_middleware(
         &self,
-        _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
+        _state_registry: &StateRegistry,
         _identity_config: bitwarden_api_base::Configuration,
         _key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
