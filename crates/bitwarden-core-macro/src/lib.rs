@@ -23,7 +23,7 @@ use syn::{DeriveInput, parse_macro_input};
 /// pub struct FoldersClient {
 ///     key_store: KeyStore<KeySlotIds>,
 ///     api_configurations: Arc<ApiConfigurations>,
-///     repository: Arc<dyn Repository<Folder>>,
+///     repository: Option<Arc<dyn Repository<Folder>>>,
 /// }
 /// ```
 ///

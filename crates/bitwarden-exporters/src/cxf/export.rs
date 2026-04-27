@@ -32,6 +32,7 @@ pub struct Account {
 pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String, CxfError> {
     let items: Vec<Item> = ciphers
         .into_iter()
+        .filter(|c| !matches!(c.r#type, CipherType::BankAccount))
         .flat_map(|cipher| cipher.try_into())
         .collect();
 
@@ -106,6 +107,7 @@ impl From<CipherType> for Vec<Credential> {
             // Item`.
             CipherType::SecureNote(_) => vec![],
             CipherType::SshKey(ssh) => (*ssh).try_into().unwrap_or_default(),
+            CipherType::BankAccount => vec![],
         }
     }
 }
