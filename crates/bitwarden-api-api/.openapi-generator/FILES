@@ -278,7 +278,6 @@ src/models/organization_domain_request_model.rs
 src/models/organization_domain_response_model.rs
 src/models/organization_domain_response_model_list_response_model.rs
 src/models/organization_domain_sso_details_request_model.rs
-src/models/organization_domain_sso_details_response_model.rs
 src/models/organization_integration_configuration_request_model.rs
 src/models/organization_integration_configuration_response_model.rs
 src/models/organization_integration_request_model.rs
