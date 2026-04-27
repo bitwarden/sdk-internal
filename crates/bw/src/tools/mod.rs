@@ -1,4 +1,8 @@
-use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest};
+use bitwarden_generators::{
+    MAXIMUM_MIN_CHAR_COUNT, MAXIMUM_PASSPHRASE_NUM_WORDS, MAXIMUM_PASSWORD_LENGTH,
+    MINIMUM_MIN_CHAR_COUNT, MINIMUM_PASSPHRASE_NUM_WORDS, MINIMUM_PASSWORD_LENGTH,
+    PassphraseGeneratorRequest, PasswordGeneratorRequest,
+};
 use bitwarden_pm::PasswordManagerClient;
 use clap::{Args, Subcommand};
 
@@ -41,14 +45,27 @@ pub struct GenerateArgs {
     )]
     pub special: bool,
 
-    #[arg(long, default_value = "16", help = "Length of generated password")]
+    #[arg(long, default_value = "14", help = "Length of generated password")]
     pub length: u8,
 
-    #[arg(long, help = "Minimum number of numeric characters")]
-    pub min_numbers: Option<u8>,
+    // Default is 0 so the cascade below (`min_number > 0 → enable numbers`) only triggers when
+    // the user explicitly passed the flag. When `-n` is enabled but `--min-number` is omitted,
+    // the SDK's `get_minimum` still enforces at least one digit.
+    #[arg(
+        long,
+        alias = "minNumber",
+        default_value = "0",
+        help = "Minimum number of numeric characters"
+    )]
+    pub min_number: u8,
 
-    #[arg(long, help = "Minimum number of special characters")]
-    pub min_special: Option<u8>,
+    #[arg(
+        long,
+        alias = "minSpecial",
+        default_value = "0",
+        help = "Minimum number of special characters"
+    )]
+    pub min_special: u8,
 
     #[arg(long, action, help = "Avoid ambiguous characters")]
     pub ambiguous: bool,
@@ -57,50 +74,85 @@ pub struct GenerateArgs {
     #[arg(short = 'p', long, action, help = "Generate a passphrase")]
     pub passphrase: bool,
 
-    #[arg(long, default_value = "5", help = "Number of words in the passphrase")]
+    #[arg(long, default_value = "6", help = "Number of words in the passphrase")]
     pub words: u8,
 
     #[arg(long, default_value = "-", help = "Separator between words")]
-    pub separator: char,
+    pub separator: String,
 
-    #[arg(long, action, help = "Capitalize the first letter of each word")]
+    #[arg(long, action, help = "Title case passphrase.")]
     pub capitalize: bool,
 
-    #[arg(long, action, help = "Include a number in one of the words")]
+    #[arg(
+        long,
+        alias = "includeNumber",
+        action,
+        help = "Include a number in one of the words"
+    )]
     pub include_number: bool,
 }
 
 impl GenerateArgs {
-    pub fn run(mut self, client: &PasswordManagerClient) -> CommandResult {
+    pub fn run(self, client: &PasswordManagerClient) -> CommandResult {
         let result = if self.passphrase {
             client.generator().passphrase(PassphraseGeneratorRequest {
-                num_words: self.words,
-                word_separator: self.separator.to_string(),
+                // Silently clamp to the SDK's supported range, matching the Angular clients'
+                // `fitToBounds` in `passphrase-policy-constraints.ts`.
+                num_words: self
+                    .words
+                    .clamp(MINIMUM_PASSPHRASE_NUM_WORDS, MAXIMUM_PASSPHRASE_NUM_WORDS),
+                word_separator: normalize_separator(self.separator),
                 capitalize: self.capitalize,
                 include_number: self.include_number,
             })?
         } else {
-            // Default options if none are specified
-            if !self.lowercase && !self.uppercase && !self.number && !self.special {
-                self.lowercase = true;
-                self.uppercase = true;
-                self.number = true;
-            }
+            // When the user selects no charset, default to lowercase + uppercase + number,
+            // matching the legacy CLI.
+            let any_explicit = self.lowercase || self.uppercase || self.number || self.special;
+            let lowercase = if any_explicit { self.lowercase } else { true };
+            let uppercase = if any_explicit { self.uppercase } else { true };
+            // Cascade `--min-number` / `--min-special` > 0 into enabling the charset, matching
+            // `PasswordGeneratorOptionsEvaluator.applyPolicy` in the Angular clients.
+            let number = if any_explicit {
+                self.number || self.min_number > 0
+            } else {
+                true
+            };
+            let special = self.special || self.min_special > 0;
 
             client.generator().password(PasswordGeneratorRequest {
-                lowercase: self.lowercase,
-                uppercase: self.uppercase,
-                numbers: self.number,
-                special: self.special,
-                length: self.length,
-                min_number: self.min_numbers,
-                min_special: self.min_special,
+                lowercase,
+                uppercase,
+                numbers: number,
+                special,
+                length: self
+                    .length
+                    .clamp(MINIMUM_PASSWORD_LENGTH, MAXIMUM_PASSWORD_LENGTH),
+                min_number: Some(
+                    self.min_number
+                        .clamp(MINIMUM_MIN_CHAR_COUNT, MAXIMUM_MIN_CHAR_COUNT),
+                ),
+                min_special: Some(
+                    self.min_special
+                        .clamp(MINIMUM_MIN_CHAR_COUNT, MAXIMUM_MIN_CHAR_COUNT),
+                ),
                 avoid_ambiguous: self.ambiguous,
                 ..Default::default()
             })?
         };
 
         Ok(result.into())
+    }
+}
+
+/// Map CLI-level separator input ("space", "empty", or a string) to the single character the
+/// generator expects.
+fn normalize_separator(separator: String) -> String {
+    match separator.as_str() {
+        "space" => " ".to_string(),
+        "empty" => String::new(),
+        s if s.len() > 1 => s.chars().next().map(|c| c.to_string()).unwrap_or_default(),
+        _ => separator,
     }
 }
 

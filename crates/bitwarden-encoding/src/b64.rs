@@ -6,7 +6,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::FromStrVisitor;
+use crate::{FromStrVisitor, chunked::chunked_encode};
 
 /// Base64 encoded data
 ///
@@ -73,7 +73,7 @@ impl From<B64> for String {
 
 impl From<&B64> for String {
     fn from(src: &B64) -> Self {
-        BASE64.encode(&src.0)
+        chunked_encode(&BASE64, &src.0)
     }
 }
 

@@ -9,7 +9,7 @@
 //! In general, if a struct of data should be protected, the `DataEnvelope` should be used.
 
 use bitwarden_crypto::{
-    generate_versioned_sealable, key_ids,
+    generate_versioned_sealable, key_slot_ids,
     safe::{DataEnvelope, DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
 use serde::{Deserialize, Serialize};
@@ -91,7 +91,7 @@ impl MockDisk {
     }
 }
 
-key_ids! {
+key_slot_ids! {
     #[symmetric]
     pub enum ExampleSymmetricKey {
         #[local]

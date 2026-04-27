@@ -1,4 +1,4 @@
-use bitwarden_core::{MissingFieldError, key_management::KeyIds};
+use bitwarden_core::{MissingFieldError, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -23,7 +23,7 @@ pub enum GetSendError {
 }
 
 async fn get_send(
-    store: &KeyStore<KeyIds>,
+    store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Send>,
     id: SendId,
 ) -> Result<SendView, GetSendError> {
@@ -33,7 +33,7 @@ async fn get_send(
 }
 
 async fn list_sends(
-    store: &KeyStore<KeyIds>,
+    store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Send>,
 ) -> Result<Vec<SendView>, GetSendError> {
     let sends = repository.list().await?;
@@ -62,7 +62,7 @@ impl SendClient {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::SymmetricKeyId;
+    use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
@@ -72,11 +72,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_send() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -131,11 +131,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_send_not_found() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -151,11 +151,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_sends() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -241,11 +241,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_sends_empty() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
