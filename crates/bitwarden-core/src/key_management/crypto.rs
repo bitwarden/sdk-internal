@@ -369,6 +369,7 @@ pub(super) async fn initialize_user_crypto(
         }
     }
 
+    #[cfg(feature = "wasm")]
     if should_copy_user_key && client.km_state_bridge().is_bridge_registered() {
         let key = {
             let ctx = client.internal.get_key_store().context();
