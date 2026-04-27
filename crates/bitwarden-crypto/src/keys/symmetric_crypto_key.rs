@@ -12,10 +12,18 @@ use rand_chacha::ChaChaRng;
 use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
 use typenum::U32;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::JsValue;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{key_encryptable::CryptoKey, key_id::KeyId};
 use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type SymmetricKey = Tagged<string, "SymmetricKey">;
+"#;
 
 /// The symmetric key algorithm to use when generating a new symmetric key.
 #[derive(Debug, PartialEq)]
@@ -501,6 +509,23 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
 
     let secret: Zeroizing<[u8; 16]> = generate_random_bytes();
     derive_shareable_key(secret, name, None)
+}
+
+#[cfg(feature = "wasm")]
+impl TryFrom<JsValue> for SymmetricCryptoKey {
+    type Error = CryptoError;
+
+    fn try_from(value: JsValue) -> Result<Self, Self::Error> {
+        let s = value.as_string().ok_or(CryptoError::InvalidKey)?;
+        Self::try_from(s)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl From<SymmetricCryptoKey> for JsValue {
+    fn from(key: SymmetricCryptoKey) -> Self {
+        JsValue::from_str(&key.to_base64().to_string())
+    }
 }
 
 #[cfg(test)]

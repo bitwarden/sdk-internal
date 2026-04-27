@@ -12,6 +12,8 @@ use crate::{
         internal::{ApiConfigurations, InternalClient},
     },
 };
+#[cfg(feature = "internal")]
+use crate::{client::flags::Flags, key_management::state_bridge::StateBridge};
 
 /// Builder for constructing [`Client`] instances with custom configuration.
 pub struct ClientBuilder {
@@ -138,6 +140,8 @@ impl ClientBuilder {
                 state_registry: self
                     .state_registry
                     .unwrap_or_else(StateRegistry::new_with_memory_db),
+                #[cfg(feature = "internal")]
+                state_bridge: StateBridge::new(),
             }),
         }
     }

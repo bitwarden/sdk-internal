@@ -25,10 +25,6 @@ use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-#[cfg(feature = "wasm")]
-use crate::key_management::wasm_unlock_state::{
-    copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
-};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{
@@ -47,6 +43,7 @@ use crate::{
             get_local_user_data_key_from_state, initialize_local_user_data_key_into_state,
         },
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
+        pin_lock_system::PinLockSystem,
     },
 };
 
@@ -119,6 +116,11 @@ pub enum InitUserCryptoMethod {
         /// The user's decrypted encryption key, obtained using `get_user_encryption_key`
         decrypted_user_key: String,
     },
+    /// PIN state, where the PIN envelope is stored in persistent client-managed state
+    PinState {
+        /// The user's PIN
+        pin: String,
+    },
     /// PIN
     Pin {
         /// The user's PIN
@@ -187,7 +189,6 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
-#[tracing::instrument(skip_all, err)]
 pub(super) async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
@@ -213,6 +214,7 @@ pub(super) async fn initialize_user_crypto(
         InitUserCryptoMethod::MasterPasswordUnlock { .. }
             | InitUserCryptoMethod::DecryptedKey { .. }
             | InitUserCryptoMethod::PinEnvelope { .. }
+            | InitUserCryptoMethod::PinState { .. }
             | InitUserCryptoMethod::KeyConnectorUrl { .. }
             | InitUserCryptoMethod::AuthRequest { .. }
     );
@@ -233,9 +235,11 @@ pub(super) async fn initialize_user_crypto(
         }
         #[cfg(feature = "wasm")]
         InitUserCryptoMethod::ClientManagedState {} => {
-            let user_key = get_user_key_from_client_managed_state(client)
+            let user_key = client
+                .km_state_bridge()
+                .get_user_key()
                 .await
-                .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
+                .ok_or(EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
@@ -244,6 +248,25 @@ pub(super) async fn initialize_user_crypto(
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::PinState { pin } => {
+            PinLockSystem::with_client(client)
+                .unlock(pin.as_str())
+                .await
+                .map_err(|_| EncryptionSettingsError::CryptoInitialization)?;
+            // This should be refactored
+            #[allow(deprecated)]
+            let user_key = client
+                .internal
+                .get_key_store()
+                .context()
+                .dangerous_get_symmetric_key(SymmetricKeySlotId::User)?
+                .to_owned();
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
@@ -347,13 +370,24 @@ pub(super) async fn initialize_user_crypto(
     }
 
     #[cfg(feature = "wasm")]
-    if should_copy_user_key {
-        copy_user_key_to_client_managed_state(client)
-            .await
-            .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
+    if should_copy_user_key && client.km_state_bridge().is_bridge_registered() {
+        let key = {
+            let ctx = client.internal.get_key_store().context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?
+                .to_owned()
+        };
+        client.km_state_bridge().set_user_key(&key).await;
     }
 
     initialize_user_local_data_key(client).await?;
+    // Temporarily gate this until mobile supports the bridge
+    if client.km_state_bridge().is_bridge_registered() {
+        PinLockSystem::with_client(client)
+            .on_unlock()
+            .await
+            .map_err(|_| EncryptionSettingsError::CryptoInitialization)?;
+    }
 
     client
         .internal

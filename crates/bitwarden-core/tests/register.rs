@@ -12,7 +12,7 @@ async fn test_register_initialize_crypto() {
     use bitwarden_core::{
         Client, UserId,
         key_management::{
-            EphemeralPinEnvelopeState, MasterPasswordUnlockData, UserKeyState,
+            MasterPasswordUnlockData,
             account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
         },
@@ -21,25 +21,12 @@ async fn test_register_initialize_crypto() {
 
     let client = Client::new(None);
 
-    let user_key_repository = MemoryRepository::<UserKeyState>::default();
-    client
-        .platform()
-        .state()
-        .register_client_managed(std::sync::Arc::new(user_key_repository));
-
     client
         .platform()
         .state()
         .register_client_managed(std::sync::Arc::new(
             MemoryRepository::<LocalUserDataKeyState>::default(),
         ));
-
-    client
-        .platform()
-        .state()
-        .register_client_managed(std::sync::Arc::new(MemoryRepository::<
-            EphemeralPinEnvelopeState,
-        >::default()));
 
     let email = "test@bitwarden.com";
     let password = "test123";
