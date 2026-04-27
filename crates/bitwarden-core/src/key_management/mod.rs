@@ -52,6 +52,9 @@ pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 mod wasm_unlock_state;
 
 #[cfg(feature = "internal")]
+mod pin_lock_system;
+
+#[cfg(feature = "internal")]
 mod local_user_data_key;
 #[cfg(feature = "internal")]
 mod local_user_data_key_state;
