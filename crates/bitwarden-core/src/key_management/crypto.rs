@@ -46,7 +46,7 @@ use crate::{
         local_user_data_key_state::{
             get_local_user_data_key_from_state, initialize_local_user_data_key_into_state,
         },
-        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
+        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData}, pin_lock_system::PinLockSystem,
     },
 };
 
@@ -126,6 +126,11 @@ pub enum InitUserCryptoMethod {
         /// The user's symmetric crypto key, encrypted with the PIN. Use `derive_pin_key` to obtain
         /// this.
         pin_protected_user_key: EncString,
+    },
+    /// PIN state, where the PIN envelope is stored in persistent client-managed state
+    PinState {
+        /// The user's PIN
+        pin: String,
     },
     /// PIN Envelope
     PinEnvelope {
@@ -213,6 +218,7 @@ pub(super) async fn initialize_user_crypto(
         InitUserCryptoMethod::MasterPasswordUnlock { .. }
             | InitUserCryptoMethod::DecryptedKey { .. }
             | InitUserCryptoMethod::PinEnvelope { .. }
+            | InitUserCryptoMethod::PinState { .. }
             | InitUserCryptoMethod::KeyConnectorUrl { .. }
             | InitUserCryptoMethod::AuthRequest { .. }
     );
@@ -269,6 +275,24 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin_envelope(
                 pin,
                 pin_protected_user_key_envelope,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::PinState { pin } => {
+            PinLockSystem::with_client(client)
+                .unlock(pin.as_str())
+                .await
+                .map_err(|_| EncryptionSettingsError::CryptoInitialization)?;
+            #[allow(deprecated)]
+            let user_key = client
+                .internal
+                .get_key_store()
+                .context()
+                .dangerous_get_symmetric_key(SymmetricKeySlotId::User)?
+                .to_owned();
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
                 account_crypto_state,
                 &req.upgrade_token,
             )?;
