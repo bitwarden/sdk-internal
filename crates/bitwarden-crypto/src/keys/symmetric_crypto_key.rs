@@ -13,7 +13,7 @@ use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
 use typenum::U32;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::{convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi}};
+use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{key_encryptable::CryptoKey, key_id::KeyId};
