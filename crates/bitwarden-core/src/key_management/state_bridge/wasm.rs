@@ -5,9 +5,13 @@ use wasm_bindgen::prelude::*;
 
 use crate::key_management::state_bridge::{StateBridgeClient, StateBridgeImpl};
 
-#[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
+/**
+ * Typescript interface that the state bridge needs to implement. The state bridge
+ * is a temporary layer that allows quickly transitioning non-repository shaped
+ * state to be accessible from within the SDK.
+ */
 export interface WasmStateBridge {
     set_user_key(user_key: SymmetricKey): Promise<void>;
     get_user_key(): Promise<SymmetricKey | null>;
@@ -62,16 +66,15 @@ extern "C" {
     pub async fn clear_encrypted_pin(this: &RawWasmStateBridge);
 }
 
-#[cfg(feature = "wasm")]
 pub struct WasmStateBridge(ThreadBoundRunner<RawWasmStateBridge>);
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl StateBridgeImpl for WasmStateBridge {
     async fn set_user_key(&self, user_key: SymmetricCryptoKey) {
-        let key = user_key.to_owned();
+        let user_key = user_key.to_owned();
         self.0
-            .run_in_thread(|bridge| async move { bridge.set_user_key(key.into()).await })
+            .run_in_thread(|bridge| async move { bridge.set_user_key(user_key.into()).await })
             .await
             .expect("Failed to set user key");
     }

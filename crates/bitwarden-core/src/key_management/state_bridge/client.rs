@@ -23,8 +23,8 @@ impl Client {
     }
 }
 
-#[allow(missing_docs)]
 impl StateBridgeClient {
+    /// Returns true if a state bridge implementation has been registered.
     pub fn is_bridge_registered(&self) -> bool {
         self.client.internal.state_bridge.is_registered()
     }
@@ -34,6 +34,7 @@ impl StateBridgeClient {
         self.client.internal.state_bridge.register(bridge_impl);
     }
 
+    /// Sets the user-key to client-managed state
     pub async fn set_user_key(&self, user_key: &SymmetricCryptoKey) {
         self.client
             .internal
@@ -42,14 +43,17 @@ impl StateBridgeClient {
             .await;
     }
 
+    /// Gets the user-key from client-managed state, if available.
     pub async fn get_user_key(&self) -> Option<SymmetricCryptoKey> {
         self.client.internal.state_bridge.get_user_key().await
     }
 
+    /// Clears the user-key from client-managed state.
     pub async fn clear_user_key(&self) {
         self.client.internal.state_bridge.clear_user_key().await;
     }
 
+    /// Sets the persistent PIN envelope to client-managed state
     pub async fn set_persistent_pin_envelope(&self, pin_envelope: PasswordProtectedKeyEnvelope) {
         self.client
             .internal
@@ -58,6 +62,7 @@ impl StateBridgeClient {
             .await;
     }
 
+    /// Gets the persistent PIN envelope from client-managed state, if available.
     pub async fn get_persistent_pin_envelope(&self) -> Option<PasswordProtectedKeyEnvelope> {
         self.client
             .internal
@@ -66,6 +71,7 @@ impl StateBridgeClient {
             .await
     }
 
+    /// Clears the persistent PIN envelope from client-managed state.
     pub async fn clear_persistent_pin_envelope(&self) {
         self.client
             .internal
@@ -74,6 +80,7 @@ impl StateBridgeClient {
             .await;
     }
 
+    /// Sets the ephemeral PIN envelope to client-managed state.
     pub async fn set_ephemeral_pin_envelope(&self, pin_envelope: PasswordProtectedKeyEnvelope) {
         self.client
             .internal
@@ -82,6 +89,7 @@ impl StateBridgeClient {
             .await;
     }
 
+    /// Gets the ephemeral PIN envelope from client-managed state, if available.
     pub async fn get_ephemeral_pin_envelope(&self) -> Option<PasswordProtectedKeyEnvelope> {
         self.client
             .internal
@@ -90,6 +98,7 @@ impl StateBridgeClient {
             .await
     }
 
+    /// Clears the ephemeral PIN envelope from client-managed state.
     pub async fn clear_ephemeral_pin_envelope(&self) {
         self.client
             .internal
@@ -98,6 +107,7 @@ impl StateBridgeClient {
             .await;
     }
 
+    /// Sets the encrypted PIN to client-managed state.
     pub async fn set_encrypted_pin(&self, encrypted_pin: EncString) {
         self.client
             .internal
@@ -106,10 +116,12 @@ impl StateBridgeClient {
             .await;
     }
 
+    /// Gets the encrypted PIN from client-managed state, if available.
     pub async fn get_encrypted_pin(&self) -> Option<EncString> {
         self.client.internal.state_bridge.get_encrypted_pin().await
     }
 
+    /// Clears the encrypted PIN from client-managed state.
     pub async fn clear_encrypted_pin(&self) {
         self.client
             .internal
