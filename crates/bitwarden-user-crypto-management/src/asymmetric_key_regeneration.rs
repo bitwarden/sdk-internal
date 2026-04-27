@@ -613,6 +613,13 @@ mod tests {
                     Some("not-a-valid-enc-string".to_string()),
                 ))
             });
+            mock.ciphers_api.expect_get_all().returning(|| {
+                Ok(CipherDetailsResponseModelListResponseModel {
+                    object: None,
+                    data: Some(vec![]),
+                    continuation_token: None,
+                })
+            });
         });
 
         let result = internal_should_regenerate_asymmetric_keys(&client, &api_client).await;
