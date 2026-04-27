@@ -11,7 +11,7 @@ use bitwarden_test::MemoryRepository;
 use crate::{
     Client, ClientSettings, UserId,
     key_management::{
-        LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
+        LocalUserDataKeyState, MasterPasswordUnlockData,
         account_cryptographic_state::WrappedAccountCryptographicState,
         crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     },
@@ -23,12 +23,6 @@ impl Client {
     /// Does not initialize any crypto state.
     pub fn new_test(settings: Option<ClientSettings>) -> Self {
         let client = Client::new(settings);
-        client
-            .platform()
-            .state()
-            .register_client_managed(std::sync::Arc::new(
-                MemoryRepository::<UserKeyState>::default(),
-            ));
         client
             .platform()
             .state()
