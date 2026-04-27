@@ -5,7 +5,7 @@ use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
 use tracing::instrument;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi};
+use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
@@ -96,6 +96,13 @@ impl FromWasmAbi for EncString {
 
         let s = unsafe { String::from_abi(abi) };
         Self::from_str(&s).unwrap_throw()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl OptionFromWasmAbi for EncString {
+    fn is_none(abi: &Self::Abi) -> bool {
+        <String as OptionFromWasmAbi>::is_none(abi)
     }
 }
 
