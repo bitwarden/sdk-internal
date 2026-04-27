@@ -10,9 +10,7 @@
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{
-    EncString, KeyStore, SymmetricCryptoKey, key_slot_ids, safe::PasswordProtectedKeyEnvelope,
-};
+use bitwarden_crypto::{EncString, KeyStore, SymmetricCryptoKey, key_slot_ids};
 
 #[cfg(feature = "internal")]
 pub mod account_cryptographic_state;
@@ -20,7 +18,6 @@ pub mod account_cryptographic_state;
 pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
-use bitwarden_encoding::B64;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
@@ -30,6 +27,10 @@ mod master_password;
 pub use master_password::{
     MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
 };
+#[cfg(feature = "internal")]
+pub(crate) mod pin_lock_system;
+#[cfg(feature = "internal")]
+pub use pin_lock_system::{PinLockSystem, PinLockType, PinUnlockStatus};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
@@ -48,9 +49,6 @@ mod v2_upgrade_token;
 #[cfg(feature = "internal")]
 pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
-#[cfg(all(feature = "internal", feature = "wasm"))]
-mod wasm_unlock_state;
-
 #[cfg(feature = "internal")]
 mod pin_lock_system;
 
@@ -58,24 +56,15 @@ mod pin_lock_system;
 mod local_user_data_key;
 #[cfg(feature = "internal")]
 mod local_user_data_key_state;
+/// A temporary bridge to access KM-related state from within the SDK.
+#[cfg(feature = "internal")]
+pub mod state_bridge;
 
 /// A temporary bridge to access KM-related state from within the SDK.
 #[cfg(feature = "internal")]
 pub mod state_bridge;
 
 use crate::{OrganizationId, UserId};
-
-/// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
-/// client.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[repr(transparent)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-pub struct UserKeyState {
-    decrypted_user_key: B64,
-}
-
-bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 
 /// Represents the local user data key, wrapped by user key.
 /// This key is used to encrypt local user data (e.g., password generator history).
@@ -87,16 +76,6 @@ pub struct LocalUserDataKeyState {
 }
 
 bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");
-
-/// Represents the PIN envelope in memory, when ephemeral PIN unlock is used.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-pub struct EphemeralPinEnvelopeState {
-    pin_envelope: PasswordProtectedKeyEnvelope,
-}
-
-bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
 
 key_slot_ids! {
     #[symmetric]

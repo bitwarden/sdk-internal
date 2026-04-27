@@ -4,8 +4,6 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
-#[cfg(feature = "internal")]
-use crate::key_management::state_bridge::StateBridge;
 use crate::{
     auth::auth_tokens::{NoopTokenHandler, TokenHandler},
     client::{
@@ -14,6 +12,8 @@ use crate::{
         internal::{ApiConfigurations, InternalClient},
     },
 };
+#[cfg(feature = "internal")]
+use crate::{client::flags::Flags, key_management::state_bridge::StateBridge};
 
 /// Builder for constructing [`Client`] instances with custom configuration.
 pub struct ClientBuilder {
