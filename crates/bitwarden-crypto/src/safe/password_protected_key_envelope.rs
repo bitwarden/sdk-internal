@@ -23,7 +23,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
+use wasm_bindgen::{JsValue, convert::FromWasmAbi};
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
@@ -358,6 +358,27 @@ impl Serialize for PasswordProtectedKeyEnvelope {
     {
         let serialized: Vec<u8> = self.into();
         serializer.serialize_str(&B64::from(serialized).to_string())
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl From<PasswordProtectedKeyEnvelope> for JsValue {
+    fn from(envelope: PasswordProtectedKeyEnvelope) -> Self {
+        JsValue::from_str(&String::from(envelope))
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl TryFrom<JsValue> for PasswordProtectedKeyEnvelope {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: JsValue) -> Result<Self, Self::Error> {
+        let s = value.as_string().ok_or_else(|| {
+            PasswordProtectedKeyEnvelopeError::Parsing(
+                "Expected a string for PasswordProtectedKeyEnvelope".to_string(),
+            )
+        })?;
+        Self::from_str(&s)
     }
 }
 
