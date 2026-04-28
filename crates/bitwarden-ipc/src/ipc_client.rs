@@ -802,7 +802,7 @@ mod tests {
         async fn request_sends_message_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
             let communication_provider = TestCommunicationBackend::new();
-            let session_map = InMemorySessionRepository::new(HashMap::new());
+            let session_map = InMemorySessionRepository::default();
             let client =
                 IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
             let _ = client.start(None).await;
@@ -860,7 +860,7 @@ mod tests {
         async fn incoming_rpc_message_handles_request_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
             let communication_provider = TestCommunicationBackend::new();
-            let session_map = InMemorySessionRepository::new(HashMap::new());
+            let session_map = InMemorySessionRepository::default();
             let client =
                 IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
             let _ = client.start(None).await;
