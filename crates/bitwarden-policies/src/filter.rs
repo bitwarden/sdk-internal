@@ -11,10 +11,13 @@ use bitwarden_organizations::{
     OrganizationUserStatusType, OrganizationUserType, ProfileOrganization,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 use uuid::Uuid;
 
 /// A newtype representing the policy type.
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Copy, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PolicyType(
     /// The raw integer value as defined by the server.
     pub u8,
@@ -22,11 +25,13 @@ pub struct PolicyType(
 
 /// An organization policy.
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PolicyView {
     pub(crate) id: Uuid,
     pub(crate) organization_id: Uuid,
     pub(crate) r#type: PolicyType,
+    #[cfg_attr(feature = "wasm", tsify(type = "Record<string, unknown>"))]
     pub(crate) data: Option<HashMap<String, serde_json::Value>>,
     pub(crate) enabled: bool,
 }
