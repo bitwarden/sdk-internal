@@ -135,3 +135,37 @@ impl PasswordManagerClient {
         self.0.sync()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+
+    #[test]
+    fn new_with_server_communication_config_constructs() {
+        struct MockCookieProvider;
+
+        #[async_trait::async_trait]
+        impl bitwarden_server_communication_config::CookieProvider for MockCookieProvider {
+            async fn cookies(&self, _hostname: &str) -> Vec<(String, String)> {
+                vec![]
+            }
+
+            async fn acquire_cookie(
+                &self,
+                _hostname: &str,
+            ) -> Result<(), bitwarden_server_communication_config::AcquireCookieError> {
+                Ok(())
+            }
+
+            async fn needs_bootstrap(&self, _hostname: &str) -> bool {
+                false
+            }
+        }
+
+        let _client = PasswordManagerClient::builder()
+            .with_server_communication_config(Arc::new(MockCookieProvider))
+            .build();
+    }
+}

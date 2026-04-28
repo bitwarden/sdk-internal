@@ -1,6 +1,6 @@
 use bitwarden_core::{
     ApiError, MissingFieldError,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
@@ -88,13 +88,17 @@ struct SendEditRequestWithKey {
     send_key: String,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::SendRequestModel>
-    for SendEditRequestWithKey
+impl
+    CompositeEncryptable<
+        KeySlotIds,
+        SymmetricKeySlotId,
+        bitwarden_api_api::models::SendRequestModel,
+    > for SendEditRequestWithKey
 {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<bitwarden_api_api::models::SendRequestModel, CryptoError> {
         // Decode the send key from the existing send
         let k = B64Url::try_from(self.send_key.as_str())
@@ -139,14 +143,14 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for SendEditRequestWithKey {
-    fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::User
+impl IdentifyKey<SymmetricKeySlotId> for SendEditRequestWithKey {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::User
     }
 }
 
 async fn edit_send<R: Repository<Send> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     send_id: SendId,
@@ -215,7 +219,7 @@ impl SendClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::SendResponseModel};
-    use bitwarden_core::key_management::SymmetricKeyId;
+    use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
     use chrono::{DateTime, Utc};
@@ -226,11 +230,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_send() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -336,7 +340,7 @@ mod tests {
         let stored = repository.get(SendId::new(send_id)).await.unwrap().unwrap();
         assert_eq!(
             store
-                .decrypt::<SymmetricKeyId, Send, SendView>(&stored)
+                .decrypt::<SymmetricKeySlotId, Send, SendView>(&stored)
                 .unwrap()
                 .name,
             "updated"
@@ -345,11 +349,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_send_not_found() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -388,11 +392,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_send_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 

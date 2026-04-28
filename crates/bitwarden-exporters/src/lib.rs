@@ -219,6 +219,14 @@ impl From<ImportingCipher> for CipherView {
                 None,
                 Some((*ssh_key).into()),
             ),
+            CipherType::BankAccount => (
+                bitwarden_vault::CipherType::BankAccount,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
         };
 
         Self {
@@ -235,6 +243,7 @@ impl From<ImportingCipher> for CipherView {
             card,
             secure_note,
             ssh_key,
+            bank_account: None,
             favorite: value.favorite,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -297,6 +306,7 @@ pub enum CipherType {
     Card(Box<Card>),
     Identity(Box<Identity>),
     SshKey(Box<SshKey>),
+    BankAccount,
 }
 
 impl fmt::Display for CipherType {
@@ -307,6 +317,7 @@ impl fmt::Display for CipherType {
             CipherType::Card(_) => write!(f, "card"),
             CipherType::Identity(_) => write!(f, "identity"),
             CipherType::SshKey(_) => write!(f, "ssh_key"),
+            CipherType::BankAccount => write!(f, "bank_account"),
         }
     }
 }
