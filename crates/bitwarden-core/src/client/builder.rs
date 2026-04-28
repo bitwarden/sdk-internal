@@ -1,4 +1,6 @@
-use std::sync::{Arc, OnceLock, RwLock};
+#[cfg(feature = "internal")]
+use std::sync::RwLock;
+use std::sync::{Arc, OnceLock};
 
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
@@ -72,8 +74,10 @@ impl ClientBuilder {
 
         let headers = build_default_headers(&settings);
 
-        let login_method = Arc::new(RwLock::new(None));
         let key_store = KeyStore::default();
+        let state_registry = self
+            .state_registry
+            .unwrap_or_else(StateRegistry::new_with_memory_db);
 
         // Create the HTTP client for the Identity service, without authentication middleware.
         let identity_http_client = new_http_client_builder()
@@ -87,7 +91,7 @@ impl ClientBuilder {
 
         // Create the client for the API service, with authentication middleware.
         let auth_middleware = self.token_handler.initialize_middleware(
-            login_method.clone(),
+            &state_registry,
             identity.clone(),
             key_store.clone(),
         );
@@ -131,17 +135,14 @@ impl ClientBuilder {
             internal: Arc::new(InternalClient {
                 user_id: OnceLock::new(),
                 token_handler: self.token_handler,
-                login_method,
                 api_configurations: ApiConfigurations::new(identity, api, settings.device_type),
                 external_http_client,
                 key_store,
                 #[cfg(feature = "internal")]
                 security_state: RwLock::new(None),
-                state_registry: self
-                    .state_registry
-                    .unwrap_or_else(StateRegistry::new_with_memory_db),
                 #[cfg(feature = "internal")]
                 state_bridge: StateBridge::new(),
+                state_registry,
             }),
         }
     }
