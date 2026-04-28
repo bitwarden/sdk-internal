@@ -3,7 +3,10 @@ use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKey
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::prelude::*;
 
-use crate::key_management::state_bridge::{StateBridgeClient, StateBridgeImpl};
+use crate::key_management::{
+    account_cryptographic_state::WrappedAccountCryptographicState,
+    state_bridge::{StateBridgeClient, StateBridgeImpl},
+};
 
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -28,6 +31,10 @@ export interface WasmStateBridge {
     set_encrypted_pin(encrypted_pin: EncString): Promise<void>;
     get_encrypted_pin(): Promise<EncString | null>;
     clear_encrypted_pin(): Promise<void>;
+
+    set_account_cryptographic_state(state: WrappedAccountCryptographicState): Promise<void>;
+    get_account_cryptographic_state(): Promise<WrappedAccountCryptographicState | null>;
+    clear_account_cryptographic_state(): Promise<void>;
 }
 "#;
 
@@ -74,6 +81,18 @@ extern "C" {
     pub async fn get_encrypted_pin(this: &RawWasmStateBridge) -> Option<EncString>;
     #[wasm_bindgen(method)]
     pub async fn clear_encrypted_pin(this: &RawWasmStateBridge);
+
+    #[wasm_bindgen(method)]
+    pub async fn set_account_cryptographic_state(
+        this: &RawWasmStateBridge,
+        state: WrappedAccountCryptographicState,
+    );
+    #[wasm_bindgen(method)]
+    pub async fn get_account_cryptographic_state(
+        this: &RawWasmStateBridge,
+    ) -> Option<WrappedAccountCryptographicState>;
+    #[wasm_bindgen(method)]
+    pub async fn clear_account_cryptographic_state(this: &RawWasmStateBridge);
 }
 
 pub struct WasmStateBridge(ThreadBoundRunner<RawWasmStateBridge>);
@@ -168,6 +187,29 @@ impl StateBridgeImpl for WasmStateBridge {
             .run_in_thread(|bridge| async move { bridge.clear_encrypted_pin().await })
             .await
             .expect("Failed to clear encrypted pin");
+    }
+
+    async fn set_account_cryptographic_state(&self, state: WrappedAccountCryptographicState) {
+        self.0
+            .run_in_thread(
+                |bridge| async move { bridge.set_account_cryptographic_state(state).await },
+            )
+            .await
+            .expect("Failed to set account cryptographic state");
+    }
+
+    async fn get_account_cryptographic_state(&self) -> Option<WrappedAccountCryptographicState> {
+        self.0
+            .run_in_thread(|bridge| async move { bridge.get_account_cryptographic_state().await })
+            .await
+            .expect("Failed to get account cryptographic state")
+    }
+
+    async fn clear_account_cryptographic_state(&self) {
+        self.0
+            .run_in_thread(|bridge| async move { bridge.clear_account_cryptographic_state().await })
+            .await
+            .expect("Failed to clear account cryptographic state");
     }
 }
 

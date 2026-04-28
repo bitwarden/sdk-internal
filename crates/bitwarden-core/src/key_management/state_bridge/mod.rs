@@ -12,6 +12,8 @@ use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKey
 
 mod client;
 pub use client::StateBridgeClient;
+
+use crate::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 #[cfg(feature = "wasm")]
 mod wasm;
 
@@ -49,6 +51,13 @@ pub trait StateBridgeImpl: Send + Sync {
     async fn get_encrypted_pin(&self) -> Option<EncString>;
     /// Clears the encrypted PIN blob.
     async fn clear_encrypted_pin(&self);
+
+    /// Stores the account cryptographic state.
+    async fn set_account_cryptographic_state(&self, state: WrappedAccountCryptographicState);
+    /// Returns the account cryptographic state, if available.
+    async fn get_account_cryptographic_state(&self) -> Option<WrappedAccountCryptographicState>;
+    /// Clears the account cryptographic state.
+    async fn clear_account_cryptographic_state(&self);
 }
 
 /// Thread-safe wrapper around the registered [`StateBridgeImpl`] instance.
@@ -149,6 +158,23 @@ impl StateBridge {
     /// Clears the encrypted PIN blob.
     pub async fn clear_encrypted_pin(&self) {
         call_state_bridge!(self, clear_encrypted_pin);
+    }
+
+    /// Sets the account cryptographic state to client-managed state.
+    pub async fn set_account_cryptographic_state(&self, state: WrappedAccountCryptographicState) {
+        call_state_bridge!(self, set_account_cryptographic_state, state);
+    }
+
+    /// Gets the account cryptographic state from client-managed state, if available.
+    pub async fn get_account_cryptographic_state(
+        &self,
+    ) -> Option<WrappedAccountCryptographicState> {
+        call_state_bridge!(self, get_account_cryptographic_state)
+    }
+
+    /// Clears the account cryptographic state from client-managed state.
+    pub async fn clear_account_cryptographic_state(&self) {
+        call_state_bridge!(self, clear_account_cryptographic_state);
     }
 }
 
