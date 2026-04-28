@@ -32,12 +32,8 @@ pub struct OrganizationNoPaymentCreateRequest {
     pub plan_type: Option<models::PlanType>,
     #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(
-        rename = "keys",
-        alias = "Keys",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub keys: Option<Box<models::OrganizationKeysRequestModel>>,
+    #[serde(rename = "keys", alias = "Keys")]
+    pub keys: Box<models::OrganizationKeysRequestModel>,
     #[serde(
         rename = "paymentMethodType",
         alias = "PaymentMethodType",
@@ -155,6 +151,7 @@ impl OrganizationNoPaymentCreateRequest {
         name: String,
         billing_email: String,
         key: String,
+        keys: models::OrganizationKeysRequestModel,
         use_secrets_manager: bool,
     ) -> OrganizationNoPaymentCreateRequest {
         OrganizationNoPaymentCreateRequest {
@@ -163,7 +160,7 @@ impl OrganizationNoPaymentCreateRequest {
             billing_email,
             plan_type: None,
             key,
-            keys: None,
+            keys: Box::new(keys),
             payment_method_type: None,
             payment_token: None,
             additional_seats: None,
