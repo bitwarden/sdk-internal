@@ -3,7 +3,9 @@ use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKey
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::StateBridgeImpl;
-use crate::Client;
+use crate::{
+    Client, key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+};
 
 /// Client for interacting with the key-management state bridge. This is used to read and write
 /// state held by the clients
@@ -127,6 +129,35 @@ impl StateBridgeClient {
             .internal
             .state_bridge
             .clear_encrypted_pin()
+            .await;
+    }
+
+    /// Sets the account cryptographic state to client-managed state.
+    pub async fn set_account_cryptographic_state(&self, state: WrappedAccountCryptographicState) {
+        self.client
+            .internal
+            .state_bridge
+            .set_account_cryptographic_state(state)
+            .await;
+    }
+
+    /// Gets the account cryptographic state from client-managed state, if available.
+    pub async fn get_account_cryptographic_state(
+        &self,
+    ) -> Option<WrappedAccountCryptographicState> {
+        self.client
+            .internal
+            .state_bridge
+            .get_account_cryptographic_state()
+            .await
+    }
+
+    /// Clears the account cryptographic state from client-managed state.
+    pub async fn clear_account_cryptographic_state(&self) {
+        self.client
+            .internal
+            .state_bridge
+            .clear_account_cryptographic_state()
             .await;
     }
 }
