@@ -67,8 +67,8 @@ impl PolicyClient {
 }
 
 /// Extension trait that adds a [`policies`](PoliciesClientExt::policies) method to [`Client`].
-#[allow(missing_docs)]
 pub trait PoliciesClientExt {
+    /// Creates a new [PolicyClient] instance.
     fn policies(&self) -> PolicyClient;
 }
 
