@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`a714278b9a8893ac8b2a9de53777793768acbd74`](https://github.com/bitwarden/server/commit/a714278b9a8893ac8b2a9de53777793768acbd74)
+  [`53dc0c40d74aa6d02c049970751d9692a426fed3`](https://github.com/bitwarden/server/commit/53dc0c40d74aa6d02c049970751d9692a426fed3)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -582,6 +582,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CipherCreateRequestModel](docs/CipherCreateRequestModel.md)
 - [CipherDetailsResponseModel](docs/CipherDetailsResponseModel.md)
 - [CipherDetailsResponseModelListResponseModel](docs/CipherDetailsResponseModelListResponseModel.md)
+- [CipherDriversLicenseModel](docs/CipherDriversLicenseModel.md)
 - [CipherFido2CredentialModel](docs/CipherFido2CredentialModel.md)
 - [CipherFieldModel](docs/CipherFieldModel.md)
 - [CipherIdentityModel](docs/CipherIdentityModel.md)
@@ -592,6 +593,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CipherMiniResponseModel](docs/CipherMiniResponseModel.md)
 - [CipherMiniResponseModelListResponseModel](docs/CipherMiniResponseModelListResponseModel.md)
 - [CipherPartialRequestModel](docs/CipherPartialRequestModel.md)
+- [CipherPassportModel](docs/CipherPassportModel.md)
 - [CipherPasswordHistoryModel](docs/CipherPasswordHistoryModel.md)
 - [CipherPermissionsResponseModel](docs/CipherPermissionsResponseModel.md)
 - [CipherRepromptType](docs/CipherRepromptType.md)
