@@ -35,10 +35,8 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
     ///
     /// During startup, a `StartSession` message is sent per user so the leader can reconcile
     /// initial lock state.
-    pub async fn create(driver: L, ipc_client: Arc<dyn IpcClient>) -> Self {
-        let follower = Self(Arc::new(InnerFollower { driver, ipc_client }));
-        follower.start_sessions().await;
-        follower
+    pub fn create(driver: L, ipc_client: Arc<dyn IpcClient>) -> Self {
+        Self(Arc::new(InnerFollower { driver, ipc_client }))
     }
 
     async fn start_sessions(&self) {
@@ -128,6 +126,8 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
 
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(timer_future);
+
+        self.start_sessions().await;
         Ok(())
     }
 

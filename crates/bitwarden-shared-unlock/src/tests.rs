@@ -157,7 +157,7 @@ impl Harness {
             InMemorySessionRepository::new(HashMap::new()),
         ));
 
-        let follower = Follower::create(follower_lock.clone(), ipc_client).await;
+        let follower = Follower::create(follower_lock.clone(), ipc_client);
 
         let mut harness = Self {
             leader,
