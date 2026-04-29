@@ -58,7 +58,6 @@
 //!     │                                 │                                │
 //!     │──LockStateUpdate(Unlocked)─────▶│                                │
 //!     │                                 │──unlocks locally──             │
-//!     │◀─LockStateUpdate(Unlocked)──────│                                │
 //!     │                                 │──LockStateUpdate(Unlocked)────▶│
 //!     │                                 │                                │──unlocks locally──
 //! ```
