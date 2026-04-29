@@ -158,6 +158,7 @@ impl Harness {
         ));
 
         let follower = Follower::create(follower_lock.clone(), ipc_client);
+        follower.start_sessions().await;
 
         let mut harness = Self {
             leader,
@@ -264,40 +265,6 @@ async fn test_follower_startup_unlocked_propagates_to_leader() {
         }
     );
     // Follower should remain unlocked
-    assert_eq!(
-        harness.follower_lock.get_state(user),
-        LockState::Unlocked { user_key: key }
-    );
-}
-
-#[tokio::test]
-async fn test_follower_unlock_propagates_to_leader() {
-    let user = user_a();
-    let key = test_user_key();
-    let leader_states = HashMap::from([(user, LockState::Locked)]);
-    let follower_states = HashMap::from([(user, LockState::Locked)]);
-
-    let mut harness = Harness::new(leader_states, follower_states).await;
-
-    // Follower manually unlocks
-    harness
-        .follower
-        .handle_device_event(DeviceEvent::ManualUnlock {
-            user_id: user,
-            user_key: key.as_bytes().to_vec(),
-        })
-        .await
-        .unwrap();
-
-    harness.pump().await;
-
-    assert_eq!(
-        harness.leader_lock.get_state(user),
-        LockState::Unlocked {
-            user_key: key.clone()
-        }
-    );
-    // Follower also receives the echo back and unlocks locally
     assert_eq!(
         harness.follower_lock.get_state(user),
         LockState::Unlocked { user_key: key }

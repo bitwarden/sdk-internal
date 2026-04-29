@@ -39,7 +39,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
         Self(Arc::new(InnerFollower { driver, ipc_client }))
     }
 
-    async fn start_sessions(&self) {
+    pub(crate) async fn start_sessions(&self) {
         let users: Vec<bitwarden_core::UserId> = self.0.driver.list_users().await;
         let leader = self
             .0
