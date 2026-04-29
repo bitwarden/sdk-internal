@@ -48,7 +48,7 @@ jobs:
       - name: Get workflow run commit ref
         id: get-sdk-internal-ref
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           _RUN_ID: ${{ inputs.build-run-id }}
         working-directory: sdk
         run: |
@@ -128,7 +128,7 @@ jobs:
           path: sdk-swift
           ref: ${{ inputs.sdk-swift-branch-name }}
           # token: ${{ steps.app-token-sdk-swift.outputs.token }}
-          token: ${{ github.token }} # using default GITHUB_TOKEN since the checkout action doesn't require auth for public repos, and using the app token causes issues with pushing code in later steps (despite having correct permissions)
+          token: ${{ secrets.GITHUB_TOKEN }} # using default GITHUB_TOKEN since the checkout action doesn't require auth for public repos, and using the app token causes issues with pushing code in later steps (despite having correct permissions)
           persist-credentials: true
 
       - name: Download BitwardenSdk sources artifact
@@ -169,7 +169,8 @@ jobs:
         uses: bitwarden/gh-actions/api-commit@main
         id: commit-changes
         with:
-          token: ${{ steps.app-token-sdk-swift.outputs.token }}
+          # token: ${{ steps.app-token-sdk-swift.outputs.token }}
+          token: ${{ secrets.GITHUB_TOKEN }} # using default GITHUB_TOKEN since the action doesn't require auth for public repos, and using the app token causes issues with pushing code
           branch: ${{ inputs.sdk-swift-branch-name }}
           message: "Release Swift SDK v${{ steps.set-release-name.outputs.release_name }} (bitwarden/sdk-internal@${{ steps.get-sdk-internal-ref.outputs.short_sha }}) - ${{ steps.get-sdk-internal-ref.outputs.commit_message }}"
           tag_name: "v${{ steps.set-release-name.outputs.release_name }}"
