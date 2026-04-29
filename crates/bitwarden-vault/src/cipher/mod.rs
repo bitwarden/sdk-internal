@@ -1,6 +1,7 @@
 pub(crate) mod attachment;
 pub(crate) mod attachment_client;
 pub(crate) mod bank_account;
+#[allow(dead_code)]
 pub(crate) mod blob;
 pub(crate) mod card;
 #[allow(clippy::module_inception)]
