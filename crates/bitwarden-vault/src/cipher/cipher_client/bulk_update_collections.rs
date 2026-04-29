@@ -53,10 +53,10 @@ impl CiphersClient {
 
         let repository = self.repository.require()?;
         let mut updated_ciphers = Vec::new();
+        let collection_ids = collection_ids.iter().copied().collect::<HashSet<_>>();
         for cipher_id in cipher_ids {
             if let Some(mut cipher) = repository.get(cipher_id).await? {
                 if remove_collections {
-                    let collection_ids = collection_ids.iter().copied().collect::<HashSet<_>>();
                     cipher
                         .collection_ids
                         .retain(|id| !collection_ids.contains(id));
