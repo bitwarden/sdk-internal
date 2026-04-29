@@ -9,12 +9,12 @@
 use std::sync::Arc;
 
 use crate::{
+    crypto_provider::noise::crypto_provider::NoiseCryptoProviderState,
     traits::{InMemorySessionRepository, SessionRepository},
     wasm::JsSessionRepository,
 };
 
-// TODO: Change session type when implementing encryption
-type Session = ();
+type Session = NoiseCryptoProviderState;
 
 pub enum GenericSessionRepository {
     InMemory(Arc<InMemorySessionRepository<Session>>),
