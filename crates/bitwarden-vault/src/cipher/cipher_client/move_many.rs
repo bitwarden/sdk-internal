@@ -6,7 +6,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{CipherId, CiphersClient, FolderId};
+use crate::{Cipher, CipherId, CiphersClient, FolderId};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
