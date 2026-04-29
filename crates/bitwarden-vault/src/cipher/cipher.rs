@@ -101,8 +101,8 @@ pub enum CipherType {
     Identity = 4,
     SshKey = 5,
     BankAccount = 6,
-    Passport = 7,
-    DriversLicense = 8,
+    DriversLicense = 7,
+    Passport = 8,
 }
 
 #[allow(missing_docs)]
@@ -2863,5 +2863,131 @@ mod tests {
         assert_eq!(failures.len(), 1);
         assert_eq!(failures[0].id, Some("corrupted-attachment".to_string()));
         assert_eq!(failures[0].file_name, None);
+    }
+
+    #[test]
+    fn test_decrypt_cipher_list_view_passport() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let cipher_view = CipherView {
+            r#type: CipherType::Passport,
+            passport: Some(passport::PassportView {
+                given_name: Some("Jane".to_string()),
+                surname: Some("Doe".to_string()),
+                passport_number: Some("P12345678".to_string()),
+                ..Default::default()
+            }),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
+
+        assert_eq!(list_view.r#type, CipherListViewType::Passport);
+        assert_eq!(list_view.subtitle, "Jane Doe");
+        assert_eq!(
+            list_view.copyable_fields,
+            vec![CopyableCipherFields::PassportPassportNumber]
+        );
+    }
+
+    #[test]
+    fn test_decrypt_cipher_list_view_drivers_license() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let cipher_view = CipherView {
+            r#type: CipherType::DriversLicense,
+            drivers_license: Some(drivers_license::DriversLicenseView {
+                first_name: Some("John".to_string()),
+                last_name: Some("Doe".to_string()),
+                license_number: Some("DL-987654".to_string()),
+                ..Default::default()
+            }),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
+
+        assert_eq!(list_view.r#type, CipherListViewType::DriversLicense);
+        assert_eq!(list_view.subtitle, "John Doe");
+        assert_eq!(
+            list_view.copyable_fields,
+            vec![CopyableCipherFields::DriversLicenseLicenseNumber]
+        );
+    }
+
+    #[test]
+    fn test_cipher_view_encrypt_decrypt_passport() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let passport = passport::PassportView {
+            given_name: Some("Jane".to_string()),
+            surname: Some("Doe".to_string()),
+            date_of_birth: Some("1990-01-01".to_string()),
+            sex: Some("F".to_string()),
+            birth_place: Some("New York".to_string()),
+            nationality: Some("American".to_string()),
+            issuing_country: Some("US".to_string()),
+            passport_number: Some("P12345678".to_string()),
+            passport_type: Some("P".to_string()),
+            national_identification_number: Some("123-45-6789".to_string()),
+            issuing_authority: Some("US State Department".to_string()),
+            issue_date: Some("2020-01-01".to_string()),
+            expiration_date: Some("2030-01-01".to_string()),
+        };
+
+        let cipher_view = CipherView {
+            r#type: CipherType::Passport,
+            passport: Some(passport.clone()),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
+
+        assert_eq!(decrypted.r#type, CipherType::Passport);
+        assert_eq!(decrypted.passport, Some(passport));
+        assert!(decrypted.login.is_none());
+    }
+
+    #[test]
+    fn test_cipher_view_encrypt_decrypt_drivers_license() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let dl = drivers_license::DriversLicenseView {
+            first_name: Some("John".to_string()),
+            middle_name: Some("Michael".to_string()),
+            last_name: Some("Doe".to_string()),
+            date_of_birth: Some("1985-06-15".to_string()),
+            license_number: Some("DL-987654".to_string()),
+            issuing_country: Some("US".to_string()),
+            issuing_state: Some("NY".to_string()),
+            issue_date: Some("2020-01-01".to_string()),
+            expiration_date: Some("2028-01-01".to_string()),
+            issuing_authority: Some("NY DMV".to_string()),
+            license_class: Some("D".to_string()),
+        };
+
+        let cipher_view = CipherView {
+            r#type: CipherType::DriversLicense,
+            drivers_license: Some(dl.clone()),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
+
+        assert_eq!(decrypted.r#type, CipherType::DriversLicense);
+        assert_eq!(decrypted.drivers_license, Some(dl));
+        assert!(decrypted.login.is_none());
     }
 }
