@@ -195,21 +195,22 @@ jobs:
             echo "comment_id=$EXISTING_ID" >> $GITHUB_OUTPUT
           else
             echo "Creating new comment"
-            NEW_COMMENT=$(cat << EOF
-          ${COMMENT_MARKER}
-          ## 🔍 SDK Breaking Change Detection
-
-          **SDK Version:** \`${SDK_VERSION}\`
-
-          | Client | Status | Details |
-          |--------|--------|---------|
-          ${ROW_MARKER}
-          ${OUR_ROW}
-
-          ---
-          *Results update as workflows complete.*
-          EOF
-            )
+            NEW_COMMENT="$(printf '%s\n' \
+              "${COMMENT_MARKER}" \
+              "## 🔍 SDK Breaking Change Detection" \
+              "" \
+              "**SDK Version:** \`${SDK_VERSION}\`" \
+              "" \
+              "> ⚠️ **If breaking changes are detected, you MUST have a corresponding pull request addressing the breaking changes ready for merge in the affected client repository.**" \
+              "" \
+              "| Client | Status | Details |" \
+              "|--------|--------|---------|" \
+              "${ROW_MARKER}" \
+              "${OUR_ROW}" \
+              "" \
+              "---" \
+              "*Results update as workflows complete.*" \
+            )"
 
             COMMENT_ID=$(gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
               --field body="$NEW_COMMENT" --jq '.id')
