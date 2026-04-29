@@ -29,7 +29,7 @@ pub struct AcquiredCookie {
 #[bitwarden_error(flat)]
 pub enum AcquireCookieError {
     /// Cookie acquisition was cancelled by the user
-    #[error("Cookie acquisition was cancelled")]
+    #[error("Must sync to connect to server")]
     Cancelled,
 
     /// The server configuration does not support cookie acquisition
