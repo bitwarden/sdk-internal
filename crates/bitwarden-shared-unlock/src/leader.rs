@@ -161,7 +161,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
             loop {
                 tokio::select! {
                     _ = cancellation_token.cancelled() => {
-                        tracing::debug!("Shared unlock follower timer cancelled");
+                        tracing::debug!("Shared unlock leader timer cancelled");
                         break;
                     }
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
