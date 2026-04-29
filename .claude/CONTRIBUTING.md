@@ -115,9 +115,9 @@ when X." Direct, active, specific. Your contribution should read like the neighb
 ### 3. Build iteratively
 
 When you're authoring a skill, start with `/skill-creator:skill-creator`. It runs an iterative loop
-— draft → test against evals → review outputs → refine — with benchmark stats and a side-by-side
-reviewer. You end up with a skill that's been exercised against concrete inputs before you open the
-PR.
+— draft → test against evaluations → review outputs → refine — with benchmark stats and a
+side-by-side reviewer. You end up with a skill that's been exercised against concrete inputs before
+you open the PR.
 
 For agents, commands, hooks, and `CLAUDE.md` entries, start from an existing one in the repo and
 adapt it. No need to invent a new structure when a neighbor already solves the shape problem.
