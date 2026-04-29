@@ -100,13 +100,12 @@ impl CipherAdminClient {
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
-        if view.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
+        if self
+            .client
+            .internal
+            .get_flags()
+            .await
+            .enable_cipher_key_encryption
         {
             let key = view.key_identifier();
             view.generate_cipher_key(&mut key_store.context(), key)?;
