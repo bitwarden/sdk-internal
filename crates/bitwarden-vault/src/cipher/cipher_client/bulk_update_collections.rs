@@ -56,16 +56,25 @@ impl CiphersClient {
         for cipher_id in cipher_ids {
             if let Some(mut cipher) = repository.get(cipher_id).await? {
                 if remove_collections {
+                    let collection_ids = collection_ids.iter().copied().collect::<HashSet<_>>();
                     cipher
                         .collection_ids
                         .retain(|id| !collection_ids.contains(id));
                 } else {
+                    let existing = cipher
+                        .collection_ids
+                        .iter()
+                        .copied()
+                        .collect::<HashSet<_>>();
                     cipher.collection_ids = cipher
                         .collection_ids
                         .into_iter()
-                        .chain(collection_ids.iter().copied())
-                        .collect::<HashSet<_>>()
-                        .into_iter()
+                        .chain(
+                            collection_ids
+                                .clone()
+                                .into_iter()
+                                .filter(|id| !existing.contains(id)),
+                        )
                         .collect();
                 }
                 updated_ciphers.push((cipher_id, cipher));
