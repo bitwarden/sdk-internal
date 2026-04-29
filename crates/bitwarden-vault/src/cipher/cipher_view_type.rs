@@ -84,16 +84,16 @@ impl CipherViewType {
         }
     }
 
-    pub(crate) fn as_passport_view_mut(&mut self) -> Option<&mut PassportView> {
+    pub(crate) fn as_drivers_license_view_mut(&mut self) -> Option<&mut DriversLicenseView> {
         match self {
-            CipherViewType::Passport(p) => Some(p),
+            CipherViewType::DriversLicense(d) => Some(d),
             _ => None,
         }
     }
 
-    pub(crate) fn as_drivers_license_view_mut(&mut self) -> Option<&mut DriversLicenseView> {
+    pub(crate) fn as_passport_view_mut(&mut self) -> Option<&mut PassportView> {
         match self {
-            CipherViewType::DriversLicense(d) => Some(d),
+            CipherViewType::Passport(p) => Some(p),
             _ => None,
         }
     }
@@ -140,16 +140,16 @@ impl CipherViewType {
         }
     }
 
-    pub(crate) fn as_passport_view(&self) -> Option<&PassportView> {
+    pub(crate) fn as_drivers_license_view(&self) -> Option<&DriversLicenseView> {
         match self {
-            CipherViewType::Passport(p) => Some(p),
+            CipherViewType::DriversLicense(d) => Some(d),
             _ => None,
         }
     }
 
-    pub(crate) fn as_drivers_license_view(&self) -> Option<&DriversLicenseView> {
+    pub(crate) fn as_passport_view(&self) -> Option<&PassportView> {
         match self {
-            CipherViewType::DriversLicense(d) => Some(d),
+            CipherViewType::Passport(p) => Some(p),
             _ => None,
         }
     }

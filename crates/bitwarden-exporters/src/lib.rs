@@ -260,8 +260,8 @@ impl From<ImportingCipher> for CipherView {
             secure_note,
             ssh_key,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: value.favorite,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -338,8 +338,8 @@ impl fmt::Display for CipherType {
             CipherType::Identity(_) => write!(f, "identity"),
             CipherType::SshKey(_) => write!(f, "ssh_key"),
             CipherType::BankAccount => write!(f, "bank_account"),
-            CipherType::Passport => write!(f, "passport"),
             CipherType::DriversLicense => write!(f, "drivers_license"),
+            CipherType::Passport => write!(f, "passport"),
         }
     }
 }

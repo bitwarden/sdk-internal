@@ -425,8 +425,8 @@ mod tests {
             ("SECURE_NOTE", test_blob_secure_note()),
             ("SSH_KEY", test_blob_ssh_key()),
             ("BANK_ACCOUNT", test_blob_bank_account()),
-            ("PASSPORT", test_blob_passport()),
             ("DRIVERS_LICENSE", test_blob_drivers_license()),
+            ("PASSPORT", test_blob_passport()),
         ];
 
         for (name, blob) in blobs {

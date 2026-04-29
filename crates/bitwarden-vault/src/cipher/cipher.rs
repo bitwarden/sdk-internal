@@ -188,8 +188,8 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
             bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
-            passport: cipher.passport.map(|p| Box::new(p.into())),
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
+            passport: cipher.passport.map(|p| Box::new(p.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -261,8 +261,8 @@ impl From<EncryptionContext> for CipherRequestModel {
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
             bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
-            passport: cipher.passport.map(|p| Box::new(p.into())),
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
+            passport: cipher.passport.map(|p| Box::new(p.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -300,8 +300,8 @@ pub struct Cipher {
     pub secure_note: Option<secure_note::SecureNote>,
     pub ssh_key: Option<ssh_key::SshKey>,
     pub bank_account: Option<bank_account::BankAccount>,
-    pub passport: Option<passport::Passport>,
     pub drivers_license: Option<drivers_license::DriversLicense>,
+    pub passport: Option<passport::Passport>,
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
@@ -384,8 +384,8 @@ pub struct CipherView {
     pub secure_note: Option<secure_note::SecureNoteView>,
     pub ssh_key: Option<ssh_key::SshKeyView>,
     pub bank_account: Option<bank_account::BankAccountView>,
-    pub passport: Option<passport::PassportView>,
     pub drivers_license: Option<drivers_license::DriversLicenseView>,
+    pub passport: Option<passport::PassportView>,
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
@@ -596,10 +596,10 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
             bank_account: cipher_view
                 .bank_account
                 .encrypt_composite(ctx, ciphers_key)?,
-            passport: cipher_view.passport.encrypt_composite(ctx, ciphers_key)?,
             drivers_license: cipher_view
                 .drivers_license
                 .encrypt_composite(ctx, ciphers_key)?,
+            passport: cipher_view.passport.encrypt_composite(ctx, ciphers_key)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
@@ -655,12 +655,12 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
             secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
             ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
             bank_account: self.bank_account.decrypt(ctx, ciphers_key).ok().flatten(),
-            passport: self.passport.decrypt(ctx, ciphers_key).ok().flatten(),
             drivers_license: self
                 .drivers_license
                 .decrypt(ctx, ciphers_key)
                 .ok()
                 .flatten(),
+            passport: self.passport.decrypt(ctx, ciphers_key).ok().flatten(),
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
@@ -726,8 +726,8 @@ impl Cipher {
             CipherType::SshKey => self.ssh_key.as_ref().map(|v| v as _),
             CipherType::SecureNote => self.secure_note.as_ref().map(|v| v as _),
             CipherType::BankAccount => self.bank_account.as_ref().map(|v| v as _),
-            CipherType::Passport => self.passport.as_ref().map(|v| v as _),
             CipherType::DriversLicense => self.drivers_license.as_ref().map(|v| v as _),
+            CipherType::Passport => self.passport.as_ref().map(|v| v as _),
         }
     }
 
@@ -768,8 +768,8 @@ impl Cipher {
             crate::CipherType::Identity => self.identity = serde_json::from_str(data)?,
             crate::CipherType::SshKey => self.ssh_key = serde_json::from_str(data)?,
             crate::CipherType::BankAccount => self.bank_account = serde_json::from_str(data)?,
-            crate::CipherType::Passport => self.passport = serde_json::from_str(data)?,
             crate::CipherType::DriversLicense => self.drivers_license = serde_json::from_str(data)?,
+            crate::CipherType::Passport => self.passport = serde_json::from_str(data)?,
         }
         Ok(())
     }
@@ -1145,8 +1145,8 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
             secure_note: self.0.secure_note.decrypt(ctx, ciphers_key)?,
             ssh_key: self.0.ssh_key.decrypt(ctx, ciphers_key)?,
             bank_account: self.0.bank_account.decrypt(ctx, ciphers_key)?,
-            passport: self.0.passport.decrypt(ctx, ciphers_key)?,
             drivers_license: self.0.drivers_license.decrypt(ctx, ciphers_key)?,
+            passport: self.0.passport.decrypt(ctx, ciphers_key)?,
             favorite: self.0.favorite,
             reprompt: self.0.reprompt,
             organization_use_totp: self.0.organization_use_totp,
@@ -1308,11 +1308,11 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
             bank_account: cipher.bank_account.map(|b| (*b).try_into()).transpose()?,
-            passport: cipher.passport.map(|p| (*p).try_into()).transpose()?,
             drivers_license: cipher
                 .drivers_license
                 .map(|d| (*d).try_into())
                 .transpose()?,
+            passport: cipher.passport.map(|p| (*p).try_into()).transpose()?,
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
@@ -1440,8 +1440,8 @@ impl PartialCipher for CipherResponseModel {
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
             bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
-            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             drivers_license: self.drivers_license.map(|d| (*d).try_into()).transpose()?,
+            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             favorite: self.favorite.unwrap_or(false),
             reprompt: self
                 .reprompt
@@ -1490,8 +1490,8 @@ impl PartialCipher for CipherMiniResponseModel {
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
             bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
-            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             drivers_license: self.drivers_license.map(|d| (*d).try_into()).transpose()?,
+            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             reprompt: self
                 .reprompt
                 .map(|r| r.try_into())
@@ -1550,8 +1550,8 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
             bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
-            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             drivers_license: self.drivers_license.map(|d| (*d).try_into()).transpose()?,
+            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             reprompt: self
                 .reprompt
                 .map(|r| r.try_into())
@@ -1645,8 +1645,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -1714,8 +1714,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2328,8 +2328,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2377,8 +2377,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2420,8 +2420,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2487,8 +2487,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2647,8 +2647,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2697,8 +2697,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2740,8 +2740,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2801,8 +2801,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
-            passport: None,
             drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
