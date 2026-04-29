@@ -14,7 +14,7 @@ use crate::{
     DeviceEvent, FollowerMessage, LeaderMessage, LockState, UserKey, drivers::SharedUnlockDriver,
 };
 
-const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
+const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(30);
 
 /// Error type for failure to start the shared unlock leader.
 #[bitwarden_error(basic)]
