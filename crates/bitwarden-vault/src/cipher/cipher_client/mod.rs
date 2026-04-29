@@ -25,6 +25,8 @@ use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
 mod bulk_update_collections;
+
+pub use admin::GetAssignedOrgCiphersAdminError;
 mod create;
 mod delete;
 mod delete_attachment;
