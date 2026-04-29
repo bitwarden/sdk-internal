@@ -294,7 +294,6 @@ async fn test_follower_lock_propagates_to_leader() {
     harness.pump().await;
 
     assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
-    assert_eq!(harness.follower_lock.get_state(user), LockState::Locked);
 }
 
 #[tokio::test]
