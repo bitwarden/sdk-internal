@@ -1,5 +1,8 @@
+#[cfg(not(feature = "wasm"))]
+use std::time::Instant;
 use std::{
     collections::HashMap,
+    ops::Sub,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -9,6 +12,8 @@ use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedInco
 use bitwarden_threading::cancellation_token;
 use thiserror::Error;
 use tracing::{info, warn};
+#[cfg(feature = "wasm")]
+use web_time::Instant;
 
 use crate::{
     DeviceEvent, FollowerMessage, LeaderMessage, LockState, UserKey, drivers::SharedUnlockDriver,
@@ -23,7 +28,7 @@ const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(30);
 pub struct LeaderStartError(#[from] SubscribeError);
 
 struct FollowerSession {
-    last_seen_at: u64,
+    last_seen_at: Instant,
 }
 
 struct FollowerSessions {
@@ -50,7 +55,7 @@ impl FollowerSessions {
         sessions.insert(
             endpoint,
             FollowerSession {
-                last_seen_at: get_current_timestamp(),
+                last_seen_at: Instant::now(),
             },
         );
     }
@@ -70,15 +75,13 @@ impl FollowerSessions {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        let now = get_current_timestamp();
-        let stale_after_millis = stale_after.as_millis() as u64;
+        let now = Instant::now();
         for (endpoint, session) in sessions.iter() {
-            if now.saturating_sub(session.last_seen_at) > stale_after_millis {
+            if now.sub(session.last_seen_at) > stale_after {
                 info!("Shared-Unlock client {:?} disconnected", endpoint);
             }
         }
-        sessions
-            .retain(|_, session| now.saturating_sub(session.last_seen_at) <= stale_after_millis);
+        sessions.retain(|_, session| now.sub(session.last_seen_at) <= stale_after);
     }
 }
 
@@ -344,20 +347,5 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
         if let Err(error) = self.0.ipc_client.send_typed(message, recipient).await {
             tracing::error!(?error, "Failed to send shared unlock IPC message");
         }
-    }
-}
-
-fn get_current_timestamp() -> u64 {
-    #[cfg(target_arch = "wasm32")]
-    {
-        js_sys::Date::now() as u64
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_else(|_| std::time::Duration::from_secs(0))
-            .as_millis() as u64
     }
 }
