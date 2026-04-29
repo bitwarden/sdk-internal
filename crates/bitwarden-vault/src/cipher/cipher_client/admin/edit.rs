@@ -263,6 +263,8 @@ mod tests {
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
                         bank_account: body.bank_account,
+                        drivers_license: None,
+                        passport: None,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,

@@ -450,6 +450,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             fields: None,
             password_history: None,
             attachments: None,
