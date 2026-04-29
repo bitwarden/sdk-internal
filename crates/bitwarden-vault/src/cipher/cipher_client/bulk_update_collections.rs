@@ -4,7 +4,7 @@ use bitwarden_api_api::models::CipherBulkUpdateCollectionsRequestModel;
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::RepositoryError;
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -51,28 +51,28 @@ impl CiphersClient {
             }))
             .await?;
 
-        if let Some(repository) = &self.repository {
-            let mut updated_ciphers = Vec::new();
-            for cipher_id in cipher_ids {
-                if let Some(mut cipher) = repository.get(cipher_id).await? {
-                    if remove_collections {
-                        cipher
-                            .collection_ids
-                            .retain(|id| !collection_ids.contains(id));
-                    } else {
-                        cipher.collection_ids = cipher
-                            .collection_ids
-                            .into_iter()
-                            .chain(collection_ids.iter().copied())
-                            .collect::<HashSet<_>>()
-                            .into_iter()
-                            .collect();
-                    }
-                    updated_ciphers.push((cipher_id, cipher));
+        let repository = self.repository.require()?;
+        let mut updated_ciphers = Vec::new();
+        for cipher_id in cipher_ids {
+            if let Some(mut cipher) = repository.get(cipher_id).await? {
+                if remove_collections {
+                    cipher
+                        .collection_ids
+                        .retain(|id| !collection_ids.contains(id));
+                } else {
+                    cipher.collection_ids = cipher
+                        .collection_ids
+                        .into_iter()
+                        .chain(collection_ids.iter().copied())
+                        .collect::<HashSet<_>>()
+                        .into_iter()
+                        .collect();
                 }
+                updated_ciphers.push((cipher_id, cipher));
             }
-            repository.set_bulk(updated_ciphers).await?;
         }
+        repository.set_bulk(updated_ciphers).await?;
+
         Ok(())
     }
 }

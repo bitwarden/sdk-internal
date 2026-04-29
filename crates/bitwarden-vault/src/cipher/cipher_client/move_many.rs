@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CipherBulkMoveRequestModel;
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::RepositoryError;
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -42,16 +42,16 @@ impl CiphersClient {
             }))
             .await?;
 
-        if let Some(repository) = &self.repository {
-            let mut updated_ciphers = Vec::new();
-            for cipher_id in cipher_ids {
-                if let Some(mut cipher) = repository.get(cipher_id).await? {
-                    cipher.folder_id = folder_id;
-                    updated_ciphers.push((cipher_id, cipher));
-                }
+        let repository = self.repository.require()?;
+
+        let mut updated_ciphers = Vec::new();
+        for cipher_id in cipher_ids {
+            if let Some(mut cipher) = repository.get(cipher_id).await? {
+                cipher.folder_id = folder_id;
+                updated_ciphers.push((cipher_id, cipher));
             }
-            repository.set_bulk(updated_ciphers).await?;
         }
+        repository.set_bulk(updated_ciphers).await?;
         Ok(())
     }
 }
