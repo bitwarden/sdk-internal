@@ -308,11 +308,11 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 };
                 self.broadcast_to_active_followers(message).await;
             }
-            DeviceEvent::ManualUnlock { user_id, user_key } => {
+            DeviceEvent::ManualUnlock { user_id, ref user_key } => {
                 let message = LeaderMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
-                        user_key: UserKey::from_bytes(user_key),
+                        user_key: UserKey::from_bytes(user_key.to_owned()),
                     },
                 };
                 self.broadcast_to_active_followers(message).await;

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Add, sync::Arc};
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
@@ -168,7 +168,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
             LeaderMessage::HeartBeat { user_id } => {
                 self.0
                     .driver
-                    .suppress_vault_timeout(user_id, crate::HEARTBEAT_INTERVAL)
+                    .suppress_vault_timeout(user_id, crate::HEARTBEAT_INTERVAL.add(crate::VAULT_TIMEOUT_GRACE_PERIOD))
                     .await;
             }
         }
@@ -191,11 +191,11 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                 };
                 self.send_message(message, leader).await;
             }
-            DeviceEvent::ManualUnlock { user_id, user_key } => {
+            DeviceEvent::ManualUnlock { user_id, ref user_key } => {
                 let message = FollowerMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
-                        user_key: super::UserKey::from_bytes(user_key),
+                        user_key: super::UserKey::from_bytes(user_key.to_owned()),
                     },
                 };
                 self.send_message(message, leader).await;
