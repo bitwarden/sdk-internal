@@ -37,7 +37,7 @@ impl FollowerSessions {
         }
     }
 
-    fn upsert(&self, endpoint: bitwarden_ipc::Endpoint, seen_at: u64) {
+    fn upsert(&self, endpoint: bitwarden_ipc::Endpoint) {
         let mut sessions = self
             .sessions
             .lock()
@@ -50,7 +50,7 @@ impl FollowerSessions {
         sessions.insert(
             endpoint,
             FollowerSession {
-                last_seen_at: seen_at,
+                last_seen_at: get_current_timestamp(),
             },
         );
     }
@@ -64,12 +64,13 @@ impl FollowerSessions {
         sessions.keys().cloned().collect()
     }
 
-    fn prune_stale(&self, now: u64, stale_after: Duration) {
+    fn prune_stale(&self, stale_after: Duration) {
         let mut sessions = self
             .sessions
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
+        let now = get_current_timestamp();
         let stale_after_millis = stale_after.as_millis() as u64;
         for (endpoint, session) in sessions.iter() {
             if now.saturating_sub(session.last_seen_at) > stale_after_millis {
@@ -166,7 +167,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
                         leader.0
                             .follower_sessions
-                            .prune_stale(get_current_timestamp(), FOLLOWER_STALE_AFTER);
+                            .prune_stale(FOLLOWER_STALE_AFTER);
                     }
                 }
             }
@@ -221,9 +222,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 user_id,
                 lock_state: LockState::Locked,
             } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
 
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
                 if self_lock_state == LockState::Locked {
@@ -246,9 +245,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 user_id,
                 lock_state: LockState::Unlocked { user_key },
             } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
 
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
                 if let LockState::Unlocked { .. } = self_lock_state {
@@ -266,9 +263,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 user_id,
                 lock_state,
             } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
 
                 match (lock_state, self_lock_state.clone()) {
@@ -296,9 +291,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 Ok(())
             }
             FollowerMessage::HeartBeat { user_id } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
 
                 // Echo back the heartbeat to confirm liveness
                 let response = LeaderMessage::HeartBeat { user_id };
