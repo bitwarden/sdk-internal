@@ -190,6 +190,4 @@ pub enum DeviceEvent {
         /// Raw user key bytes used to unlock the vault.
         user_key: Vec<u8>,
     },
-    /// Runs scheduled every `HEARTBEAT_INTERVAL` to drive keep-alives
-    Timer,
 }

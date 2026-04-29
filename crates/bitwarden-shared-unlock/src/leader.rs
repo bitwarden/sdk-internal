@@ -122,9 +122,12 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
             .await?;
         let leader = self.clone();
 
+        let cancellation_token_clone = cancellation_token.clone();
         let future = async move {
             loop {
-                let result = subscription.receive(Some(cancellation_token.clone())).await;
+                let result = subscription
+                    .receive(Some(cancellation_token_clone.clone()))
+                    .await;
                 match result {
                     Ok(message) => {
                         if let Err(error) = leader.receive_message(message).await {
@@ -150,6 +153,30 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
 
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(future);
+
+        let cancellation_token = cancellation_token.clone();
+        let leader = self.clone();
+        let timer_future = async move {
+            loop {
+                tokio::select! {
+                    _ = cancellation_token.cancelled() => {
+                        tracing::debug!("Shared unlock follower timer cancelled");
+                        break;
+                    }
+                    _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
+                        leader.0
+                            .follower_sessions
+                            .prune_stale(get_current_timestamp(), FOLLOWER_STALE_AFTER);
+                    }
+                }
+            }
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(timer_future);
+
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(timer_future);
 
         Ok(())
     }
@@ -319,11 +346,6 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     },
                 };
                 self.broadcast_to_active_followers(message).await;
-            }
-            DeviceEvent::Timer => {
-                self.0
-                    .follower_sessions
-                    .prune_stale(get_current_timestamp(), FOLLOWER_STALE_AFTER);
             }
         }
 

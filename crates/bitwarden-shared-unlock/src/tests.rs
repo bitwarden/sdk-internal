@@ -382,29 +382,6 @@ async fn test_leader_unlock_broadcasts_to_follower() {
 }
 
 #[tokio::test]
-async fn test_heartbeat_round_trip() {
-    let user = user_a();
-    let leader_states = HashMap::from([(user, LockState::Locked)]);
-    let follower_states = HashMap::from([(user, LockState::Locked)]);
-
-    let mut harness = Harness::new(leader_states, follower_states).await;
-
-    // Follower fires Timer -> sends HeartBeat for all users
-    harness
-        .follower
-        .handle_device_event(DeviceEvent::Timer)
-        .await
-        .unwrap();
-
-    harness.pump().await;
-
-    let suppressions = harness.follower_lock.timeout_suppressions.lock().unwrap();
-    assert_eq!(suppressions.len(), 1);
-    assert_eq!(suppressions[0].0, user);
-    assert_eq!(suppressions[0].1, crate::HEARTBEAT_INTERVAL);
-}
-
-#[tokio::test]
 async fn test_multiple_users_startup() {
     let a = user_a();
     let b = user_b();

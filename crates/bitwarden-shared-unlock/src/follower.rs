@@ -111,8 +111,12 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                         break;
                     }
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
-                        if let Err(error) = follower.handle_device_event(DeviceEvent::Timer).await {
-                            tracing::error!(?error, "Failed to handle shared unlock follower timer event");
+                        if let Some(leader) = follower.0.driver.discover_leader().await {
+                            // For all users that are logged in, send a heartbeat message to the leader.
+                            for user_id in follower.0.driver.list_users().await {
+                                let message = FollowerMessage::HeartBeat { user_id };
+                                follower.send_message(message, leader.clone()).await;
+                            }
                         }
                     }
                 }
@@ -205,13 +209,6 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                     },
                 };
                 self.send_message(message, leader).await;
-            }
-            DeviceEvent::Timer => {
-                // For all users that are logged in, send a heartbeat message to the leader.
-                for user_id in self.0.driver.list_users().await {
-                    let message = FollowerMessage::HeartBeat { user_id };
-                    self.send_message(message, leader.clone()).await;
-                }
             }
         }
 
