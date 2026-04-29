@@ -102,9 +102,14 @@ fn passphrase_with_rng(mut rng: impl Rng, options: ValidPassphraseGeneratorOptio
 }
 
 fn gen_words(mut rng: impl Rng, num_words: u8) -> Vec<String> {
+    let words: Vec<_> = EFF_LONG_WORD_LIST
+        .iter()
+        .filter(|w| !w.contains('-'))
+        .collect();
+
     (0..num_words)
         .map(|_| {
-            EFF_LONG_WORD_LIST
+            words
                 .choose(&mut rng)
                 .expect("slice is not empty")
                 .to_string()
