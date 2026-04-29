@@ -164,11 +164,6 @@ jobs:
           cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Sources sdk-swift
           cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Tests sdk-swift
 
-      - name: Add changes
-        working-directory: sdk-swift
-        run: |
-          git add .
-
       - name: Commit changes
         uses: bitwarden/gh-actions/api-commit@main
         id: commit-changes
@@ -177,6 +172,8 @@ jobs:
           branch: ${{ inputs.sdk-swift-branch-name }}
           message: "Release Swift SDK v${{ steps.set-release-name.outputs.release_name }} (bitwarden/sdk-internal@${{ steps.get-sdk-internal-ref.outputs.short_sha }}) - ${{ steps.get-sdk-internal-ref.outputs.commit_message }}"
           tag_name: "v${{ steps.set-release-name.outputs.release_name }}"
+          repo: sdk-swift
+          owner: bitwarden
 
       - name: Echo changes
         working-directory: sdk-swift
