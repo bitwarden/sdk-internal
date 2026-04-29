@@ -25,7 +25,7 @@ impl<L: SharedUnlockDriver> Clone for Follower<L> {
 /// Inner implementation of the shared unlock follower, containing the actual state and logic. The
 /// outer `Follower` struct is a thin wrapper around an `Arc` to allow for shared ownership across
 /// async tasks.
-pub struct InnerFollower<D: SharedUnlockDriver> {
+struct InnerFollower<D: SharedUnlockDriver> {
     driver: D,
     ipc_client: Arc<dyn IpcClient>,
 }

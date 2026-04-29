@@ -237,11 +237,6 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     .lock_user(user_id)
                     .await
                     .inspect_err(|_| warn!(%user_id, "Failed to lock user"))?;
-                let response = LeaderMessage::LockStateUpdate {
-                    user_id,
-                    lock_state: LockState::Locked,
-                };
-                self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
             FollowerMessage::LockStateUpdate {
