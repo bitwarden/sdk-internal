@@ -1,11 +1,14 @@
-use bitwarden_core::{ApiError, MissingFieldError, key_management::KeyIds};
-use bitwarden_crypto::{CryptoError, KeyStore};
+use bitwarden_core::{ApiError, MissingFieldError};
+use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError};
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
-    Folder, FolderAddEditRequest, FolderId, FolderView, ItemNotFoundError, VaultParseError,
+    Folder, FolderAddEditRequest, FolderId, FolderView, FoldersClient, ItemNotFoundError,
+    VaultParseError,
 };
 
 #[allow(missing_docs)]
@@ -28,75 +31,84 @@ pub enum EditFolderError {
     Uuid(#[from] uuid::Error),
 }
 
-pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &R,
-    folder_id: FolderId,
-    request: FolderAddEditRequest,
-) -> Result<FolderView, EditFolderError> {
-    let id = folder_id.to_string();
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl FoldersClient {
+    /// Edit the [Folder] and save it to the server.
+    pub async fn edit(
+        &self,
+        folder_id: FolderId,
+        request: FolderAddEditRequest,
+    ) -> Result<FolderView, EditFolderError> {
+        let repository = self.repository.require()?;
 
-    // Verify the folder we're updating exists
-    repository.get(folder_id).await?.ok_or(ItemNotFoundError)?;
+        // Verify the folder we're updating exists
+        repository.get(folder_id).await?.ok_or(ItemNotFoundError)?;
 
-    let folder_request = key_store.encrypt(request)?;
+        let folder_request = self.key_store.encrypt(request)?;
 
-    let resp = api_client
-        .folders_api()
-        .put(&id, Some(folder_request))
-        .await
-        .map_err(ApiError::from)?;
+        let resp = self
+            .api_configurations
+            .api_client
+            .folders_api()
+            .put(&folder_id.to_string(), Some(folder_request))
+            .await
+            .map_err(ApiError::from)?;
 
-    let folder: Folder = resp.try_into()?;
+        let folder: Folder = resp.try_into()?;
 
-    debug_assert!(folder.id.unwrap_or_default() == folder_id);
+        debug_assert!(folder.id.unwrap_or_default() == folder_id);
 
-    repository.set(folder_id, folder.clone()).await?;
+        repository.set(folder_id, folder.clone()).await?;
 
-    Ok(key_store.decrypt(&folder)?)
+        Ok(self.key_store.decrypt(&folder)?)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::{apis::ApiClient, models::FolderResponseModel};
-    use bitwarden_core::key_management::SymmetricKeyId;
-    use bitwarden_crypto::{PrimitiveEncryptable, SymmetricKeyAlgorithm};
+    use bitwarden_core::{
+        client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
+    };
+    use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
 
     use super::*;
-    use crate::FolderId;
 
-    async fn repository_add_folder(
-        repository: &MemoryRepository<Folder>,
-        store: &KeyStore<KeyIds>,
-        folder_id: FolderId,
-        name: &str,
-    ) {
-        let folder = Folder {
+    fn create_client(api_client: ApiClient) -> FoldersClient {
+        FoldersClient {
+            key_store: create_test_crypto_with_user_key(
+                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            ),
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+            repository: Some(Arc::new(MemoryRepository::<Folder>::default())),
+        }
+    }
+
+    async fn repository_add_folder(client: &FoldersClient, folder_id: FolderId, name: &str) {
+        let folder_view = FolderView {
             id: Some(folder_id),
-            name: name
-                .encrypt(&mut store.context(), SymmetricKeyId::User)
-                .unwrap(),
+            name: name.to_string(),
             revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
         };
-        repository.set(folder_id, folder).await.unwrap();
+        let folder: Folder = client.key_store.encrypt(folder_view).unwrap();
+        client
+            .repository
+            .as_ref()
+            .unwrap()
+            .set(folder_id, folder)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
     async fn test_edit_folder() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        {
-            let mut ctx = store.context_mut();
-            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
-                .unwrap();
-        }
+        let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
 
-        let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
-
-        let api_client = ApiClient::new_mocked(move |mock| {
+        let client = create_client(ApiClient::new_mocked(move |mock| {
             mock.folders_api
                 .expect_put()
                 .returning(move |id, model| {
@@ -109,22 +121,19 @@ mod tests {
                     })
                 })
                 .once();
-        });
+        }));
 
-        let repository = MemoryRepository::<Folder>::default();
-        repository_add_folder(&repository, &store, folder_id, "old_name").await;
+        repository_add_folder(&client, folder_id, "old_name").await;
 
-        let result = edit_folder(
-            &store,
-            &api_client,
-            &repository,
-            folder_id,
-            FolderAddEditRequest {
-                name: "test".to_string(),
-            },
-        )
-        .await
-        .unwrap();
+        let result = client
+            .edit(
+                folder_id,
+                FolderAddEditRequest {
+                    name: "test".to_string(),
+                },
+            )
+            .await
+            .unwrap();
 
         assert_eq!(
             result,
@@ -134,27 +143,40 @@ mod tests {
                 revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             }
         );
+
+        // Confirm the folder was updated in the repository
+        assert_eq!(
+            client
+                .key_store
+                .decrypt(
+                    &client
+                        .repository
+                        .as_ref()
+                        .unwrap()
+                        .get(folder_id)
+                        .await
+                        .unwrap()
+                        .unwrap()
+                )
+                .unwrap(),
+            result
+        );
     }
 
     #[tokio::test]
     async fn test_edit_folder_does_not_exist() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-
-        let repository = MemoryRepository::<Folder>::default();
         let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
 
-        let api_client = ApiClient::new_mocked(|_| {});
+        let client = create_client(ApiClient::new_mocked(|_| {}));
 
-        let result = edit_folder(
-            &store,
-            &api_client,
-            &repository,
-            folder_id,
-            FolderAddEditRequest {
-                name: "test".to_string(),
-            },
-        )
-        .await;
+        let result = client
+            .edit(
+                folder_id,
+                FolderAddEditRequest {
+                    name: "test".to_string(),
+                },
+            )
+            .await;
 
         assert!(result.is_err());
         assert!(matches!(
@@ -165,37 +187,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_folder_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        {
-            let mut ctx = store.context_mut();
-            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
-                .unwrap();
-        }
+        let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
 
-        let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
-
-        let api_client = ApiClient::new_mocked(move |mock| {
+        let client = create_client(ApiClient::new_mocked(move |mock| {
             mock.folders_api.expect_put().returning(move |_id, _model| {
                 Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
                     "Simulated error",
                 )))
             });
-        });
+        }));
 
-        let repository = MemoryRepository::<Folder>::default();
-        repository_add_folder(&repository, &store, folder_id, "old_name").await;
+        repository_add_folder(&client, folder_id, "old_name").await;
 
-        let result = edit_folder(
-            &store,
-            &api_client,
-            &repository,
-            folder_id,
-            FolderAddEditRequest {
-                name: "test".to_string(),
-            },
-        )
-        .await;
+        let result = client
+            .edit(
+                folder_id,
+                FolderAddEditRequest {
+                    name: "test".to_string(),
+                },
+            )
+            .await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), EditFolderError::Api(_)));

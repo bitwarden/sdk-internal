@@ -118,6 +118,7 @@ src/models/bulk_deny_admin_auth_request_request_model.rs
 src/models/change_plan_frequency_request.rs
 src/models/checkout_billing_address_request.rs
 src/models/cipher_attachment_model.rs
+src/models/cipher_bank_account_model.rs
 src/models/cipher_bulk_archive_request_model.rs
 src/models/cipher_bulk_delete_request_model.rs
 src/models/cipher_bulk_move_request_model.rs
@@ -277,7 +278,6 @@ src/models/organization_domain_request_model.rs
 src/models/organization_domain_response_model.rs
 src/models/organization_domain_response_model_list_response_model.rs
 src/models/organization_domain_sso_details_request_model.rs
-src/models/organization_domain_sso_details_response_model.rs
 src/models/organization_integration_configuration_request_model.rs
 src/models/organization_integration_configuration_response_model.rs
 src/models/organization_integration_request_model.rs

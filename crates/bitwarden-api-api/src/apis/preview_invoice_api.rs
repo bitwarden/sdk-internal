@@ -33,7 +33,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewOrganizationSubscriptionPlanChangeTaxError>>;
+    ) -> Result<(), Error>;
 
     /// POST /billing/preview-invoice/organizations/subscriptions/purchase
     async fn preview_organization_subscription_purchase_tax<'a>(
@@ -41,7 +41,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         preview_organization_subscription_purchase_tax_request: Option<
             models::PreviewOrganizationSubscriptionPurchaseTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewOrganizationSubscriptionPurchaseTaxError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /billing/preview-invoice/organizations/{organizationId}/subscription/update
     async fn preview_organization_subscription_update_tax<'a>(
@@ -50,7 +50,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewOrganizationSubscriptionUpdateTaxError>>;
+    ) -> Result<(), Error>;
 
     /// POST /billing/preview-invoice/premium/subscriptions/purchase
     async fn preview_premium_subscription_purchase_tax<'a>(
@@ -58,7 +58,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         preview_premium_subscription_purchase_tax_request: Option<
             models::PreviewPremiumSubscriptionPurchaseTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewPremiumSubscriptionPurchaseTaxError>>;
+    ) -> Result<(), Error>;
 
     /// POST /billing/preview-invoice/premium/subscriptions/upgrade
     async fn preview_premium_upgrade_proration<'a>(
@@ -66,7 +66,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         preview_premium_upgrade_proration_request: Option<
             models::PreviewPremiumUpgradeProrationRequest,
         >,
-    ) -> Result<(), Error<PreviewPremiumUpgradeProrationError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct PreviewInvoiceApiClient {
@@ -88,7 +88,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewOrganizationSubscriptionPlanChangeTaxError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -113,7 +113,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         preview_organization_subscription_purchase_tax_request: Option<
             models::PreviewOrganizationSubscriptionPurchaseTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewOrganizationSubscriptionPurchaseTaxError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -138,7 +138,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewOrganizationSubscriptionUpdateTaxError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -163,7 +163,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         preview_premium_subscription_purchase_tax_request: Option<
             models::PreviewPremiumSubscriptionPurchaseTaxRequest,
         >,
-    ) -> Result<(), Error<PreviewPremiumSubscriptionPurchaseTaxError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -187,7 +187,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         preview_premium_upgrade_proration_request: Option<
             models::PreviewPremiumUpgradeProrationRequest,
         >,
-    ) -> Result<(), Error<PreviewPremiumUpgradeProrationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -205,39 +205,4 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method
-/// [`PreviewInvoiceApi::preview_organization_subscription_plan_change_tax`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PreviewOrganizationSubscriptionPlanChangeTaxError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`PreviewInvoiceApi::preview_organization_subscription_purchase_tax`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PreviewOrganizationSubscriptionPurchaseTaxError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`PreviewInvoiceApi::preview_organization_subscription_update_tax`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PreviewOrganizationSubscriptionUpdateTaxError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`PreviewInvoiceApi::preview_premium_subscription_purchase_tax`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PreviewPremiumSubscriptionPurchaseTaxError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PreviewInvoiceApi::preview_premium_upgrade_proration`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PreviewPremiumUpgradeProrationError {
-    UnknownValue(serde_json::Value),
 }

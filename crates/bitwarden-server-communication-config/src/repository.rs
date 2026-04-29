@@ -26,29 +26,30 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
     /// Error type returned by `save()` operations
     type SaveError: std::fmt::Debug + Send + Sync + 'static;
 
-    /// Retrieves configuration for a hostname
+    /// Retrieves configuration for a domain
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.amazon.com")
+    /// * `domain` - The server domain (e.g., "vault.amazon.com")
     ///
     /// # Returns
     ///
-    /// - `Ok(Some(config))` - Configuration exists for this hostname
+    /// - `Ok(Some(config))` - Configuration exists for this domain
     /// - `Ok(None)` - No configuration exists (not an error)
     /// - `Err(e)` - Storage operation failed
     fn get(
         &self,
-        hostname: String,
-    ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>;
+        domain: String,
+    ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>
+    + Send;
 
-    /// Saves configuration for a hostname
+    /// Saves configuration for a domain
     ///
-    /// Overwrites any existing configuration for this hostname.
+    /// Overwrites any existing configuration for this domain.
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.amazon.com")
+    /// * `domain` - The server domain (e.g., "vault.amazon.com")
     /// * `config` - The configuration to store
     ///
     /// # Returns
@@ -57,9 +58,9 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
     /// - `Err(e)` - Storage operation failed
     fn save(
         &self,
-        hostname: String,
+        domain: String,
         config: ServerCommunicationConfig,
-    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>> + Send;
 }
 
 #[cfg(test)]
@@ -81,16 +82,12 @@ mod tests {
         type GetError = ();
         type SaveError = ();
 
-        async fn get(&self, hostname: String) -> Result<Option<ServerCommunicationConfig>, ()> {
-            Ok(self.storage.read().await.get(&hostname).cloned())
+        async fn get(&self, domain: String) -> Result<Option<ServerCommunicationConfig>, ()> {
+            Ok(self.storage.read().await.get(&domain).cloned())
         }
 
-        async fn save(
-            &self,
-            hostname: String,
-            config: ServerCommunicationConfig,
-        ) -> Result<(), ()> {
-            self.storage.write().await.insert(hostname, config);
+        async fn save(&self, domain: String, config: ServerCommunicationConfig) -> Result<(), ()> {
+            self.storage.write().await.insert(domain, config);
             Ok(())
         }
     }
@@ -110,9 +107,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com/login".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "cookie-value-123".to_string(),
@@ -133,7 +130,7 @@ mod tests {
             .unwrap();
 
         if let BootstrapConfig::SsoCookieVendor(vendor_config) = retrieved.bootstrap {
-            assert_eq!(vendor_config.cookie_name, Some("TestCookie".to_string()));
+            assert_eq!(vendor_config.cookie_name, "TestCookie");
             assert_eq!(vendor_config.cookie_value.as_ref().unwrap().len(), 1);
             assert_eq!(
                 vendor_config.cookie_value.as_ref().unwrap()[0].value,
@@ -160,9 +157,9 @@ mod tests {
         let config2 = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("Cookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "Cookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -183,7 +180,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_multiple_hostnames() {
+    async fn repository_multiple_domains() {
         let repo = InMemoryRepository::default();
 
         let config1 = ServerCommunicationConfig {
@@ -192,14 +189,14 @@ mod tests {
         let config2 = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("Cookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "Cookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
 
-        // Save different configs for different hostnames
+        // Save different configs for different domains
         repo.save("vault1.example.com".to_string(), config1)
             .await
             .unwrap();
@@ -207,7 +204,7 @@ mod tests {
             .await
             .unwrap();
 
-        // Verify each hostname has its own config
+        // Verify each domain has its own config
         let retrieved1 = repo
             .get("vault1.example.com".to_string())
             .await

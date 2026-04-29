@@ -33,6 +33,8 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
 # Team-owned crates
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
+crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
+crates/bitwarden-policies/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme

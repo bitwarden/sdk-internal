@@ -135,7 +135,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                         }
                     }
                     Err(bitwarden_ipc::TypedReceiveError::Cancelled) => {
-                        tracing::info!("Shared unlock follower stopped by cancellation");
+                        tracing::info!("Shared unlock leader stopped by cancellation");
                         break;
                     }
                     Err(error) => {
