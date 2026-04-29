@@ -60,4 +60,6 @@ pub enum RotateUserKeysError {
     UntrustedKeyError,
     #[error("Unimplemented key rotation method")]
     UnimplementedKeyRotationMethod,
+    #[error("Vault contains old attachments that must be re-uploaded before key rotation")]
+    OldAttachments,
 }

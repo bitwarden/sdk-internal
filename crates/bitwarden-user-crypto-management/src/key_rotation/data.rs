@@ -13,6 +13,8 @@ use bitwarden_vault::{CipherView, EncryptionContext, FolderView};
 use tracing::{debug, debug_span, instrument};
 use uuid::Uuid;
 
+use super::RotateUserKeysError;
+
 /// Errors that can occur during data re-encryption
 #[derive(Debug)]
 pub(crate) enum DataReencryptionError {
@@ -24,6 +26,24 @@ pub(crate) enum DataReencryptionError {
     DataConversion,
     /// CipherKeyRewrap
     CipherKeyRewrap,
+}
+
+/// Checks that no cipher contains legacy attachments (attachments where `key` is `None`).
+/// Ciphers with old attachments cannot be safely re-encrypted during key rotation because
+/// the attachment file contents are encrypted directly with the user key and would become
+/// irrecoverable after the user key change.
+pub(super) fn check_for_old_attachments(
+    ciphers: &[bitwarden_vault::Cipher],
+) -> Result<(), RotateUserKeysError> {
+    let has_old = ciphers.iter().any(|c| {
+        c.attachments
+            .as_ref()
+            .is_some_and(|atts| atts.iter().any(|a| a.key.is_none()))
+    });
+    if has_old {
+        return Err(RotateUserKeysError::OldAttachments);
+    }
+    Ok(())
 }
 
 /// Re-encrypts all user data (folders, ciphers, sends) with the new user key for the purpose of
@@ -159,7 +179,87 @@ mod tests {
     use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStore};
     use bitwarden_send::SendView;
+    use bitwarden_vault::{Attachment, Cipher, CipherRepromptType, CipherType};
     use chrono::Utc;
+
+    use super::check_for_old_attachments;
+    use crate::key_rotation::RotateUserKeysError;
+
+    const TEST_ENC_STRING: &str = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
+
+    fn make_test_cipher(attachments: Option<Vec<Attachment>>) -> Cipher {
+        Cipher {
+            id: None,
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_ENC_STRING.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+            archived_date: None,
+            data: None,
+        }
+    }
+
+    #[test]
+    fn test_check_for_old_attachments_no_attachments() {
+        let ciphers = vec![make_test_cipher(None)];
+        assert!(check_for_old_attachments(&ciphers).is_ok());
+    }
+
+    #[test]
+    fn test_check_for_old_attachments_empty_ciphers() {
+        assert!(check_for_old_attachments(&[]).is_ok());
+    }
+
+    #[test]
+    fn test_check_for_old_attachments_all_have_keys() {
+        let ciphers = vec![make_test_cipher(Some(vec![Attachment {
+            id: Some("att1".to_string()),
+            url: None,
+            size: None,
+            size_name: None,
+            file_name: Some(TEST_ENC_STRING.parse().unwrap()),
+            key: Some(TEST_ENC_STRING.parse().unwrap()),
+        }]))];
+        assert!(check_for_old_attachments(&ciphers).is_ok());
+    }
+
+    #[test]
+    fn test_check_for_old_attachments_one_missing_key() {
+        let ciphers = vec![make_test_cipher(Some(vec![Attachment {
+            id: Some("att1".to_string()),
+            url: None,
+            size: None,
+            size_name: None,
+            file_name: Some(TEST_ENC_STRING.parse().unwrap()),
+            key: None,
+        }]))];
+        assert!(matches!(
+            check_for_old_attachments(&ciphers),
+            Err(RotateUserKeysError::OldAttachments)
+        ));
+    }
 
     #[test]
     fn test_ciphers() {
@@ -199,7 +299,7 @@ mod tests {
             attachment_decryption_failures: None,
             organization_use_totp: false,
             collection_ids: vec![],
-            reprompt: bitwarden_vault::CipherRepromptType::None,
+            reprompt: CipherRepromptType::None,
             local_data: None,
             key: None,
             ssh_key: None,
