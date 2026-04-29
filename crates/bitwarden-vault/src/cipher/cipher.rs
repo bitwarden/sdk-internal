@@ -1708,19 +1708,6 @@ fn strict_decrypt_cipher_list_view(
     })
 }
 
-/// Maps the blob module's error type onto [`CryptoError`] for the [`Decryptable`]
-/// impls. The `NoBlobData` variant is unreachable here because dispatch is gated
-/// by [`is_blob_encrypted`]; format and envelope errors collapse to
-/// [`CryptoError::Decrypt`] since callers only need to know "decryption failed".
-fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
-    match err {
-        BlobEncryptionError::Crypto(c) => c,
-        BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
-            CryptoError::Decrypt
-        }
-    }
-}
-
 /// Selects between blob and legacy encryption paths. The variant is chosen at
 /// the [`CiphersClient`] layer via [`should_use_blob_encryption`].
 ///
@@ -1749,8 +1736,12 @@ where
     }
 }
 
-/// Maps blob-seal failures onto [`CryptoError`].
-pub(crate) fn blob_encrypt_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
+/// Maps the blob module's error type onto [`CryptoError`] for both seal and
+/// unseal paths. The `NoBlobData` variant is unreachable on the decrypt side
+/// because dispatch is gated by [`is_blob_encrypted`]; format and envelope
+/// errors collapse to [`CryptoError::Decrypt`] since callers only need to
+/// know "blob operation failed".
+pub(crate) fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
     match err {
         BlobEncryptionError::Crypto(c) => c,
         BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
@@ -1770,7 +1761,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMod
                 // `encrypt_blob_cipher` takes `&mut CipherView` because it may
                 // generate a cipher key; so we operate on a local clone.
                 let mut owned = view.clone();
-                encrypt_blob_cipher(&mut owned, ctx).map_err(blob_encrypt_err_to_crypto)
+                encrypt_blob_cipher(&mut owned, ctx).map_err(blob_err_to_crypto)
             }
             Self::Legacy(view) => view.encrypt_composite(ctx, key),
         }

@@ -18,10 +18,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::{
-        blob::{CipherBlobLatest, seal_blob_content},
-        cipher::{EncryptMode, PartialCipher, StrictDecrypt, blob_encrypt_err_to_crypto},
-    },
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
 };
 

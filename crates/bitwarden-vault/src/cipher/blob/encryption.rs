@@ -29,11 +29,6 @@ pub(crate) fn is_blob_encrypted(cipher: &Cipher) -> bool {
         .is_some_and(|s| SealedCipherBlob::from_opaque_string(s).is_ok())
 }
 
-/// Returns `true` if the cipher is not blob-encrypted (i.e. uses legacy field-level encryption).
-pub(crate) fn is_legacy_cipher(cipher: &Cipher) -> bool {
-    !is_blob_encrypted(cipher)
-}
-
 /// Seals a `CipherView` into an opaque blob string, using `wrapping_key` as
 /// the outer key that protects the cipher's wrapped CEK.
 fn seal_cipher(
@@ -49,7 +44,7 @@ fn seal_cipher(
 /// Seals a constructed `CipherBlobLatest` under `cipher_key`, returning the
 /// opaque string form. Shared by all `CipherBlobLatest` producers so they
 /// don't each re-implement the versioned-enum wrap + COSE seal + base64 chain.
-pub(crate) fn seal_blob_content(
+fn seal_blob_content(
     blob: CipherBlobLatest,
     cipher_key: SymmetricKeySlotId,
     ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -571,7 +566,6 @@ mod tests {
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
         assert!(is_blob_encrypted(&cipher));
-        assert!(!is_legacy_cipher(&cipher));
 
         let restored = decrypt_blob_cipher(&cipher, &mut ctx).unwrap();
 

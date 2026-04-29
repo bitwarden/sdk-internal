@@ -7,10 +7,9 @@ use bitwarden_crypto::{
     generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
-#[allow(unused_imports)]
 pub(crate) use encryption::{
     BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher,
-    encrypt_blob_cipher_with_wrapping_key, is_blob_encrypted, is_legacy_cipher, seal_blob_content,
+    encrypt_blob_cipher_with_wrapping_key, is_blob_encrypted,
 };
 use sealed::{SealedCipherBlob, SealedCipherBlobError};
 use serde::{Deserialize, Serialize};

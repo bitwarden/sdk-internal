@@ -21,10 +21,7 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, VaultParseError,
-    cipher::{
-        blob::{CipherBlobLatest, seal_blob_content},
-        cipher::{EncryptMode, PartialCipher, StrictDecrypt, blob_encrypt_err_to_crypto},
-    },
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
 };
 
@@ -878,5 +875,60 @@ mod tests {
         assert_eq!(history[2].password, "old_password_1");
         assert_eq!(history[3].password, "old_password_2");
         assert_eq!(history[4].password, "old_password_3");
+    }
+
+    mod blob_encrypt {
+        use bitwarden_core::key_management::create_test_crypto_with_user_key;
+        use bitwarden_crypto::SymmetricCryptoKey;
+
+        use super::*;
+        use crate::cipher::blob::is_blob_encrypted;
+
+        /// `EncryptMode::Blob(CipherView)` clears `password_history` from the
+        /// wire-shaped `Cipher` — history must travel inside the sealed blob,
+        /// not as a top-level encrypted field.
+        #[test]
+        fn password_history_lives_inside_blob_not_on_wire() {
+            let store =
+                create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+            let original = create_test_login_cipher("old_password");
+            let mut view = create_test_login_cipher("new_password");
+            view.update_password_history(&original);
+            // Sanity: the in-flight view captured the old password.
+            assert_eq!(view.password_history.as_ref().unwrap().len(), 1);
+
+            let cipher: Cipher = store.encrypt(EncryptMode::Blob(view)).unwrap();
+
+            assert!(is_blob_encrypted(&cipher));
+            assert!(
+                cipher.password_history.is_none(),
+                "password history must live inside the blob, not on the wire",
+            );
+            assert!(cipher.login.is_none());
+            assert!(cipher.notes.is_none());
+        }
+
+        /// End-to-end: a password change picked up by `update_password_history`
+        /// is sealed inside the blob and unsealed back out by
+        /// `BlobAwareDecrypt`.
+        #[test]
+        fn password_history_round_trips_through_the_blob() {
+            let store =
+                create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+            let original = create_test_login_cipher("old_password");
+            let mut view = create_test_login_cipher("new_password");
+            view.update_password_history(&original);
+
+            let cipher: Cipher = store.encrypt(EncryptMode::Blob(view)).unwrap();
+            let restored: CipherView = store.decrypt(&cipher).unwrap();
+
+            let history = restored
+                .password_history
+                .expect("history should round-trip through the blob");
+            assert_eq!(history.len(), 1);
+            assert_eq!(history[0].password, "old_password");
+        }
     }
 }

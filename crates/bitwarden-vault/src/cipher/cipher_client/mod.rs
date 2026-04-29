@@ -19,7 +19,7 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
     cipher::{
         blob::encrypt_blob_cipher_with_wrapping_key,
-        cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt, blob_encrypt_err_to_crypto},
+        cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt, blob_err_to_crypto},
     },
     cipher_client::admin::CipherAdminClient,
 };
@@ -161,7 +161,7 @@ impl CiphersClient {
             // not under the view's natural `User`/`Organization` slot — so we must
             // pass it explicitly as the outer wrapping key.
             encrypt_blob_cipher_with_wrapping_key(&mut cipher_view, &mut ctx, new_key_id)
-                .map_err(blob_encrypt_err_to_crypto)?
+                .map_err(blob_err_to_crypto)?
         } else {
             cipher_view.encrypt_composite(&mut ctx, new_key_id)?
         };
