@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bitwarden_core::{
     Client, FromClient, OrganizationId,
     client::{ApiConfigurations, FromClientPart},
-    key_management::KeySlotIds,
+    key_management::{BLOB_SECURITY_VERSION, KeySlotIds},
 };
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
@@ -62,6 +62,25 @@ impl FromClient for CiphersClient {
 #[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
+    /// Returns `true` when cipher data for the given scope should be written in the
+    /// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
+    /// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
+    #[allow(dead_code)] // Consumed by the encrypt/decrypt wiring ticket.
+    pub(crate) fn should_use_blob_encryption(
+        &self,
+        organization_id: Option<OrganizationId>,
+    ) -> bool {
+        if organization_id.is_some() {
+            return false;
+        }
+        self.client
+            .internal
+            .get_key_store()
+            .context()
+            .get_security_state_version()
+            >= BLOB_SECURITY_VERSION
+    }
+
     #[allow(missing_docs)]
     pub async fn encrypt(
         &self,
@@ -886,5 +905,41 @@ mod tests {
         for ctx in contexts {
             assert_eq!(ctx.encrypted_for, expected_user_id);
         }
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_individual_above_threshold_returns_true() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        assert!(client.vault().ciphers().should_use_blob_encryption(None));
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_individual_below_threshold_returns_false() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        // Default KeyStore security_state_version is 1, below BLOB_SECURITY_VERSION (2).
+
+        assert!(!client.vault().ciphers().should_use_blob_encryption(None));
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_organization_returns_false() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+
+        assert!(
+            !client
+                .vault()
+                .ciphers()
+                .should_use_blob_encryption(Some(org_id))
+        );
     }
 }

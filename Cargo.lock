@@ -897,8 +897,10 @@ dependencies = [
  "chrono",
  "serde",
  "serde_repr",
+ "tsify",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -912,6 +914,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
+ "bitwarden-policies",
  "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-state",
@@ -988,6 +991,29 @@ dependencies = [
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-shared-unlock"
+version = "2.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-core",
+ "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-ipc",
+ "bitwarden-threading",
+ "js-sys",
+ "serde",
+ "serde_bytes",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-time",
+ "zeroize",
 ]
 
 [[package]]
@@ -1262,6 +1288,7 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-pm",
+ "bitwarden-policies",
  "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",

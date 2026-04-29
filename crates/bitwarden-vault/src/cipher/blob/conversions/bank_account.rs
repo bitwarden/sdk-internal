@@ -56,6 +56,7 @@ mod tests {
         let bank_account = restored.bank_account.unwrap();
         assert_eq!(bank_account.bank_name, Some("Test Bank".to_string()));
         assert_eq!(bank_account.account_number, Some("1234567890".to_string()));
+        assert_eq!(bank_account.pin, Some("1234".to_string()));
         assert!(restored.login.is_none());
     }
 }

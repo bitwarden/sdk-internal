@@ -16,15 +16,17 @@ keywords.workspace = true
 
 [features]
 uniffi = ["bitwarden-core/uniffi", "dep:uniffi"]
-wasm = []
+wasm = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
 bitwarden-core = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [lints]
 workspace = true

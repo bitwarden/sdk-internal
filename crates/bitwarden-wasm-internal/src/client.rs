@@ -4,6 +4,7 @@ use std::{fmt::Display, sync::Arc};
 use bitwarden_core::ClientSettings;
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
+use bitwarden_policies::PolicyClient;
 use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
 use wasm_bindgen::prelude::*;
 
@@ -100,6 +101,11 @@ impl PasswordManagerClient {
     /// Exporter related operations.
     pub fn exporters(&self) -> ExporterClient {
         self.0.exporters()
+    }
+
+    /// Policy related operations.
+    pub fn policies(&self) -> PolicyClient {
+        self.0.policies()
     }
 
     /// Send related operations.
