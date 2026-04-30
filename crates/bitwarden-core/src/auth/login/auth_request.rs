@@ -91,11 +91,14 @@ pub(crate) async fn complete_auth_request(
     .await?;
 
     if let IdentityTokenResponse::Authenticated(r) = response {
-        client.internal.set_tokens(
-            r.access_token.clone(),
-            r.refresh_token.clone(),
-            r.expires_in,
-        );
+        client
+            .internal
+            .set_tokens(
+                r.access_token.clone(),
+                r.refresh_token.clone(),
+                r.expires_in,
+            )
+            .await;
 
         let method = match res.master_password_hash {
             Some(_) => AuthRequestMethod::MasterKey {

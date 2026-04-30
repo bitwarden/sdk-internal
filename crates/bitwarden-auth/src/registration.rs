@@ -75,7 +75,6 @@ pub struct JitMasterPasswordRegistrationRequest {
 
 /// Client for initializing a user account.
 #[derive(Clone)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct RegistrationClient {
     #[allow(dead_code)]
@@ -88,7 +87,6 @@ impl RegistrationClient {
     }
 }
 
-#[cfg_attr(feature = "uniffi", uniffi::export)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls in
@@ -552,6 +550,7 @@ mod tests {
                         r#type: None,
                         identifier: None,
                         creation_date: None,
+                        last_activity_date: None,
                         is_trusted: None,
                         encrypted_user_key: None,
                         encrypted_public_key: None,
@@ -982,7 +981,7 @@ mod tests {
                         let signature_key_pair = account_keys.signature_key_pair.as_ref().unwrap();
                         assert_eq!(
                             signature_key_pair.signature_algorithm,
-                            Some("ed25519".to_string())
+                            Some("mldsa44".to_string())
                         );
                         assert!(signature_key_pair.verifying_key.is_some());
                         assert!(signature_key_pair.wrapped_signing_key.is_some());

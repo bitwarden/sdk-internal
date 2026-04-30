@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
-use bitwarden_core::{ApiError, OrganizationId, key_management::KeyIds};
+use bitwarden_core::{ApiError, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -29,7 +29,7 @@ pub async fn list_org_ciphers(
     org_id: OrganizationId,
     include_member_items: bool,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
 ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
     let api = api_client.ciphers_api();
     let response: CipherMiniDetailsResponseModelListResponseModel = api
@@ -73,8 +73,8 @@ mod tests {
         apis::ApiClient,
         models::{CipherMiniDetailsResponseModel, CipherMiniDetailsResponseModelListResponseModel},
     };
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use chrono::Utc;
 
     use super::*;
@@ -84,13 +84,10 @@ mod tests {
     const TEST_CIPHER_ID_1: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_CIPHER_ID_2: &str = "6faa9684-c793-4a2d-8a12-b33900187098";
 
-    fn generate_test_cipher(store: &KeyStore<KeyIds>) -> Cipher {
-        let mut ctx = store.context();
+    fn generate_test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID_1.parse().ok(),
-            name: "Test cipher"
-                .encrypt(&mut ctx, SymmetricKeyId::User)
-                .unwrap(),
+            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
             r#type: CipherType::Login,
             notes: Default::default(),
             organization_id: Default::default(),
@@ -113,6 +110,7 @@ mod tests {
             card: Default::default(),
             secure_note: Default::default(),
             ssh_key: Default::default(),
+            bank_account: Default::default(),
             organization_use_totp: Default::default(),
             edit: Default::default(),
             permissions: Default::default(),
@@ -140,11 +138,11 @@ mod tests {
         }
     }
 
-    fn setup_key_store() -> KeyStore<KeyIds> {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+    fn setup_key_store() -> KeyStore<KeySlotIds> {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         store
@@ -152,9 +150,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_org_ciphers_all_success() {
-        let store = setup_key_store();
-        let cipher_1 = generate_test_cipher(&store);
-        let mut cipher_2 = generate_test_cipher(&store);
+        let cipher_1 = generate_test_cipher();
+        let mut cipher_2 = generate_test_cipher();
         cipher_2.id = TEST_CIPHER_ID_2.parse().ok();
 
         let response_1 = mock_api_response(&cipher_1);
@@ -171,6 +168,8 @@ mod tests {
                     })
                 });
         });
+
+        let store = setup_key_store();
         let result = list_org_ciphers(TEST_ORG_ID.parse().unwrap(), true, &api_client, &store)
             .await
             .unwrap();
@@ -183,9 +182,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_org_ciphers_with_failures() {
-        let store = setup_key_store();
-        let cipher = generate_test_cipher(&store);
-        let mut cipher_with_bad_key = generate_test_cipher(&store);
+        let cipher = generate_test_cipher();
+        let mut cipher_with_bad_key = generate_test_cipher();
         cipher_with_bad_key.id = TEST_CIPHER_ID_2.parse().ok();
 
         let response_good = mock_api_response(&cipher);
@@ -204,6 +202,8 @@ mod tests {
                     })
                 });
         });
+
+        let store = setup_key_store();
         let result = list_org_ciphers(TEST_ORG_ID.parse().unwrap(), true, &api_client, &store)
             .await
             .unwrap();

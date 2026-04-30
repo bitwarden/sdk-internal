@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Add, sync::Arc};
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
@@ -25,7 +25,7 @@ impl<L: SharedUnlockDriver> Clone for Follower<L> {
 /// Inner implementation of the shared unlock follower, containing the actual state and logic. The
 /// outer `Follower` struct is a thin wrapper around an `Arc` to allow for shared ownership across
 /// async tasks.
-pub struct InnerFollower<D: SharedUnlockDriver> {
+struct InnerFollower<D: SharedUnlockDriver> {
     driver: D,
     ipc_client: Arc<dyn IpcClient>,
 }
@@ -35,13 +35,11 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
     ///
     /// During startup, a `StartSession` message is sent per user so the leader can reconcile
     /// initial lock state.
-    pub async fn create(driver: L, ipc_client: Arc<dyn IpcClient>) -> Self {
-        let follower = Self(Arc::new(InnerFollower { driver, ipc_client }));
-        follower.start_sessions().await;
-        follower
+    pub fn create(driver: L, ipc_client: Arc<dyn IpcClient>) -> Self {
+        Self(Arc::new(InnerFollower { driver, ipc_client }))
     }
 
-    async fn start_sessions(&self) {
+    pub(crate) async fn start_sessions(&self) {
         let users: Vec<bitwarden_core::UserId> = self.0.driver.list_users().await;
         let leader = self
             .0
@@ -84,6 +82,10 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                             );
                         }
                     }
+                    Err(bitwarden_ipc::TypedReceiveError::Cancelled) => {
+                        tracing::info!("Shared unlock follower stopped by cancellation");
+                        break;
+                    }
                     Err(error) => {
                         tracing::error!(?error, "Failed to receive shared unlock IPC message");
                     }
@@ -107,8 +109,12 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                         break;
                     }
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
-                        if let Err(error) = follower.handle_device_event(DeviceEvent::Timer).await {
-                            tracing::error!(?error, "Failed to handle shared unlock follower timer event");
+                        if let Some(leader) = follower.0.driver.discover_leader().await {
+                            // For all users that are logged in, send a heartbeat message to the leader.
+                            for user_id in follower.0.driver.list_users().await {
+                                let message = FollowerMessage::HeartBeat { user_id };
+                                follower.send_message(message, leader.clone()).await;
+                            }
                         }
                     }
                 }
@@ -120,6 +126,8 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
 
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(timer_future);
+
+        self.start_sessions().await;
         Ok(())
     }
 
@@ -164,7 +172,10 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
             LeaderMessage::HeartBeat { user_id } => {
                 self.0
                     .driver
-                    .suppress_vault_timeout(user_id, crate::HEARTBEAT_INTERVAL)
+                    .suppress_vault_timeout(
+                        user_id,
+                        crate::HEARTBEAT_INTERVAL.add(crate::VAULT_TIMEOUT_GRACE_PERIOD),
+                    )
                     .await;
             }
         }
@@ -187,21 +198,17 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                 };
                 self.send_message(message, leader).await;
             }
-            DeviceEvent::ManualUnlock { user_id, user_key } => {
+            DeviceEvent::ManualUnlock {
+                user_id,
+                ref user_key,
+            } => {
                 let message = FollowerMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
-                        user_key: super::UserKey::from_bytes(user_key),
+                        user_key: super::UserKey::from_bytes(user_key.to_owned()),
                     },
                 };
                 self.send_message(message, leader).await;
-            }
-            DeviceEvent::Timer => {
-                // For all users that are logged in, send a heartbeat message to the leader.
-                for user_id in self.0.driver.list_users().await {
-                    let message = FollowerMessage::HeartBeat { user_id };
-                    self.send_message(message, leader.clone()).await;
-                }
             }
         }
 

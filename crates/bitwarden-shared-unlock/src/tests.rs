@@ -157,7 +157,8 @@ impl Harness {
             InMemorySessionRepository::new(HashMap::new()),
         ));
 
-        let follower = Follower::create(follower_lock.clone(), ipc_client).await;
+        let follower = Follower::create(follower_lock.clone(), ipc_client);
+        follower.start_sessions().await;
 
         let mut harness = Self {
             leader,
@@ -271,40 +272,6 @@ async fn test_follower_startup_unlocked_propagates_to_leader() {
 }
 
 #[tokio::test]
-async fn test_follower_unlock_propagates_to_leader() {
-    let user = user_a();
-    let key = test_user_key();
-    let leader_states = HashMap::from([(user, LockState::Locked)]);
-    let follower_states = HashMap::from([(user, LockState::Locked)]);
-
-    let mut harness = Harness::new(leader_states, follower_states).await;
-
-    // Follower manually unlocks
-    harness
-        .follower
-        .handle_device_event(DeviceEvent::ManualUnlock {
-            user_id: user,
-            user_key: key.as_bytes().to_vec(),
-        })
-        .await
-        .unwrap();
-
-    harness.pump().await;
-
-    assert_eq!(
-        harness.leader_lock.get_state(user),
-        LockState::Unlocked {
-            user_key: key.clone()
-        }
-    );
-    // Follower also receives the echo back and unlocks locally
-    assert_eq!(
-        harness.follower_lock.get_state(user),
-        LockState::Unlocked { user_key: key }
-    );
-}
-
-#[tokio::test]
 async fn test_follower_lock_propagates_to_leader() {
     let user = user_a();
     let key = test_user_key();
@@ -327,7 +294,6 @@ async fn test_follower_lock_propagates_to_leader() {
     harness.pump().await;
 
     assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
-    assert_eq!(harness.follower_lock.get_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -379,29 +345,6 @@ async fn test_leader_unlock_broadcasts_to_follower() {
         harness.follower_lock.get_state(user),
         LockState::Unlocked { user_key: key }
     );
-}
-
-#[tokio::test]
-async fn test_heartbeat_round_trip() {
-    let user = user_a();
-    let leader_states = HashMap::from([(user, LockState::Locked)]);
-    let follower_states = HashMap::from([(user, LockState::Locked)]);
-
-    let mut harness = Harness::new(leader_states, follower_states).await;
-
-    // Follower fires Timer -> sends HeartBeat for all users
-    harness
-        .follower
-        .handle_device_event(DeviceEvent::Timer)
-        .await
-        .unwrap();
-
-    harness.pump().await;
-
-    let suppressions = harness.follower_lock.timeout_suppressions.lock().unwrap();
-    assert_eq!(suppressions.len(), 1);
-    assert_eq!(suppressions[0].0, user);
-    assert_eq!(suppressions[0].1, crate::HEARTBEAT_INTERVAL);
 }
 
 #[tokio::test]

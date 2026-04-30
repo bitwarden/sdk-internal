@@ -1,5 +1,7 @@
 pub(crate) mod attachment;
 pub(crate) mod attachment_client;
+pub(crate) mod bank_account;
+#[allow(dead_code)]
 pub(crate) mod blob;
 pub(crate) mod card;
 #[allow(clippy::module_inception)]
@@ -19,6 +21,7 @@ pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
 pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
+pub use bank_account::BankAccountView;
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,

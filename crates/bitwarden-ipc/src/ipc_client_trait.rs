@@ -1,5 +1,7 @@
+use bitwarden_threading::cancellation_token::CancellationToken;
+
 use crate::{
-    error::{SendError, SubscribeError},
+    error::{AlreadyRunningError, SendError, SubscribeError},
     ipc_client::IpcClientSubscription,
     message::OutgoingMessage,
     rpc::exec::handler::ErasedRpcHandler,
@@ -15,13 +17,13 @@ use crate::{
 #[async_trait::async_trait]
 pub trait IpcClient: Send + Sync {
     /// Start the IPC client, which will begin listening for incoming messages and processing them.
-    async fn start(&self);
+    async fn start(
+        &self,
+        cancellation_token: Option<CancellationToken>,
+    ) -> Result<(), AlreadyRunningError>;
 
     /// Check if the IPC client task is currently running.
-    async fn is_running(&self) -> bool;
-
-    /// Stop the IPC client task. This will stop listening for incoming messages.
-    async fn stop(&self);
+    fn is_running(&self) -> bool;
 
     /// Send a message over IPC.
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError>;

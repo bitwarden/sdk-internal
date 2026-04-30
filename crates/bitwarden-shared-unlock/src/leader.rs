@@ -1,5 +1,8 @@
+#[cfg(not(feature = "wasm"))]
+use std::time::Instant;
 use std::{
     collections::HashMap,
+    ops::Sub,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -9,12 +12,14 @@ use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedInco
 use bitwarden_threading::cancellation_token;
 use thiserror::Error;
 use tracing::{info, warn};
+#[cfg(feature = "wasm")]
+use web_time::Instant;
 
 use crate::{
     DeviceEvent, FollowerMessage, LeaderMessage, LockState, UserKey, drivers::SharedUnlockDriver,
 };
 
-const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
+const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(30);
 
 /// Error type for failure to start the shared unlock leader.
 #[bitwarden_error(basic)]
@@ -23,7 +28,7 @@ const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
 pub struct LeaderStartError(#[from] SubscribeError);
 
 struct FollowerSession {
-    last_seen_at: u64,
+    last_seen_at: Instant,
 }
 
 struct FollowerSessions {
@@ -37,7 +42,7 @@ impl FollowerSessions {
         }
     }
 
-    fn upsert(&self, endpoint: bitwarden_ipc::Endpoint, seen_at: u64) {
+    fn upsert(&self, endpoint: bitwarden_ipc::Endpoint) {
         let mut sessions = self
             .sessions
             .lock()
@@ -50,7 +55,7 @@ impl FollowerSessions {
         sessions.insert(
             endpoint,
             FollowerSession {
-                last_seen_at: seen_at,
+                last_seen_at: Instant::now(),
             },
         );
     }
@@ -64,20 +69,19 @@ impl FollowerSessions {
         sessions.keys().cloned().collect()
     }
 
-    fn prune_stale(&self, now: u64, stale_after: Duration) {
+    fn prune_stale(&self, stale_after: Duration) {
         let mut sessions = self
             .sessions
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        let stale_after_millis = stale_after.as_millis() as u64;
+        let now = Instant::now();
         for (endpoint, session) in sessions.iter() {
-            if now.saturating_sub(session.last_seen_at) > stale_after_millis {
+            if now.sub(session.last_seen_at) > stale_after {
                 info!("Shared-Unlock client {:?} disconnected", endpoint);
             }
         }
-        sessions
-            .retain(|_, session| now.saturating_sub(session.last_seen_at) <= stale_after_millis);
+        sessions.retain(|_, session| now.sub(session.last_seen_at) <= stale_after);
     }
 }
 
@@ -122,9 +126,12 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
             .await?;
         let leader = self.clone();
 
+        let cancellation_token_clone = cancellation_token.clone();
         let future = async move {
             loop {
-                let result = subscription.receive(Some(cancellation_token.clone())).await;
+                let result = subscription
+                    .receive(Some(cancellation_token_clone.clone()))
+                    .await;
                 match result {
                     Ok(message) => {
                         if let Err(error) = leader.receive_message(message).await {
@@ -133,6 +140,10 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                                 "Failed to handle shared unlock leader message"
                             );
                         }
+                    }
+                    Err(bitwarden_ipc::TypedReceiveError::Cancelled) => {
+                        tracing::info!("Shared unlock leader stopped by cancellation");
+                        break;
                     }
                     Err(error) => {
                         tracing::error!(?error, "Failed to receive shared unlock IPC message");
@@ -146,6 +157,30 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
 
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(future);
+
+        let cancellation_token = cancellation_token.clone();
+        let leader = self.clone();
+        let timer_future = async move {
+            loop {
+                tokio::select! {
+                    _ = cancellation_token.cancelled() => {
+                        tracing::debug!("Shared unlock leader timer cancelled");
+                        break;
+                    }
+                    _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
+                        leader.0
+                            .follower_sessions
+                            .prune_stale(FOLLOWER_STALE_AFTER);
+                    }
+                }
+            }
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(timer_future);
+
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(timer_future);
 
         Ok(())
     }
@@ -190,9 +225,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 user_id,
                 lock_state: LockState::Locked,
             } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
 
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
                 if self_lock_state == LockState::Locked {
@@ -204,20 +237,13 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     .lock_user(user_id)
                     .await
                     .inspect_err(|_| warn!(%user_id, "Failed to lock user"))?;
-                let response = LeaderMessage::LockStateUpdate {
-                    user_id,
-                    lock_state: LockState::Locked,
-                };
-                self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
             FollowerMessage::LockStateUpdate {
                 user_id,
                 lock_state: LockState::Unlocked { user_key },
             } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
 
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
                 if let LockState::Unlocked { .. } = self_lock_state {
@@ -229,20 +255,13 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     .unlock_user(user_id, user_key.clone())
                     .await
                     .inspect_err(|_| warn!(%user_id, "Failed to unlock user"))?;
-                let response = LeaderMessage::LockStateUpdate {
-                    user_id,
-                    lock_state: LockState::Unlocked { user_key },
-                };
-                self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
             FollowerMessage::StartSession {
                 user_id,
                 lock_state,
             } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
 
                 match (lock_state, self_lock_state.clone()) {
@@ -270,9 +289,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 Ok(())
             }
             FollowerMessage::HeartBeat { user_id } => {
-                self.0
-                    .follower_sessions
-                    .upsert(endpoint.clone(), get_current_timestamp());
+                self.0.follower_sessions.upsert(endpoint.clone());
 
                 // Echo back the heartbeat to confirm liveness
                 let response = LeaderMessage::HeartBeat { user_id };
@@ -304,19 +321,17 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 };
                 self.broadcast_to_active_followers(message).await;
             }
-            DeviceEvent::ManualUnlock { user_id, user_key } => {
+            DeviceEvent::ManualUnlock {
+                user_id,
+                ref user_key,
+            } => {
                 let message = LeaderMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
-                        user_key: UserKey::from_bytes(user_key),
+                        user_key: UserKey::from_bytes(user_key.to_owned()),
                     },
                 };
                 self.broadcast_to_active_followers(message).await;
-            }
-            DeviceEvent::Timer => {
-                self.0
-                    .follower_sessions
-                    .prune_stale(get_current_timestamp(), FOLLOWER_STALE_AFTER);
             }
         }
 
@@ -327,20 +342,5 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
         if let Err(error) = self.0.ipc_client.send_typed(message, recipient).await {
             tracing::error!(?error, "Failed to send shared unlock IPC message");
         }
-    }
-}
-
-fn get_current_timestamp() -> u64 {
-    #[cfg(target_arch = "wasm32")]
-    {
-        js_sys::Date::now() as u64
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_else(|_| std::time::Duration::from_secs(0))
-            .as_millis() as u64
     }
 }

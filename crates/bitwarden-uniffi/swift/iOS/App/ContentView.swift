@@ -222,7 +222,7 @@ struct ContentView: View {
         }
 
         if setupPin {
-            let pinOptions = try clientCrypto.derivePinKey(pin: PIN)
+            let pinOptions = try await clientCrypto.derivePinKey(pin: PIN)
 
             let defaults = UserDefaults.standard
             defaults.set(loginData.PrivateKey, forKey: "privateKey")

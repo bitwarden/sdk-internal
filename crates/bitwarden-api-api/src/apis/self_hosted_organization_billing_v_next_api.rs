@@ -27,10 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SelfHostedOrganizationBillingVNextApi: Send + Sync {
     /// GET /organizations/{organizationId}/billing/vnext/self-host/metadata
-    async fn get_metadata<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetMetadataError>>;
+    async fn get_metadata<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 }
 
 pub struct SelfHostedOrganizationBillingVNextApiClient {
@@ -46,10 +43,7 @@ impl SelfHostedOrganizationBillingVNextApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SelfHostedOrganizationBillingVNextApi for SelfHostedOrganizationBillingVNextApiClient {
-    async fn get_metadata<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetMetadataError>> {
+    async fn get_metadata<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -66,11 +60,4 @@ impl SelfHostedOrganizationBillingVNextApi for SelfHostedOrganizationBillingVNex
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SelfHostedOrganizationBillingVNextApi::get_metadata`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMetadataError {
-    UnknownValue(serde_json::Value),
 }
