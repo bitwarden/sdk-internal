@@ -32,7 +32,12 @@ pub struct Account {
 pub(crate) fn build_cxf(account: Account, ciphers: Vec<Cipher>) -> Result<String, CxfError> {
     let items: Vec<Item> = ciphers
         .into_iter()
-        .filter(|c| !matches!(c.r#type, CipherType::BankAccount))
+        .filter(|c| {
+            !matches!(
+                c.r#type,
+                CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense
+            )
+        })
         .flat_map(|cipher| cipher.try_into())
         .collect();
 

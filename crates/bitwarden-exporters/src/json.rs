@@ -18,7 +18,12 @@ pub(crate) fn export_json(folders: Vec<Folder>, ciphers: Vec<Cipher>) -> Result<
         folders: folders.into_iter().map(|f| f.into()).collect(),
         items: ciphers
             .into_iter()
-            .filter(|c| !matches!(c.r#type, CipherType::BankAccount))
+            .filter(|c| {
+                !matches!(
+                    c.r#type,
+                    CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense
+                )
+            })
             .map(|c| c.into())
             .collect(),
     };
