@@ -6,7 +6,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{Cipher, CipherId, CiphersClient, FolderId};
+use crate::{CipherId, CiphersClient, FolderId};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -26,8 +26,8 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for MoveCipherError {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Moves multiple [Cipher] objects to a folder, or clears their folder when `folder_id` is
-    /// `None`.
+    /// Moves multiple [`Cipher`](crate::Cipher) objects to a folder, or clears their folder when
+    /// `folder_id` is `None`.
     pub async fn move_many(
         &self,
         cipher_ids: Vec<CipherId>,

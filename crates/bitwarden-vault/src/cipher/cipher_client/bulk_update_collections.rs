@@ -9,7 +9,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{Cipher, CipherId, CiphersClient};
+use crate::{CipherId, CiphersClient};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -29,7 +29,7 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for BulkUpdateCollectionsCipherE
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Updates collection membership for multiple [Cipher] objects.
+    /// Updates collection membership for multiple [`Cipher`](crate::Cipher) objects.
     ///
     /// When `remove_collections` is `true`, the given collection IDs are removed from each cipher.
     /// When `false`, they are added without introducing duplicates.
