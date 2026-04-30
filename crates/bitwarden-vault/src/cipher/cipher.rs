@@ -360,6 +360,61 @@ impl Cipher {
 
 bitwarden_state::register_repository_item!(CipherId => Cipher, "Cipher");
 
+impl TryFrom<Cipher> for CipherRequestModel {
+    type Error = CryptoError;
+
+    /// Structural mapping from an encrypted [`Cipher`] to the API's expected
+    /// [`CipherRequestModel`]. No crypto — all encryption happened upstream in
+    /// `CipherView::encrypt_composite`. Callers are responsible for setting
+    /// `encrypted_for` after the conversion.
+    ///
+    /// Fails with [`CryptoError::MissingField`] if any attachment has no `id`
+    fn try_from(c: Cipher) -> Result<Self, Self::Error> {
+        let attachments2 = c
+            .attachments
+            .map(|list| {
+                list.into_iter()
+                    .map(|a| {
+                        let id = a.id.clone().ok_or(CryptoError::MissingField("id"))?;
+                        Ok::<_, CryptoError>((id, a.into()))
+                    })
+                    .collect::<Result<_, _>>()
+            })
+            .transpose()?;
+
+        Ok(CipherRequestModel {
+            encrypted_for: None,
+            r#type: Some(c.r#type.into()),
+            organization_id: c.organization_id.map(|id| id.to_string()),
+            folder_id: c.folder_id.map(|id| id.to_string()),
+            favorite: Some(c.favorite),
+            reprompt: Some(c.reprompt.into()),
+            key: c.key.map(|k| k.to_string()),
+            name: c.name.to_string(),
+            notes: c.notes.map(|n| n.to_string()),
+            login: c.login.map(|v| Box::new(v.into())),
+            card: c.card.map(|v| Box::new(v.into())),
+            identity: c.identity.map(|v| Box::new(v.into())),
+            secure_note: c.secure_note.map(|v| Box::new(v.into())),
+            ssh_key: c.ssh_key.map(|v| Box::new(v.into())),
+            bank_account: c.bank_account.map(|v| Box::new(v.into())),
+            drivers_license: c.drivers_license.map(|v| Box::new(v.into())),
+            passport: c.passport.map(|v| Box::new(v.into())),
+            fields: c.fields.map(|f| f.into_iter().map(Into::into).collect()),
+            password_history: c
+                .password_history
+                .map(|h| h.into_iter().map(Into::into).collect()),
+            attachments: None,
+            attachments2,
+            last_known_revision_date: Some(
+                c.revision_date.to_rfc3339_opts(SecondsFormat::Secs, true),
+            ),
+            archived_date: c.archived_date.map(|d| d.to_rfc3339()),
+            data: c.data,
+        })
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -706,7 +761,7 @@ impl Cipher {
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
     #[instrument(err, skip_all)]
-    pub(super) fn decrypt_cipher_key(
+    pub(crate) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
         ciphers_key: &Option<EncString>,

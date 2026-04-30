@@ -7,12 +7,20 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     filter::{PolicyType, PolicyView},
+    policy_overrides::*,
     registry::PolicyRegistry,
 };
 
 fn build_policy_registry() -> PolicyRegistry {
-    // Policy definitions will be registered here in PM-34154
-    PolicyRegistry::builder().build()
+    PolicyRegistry::builder()
+        .register(MasterPasswordPolicy)
+        .register(PasswordGeneratorPolicy)
+        .register(MaximumVaultTimeoutPolicy)
+        .register(FreeFamiliesSponsorshipPolicy)
+        .register(RemoveUnlockWithPinPolicy)
+        .register(RestrictedItemTypesPolicy)
+        .register(AutomaticUserConfirmationPolicy)
+        .build()
 }
 
 /// Client for policy domain operations.
@@ -59,8 +67,8 @@ impl PolicyClient {
 }
 
 /// Extension trait that adds a [`policies`](PoliciesClientExt::policies) method to [`Client`].
-#[allow(missing_docs)]
 pub trait PoliciesClientExt {
+    /// Creates a new [PolicyClient] instance.
     fn policies(&self) -> PolicyClient;
 }
 
