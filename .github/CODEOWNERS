@@ -37,6 +37,7 @@ crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev @bitwarden/t
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
@@ -46,6 +47,7 @@ crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 # KM Co-owned files
 crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-dev
 
 # BW CLI
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev

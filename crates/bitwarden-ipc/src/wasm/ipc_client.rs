@@ -6,11 +6,12 @@ use wasm_bindgen::prelude::*;
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
     IpcClientImpl,
+    crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
     error::{AlreadyRunningError, ReceiveError, SubscribeError},
     ipc_client::IpcClientSubscription,
     ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage},
-    traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
+    traits::InMemorySessionRepository,
     wasm::{
         JsSessionRepository, RawJsSessionRepository,
         generic_session_repository::GenericSessionRepository,
@@ -64,7 +65,7 @@ impl JsIpcClient {
     ) -> JsIpcClient {
         JsIpcClient {
             client: Arc::new(IpcClientImpl::new(
-                NoEncryptionCryptoProvider,
+                NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
                     HashMap::new(),
@@ -72,6 +73,7 @@ impl JsIpcClient {
             )),
         }
     }
+
     /// Create a new `IpcClient` instance with a client-managed session repository for saving
     /// sessions using State Provider.
     #[wasm_only]
@@ -82,7 +84,7 @@ impl JsIpcClient {
     ) -> JsIpcClient {
         JsIpcClient {
             client: Arc::new(IpcClientImpl::new(
-                NoEncryptionCryptoProvider,
+                NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::JsSessionRepository(Arc::new(JsSessionRepository::new(
                     session_repository,

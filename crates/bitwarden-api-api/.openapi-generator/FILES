@@ -131,6 +131,7 @@ src/models/cipher_collections_request_model.rs
 src/models/cipher_create_request_model.rs
 src/models/cipher_details_response_model.rs
 src/models/cipher_details_response_model_list_response_model.rs
+src/models/cipher_drivers_license_model.rs
 src/models/cipher_fido2_credential_model.rs
 src/models/cipher_field_model.rs
 src/models/cipher_identity_model.rs
@@ -141,6 +142,7 @@ src/models/cipher_mini_details_response_model_list_response_model.rs
 src/models/cipher_mini_response_model.rs
 src/models/cipher_mini_response_model_list_response_model.rs
 src/models/cipher_partial_request_model.rs
+src/models/cipher_passport_model.rs
 src/models/cipher_password_history_model.rs
 src/models/cipher_permissions_response_model.rs
 src/models/cipher_reprompt_type.rs

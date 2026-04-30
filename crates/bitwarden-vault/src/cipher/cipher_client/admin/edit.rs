@@ -1,4 +1,7 @@
-use bitwarden_api_api::{apis::ApiClient, models::CipherCollectionsRequestModel};
+use bitwarden_api_api::{
+    apis::ApiClient,
+    models::{CipherCollectionsRequestModel, CipherRequestModel},
+};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
@@ -14,7 +17,7 @@ use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
     cipher::cipher::{PartialCipher, StrictDecrypt},
-    cipher_client::edit::{CipherEditRequest, CipherEditRequestInternal},
+    cipher_client::edit::{CipherEditRequest, convert_request_to_cipher_view},
 };
 
 #[allow(missing_docs)]
@@ -54,15 +57,26 @@ async fn edit_cipher(
     original_cipher_view: CipherView,
     request: CipherEditRequest,
     use_strict_decryption: bool,
+    enable_cipher_key_encryption: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let cipher_id = request.id;
     // CipherMiniResponseModel does not include folder_id or favorite — save them from the
     // request before it is consumed so they can be applied to the merged result.
     let folder_id = request.folder_id;
     let favorite = request.favorite;
-    let request = CipherEditRequestInternal::new(request, &original_cipher_view);
 
-    let mut cipher_request = key_store.encrypt(request)?;
+    let mut view: CipherView = convert_request_to_cipher_view(request);
+    view.update_password_history(&original_cipher_view);
+
+    // TODO: Once this flag is removed, the key generation logic should be
+    // moved directly into the CompositeEncryptable implementation.
+    if view.key.is_none() && enable_cipher_key_encryption {
+        let key = view.key_identifier();
+        view.generate_cipher_key(&mut key_store.context(), key)?;
+    }
+
+    let cipher: Cipher = key_store.encrypt(view)?;
+    let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
     let orig_cipher = key_store.encrypt(original_cipher_view)?;
@@ -117,7 +131,7 @@ impl CipherAdminClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(
         &self,
-        mut request: CipherEditRequest,
+        request: CipherEditRequest,
         original_cipher_view: CipherView,
     ) -> Result<CipherView, EditCipherAdminError> {
         let key_store = self.client.internal.get_key_store();
@@ -129,19 +143,12 @@ impl CipherAdminClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved closer to the actual encryption logic.
-        if request.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
-        {
-            let key = request.key_identifier();
-            request.generate_cipher_key(&mut key_store.context(), key)?;
-        }
+        let enable_cipher_key_encryption = self
+            .client
+            .internal
+            .get_flags()
+            .await
+            .enable_cipher_key_encryption;
 
         edit_cipher(
             key_store,
@@ -150,6 +157,7 @@ impl CipherAdminClient {
             original_cipher_view,
             request,
             self.is_strict_decrypt().await,
+            enable_cipher_key_encryption,
         )
         .await
     }
@@ -263,6 +271,8 @@ mod tests {
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
                         bank_account: body.bank_account,
+                        drivers_license: None,
+                        passport: None,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,
@@ -290,6 +300,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             original_cipher_view,
             request,
+            false,
             false,
         )
         .await
@@ -328,6 +339,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             orig_cipher_view,
             request,
+            false,
             false,
         )
         .await;
