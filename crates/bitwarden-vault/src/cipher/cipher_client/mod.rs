@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::{BlobAwareDecrypt, DecryptCipherListResult},
+    cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
 #[cfg(feature = "wasm")]
@@ -215,11 +215,11 @@ impl CiphersClient {
     #[allow(missing_docs)]
     pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        let use_strict = self.is_strict_decrypt().await;
-        Ok(key_store.decrypt(&BlobAwareDecrypt {
-            inner: cipher,
-            use_strict,
-        })?)
+        Ok(if self.is_strict_decrypt().await {
+            key_store.decrypt(&StrictDecrypt(cipher))?
+        } else {
+            key_store.decrypt(&cipher)?
+        })
     }
 
     #[allow(missing_docs)]
@@ -228,8 +228,13 @@ impl CiphersClient {
         ciphers: Vec<Cipher>,
     ) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        let wrapped = self.wrap_for_decrypt(ciphers).await;
-        Ok(key_store.decrypt_list(&wrapped)?)
+        Ok(if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            key_store.decrypt_list(&wrapped)?
+        } else {
+            key_store.decrypt_list(&ciphers)?
+        })
     }
 
     /// Decrypt cipher list with failures
@@ -239,11 +244,20 @@ impl CiphersClient {
         ciphers: Vec<Cipher>,
     ) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
-        let wrapped = self.wrap_for_decrypt(ciphers).await;
-        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
-        DecryptCipherListResult {
-            successes,
-            failures: failures.into_iter().map(|f| f.inner.clone()).collect(),
+        if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
@@ -255,11 +269,20 @@ impl CiphersClient {
         ciphers: Vec<Cipher>,
     ) -> DecryptCipherResult {
         let key_store = self.client.internal.get_key_store();
-        let wrapped = self.wrap_for_decrypt(ciphers).await;
-        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
-        DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().map(|f| f.inner.clone()).collect(),
+        if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+            DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
@@ -332,18 +355,6 @@ impl CiphersClient {
             .get_flags()
             .await
             .strict_cipher_decryption
-    }
-
-    /// Wraps a list of ciphers for decryption, selecting between blob and legacy
-    /// (strict or lenient) paths per cipher. The `use_strict` flag only affects the
-    /// legacy branch — blob ciphers unseal all-or-nothing and don't need a strict
-    /// variant.
-    async fn wrap_for_decrypt(&self, ciphers: Vec<Cipher>) -> Vec<BlobAwareDecrypt<Cipher>> {
-        let use_strict = self.is_strict_decrypt().await;
-        ciphers
-            .into_iter()
-            .map(|inner| BlobAwareDecrypt { inner, use_strict })
-            .collect()
     }
 }
 

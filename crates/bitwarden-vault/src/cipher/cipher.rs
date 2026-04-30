@@ -689,11 +689,11 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
     }
 }
 
-/// Lenient `Cipher` → `CipherView` decryption body. Only reachable through
-/// [`BlobAwareDecrypt<Cipher>`]; `Cipher` does not implement `Decryptable`
-/// directly so callers cannot accidentally invoke this on a blob-shaped cipher
-/// (which would silently return a `CipherView` with empty fields).
-#[instrument(err, skip_all, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id, kind = ?cipher.r#type))]
+/// Lenient `Cipher` → `CipherView` decryption body. Used by the default
+/// [`Decryptable`] impl on `Cipher` when the cipher is in the legacy field-level
+/// format. Callers funnel through that impl, which dispatches to the blob path
+/// for blob-shaped ciphers — invoking this directly on a blob cipher would
+/// silently return a `CipherView` with empty fields.
 pub(crate) fn lenient_decrypt_cipher_view(
     cipher: &Cipher,
     ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1331,8 +1331,8 @@ impl CipherView {
     }
 }
 
-/// Lenient `Cipher` → `CipherListView` decryption body. Only reachable through
-/// [`BlobAwareDecrypt<Cipher>`]; see [`lenient_decrypt_cipher_view`] for rationale.
+/// Lenient `Cipher` → `CipherListView` decryption body. Used by the default
+/// [`Decryptable`] impl on `Cipher`; see [`lenient_decrypt_cipher_view`] for rationale.
 pub(crate) fn lenient_decrypt_cipher_list_view(
     cipher: &Cipher,
     ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1431,6 +1431,36 @@ impl IdentifyKey<SymmetricKeySlotId> for Cipher {
     }
 }
 
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
+    #[instrument(err, skip_all, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherView, CryptoError> {
+        if is_blob_encrypted(self) {
+            decrypt_blob_cipher(self, ctx).map_err(blob_err_to_crypto)
+        } else {
+            lenient_decrypt_cipher_view(self, ctx, key)
+        }
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherListView, CryptoError> {
+        if is_blob_encrypted(self) {
+            let view = decrypt_blob_cipher(self, ctx).map_err(blob_err_to_crypto)?;
+            view.to_list_view(ctx, key)
+        } else {
+            lenient_decrypt_cipher_list_view(self, ctx, key)
+        }
+    }
+}
+
 impl IdentifyKey<SymmetricKeySlotId> for CipherView {
     fn key_identifier(&self) -> SymmetricKeySlotId {
         match self.organization_id {
@@ -1472,12 +1502,16 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
-        strict_decrypt_cipher_view(&self.0, ctx, key)
+        if is_blob_encrypted(&self.0) {
+            decrypt_blob_cipher(&self.0, ctx).map_err(blob_err_to_crypto)
+        } else {
+            strict_decrypt_cipher_view(&self.0, ctx, key)
+        }
     }
 }
 
-/// Strict Cipher → CipherView decryption body, shared between the `StrictDecrypt<Cipher>`
-/// impl and `BlobAwareDecrypt<Cipher>` when it dispatches to the legacy strict path.
+/// Strict Cipher → CipherView decryption body, used by the `StrictDecrypt<Cipher>` impl
+/// when the cipher is in the legacy field-level format.
 fn strict_decrypt_cipher_view(
     cipher: &Cipher,
     ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1565,13 +1599,17 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
-        strict_decrypt_cipher_list_view(&self.0, ctx, key)
+        if is_blob_encrypted(&self.0) {
+            let view = decrypt_blob_cipher(&self.0, ctx).map_err(blob_err_to_crypto)?;
+            view.to_list_view(ctx, key)
+        } else {
+            strict_decrypt_cipher_list_view(&self.0, ctx, key)
+        }
     }
 }
 
-/// Strict Cipher → CipherListView decryption body, shared between the
-/// `StrictDecrypt<Cipher>` impl and `BlobAwareDecrypt<Cipher>` when it dispatches to the
-/// legacy strict path.
+/// Strict Cipher → CipherListView decryption body, used by the `StrictDecrypt<Cipher>`
+/// impl when the cipher is in the legacy field-level format.
 fn strict_decrypt_cipher_list_view(
     cipher: &Cipher,
     ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1663,25 +1701,6 @@ fn strict_decrypt_cipher_list_view(
     })
 }
 
-/// Generic wrapper that auto-dispatches between blob-encrypted and legacy
-/// field-level decryption. Blob-encrypted ciphers are detected at runtime via
-/// [`is_blob_encrypted`]; legacy ciphers fall through to the standard field-level
-/// decryption path (strict or lenient, controlled by `use_strict`).
-///
-/// Selected at the [`CiphersClient`] layer so the homogeneous-slice requirement of
-/// `key_store.decrypt_list` is satisfied with a single concrete wrapper type.
-/// External crates that need to decrypt a `Cipher` outside of `CiphersClient`
-/// (e.g. exporters, key rotation) must construct one of these — `Cipher` no
-/// longer implements `Decryptable` directly.
-///
-/// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
-pub struct BlobAwareDecrypt<T> {
-    #[allow(missing_docs)]
-    pub inner: T,
-    #[allow(missing_docs)]
-    pub use_strict: bool,
-}
-
 /// Maps the blob module's error type onto [`CryptoError`] for the [`Decryptable`]
 /// impls. The `NoBlobData` variant is unreachable here because dispatch is gated
 /// by [`is_blob_encrypted`]; format and envelope errors collapse to
@@ -1691,46 +1710,6 @@ fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
         BlobEncryptionError::Crypto(c) => c,
         BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
             CryptoError::Decrypt
-        }
-    }
-}
-
-impl IdentifyKey<SymmetricKeySlotId> for BlobAwareDecrypt<Cipher> {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        self.inner.key_identifier()
-    }
-}
-
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for BlobAwareDecrypt<Cipher> {
-    #[instrument(err, skip_all, fields(cipher_id = ?self.inner.id, org_id = ?self.inner.organization_id, kind = ?self.inner.r#type))]
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<CipherView, CryptoError> {
-        if is_blob_encrypted(&self.inner) {
-            decrypt_blob_cipher(&self.inner, ctx).map_err(blob_err_to_crypto)
-        } else if self.use_strict {
-            strict_decrypt_cipher_view(&self.inner, ctx, key)
-        } else {
-            lenient_decrypt_cipher_view(&self.inner, ctx, key)
-        }
-    }
-}
-
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for BlobAwareDecrypt<Cipher> {
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<CipherListView, CryptoError> {
-        if is_blob_encrypted(&self.inner) {
-            let view = decrypt_blob_cipher(&self.inner, ctx).map_err(blob_err_to_crypto)?;
-            view.to_list_view(ctx, key)
-        } else if self.use_strict {
-            strict_decrypt_cipher_list_view(&self.inner, ctx, key)
-        } else {
-            lenient_decrypt_cipher_list_view(&self.inner, ctx, key)
         }
     }
 }
@@ -2186,12 +2165,7 @@ mod tests {
             data: None,
         };
 
-        let view: CipherListView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: cipher.clone(),
-                use_strict: false,
-            })
-            .unwrap();
+        let view: CipherListView = key_store.decrypt(&cipher).unwrap();
 
         assert_eq!(
             view,
@@ -2258,10 +2232,7 @@ mod tests {
         };
 
         // Default (lenient) decryption swallows the error, yielding an empty name
-        let lenient_result: Result<CipherView, _> = key_store.decrypt(&BlobAwareDecrypt {
-            inner: cipher.clone(),
-            use_strict: false,
-        });
+        let lenient_result: Result<CipherView, _> = key_store.decrypt(&cipher);
         assert!(
             lenient_result.is_ok(),
             "Lenient decryption should succeed even when name is encrypted with a different key"
@@ -2296,10 +2267,7 @@ mod tests {
         };
 
         // Default (lenient) decryption swallows the error, yielding None for the username field
-        let lenient_result: Result<CipherView, _> = key_store.decrypt(&BlobAwareDecrypt {
-            inner: cipher.clone(),
-            use_strict: false,
-        });
+        let lenient_result: Result<CipherView, _> = key_store.decrypt(&cipher);
         assert!(
             lenient_result.is_ok(),
             "Lenient decryption should succeed even when login username is encrypted with a different key"
@@ -2332,12 +2300,7 @@ mod tests {
         // Check that the cipher gets encrypted correctly without it's own key
         let cipher = generate_cipher();
         let no_key_cipher_enc = key_store.encrypt(cipher).unwrap();
-        let no_key_cipher_dec: CipherView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: no_key_cipher_enc,
-                use_strict: false,
-            })
-            .unwrap();
+        let no_key_cipher_dec: CipherView = key_store.decrypt(&no_key_cipher_enc).unwrap();
         assert!(no_key_cipher_dec.key.is_none());
         assert_eq!(no_key_cipher_dec.name, original_cipher.name);
 
@@ -2348,12 +2311,7 @@ mod tests {
 
         // Check that the cipher gets encrypted correctly when it's assigned it's own key
         let key_cipher_enc = key_store.encrypt(cipher).unwrap();
-        let key_cipher_dec: CipherView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: key_cipher_enc,
-                use_strict: false,
-            })
-            .unwrap();
+        let key_cipher_dec: CipherView = key_store.decrypt(&key_cipher_enc).unwrap();
         assert!(key_cipher_dec.key.is_some());
         assert_eq!(key_cipher_dec.name, original_cipher.name);
     }
@@ -2472,12 +2430,7 @@ mod tests {
 
         // Check that the cipher can be encrypted/decrypted with the new org key
         let cipher_enc = key_store.encrypt(cipher).unwrap();
-        let cipher_dec: CipherView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: cipher_enc,
-                use_strict: false,
-            })
-            .unwrap();
+        let cipher_dec: CipherView = key_store.decrypt(&cipher_enc).unwrap();
 
         assert_eq!(cipher_dec.name, "My test login");
     }
@@ -3324,12 +3277,7 @@ mod tests {
             data: None,
         };
 
-        let view: CipherView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: cipher,
-                use_strict: false,
-            })
-            .unwrap();
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
 
         // Should have 2 successful attachments
         assert!(view.attachments.is_some());
@@ -3364,12 +3312,7 @@ mod tests {
         };
 
         let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let list_view: CipherListView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: cipher,
-                use_strict: false,
-            })
-            .unwrap();
+        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::Passport);
         assert_eq!(list_view.subtitle, "Jane Doe");
@@ -3401,12 +3344,7 @@ mod tests {
         };
 
         let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let list_view: CipherListView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: cipher,
-                use_strict: false,
-            })
-            .unwrap();
+        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::DriversLicense);
         assert_eq!(list_view.subtitle, "John Doe");
@@ -3449,12 +3387,7 @@ mod tests {
         };
 
         let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let decrypted: CipherView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: encrypted,
-                use_strict: false,
-            })
-            .unwrap();
+        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::Passport);
         assert_eq!(decrypted.passport, Some(passport));
@@ -3488,12 +3421,7 @@ mod tests {
         };
 
         let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let decrypted: CipherView = key_store
-            .decrypt(&BlobAwareDecrypt {
-                inner: encrypted,
-                use_strict: false,
-            })
-            .unwrap();
+        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::DriversLicense);
         assert_eq!(decrypted.drivers_license, Some(dl));
@@ -3538,10 +3466,10 @@ mod tests {
         );
     }
 
-    // ---------- BlobAwareDecrypt + CipherView::to_list_view ----------
+    // ---------- Cipher Decryptable dispatch + CipherView::to_list_view ----------
 
-    mod blob_aware_decrypt {
-        use bitwarden_crypto::{IdentifyKey, KeyStore};
+    mod cipher_decrypt_dispatch {
+        use bitwarden_crypto::KeyStore;
 
         use super::*;
         use crate::{
@@ -3585,11 +3513,7 @@ mod tests {
             let key_store = make_key_store();
             let cipher = encrypt_blob(base_login_view(), &key_store);
 
-            let wrapped = BlobAwareDecrypt {
-                inner: cipher,
-                use_strict: false,
-            };
-            let view: CipherView = key_store.decrypt(&wrapped).unwrap();
+            let view: CipherView = key_store.decrypt(&cipher).unwrap();
 
             assert_eq!(view.name, "Test Login");
             let login = view.login.expect("blob decrypt should restore login");
@@ -3597,26 +3521,29 @@ mod tests {
             assert_eq!(login.password.as_deref(), Some("hunter2"));
         }
 
-        /// Legacy cipher → `CipherView` dispatch works for both strict and lenient modes.
+        /// Legacy cipher → `CipherView` dispatch works via both default (lenient) and strict
+        /// paths.
         #[test]
         fn dispatches_legacy_to_cipher_view() {
             let key_store = make_key_store();
 
-            for use_strict in [false, true] {
-                let cipher = encrypt_legacy(base_login_view(), &key_store);
-                let wrapped = BlobAwareDecrypt {
-                    inner: cipher,
-                    use_strict,
-                };
-                let view: CipherView = key_store.decrypt(&wrapped).unwrap();
+            // Default (lenient) path on `Cipher`.
+            let cipher = encrypt_legacy(base_login_view(), &key_store);
+            let view: CipherView = key_store.decrypt(&cipher).unwrap();
+            assert_eq!(view.name, "Test Login");
+            assert_eq!(
+                view.login.unwrap().username.as_deref(),
+                Some("alice@example.com"),
+            );
 
-                assert_eq!(view.name, "Test Login", "use_strict = {use_strict}");
-                assert_eq!(
-                    view.login.unwrap().username.as_deref(),
-                    Some("alice@example.com"),
-                    "use_strict = {use_strict}",
-                );
-            }
+            // Strict path via `StrictDecrypt<Cipher>`.
+            let cipher = encrypt_legacy(base_login_view(), &key_store);
+            let view: CipherView = key_store.decrypt(&StrictDecrypt(cipher)).unwrap();
+            assert_eq!(view.name, "Test Login");
+            assert_eq!(
+                view.login.unwrap().username.as_deref(),
+                Some("alice@example.com"),
+            );
         }
 
         /// Blob ciphers of every type produce a well-formed `CipherListView`.
@@ -3818,15 +3745,8 @@ mod tests {
             let blob = encrypt_blob(base_login_view(), &key_store);
             let legacy = encrypt_legacy(base_login_view(), &key_store);
 
-            let wrapped: Vec<_> = vec![blob, legacy]
-                .into_iter()
-                .map(|inner| BlobAwareDecrypt {
-                    inner,
-                    use_strict: false,
-                })
-                .collect();
-
-            let views: Vec<CipherListView> = key_store.decrypt_list(&wrapped).unwrap();
+            let ciphers = vec![blob, legacy];
+            let views: Vec<CipherListView> = key_store.decrypt_list(&ciphers).unwrap();
 
             assert_eq!(views.len(), 2);
             for v in &views {
@@ -3835,32 +3755,12 @@ mod tests {
             }
         }
 
-        /// `BlobAwareDecrypt` must forward `IdentifyKey` to the inner cipher so
-        /// `decrypt_list` selects the right scope key (user vs organization).
-        #[test]
-        fn key_identifier_delegates_to_inner() {
-            let key_store = make_key_store();
-            let cipher = encrypt_legacy(base_login_view(), &key_store);
-            let inner_key = cipher.key_identifier();
-
-            let wrapped = BlobAwareDecrypt {
-                inner: cipher,
-                use_strict: false,
-            };
-            assert_eq!(wrapped.key_identifier(), inner_key);
-        }
-
         fn decrypt_blob_list_view(
             key_store: &KeyStore<KeySlotIds>,
             view: CipherView,
         ) -> CipherListView {
             let cipher = encrypt_blob(view, key_store);
-            key_store
-                .decrypt(&BlobAwareDecrypt {
-                    inner: cipher,
-                    use_strict: false,
-                })
-                .unwrap()
+            key_store.decrypt(&cipher).unwrap()
         }
     }
 }

@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, DecryptCipherListResult, VaultParseError,
-    cipher::cipher::{BlobAwareDecrypt, PartialCipher},
+    cipher::cipher::{PartialCipher, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
 
@@ -44,10 +44,11 @@ pub async fn restore_as_admin(
         .await?
         .merge_with_cipher(None)?;
 
-    Ok(key_store.decrypt(&BlobAwareDecrypt {
-        inner: cipher,
-        use_strict: use_strict_decryption,
-    })?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
+    } else {
+        key_store.decrypt(&cipher)?
+    })
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -72,17 +73,19 @@ pub async fn restore_many_as_admin(
         .map(|c| c.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let wrapped: Vec<BlobAwareDecrypt<Cipher>> = ciphers
-        .into_iter()
-        .map(|inner| BlobAwareDecrypt {
-            inner,
-            use_strict: use_strict_decryption,
-        })
-        .collect();
-    let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
-    Ok(DecryptCipherListResult {
-        successes,
-        failures: failures.into_iter().map(|f| f.inner.clone()).collect(),
+    Ok(if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    } else {
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
     })
 }
 

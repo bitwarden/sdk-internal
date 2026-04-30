@@ -30,26 +30,28 @@ rollout — a single `Vec<Cipher>` from the API routinely contains both.
 
 ## Decryption flow
 
-All `CiphersClient::decrypt*` entry points funnel through a single wrapper type,
-`BlobAwareDecrypt<Cipher>`, which auto-dispatches based on the cipher's format and a `use_strict`
-flag inherited from the `strict_cipher_decryption` feature flag. This keeps the homogeneous-slice
-requirement of `KeyStore::decrypt_list` satisfied while still handling mixed batches.
+`Cipher` implements `Decryptable<…, CipherView>` and `Decryptable<…, CipherListView>` directly, so
+external callers (`bitwarden-exporters`, `bitwarden-user-crypto-management` key rotation, and tests)
+just call `key_store.decrypt(&cipher)` without choosing a path. The impl checks
+`blob::is_blob_encrypted(&Cipher)` and dispatches to the blob unseal flow when the cipher is in the
+blob format, or to the legacy lenient path when it is in the field-level format. `decrypt_list`
+likewise accepts a homogeneous `Vec<Cipher>` and routes per-cipher.
 
-`Cipher` itself does **not** implement `Decryptable<…, CipherView>` — the only types that do are
-`BlobAwareDecrypt<Cipher>` and `StrictDecrypt<Cipher>`. This is intentional: the legacy field-level
-path silently produces an empty `CipherView` when handed a blob-shaped cipher (the encrypted
-payload lives in `cipher.data`, which the legacy body ignores), so leaving a bare `Cipher` impl in
-place would be a footgun. External crates that need to decrypt outside of `CiphersClient` (e.g.
-`bitwarden-exporters`, `bitwarden-user-crypto-management` key rotation) construct a
-`BlobAwareDecrypt` directly.
+`StrictDecrypt<Cipher>` is a `pub(crate)` wrapper that implements the same `Decryptable` traits, but
+its legacy branch propagates field decryption errors instead of silently nulling them out. It also
+dispatches blob ciphers through the blob path (the strict/lenient distinction does not apply to
+blob unseal — it is all-or-nothing). `CiphersClient` constructs `StrictDecrypt(cipher)` only when
+the `PM-34500-strict_cipher_decryption` feature flag is on, and falls back to bare `Cipher`
+otherwise. The flag and `StrictDecrypt` are both scheduled for removal in PM-34531.
 
 ```mermaid
 flowchart LR
-    A[Cipher] --> B[BlobAwareDecrypt]
-    B --> C{is_blob_encrypted?}
+    A[Cipher] --> C{is_blob_encrypted?}
     C -->|Yes| D[decrypt_blob_cipher]
-    C -->|No, use_strict=true| E[strict_decrypt_*]
-    C -->|No, use_strict=false| F[lenient_decrypt_*]
+    C -->|No| F[lenient_decrypt_*]
+    SC[StrictDecrypt&lt;Cipher&gt;] --> SCC{is_blob_encrypted?}
+    SCC -->|Yes| D
+    SCC -->|No| E[strict_decrypt_*]
     D --> G[CipherView]
     E --> G
     F --> G
@@ -61,13 +63,11 @@ flowchart LR
 
 ### Dispatch matrix
 
-| Cipher format | `use_strict` (temporary) | `CipherView` path              | `CipherListView` path                              |
-|---------------|--------------------------|--------------------------------|----------------------------------------------------|
-| Blob          | (ignored)                | `decrypt_blob_cipher`          | `decrypt_blob_cipher` → `CipherView::to_list_view` |
-| Legacy        | `true`                   | `strict_decrypt_cipher_view`   | `strict_decrypt_cipher_list_view`                  |
-| Legacy        | `false`                  | `lenient_decrypt_cipher_view`  | `lenient_decrypt_cipher_list_view`                 |
-
-Blob unseal is all-or-nothing, so the strict/lenient distinction only applies to the legacy branch.
+| Cipher format | Wrapper                      | `CipherView` path              | `CipherListView` path                              |
+|---------------|------------------------------|--------------------------------|----------------------------------------------------|
+| Blob          | `Cipher` or `StrictDecrypt`  | `decrypt_blob_cipher`          | `decrypt_blob_cipher` → `CipherView::to_list_view` |
+| Legacy        | `Cipher` (default)           | `lenient_decrypt_cipher_view`  | `lenient_decrypt_cipher_list_view`                 |
+| Legacy        | `StrictDecrypt<Cipher>`      | `strict_decrypt_cipher_view`   | `strict_decrypt_cipher_list_view`                  |
 
 ## Encryption flow
 
@@ -80,13 +80,11 @@ Blob-path encryption dispatch is tracked in [PM-32695](https://bitwarden.atlassi
 
 ## Wrapper types
 
-- **`BlobAwareDecrypt<T> { inner, use_strict }`** — auto-dispatcher at all decrypt call sites.
-  Blob-ness is a property of the ciphertext, and strict/lenient only apply to the
-  legacy branch, so the single wrapper handles all three paths.
-- **`StrictDecrypt<T>(T)`** — transitional variant where field decryption errors propagate instead
-  of silently nulling out affected fields. Gated behind `PM-34500-strict_cipher_decryption` and
-  will eventually replace the default lenient `Decryptable` impls (tracked in PM-34531). Composed
-  inside `BlobAwareDecrypt` via the `use_strict` flag.
+- **`StrictDecrypt<T>(T)`** — transitional `pub(crate)` variant whose `Decryptable` impl propagates
+  field decryption errors instead of silently nulling out affected fields. Gated behind
+  `PM-34500-strict_cipher_decryption` inside `CiphersClient`; external callers do not see it. Will
+  eventually replace the default lenient `Decryptable` impls (tracked in PM-34531). Both this
+  wrapper and the bare `Cipher` impl dispatch blob-encrypted ciphers through the blob unseal flow.
 
 ## Submodules
 

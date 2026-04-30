@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, VaultParseError,
-    cipher::cipher::{BlobAwareDecrypt, ListOrganizationCiphersResult, PartialCipher},
+    cipher::cipher::{ListOrganizationCiphersResult, PartialCipher, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
 
@@ -58,15 +58,15 @@ pub async fn list_org_ciphers(
         .map(|model| model.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let wrapped: Vec<BlobAwareDecrypt<Cipher>> = ciphers
-        .iter()
-        .cloned()
-        .map(|inner| BlobAwareDecrypt {
-            inner,
-            use_strict: use_strict_decryption,
-        })
-        .collect();
-    let (list_views, _failures) = key_store.decrypt_list_with_failures(&wrapped);
+    let list_views = if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> =
+            ciphers.iter().cloned().map(StrictDecrypt).collect();
+        let (list_views, _failures) = key_store.decrypt_list_with_failures(&wrapped);
+        list_views
+    } else {
+        let (list_views, _failures) = key_store.decrypt_list_with_failures(&ciphers);
+        list_views
+    };
     Ok(ListOrganizationCiphersResult {
         ciphers,
         list_views,
@@ -96,13 +96,15 @@ impl CipherAdminClient {
             .map(|model| model.merge_with_cipher(None))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let use_strict = self.is_strict_decrypt().await;
-        let wrapped: Vec<BlobAwareDecrypt<Cipher>> = ciphers
-            .iter()
-            .cloned()
-            .map(|inner| BlobAwareDecrypt { inner, use_strict })
-            .collect();
-        let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&wrapped);
+        let list_views = if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
+                ciphers.iter().cloned().map(StrictDecrypt).collect();
+            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&wrapped);
+            list_views
+        } else {
+            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&ciphers);
+            list_views
+        };
         Ok(ListOrganizationCiphersResult {
             ciphers,
             list_views,

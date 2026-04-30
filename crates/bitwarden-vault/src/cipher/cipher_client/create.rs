@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::{BlobAwareDecrypt, PartialCipher},
+    cipher::cipher::{PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
 };
 
@@ -144,10 +144,11 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
 
-    Ok(key_store.decrypt(&BlobAwareDecrypt {
-        inner: cipher,
-        use_strict: use_strict_decryption,
-    })?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
+    } else {
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
@@ -323,10 +324,7 @@ mod tests {
 
         // Confirm the cipher was stored in the repository
         let stored_cipher_view: CipherView = store
-            .decrypt(&BlobAwareDecrypt {
-                inner: repository.get(cipher_id).await.unwrap().unwrap(),
-                use_strict: false,
-            })
+            .decrypt(&repository.get(cipher_id).await.unwrap().unwrap())
             .unwrap();
         assert_eq!(stored_cipher_view.id, result.id);
         assert_eq!(stored_cipher_view.name, result.name);
@@ -440,12 +438,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let cipher_view: CipherView = store
-            .decrypt(&BlobAwareDecrypt {
-                inner: cipher,
-                use_strict: false,
-            })
-            .unwrap();
+        let cipher_view: CipherView = store.decrypt(&cipher).unwrap();
 
         assert_eq!(response.id, cipher_view.id);
         assert_eq!(response.organization_id, cipher_view.organization_id);
