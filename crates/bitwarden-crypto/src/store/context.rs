@@ -664,6 +664,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Returns `true` if the given symmetric key uses V1 (Aes256CbcHmac) encryption.
+    #[instrument(skip(self), err)]
     pub fn is_v1_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<bool> {
         let algorithm = self.get_symmetric_key_algorithm(key_id)?;
         Ok(algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac)

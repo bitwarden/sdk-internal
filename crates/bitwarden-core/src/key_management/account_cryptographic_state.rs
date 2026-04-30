@@ -370,6 +370,7 @@ impl WrappedAccountCryptographicState {
     /// This is useful for obtaining the wrapped state after an asymmetric key regeneration.
     ///
     /// Fails if the user key is not V1 (Aes256CbcHmac) or if the private key is not available.
+    #[instrument(skip_all, err)]
     pub fn get_v1_from_key_store(
         ctx: &KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, RotateCryptographyStateError> {

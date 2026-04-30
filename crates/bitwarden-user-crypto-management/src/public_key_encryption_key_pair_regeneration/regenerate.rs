@@ -5,12 +5,13 @@ use bitwarden_core::key_management::{
 };
 use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm};
 use bitwarden_encoding::B64;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 use super::KeyPairRegenerationError;
 
 /// Generates a new public key encryption key pair, submits it to the server, and
 /// persists the new private key in the key store.
+#[instrument(name = "regenerate_public_key_encryption_key_pair", skip_all, err)]
 pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,

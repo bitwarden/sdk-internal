@@ -4,7 +4,7 @@ use bitwarden_core::key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeyS
 use bitwarden_crypto::{EncString, KeyStore};
 use bitwarden_encoding::B64;
 use bitwarden_vault::{Cipher, CipherView};
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 use super::KeyPairRegenerationError;
 
@@ -12,6 +12,11 @@ use super::KeyPairRegenerationError;
 ///
 /// When the private key cannot be decrypted, validates the user key by attempting to
 /// decrypt a personal cipher fetched from the API.
+#[instrument(
+    name = "should_regenerate_public_key_encryption_key_pair",
+    skip_all,
+    err
+)]
 pub(super) async fn internal_should_regenerate_public_key_encryption_key_pair(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -29,6 +34,11 @@ pub(super) async fn internal_should_regenerate_public_key_encryption_key_pair(
 ///
 /// When the private key cannot be decrypted, validates the user key by attempting to
 /// decrypt one of the provided ciphers.
+#[instrument(
+    name = "should_regenerate_public_key_encryption_key_pair_with_ciphers",
+    skip_all,
+    err
+)]
 pub(super) async fn internal_should_regenerate_public_key_encryption_key_pair_with_ciphers(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
