@@ -53,7 +53,6 @@ mod secure_note;
 mod ssh_key;
 
 impl CipherBlobV1 {
-    #[allow(dead_code)]
     pub(crate) fn from_cipher_view(
         view: &CipherView,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -144,7 +143,6 @@ impl CipherBlobV1 {
         })
     }
 
-    #[allow(dead_code)]
     pub(crate) fn apply_to_cipher_view(
         &self,
         view: &mut CipherView,
@@ -219,7 +217,7 @@ impl CipherBlobV1 {
 }
 
 #[cfg(test)]
-mod test_support {
+pub(crate) mod test_support {
     use bitwarden_core::key_management::{
         KeySlotIds, SymmetricKeySlotId, create_test_crypto_with_user_key,
     };

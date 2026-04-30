@@ -2,7 +2,7 @@
 
 use std::{num::NonZeroU32, str::FromStr};
 
-use bitwarden_crypto::safe;
+use bitwarden_crypto::{SymmetricCryptoKey, safe};
 use bitwarden_uniffi_error::convert_result;
 use uuid::Uuid;
 
@@ -10,6 +10,7 @@ use crate::key_management::SignedSecurityState;
 
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 uniffi::use_remote_type!(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope);
+uniffi::use_remote_type!(bitwarden_crypto::SymmetricCryptoKey);
 
 type DateTime = chrono::DateTime<chrono::Utc>;
 uniffi::custom_type!(DateTime, std::time::SystemTime, { remote });

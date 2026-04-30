@@ -121,6 +121,18 @@ pub struct CipherWithIdRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub bank_account: Option<Box<models::CipherBankAccountModel>>,
+    #[serde(
+        rename = "driversLicense",
+        alias = "DriversLicense",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub drivers_license: Option<Box<models::CipherDriversLicenseModel>>,
+    #[serde(
+        rename = "passport",
+        alias = "Passport",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub passport: Option<Box<models::CipherPassportModel>>,
     /// JSON string containing cipher-specific data
     #[serde(
         rename = "data",
@@ -166,6 +178,8 @@ impl CipherWithIdRequestModel {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             data: None,
             last_known_revision_date: None,
             archived_date: None,
