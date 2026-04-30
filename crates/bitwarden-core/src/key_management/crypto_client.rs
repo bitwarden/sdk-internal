@@ -1,4 +1,7 @@
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", not(feature = "uniffi")))]
+use std::str::FromStr;
+
+#[cfg(any(feature = "wasm", test))]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet,
@@ -13,8 +16,9 @@ use wasm_bindgen::prelude::*;
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
     MakeJitMasterPasswordRegistrationResponse, MakeKeyConnectorRegistrationResponse,
-    derive_key_connector, make_user_jit_master_password_registration,
-    make_user_key_connector_registration,
+    MakeUserMasterPasswordRegistrationResponse, derive_key_connector,
+    make_user_jit_master_password_registration, make_user_key_connector_registration,
+    make_user_password_registration,
 };
 use crate::key_management::V2UpgradeToken;
 #[cfg(feature = "internal")]
@@ -272,6 +276,17 @@ impl CryptoClient {
             salt,
             org_public_key,
         )
+    }
+
+    /// Creates new V2 account cryptographic state for password-based registration
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// security state) wrapped with a new user key.
+    pub fn make_user_password_registration(
+        &self,
+        master_password: String,
+        salt: String,
+    ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
+        make_user_password_registration(&self.client, master_password, salt)
     }
 
     /// Gets the upgraded V2 user key using an upgrade token.
