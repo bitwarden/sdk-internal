@@ -373,10 +373,10 @@ impl WrappedAccountCryptographicState {
     pub fn get_v1_from_key_store(
         ctx: &KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, RotateCryptographyStateError> {
-        let algorithm = ctx
-            .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
-            .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
-        if algorithm != SymmetricKeyAlgorithm::Aes256CbcHmac {
+        if !ctx
+            .is_v1_symmetric_key(SymmetricKeySlotId::User)
+            .map_err(|_| RotateCryptographyStateError::KeyMissing)?
+        {
             return Err(RotateCryptographyStateError::InvalidData);
         }
 
