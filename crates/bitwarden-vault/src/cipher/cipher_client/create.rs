@@ -17,7 +17,8 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    cipher::cipher::{BlobAwareDecrypt, PartialCipher},
+    cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -112,6 +113,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     view: CipherView,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let collection_ids = view.collection_ids.clone();
 
@@ -142,7 +144,10 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
 
-    Ok(key_store.decrypt(&cipher)?)
+    Ok(key_store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
 }
 
 #[allow(deprecated)]
@@ -184,6 +189,7 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             view,
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -295,6 +301,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await
         .unwrap();
@@ -316,7 +323,10 @@ mod tests {
 
         // Confirm the cipher was stored in the repository
         let stored_cipher_view: CipherView = store
-            .decrypt(&repository.get(cipher_id).await.unwrap().unwrap())
+            .decrypt(&BlobAwareDecrypt {
+                inner: repository.get(cipher_id).await.unwrap().unwrap(),
+                use_strict: false,
+            })
             .unwrap();
         assert_eq!(stored_cipher_view.id, result.id);
         assert_eq!(stored_cipher_view.name, result.name);
@@ -351,6 +361,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await;
 
@@ -419,6 +430,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await
         .unwrap();
@@ -428,7 +440,12 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let cipher_view: CipherView = store.decrypt(&cipher).unwrap();
+        let cipher_view: CipherView = store
+            .decrypt(&BlobAwareDecrypt {
+                inner: cipher,
+                use_strict: false,
+            })
+            .unwrap();
 
         assert_eq!(response.id, cipher_view.id);
         assert_eq!(response.organization_id, cipher_view.organization_id);

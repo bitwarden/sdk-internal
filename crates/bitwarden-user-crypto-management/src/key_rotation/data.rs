@@ -9,7 +9,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStoreContext};
 use bitwarden_send::SendView;
-use bitwarden_vault::{CipherView, EncryptionContext, FolderView};
+use bitwarden_vault::{BlobAwareDecrypt, CipherView, EncryptionContext, FolderView};
 use tracing::{debug, debug_span, instrument};
 use uuid::Uuid;
 
@@ -145,7 +145,11 @@ fn reencrypt_ciphers(
             // and has to be re-uploaded.
             } else {
                 debug!("Cipher has no cipher key, decrypting and re-encrypting entire cipher");
-                let cipher_view: CipherView = cipher
+                let wrapped = BlobAwareDecrypt {
+                    inner: cipher.clone(),
+                    use_strict: false,
+                };
+                let cipher_view: CipherView = wrapped
                     .decrypt(ctx, current_key)
                     .map_err(|_| DataReencryptionError::Decryption)?;
                 cipher_view
@@ -283,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_ciphers() {
-        use bitwarden_vault::{CipherType, CipherView, LoginView};
+        use bitwarden_vault::{BlobAwareDecrypt, CipherType, CipherView, LoginView};
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
@@ -342,9 +346,12 @@ mod tests {
                 .unwrap();
 
         // Decrypt and assert
-        let decrypted_cipher: CipherView = reencrypted_ciphers[0]
-            .decrypt(&mut ctx, user_key_new)
-            .unwrap();
+        let decrypted_cipher: CipherView = BlobAwareDecrypt {
+            inner: reencrypted_ciphers[0].clone(),
+            use_strict: false,
+        }
+        .decrypt(&mut ctx, user_key_new)
+        .unwrap();
         assert_eq!(cipher.name, decrypted_cipher.name);
         assert_eq!(cipher.notes, decrypted_cipher.notes);
         assert_eq!(cipher.r#type, decrypted_cipher.r#type);

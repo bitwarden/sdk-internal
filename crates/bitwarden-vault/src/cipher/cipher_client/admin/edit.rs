@@ -16,7 +16,7 @@ use wasm_bindgen::prelude::*;
 use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::cipher::{BlobAwareDecrypt, PartialCipher},
     cipher_client::edit::{CipherEditRequest, convert_request_to_cipher_view},
 };
 
@@ -91,11 +91,10 @@ async fn edit_cipher(
     cipher.folder_id = folder_id;
     cipher.favorite = favorite;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+    Ok(key_store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
 }
 
 /// Adds the cipher matched by [CipherId] to any number of collections on the server.
@@ -119,11 +118,10 @@ pub async fn add_to_collections(
         .await?
         .merge_with_cipher(None)?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+    Ok(key_store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
 }
 
 #[allow(deprecated)]

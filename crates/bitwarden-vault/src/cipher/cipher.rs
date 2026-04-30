@@ -689,75 +689,81 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
-    #[instrument(err, skip_all, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<CipherView, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+/// Lenient `Cipher` → `CipherView` decryption body. Only reachable through
+/// [`BlobAwareDecrypt<Cipher>`]; `Cipher` does not implement `Decryptable`
+/// directly so callers cannot accidentally invoke this on a blob-shaped cipher
+/// (which would silently return a `CipherView` with empty fields).
+#[instrument(err, skip_all, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id, kind = ?cipher.r#type))]
+pub(crate) fn lenient_decrypt_cipher_view(
+    cipher: &Cipher,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+) -> Result<CipherView, CryptoError> {
+    let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
 
-        // Separate successful and failed attachment decryptions
-        let (attachments, attachment_decryption_failures) =
-            attachment::decrypt_attachments_with_failures(
-                self.attachments.as_deref().unwrap_or_default(),
-                ctx,
-                ciphers_key,
-            );
+    // Separate successful and failed attachment decryptions
+    let (attachments, attachment_decryption_failures) =
+        attachment::decrypt_attachments_with_failures(
+            cipher.attachments.as_deref().unwrap_or_default(),
+            ctx,
+            ciphers_key,
+        );
 
-        let mut cipher = CipherView {
-            id: self.id,
-            organization_id: self.organization_id,
-            folder_id: self.folder_id,
-            collection_ids: self.collection_ids.clone(),
-            key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
-            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
-            r#type: self.r#type,
-            login: self.login.decrypt(ctx, ciphers_key).ok().flatten(),
-            identity: self.identity.decrypt(ctx, ciphers_key).ok().flatten(),
-            card: self.card.decrypt(ctx, ciphers_key).ok().flatten(),
-            secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
-            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
-            bank_account: self.bank_account.decrypt(ctx, ciphers_key).ok().flatten(),
-            drivers_license: self
-                .drivers_license
-                .decrypt(ctx, ciphers_key)
-                .ok()
-                .flatten(),
-            passport: self.passport.decrypt(ctx, ciphers_key).ok().flatten(),
-            favorite: self.favorite,
-            reprompt: self.reprompt,
-            organization_use_totp: self.organization_use_totp,
-            edit: self.edit,
-            permissions: self.permissions,
-            view_password: self.view_password,
-            local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
-            attachments: Some(attachments),
-            attachment_decryption_failures: Some(attachment_decryption_failures),
-            fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
-            password_history: self
-                .password_history
-                .decrypt(ctx, ciphers_key)
-                .ok()
-                .flatten(),
-            creation_date: self.creation_date,
-            deleted_date: self.deleted_date,
-            revision_date: self.revision_date,
-            archived_date: self.archived_date,
-        };
+    let mut view = CipherView {
+        id: cipher.id,
+        organization_id: cipher.organization_id,
+        folder_id: cipher.folder_id,
+        collection_ids: cipher.collection_ids.clone(),
+        key: cipher.key.clone(),
+        name: cipher
+            .name
+            .decrypt(ctx, ciphers_key)
+            .ok()
+            .unwrap_or_default(),
+        notes: cipher.notes.decrypt(ctx, ciphers_key).ok().flatten(),
+        r#type: cipher.r#type,
+        login: cipher.login.decrypt(ctx, ciphers_key).ok().flatten(),
+        identity: cipher.identity.decrypt(ctx, ciphers_key).ok().flatten(),
+        card: cipher.card.decrypt(ctx, ciphers_key).ok().flatten(),
+        secure_note: cipher.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
+        ssh_key: cipher.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
+        bank_account: cipher.bank_account.decrypt(ctx, ciphers_key).ok().flatten(),
+        drivers_license: cipher
+            .drivers_license
+            .decrypt(ctx, ciphers_key)
+            .ok()
+            .flatten(),
+        passport: cipher.passport.decrypt(ctx, ciphers_key).ok().flatten(),
+        favorite: cipher.favorite,
+        reprompt: cipher.reprompt,
+        organization_use_totp: cipher.organization_use_totp,
+        edit: cipher.edit,
+        permissions: cipher.permissions,
+        view_password: cipher.view_password,
+        local_data: cipher.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
+        attachments: Some(attachments),
+        attachment_decryption_failures: Some(attachment_decryption_failures),
+        fields: cipher.fields.decrypt(ctx, ciphers_key).ok().flatten(),
+        password_history: cipher
+            .password_history
+            .decrypt(ctx, ciphers_key)
+            .ok()
+            .flatten(),
+        creation_date: cipher.creation_date,
+        deleted_date: cipher.deleted_date,
+        revision_date: cipher.revision_date,
+        archived_date: cipher.archived_date,
+    };
 
-        // For compatibility we only remove URLs with invalid checksums if the cipher has a key
-        // or the user is on Crypto V2
-        if cipher.key.is_some()
-            || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
-        {
-            cipher.remove_invalid_checksums();
-        }
-
-        Ok(cipher)
+    // For compatibility we only remove URLs with invalid checksums if the cipher has a key
+    // or the user is on Crypto V2
+    if view.key.is_some()
+        || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
+    {
+        view.remove_invalid_checksums();
     }
+
+    Ok(view)
 }
 
 impl Cipher {
@@ -1325,91 +1331,95 @@ impl CipherView {
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<CipherListView, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+/// Lenient `Cipher` → `CipherListView` decryption body. Only reachable through
+/// [`BlobAwareDecrypt<Cipher>`]; see [`lenient_decrypt_cipher_view`] for rationale.
+pub(crate) fn lenient_decrypt_cipher_list_view(
+    cipher: &Cipher,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+) -> Result<CipherListView, CryptoError> {
+    let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
 
-        Ok(CipherListView {
-            id: self.id,
-            organization_id: self.organization_id,
-            folder_id: self.folder_id,
-            collection_ids: self.collection_ids.clone(),
-            key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
-            subtitle: self
-                .decrypt_subtitle(ctx, ciphers_key)
-                .ok()
-                .unwrap_or_default(),
-            r#type: match self.r#type {
-                CipherType::Login => {
-                    let login = self
-                        .login
-                        .as_ref()
-                        .ok_or(CryptoError::MissingField("login"))?;
-                    CipherListViewType::Login(login.decrypt(ctx, ciphers_key)?)
-                }
-                CipherType::SecureNote => CipherListViewType::SecureNote,
-                CipherType::Card => {
-                    let card = self
-                        .card
-                        .as_ref()
-                        .ok_or(CryptoError::MissingField("card"))?;
-                    CipherListViewType::Card(card.decrypt(ctx, ciphers_key)?)
-                }
-                CipherType::Identity => CipherListViewType::Identity,
-                CipherType::SshKey => CipherListViewType::SshKey,
-                CipherType::BankAccount => CipherListViewType::BankAccount,
-                CipherType::Passport => CipherListViewType::Passport,
-                CipherType::DriversLicense => CipherListViewType::DriversLicense,
-            },
-            favorite: self.favorite,
-            reprompt: self.reprompt,
-            organization_use_totp: self.organization_use_totp,
-            edit: self.edit,
-            permissions: self.permissions,
-            view_password: self.view_password,
-            attachments: self
-                .attachments
-                .as_ref()
-                .map(|a| a.len() as u32)
-                .unwrap_or(0),
-            has_old_attachments: self
-                .attachments
-                .as_ref()
-                .map(|a| a.iter().any(|att| att.key.is_none()))
-                .unwrap_or(false),
-            creation_date: self.creation_date,
-            deleted_date: self.deleted_date,
-            revision_date: self.revision_date,
-            copyable_fields: self.get_copyable_fields(),
-            local_data: self.local_data.decrypt(ctx, ciphers_key)?,
-            archived_date: self.archived_date,
-            #[cfg(feature = "wasm")]
-            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
-            #[cfg(feature = "wasm")]
-            fields: self.fields.as_ref().map(|fields| {
-                fields
-                    .iter()
-                    .filter_map(|f| {
-                        f.decrypt(ctx, ciphers_key)
-                            .ok()
-                            .map(field::FieldListView::from)
-                    })
-                    .collect()
-            }),
-            #[cfg(feature = "wasm")]
-            attachment_names: self.attachments.as_ref().map(|attachments| {
-                attachments
-                    .iter()
-                    .filter_map(|a| a.file_name.decrypt(ctx, ciphers_key).ok().flatten())
-                    .collect()
-            }),
-        })
-    }
+    Ok(CipherListView {
+        id: cipher.id,
+        organization_id: cipher.organization_id,
+        folder_id: cipher.folder_id,
+        collection_ids: cipher.collection_ids.clone(),
+        key: cipher.key.clone(),
+        name: cipher
+            .name
+            .decrypt(ctx, ciphers_key)
+            .ok()
+            .unwrap_or_default(),
+        subtitle: cipher
+            .decrypt_subtitle(ctx, ciphers_key)
+            .ok()
+            .unwrap_or_default(),
+        r#type: match cipher.r#type {
+            CipherType::Login => {
+                let login = cipher
+                    .login
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("login"))?;
+                CipherListViewType::Login(login.decrypt(ctx, ciphers_key)?)
+            }
+            CipherType::SecureNote => CipherListViewType::SecureNote,
+            CipherType::Card => {
+                let card = cipher
+                    .card
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("card"))?;
+                CipherListViewType::Card(card.decrypt(ctx, ciphers_key)?)
+            }
+            CipherType::Identity => CipherListViewType::Identity,
+            CipherType::SshKey => CipherListViewType::SshKey,
+            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::Passport => CipherListViewType::Passport,
+            CipherType::DriversLicense => CipherListViewType::DriversLicense,
+        },
+        favorite: cipher.favorite,
+        reprompt: cipher.reprompt,
+        organization_use_totp: cipher.organization_use_totp,
+        edit: cipher.edit,
+        permissions: cipher.permissions,
+        view_password: cipher.view_password,
+        attachments: cipher
+            .attachments
+            .as_ref()
+            .map(|a| a.len() as u32)
+            .unwrap_or(0),
+        has_old_attachments: cipher
+            .attachments
+            .as_ref()
+            .map(|a| a.iter().any(|att| att.key.is_none()))
+            .unwrap_or(false),
+        creation_date: cipher.creation_date,
+        deleted_date: cipher.deleted_date,
+        revision_date: cipher.revision_date,
+        copyable_fields: cipher.get_copyable_fields(),
+        local_data: cipher.local_data.decrypt(ctx, ciphers_key)?,
+        archived_date: cipher.archived_date,
+        #[cfg(feature = "wasm")]
+        notes: cipher.notes.decrypt(ctx, ciphers_key).ok().flatten(),
+        #[cfg(feature = "wasm")]
+        fields: cipher.fields.as_ref().map(|fields| {
+            fields
+                .iter()
+                .filter_map(|f| {
+                    f.decrypt(ctx, ciphers_key)
+                        .ok()
+                        .map(field::FieldListView::from)
+                })
+                .collect()
+        }),
+        #[cfg(feature = "wasm")]
+        attachment_names: cipher.attachments.as_ref().map(|attachments| {
+            attachments
+                .iter()
+                .filter_map(|a| a.file_name.decrypt(ctx, ciphers_key).ok().flatten())
+                .collect()
+        }),
+    })
 }
 
 impl IdentifyKey<SymmetricKeySlotId> for Cipher {
@@ -1660,11 +1670,16 @@ fn strict_decrypt_cipher_list_view(
 ///
 /// Selected at the [`CiphersClient`] layer so the homogeneous-slice requirement of
 /// `key_store.decrypt_list` is satisfied with a single concrete wrapper type.
+/// External crates that need to decrypt a `Cipher` outside of `CiphersClient`
+/// (e.g. exporters, key rotation) must construct one of these — `Cipher` no
+/// longer implements `Decryptable` directly.
 ///
 /// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
-pub(crate) struct BlobAwareDecrypt<T> {
-    pub(crate) inner: T,
-    pub(crate) use_strict: bool,
+pub struct BlobAwareDecrypt<T> {
+    #[allow(missing_docs)]
+    pub inner: T,
+    #[allow(missing_docs)]
+    pub use_strict: bool,
 }
 
 /// Maps the blob module's error type onto [`CryptoError`] for the [`Decryptable`]
@@ -1698,7 +1713,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for BlobAwareDecryp
         } else if self.use_strict {
             strict_decrypt_cipher_view(&self.inner, ctx, key)
         } else {
-            self.inner.decrypt(ctx, key)
+            lenient_decrypt_cipher_view(&self.inner, ctx, key)
         }
     }
 }
@@ -1715,7 +1730,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for BlobAwareDe
         } else if self.use_strict {
             strict_decrypt_cipher_list_view(&self.inner, ctx, key)
         } else {
-            self.inner.decrypt(ctx, key)
+            lenient_decrypt_cipher_list_view(&self.inner, ctx, key)
         }
     }
 }
@@ -2171,7 +2186,12 @@ mod tests {
             data: None,
         };
 
-        let view: CipherListView = key_store.decrypt(&cipher).unwrap();
+        let view: CipherListView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: cipher.clone(),
+                use_strict: false,
+            })
+            .unwrap();
 
         assert_eq!(
             view,
@@ -2238,7 +2258,10 @@ mod tests {
         };
 
         // Default (lenient) decryption swallows the error, yielding an empty name
-        let lenient_result: Result<CipherView, _> = key_store.decrypt(&cipher);
+        let lenient_result: Result<CipherView, _> = key_store.decrypt(&BlobAwareDecrypt {
+            inner: cipher.clone(),
+            use_strict: false,
+        });
         assert!(
             lenient_result.is_ok(),
             "Lenient decryption should succeed even when name is encrypted with a different key"
@@ -2273,7 +2296,10 @@ mod tests {
         };
 
         // Default (lenient) decryption swallows the error, yielding None for the username field
-        let lenient_result: Result<CipherView, _> = key_store.decrypt(&cipher);
+        let lenient_result: Result<CipherView, _> = key_store.decrypt(&BlobAwareDecrypt {
+            inner: cipher.clone(),
+            use_strict: false,
+        });
         assert!(
             lenient_result.is_ok(),
             "Lenient decryption should succeed even when login username is encrypted with a different key"
@@ -2306,7 +2332,12 @@ mod tests {
         // Check that the cipher gets encrypted correctly without it's own key
         let cipher = generate_cipher();
         let no_key_cipher_enc = key_store.encrypt(cipher).unwrap();
-        let no_key_cipher_dec: CipherView = key_store.decrypt(&no_key_cipher_enc).unwrap();
+        let no_key_cipher_dec: CipherView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: no_key_cipher_enc,
+                use_strict: false,
+            })
+            .unwrap();
         assert!(no_key_cipher_dec.key.is_none());
         assert_eq!(no_key_cipher_dec.name, original_cipher.name);
 
@@ -2317,7 +2348,12 @@ mod tests {
 
         // Check that the cipher gets encrypted correctly when it's assigned it's own key
         let key_cipher_enc = key_store.encrypt(cipher).unwrap();
-        let key_cipher_dec: CipherView = key_store.decrypt(&key_cipher_enc).unwrap();
+        let key_cipher_dec: CipherView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: key_cipher_enc,
+                use_strict: false,
+            })
+            .unwrap();
         assert!(key_cipher_dec.key.is_some());
         assert_eq!(key_cipher_dec.name, original_cipher.name);
     }
@@ -2436,7 +2472,12 @@ mod tests {
 
         // Check that the cipher can be encrypted/decrypted with the new org key
         let cipher_enc = key_store.encrypt(cipher).unwrap();
-        let cipher_dec: CipherView = key_store.decrypt(&cipher_enc).unwrap();
+        let cipher_dec: CipherView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: cipher_enc,
+                use_strict: false,
+            })
+            .unwrap();
 
         assert_eq!(cipher_dec.name, "My test login");
     }
@@ -3283,7 +3324,12 @@ mod tests {
             data: None,
         };
 
-        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+        let view: CipherView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: cipher,
+                use_strict: false,
+            })
+            .unwrap();
 
         // Should have 2 successful attachments
         assert!(view.attachments.is_some());
@@ -3318,7 +3364,12 @@ mod tests {
         };
 
         let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
+        let list_view: CipherListView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: cipher,
+                use_strict: false,
+            })
+            .unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::Passport);
         assert_eq!(list_view.subtitle, "Jane Doe");
@@ -3350,7 +3401,12 @@ mod tests {
         };
 
         let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
+        let list_view: CipherListView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: cipher,
+                use_strict: false,
+            })
+            .unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::DriversLicense);
         assert_eq!(list_view.subtitle, "John Doe");
@@ -3393,7 +3449,12 @@ mod tests {
         };
 
         let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
+        let decrypted: CipherView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: encrypted,
+                use_strict: false,
+            })
+            .unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::Passport);
         assert_eq!(decrypted.passport, Some(passport));
@@ -3427,7 +3488,12 @@ mod tests {
         };
 
         let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
-        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
+        let decrypted: CipherView = key_store
+            .decrypt(&BlobAwareDecrypt {
+                inner: encrypted,
+                use_strict: false,
+            })
+            .unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::DriversLicense);
         assert_eq!(decrypted.drivers_license, Some(dl));

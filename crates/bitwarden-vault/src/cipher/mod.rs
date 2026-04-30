@@ -26,9 +26,9 @@ pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileErro
 pub use bank_account::BankAccountView;
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
-    Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
-    CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptionContext,
-    ListOrganizationCiphersResult,
+    BlobAwareDecrypt, Cipher, CipherError, CipherId, CipherListView, CipherListViewType,
+    CipherRepromptType, CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult,
+    EncryptionContext, ListOrganizationCiphersResult,
 };
 pub use cipher_client::{CiphersClient, GetAssignedOrgCiphersAdminError};
 pub use cipher_view_type::CipherViewType;

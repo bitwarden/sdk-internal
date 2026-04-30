@@ -1,9 +1,9 @@
 use bitwarden_core::{MissingFieldError, key_management::KeySlotIds, require};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
-    CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
-    FolderView, IdentityView, LoginUriView, PasswordHistoryView, SecureNoteType, SecureNoteView,
-    SshKeyView,
+    BlobAwareDecrypt, CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType,
+    FieldView, FolderView, IdentityView, LoginUriView, PasswordHistoryView, SecureNoteType,
+    SecureNoteView, SshKeyView,
 };
 
 impl TryFrom<FolderView> for crate::Folder {
@@ -22,7 +22,10 @@ impl crate::Cipher {
         key_store: &KeyStore<KeySlotIds>,
         cipher: Cipher,
     ) -> Result<Self, crate::error::ExportError> {
-        let view: CipherView = key_store.decrypt(&cipher)?;
+        let view: CipherView = key_store.decrypt(&BlobAwareDecrypt {
+            inner: cipher,
+            use_strict: false,
+        })?;
 
         let r = match view.r#type {
             CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, key_store)?)),

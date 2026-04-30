@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     Cipher, CipherView, VaultParseError,
     cipher::{
-        cipher::{PartialCipher, StrictDecrypt},
+        cipher::{BlobAwareDecrypt, PartialCipher},
         cipher_client::create::convert_request_to_cipher_view,
     },
     cipher_client::{admin::CipherAdminClient, create::CipherCreateRequest},
@@ -72,11 +72,10 @@ async fn create_cipher(
     cipher.edit = true;
     cipher.view_password = true;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+    Ok(key_store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
 }
 
 #[allow(deprecated)]

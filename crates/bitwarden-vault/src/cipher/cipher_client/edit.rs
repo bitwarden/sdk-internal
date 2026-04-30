@@ -21,7 +21,7 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::cipher::{BlobAwareDecrypt, PartialCipher},
     cipher_view_type::CipherViewType,
 };
 
@@ -177,11 +177,10 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher_id = request.id;
 
     let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
-    let original_cipher_view: CipherView = if use_strict_decryption {
-        key_store.decrypt(&StrictDecrypt(original_cipher.clone()))?
-    } else {
-        key_store.decrypt(&original_cipher)?
-    };
+    let original_cipher_view: CipherView = key_store.decrypt(&BlobAwareDecrypt {
+        inner: original_cipher.clone(),
+        use_strict: use_strict_decryption,
+    })?;
 
     let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
@@ -206,11 +205,10 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+    Ok(key_store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
 }
 
 /// Update only the cipher fields available to users without edit permissions
@@ -240,11 +238,10 @@ async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+    Ok(key_store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
 }
 
 #[allow(deprecated)]

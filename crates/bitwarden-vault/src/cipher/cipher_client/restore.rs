@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::cipher::{BlobAwareDecrypt, PartialCipher},
 };
 
 #[allow(missing_docs)]
@@ -50,11 +50,10 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
         .merge_with_cipher(existing_cipher)?;
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+    Ok(key_store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -63,6 +62,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
     api_client: &ApiClient,
     repository: &R,
     key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
 ) -> Result<DecryptCipherListResult, RestoreCipherError> {
     let api = api_client.ciphers_api();
 
@@ -92,10 +92,17 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
         }
     }
 
-    let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+    let wrapped: Vec<BlobAwareDecrypt<Cipher>> = ciphers
+        .into_iter()
+        .map(|inner| BlobAwareDecrypt {
+            inner,
+            use_strict: use_strict_decryption,
+        })
+        .collect();
+    let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
     Ok(DecryptCipherListResult {
         successes,
-        failures: failures.into_iter().cloned().collect(),
+        failures: failures.into_iter().map(|f| f.inner.clone()).collect(),
     })
 }
 
@@ -126,7 +133,14 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = &*self.get_repository()?;
 
-        restore_many(cipher_ids, api_client, repository, key_store).await
+        restore_many(
+            cipher_ids,
+            api_client,
+            repository,
+            key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
 }
 
@@ -342,6 +356,7 @@ mod tests {
             &api_client,
             &repository,
             &store,
+            false,
         )
         .await
         .unwrap();
@@ -470,6 +485,7 @@ mod tests {
             &api_client,
             &repository,
             &store,
+            false,
         )
         .await
         .unwrap();

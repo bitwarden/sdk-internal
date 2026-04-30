@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherView, ItemNotFoundError,
-    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult, StrictDecrypt},
+    cipher::cipher::{BlobAwareDecrypt, DecryptCipherListResult, DecryptCipherResult},
 };
 
 #[allow(missing_docs)]
@@ -33,11 +33,23 @@ async fn get_cipher(
     let id = id.parse().map_err(|_| ItemNotFoundError)?;
     let cipher = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
-    if use_strict_decryption {
-        Ok(store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(store.decrypt(&cipher)?)
-    }
+    Ok(store.decrypt(&BlobAwareDecrypt {
+        inner: cipher,
+        use_strict: use_strict_decryption,
+    })?)
+}
+
+fn wrap_for_decrypt(
+    ciphers: Vec<Cipher>,
+    use_strict_decryption: bool,
+) -> Vec<BlobAwareDecrypt<Cipher>> {
+    ciphers
+        .into_iter()
+        .map(|inner| BlobAwareDecrypt {
+            inner,
+            use_strict: use_strict_decryption,
+        })
+        .collect()
 }
 
 async fn list_ciphers(
@@ -46,20 +58,12 @@ async fn list_ciphers(
     use_strict_decryption: bool,
 ) -> Result<DecryptCipherListResult, GetCipherError> {
     let ciphers = repository.list().await?;
-    if use_strict_decryption {
-        let strict: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
-        let (successes, failures) = store.decrypt_list_with_failures(&strict);
-        Ok(DecryptCipherListResult {
-            successes,
-            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-        })
-    } else {
-        let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
-        Ok(DecryptCipherListResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
-        })
-    }
+    let wrapped = wrap_for_decrypt(ciphers, use_strict_decryption);
+    let (successes, failures) = store.decrypt_list_with_failures(&wrapped);
+    Ok(DecryptCipherListResult {
+        successes,
+        failures: failures.into_iter().map(|f| f.inner.clone()).collect(),
+    })
 }
 
 async fn get_all_ciphers(
@@ -68,20 +72,12 @@ async fn get_all_ciphers(
     use_strict_decryption: bool,
 ) -> Result<DecryptCipherResult, GetCipherError> {
     let ciphers = repository.list().await?;
-    if use_strict_decryption {
-        let strict: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
-        let (successes, failures) = store.decrypt_list_with_failures(&strict);
-        Ok(DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-        })
-    } else {
-        let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
-        Ok(DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
-        })
-    }
+    let wrapped = wrap_for_decrypt(ciphers, use_strict_decryption);
+    let (successes, failures) = store.decrypt_list_with_failures(&wrapped);
+    Ok(DecryptCipherResult {
+        successes,
+        failures: failures.into_iter().map(|f| f.inner.clone()).collect(),
+    })
 }
 
 #[allow(deprecated)]

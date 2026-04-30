@@ -35,13 +35,21 @@ All `CiphersClient::decrypt*` entry points funnel through a single wrapper type,
 flag inherited from the `strict_cipher_decryption` feature flag. This keeps the homogeneous-slice
 requirement of `KeyStore::decrypt_list` satisfied while still handling mixed batches.
 
+`Cipher` itself does **not** implement `Decryptable<…, CipherView>` — the only types that do are
+`BlobAwareDecrypt<Cipher>` and `StrictDecrypt<Cipher>`. This is intentional: the legacy field-level
+path silently produces an empty `CipherView` when handed a blob-shaped cipher (the encrypted
+payload lives in `cipher.data`, which the legacy body ignores), so leaving a bare `Cipher` impl in
+place would be a footgun. External crates that need to decrypt outside of `CiphersClient` (e.g.
+`bitwarden-exporters`, `bitwarden-user-crypto-management` key rotation) construct a
+`BlobAwareDecrypt` directly.
+
 ```mermaid
 flowchart LR
     A[Cipher] --> B[BlobAwareDecrypt]
     B --> C{is_blob_encrypted?}
     C -->|Yes| D[decrypt_blob_cipher]
     C -->|No, use_strict=true| E[strict_decrypt_*]
-    C -->|No, use_strict=false| F[Cipher::decrypt]
+    C -->|No, use_strict=false| F[lenient_decrypt_*]
     D --> G[CipherView]
     E --> G
     F --> G
@@ -53,11 +61,11 @@ flowchart LR
 
 ### Dispatch matrix
 
-| Cipher format | `use_strict` (temporary) | `CipherView` path                    | `CipherListView` path                              |
-|---------------|--------------------------|--------------------------------------|----------------------------------------------------|
-| Blob          | (ignored)                | `decrypt_blob_cipher`                | `decrypt_blob_cipher` → `CipherView::to_list_view` |
-| Legacy        | `true`                   | `strict_decrypt_cipher_view`         | `strict_decrypt_cipher_list_view`                  |
-| Legacy        | `false`                  | `Decryptable<CipherView> for Cipher` | `Decryptable<CipherListView> for Cipher`           |
+| Cipher format | `use_strict` (temporary) | `CipherView` path              | `CipherListView` path                              |
+|---------------|--------------------------|--------------------------------|----------------------------------------------------|
+| Blob          | (ignored)                | `decrypt_blob_cipher`          | `decrypt_blob_cipher` → `CipherView::to_list_view` |
+| Legacy        | `true`                   | `strict_decrypt_cipher_view`   | `strict_decrypt_cipher_list_view`                  |
+| Legacy        | `false`                  | `lenient_decrypt_cipher_view`  | `lenient_decrypt_cipher_list_view`                 |
 
 Blob unseal is all-or-nothing, so the strict/lenient distinction only applies to the legacy branch.
 
