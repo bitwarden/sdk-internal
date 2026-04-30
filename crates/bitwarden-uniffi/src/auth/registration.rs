@@ -3,6 +3,7 @@ use bitwarden_auth::{
     registration::{
         JitMasterPasswordRegistrationRequest, JitMasterPasswordRegistrationResponse,
         KeyConnectorRegistrationResult, TdeRegistrationRequest, TdeRegistrationResponse,
+        UserMasterPasswordRegistrationRequest, UserMasterPasswordRegistrationResponse,
     },
 };
 
@@ -53,6 +54,20 @@ impl RegistrationClient {
             .auth_new()
             .registration()
             .post_keys_for_jit_password_registration(request)
+            .await?)
+    }
+
+    /// Initializes new password-based cryptographic state for a user
+    /// and posts the state to the server
+    pub async fn post_keys_for_user_password_registration(
+        &self,
+        request: UserMasterPasswordRegistrationRequest,
+    ) -> Result<UserMasterPasswordRegistrationResponse, BitwardenError> {
+        Ok(self
+            .0
+            .auth_new()
+            .registration()
+            .post_keys_for_user_password_registration(request)
             .await?)
     }
 }
