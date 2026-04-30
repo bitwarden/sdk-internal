@@ -890,6 +890,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organization-crypto"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "bitwarden-organizations"
 version = "2.0.0"
 dependencies = [
