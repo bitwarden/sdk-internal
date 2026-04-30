@@ -16,8 +16,11 @@ use wasm_bindgen::prelude::*;
 use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
-    cipher_client::edit::{CipherEditRequest, convert_request_to_cipher_view},
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
+    cipher_client::{
+        edit::{CipherEditRequest, convert_request_to_cipher_view},
+        should_use_blob_encryption,
+    },
 };
 
 #[allow(missing_docs)]
@@ -58,6 +61,7 @@ async fn edit_cipher(
     request: CipherEditRequest,
     use_strict_decryption: bool,
     enable_cipher_key_encryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let cipher_id = request.id;
     // CipherMiniResponseModel does not include folder_id or favorite — save them from the
@@ -75,11 +79,26 @@ async fn edit_cipher(
         view.generate_cipher_key(&mut key_store.context(), key)?;
     }
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    // Admin endpoints operate on organization-owned ciphers, which aren't
+    // expected to use blob encryption yet — `should_use_blob_encryption`
+    // returns `false` for any `Some(org)` today. Routing through the same
+    // dispatcher means org blob support (PM-32430) flips on automatically
+    // here when the helper learns to return `true` for orgs.
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let orig_cipher = key_store.encrypt(original_cipher_view)?;
+    let orig_mode = if use_blob {
+        EncryptMode::Blob(original_cipher_view)
+    } else {
+        EncryptMode::Legacy(original_cipher_view)
+    };
+    let orig_cipher = key_store.encrypt(orig_mode)?;
 
     let mut cipher: Cipher = api_client
         .ciphers_api()
@@ -147,6 +166,8 @@ impl CipherAdminClient {
         let enable_cipher_key_encryption =
             self.client.flags().get().await.enable_cipher_key_encryption;
 
+        let use_blob = should_use_blob_encryption(&self.client, request.organization_id);
+
         edit_cipher(
             key_store,
             &config.api_client,
@@ -155,6 +176,7 @@ impl CipherAdminClient {
             request,
             self.is_strict_decrypt().await,
             enable_cipher_key_encryption,
+            use_blob,
         )
         .await
     }
@@ -301,6 +323,7 @@ mod tests {
             request,
             false,
             false,
+            false,
         )
         .await
         .unwrap();
@@ -334,6 +357,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             orig_cipher_view,
             request,
+            false,
             false,
             false,
         )

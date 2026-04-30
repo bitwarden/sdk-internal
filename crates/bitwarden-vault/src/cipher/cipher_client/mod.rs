@@ -39,6 +39,24 @@ mod move_many;
 mod restore;
 mod share_cipher;
 
+/// Returns `true` when cipher data for the given scope should be written in the
+/// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
+/// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
+pub(crate) fn should_use_blob_encryption(
+    client: &Client,
+    organization_id: Option<OrganizationId>,
+) -> bool {
+    if organization_id.is_some() {
+        return false;
+    }
+    client
+        .internal
+        .get_key_store()
+        .context()
+        .get_security_state_version()
+        >= BLOB_SECURITY_VERSION
+}
+
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
@@ -67,23 +85,11 @@ impl FromClient for CiphersClient {
 #[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Returns `true` when cipher data for the given scope should be written in the
-    /// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
-    /// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
-    #[allow(dead_code)] // Consumed by the encrypt/decrypt wiring ticket.
     pub(crate) fn should_use_blob_encryption(
         &self,
         organization_id: Option<OrganizationId>,
     ) -> bool {
-        if organization_id.is_some() {
-            return false;
-        }
-        self.client
-            .internal
-            .get_key_store()
-            .context()
-            .get_security_state_version()
-            >= BLOB_SECURITY_VERSION
+        should_use_blob_encryption(&self.client, organization_id)
     }
 
     #[allow(missing_docs)]
