@@ -7,8 +7,7 @@ use crate::{
 
 /// The entry point for unauthenticated SDK operations.
 ///
-/// `GlobalClient` is cheap to clone — every clone shares the same underlying
-/// [`GlobalInternalClient`] (wrapped in an [`Arc`]).
+/// `GlobalClient` internally contains an [`Arc`] so is cheap to clone.
 ///
 /// Headers are sourced from the process-wide
 /// [`crate::HostPlatformInfo`] singleton, which must be initialized via
