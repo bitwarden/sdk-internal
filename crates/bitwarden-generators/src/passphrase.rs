@@ -102,6 +102,7 @@ fn passphrase_with_rng(mut rng: impl Rng, options: ValidPassphraseGeneratorOptio
 }
 
 fn gen_words(mut rng: impl Rng, num_words: u8) -> Vec<String> {
+    // A passphrase consists of words joined by hyphens. The `EFF_LONG_WORD_LIST` contains some words that contain hyphens, which creates ambiguous encodings with more hyphen-separated-segments than expected.
     let words: Vec<_> = EFF_LONG_WORD_LIST
         .iter()
         .filter(|w| !w.contains('-'))
