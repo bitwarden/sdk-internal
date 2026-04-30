@@ -33,16 +33,13 @@ pub trait OrganizationAuthRequestsApi: Send + Sync {
         bulk_deny_admin_auth_request_request_model: Option<
             models::BulkDenyAdminAuthRequestRequestModel,
         >,
-    ) -> Result<(), Error<BulkDenyRequestsError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/auth-requests
     async fn get_pending_requests<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::PendingOrganizationAuthRequestResponseModelListResponseModel,
-        Error<GetPendingRequestsError>,
-    >;
+    ) -> Result<models::PendingOrganizationAuthRequestResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{orgId}/auth-requests/{requestId}
     async fn update_auth_request<'a>(
@@ -50,7 +47,7 @@ pub trait OrganizationAuthRequestsApi: Send + Sync {
         org_id: uuid::Uuid,
         request_id: uuid::Uuid,
         admin_auth_request_update_request_model: Option<models::AdminAuthRequestUpdateRequestModel>,
-    ) -> Result<(), Error<UpdateAuthRequestError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/auth-requests
     async fn update_many_auth_requests<'a>(
@@ -59,7 +56,7 @@ pub trait OrganizationAuthRequestsApi: Send + Sync {
         organization_auth_request_update_many_request_model: Option<
             Vec<models::OrganizationAuthRequestUpdateManyRequestModel>,
         >,
-    ) -> Result<(), Error<UpdateManyAuthRequestsError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationAuthRequestsApiClient {
@@ -81,7 +78,7 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         bulk_deny_admin_auth_request_request_model: Option<
             models::BulkDenyAdminAuthRequestRequestModel,
         >,
-    ) -> Result<(), Error<BulkDenyRequestsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -104,10 +101,7 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
     async fn get_pending_requests<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::PendingOrganizationAuthRequestResponseModelListResponseModel,
-        Error<GetPendingRequestsError>,
-    > {
+    ) -> Result<models::PendingOrganizationAuthRequestResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -130,7 +124,7 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         org_id: uuid::Uuid,
         request_id: uuid::Uuid,
         admin_auth_request_update_request_model: Option<models::AdminAuthRequestUpdateRequestModel>,
-    ) -> Result<(), Error<UpdateAuthRequestError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -157,7 +151,7 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
         organization_auth_request_update_many_request_model: Option<
             Vec<models::OrganizationAuthRequestUpdateManyRequestModel>,
         >,
-    ) -> Result<(), Error<UpdateManyAuthRequestsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -176,29 +170,4 @@ impl OrganizationAuthRequestsApi for OrganizationAuthRequestsApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::bulk_deny_requests`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDenyRequestsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::get_pending_requests`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPendingRequestsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::update_auth_request`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateAuthRequestError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationAuthRequestsApi::update_many_auth_requests`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateManyAuthRequestsError {
-    UnknownValue(serde_json::Value),
 }

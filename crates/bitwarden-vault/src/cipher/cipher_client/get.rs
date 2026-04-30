@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -25,7 +25,7 @@ pub enum GetCipherError {
 }
 
 async fn get_cipher(
-    store: &KeyStore<KeyIds>,
+    store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Cipher>,
     id: &str,
     use_strict_decryption: bool,
@@ -41,7 +41,7 @@ async fn get_cipher(
 }
 
 async fn list_ciphers(
-    store: &KeyStore<KeyIds>,
+    store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Cipher>,
 ) -> Result<DecryptCipherListResult, GetCipherError> {
     let ciphers = repository.list().await?;
@@ -53,7 +53,7 @@ async fn list_ciphers(
 }
 
 async fn get_all_ciphers(
-    store: &KeyStore<KeyIds>,
+    store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Cipher>,
 ) -> Result<DecryptCipherResult, GetCipherError> {
     let ciphers = repository.list().await?;
@@ -95,7 +95,7 @@ impl CiphersClient {
             key_store,
             repository.as_ref(),
             cipher_id,
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }

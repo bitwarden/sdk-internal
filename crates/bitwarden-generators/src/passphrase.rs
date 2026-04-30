@@ -1,6 +1,6 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
 use bitwarden_error::bitwarden_error;
-use rand::{Rng, RngCore, seq::SliceRandom};
+use rand::{Rng, RngExt, seq::IndexedRandom};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -46,8 +46,10 @@ impl Default for PassphraseGeneratorRequest {
     }
 }
 
-const MINIMUM_PASSPHRASE_NUM_WORDS: u8 = 3;
-const MAXIMUM_PASSPHRASE_NUM_WORDS: u8 = 20;
+/// Minimum number of words allowed in a generated passphrase.
+pub const MINIMUM_PASSPHRASE_NUM_WORDS: u8 = 3;
+/// Maximum number of words allowed in a generated passphrase.
+pub const MAXIMUM_PASSPHRASE_NUM_WORDS: u8 = 20;
 
 /// Represents a set of valid options to generate a passhprase with.
 /// To get an instance of it, use
@@ -85,10 +87,10 @@ impl PassphraseGeneratorRequest {
 /// Implementation of the random passphrase generator.
 pub(crate) fn passphrase(request: PassphraseGeneratorRequest) -> Result<String, PassphraseError> {
     let options = request.validate_options()?;
-    Ok(passphrase_with_rng(rand::thread_rng(), options))
+    Ok(passphrase_with_rng(rand::rng(), options))
 }
 
-fn passphrase_with_rng(mut rng: impl RngCore, options: ValidPassphraseGeneratorOptions) -> String {
+fn passphrase_with_rng(mut rng: impl Rng, options: ValidPassphraseGeneratorOptions) -> String {
     let mut passphrase_words = gen_words(&mut rng, options.num_words);
     if options.include_number {
         include_number_in_words(&mut rng, &mut passphrase_words);
@@ -99,7 +101,7 @@ fn passphrase_with_rng(mut rng: impl RngCore, options: ValidPassphraseGeneratorO
     passphrase_words.join(&options.word_separator)
 }
 
-fn gen_words(mut rng: impl RngCore, num_words: u8) -> Vec<String> {
+fn gen_words(mut rng: impl Rng, num_words: u8) -> Vec<String> {
     (0..num_words)
         .map(|_| {
             EFF_LONG_WORD_LIST
@@ -110,9 +112,9 @@ fn gen_words(mut rng: impl RngCore, num_words: u8) -> Vec<String> {
         .collect()
 }
 
-fn include_number_in_words(mut rng: impl RngCore, words: &mut [String]) {
-    let number_idx = rng.gen_range(0..words.len());
-    words[number_idx].push_str(&rng.gen_range(0..=9).to_string());
+fn include_number_in_words(mut rng: impl Rng, words: &mut [String]) {
+    let number_idx = rng.random_range(0..words.len());
+    words[number_idx].push_str(&rng.random_range(0..=9).to_string());
 }
 
 fn capitalize_words(words: &mut [String]) {
@@ -132,10 +134,10 @@ mod tests {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
         assert_eq!(
             &gen_words(&mut rng, 4),
-            &["subsystem", "undertook", "silenced", "dinginess"]
+            &["crust", "subsystem", "undertook", "protector"]
         );
-        assert_eq!(&gen_words(&mut rng, 1), &["numbing"]);
-        assert_eq!(&gen_words(&mut rng, 2), &["catnip", "jokester"]);
+        assert_eq!(&gen_words(&mut rng, 1), &["silenced"]);
+        assert_eq!(&gen_words(&mut rng, 2), &["dinginess", "numbing"]);
     }
 
     #[test]
@@ -163,11 +165,11 @@ mod tests {
 
         let mut words = vec!["hello".into(), "world".into()];
         include_number_in_words(&mut rng, &mut words);
-        assert_eq!(words, &["hello", "world7"]);
+        assert_eq!(words, &["hello8", "world"]);
 
         let mut words = vec!["This".into(), "is".into(), "a".into(), "test".into()];
         include_number_in_words(&mut rng, &mut words);
-        assert_eq!(words, &["This", "is", "a1", "test"]);
+        assert_eq!(words, &["This", "is", "a", "test6"]);
     }
 
     #[test]
@@ -185,7 +187,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "subsystem4👨🏻‍❤️‍💋‍👨🏻undertook👨🏻‍❤️‍💋‍👨🏻silenced👨🏻‍❤️‍💋‍👨🏻dinginess"
+            "crust👨🏻‍❤️‍💋‍👨🏻subsystem👨🏻‍❤️‍💋‍👨🏻undertook👨🏻‍❤️‍💋‍👨🏻protector2"
         );
     }
 
@@ -203,7 +205,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "Subsystem4-Undertook-Silenced-Dinginess"
+            "Crust-Subsystem-Undertook-Protector2"
         );
 
         let input = PassphraseGeneratorRequest {
@@ -216,7 +218,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "drew7 hankering cabana"
+            "numbing4 catnip jokester"
         );
 
         let input = PassphraseGeneratorRequest {
@@ -229,7 +231,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "duller;backlight;factual;husked;remover"
+            "cabana;pungent;acts;sarcasm;duller"
         );
     }
 }

@@ -1,4 +1,6 @@
-use std::sync::{Arc, OnceLock, RwLock};
+#[cfg(feature = "internal")]
+use std::sync::RwLock;
+use std::sync::{Arc, OnceLock};
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -7,21 +9,26 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_crypto::{
     EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
 };
-#[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info, instrument};
 
 use crate::{
-    DeviceType, UserId, auth::auth_tokens::TokenHandler, client::login_method::LoginMethod,
-    error::UserIdAlreadySetError, key_management::KeyIds,
+    DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
+    key_management::KeySlotIds,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
+use crate::{
+    OrganizationId, client::encryption_settings::EncryptionSettings,
+    client::login_method::LoginMethod,
+};
 #[cfg(feature = "internal")]
 use crate::{
     client::{
-        encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
+        encryption_settings::EncryptionSettingsError,
+        flags::Flags,
+        login_method::UserLoginMethod,
+        persisted_state::{FLAGS, USER_ID, USER_LOGIN_METHOD},
     },
     error::NotAuthenticatedError,
     key_management::{
@@ -66,6 +73,25 @@ impl ApiConfigurations {
         })
     }
 
+    /// Create an `ApiConfigurations` from a mocked API client, filling in dummy
+    /// values for the remaining fields. Only available for testing.
+    #[cfg(feature = "test-fixtures")]
+    pub fn from_api_client(api_client: bitwarden_api_api::apis::ApiClient) -> Self {
+        let dummy_config = bitwarden_api_base::Configuration {
+            base_path: String::new(),
+            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
+        };
+        Self {
+            api_client,
+            identity_client: bitwarden_api_identity::apis::ApiClient::new(&std::sync::Arc::new(
+                dummy_config.clone(),
+            )),
+            api_config: dummy_config.clone(),
+            identity_config: dummy_config,
+            device_type: DeviceType::SDK,
+        }
+    }
+
     pub(crate) fn get_key_connector_client(
         self: &Arc<Self>,
         key_connector_url: String,
@@ -84,19 +110,8 @@ impl ApiConfigurations {
 #[allow(missing_docs)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
-    #[allow(
-        unused,
-        reason = "This is not used directly by SM, but it's used via the middleware"
-    )]
+    #[cfg_attr(not(any(feature = "internal", feature = "secrets")), allow(dead_code))]
     pub(crate) token_handler: Arc<dyn TokenHandler>,
-    #[allow(
-        unused,
-        reason = "This is not used directly by SM, but it's used via the middleware"
-    )]
-    pub(crate) login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
-
-    #[cfg(feature = "internal")]
-    pub(super) flags: RwLock<Flags>,
 
     pub(super) api_configurations: Arc<ApiConfigurations>,
 
@@ -104,65 +119,99 @@ pub struct InternalClient {
     #[allow(unused)]
     pub(crate) external_http_client: reqwest::Client,
 
-    pub(super) key_store: KeyStore<KeyIds>,
+    pub(super) key_store: KeyStore<KeySlotIds>,
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
-    #[cfg(feature = "internal")]
-    pub(crate) repository_map: StateRegistry,
+    // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the
+    // feature flags are removed.
+    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
+    pub(crate) state_registry: StateRegistry,
 }
 
 impl InternalClient {
     /// Load feature flags. This is intentionally a collection and not the internal `Flag` enum as
     /// we want to avoid changes in feature flags from being a breaking change.
     #[cfg(feature = "internal")]
-    pub fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
-        *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
+    pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
+        let flags = Flags::load_from_map(flags);
+        match self.state_registry.setting(FLAGS) {
+            Ok(setting) => {
+                if let Err(e) = setting.update(flags).await {
+                    tracing::warn!("Failed to persist flags: {e}");
+                }
+            }
+            Err(e) => tracing::warn!("Flags setting unavailable: {e}"),
+        }
     }
 
     /// Retrieve the active feature flags.
     #[cfg(feature = "internal")]
-    pub fn get_flags(&self) -> Flags {
-        self.flags.read().expect("RwLock is not poisoned").clone()
+    pub async fn get_flags(&self) -> Flags {
+        let setting = match self.state_registry.setting(FLAGS) {
+            Ok(setting) => setting,
+            Err(e) => {
+                tracing::warn!("Flags setting unavailable, using defaults: {e}");
+                return Flags::default();
+            }
+        };
+        match setting.get().await {
+            Ok(Some(flags)) => flags,
+            Ok(None) => Flags::default(),
+            Err(e) => {
+                tracing::warn!("Failed to read flags, using defaults: {e}");
+                Flags::default()
+            }
+        }
     }
 
     #[cfg(feature = "internal")]
-    pub(crate) fn get_login_method(&self) -> Option<UserLoginMethod> {
-        let lm = self.login_method.read().expect("RwLock is not poisoned");
-        match lm.as_deref()? {
-            LoginMethod::User(ulm) => Some(ulm.clone()),
-            #[allow(unreachable_patterns)]
-            _ => None,
+    pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
+        self.state_registry
+            .setting(USER_LOGIN_METHOD)
+            .ok()?
+            .get()
+            .await
+            .ok()
+            .flatten()
+    }
+
+    #[cfg(any(feature = "internal", feature = "secrets"))]
+    pub(crate) async fn set_login_method(&self, login_method: LoginMethod) {
+        match login_method {
+            #[cfg(feature = "internal")]
+            LoginMethod::User(lm) => {
+                if let Ok(setting) = self.state_registry.setting(USER_LOGIN_METHOD) {
+                    setting.update(lm).await.ok();
+                }
+            }
+            #[cfg(feature = "secrets")]
+            LoginMethod::ServiceAccount(lm) => {
+                self.token_handler.set_sm_login_method(lm).await;
+            }
         }
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
-    pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
-        use tracing::debug;
-
-        debug!(?login_method, "setting login method.");
-        *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
-    }
-
-    #[cfg(any(feature = "internal", feature = "secrets"))]
-    pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
+    pub(crate) async fn set_tokens(
+        &self,
+        token: String,
+        refresh_token: Option<String>,
+        expires_in: u64,
+    ) {
         self.token_handler
-            .set_tokens(token, refresh_token, expires_in);
+            .set_tokens(token, refresh_token, expires_in)
+            .await;
     }
 
     #[allow(missing_docs)]
     #[cfg(feature = "internal")]
-    pub fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
-        match self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .as_deref()
-        {
-            Some(LoginMethod::User(
-                UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. },
-            )) => Ok(kdf.clone()),
-            _ => Err(NotAuthenticatedError),
+    pub async fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
+        match self.get_login_method().await {
+            Some(UserLoginMethod::Username { kdf, .. } | UserLoginMethod::ApiKey { kdf, .. }) => {
+                Ok(kdf)
+            }
+            None => Err(NotAuthenticatedError),
         }
     }
 
@@ -187,7 +236,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
+    pub fn get_key_store(&self) -> &KeyStore<KeySlotIds> {
         &self.key_store
     }
 
@@ -204,17 +253,24 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
+    pub async fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);
 
         // Only return an error if the user_id is already set to a different value,
         // as we want an SDK client to be tied to a single user_id.
         // If it's the same value, we can just do nothing.
         if *set_uuid != user_id {
-            Err(UserIdAlreadySetError)
-        } else {
-            Ok(())
+            return Err(UserIdAlreadySetError);
         }
+
+        #[cfg(feature = "internal")]
+        if let Ok(setting) = self.state_registry.setting(USER_ID)
+            && let Err(e) = setting.update(user_id).await
+        {
+            tracing::warn!("Failed to persist user_id: {e}");
+        }
+
+        Ok(())
     }
 
     #[allow(missing_docs)]
@@ -362,36 +418,42 @@ impl InternalClient {
     /// Sets the local KDF state for the master password unlock login method.
     /// Salt and user key update is not supported yet.
     #[cfg(feature = "internal")]
-    pub fn set_user_master_password_unlock(
+    pub async fn set_user_master_password_unlock(
         &self,
         master_password_unlock: MasterPasswordUnlockData,
     ) -> Result<(), NotAuthenticatedError> {
         let new_kdf = master_password_unlock.kdf;
 
-        let login_method = self.get_login_method().ok_or(NotAuthenticatedError)?;
+        let login_method = self.get_login_method().await.ok_or(NotAuthenticatedError)?;
 
-        let kdf = self.get_kdf()?;
+        let kdf = self.get_kdf().await?;
 
         if kdf != new_kdf {
             match login_method {
                 UserLoginMethod::Username {
                     client_id, email, ..
-                } => self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                    client_id,
-                    email,
-                    kdf: new_kdf,
-                })),
+                } => {
+                    self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                        client_id,
+                        email,
+                        kdf: new_kdf,
+                    }))
+                    .await
+                }
                 UserLoginMethod::ApiKey {
                     client_id,
                     client_secret,
                     email,
                     ..
-                } => self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                    client_id,
-                    client_secret,
-                    email,
-                    kdf: new_kdf,
-                })),
+                } => {
+                    self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                        client_id,
+                        client_secret,
+                        email,
+                        kdf: new_kdf,
+                    }))
+                    .await
+                }
             };
         }
 
@@ -414,23 +476,79 @@ mod tests {
     const TEST_ACCOUNT_EMAIL: &str = "test@bitwarden.com";
     const TEST_ACCOUNT_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
 
-    #[test]
-    fn initializing_user_multiple_times() {
+    #[tokio::test]
+    async fn initializing_user_multiple_times() {
         use super::*;
+        use crate::client::persisted_state::USER_ID;
 
         let client = Client::new(None);
         let user_id = UserId::new_v4();
 
         // Setting the user ID for the first time should work.
-        assert!(client.internal.init_user_id(user_id).is_ok());
+        assert!(client.internal.init_user_id(user_id).await.is_ok());
         assert_eq!(client.internal.get_user_id(), Some(user_id));
 
+        // The user ID should be persisted to the settings repository.
+        let persisted = client
+            .internal
+            .state_registry
+            .setting(USER_ID)
+            .unwrap()
+            .get()
+            .await
+            .unwrap();
+        assert_eq!(persisted, Some(user_id));
+
         // Trying to set the same user_id again should not return an error.
-        assert!(client.internal.init_user_id(user_id).is_ok());
+        assert!(client.internal.init_user_id(user_id).await.is_ok());
 
         // Trying to set a different user_id should return an error.
         let different_user_id = UserId::new_v4();
-        assert!(client.internal.init_user_id(different_user_id).is_err());
+        assert!(
+            client
+                .internal
+                .init_user_id(different_user_id)
+                .await
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn load_flags_round_trips_through_setting() {
+        use std::collections::HashMap;
+
+        use super::*;
+
+        let client = Client::new(None);
+
+        // With no flags loaded yet, get_flags should return defaults.
+        let initial = client.internal.get_flags().await;
+        assert!(!initial.enable_cipher_key_encryption);
+        assert!(!initial.strict_cipher_decryption);
+
+        // Loading flags should persist them via the FLAGS setting.
+        let mut map = HashMap::new();
+        map.insert("enableCipherKeyEncryption".to_string(), true);
+        map.insert("pm-34500-strict-cipher-decryption".to_string(), true);
+        client.internal.load_flags(map).await;
+
+        // get_flags should now return the loaded values.
+        let loaded = client.internal.get_flags().await;
+        assert!(loaded.enable_cipher_key_encryption);
+        assert!(loaded.strict_cipher_decryption);
+
+        // The values should be readable directly from the setting too.
+        let persisted = client
+            .internal
+            .state_registry
+            .setting(FLAGS)
+            .unwrap()
+            .get()
+            .await
+            .unwrap()
+            .expect("flags should be persisted after load_flags");
+        assert!(persisted.enable_cipher_key_encryption);
+        assert!(persisted.strict_cipher_decryption);
     }
 
     #[tokio::test]
@@ -453,9 +571,10 @@ mod tests {
                 master_key_wrapped_user_key: user_key,
                 salt: email,
             })
+            .await
             .unwrap();
 
-        let kdf = client.internal.get_kdf().unwrap();
+        let kdf = client.internal.get_kdf().await.unwrap();
         assert_eq!(kdf, new_kdf);
     }
 
@@ -480,9 +599,10 @@ mod tests {
                 master_key_wrapped_user_key: new_encrypted_user_key,
                 salt: new_email,
             })
+            .await
             .unwrap();
 
-        let login_method = client.internal.get_login_method().unwrap();
+        let login_method = client.internal.get_login_method().await.unwrap();
         match login_method {
             UserLoginMethod::Username { email, .. } => {
                 assert_eq!(*email, expected_email);

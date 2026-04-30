@@ -5,10 +5,13 @@ use wasm_bindgen::prelude::*;
 
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
-    IpcClient,
-    ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
+    IpcClientImpl,
+    crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
+    error::{AlreadyRunningError, ReceiveError, SubscribeError},
+    ipc_client::IpcClientSubscription,
+    ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage},
-    traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
+    traits::InMemorySessionRepository,
     wasm::{
         JsSessionRepository, RawJsSessionRepository,
         generic_session_repository::GenericSessionRepository,
@@ -16,7 +19,7 @@ use crate::{
 };
 
 /// JavaScript wrapper around the IPC client. For more information, see the
-/// [IpcClient] documentation.
+/// [`IpcClient`] trait documentation.
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
     #[wasm_bindgen(skip)]
@@ -24,9 +27,7 @@ pub struct JsIpcClient {
     /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
     /// send typed messages, etc. For examples see
     /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
-    pub client: Arc<
-        IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, GenericSessionRepository>,
-    >,
+    pub client: Arc<dyn IpcClient>,
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
@@ -63,15 +64,16 @@ impl JsIpcClient {
         communication_provider: &JsCommunicationBackend,
     ) -> JsIpcClient {
         JsIpcClient {
-            client: IpcClient::new(
-                NoEncryptionCryptoProvider,
+            client: Arc::new(IpcClientImpl::new(
+                NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
                     HashMap::new(),
                 ))),
-            ),
+            )),
         }
     }
+
     /// Create a new `IpcClient` instance with a client-managed session repository for saving
     /// sessions using State Provider.
     #[wasm_only]
@@ -81,27 +83,32 @@ impl JsIpcClient {
         session_repository: RawJsSessionRepository,
     ) -> JsIpcClient {
         JsIpcClient {
-            client: IpcClient::new(
-                NoEncryptionCryptoProvider,
+            client: Arc::new(IpcClientImpl::new(
+                NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::JsSessionRepository(Arc::new(JsSessionRepository::new(
                     session_repository,
                 ))),
-            ),
+            )),
         }
     }
 
     #[wasm_only]
     #[allow(missing_docs)]
-    pub async fn start(&self) {
-        self.client.start().await
+    pub async fn start(
+        &self,
+        abort_signal: Option<AbortSignal>,
+    ) -> Result<(), AlreadyRunningError> {
+        self.client
+            .start(abort_signal.map(|signal| signal.to_cancellation_token()))
+            .await
     }
 
     #[wasm_only]
     #[wasm_bindgen(js_name = isRunning)]
     #[allow(missing_docs)]
-    pub async fn is_running(&self) -> bool {
-        self.client.is_running().await
+    pub fn is_running(&self) -> bool {
+        self.client.is_running()
     }
 
     #[wasm_only]
@@ -110,7 +117,7 @@ impl JsIpcClient {
         self.client
             .send(message)
             .await
-            .map_err(|e| JsError::new(&e))
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
     #[wasm_only]
