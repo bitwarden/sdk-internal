@@ -8,6 +8,7 @@ mod uniffi_support;
 pub mod auth;
 pub mod client;
 mod error;
+pub mod global;
 pub mod key_management;
 pub use error::{
     ApiError, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError, WrongPasswordError,
@@ -28,6 +29,7 @@ pub use client::{
     Client, ClientBuilder, ClientName, ClientSettings, DeviceType, FromClient, HostPlatformInfo,
     get_host_platform_info, init_host_platform_info,
 };
+pub use global::GlobalClient;
 
 mod ids;
 pub use ids::*;
