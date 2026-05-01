@@ -207,7 +207,6 @@ jobs:
           |--------|--------|---------|
           ${ROW_MARKER}
           ${OUR_ROW}
-
           ---
           *Results update as workflows complete.*
           EOF
