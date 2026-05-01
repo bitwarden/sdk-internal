@@ -214,7 +214,7 @@ async fn internal_post_keys_for_tde_registration(
                         .trusted_device_keys
                         .protected_device_private_key
                         .to_string(),
-                },
+                }),
             )
             .await
             .map_err(|e| {
