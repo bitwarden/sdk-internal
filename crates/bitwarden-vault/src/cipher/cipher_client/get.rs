@@ -94,7 +94,12 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        list_ciphers(key_store, repository.as_ref(), self.is_strict_decrypt().await).await
+        list_ciphers(
+            key_store,
+            repository.as_ref(),
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
 
     /// Get all ciphers from state and decrypt them to full [CipherView], returning both
@@ -104,7 +109,12 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        get_all_ciphers(key_store, repository.as_ref(), self.is_strict_decrypt().await).await
+        get_all_ciphers(
+            key_store,
+            repository.as_ref(),
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
