@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, OrganizationId, key_management::BLOB_SECURITY_VERSION};
-use bitwarden_crypto::IdentifyKey;
+use bitwarden_core::{
+    Client, FromClient, OrganizationId,
+    client::{ApiConfigurations, FromClientPart},
+    key_management::{BLOB_SECURITY_VERSION, KeySlotIds},
+};
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{IdentifyKey, KeyStore};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -20,20 +24,42 @@ use crate::{
 use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
+mod bulk_update_collections;
 mod create;
 mod delete;
 mod delete_attachment;
 mod edit;
 mod get;
+mod move_many;
 mod restore;
 mod share_cipher;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
+    #[allow(dead_code)]
+    pub(crate) key_store: KeyStore<KeySlotIds>,
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
+    pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
+    #[deprecated(
+        note = "Use the component fields (key_store, api_configurations, repository) for new operations"
+    )]
     pub(crate) client: Client,
 }
 
+impl FromClient for CiphersClient {
+    fn from_client(client: &Client) -> Self {
+        #[allow(deprecated)]
+        Self {
+            key_store: client.get_part(),
+            api_configurations: client.get_part(),
+            repository: client.get_part(),
+            client: client.clone(),
+        }
+    }
+}
+
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Returns `true` when cipher data for the given scope should be written in the
@@ -317,6 +343,7 @@ impl CiphersClient {
     }
 }
 
+#[allow(deprecated)]
 impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
         Ok(self.client.platform().state().get::<Cipher>()?)
