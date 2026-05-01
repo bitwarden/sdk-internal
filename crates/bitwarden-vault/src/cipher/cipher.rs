@@ -1742,6 +1742,7 @@ where
 /// errors collapse to [`CryptoError::Decrypt`] since callers only need to
 /// know "blob operation failed".
 pub(crate) fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
+    tracing::warn!(error = %err, error_debug = ?err, "blob decryption failed");
     match err {
         BlobEncryptionError::Crypto(c) => c,
         BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {

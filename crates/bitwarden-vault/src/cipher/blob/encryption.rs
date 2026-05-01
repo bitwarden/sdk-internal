@@ -4,6 +4,7 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use thiserror::Error;
+use tracing::instrument;
 
 use super::{CipherBlob, CipherBlobLatest, SealedCipherBlob, SealedCipherBlobError};
 use crate::cipher::{
@@ -55,6 +56,7 @@ fn seal_blob_content(
 }
 
 /// Unseals a cipher's blob data, returning the latest blob version.
+#[instrument(err, skip_all, fields(cipher_id = ?cipher.id, has_key = cipher.key.is_some(), data_len = cipher.data.as_deref().map(str::len)))]
 fn unseal_cipher(
     cipher: &Cipher,
     ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -158,6 +160,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
 ///
 /// Unseals the blob data, decrypts attachments and local data, then applies
 /// the blob content fields onto the view.
+#[instrument(err, skip_all, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id))]
 pub(crate) fn decrypt_blob_cipher(
     cipher: &Cipher,
     ctx: &mut KeyStoreContext<KeySlotIds>,
