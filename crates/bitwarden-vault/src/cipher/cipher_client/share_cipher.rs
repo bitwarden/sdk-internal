@@ -91,6 +91,15 @@ async fn share_ciphers_bulk(
                 .map(|s| (*s).try_into())
                 .transpose()?,
             ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: cipher_mini
+                .bank_account
+                .map(|b| (*b).try_into())
+                .transpose()?,
+            drivers_license: cipher_mini
+                .drivers_license
+                .map(|d| (*d).try_into())
+                .transpose()?,
+            passport: cipher_mini.passport.map(|p| (*p).try_into()).transpose()?,
             reprompt: cipher_mini
                 .reprompt
                 .map(|r| r.try_into())
@@ -332,6 +341,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -529,6 +541,9 @@ mod tests {
                 card: None,
                 secure_note: None,
                 ssh_key: None,
+                bank_account: None,
+                drivers_license: None,
+                passport: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
@@ -694,6 +709,9 @@ mod tests {
                 card: None,
                 secure_note: None,
                 ssh_key: None,
+                bank_account: None,
+                drivers_license: None,
+                passport: None,
                 favorite: true,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,

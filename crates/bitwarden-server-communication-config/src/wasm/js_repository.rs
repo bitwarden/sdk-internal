@@ -9,25 +9,25 @@ const TS_CUSTOM_TYPES: &'static str = r#"
  * Repository interface for storing server communication configuration.
  * 
  * Implementations use StateProvider (or equivalent storage mechanism) to
- * persist configuration across sessions. The hostname is typically the vault
- * server's hostname (e.g., "vault.acme.com").
+ * persist configuration across sessions. The domain is typically the vault
+ * server's domain name (e.g., "vault.acme.com").
  */
 export interface ServerCommunicationConfigRepository {
     /**
-     * Retrieves the server communication configuration for a given hostname.
+     * Retrieves the server communication configuration for a given domain.
      * 
-     * @param hostname The server hostname (e.g., "vault.acme.com")
+     * @param domain The server domain (e.g., "vault.acme.com")
      * @returns The configuration if it exists, undefined otherwise
      */
-    get(hostname: string): Promise<ServerCommunicationConfig | undefined>;
+    get(domain: string): Promise<ServerCommunicationConfig | undefined>;
     
     /**
-     * Saves the server communication configuration for a given hostname.
+     * Saves the server communication configuration for a given domain.
      * 
-     * @param hostname The server hostname (e.g., "vault.acme.com")
+     * @param domain The server domain (e.g., "vault.acme.com")
      * @param config The configuration to store
      */
-    save(hostname: string, config: ServerCommunicationConfig): Promise<void>;
+    save(domain: string, config: ServerCommunicationConfig): Promise<void>;
 }
 "#;
 
@@ -40,18 +40,18 @@ extern "C" {
     )]
     pub type RawJsServerCommunicationConfigRepository;
 
-    /// Retrieves configuration for a hostname
+    /// Retrieves configuration for a domain
     #[wasm_bindgen(catch, method, structural)]
     pub async fn get(
         this: &RawJsServerCommunicationConfigRepository,
-        hostname: String,
+        domain: String,
     ) -> Result<JsValue, JsValue>;
 
-    /// Saves configuration for a hostname
+    /// Saves configuration for a domain
     #[wasm_bindgen(catch, method, structural)]
     pub async fn save(
         this: &RawJsServerCommunicationConfigRepository,
-        hostname: String,
+        domain: String,
         config: JsValue,
     ) -> Result<(), JsValue>;
 }
@@ -82,10 +82,10 @@ impl ServerCommunicationConfigRepository for JsServerCommunicationConfigReposito
     type GetError = String;
     type SaveError = String;
 
-    async fn get(&self, hostname: String) -> Result<Option<ServerCommunicationConfig>, String> {
+    async fn get(&self, domain: String) -> Result<Option<ServerCommunicationConfig>, String> {
         self.0
             .run_in_thread(move |repo| async move {
-                let js_value = repo.get(hostname).await.map_err(|e| format!("{e:?}"))?;
+                let js_value = repo.get(domain).await.map_err(|e| format!("{e:?}"))?;
 
                 if js_value.is_undefined() || js_value.is_null() {
                     return Ok(None);
@@ -99,15 +99,11 @@ impl ServerCommunicationConfigRepository for JsServerCommunicationConfigReposito
             .map_err(|e| e.to_string())?
     }
 
-    async fn save(
-        &self,
-        hostname: String,
-        config: ServerCommunicationConfig,
-    ) -> Result<(), String> {
+    async fn save(&self, domain: String, config: ServerCommunicationConfig) -> Result<(), String> {
         self.0
             .run_in_thread(move |repo| async move {
                 let js_value = serde_wasm_bindgen::to_value(&config).map_err(|e| e.to_string())?;
-                repo.save(hostname, js_value)
+                repo.save(domain, js_value)
                     .await
                     .map_err(|e| format!("{e:?}"))
             })

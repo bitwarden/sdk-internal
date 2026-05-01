@@ -83,6 +83,24 @@ pub struct CipherDetailsResponseModel {
     )]
     pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
     #[serde(
+        rename = "bankAccount",
+        alias = "BankAccount",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub bank_account: Option<Box<models::CipherBankAccountModel>>,
+    #[serde(
+        rename = "driversLicense",
+        alias = "DriversLicense",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub drivers_license: Option<Box<models::CipherDriversLicenseModel>>,
+    #[serde(
+        rename = "passport",
+        alias = "Passport",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub passport: Option<Box<models::CipherPassportModel>>,
+    #[serde(
         rename = "fields",
         alias = "Fields",
         skip_serializing_if = "Option::is_none"
@@ -191,6 +209,9 @@ impl CipherDetailsResponseModel {
             identity: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             fields: None,
             password_history: None,
             attachments: None,

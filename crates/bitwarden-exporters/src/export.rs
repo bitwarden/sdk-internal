@@ -1,5 +1,5 @@
 use bitwarden_collections::collection::Collection;
-use bitwarden_core::{Client, key_management::KeyIds};
+use bitwarden_core::{Client, key_management::KeySlotIds};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
 use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
 
@@ -70,7 +70,7 @@ pub(crate) fn export_cxf(
 }
 
 fn encrypt_import(
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
     cipher: ImportingCipher,
 ) -> Result<Cipher, ExportError> {
     let mut view: CipherView = cipher.clone().into();

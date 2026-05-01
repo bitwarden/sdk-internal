@@ -47,6 +47,12 @@ pub struct DeviceResponseModel {
     )]
     pub creation_date: Option<String>,
     #[serde(
+        rename = "lastActivityDate",
+        alias = "LastActivityDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_activity_date: Option<String>,
+    #[serde(
         rename = "isTrusted",
         alias = "IsTrusted",
         skip_serializing_if = "Option::is_none"
@@ -75,6 +81,7 @@ impl DeviceResponseModel {
             r#type: None,
             identifier: None,
             creation_date: None,
+            last_activity_date: None,
             is_trusted: None,
             encrypted_user_key: None,
             encrypted_public_key: None,

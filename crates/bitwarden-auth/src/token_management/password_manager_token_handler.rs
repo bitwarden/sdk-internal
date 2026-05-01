@@ -5,10 +5,14 @@ use std::sync::{Arc, RwLock};
 use bitwarden_core::{
     NotAuthenticatedError,
     auth::{TokenHandler, login::LoginError},
-    client::login_method::LoginMethod,
-    key_management::KeyIds,
+    client::{
+        login_method::UserLoginMethod,
+        persisted_state::{AUTHENTICATION_TOKENS, AuthenticationTokens, USER_LOGIN_METHOD},
+    },
+    key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
+use bitwarden_state::{registry::StateRegistry, settings::Setting};
 use chrono::Utc;
 
 use super::middleware::{MiddlewareExt, MiddlewareWrapper};
@@ -22,14 +26,9 @@ pub struct PasswordManagerTokenHandler {
 
 #[derive(Clone, Default)]
 struct PasswordManagerTokenHandlerInner {
-    access_token: Option<String>,
-    expires_on: Option<i64>,
-
-    refresh_token: Option<String>,
-
-    // The following are passed as optional as they are filled in when instantiating the
-    // middleware.
-    login_method: Option<Arc<RwLock<Option<Arc<LoginMethod>>>>>,
+    // These are defined as optional as they are filled in when instantiating the middleware.
+    tokens: Option<Setting<AuthenticationTokens>>,
+    login_method: Option<Setting<UserLoginMethod>>,
     identity_config: Option<bitwarden_api_api::Configuration>,
 }
 
@@ -37,13 +36,14 @@ struct PasswordManagerTokenHandlerInner {
 impl TokenHandler for PasswordManagerTokenHandler {
     fn initialize_middleware(
         &self,
-        login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
+        state_registry: &StateRegistry,
         identity_config: bitwarden_api_api::Configuration,
-        _key_store: KeyStore<KeyIds>,
+        _key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         {
             let mut inner = self.inner.write().expect("RwLock is not poisoned");
-            inner.login_method = Some(login_method);
+            inner.tokens = state_registry.setting(AUTHENTICATION_TOKENS).ok();
+            inner.login_method = state_registry.setting(USER_LOGIN_METHOD).ok();
             inner.identity_config = Some(identity_config);
         }
         Arc::new(MiddlewareWrapper(self.clone()))
@@ -55,10 +55,23 @@ impl TokenHandler for PasswordManagerTokenHandler {
         refresh_token: Option<String>,
         expires_in: u64,
     ) {
-        let mut inner = self.inner.write().expect("RwLock is not poisoned");
-        inner.access_token = Some(access_token);
-        inner.refresh_token = refresh_token;
-        inner.expires_on = Some(Utc::now().timestamp() + expires_in as i64);
+        let tokens = self
+            .inner
+            .read()
+            .expect("RwLock is not poisoned")
+            .tokens
+            .clone();
+
+        if let Some(tokens) = tokens {
+            tokens
+                .update(AuthenticationTokens {
+                    access_token,
+                    refresh_token,
+                    expires_on: Utc::now().timestamp() + expires_in as i64,
+                })
+                .await
+                .ok();
+        }
     }
 }
 
@@ -73,11 +86,18 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
         // similar to prevent this if it becomes an issue in practice.
         let inner = self.inner.read().expect("RwLock is not poisoned").clone();
 
+        let tokens = inner
+            .tokens
+            .ok_or(NotAuthenticatedError)?
+            .get()
+            .await
+            .ok()
+            .flatten()
+            .ok_or(NotAuthenticatedError)?;
+
         // Validate the token, returning early if it's still valid.
-        if let Some(expires) = inner.expires_on
-            && Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS
-        {
-            return Ok(inner.access_token.clone());
+        if Utc::now().timestamp() < tokens.expires_on - TOKEN_RENEW_MARGIN_SECONDS {
+            return Ok(Some(tokens.access_token.clone()));
         }
 
         // These should always be set by initialize_middleware before we get here, but we return an
@@ -86,20 +106,16 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
         let identity_config = inner.identity_config.ok_or(NotAuthenticatedError)?;
 
         let login_method = login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .clone()
+            .get()
+            .await
+            .ok()
+            .flatten()
             .ok_or(NotAuthenticatedError)?;
-
-        #[allow(irrefutable_let_patterns)]
-        let LoginMethod::User(user_login_method) = login_method.as_ref() else {
-            return Err(NotAuthenticatedError.into());
-        };
 
         let (access_token, refresh_token, expires_in) =
             bitwarden_core::auth::renew::renew_pm_token_sdk_managed(
-                inner.refresh_token,
-                user_login_method,
+                tokens.refresh_token,
+                &login_method,
                 identity_config,
             )
             .await?;
@@ -112,28 +128,53 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, RwLock};
-
     use bitwarden_core::{
         auth::TokenHandler,
-        client::login_method::{LoginMethod, UserLoginMethod},
-        key_management::KeyIds,
+        client::{
+            login_method::UserLoginMethod,
+            persisted_state::{AuthenticationTokens, USER_LOGIN_METHOD},
+        },
+        key_management::KeySlotIds,
     };
     use bitwarden_crypto::{Kdf, KeyStore};
+    use bitwarden_state::registry::StateRegistry;
     use wiremock::MockServer;
 
     use super::*;
     use crate::token_management::test_utils::*;
 
-    fn api_key_login_method() -> Arc<RwLock<Option<Arc<LoginMethod>>>> {
-        Arc::new(RwLock::new(Some(Arc::new(LoginMethod::User(
-            UserLoginMethod::ApiKey {
+    async fn registry_with_api_key_login() -> StateRegistry {
+        let registry = StateRegistry::new_with_memory_db();
+        registry
+            .setting(USER_LOGIN_METHOD)
+            .unwrap()
+            .update(UserLoginMethod::ApiKey {
                 client_id: "test-client".to_string(),
                 client_secret: "test-secret".to_string(),
                 email: "test@test.com".to_string(),
                 kdf: Kdf::default_pbkdf2(),
-            },
-        )))))
+            })
+            .await
+            .unwrap();
+        registry
+    }
+
+    async fn seed_tokens(
+        registry: &StateRegistry,
+        access_token: &str,
+        refresh_token: Option<&str>,
+        expires_in: i64,
+    ) {
+        registry
+            .setting(AUTHENTICATION_TOKENS)
+            .unwrap()
+            .update(AuthenticationTokens {
+                access_token: access_token.to_string(),
+                refresh_token: refresh_token.map(str::to_string),
+                expires_on: Utc::now().timestamp() + expires_in,
+            })
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -141,18 +182,14 @@ mod tests {
         let app_server = start_app_server().await;
         let identity_server = MockServer::start().await;
 
+        let registry = registry_with_api_key_login().await;
+        seed_tokens(&registry, "original-token", Some("refresh"), 5000).await;
+
         let handler = PasswordManagerTokenHandler::default();
-        handler
-            .set_tokens(
-                "original-token".to_string(),
-                Some("refresh".to_string()),
-                5000,
-            )
-            .await;
         let client = build_client(handler.initialize_middleware(
-            api_key_login_method(),
+            &registry,
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;
@@ -166,20 +203,15 @@ mod tests {
         let app_server = start_app_server().await;
         let identity_server = start_renewal_server("renewed-token").await;
 
-        let handler = PasswordManagerTokenHandler::default();
+        let registry = registry_with_api_key_login().await;
         // expires_in=0 means the token is considered expired as it's less than the margin
-        handler
-            .set_tokens(
-                "expired-token".to_string(),
-                Some("old-refresh".to_string()),
-                0,
-            )
-            .await;
+        seed_tokens(&registry, "expired-token", Some("old-refresh"), 0).await;
 
+        let handler = PasswordManagerTokenHandler::default();
         let client = build_client(handler.initialize_middleware(
-            api_key_login_method(),
+            &registry,
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;

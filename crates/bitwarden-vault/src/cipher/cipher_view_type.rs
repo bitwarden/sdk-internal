@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{CardView, IdentityView, LoginView, SecureNoteView, SshKeyView};
+use crate::{
+    BankAccountView, CardView, DriversLicenseView, IdentityView, LoginView, PassportView,
+    SecureNoteView, SshKeyView,
+};
 
 /// Represents the inner data of a cipher view.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -16,6 +19,9 @@ pub enum CipherViewType {
     Identity(IdentityView),
     SecureNote(SecureNoteView),
     SshKey(SshKeyView),
+    BankAccount(BankAccountView),
+    Passport(PassportView),
+    DriversLicense(DriversLicenseView),
 }
 
 impl CipherViewType {
@@ -27,6 +33,9 @@ impl CipherViewType {
             CipherViewType::Identity(_) => crate::CipherType::Identity,
             CipherViewType::SecureNote(_) => crate::CipherType::SecureNote,
             CipherViewType::SshKey(_) => crate::CipherType::SshKey,
+            CipherViewType::BankAccount(_) => crate::CipherType::BankAccount,
+            CipherViewType::Passport(_) => crate::CipherType::Passport,
+            CipherViewType::DriversLicense(_) => crate::CipherType::DriversLicense,
         }
     }
 }
@@ -67,6 +76,28 @@ impl CipherViewType {
             _ => None,
         }
     }
+
+    pub(crate) fn as_bank_account_view_mut(&mut self) -> Option<&mut BankAccountView> {
+        match self {
+            CipherViewType::BankAccount(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_drivers_license_view_mut(&mut self) -> Option<&mut DriversLicenseView> {
+        match self {
+            CipherViewType::DriversLicense(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_passport_view_mut(&mut self) -> Option<&mut PassportView> {
+        match self {
+            CipherViewType::Passport(p) => Some(p),
+            _ => None,
+        }
+    }
+
     pub(crate) fn as_login_view(&self) -> Option<&LoginView> {
         match self {
             CipherViewType::Login(l) => Some(l),
@@ -98,6 +129,27 @@ impl CipherViewType {
     pub(crate) fn as_ssh_key_view(&self) -> Option<&SshKeyView> {
         match self {
             CipherViewType::SshKey(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_bank_account_view(&self) -> Option<&BankAccountView> {
+        match self {
+            CipherViewType::BankAccount(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_drivers_license_view(&self) -> Option<&DriversLicenseView> {
+        match self {
+            CipherViewType::DriversLicense(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_passport_view(&self) -> Option<&PassportView> {
+        match self {
+            CipherViewType::Passport(p) => Some(p),
             _ => None,
         }
     }

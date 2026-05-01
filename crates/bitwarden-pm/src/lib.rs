@@ -12,6 +12,7 @@ use bitwarden_core::{
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
@@ -26,6 +27,7 @@ pub mod clients {
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
+    pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::SendClient;
     pub use bitwarden_sync::SyncClient;
     pub use bitwarden_vault::VaultClient;
@@ -130,8 +132,47 @@ impl PasswordManagerClient {
         self.0.sends()
     }
 
+    /// Policy operations
+    pub fn policies(&self) -> bitwarden_policies::PolicyClient {
+        self.0.policies()
+    }
+
     /// Sync operations
     pub fn sync(&self) -> bitwarden_sync::SyncClient {
         self.0.sync()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+
+    #[test]
+    fn new_with_server_communication_config_constructs() {
+        struct MockCookieProvider;
+
+        #[async_trait::async_trait]
+        impl bitwarden_server_communication_config::CookieProvider for MockCookieProvider {
+            async fn cookies(&self, _hostname: &str) -> Vec<(String, String)> {
+                vec![]
+            }
+
+            async fn acquire_cookie(
+                &self,
+                _hostname: &str,
+            ) -> Result<(), bitwarden_server_communication_config::AcquireCookieError> {
+                Ok(())
+            }
+
+            async fn needs_bootstrap(&self, _hostname: &str) -> bool {
+                false
+            }
+        }
+
+        let _client = PasswordManagerClient::builder()
+            .with_server_communication_config(Arc::new(MockCookieProvider))
+            .build();
     }
 }

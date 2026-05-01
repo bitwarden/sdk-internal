@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherSecureNoteModel;
 use bitwarden_core::{
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
@@ -60,11 +60,11 @@ pub struct SecureNoteView {
     pub r#type: SecureNoteType,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, SecureNote> for SecureNoteView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SecureNote> for SecureNoteView {
     fn encrypt_composite(
         &self,
-        _ctx: &mut KeyStoreContext<KeyIds>,
-        _key: SymmetricKeyId,
+        _ctx: &mut KeyStoreContext<KeySlotIds>,
+        _key: SymmetricKeySlotId,
     ) -> Result<SecureNote, CryptoError> {
         Ok(SecureNote {
             r#type: self.r#type,
@@ -72,11 +72,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, SecureNote> for SecureNoteView
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, SecureNoteView> for SecureNote {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, SecureNoteView> for SecureNote {
     fn decrypt(
         &self,
-        _ctx: &mut KeyStoreContext<KeyIds>,
-        _key: SymmetricKeyId,
+        _ctx: &mut KeyStoreContext<KeySlotIds>,
+        _key: SymmetricKeySlotId,
     ) -> Result<SecureNoteView, CryptoError> {
         Ok(SecureNoteView {
             r#type: self.r#type,
@@ -135,8 +135,8 @@ impl CipherKind for SecureNote {
 
     fn decrypt_subtitle(
         &self,
-        _ctx: &mut KeyStoreContext<KeyIds>,
-        _key: SymmetricKeyId,
+        _ctx: &mut KeyStoreContext<KeySlotIds>,
+        _key: SymmetricKeySlotId,
     ) -> Result<String, CryptoError> {
         Ok(String::new())
     }
@@ -165,6 +165,9 @@ mod tests {
             card: None,
             secure_note: Some(note),
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,

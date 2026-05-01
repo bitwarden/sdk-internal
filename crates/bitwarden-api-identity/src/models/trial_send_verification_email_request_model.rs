@@ -52,6 +52,12 @@ pub struct TrialSendVerificationEmailRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub trial_length: Option<i32>,
+    #[serde(
+        rename = "paymentOptional",
+        alias = "PaymentOptional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub payment_optional: Option<bool>,
 }
 
 impl TrialSendVerificationEmailRequestModel {
@@ -64,6 +70,7 @@ impl TrialSendVerificationEmailRequestModel {
             product_tier: None,
             products: None,
             trial_length: None,
+            payment_optional: None,
         }
     }
 }
