@@ -102,9 +102,17 @@ fn passphrase_with_rng(mut rng: impl Rng, options: ValidPassphraseGeneratorOptio
 }
 
 fn gen_words(mut rng: impl Rng, num_words: u8) -> Vec<String> {
+    // A passphrase consists of words joined by hyphens. The `EFF_LONG_WORD_LIST` contains some
+    // words that contain hyphens, which creates ambiguous encodings with more
+    // hyphen-separated-segments than expected.
+    let words: Vec<_> = EFF_LONG_WORD_LIST
+        .iter()
+        .filter(|w| !w.contains('-'))
+        .collect();
+
     (0..num_words)
         .map(|_| {
-            EFF_LONG_WORD_LIST
+            words
                 .choose(&mut rng)
                 .expect("slice is not empty")
                 .to_string()
@@ -134,10 +142,10 @@ mod tests {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
         assert_eq!(
             &gen_words(&mut rng, 4),
-            &["crust", "subsystem", "undertook", "protector"]
+            &["crust", "substance", "undertook", "protector"]
         );
-        assert_eq!(&gen_words(&mut rng, 1), &["silenced"]);
-        assert_eq!(&gen_words(&mut rng, 2), &["dinginess", "numbing"]);
+        assert_eq!(&gen_words(&mut rng, 1), &["sighing"]);
+        assert_eq!(&gen_words(&mut rng, 2), &["dinghy", "numbing"]);
     }
 
     #[test]
@@ -187,7 +195,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "crust👨🏻‍❤️‍💋‍👨🏻subsystem👨🏻‍❤️‍💋‍👨🏻undertook👨🏻‍❤️‍💋‍👨🏻protector2"
+            "crust👨🏻‍❤️‍💋‍👨🏻substance👨🏻‍❤️‍💋‍👨🏻undertook👨🏻‍❤️‍💋‍👨🏻protector2"
         );
     }
 
@@ -205,7 +213,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "Crust-Subsystem-Undertook-Protector2"
+            "Crust-Substance-Undertook-Protector2"
         );
 
         let input = PassphraseGeneratorRequest {
@@ -218,7 +226,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "numbing4 catnip jokester"
+            "numbing4 catnap jokester"
         );
 
         let input = PassphraseGeneratorRequest {
@@ -231,7 +239,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             passphrase_with_rng(&mut rng, input),
-            "cabana;pungent;acts;sarcasm;duller"
+            "cabana;pungent;acts;sappy;duller"
         );
     }
 }
