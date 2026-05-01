@@ -166,6 +166,8 @@ mod tests {
             secure_note: Some(note),
             ssh_key: None,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,

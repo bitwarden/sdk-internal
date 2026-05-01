@@ -12,9 +12,8 @@ use super::CipherBlob;
 const FORMAT_VERSION: u8 = 1;
 
 /// Error type for `SealedCipherBlob` operations.
-#[allow(dead_code)]
 #[derive(Debug, Error)]
-pub(super) enum SealedCipherBlobError {
+pub(crate) enum SealedCipherBlobError {
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
     #[error("CBOR encoding error")]
@@ -30,7 +29,6 @@ pub(super) enum SealedCipherBlobError {
 /// Sealed container that packages a wrapped CEK and encrypted `DataEnvelope` together.
 ///
 /// Serializable into the `Cipher.data: Option<String>` field.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(super) struct SealedCipherBlob {
     format_version: u8,
@@ -38,7 +36,6 @@ pub(super) struct SealedCipherBlob {
     envelope: DataEnvelope,
 }
 
-#[allow(dead_code)]
 impl SealedCipherBlob {
     /// Seals a `CipherBlob` into a `SealedCipherBlob` by encrypting it with a new CEK
     /// wrapped by the provided wrapping key.

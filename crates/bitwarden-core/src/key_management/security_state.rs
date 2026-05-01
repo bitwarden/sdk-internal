@@ -32,6 +32,9 @@ use serde::{Deserialize, Serialize};
 /// Icon URI hashes are enforced starting with this security state version.
 pub const MINIMUM_ENFORCE_ICON_URI_HASH_VERSION: u64 = 2;
 
+/// Cipher blob encryption is enabled starting with this security state version.
+pub const BLOB_SECURITY_VERSION: u64 = 2;
+
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -43,6 +46,7 @@ export type SignedSecurityState = string;
 /// It contains a version, which can only ever increment. Based on the version, old formats and
 /// features are blocked. This prevents a server from downgrading a user's account features, because
 /// only the user can create this signed object.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityState {
