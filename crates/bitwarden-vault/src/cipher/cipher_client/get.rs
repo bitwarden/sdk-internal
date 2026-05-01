@@ -64,6 +64,7 @@ async fn get_all_ciphers(
     })
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Get all ciphers from state and decrypt them to [crate::CipherListView], returning both

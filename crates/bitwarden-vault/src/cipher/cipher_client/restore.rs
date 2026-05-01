@@ -99,6 +99,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
     })
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Restores a soft-deleted cipher on the server.

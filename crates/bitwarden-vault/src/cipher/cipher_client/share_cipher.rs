@@ -159,6 +159,7 @@ async fn share_ciphers_bulk(
     Ok(results)
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     fn update_organization_and_collections(
