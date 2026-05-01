@@ -5,6 +5,11 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
+mod access;
+pub use access::{
+    AccessSendError, GetFileDownloadDataError, SendAccessFileView, SendAccessTextView,
+    SendAccessView, SendFileDownloadData,
+};
 mod send_client;
 pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,
@@ -12,12 +17,20 @@ pub use send_client::{
 };
 mod create;
 pub use create::{CreateSendError, SendAddRequest};
+mod create_file_send;
+pub use create_file_send::{
+    CreateFileSendError, CreateFileSendView, RenewFileUploadUrlError, UploadSendFileError,
+};
+mod delete;
+pub use delete::DeleteSendError;
 mod edit;
 pub use edit::{EditSendError, SendEditRequest};
 mod error;
 pub use error::SendParseError;
 mod get_list;
 pub use get_list::GetSendError;
+mod remove_password;
+pub use remove_password::RemoveSendPasswordError;
 mod send;
 pub use send::{
     AuthType, EmptyEmailListError, Send, SendAuthType, SendFileView, SendId, SendListView,
