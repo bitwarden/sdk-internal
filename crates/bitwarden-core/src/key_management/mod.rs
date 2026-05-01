@@ -57,6 +57,10 @@ mod local_user_data_key;
 #[cfg(feature = "internal")]
 mod local_user_data_key_state;
 
+/// A temporary bridge to access KM-related state from within the SDK.
+#[cfg(feature = "internal")]
+pub mod state_bridge;
+
 use crate::{OrganizationId, UserId};
 
 /// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the

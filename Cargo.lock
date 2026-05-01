@@ -626,6 +626,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-state",
  "bitwarden-test",
+ "bitwarden-threading",
  "bitwarden-uniffi-error",
  "bitwarden-uuid",
  "chrono",
