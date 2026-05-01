@@ -43,25 +43,45 @@ async fn get_cipher(
 async fn list_ciphers(
     store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Cipher>,
+    use_strict_decryption: bool,
 ) -> Result<DecryptCipherListResult, GetCipherError> {
     let ciphers = repository.list().await?;
-    let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
-    Ok(DecryptCipherListResult {
-        successes,
-        failures: failures.into_iter().cloned().collect(),
-    })
+    if use_strict_decryption {
+        let strict: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = store.decrypt_list_with_failures(&strict);
+        Ok(DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        })
+    } else {
+        let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
+        Ok(DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        })
+    }
 }
 
 async fn get_all_ciphers(
     store: &KeyStore<KeySlotIds>,
     repository: &dyn Repository<Cipher>,
+    use_strict_decryption: bool,
 ) -> Result<DecryptCipherResult, GetCipherError> {
     let ciphers = repository.list().await?;
-    let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
-    Ok(DecryptCipherResult {
-        successes,
-        failures: failures.into_iter().cloned().collect(),
-    })
+    if use_strict_decryption {
+        let strict: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = store.decrypt_list_with_failures(&strict);
+        Ok(DecryptCipherResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        })
+    } else {
+        let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
+        Ok(DecryptCipherResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        })
+    }
 }
 
 #[allow(deprecated)]
@@ -74,7 +94,7 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        list_ciphers(key_store, repository.as_ref()).await
+        list_ciphers(key_store, repository.as_ref(), self.is_strict_decrypt().await).await
     }
 
     /// Get all ciphers from state and decrypt them to full [CipherView], returning both
@@ -84,7 +104,7 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        get_all_ciphers(key_store, repository.as_ref()).await
+        get_all_ciphers(key_store, repository.as_ref(), self.is_strict_decrypt().await).await
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
