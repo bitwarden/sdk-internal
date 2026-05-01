@@ -6,6 +6,7 @@ uniffi::setup_scaffolding!();
 
 mod key_connector_migration;
 mod key_rotation;
+mod public_key_encryption_key_pair_regeneration;
 mod user_crypto_management_client;
 pub use user_crypto_management_client::{
     UserCryptoManagementClient, UserCryptoManagementClientExt,
