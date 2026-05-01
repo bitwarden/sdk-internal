@@ -33,16 +33,17 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
 # Team-owned crates
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
+crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+crates/bitwarden-collections/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
+crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
+crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
-crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
-crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
-crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 
 # KM Co-owned files
 crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
