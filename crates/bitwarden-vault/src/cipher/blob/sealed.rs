@@ -31,7 +31,7 @@ pub(crate) enum SealedCipherBlobError {
 ///
 /// Serializable into the `Cipher.data: Option<String>` field.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub(super) struct SealedCipherBlob {
+pub(crate) struct SealedCipherBlob {
     format_version: u8,
     wrapped_cek: EncString,
     envelope: DataEnvelope,

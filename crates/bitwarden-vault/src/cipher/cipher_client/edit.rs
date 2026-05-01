@@ -882,7 +882,7 @@ mod tests {
         use bitwarden_crypto::SymmetricCryptoKey;
 
         use super::*;
-        use crate::cipher::blob::is_blob_encrypted;
+        use crate::cipher::blob::try_parse_blob;
 
         /// `EncryptMode::Blob(CipherView)` clears `password_history` from the
         /// wire-shaped `Cipher` — history must travel inside the sealed blob,
@@ -900,7 +900,7 @@ mod tests {
 
             let cipher: Cipher = store.encrypt(EncryptMode::Blob(view)).unwrap();
 
-            assert!(is_blob_encrypted(&cipher));
+            assert!(try_parse_blob(&cipher).is_some());
             assert!(
                 cipher.password_history.is_none(),
                 "password history must live inside the blob, not on the wire",

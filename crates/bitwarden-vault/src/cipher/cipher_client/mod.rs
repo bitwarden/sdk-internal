@@ -374,7 +374,10 @@ mod tests {
     use bitwarden_crypto::CryptoError;
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
+    use crate::{
+        Attachment, CipherRepromptType, CipherType, Login, VaultClientExt,
+        cipher::blob::try_parse_blob,
+    };
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -962,8 +965,6 @@ mod tests {
     #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn encrypt_produces_blob_shape_at_blob_version() {
-        use crate::cipher::blob::is_blob_encrypted;
-
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         client
             .internal
@@ -977,7 +978,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(is_blob_encrypted(&ctx.cipher));
+        assert!(try_parse_blob(&ctx.cipher).is_some());
         assert!(ctx.cipher.login.is_none());
     }
 
@@ -986,8 +987,6 @@ mod tests {
     #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn encrypt_list_mixed_personal_and_organization() {
-        use crate::cipher::blob::is_blob_encrypted;
-
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         client
             .internal
@@ -1007,11 +1006,11 @@ mod tests {
 
         assert_eq!(contexts.len(), 2);
         assert!(
-            is_blob_encrypted(&contexts[0].cipher),
+            try_parse_blob(&contexts[0].cipher).is_some(),
             "personal cipher at blob version should be blob-shaped",
         );
         assert!(
-            !is_blob_encrypted(&contexts[1].cipher),
+            try_parse_blob(&contexts[1].cipher).is_none(),
             "organization cipher should stay legacy-shaped",
         );
     }
@@ -1021,8 +1020,6 @@ mod tests {
     #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn encrypt_cipher_for_rotation_blob_path() {
-        use crate::cipher::blob::is_blob_encrypted;
-
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         client
             .internal
@@ -1039,7 +1036,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(is_blob_encrypted(&ctx.cipher));
+        assert!(try_parse_blob(&ctx.cipher).is_some());
         assert!(ctx.cipher.key.is_some());
         // Decrypting with the current key store (which has the old user key)
         // fails because the cipher is now wrapped under the new key.

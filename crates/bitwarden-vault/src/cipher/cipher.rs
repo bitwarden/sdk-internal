@@ -27,7 +27,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
-    blob::{BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher, is_blob_encrypted},
+    blob::{BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -1455,10 +1455,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
-        if is_blob_encrypted(self) {
-            decrypt_blob_cipher(self, ctx).map_err(blob_err_to_crypto)
-        } else {
-            lenient_decrypt_cipher_view(self, ctx, key)
+        match try_parse_blob(self) {
+            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx).map_err(blob_err_to_crypto),
+            None => lenient_decrypt_cipher_view(self, ctx, key),
         }
     }
 }
@@ -1469,11 +1468,11 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
-        if is_blob_encrypted(self) {
-            let view = decrypt_blob_cipher(self, ctx).map_err(blob_err_to_crypto)?;
-            view.to_list_view(ctx, key)
-        } else {
-            lenient_decrypt_cipher_list_view(self, ctx, key)
+        match try_parse_blob(self) {
+            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx)
+                .map_err(blob_err_to_crypto)?
+                .to_list_view(ctx, key),
+            None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
 }
@@ -1519,10 +1518,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
-        if is_blob_encrypted(&self.0) {
-            decrypt_blob_cipher(&self.0, ctx).map_err(blob_err_to_crypto)
-        } else {
-            strict_decrypt_cipher_view(&self.0, ctx, key)
+        match try_parse_blob(&self.0) {
+            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx).map_err(blob_err_to_crypto),
+            None => strict_decrypt_cipher_view(&self.0, ctx, key),
         }
     }
 }
@@ -1620,11 +1618,11 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
-        if is_blob_encrypted(&self.0) {
-            let view = decrypt_blob_cipher(&self.0, ctx).map_err(blob_err_to_crypto)?;
-            view.to_list_view(ctx, key)
-        } else {
-            strict_decrypt_cipher_list_view(&self.0, ctx, key)
+        match try_parse_blob(&self.0) {
+            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx)
+                .map_err(blob_err_to_crypto)?
+                .to_list_view(ctx, key),
+            None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }
 }
@@ -1754,18 +1752,14 @@ where
     }
 }
 
-/// Maps the blob module's error type onto [`CryptoError`] for both seal and
-/// unseal paths. The `NoBlobData` variant is unreachable on the decrypt side
-/// because dispatch is gated by [`is_blob_encrypted`]; format and envelope
-/// errors collapse to [`CryptoError::Decrypt`] since callers only need to
-/// know "blob operation failed".
+/// Maps the blob module's error type onto [`CryptoError`]. Format and envelope
+/// errors collapse to [`CryptoError::Decrypt`] since callers only need to know
+/// "blob operation failed".
 pub(crate) fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
     tracing::warn!(error = %err, error_debug = ?err, "blob decryption failed");
     match err {
         BlobEncryptionError::Crypto(c) => c,
-        BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
-            CryptoError::Decrypt
-        }
+        BlobEncryptionError::SealedBlob(_) => CryptoError::Decrypt,
     }
 }
 
@@ -4103,7 +4097,7 @@ mod tests {
 
             let cipher: Cipher = key_store.encrypt(mode).unwrap();
 
-            assert!(is_blob_encrypted(&cipher));
+            assert!(try_parse_blob(&cipher).is_some());
             assert!(cipher.data.is_some());
             assert!(cipher.login.is_none());
             assert!(cipher.card.is_none());
@@ -4125,7 +4119,7 @@ mod tests {
 
             let cipher: Cipher = key_store.encrypt(mode).unwrap();
 
-            assert!(!is_blob_encrypted(&cipher));
+            assert!(try_parse_blob(&cipher).is_none());
             assert!(cipher.data.is_none());
             assert!(cipher.login.is_some());
         }
@@ -4174,10 +4168,13 @@ mod tests {
 
             assert_eq!(ciphers.len(), 2);
             assert!(
-                !is_blob_encrypted(&ciphers[0]),
+                try_parse_blob(&ciphers[0]).is_none(),
                 "first item should be legacy"
             );
-            assert!(is_blob_encrypted(&ciphers[1]), "second item should be blob");
+            assert!(
+                try_parse_blob(&ciphers[1]).is_some(),
+                "second item should be blob"
+            );
             assert!(ciphers[0].login.is_some());
             assert!(ciphers[1].login.is_none());
         }

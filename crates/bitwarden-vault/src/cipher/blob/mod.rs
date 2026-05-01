@@ -9,9 +9,10 @@ use bitwarden_crypto::{
 };
 pub(crate) use encryption::{
     BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher,
-    encrypt_blob_cipher_with_wrapping_key, is_blob_encrypted,
+    encrypt_blob_cipher_with_wrapping_key, try_parse_blob,
 };
-use sealed::{SealedCipherBlob, SealedCipherBlobError};
+pub(crate) use sealed::SealedCipherBlob;
+use sealed::SealedCipherBlobError;
 use serde::{Deserialize, Serialize};
 use v1::CipherBlobV1;
 
