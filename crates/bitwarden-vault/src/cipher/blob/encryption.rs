@@ -141,7 +141,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
 
         // Obsolete fields — sensitive data lives in the blob
         // TODO: Remove `name` once the server no longer requires it
-        name,
+        name: Some(name),
         notes: None,
         login: None,
         identity: None,
@@ -260,7 +260,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name,
+            name: Some(name),
             notes: None,
             r#type: CipherType::SecureNote,
             login: None,

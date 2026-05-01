@@ -434,7 +434,7 @@ mod tests {
                 folder_id: None,
                 collection_ids: vec![],
                 key: None,
-                name: name.encrypt(&mut ctx, SymmetricKeySlotId::User).unwrap(),
+                name: Some(name.encrypt(&mut ctx, SymmetricKeySlotId::User).unwrap()),
                 notes: None,
                 r#type: CipherType::Login,
                 login: Some(Login {
