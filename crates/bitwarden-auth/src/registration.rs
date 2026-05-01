@@ -546,7 +546,7 @@ mod tests {
                     let body = body.unwrap();
                     assert!(matches!(
                         EncString::from_str(body.encrypted_private_key.as_str()).unwrap(),
-                        EncString::Aes256Cbc_B64 { .. }
+                        EncString::Aes256Cbc_HmacSha256_B64 { .. }
                     ));
                     assert!(matches!(
                         EncString::from_str(body.encrypted_public_key.as_str()).unwrap(),
