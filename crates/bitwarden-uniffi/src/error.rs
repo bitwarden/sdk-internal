@@ -13,6 +13,8 @@ pub enum BitwardenError {
     #[error(transparent)]
     DeriveKeyConnector(#[from] bitwarden_core::key_management::crypto::DeriveKeyConnectorError),
     #[error(transparent)]
+    DeviceAuthKeyError(#[from] bitwarden_fido::DeviceAuthKeyError),
+    #[error(transparent)]
     EncryptionSettings(
         #[from] bitwarden_core::client::encryption_settings::EncryptionSettingsError,
     ),

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use bitwarden_core::platform::SecretVerificationRequest;
+use bitwarden_crypto::Kdf;
 use bitwarden_fido::{
-    CheckUserOptions, ClientData, Fido2CallbackError as BitFido2CallbackError,
+    CheckUserOptions, ClientData, DeviceAuthKeyError, DeviceAuthKeyGetAssertionResult,
+    DeviceAuthKeyMetadata, DeviceAuthKeyRecord, Fido2CallbackError as BitFido2CallbackError,
     Fido2CredentialAutofillView, GetAssertionRequest, GetAssertionResult, MakeCredentialRequest,
     MakeCredentialResult, Origin, PublicKeyCredentialAuthenticatorAssertionResponse,
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
@@ -26,6 +29,16 @@ impl ClientFido2 {
             user_interface,
             credential_store,
         ))
+    }
+
+    pub fn device_auth_key_authenticator(
+        &self,
+        credential_store: Arc<dyn DeviceAuthKeyStore>,
+    ) -> Arc<ClientDeviceAuthKeyAuthenticator> {
+        Arc::new(ClientDeviceAuthKeyAuthenticator {
+            client: self.0.clone(),
+            store: credential_store,
+        })
     }
 
     pub fn client(
@@ -248,6 +261,114 @@ pub trait Fido2CredentialStore: Send + Sync {
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
 
     async fn save_credential(&self, cred: EncryptionContext) -> Result<(), Fido2CallbackError>;
+}
+
+#[derive(uniffi::Object)]
+pub struct ClientDeviceAuthKeyAuthenticator {
+    client: bitwarden_fido::ClientFido2,
+    store: Arc<dyn DeviceAuthKeyStore>,
+}
+
+#[uniffi::export]
+impl ClientDeviceAuthKeyAuthenticator {
+    /// Create a device auth key by registering an unlock passkey and PRF keyset with the server.
+    /// The passkey private key and metadata will be stored on the device using the provided trait
+    /// implementation.
+    pub async fn create_device_auth_key(
+        &self,
+        client_name: String,
+        web_vault_url: String,
+        email: String,
+        secret_verification_request: SecretVerificationRequest,
+        kdf: Kdf,
+    ) -> Result<()> {
+        let mut store = UniffiTraitBridge(self.store.as_ref());
+        let mut authenticator = self.client.create_device_key_authenticator(&mut store);
+        authenticator
+            .create_device_auth_key(
+                client_name,
+                web_vault_url,
+                email,
+                secret_verification_request,
+                kdf,
+            )
+            .await
+            .map_err(Error::DeviceAuthKeyError)
+    }
+
+    /// Uses a device auth key to respond to the provided WebAuthn assertion request.
+    /// Satisfy the given FIDO assertion `request` using the device auth key.
+    /// The device auth key will be looked up from the
+    /// [ClientDeviceAuthKeyAuthenticator::store] provided in the initializer.
+    async fn assert_device_auth_key(
+        &self,
+        request: GetAssertionRequest,
+    ) -> Result<DeviceAuthKeyGetAssertionResult> {
+        let mut store = UniffiTraitBridge(self.store.as_ref());
+        let mut authenticator = self.client.create_device_key_authenticator(&mut store);
+        authenticator
+            .assert_device_auth_key(request)
+            .await
+            .map_err(Error::DeviceAuthKeyError)
+    }
+
+    /// Deletes a device auth key and unregisters it from the server.
+    async fn unregister_device_auth_key(
+        &self,
+        email: String,
+        secret_verification_request: SecretVerificationRequest,
+        kdf: Kdf,
+    ) -> Result<()> {
+        let mut store = UniffiTraitBridge(self.store.as_ref());
+        let mut authenticator = self.client.create_device_key_authenticator(&mut store);
+        authenticator
+            .unregister_device_auth_key(email, secret_verification_request, kdf)
+            .await
+            .map_err(Error::DeviceAuthKeyError)
+    }
+}
+
+#[uniffi::export(with_foreign)]
+#[async_trait::async_trait]
+pub trait DeviceAuthKeyStore: Send + Sync {
+    async fn create_record(&self, record: DeviceAuthKeyRecord) -> Result<(), DeviceAuthKeyError>;
+    async fn create_metadata(
+        &self,
+        metadata: DeviceAuthKeyMetadata,
+    ) -> Result<(), DeviceAuthKeyError>;
+    async fn get_metadata(&self) -> Result<Option<DeviceAuthKeyMetadata>, DeviceAuthKeyError>;
+    async fn get_record(&self) -> Result<Option<DeviceAuthKeyRecord>, DeviceAuthKeyError>;
+    async fn delete_record_and_metadata(&self) -> Result<(), DeviceAuthKeyError>;
+}
+
+// See note on UniffiTraitBridge below
+#[async_trait::async_trait]
+impl bitwarden_fido::DeviceAuthKeyStore for UniffiTraitBridge<&dyn DeviceAuthKeyStore> {
+    async fn create_record(
+        &mut self,
+        record: DeviceAuthKeyRecord,
+    ) -> Result<(), DeviceAuthKeyError> {
+        self.0.create_record(record).await
+    }
+
+    async fn create_metadata(
+        &mut self,
+        metadata: DeviceAuthKeyMetadata,
+    ) -> Result<(), DeviceAuthKeyError> {
+        self.0.create_metadata(metadata).await
+    }
+
+    async fn get_metadata(&self) -> Result<Option<DeviceAuthKeyMetadata>, DeviceAuthKeyError> {
+        self.0.get_metadata().await
+    }
+
+    async fn get_record(&self) -> Result<Option<DeviceAuthKeyRecord>, DeviceAuthKeyError> {
+        self.0.get_record().await
+    }
+
+    async fn delete_record_and_metadata(&mut self) -> Result<(), DeviceAuthKeyError> {
+        self.0.delete_record_and_metadata().await
+    }
 }
 
 // Because uniffi doesn't support external traits, we have to make a copy of the trait here.

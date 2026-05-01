@@ -18,6 +18,7 @@ mod authenticator;
 mod client;
 mod client_fido;
 mod crypto;
+mod device_auth_key;
 mod traits;
 mod types;
 pub use authenticator::{
@@ -26,6 +27,10 @@ pub use authenticator::{
 };
 pub use client::{Fido2Client, Fido2ClientError};
 pub use client_fido::{ClientFido2, ClientFido2Ext, DecryptFido2AutofillCredentialsError};
+pub use device_auth_key::{
+    DeviceAuthKeyAuthenticator, DeviceAuthKeyError, DeviceAuthKeyGetAssertionResult,
+    DeviceAuthKeyMetadata, DeviceAuthKeyRecord, DeviceAuthKeyStore,
+};
 pub use passkey::authenticator::UiHint;
 use thiserror::Error;
 pub use traits::{
