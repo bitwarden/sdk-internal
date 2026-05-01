@@ -201,20 +201,20 @@ async fn internal_post_keys_for_tde_registration(
             .devices_api()
             .put_keys(
                 request.device_identifier.as_str(),
-                Some(DeviceKeysRequestModel::new(
-                    tde_registration_crypto_result
+                Some(DeviceKeysRequestModel {
+                    encrypted_user_key: tde_registration_crypto_result
                         .trusted_device_keys
                         .protected_user_key
                         .to_string(),
-                    tde_registration_crypto_result
+                    encrypted_public_key: tde_registration_crypto_result
                         .trusted_device_keys
                         .protected_device_public_key
                         .to_string(),
-                    tde_registration_crypto_result
+                    encrypted_private_key: tde_registration_crypto_result
                         .trusted_device_keys
                         .protected_device_private_key
                         .to_string(),
-                )),
+                },
             )
             .await
             .map_err(|e| {
