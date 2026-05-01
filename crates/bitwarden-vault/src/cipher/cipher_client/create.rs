@@ -86,6 +86,8 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
         secure_note: r.r#type.as_secure_note_view().cloned(),
         ssh_key: r.r#type.as_ssh_key_view().cloned(),
         bank_account: r.r#type.as_bank_account_view().cloned(),
+        drivers_license: r.r#type.as_drivers_license_view().cloned(),
+        passport: r.r#type.as_passport_view().cloned(),
         favorite: r.favorite,
         reprompt: r.reprompt,
         organization_use_totp: false,
