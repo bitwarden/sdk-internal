@@ -124,6 +124,10 @@ pub use leader::*;
 mod message;
 pub use message::*;
 
+/// Wasm support module for shared unlock
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 /// Interval used by followers to send heartbeat keep-alive messages to their leader.
 pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 /// Additional grace period added to the vault timeout when suppressing it on heartbeat

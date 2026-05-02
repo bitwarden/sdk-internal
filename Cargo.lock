@@ -1290,6 +1290,7 @@ dependencies = [
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-server-communication-config",
+ "bitwarden-shared-unlock",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",
