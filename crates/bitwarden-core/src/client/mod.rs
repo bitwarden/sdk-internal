@@ -27,6 +27,7 @@ pub mod persisted_state;
 pub mod tracing_middleware;
 
 pub use builder::ClientBuilder;
+pub(crate) use builder::{build_default_headers, new_http_client_builder};
 pub use client::Client;
 pub use client_settings::{
     ClientName, ClientSettings, DeviceType, HostPlatformInfo, get_host_platform_info,

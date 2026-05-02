@@ -10,7 +10,7 @@ use crate::{
     auth::auth_tokens::{NoopTokenHandler, TokenHandler},
     client::{
         client::Client,
-        client_settings::{ClientName, ClientSettings},
+        client_settings::{ClientName, ClientSettings, HostPlatformInfo},
         internal::{ApiConfigurations, InternalClient},
     },
 };
@@ -70,7 +70,7 @@ impl ClientBuilder {
             .build()
             .expect("External HTTP Client build should not fail");
 
-        let headers = build_default_headers(&settings);
+        let headers = build_default_headers(&HostPlatformInfo::from(&settings));
 
         let key_store = KeyStore::default();
         let state_registry = self
@@ -150,7 +150,7 @@ impl Default for ClientBuilder {
     }
 }
 
-fn new_http_client_builder() -> reqwest::ClientBuilder {
+pub(crate) fn new_http_client_builder() -> reqwest::ClientBuilder {
     #[allow(unused_mut)]
     let mut client_builder = reqwest::Client::builder();
 
@@ -173,12 +173,12 @@ fn new_http_client_builder() -> reqwest::ClientBuilder {
 }
 
 /// Build default headers for Bitwarden HttpClient
-fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
+pub(crate) fn build_default_headers(info: &HostPlatformInfo) -> header::HeaderMap {
     let mut headers = header::HeaderMap::new();
 
     // Handle optional headers
 
-    if let Some(device_identifier) = &settings.device_identifier {
+    if let Some(device_identifier) = &info.device_identifier {
         headers.append(
             "Device-Identifier",
             HeaderValue::from_str(device_identifier)
@@ -186,7 +186,7 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
         );
     }
 
-    if let Some(client_type) = Into::<Option<ClientName>>::into(settings.device_type) {
+    if let Some(client_type) = Into::<Option<ClientName>>::into(info.device_type) {
         headers.append(
             "Bitwarden-Client-Name",
             HeaderValue::from_str(&client_type.to_string())
@@ -194,14 +194,14 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
         );
     }
 
-    if let Some(version) = &settings.bitwarden_client_version {
+    if let Some(version) = &info.bitwarden_client_version {
         headers.append(
             "Bitwarden-Client-Version",
             HeaderValue::from_str(version).expect("Version should be a valid header value"),
         );
     }
 
-    if let Some(package_type) = &settings.bitwarden_package_type {
+    if let Some(package_type) = &info.bitwarden_package_type {
         headers.append(
             "Bitwarden-Package-Type",
             HeaderValue::from_str(package_type)
@@ -213,14 +213,13 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
 
     headers.append(
         "Device-Type",
-        HeaderValue::from_str(&(settings.device_type as u8).to_string())
+        HeaderValue::from_str(&(info.device_type as u8).to_string())
             .expect("All numbers are valid ASCII"),
     );
 
     headers.append(
         reqwest::header::USER_AGENT,
-        HeaderValue::from_str(&settings.user_agent)
-            .expect("User agent should be a valid header value"),
+        HeaderValue::from_str(&info.user_agent).expect("User agent should be a valid header value"),
     );
 
     headers
