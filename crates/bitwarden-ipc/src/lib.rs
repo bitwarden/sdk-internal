@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod constants;
+mod crypto_provider;
 pub mod discover;
 mod endpoint;
 mod error;
@@ -28,8 +29,10 @@ pub use message::{
 pub use rpc::exec::handler::ErasedRpcHandler;
 pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};
 #[cfg(any(test, feature = "test-support"))]
+pub use traits::NoEncryptionCryptoProvider;
+#[cfg(any(test, feature = "test-support"))]
 pub use traits::TestCommunicationBackend;
-pub use traits::{InMemorySessionRepository, NoEncryptionCryptoProvider, NoopCommunicationBackend};
+pub use traits::{InMemorySessionRepository, NoopCommunicationBackend};
 
 // Test configuration of the IPC client, always available in test and test-support contexts.
 #[cfg(any(test, feature = "test-support"))]

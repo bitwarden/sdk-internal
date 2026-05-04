@@ -304,6 +304,8 @@ mod tests {
             key: None,
             ssh_key: None,
             bank_account: None,
+            passport: None,
+            drivers_license: None,
             permissions: None,
             view_password: false,
             creation_date: Utc::now(),
