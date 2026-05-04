@@ -201,6 +201,8 @@ jobs:
 
           **SDK Version:** \`${SDK_VERSION}\`
 
+          > ⚠️ **If breaking changes are detected, you MUST have a corresponding pull request addressing the breaking changes ready for merge in the affected client repository.**
+
           | Client | Status | Details |
           |--------|--------|---------|
           ${ROW_MARKER}
@@ -364,7 +366,7 @@ jobs:
             "breaking-changes-detected")
               STATUS_EMOJI="❌"
               STATUS_MESSAGE="Breaking changes detected"
-              STATUS_DETAILS="Compilation failed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_DETAILS="Compilation failed with new SDK version. **A corresponding pull request addressing the breaking changes MUST be ready for merge in $_CLIENT_REPO.** - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             "no-breaking-changes")
               STATUS_EMOJI="✅"
