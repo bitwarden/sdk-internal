@@ -32,7 +32,6 @@ bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true }
 bitwarden-threading = { workspace = true }
 serde = { workspace = true }
-serde_bytes = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
