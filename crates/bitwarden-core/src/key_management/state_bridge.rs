@@ -1,7 +1,7 @@
 //! The state bridge is a temporary layer that allows quickly transitioning
 //! non-repository shaped state to be accessible from within the SDK.
 //!
-//! This is not a public API that shoudl be used by other teams. It will be
+//! This is not a public API that should be used by other teams. It will be
 //! replaced by a `bitwarden-state` implementation as soon as that gains support
 //! for non-repository state.
 
