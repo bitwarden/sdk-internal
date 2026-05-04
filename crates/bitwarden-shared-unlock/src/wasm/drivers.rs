@@ -13,7 +13,7 @@ export interface SharedUnlockDriver {
     unlock_user(user_id: UserId, user_key: SymmetricKey): Promise<void>;
     list_users(): Promise<UserId[]>;
     get_user_key(user_id: UserId): Promise<SymmetricKey | undefined>;
-    suppress_vault_timeout(until: number, userId: UserId): Promise<void>;
+    suppress_vault_timeout(suppression_duration: number, userId: UserId): Promise<void>;
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
 }
@@ -41,11 +41,11 @@ extern "C" {
         user_id: UserId,
     ) -> Result<SymmetricCryptoKey, JsValue>;
 
-    /// Supress the vault timeout until the given timestamp (in milliseconds since unix epoch).
+    /// Supress the vault timeout for the given duration.
     #[wasm_bindgen(method, catch)]
     async fn suppress_vault_timeout(
         this: &RawJsSharedUnlockDriver,
-        until: f64,
+        suppression_duration: f64,
         user_id: UserId,
     ) -> Result<(), JsValue>;
 
@@ -111,9 +111,8 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             .and_then(|js_value| js_value.as_string())
     }
 
-    async fn suppress_vault_timeout(&self, user_id: UserId, until: std::time::Duration) {
-        let until_ms = js_sys::Date::now() + until.as_millis() as f64;
-        let result = self.driver.suppress_vault_timeout(until_ms, user_id).await;
+    async fn suppress_vault_timeout(&self, user_id: UserId, suppression_duration: std::time::Duration) {
+        let result = self.driver.suppress_vault_timeout(suppression_duration.as_millis() as f64, user_id).await;
         if let Err(error) = result {
             tracing::error!(
                 ?error,
