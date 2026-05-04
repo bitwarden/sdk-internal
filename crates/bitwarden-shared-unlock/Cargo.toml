@@ -19,6 +19,7 @@ wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
+    "bitwarden-crypto/wasm",
     "bitwarden-ipc/wasm",
 ]
 
