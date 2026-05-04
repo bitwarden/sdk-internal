@@ -1,0 +1,51 @@
+[package]
+name = "bitwarden-shared-unlock"
+version.workspace = true
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = [
+    "dep:bitwarden-encoding",
+    "bitwarden-threading/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "bitwarden-ipc/wasm",
+]
+
+[dependencies]
+async-trait = { workspace = true }
+bitwarden-core = { workspace = true }
+bitwarden-encoding = { workspace = true, optional = true }
+bitwarden-error = { workspace = true }
+bitwarden-ipc = { workspace = true }
+bitwarden-threading = { workspace = true }
+serde = { workspace = true }
+serde_bytes = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+web-time = "1.1.0"
+zeroize = { version = "1.8.2", features = ["zeroize_derive"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = { workspace = true }
+
+[dev-dependencies]
+bitwarden-ipc = { workspace = true, features = ["test-support"] }
+tokio = { workspace = true, features = ["rt"] }
+
+[lints]
+workspace = true

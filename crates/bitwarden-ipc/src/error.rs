@@ -81,6 +81,6 @@ pub enum RequestError {
     #[error("Failed to send message: {0}")]
     Send(String),
 
-    #[error("Error occured on the remote target: {0}")]
+    #[error("Error occurred on the remote target: {0}")]
     Rpc(#[from] RpcError),
 }

@@ -8,9 +8,11 @@ use crate::{
         bank_account::BankAccountView,
         card::CardView,
         cipher::CipherType,
+        drivers_license::DriversLicenseView,
         field::FieldView,
         identity::IdentityView,
         login::{Fido2CredentialFullView, LoginUriView, LoginView},
+        passport::PassportView,
         secure_note::SecureNoteView,
         ssh_key::SshKeyView,
     },
@@ -47,13 +49,14 @@ impl_bidirectional_from!(
 
 mod bank_account;
 mod card;
+mod drivers_license;
 mod identity;
 mod login;
+mod passport;
 mod secure_note;
 mod ssh_key;
 
 impl CipherBlobV1 {
-    #[allow(dead_code)]
     pub(crate) fn from_cipher_view(
         view: &CipherView,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -125,6 +128,20 @@ impl CipherBlobV1 {
                     .ok_or(CryptoError::MissingField("bank_account"))?;
                 CipherTypeDataV1::BankAccount(BankAccountDataV1::from(bank_account))
             }
+            CipherType::DriversLicense => {
+                let drivers_license = view
+                    .drivers_license
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("drivers_license"))?;
+                CipherTypeDataV1::DriversLicense(DriversLicenseDataV1::from(drivers_license))
+            }
+            CipherType::Passport => {
+                let passport = view
+                    .passport
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("passport"))?;
+                CipherTypeDataV1::Passport(PassportDataV1::from(passport))
+            }
         };
 
         Ok(Self {
@@ -144,7 +161,6 @@ impl CipherBlobV1 {
         })
     }
 
-    #[allow(dead_code)]
     pub(crate) fn apply_to_cipher_view(
         &self,
         view: &mut CipherView,
@@ -167,6 +183,8 @@ impl CipherBlobV1 {
         view.secure_note = None;
         view.ssh_key = None;
         view.bank_account = None;
+        view.drivers_license = None;
+        view.passport = None;
 
         match &self.type_data {
             CipherTypeDataV1::Login(login_data) => {
@@ -212,6 +230,14 @@ impl CipherBlobV1 {
                 view.r#type = CipherType::BankAccount;
                 view.bank_account = Some(BankAccountView::from(bank_account_data));
             }
+            CipherTypeDataV1::DriversLicense(drivers_license_data) => {
+                view.r#type = CipherType::DriversLicense;
+                view.drivers_license = Some(DriversLicenseView::from(drivers_license_data));
+            }
+            CipherTypeDataV1::Passport(passport_data) => {
+                view.r#type = CipherType::Passport;
+                view.passport = Some(PassportView::from(passport_data));
+            }
         }
 
         Ok(())
@@ -219,7 +245,7 @@ impl CipherBlobV1 {
 }
 
 #[cfg(test)]
-mod test_support {
+pub(crate) mod test_support {
     use bitwarden_core::key_management::{
         KeySlotIds, SymmetricKeySlotId, create_test_crypto_with_user_key,
     };
@@ -256,6 +282,8 @@ mod test_support {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
