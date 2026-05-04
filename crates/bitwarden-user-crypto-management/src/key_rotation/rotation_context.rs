@@ -70,13 +70,13 @@ pub(super) fn make_rotation_context(
         sync.organization_memberships.as_slice(),
         trusted_organization_public_keys,
     )
-    .map_err(|_| RotateUserKeysError::UntrustedKeyError)?;
+    .map_err(|_| RotateUserKeysError::UntrustedKey)?;
 
     let v1_emergency_access_memberships = filter_trusted_emergency_access(
         sync.emergency_access_memberships.as_slice(),
         trusted_emergency_access_public_keys,
     )
-    .map_err(|_| RotateUserKeysError::UntrustedKeyError)?;
+    .map_err(|_| RotateUserKeysError::UntrustedKey)?;
 
     info!(
         "Existing user cryptographic version {:?}",
@@ -355,10 +355,7 @@ mod tests {
 
         let result = make_rotation_context(&sync, &[], &[], &mut ctx);
 
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UntrustedKeyError)
-        ));
+        assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
     }
 
     #[test]
@@ -370,9 +367,6 @@ mod tests {
 
         let result = make_rotation_context(&sync, &[], &[], &mut ctx);
 
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UntrustedKeyError)
-        ));
+        assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
     }
 }
