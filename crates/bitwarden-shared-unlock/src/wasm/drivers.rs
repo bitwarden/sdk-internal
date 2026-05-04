@@ -75,7 +75,6 @@ impl JsSharedUnlockDriver {
     }
 }
 
-
 #[async_trait::async_trait]
 impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
@@ -90,10 +89,7 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn unlock_user(&self, user_id: UserId, user_key: SymmetricCryptoKey) -> Result<(), ()> {
         self.runner
             .run_in_thread(move |driver| async move {
-                driver
-                    .unlock_user(user_id, user_key)
-                    .await
-                    .map_err(|_| ())
+                driver.unlock_user(user_id, user_key).await.map_err(|_| ())
             })
             .await
             .map_err(|_| ())?
@@ -118,15 +114,8 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
         self.runner
             .run_in_thread(move |driver| async move {
-                match driver
-                    .get_user_key(user_id)
-                    .await
-                    .ok()
-                    .flatten()
-                {
-                    Some(user_key) => LockState::Unlocked {
-                        user_key,
-                    },
+                match driver.get_user_key(user_id).await.ok().flatten() {
+                    Some(user_key) => LockState::Unlocked { user_key },
                     None => LockState::Locked,
                 }
             })
