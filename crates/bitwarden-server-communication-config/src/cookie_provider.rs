@@ -38,11 +38,12 @@ where
     P: ServerCommunicationConfigPlatformApi + Send + 'static,
 {
     async fn cookies(&self, hostname: &str) -> Vec<(String, String)> {
+        #[allow(deprecated)]
         self.cookies(hostname.to_string()).await
     }
 
     async fn acquire_cookie(&self, hostname: &str) -> Result<(), AcquireCookieError> {
-        self.acquire_cookie(hostname).await
+        self.acquire_cookie(hostname).await.map(|_| ())
     }
 
     async fn needs_bootstrap(&self, hostname: &str) -> bool {
@@ -127,9 +128,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://idp.example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "test-value".to_string(),
@@ -157,9 +158,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://idp.example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };

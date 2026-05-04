@@ -3,7 +3,10 @@ use std::sync::Arc;
 use super::internal::InternalClient;
 use crate::{
     auth::auth_tokens::TokenHandler,
-    client::{builder::ClientBuilder, client_settings::ClientSettings},
+    client::{
+        builder::ClientBuilder, client_settings::ClientSettings,
+        tracing_middleware::ReqwestTracingMiddleware,
+    },
 };
 
 /// The main struct to interact with the Bitwarden SDK.
@@ -24,6 +27,7 @@ impl Client {
         if let Some(s) = settings {
             builder = builder.with_settings(s);
         }
+        builder = builder.with_middleware(vec![Arc::new(ReqwestTracingMiddleware)]);
         builder.build()
     }
 
@@ -37,6 +41,7 @@ impl Client {
         if let Some(s) = settings {
             builder = builder.with_settings(s);
         }
+        builder = builder.with_middleware(vec![Arc::new(ReqwestTracingMiddleware)]);
         builder.build()
     }
 

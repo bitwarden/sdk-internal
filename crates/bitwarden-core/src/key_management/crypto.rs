@@ -31,7 +31,11 @@ use crate::key_management::wasm_unlock_state::{
 };
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
-    client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
+    client::{
+        LoginMethod, UserLoginMethod,
+        encryption_settings::EncryptionSettingsError,
+        persisted_state::{ACCOUNT_CRYPTO_STATE, OrganizationSharedKey},
+    },
     error::StatefulCryptoError,
     key_management::{
         MasterPasswordError, PrivateKeySlotId, SecurityState, SignedSecurityState,
@@ -193,7 +197,7 @@ pub(super) async fn initialize_user_crypto(
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
     if let Some(user_id) = req.user_id {
-        client.internal.init_user_id(user_id)?;
+        client.internal.init_user_id(user_id).await?;
     }
 
     tracing::Span::current().record(
@@ -209,6 +213,8 @@ pub(super) async fn initialize_user_crypto(
         InitUserCryptoMethod::MasterPasswordUnlock { .. }
             | InitUserCryptoMethod::DecryptedKey { .. }
             | InitUserCryptoMethod::PinEnvelope { .. }
+            | InitUserCryptoMethod::KeyConnectorUrl { .. }
+            | InitUserCryptoMethod::AuthRequest { .. }
     );
 
     match req.method {
@@ -358,6 +364,12 @@ pub(super) async fn initialize_user_crypto(
         }))
         .await;
 
+    if let Ok(setting) = client.internal.state_registry.setting(ACCOUNT_CRYPTO_STATE)
+        && let Err(e) = setting.update(req.account_cryptographic_state).await
+    {
+        tracing::warn!("Failed to persist account crypto state: {e}");
+    }
+
     info!("User crypto initialized successfully");
 
     Ok(())
@@ -378,8 +390,27 @@ pub(super) async fn initialize_org_crypto(
     client: &Client,
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
-    let organization_keys = req.organization_keys.into_iter().collect();
-    client.internal.initialize_org_crypto(organization_keys)?;
+    let organization_keys: Vec<_> = req.organization_keys.into_iter().collect();
+    client
+        .internal
+        .initialize_org_crypto(organization_keys.clone())?;
+
+    // Persist org keys for rehydration
+    if let Ok(repo) = client
+        .internal
+        .state_registry
+        .get::<OrganizationSharedKey>()
+    {
+        for (org_id, key) in organization_keys {
+            if let Err(e) = repo
+                .set(org_id, OrganizationSharedKey { org_id, key })
+                .await
+            {
+                tracing::warn!("Failed to persist org key for {org_id}: {e}");
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -1125,6 +1156,58 @@ pub(crate) fn make_user_jit_master_password_registration(
         master_password_authentication_data,
         account_keys_request: cryptography_state_request_model,
         reset_password_key: admin_reset_key,
+    })
+}
+
+/// Response from `make_user_password_registration`
+pub struct MakeUserMasterPasswordRegistrationResponse {
+    /// The wrapped account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The master password unlock data
+    pub master_password_unlock_data: MasterPasswordUnlockData,
+    /// The master password authentication data
+    pub master_password_authentication_data: MasterPasswordAuthenticationData,
+    /// The request model for account cryptographic key state
+    pub account_keys_request: AccountKeysRequestModel,
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
+}
+
+/// Creates cryptographic data needed for user master password registration
+pub(crate) fn make_user_password_registration(
+    client: &Client,
+    master_password: String,
+    salt: String,
+) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
+    // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519
+    // signature keypair, and signed security state
+    let mut ctx = client.internal.get_key_store().context_mut();
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
+        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+
+    let kdf = Kdf::default_argon2();
+
+    #[expect(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
+
+    let master_password_unlock_data =
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let master_password_authentication_data =
+        MasterPasswordAuthenticationData::derive(&master_password, &kdf, &salt)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let account_keys_request = wrapped_state
+        .to_request_model(&user_key_id, &mut ctx)
+        .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+    Ok(MakeUserMasterPasswordRegistrationResponse {
+        account_cryptographic_state: wrapped_state,
+        master_password_unlock_data,
+        master_password_authentication_data,
+        account_keys_request,
+        user_key,
     })
 }
 
@@ -2215,6 +2298,75 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_initialize_org_crypto_persists_org_keys() {
+        use crate::{OrganizationId, client::persisted_state::OrganizationSharedKey};
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+
+        let repo = client
+            .internal
+            .state_registry
+            .get::<OrganizationSharedKey>()
+            .expect("OrganizationSharedKey repository should be available");
+
+        let persisted = repo
+            .get(org_id)
+            .await
+            .expect("repository get should not fail");
+
+        let entry = persisted.expect("org key should be persisted after initialize_org_crypto");
+        assert_eq!(entry.org_id, org_id);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_persists_account_crypto_state() {
+        use crate::client::persisted_state::ACCOUNT_CRYPTO_STATE;
+
+        let account_crypto_state = WrappedAccountCryptographicState::V1 {
+            private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
+        };
+
+        let client = Client::new_test(None);
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: TEST_USER_EMAIL.into(),
+                account_cryptographic_state: account_crypto_state.clone(),
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: TEST_USER_PASSWORD.into(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 600_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                        salt: TEST_USER_EMAIL.to_string(),
+                    },
+                },
+                upgrade_token: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let persisted = client
+            .internal
+            .state_registry
+            .setting(ACCOUNT_CRYPTO_STATE)
+            .expect("ACCOUNT_CRYPTO_STATE setting should be available")
+            .get()
+            .await
+            .expect("setting get should not fail");
+
+        assert_eq!(persisted, Some(account_crypto_state));
+    }
+
+    #[tokio::test]
     async fn test_initialize_user_local_data_key_idempotent() {
         let client = Client::init_test_account(test_bitwarden_com_account_v2()).await;
         initialize_user_local_data_key(&client)
@@ -2242,5 +2394,63 @@ mod tests {
             .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
             .expect("decryption after second initialization should succeed");
         assert_eq!(decrypted, "test");
+    }
+
+    #[tokio::test]
+    async fn test_make_user_password_registration() {
+        let user_id = UserId::new_v4();
+        let registration_client = Client::new(None);
+
+        let make_keys_response = registration_client
+            .crypto()
+            .make_user_password_registration(
+                TEST_USER_PASSWORD.to_string(),
+                TEST_USER_EMAIL.to_string(),
+            )
+            .expect("user password registration should succeed");
+
+        let unlock_client = Client::new_test(None);
+        unlock_client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(user_id),
+                kdf_params: Kdf::default_argon2(),
+                email: TEST_USER_EMAIL.to_string(),
+                account_cryptographic_state: make_keys_response.account_cryptographic_state,
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: TEST_USER_PASSWORD.to_string(),
+                    master_password_unlock: make_keys_response.master_password_unlock_data.clone(),
+                },
+                upgrade_token: None,
+            })
+            .await
+            .expect("initializing user crypto with master password should succeed");
+
+        let retrieved_key = unlock_client
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .expect("should be able to get user encryption key");
+
+        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
+            .expect("retrieved key should be valid symmetric key");
+
+        let master_key = MasterKey::derive(
+            TEST_USER_PASSWORD,
+            TEST_USER_EMAIL,
+            &make_keys_response.master_password_unlock_data.kdf,
+        )
+        .expect("master key should derive");
+
+        let decrypted_user_key = master_key
+            .decrypt_user_key(
+                make_keys_response
+                    .master_password_unlock_data
+                    .master_key_wrapped_user_key
+                    .clone(),
+            )
+            .expect("should decrypt user key");
+
+        assert_eq!(retrieved_symmetric_key, decrypted_user_key);
     }
 }

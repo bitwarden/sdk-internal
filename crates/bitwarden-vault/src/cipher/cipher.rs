@@ -26,13 +26,13 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    attachment, card,
+    attachment, bank_account, card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
-    field, identity,
+    drivers_license, field, identity,
     local_data::{LocalData, LocalDataView},
     login::LoginListView,
-    secure_note, ssh_key,
+    passport, secure_note, ssh_key,
 };
 use crate::{
     AttachmentView, DecryptError, EncryptError, Fido2CredentialFullView, Fido2CredentialView,
@@ -100,6 +100,9 @@ pub enum CipherType {
     Card = 3,
     Identity = 4,
     SshKey = 5,
+    BankAccount = 6,
+    DriversLicense = 7,
+    Passport = 8,
 }
 
 #[allow(missing_docs)]
@@ -184,6 +187,9 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             identity: cipher.identity.map(|i| Box::new(i.into())),
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
+            bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
+            drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
+            passport: cipher.passport.map(|p| Box::new(p.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -254,6 +260,9 @@ impl From<EncryptionContext> for CipherRequestModel {
             identity: cipher.identity.map(|i| Box::new(i.into())),
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
+            bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
+            drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
+            passport: cipher.passport.map(|p| Box::new(p.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(
                 cipher
@@ -290,6 +299,9 @@ pub struct Cipher {
     pub card: Option<card::Card>,
     pub secure_note: Option<secure_note::SecureNote>,
     pub ssh_key: Option<ssh_key::SshKey>,
+    pub bank_account: Option<bank_account::BankAccount>,
+    pub drivers_license: Option<drivers_license::DriversLicense>,
+    pub passport: Option<passport::Passport>,
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
@@ -348,6 +360,61 @@ impl Cipher {
 
 bitwarden_state::register_repository_item!(CipherId => Cipher, "Cipher");
 
+impl TryFrom<Cipher> for CipherRequestModel {
+    type Error = CryptoError;
+
+    /// Structural mapping from an encrypted [`Cipher`] to the API's expected
+    /// [`CipherRequestModel`]. No crypto — all encryption happened upstream in
+    /// `CipherView::encrypt_composite`. Callers are responsible for setting
+    /// `encrypted_for` after the conversion.
+    ///
+    /// Fails with [`CryptoError::MissingField`] if any attachment has no `id`
+    fn try_from(c: Cipher) -> Result<Self, Self::Error> {
+        let attachments2 = c
+            .attachments
+            .map(|list| {
+                list.into_iter()
+                    .map(|a| {
+                        let id = a.id.clone().ok_or(CryptoError::MissingField("id"))?;
+                        Ok::<_, CryptoError>((id, a.into()))
+                    })
+                    .collect::<Result<_, _>>()
+            })
+            .transpose()?;
+
+        Ok(CipherRequestModel {
+            encrypted_for: None,
+            r#type: Some(c.r#type.into()),
+            organization_id: c.organization_id.map(|id| id.to_string()),
+            folder_id: c.folder_id.map(|id| id.to_string()),
+            favorite: Some(c.favorite),
+            reprompt: Some(c.reprompt.into()),
+            key: c.key.map(|k| k.to_string()),
+            name: c.name.to_string(),
+            notes: c.notes.map(|n| n.to_string()),
+            login: c.login.map(|v| Box::new(v.into())),
+            card: c.card.map(|v| Box::new(v.into())),
+            identity: c.identity.map(|v| Box::new(v.into())),
+            secure_note: c.secure_note.map(|v| Box::new(v.into())),
+            ssh_key: c.ssh_key.map(|v| Box::new(v.into())),
+            bank_account: c.bank_account.map(|v| Box::new(v.into())),
+            drivers_license: c.drivers_license.map(|v| Box::new(v.into())),
+            passport: c.passport.map(|v| Box::new(v.into())),
+            fields: c.fields.map(|f| f.into_iter().map(Into::into).collect()),
+            password_history: c
+                .password_history
+                .map(|h| h.into_iter().map(Into::into).collect()),
+            attachments: None,
+            attachments2,
+            last_known_revision_date: Some(
+                c.revision_date.to_rfc3339_opts(SecondsFormat::Secs, true),
+            ),
+            archived_date: c.archived_date.map(|d| d.to_rfc3339()),
+            data: c.data,
+        })
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -371,6 +438,9 @@ pub struct CipherView {
     pub card: Option<card::CardView>,
     pub secure_note: Option<secure_note::SecureNoteView>,
     pub ssh_key: Option<ssh_key::SshKeyView>,
+    pub bank_account: Option<bank_account::BankAccountView>,
+    pub drivers_license: Option<drivers_license::DriversLicenseView>,
+    pub passport: Option<passport::PassportView>,
 
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
@@ -403,6 +473,9 @@ pub enum CipherListViewType {
     Card(CardListView),
     Identity,
     SshKey,
+    BankAccount,
+    Passport,
+    DriversLicense,
 }
 
 /// Available fields on a cipher and can be copied from a the list view in the UI.
@@ -421,6 +494,12 @@ pub enum CopyableCipherFields {
     IdentityAddress,
     SshKey,
     SecureNotes,
+    BankAccountAccountNumber,
+    BankAccountRoutingNumber,
+    BankAccountPin,
+    BankAccountIban,
+    PassportPassportNumber,
+    DriversLicenseLicenseNumber,
 }
 
 #[allow(missing_docs)]
@@ -569,6 +648,13 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
                 .secure_note
                 .encrypt_composite(ctx, ciphers_key)?,
             ssh_key: cipher_view.ssh_key.encrypt_composite(ctx, ciphers_key)?,
+            bank_account: cipher_view
+                .bank_account
+                .encrypt_composite(ctx, ciphers_key)?,
+            drivers_license: cipher_view
+                .drivers_license
+                .encrypt_composite(ctx, ciphers_key)?,
+            passport: cipher_view.passport.encrypt_composite(ctx, ciphers_key)?,
             favorite: cipher_view.favorite,
             reprompt: cipher_view.reprompt,
             organization_use_totp: cipher_view.organization_use_totp,
@@ -623,6 +709,13 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
             card: self.card.decrypt(ctx, ciphers_key).ok().flatten(),
             secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
             ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
+            bank_account: self.bank_account.decrypt(ctx, ciphers_key).ok().flatten(),
+            drivers_license: self
+                .drivers_license
+                .decrypt(ctx, ciphers_key)
+                .ok()
+                .flatten(),
+            passport: self.passport.decrypt(ctx, ciphers_key).ok().flatten(),
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
@@ -668,7 +761,7 @@ impl Cipher {
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
     #[instrument(err, skip_all)]
-    pub(super) fn decrypt_cipher_key(
+    pub(crate) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
         ciphers_key: &Option<EncString>,
@@ -687,6 +780,9 @@ impl Cipher {
             CipherType::Identity => self.identity.as_ref().map(|v| v as _),
             CipherType::SshKey => self.ssh_key.as_ref().map(|v| v as _),
             CipherType::SecureNote => self.secure_note.as_ref().map(|v| v as _),
+            CipherType::BankAccount => self.bank_account.as_ref().map(|v| v as _),
+            CipherType::DriversLicense => self.drivers_license.as_ref().map(|v| v as _),
+            CipherType::Passport => self.passport.as_ref().map(|v| v as _),
         }
     }
 
@@ -710,7 +806,8 @@ impl Cipher {
     }
 
     /// This replaces the values provided by the API in the `login`, `secure_note`, `card`,
-    /// `identity`, and `ssh_key` fields, relying instead on client-side parsing of the
+    /// `identity`, `ssh_key`, `bank_account`, `passport`, and `drivers_license` fields,
+    /// relying instead on client-side parsing of the
     /// `data` field.
     #[allow(unused)] // Will be used by future changes to support cipher versioning.
     pub(crate) fn populate_cipher_types(&mut self) -> Result<(), VaultParseError> {
@@ -725,6 +822,9 @@ impl Cipher {
             crate::CipherType::Card => self.card = serde_json::from_str(data)?,
             crate::CipherType::Identity => self.identity = serde_json::from_str(data)?,
             crate::CipherType::SshKey => self.ssh_key = serde_json::from_str(data)?,
+            crate::CipherType::BankAccount => self.bank_account = serde_json::from_str(data)?,
+            crate::CipherType::DriversLicense => self.drivers_license = serde_json::from_str(data)?,
+            crate::CipherType::Passport => self.passport = serde_json::from_str(data)?,
         }
         Ok(())
     }
@@ -960,6 +1060,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
                 }
                 CipherType::Identity => CipherListViewType::Identity,
                 CipherType::SshKey => CipherListViewType::SshKey,
+                CipherType::BankAccount => CipherListViewType::BankAccount,
+                CipherType::Passport => CipherListViewType::Passport,
+                CipherType::DriversLicense => CipherListViewType::DriversLicense,
             },
             favorite: self.favorite,
             reprompt: self.reprompt,
@@ -1096,6 +1199,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
                 .transpose()?,
             secure_note: self.0.secure_note.decrypt(ctx, ciphers_key)?,
             ssh_key: self.0.ssh_key.decrypt(ctx, ciphers_key)?,
+            bank_account: self.0.bank_account.decrypt(ctx, ciphers_key)?,
+            drivers_license: self.0.drivers_license.decrypt(ctx, ciphers_key)?,
+            passport: self.0.passport.decrypt(ctx, ciphers_key)?,
             favorite: self.0.favorite,
             reprompt: self.0.reprompt,
             organization_use_totp: self.0.organization_use_totp,
@@ -1171,6 +1277,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
                 }
                 CipherType::Identity => CipherListViewType::Identity,
                 CipherType::SshKey => CipherListViewType::SshKey,
+                CipherType::BankAccount => CipherListViewType::BankAccount,
+                CipherType::Passport => CipherListViewType::Passport,
+                CipherType::DriversLicense => CipherListViewType::DriversLicense,
             },
             favorite: self.0.favorite,
             reprompt: self.0.reprompt,
@@ -1253,6 +1362,12 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: cipher.bank_account.map(|b| (*b).try_into()).transpose()?,
+            drivers_license: cipher
+                .drivers_license
+                .map(|d| (*d).try_into())
+                .transpose()?,
+            passport: cipher.passport.map(|p| (*p).try_into()).transpose()?,
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
@@ -1305,6 +1420,9 @@ impl TryFrom<bitwarden_api_api::models::CipherType> for CipherType {
             bitwarden_api_api::models::CipherType::Card => CipherType::Card,
             bitwarden_api_api::models::CipherType::Identity => CipherType::Identity,
             bitwarden_api_api::models::CipherType::SSHKey => CipherType::SshKey,
+            bitwarden_api_api::models::CipherType::BankAccount => CipherType::BankAccount,
+            bitwarden_api_api::models::CipherType::Passport => CipherType::Passport,
+            bitwarden_api_api::models::CipherType::DriversLicense => CipherType::DriversLicense,
             bitwarden_api_api::models::CipherType::__Unknown(_) => {
                 return Err(MissingFieldError("type"));
             }
@@ -1341,6 +1459,9 @@ impl From<CipherType> for bitwarden_api_api::models::CipherType {
             CipherType::Card => bitwarden_api_api::models::CipherType::Card,
             CipherType::Identity => bitwarden_api_api::models::CipherType::Identity,
             CipherType::SshKey => bitwarden_api_api::models::CipherType::SSHKey,
+            CipherType::BankAccount => bitwarden_api_api::models::CipherType::BankAccount,
+            CipherType::Passport => bitwarden_api_api::models::CipherType::Passport,
+            CipherType::DriversLicense => bitwarden_api_api::models::CipherType::DriversLicense,
         }
     }
 }
@@ -1373,6 +1494,9 @@ impl PartialCipher for CipherResponseModel {
             card: self.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
+            drivers_license: self.drivers_license.map(|d| (*d).try_into()).transpose()?,
+            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             favorite: self.favorite.unwrap_or(false),
             reprompt: self
                 .reprompt
@@ -1420,6 +1544,9 @@ impl PartialCipher for CipherMiniResponseModel {
             card: self.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
+            drivers_license: self.drivers_license.map(|d| (*d).try_into()).transpose()?,
+            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             reprompt: self
                 .reprompt
                 .map(|r| r.try_into())
@@ -1477,6 +1604,9 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             card: self.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            bank_account: self.bank_account.map(|b| (*b).try_into()).transpose()?,
+            drivers_license: self.drivers_license.map(|d| (*d).try_into()).transpose()?,
+            passport: self.passport.map(|p| (*p).try_into()).transpose()?,
             reprompt: self
                 .reprompt
                 .map(|r| r.try_into())
@@ -1569,6 +1699,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -1635,6 +1768,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2246,6 +2382,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2292,6 +2431,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2332,6 +2474,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2396,6 +2541,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2553,6 +2701,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2600,6 +2751,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2640,6 +2794,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2698,6 +2855,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -2758,5 +2918,131 @@ mod tests {
         assert_eq!(failures.len(), 1);
         assert_eq!(failures[0].id, Some("corrupted-attachment".to_string()));
         assert_eq!(failures[0].file_name, None);
+    }
+
+    #[test]
+    fn test_decrypt_cipher_list_view_passport() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let cipher_view = CipherView {
+            r#type: CipherType::Passport,
+            passport: Some(passport::PassportView {
+                given_name: Some("Jane".to_string()),
+                surname: Some("Doe".to_string()),
+                passport_number: Some("P12345678".to_string()),
+                ..Default::default()
+            }),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
+
+        assert_eq!(list_view.r#type, CipherListViewType::Passport);
+        assert_eq!(list_view.subtitle, "Jane Doe");
+        assert_eq!(
+            list_view.copyable_fields,
+            vec![CopyableCipherFields::PassportPassportNumber]
+        );
+    }
+
+    #[test]
+    fn test_decrypt_cipher_list_view_drivers_license() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let cipher_view = CipherView {
+            r#type: CipherType::DriversLicense,
+            drivers_license: Some(drivers_license::DriversLicenseView {
+                first_name: Some("John".to_string()),
+                last_name: Some("Doe".to_string()),
+                license_number: Some("DL-987654".to_string()),
+                ..Default::default()
+            }),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
+
+        assert_eq!(list_view.r#type, CipherListViewType::DriversLicense);
+        assert_eq!(list_view.subtitle, "John Doe");
+        assert_eq!(
+            list_view.copyable_fields,
+            vec![CopyableCipherFields::DriversLicenseLicenseNumber]
+        );
+    }
+
+    #[test]
+    fn test_cipher_view_encrypt_decrypt_passport() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let passport = passport::PassportView {
+            given_name: Some("Jane".to_string()),
+            surname: Some("Doe".to_string()),
+            date_of_birth: Some("1990-01-01".to_string()),
+            sex: Some("F".to_string()),
+            birth_place: Some("New York".to_string()),
+            nationality: Some("American".to_string()),
+            issuing_country: Some("US".to_string()),
+            passport_number: Some("P12345678".to_string()),
+            passport_type: Some("P".to_string()),
+            national_identification_number: Some("123-45-6789".to_string()),
+            issuing_authority: Some("US State Department".to_string()),
+            issue_date: Some("2020-01-01".to_string()),
+            expiration_date: Some("2030-01-01".to_string()),
+        };
+
+        let cipher_view = CipherView {
+            r#type: CipherType::Passport,
+            passport: Some(passport.clone()),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
+
+        assert_eq!(decrypted.r#type, CipherType::Passport);
+        assert_eq!(decrypted.passport, Some(passport));
+        assert!(decrypted.login.is_none());
+    }
+
+    #[test]
+    fn test_cipher_view_encrypt_decrypt_drivers_license() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let dl = drivers_license::DriversLicenseView {
+            first_name: Some("John".to_string()),
+            middle_name: Some("Michael".to_string()),
+            last_name: Some("Doe".to_string()),
+            date_of_birth: Some("1985-06-15".to_string()),
+            license_number: Some("DL-987654".to_string()),
+            issuing_country: Some("US".to_string()),
+            issuing_state: Some("NY".to_string()),
+            issue_date: Some("2020-01-01".to_string()),
+            expiration_date: Some("2028-01-01".to_string()),
+            issuing_authority: Some("NY DMV".to_string()),
+            license_class: Some("D".to_string()),
+        };
+
+        let cipher_view = CipherView {
+            r#type: CipherType::DriversLicense,
+            drivers_license: Some(dl.clone()),
+            login: None,
+            ..generate_cipher()
+        };
+
+        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
+
+        assert_eq!(decrypted.r#type, CipherType::DriversLicense);
+        assert_eq!(decrypted.drivers_license, Some(dl));
+        assert!(decrypted.login.is_none());
     }
 }

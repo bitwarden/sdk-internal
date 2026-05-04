@@ -332,7 +332,7 @@ impl WrappedAccountCryptographicState {
     ) -> Result<(SymmetricKeySlotId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let signing_key = ctx.make_signing_key(SignatureAlgorithm::MlDsa44);
         let signed_public_key = ctx.make_signed_public_key(private_key, signing_key)?;
 
         let security_state = SecurityState::new();
@@ -390,7 +390,7 @@ impl WrappedAccountCryptographicState {
                     .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
 
                 // 2. The signing key is generated
-                let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+                let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::MlDsa44);
                 let new_signing_key = ctx
                     .wrap_signing_key(*new_user_key, signing_key_id)
                     .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
@@ -1210,7 +1210,7 @@ mod tests {
 
         assert_eq!(
             result.signature_key_pair.signature_algorithm.as_deref(),
-            Some("ed25519")
+            Some("mldsa44")
         );
 
         assert!(

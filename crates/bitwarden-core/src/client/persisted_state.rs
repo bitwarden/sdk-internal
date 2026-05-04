@@ -8,7 +8,8 @@ use tsify::Tsify;
 
 use super::{flags::Flags, login_method::UserLoginMethod};
 use crate::{
-    OrganizationId, key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+    OrganizationId, UserId,
+    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
 };
 
 /// A persisted organization encryption key.
@@ -58,7 +59,7 @@ register_setting_key!(
 );
 register_setting_key!(
     /// Setting key for the user ID.
-    pub const USER_ID: String = "user_id"
+    pub const USER_ID: UserId = "user_id"
 );
 register_setting_key!(
     /// Setting key for feature flags.

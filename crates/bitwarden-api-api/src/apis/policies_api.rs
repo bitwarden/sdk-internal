@@ -59,7 +59,7 @@ pub trait PoliciesApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
-        policy_request_model: Option<models::PolicyRequestModel>,
+        save_policy_request: Option<models::SavePolicyRequest>,
     ) -> Result<models::PolicyResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/policies/{type}/vnext
@@ -184,7 +184,7 @@ impl PoliciesApi for PoliciesApiClient {
         &self,
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
-        policy_request_model: Option<models::PolicyRequestModel>,
+        save_policy_request: Option<models::SavePolicyRequest>,
     ) -> Result<models::PolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -195,7 +195,7 @@ impl PoliciesApi for PoliciesApiClient {
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&policy_request_model);
+        local_var_req_builder = local_var_req_builder.json(&save_policy_request);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

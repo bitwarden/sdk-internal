@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, sync::OnceLock};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -158,5 +158,78 @@ impl fmt::Display for ClientName {
             ClientName::Cli => "cli",
         };
         write!(f, "{}", s)
+    }
+}
+
+/// Process-wide, application-provided platform information.
+///
+/// Initialize exactly once at application startup via [`init_host_platform_info`];
+/// read via [`get_host_platform_info`]. Subsequent `init` calls are ignored.
+#[derive(Debug, Clone)]
+pub struct HostPlatformInfo {
+    pub user_agent: String,
+    pub device_type: DeviceType,
+    pub device_identifier: Option<String>,
+    pub bitwarden_client_version: Option<String>,
+    pub bitwarden_package_type: Option<String>,
+}
+
+static HOST_PLATFORM_INFO: OnceLock<HostPlatformInfo> = OnceLock::new();
+
+/// Initialize the global [`HostPlatformInfo`].
+///
+/// Should be called once during application startup, before any
+/// `Client::load_from_state` calls. Subsequent calls are silently ignored.
+pub fn init_host_platform_info(info: HostPlatformInfo) {
+    let _ = HOST_PLATFORM_INFO.set(info);
+}
+
+/// Returns the globally-initialized [`HostPlatformInfo`].
+///
+/// # Panics
+/// Panics if [`init_host_platform_info`] has not yet been called.
+pub fn get_host_platform_info() -> &'static HostPlatformInfo {
+    HOST_PLATFORM_INFO
+        .get()
+        .expect("host platform info to be initialized")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // `OnceLock` is process-global, so a single sequential test covers the
+    // not-set, happy-path, and already-set cases without cross-test leakage.
+    #[test]
+    fn init_then_get_preserves_first_value() {
+        // Not-set case: `get` must panic before any `init` call.
+        let prev_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let not_set = std::panic::catch_unwind(get_host_platform_info);
+        std::panic::set_hook(prev_hook);
+        assert!(not_set.is_err(), "expected panic before init");
+
+        let first = HostPlatformInfo {
+            user_agent: "first".into(),
+            device_type: DeviceType::SDK,
+            device_identifier: Some("dev-1".into()),
+            bitwarden_client_version: Some("1.0.0".into()),
+            bitwarden_package_type: Some("test".into()),
+        };
+        init_host_platform_info(first.clone());
+
+        let got = get_host_platform_info();
+        assert_eq!(got.user_agent, first.user_agent);
+        assert_eq!(got.device_type, first.device_type);
+        assert_eq!(got.device_identifier, first.device_identifier);
+
+        let second = HostPlatformInfo {
+            user_agent: "second".into(),
+            ..first.clone()
+        };
+        init_host_platform_info(second);
+
+        let after = get_host_platform_info();
+        assert_eq!(after.user_agent, first.user_agent);
     }
 }

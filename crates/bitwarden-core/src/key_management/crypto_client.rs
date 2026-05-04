@@ -1,7 +1,11 @@
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", not(feature = "uniffi")))]
+use std::str::FromStr;
+
+#[cfg(any(feature = "wasm", test))]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet, SymmetricKeyAlgorithm,
+    BitwardenLegacyKeyBytes, CryptoError, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
@@ -12,9 +16,10 @@ use wasm_bindgen::prelude::*;
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
     MakeJitMasterPasswordRegistrationResponse, MakeKeyConnectorRegistrationResponse,
-    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
-    derive_key_connector, make_key_pair, make_user_jit_master_password_registration,
-    make_user_key_connector_registration, verify_asymmetric_keys,
+    MakeKeyPairResponse, MakeUserMasterPasswordRegistrationResponse, VerifyAsymmetricKeysRequest,
+    VerifyAsymmetricKeysResponse, derive_key_connector, make_key_pair,
+    make_user_jit_master_password_registration, make_user_key_connector_registration,
+    make_user_password_registration, verify_asymmetric_keys,
 };
 use crate::key_management::V2UpgradeToken;
 #[cfg(feature = "internal")]
@@ -189,6 +194,16 @@ impl CryptoClient {
     pub async fn get_user_encryption_key(&self) -> Result<B64, CryptoClientError> {
         get_user_encryption_key(&self.client).await
     }
+
+    /// Takes a raw key and returns the corresponding key id. This is used for the biometrics
+    /// subsystem and should be removed after moving over biometric management to the SDK.
+    pub fn get_key_id_for_symmetric_key(
+        &self,
+        key: Vec<u8>,
+    ) -> Result<Option<Vec<u8>>, CryptoClientError> {
+        let symmetric_key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key))?;
+        Ok(symmetric_key.key_id().map(|id| id.as_slice().to_vec()))
+    }
 }
 
 impl CryptoClient {
@@ -278,6 +293,17 @@ impl CryptoClient {
             salt,
             org_public_key,
         )
+    }
+
+    /// Creates new V2 account cryptographic state for password-based registration
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// security state) wrapped with a new user key.
+    pub fn make_user_password_registration(
+        &self,
+        master_password: String,
+        salt: String,
+    ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
+        make_user_password_registration(&self.client, master_password, salt)
     }
 
     /// Gets the upgraded V2 user key using an upgrade token.

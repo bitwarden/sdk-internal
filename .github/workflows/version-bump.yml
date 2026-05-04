@@ -27,7 +27,7 @@ jobs:
       id-token: write
     steps:
       - name: Install rust
-        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           toolchain: stable
 
@@ -61,9 +61,8 @@ jobs:
           app-id: ${{ steps.retrieve-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.retrieve-secrets.outputs.BW-GHAPP-KEY }}
           repositories: sdk-internal
-          permissions: >-
-            contents: write
-            pull-requests: write
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Checkout Branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -103,8 +102,8 @@ jobs:
 
       - name: Setup git
         run: |
-          git config --local user.email "106330231+bitwarden-devops-bot@users.noreply.github.com"
-          git config --local user.name "bitwarden-devops-bot"
+          git config --local user.email "178206702+bw-ghapp[bot]@users.noreply.github.com"
+          git config --local user.name "bw-ghapp[bot]"
 
       - name: Check if version changed
         id: version-changed

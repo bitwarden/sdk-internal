@@ -99,6 +99,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
     })
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Restores a soft-deleted cipher on the server.
@@ -185,6 +186,9 @@ mod tests {
             card: Default::default(),
             secure_note: Default::default(),
             ssh_key: Default::default(),
+            bank_account: Default::default(),
+            drivers_license: Default::default(),
+            passport: Default::default(),
             organization_use_totp: Default::default(),
             edit: Default::default(),
             permissions: Default::default(),

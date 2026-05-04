@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_auth::token_management::PasswordManagerTokenHandler;
-use bitwarden_core::ClientBuilder;
+use bitwarden_core::{ClientBuilder, client::tracing_middleware::ReqwestTracingMiddleware};
 
 use crate::PasswordManagerClient;
 
@@ -44,14 +44,18 @@ impl PasswordManagerClientBuilder {
         if let Some(s) = self.settings {
             builder = builder.with_settings(s);
         }
+        let mut middleware: Vec<Arc<dyn reqwest_middleware::Middleware>> =
+            vec![Arc::new(ReqwestTracingMiddleware)];
+
         if let Some(cookie_provider) = self.cookie_provider {
-            let cookie_middleware: Arc<dyn reqwest_middleware::Middleware> = Arc::new(
+            middleware.push(Arc::new(
                 bitwarden_server_communication_config::ServerCommunicationConfigMiddleware::new(
                     cookie_provider,
                 ),
-            );
-            builder = builder.with_middleware(vec![cookie_middleware]);
+            ));
         }
+
+        builder = builder.with_middleware(middleware);
         PasswordManagerClient(builder.build())
     }
 }

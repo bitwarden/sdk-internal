@@ -39,14 +39,6 @@ pub trait OrganizationDomainApi: Send + Sync {
         org_id: uuid::Uuid,
     ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error>;
 
-    /// POST /organizations/domain/sso/details
-    async fn get_org_domain_sso_details<'a>(
-        &self,
-        organization_domain_sso_details_request_model: Option<
-            models::OrganizationDomainSsoDetailsRequestModel,
-        >,
-    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error>;
-
     /// POST /organizations/domain/sso/verified
     async fn get_verified_org_domain_sso_details<'a>(
         &self,
@@ -126,30 +118,6 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn get_org_domain_sso_details<'a>(
-        &self,
-        organization_domain_sso_details_request_model: Option<
-            models::OrganizationDomainSsoDetailsRequestModel,
-        >,
-    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/domain/sso/details",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&organization_domain_sso_details_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

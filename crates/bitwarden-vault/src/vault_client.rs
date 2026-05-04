@@ -1,4 +1,4 @@
-use bitwarden_core::Client;
+use bitwarden_core::{Client, FromClient};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -38,16 +38,12 @@ impl VaultClient {
 
     /// Cipher related operations.
     pub fn ciphers(&self) -> CiphersClient {
-        CiphersClient {
-            client: self.client.clone(),
-        }
+        CiphersClient::from_client(&self.client)
     }
 
     /// Folder related operations.
     pub fn folders(&self) -> FoldersClient {
-        FoldersClient {
-            client: self.client.clone(),
-        }
+        FoldersClient::from_client(&self.client)
     }
 
     /// TOTP related operations.

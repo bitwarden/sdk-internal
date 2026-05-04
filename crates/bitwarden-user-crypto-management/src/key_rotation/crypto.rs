@@ -32,8 +32,9 @@ pub(super) fn rotate_account_cryptographic_state_to_request_model(
     Ok(account_keys_model)
 }
 
-// Will be used for user key rotation without master password change, remove once added.
-#[allow(dead_code)]
+/// Rotates an account cryptographic state and upgrades it to V2 if necessary.
+/// This function fails and logs an error via tracing if the passed keys are invalid, or if the
+/// account cryptographic state is malformed.
 pub(super) fn rotate_account_cryptographic_state_to_wrapped_model(
     wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
     current_user_key_id: &SymmetricKeySlotId,

@@ -97,6 +97,7 @@ async fn process_soft_delete<R: Repository<Cipher> + ?Sized>(
     Ok(())
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Deletes the [Cipher] with the matching [CipherId] from the server.
@@ -176,6 +177,9 @@ mod tests {
             card: Default::default(),
             secure_note: Default::default(),
             ssh_key: Default::default(),
+            bank_account: Default::default(),
+            drivers_license: Default::default(),
+            passport: Default::default(),
             organization_use_totp: Default::default(),
             edit: Default::default(),
             permissions: Default::default(),

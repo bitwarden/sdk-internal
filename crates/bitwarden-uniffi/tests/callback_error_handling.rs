@@ -37,7 +37,7 @@ impl LogCallback for FailingCallback {
 #[test]
 fn test_callback_error_does_not_crash_sdk() {
     // Initialize logger with failing callback
-    init_logger(Some(Arc::new(FailingCallback)));
+    init_logger(Some(Arc::new(FailingCallback)), None);
 
     // Create client
     let client = Client::new(Arc::new(MockTokenProvider), None);

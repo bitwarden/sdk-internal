@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::IdentifyKey;
+use bitwarden_core::{
+    Client, FromClient, OrganizationId,
+    client::{ApiConfigurations, FromClientPart},
+    key_management::{BLOB_SECURITY_VERSION, KeySlotIds},
+};
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{IdentifyKey, KeyStore};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -20,22 +24,63 @@ use crate::{
 use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
+mod bulk_update_collections;
 mod create;
 mod delete;
 mod delete_attachment;
 mod edit;
 mod get;
+mod move_many;
 mod restore;
 mod share_cipher;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
+    #[allow(dead_code)]
+    pub(crate) key_store: KeyStore<KeySlotIds>,
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
+    pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
+    #[deprecated(
+        note = "Use the component fields (key_store, api_configurations, repository) for new operations"
+    )]
     pub(crate) client: Client,
 }
 
+impl FromClient for CiphersClient {
+    fn from_client(client: &Client) -> Self {
+        #[allow(deprecated)]
+        Self {
+            key_store: client.get_part(),
+            api_configurations: client.get_part(),
+            repository: client.get_part(),
+            client: client.clone(),
+        }
+    }
+}
+
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
+    /// Returns `true` when cipher data for the given scope should be written in the
+    /// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
+    /// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
+    #[allow(dead_code)] // Consumed by the encrypt/decrypt wiring ticket.
+    pub(crate) fn should_use_blob_encryption(
+        &self,
+        organization_id: Option<OrganizationId>,
+    ) -> bool {
+        if organization_id.is_some() {
+            return false;
+        }
+        self.client
+            .internal
+            .get_key_store()
+            .context()
+            .get_security_state_version()
+            >= BLOB_SECURITY_VERSION
+    }
+
     #[allow(missing_docs)]
     pub async fn encrypt(
         &self,
@@ -298,6 +343,7 @@ impl CiphersClient {
     }
 }
 
+#[allow(deprecated)]
 impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
         Ok(self.client.platform().state().get::<Cipher>()?)
@@ -345,6 +391,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -388,6 +437,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -452,6 +504,9 @@ mod tests {
                 card: None,
                 secure_note: None,
                 ssh_key: None,
+                bank_account: None,
+                drivers_license: None,
+                passport: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
@@ -856,5 +911,41 @@ mod tests {
         for ctx in contexts {
             assert_eq!(ctx.encrypted_for, expected_user_id);
         }
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_individual_above_threshold_returns_true() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        assert!(client.vault().ciphers().should_use_blob_encryption(None));
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_individual_below_threshold_returns_false() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        // Default KeyStore security_state_version is 1, below BLOB_SECURITY_VERSION (2).
+
+        assert!(!client.vault().ciphers().should_use_blob_encryption(None));
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_organization_returns_false() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+
+        assert!(
+            !client
+                .vault()
+                .ciphers()
+                .should_use_blob_encryption(Some(org_id))
+        );
     }
 }
