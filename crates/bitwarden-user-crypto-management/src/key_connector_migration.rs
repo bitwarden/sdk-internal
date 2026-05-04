@@ -91,7 +91,7 @@ async fn enroll_user_into_key_connector(
         .await
         .map_err(|e| {
             error!("Failed to post key connector migration request: {e:?}");
-            MigrateToKeyConnectorError::ApiError
+            MigrateToKeyConnectorError::Api
         })
 }
 
@@ -127,7 +127,7 @@ async fn post_key_connector_key_to_key_connector(
 
     result.map_err(|e| {
         error!("Failed to post key connector key to key connector server: {e:?}");
-        MigrateToKeyConnectorError::KeyConnectorApiError
+        MigrateToKeyConnectorError::KeyConnectorApi
     })
 }
 
@@ -137,11 +137,11 @@ pub enum MigrateToKeyConnectorError {
     #[error("Current user key is not available")]
     UserKeyNotAvailable,
     #[error("Cryptographic error during key connector migration")]
-    CryptoError,
+    Crypto,
     #[error("Bitwarden API call failed during key connector migration")]
-    ApiError,
+    Api,
     #[error("Key Connector API call failed during key connector migration")]
-    KeyConnectorApiError,
+    KeyConnectorApi,
 }
 
 #[cfg(test)]
@@ -265,7 +265,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(MigrateToKeyConnectorError::KeyConnectorApiError)
+            Err(MigrateToKeyConnectorError::KeyConnectorApi)
         ));
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -326,7 +326,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(MigrateToKeyConnectorError::ApiError)));
+        assert!(matches!(result, Err(MigrateToKeyConnectorError::Api)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
