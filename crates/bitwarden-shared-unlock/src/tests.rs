@@ -91,11 +91,11 @@ impl SharedUnlockDriver for MockDriver {
         self.vault_urls.lock().unwrap().get(&user_id).cloned()
     }
 
-    async fn suppress_vault_timeout(&self, user_id: UserId, until: Duration) {
+    async fn suppress_vault_timeout(&self, user_id: UserId, suppression_duration: Duration) {
         self.timeout_suppressions
             .lock()
             .unwrap()
-            .push((user_id, until));
+            .push((user_id, suppression_duration));
     }
     async fn discover_leader(&self) -> Option<Endpoint> {
         Some(self.endpoint.clone())
