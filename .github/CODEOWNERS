@@ -38,6 +38,7 @@ crates/bitwarden-policies/** @bitwarden/team-admin-console-dev @bitwarden/team-p
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
