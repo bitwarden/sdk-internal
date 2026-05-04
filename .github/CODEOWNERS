@@ -7,8 +7,7 @@
 # We have a few ownership models in use here, applied to team-owned crates as well as CLI code:
 # 1. Full ownership by team-platform-dev, for cases where teams have not yet onboarded at all.
 # 2. Joint team ownership with team-platform-dev, as a team onboards into SDK development and close guidance is necessary.
-# 3. Joint team ownership with team-sdk-sme, once a team is comfortable with SDK development but still would benefit from architectural oversight.
-# 4. Full team ownership, once a team is comfortable with SDK development and has enough shared experience to  ensure alignment with SDK architecture.
+# 3. Full team ownership, once a team is comfortable with SDK development and has enough shared experience to ensure alignment with SDK architecture.
 
 # Platform is the default owner for all files
 * @bitwarden/team-platform-dev
@@ -35,26 +34,26 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
-crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
-crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
-crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
+crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev
+crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
+crates/bitwarden-vault/** @bitwarden/team-vault-dev
 
-# KM Co-owned files
-crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
-crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+# Team-owned folders in other crates (to be avoided if possible)
+crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management-dev
+crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-platform-dev
 crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-dev
 
 # BW CLI
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev
 crates/bw/src/auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bw/src/tools/** @bitwarden/team-platform-dev
-crates/bw/src/vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
+crates/bw/src/vault/** @bitwarden/team-vault-dev
 
 # BRE for publish workflow changes
 .github/workflows/publish-*.yml @bitwarden/dept-bre
