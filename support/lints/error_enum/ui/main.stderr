@@ -1,46 +1,46 @@
 warning: enum variant `NetworkError` ends with 'Error'
-  --> $DIR/main.rs:2:5
+  --> $DIR/main.rs:4:5
    |
 LL |     NetworkError,
-   |     ^^^^^^^^^^^^
+   |     ^^^^^^^^^^^^ help: rename to: `Network`
    |
    = note: `#[warn(enum_variant_ends_with_error)]` on by default
 
 warning: enum variant `TimeoutError` ends with 'Error'
-  --> $DIR/main.rs:3:5
+  --> $DIR/main.rs:6:5
    |
 LL |     TimeoutError,
-   |     ^^^^^^^^^^^^
+   |     ^^^^^^^^^^^^ help: rename to: `Timeout`
 
 warning: enum variant `ParseError` ends with 'Error'
-  --> $DIR/main.rs:4:5
-   |
-LL |     ParseError,
-   |     ^^^^^^^^^^
-
-warning: enum variant `ConnectionError` ends with 'Error'
   --> $DIR/main.rs:8:5
    |
+LL |     ParseError,
+   |     ^^^^^^^^^^ help: rename to: `Parse`
+
+warning: enum variant `ConnectionError` ends with 'Error'
+  --> $DIR/main.rs:14:5
+   |
 LL |     ConnectionError,
-   |     ^^^^^^^^^^^^^^^
+   |     ^^^^^^^^^^^^^^^ help: rename to: `Connection`
 
 warning: enum variant `QueryError` ends with 'Error'
-  --> $DIR/main.rs:9:5
+  --> $DIR/main.rs:16:5
    |
 LL |     QueryError,
-   |     ^^^^^^^^^^
+   |     ^^^^^^^^^^ help: rename to: `Query`
 
 warning: enum variant `FailureError` ends with 'Error'
-  --> $DIR/main.rs:20:5
+  --> $DIR/main.rs:34:5
    |
 LL |     FailureError,
-   |     ^^^^^^^^^^^^
+   |     ^^^^^^^^^^^^ help: rename to: `Failure`
 
 warning: enum variant `InvalidError` ends with 'Error'
-  --> $DIR/main.rs:21:5
+  --> $DIR/main.rs:36:5
    |
 LL |     InvalidError,
-   |     ^^^^^^^^^^^^
+   |     ^^^^^^^^^^^^ help: rename to: `Invalid`
 
 warning: 7 warnings emitted
 
