@@ -1,6 +1,7 @@
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_ipc::{Endpoint, HostId};
+use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
@@ -13,7 +14,7 @@ export interface SharedUnlockDriver {
     unlock_user(user_id: UserId, user_key: SymmetricKey): Promise<void>;
     list_users(): Promise<UserId[]>;
     get_user_key(user_id: UserId): Promise<SymmetricKey | undefined>;
-    suppress_vault_timeout(suppression_duration: number, user_id: UserId): Promise<void>;
+    suppress_vault_timeout(user_id: UserId, suppression_duration: number): Promise<void>;
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
 }
@@ -45,8 +46,8 @@ extern "C" {
     #[wasm_bindgen(method, catch)]
     async fn suppress_vault_timeout(
         this: &RawJsSharedUnlockDriver,
-        suppression_duration: f64,
         user_id: UserId,
+        suppression_duration: f64,
     ) -> Result<(), JsValue>;
 
     /// Get the client type of the current device
@@ -63,52 +64,79 @@ extern "C" {
 }
 
 pub(super) struct JsSharedUnlockDriver {
-    driver: RawJsSharedUnlockDriver,
+    runner: ThreadBoundRunner<RawJsSharedUnlockDriver>,
 }
 
 impl JsSharedUnlockDriver {
     pub(super) fn new(driver: RawJsSharedUnlockDriver) -> Self {
-        Self { driver }
+        Self {
+            runner: ThreadBoundRunner::new(driver),
+        }
     }
 }
 
 #[async_trait::async_trait(?Send)]
 impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
-        self.driver.lock_user(user_id).await.map_err(|_| ())
+        self.runner
+            .run_in_thread(
+                move |driver| async move { driver.lock_user(user_id).await.map_err(|_| ()) },
+            )
+            .await
+            .expect("Failed to run lock_user in thread")
     }
 
     async fn unlock_user(&self, user_id: UserId, user_key: SymmetricCryptoKey) -> Result<(), ()> {
-        self.driver
-            .unlock_user(user_id, user_key)
+        self.runner
+            .run_in_thread(move |driver| async move {
+                driver.unlock_user(user_id, user_key).await.map_err(|_| ())
+            })
             .await
-            .map_err(|_| ())
+            .expect("Failed to run unlock_user in thread")
     }
 
     async fn list_users(&self) -> Vec<UserId> {
-        match self.driver.list_users().await {
-            Ok(array) => array
-                .iter()
-                .filter_map(|js_value| js_value.as_string())
-                .filter_map(|s| s.parse().ok())
-                .collect(),
-            Err(_) => vec![],
-        }
+        self.runner
+            .run_in_thread(|driver| async move {
+                match driver.list_users().await {
+                    Ok(array) => array
+                        .iter()
+                        .filter_map(|js_value| js_value.as_string())
+                        .filter_map(|s| s.parse().ok())
+                        .collect(),
+                    Err(_) => vec![],
+                }
+            })
+            .await
+            .unwrap_or_default()
     }
 
     async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
-        match self.driver.get_user_key(user_id).await.ok().flatten() {
+        let user_key = self
+            .runner
+            .run_in_thread(move |driver| async move {
+                driver.get_user_key(user_id).await.ok().flatten()
+            })
+            .await
+            .expect("Failed to run get_user_key in thread");
+        match user_key {
             Some(user_key) => LockState::Unlocked { user_key },
             None => LockState::Locked,
         }
     }
 
     async fn get_vault_url(&self, user_id: UserId) -> Option<String> {
-        self.driver
-            .get_vault_url(user_id)
+        self.runner
+            .run_in_thread(move |driver| async move {
+                driver
+                    .get_vault_url(user_id)
+                    .await
+                    .ok()
+                    .and_then(|js_value| js_value.as_string())
+            })
             .await
             .ok()
-            .and_then(|js_value| js_value.as_string())
+            .flatten()
     }
 
     async fn suppress_vault_timeout(
@@ -116,10 +144,17 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
         user_id: UserId,
         suppression_duration: std::time::Duration,
     ) {
+        let suppression_ms = suppression_duration.as_millis() as f64;
         let result = self
-            .driver
-            .suppress_vault_timeout(suppression_duration.as_millis() as f64, user_id)
-            .await;
+            .runner
+            .run_in_thread(move |driver| async move {
+                driver
+                    .suppress_vault_timeout(user_id, suppression_ms)
+                    .await
+                    .map_err(|e| format!("{e:?}"))
+            })
+            .await
+            .expect("Failed to run suppress_vault_timeout in thread");
         if let Err(error) = result {
             tracing::error!(
                 ?error,
@@ -130,10 +165,17 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
     }
 
     async fn discover_leader(&self) -> Option<Endpoint> {
-        let client_name = match self.driver.get_client_name().await {
-            Ok(name) => name.as_string()?,
-            Err(_) => return None,
-        };
+        let client_name = self
+            .runner
+            .run_in_thread(|driver| async move {
+                driver
+                    .get_client_name()
+                    .await
+                    .ok()
+                    .and_then(|name| name.as_string())
+            })
+            .await
+            .expect("Failed to run get_client_name in thread")?;
         match client_name.as_str() {
             "web" => Some(Endpoint::BrowserBackground { id: HostId::Own }),
             "browser" => Some(Endpoint::DesktopRenderer),
