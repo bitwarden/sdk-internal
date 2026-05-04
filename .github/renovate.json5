@@ -80,7 +80,6 @@
         "http",
         "js-sys",
         "mockall",
-        "paste",
         "proc-macro2",
         "quote",
         "rand",

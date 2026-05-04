@@ -50,6 +50,7 @@ bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=2.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=2.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=2.0.0" }
+bitwarden-state-bridge-macro = { path = "crates/bitwarden-state-bridge-macro", version = "=2.0.0" }
 bitwarden-sync = { path = "crates/bitwarden-sync", version = "=2.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=2.0.0" }
 bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=2.0.0" }
@@ -72,7 +73,6 @@ hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
 js-sys = { version = ">=0.3.72, <0.4" }
 mockall = { version = ">=0.13.1, <0.15" }
-paste = ">=1.0, <2.0"
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"

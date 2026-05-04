@@ -63,6 +63,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-state-bridge-macro = { workspace = true }
 bitwarden-test = { workspace = true, optional = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 bitwarden-uuid = { workspace = true }
@@ -74,7 +75,6 @@ getrandom2 = { package = "getrandom", version = "0.2", optional = true }
 getrandom3 = { package = "getrandom", version = "0.3", optional = true }
 getrandom4 = { package = "getrandom", version = "0.4", optional = true }
 http = { workspace = true }
-paste = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
