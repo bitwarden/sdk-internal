@@ -129,12 +129,7 @@ impl StateBridgeClient {
 /// 5. Three lines in the `WasmStateBridge` TypeScript interface.
 ///
 /// All fields share the same shape: `set_$name(value: $ty)`, `get_$name() -> Option<$ty>`,
-/// `clear_$name()`. Fields whose shape diverges from this template would have to be hand-written.
-///
-/// Note: each block that carries a proc-macro attribute (`#[async_trait]`, `#[wasm_bindgen]`)
-/// is wrapped in `paste::paste! { ... }` at the OUTERMOST level so that identifier synthesis
-/// happens before the attribute macro runs — otherwise the attribute would see a literal
-/// `paste!` invocation inside its body and bail.
+/// `clear_$name()`.
 macro_rules! state_bridge {
     (
         $(
