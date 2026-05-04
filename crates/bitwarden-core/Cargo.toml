@@ -64,8 +64,8 @@ bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-state-bridge-macro = { workspace = true }
-bitwarden-threading = { workspace = true }
 bitwarden-test = { workspace = true, optional = true }
+bitwarden-threading = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
