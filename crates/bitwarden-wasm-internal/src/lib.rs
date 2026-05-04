@@ -12,6 +12,9 @@ pub use bitwarden_ipc::wasm::*;
 pub use bitwarden_server_communication_config::wasm::*;
 #[cfg(target_arch = "wasm32")]
 pub use bitwarden_shared_unlock::wasm::*;
+// In order to fix an unused dependency error
+#[cfg(not(target_arch = "wasm32"))]
+pub use bitwarden_shared_unlock;
 pub use client::PasswordManagerClient;
 pub use flight_recorder::FlightRecorderClient;
 pub use init::init_sdk;
