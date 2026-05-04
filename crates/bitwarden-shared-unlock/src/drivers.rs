@@ -1,17 +1,19 @@
 //! Drivers that need to be implemented per platform for the shared unlock system.
 
 use bitwarden_core::UserId;
+use bitwarden_crypto::SymmetricCryptoKey;
 
-use crate::{LockState, UserKey};
+use crate::LockState;
 
 /// Trait that implmeents the device's shared unlock driver. These functions need to be implemented
 /// in order to allow the shared unlock system to function.
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait SharedUnlockDriver {
     /// Lock the user with the given ID.
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()>;
     /// Unlock the user with the given ID.
-    async fn unlock_user(&self, user_id: UserId, user_key: UserKey) -> Result<(), ()>;
+    async fn unlock_user(&self, user_id: UserId, user_key: SymmetricCryptoKey) -> Result<(), ()>;
     /// List all users that are currently locked or unlocked.
     async fn list_users(&self) -> Vec<UserId>;
     /// Get the lock state of the user with the given ID.
