@@ -137,12 +137,11 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             .flatten()
     }
 
-    async fn suppress_vault_timeout(&self, user_id: UserId, until: std::time::Duration) {
-        let until_ms = js_sys::Date::now() + until.as_millis() as f64;
+    async fn suppress_vault_timeout(&self, user_id: UserId, suppression_duration: std::time::Duration) {
         let result = self
             .runner
             .run_in_thread(move |driver| async move {
-                driver.suppress_vault_timeout(user_id, until_ms).await
+                driver.suppress_vault_timeout(user_id, suppression_duration.as_millis() as f64).await
             })
             .await;
         match result {
