@@ -205,13 +205,28 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         let clear = format_ident!("clear_{}", f.name);
         quote! {
             async fn #set(&self, value: #ty) {
-                self.0.#set(value).await;
+                self.0
+                    .run_in_thread(move |state| async move {
+                        state.#set(value).await
+                    })
+                    .await
+                    .expect("State bridge call panicked");
             }
             async fn #get(&self) -> Option<#ty> {
-                self.0.#get().await
+                self.0
+                    .run_in_thread(|state| async move {
+                        state.#get().await
+                    })
+                    .await
+                    .expect("State bridge call panicked")
             }
             async fn #clear(&self) {
-                self.0.#clear().await;
+                self.0
+                    .run_in_thread(|state| async move {
+                        state.#clear().await
+                    })
+                    .await
+                    .expect("State bridge call panicked");
             }
         }
     });
