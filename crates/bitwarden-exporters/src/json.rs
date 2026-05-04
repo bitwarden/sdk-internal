@@ -18,7 +18,12 @@ pub(crate) fn export_json(folders: Vec<Folder>, ciphers: Vec<Cipher>) -> Result<
         folders: folders.into_iter().map(|f| f.into()).collect(),
         items: ciphers
             .into_iter()
-            .filter(|c| !matches!(c.r#type, CipherType::BankAccount))
+            .filter(|c| {
+                !matches!(
+                    c.r#type,
+                    CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense
+                )
+            })
             .map(|c| c.into())
             .collect(),
     };
@@ -260,10 +265,13 @@ impl From<Cipher> for JsonCipher {
             CipherType::Card(_) => 3,
             CipherType::Identity(_) => 4,
             CipherType::SshKey(_) => 5,
-            // BankAccount ciphers should be filtered out before reaching this point
-            CipherType::BankAccount => unreachable!(
-                "BankAccount ciphers are not supported for export and should be filtered out"
-            ),
+            // BankAccount/Passport/DriversLicense ciphers should be filtered out before reaching
+            // this point
+            CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense => {
+                unreachable!(
+                    "This cipher type is not supported for export and should be filtered out"
+                )
+            }
         };
 
         let (login, secure_note, card, identity, ssh_key) = match cipher.r#type {
@@ -272,9 +280,11 @@ impl From<Cipher> for JsonCipher {
             CipherType::Card(c) => (None, None, Some((*c).into()), None, None),
             CipherType::Identity(i) => (None, None, None, Some((*i).into()), None),
             CipherType::SshKey(ssh) => (None, None, None, None, Some((*ssh).into())),
-            CipherType::BankAccount => unreachable!(
-                "BankAccount ciphers are not supported for export and should be filtered out"
-            ),
+            CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense => {
+                unreachable!(
+                    "This cipher type is not supported for export and should be filtered out"
+                )
+            }
         };
 
         JsonCipher {

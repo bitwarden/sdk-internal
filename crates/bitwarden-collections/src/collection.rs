@@ -4,7 +4,10 @@ use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use bitwarden_uuid::uuid_newtype;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -115,6 +118,34 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
 impl IdentifyKey<SymmetricKeySlotId> for Collection {
     fn key_identifier(&self) -> SymmetricKeySlotId {
         SymmetricKeySlotId::Organization(self.organization_id)
+    }
+}
+
+impl IdentifyKey<SymmetricKeySlotId> for CollectionView {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        SymmetricKeySlotId::Organization(self.organization_id)
+    }
+}
+
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Collection> for CollectionView {
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<Collection, CryptoError> {
+        Ok(Collection {
+            id: self.id,
+            organization_id: self.organization_id,
+            name: self.name.encrypt(ctx, key)?,
+            external_id: self.external_id.clone(),
+            hide_passwords: self.hide_passwords,
+            read_only: self.read_only,
+            manage: self.manage,
+            // defaultUserCollectionEmail is not stored in CollectionView; it is handled
+            // server-side and is not modified during a client-side encrypt round-trip.
+            default_user_collection_email: None,
+            r#type: self.r#type.clone(),
+        })
     }
 }
 
