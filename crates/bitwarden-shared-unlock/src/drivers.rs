@@ -7,8 +7,7 @@ use crate::LockState;
 
 /// Trait that implmeents the device's shared unlock driver. These functions need to be implemented
 /// in order to allow the shared unlock system to function.
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[async_trait::async_trait]
 pub trait SharedUnlockDriver {
     /// Lock the user with the given ID.
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()>;

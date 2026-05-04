@@ -75,6 +75,7 @@ impl JsSharedUnlockDriver {
     }
 }
 
+
 #[async_trait::async_trait]
 impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
@@ -83,21 +84,24 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
                 move |driver| async move { driver.lock_user(user_id).await.map_err(|_| ()) },
             )
             .await
-            .expect("Failed to run lock_user in thread")
+            .map_err(|_| ())?
     }
 
     async fn unlock_user(&self, user_id: UserId, user_key: SymmetricCryptoKey) -> Result<(), ()> {
         self.runner
             .run_in_thread(move |driver| async move {
-                driver.unlock_user(user_id, user_key).await.map_err(|_| ())
+                driver
+                    .unlock_user(user_id, user_key)
+                    .await
+                    .map_err(|_| ())
             })
             .await
-            .expect("Failed to run unlock_user in thread")
+            .map_err(|_| ())?
     }
 
     async fn list_users(&self) -> Vec<UserId> {
         self.runner
-            .run_in_thread(|driver| async move {
+            .run_in_thread(move |driver| async move {
                 match driver.list_users().await {
                     Ok(array) => array
                         .iter()
@@ -112,17 +116,22 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
     }
 
     async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
-        let user_key = self
-            .runner
+        self.runner
             .run_in_thread(move |driver| async move {
-                driver.get_user_key(user_id).await.ok().flatten()
+                match driver
+                    .get_user_key(user_id)
+                    .await
+                    .ok()
+                    .flatten()
+                {
+                    Some(user_key) => LockState::Unlocked {
+                        user_key,
+                    },
+                    None => LockState::Locked,
+                }
             })
             .await
-            .expect("Failed to run get_user_key in thread");
-        match user_key {
-            Some(user_key) => LockState::Unlocked { user_key },
-            None => LockState::Locked,
-        }
+            .unwrap_or(LockState::Locked)
     }
 
     async fn get_vault_url(&self, user_id: UserId) -> Option<String> {
@@ -139,48 +148,49 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             .flatten()
     }
 
-    async fn suppress_vault_timeout(
-        &self,
-        user_id: UserId,
-        suppression_duration: std::time::Duration,
-    ) {
-        let suppression_ms = suppression_duration.as_millis() as f64;
+    async fn suppress_vault_timeout(&self, user_id: UserId, until: std::time::Duration) {
+        let until_ms = js_sys::Date::now() + until.as_millis() as f64;
         let result = self
             .runner
             .run_in_thread(move |driver| async move {
-                driver
-                    .suppress_vault_timeout(user_id, suppression_ms)
-                    .await
-                    .map_err(|e| format!("{e:?}"))
+                driver.suppress_vault_timeout(user_id, until_ms).await
             })
-            .await
-            .expect("Failed to run suppress_vault_timeout in thread");
-        if let Err(error) = result {
-            tracing::error!(
-                ?error,
-                "Failed to suppress vault timeout for user_id: {}",
-                user_id
-            )
+            .await;
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                tracing::error!(
+                    ?error,
+                    "Failed to suppress vault timeout for user_id: {}",
+                    user_id
+                )
+            }
+            Err(error) => {
+                tracing::error!(
+                    ?error,
+                    "Failed to suppress vault timeout for user_id: {}",
+                    user_id
+                )
+            }
         }
     }
 
     async fn discover_leader(&self) -> Option<Endpoint> {
-        let client_name = self
-            .runner
-            .run_in_thread(|driver| async move {
-                driver
-                    .get_client_name()
-                    .await
-                    .ok()
-                    .and_then(|name| name.as_string())
+        self.runner
+            .run_in_thread(move |driver| async move {
+                let client_name = match driver.get_client_name().await {
+                    Ok(name) => name.as_string()?,
+                    Err(_) => return None,
+                };
+                match client_name.as_str() {
+                    "web" => Some(Endpoint::BrowserBackground { id: HostId::Own }),
+                    "browser" => Some(Endpoint::DesktopRenderer),
+                    "cli" => Some(Endpoint::DesktopRenderer),
+                    _ => None,
+                }
             })
             .await
-            .expect("Failed to run get_client_name in thread")?;
-        match client_name.as_str() {
-            "web" => Some(Endpoint::BrowserBackground { id: HostId::Own }),
-            "browser" => Some(Endpoint::DesktopRenderer),
-            "cli" => Some(Endpoint::DesktopRenderer),
-            _ => None,
-        }
+            .ok()
+            .flatten()
     }
 }
