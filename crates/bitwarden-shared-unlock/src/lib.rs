@@ -125,6 +125,7 @@ mod message;
 pub use message::*;
 
 /// Wasm support module for shared unlock
+#[cfg(feature = "wasm")]
 pub mod wasm;
 
 /// Interval used by followers to send heartbeat keep-alive messages to their leader.
