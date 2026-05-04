@@ -13,7 +13,7 @@ export interface SharedUnlockDriver {
     unlock_user(user_id: UserId, user_key: SymmetricKey): Promise<void>;
     list_users(): Promise<UserId[]>;
     get_user_key(user_id: UserId): Promise<SymmetricKey | undefined>;
-    suppress_vault_timeout(suppression_duration: number, userId: UserId): Promise<void>;
+    suppress_vault_timeout(suppression_duration: number, user_Id: UserId): Promise<void>;
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
 }
