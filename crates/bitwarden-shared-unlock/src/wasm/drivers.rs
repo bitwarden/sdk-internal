@@ -75,7 +75,7 @@ impl JsSharedUnlockDriver {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
         self.runner
