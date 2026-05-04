@@ -111,8 +111,15 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             .and_then(|js_value| js_value.as_string())
     }
 
-    async fn suppress_vault_timeout(&self, user_id: UserId, suppression_duration: std::time::Duration) {
-        let result = self.driver.suppress_vault_timeout(suppression_duration.as_millis() as f64, user_id).await;
+    async fn suppress_vault_timeout(
+        &self,
+        user_id: UserId,
+        suppression_duration: std::time::Duration,
+    ) {
+        let result = self
+            .driver
+            .suppress_vault_timeout(suppression_duration.as_millis() as f64, user_id)
+            .await;
         if let Err(error) = result {
             tracing::error!(
                 ?error,

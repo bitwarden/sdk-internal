@@ -23,7 +23,11 @@ pub trait SharedUnlockDriver {
     async fn get_vault_url(&self, user_id: UserId) -> Option<String>;
     /// Suppress the vault timeout for the given user for the specified duration.
     /// Called when a heartbeat response is received, keeping the shared session active.
-    async fn suppress_vault_timeout(&self, user_id: UserId, suppression_duration: std::time::Duration);
+    async fn suppress_vault_timeout(
+        &self,
+        user_id: UserId,
+        suppression_duration: std::time::Duration,
+    );
     /// Discovers the devices leader's IPC endpoint, given the current platform. There should only
     /// be one possible leader for any given device. For web clients, there is only one browser
     /// extension, for browser extensions there is only one desktop device, and for CLI clients
