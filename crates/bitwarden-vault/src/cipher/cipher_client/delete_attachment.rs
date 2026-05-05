@@ -53,6 +53,7 @@ pub async fn delete_attachment<R: Repository<Cipher> + ?Sized>(
     Ok(cipher)
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Deletes an attachment from a cipher, and updates the local repository with the new cipher
