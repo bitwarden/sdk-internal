@@ -136,20 +136,20 @@ async fn internal_post_keys_for_tde_registration(
             .devices_api()
             .put_keys(
                 request.device_identifier.as_str(),
-                Some(DeviceKeysRequestModel::new(
-                    tde_registration_crypto_result
+                Some(DeviceKeysRequestModel {
+                    encrypted_user_key: tde_registration_crypto_result
                         .trusted_device_keys
                         .protected_user_key
                         .to_string(),
-                    tde_registration_crypto_result
-                        .trusted_device_keys
-                        .protected_device_private_key
-                        .to_string(),
-                    tde_registration_crypto_result
+                    encrypted_public_key: tde_registration_crypto_result
                         .trusted_device_keys
                         .protected_device_public_key
                         .to_string(),
-                )),
+                    encrypted_private_key: tde_registration_crypto_result
+                        .trusted_device_keys
+                        .protected_device_private_key
+                        .to_string(),
+                }),
             )
             .await
             .map_err(|e| {
@@ -176,11 +176,14 @@ async fn internal_post_keys_for_tde_registration(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{DeviceResponseModel, KeysResponseModel},
     };
     use bitwarden_core::Client;
+    use bitwarden_crypto::EncString;
 
     use super::*;
 
@@ -231,7 +234,17 @@ mod tests {
             mock.devices_api
                 .expect_put_keys()
                 .once()
-                .returning(move |_device_id, _body| {
+                .returning(move |_device_id, body| {
+                    let body = body.unwrap();
+                    assert!(matches!(
+                        EncString::from_str(body.encrypted_private_key.as_str()).unwrap(),
+                        EncString::Aes256Cbc_HmacSha256_B64 { .. }
+                    ));
+                    assert!(matches!(
+                        EncString::from_str(body.encrypted_public_key.as_str()).unwrap(),
+                        EncString::Cose_Encrypt0_B64 { .. }
+                    ));
+
                     Ok(DeviceResponseModel {
                         object: None,
                         id: None,
