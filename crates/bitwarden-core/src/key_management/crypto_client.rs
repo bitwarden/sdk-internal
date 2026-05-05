@@ -1,6 +1,3 @@
-#[cfg(all(feature = "wasm", not(feature = "uniffi")))]
-use std::str::FromStr;
-
 #[cfg(any(feature = "wasm", test))]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{

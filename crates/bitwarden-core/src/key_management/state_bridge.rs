@@ -14,16 +14,15 @@ use wasm_bindgen::prelude::*;
 use crate::Client;
 
 /// Thread-safe wrapper around the registered [`StateBridgeImpl`] instance.
-#[derive(Clone)]
 pub struct StateBridge {
-    implementation: Arc<Mutex<Option<Arc<dyn StateBridgeImpl + Send + Sync>>>>,
+    implementation: Mutex<Option<Arc<dyn StateBridgeImpl + Send + Sync>>>,
 }
 
 impl StateBridge {
     /// Creates an empty bridge with no registered implementation.
     pub fn new() -> Self {
         Self {
-            implementation: Arc::new(Mutex::new(None)),
+            implementation: Mutex::new(None),
         }
     }
 
