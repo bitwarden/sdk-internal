@@ -14,6 +14,16 @@ pub struct CollectionsClient(pub(crate) bitwarden_vault::collection_client::Coll
 
 #[uniffi::export]
 impl CollectionsClient {
+    /// Encrypt collection
+    pub fn encrypt(&self, collection_view: CollectionView) -> Result<Collection> {
+        Ok(self.0.encrypt(collection_view)?)
+    }
+
+    /// Encrypt collection list
+    pub fn encrypt_list(&self, collection_views: Vec<CollectionView>) -> Result<Vec<Collection>> {
+        Ok(self.0.encrypt_list(collection_views)?)
+    }
+
     /// Decrypt collection
     pub fn decrypt(&self, collection: Collection) -> Result<CollectionView> {
         Ok(self.0.decrypt(collection)?)
