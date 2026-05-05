@@ -174,6 +174,18 @@ pub struct HostPlatformInfo {
     pub bitwarden_package_type: Option<String>,
 }
 
+impl From<&ClientSettings> for HostPlatformInfo {
+    fn from(settings: &ClientSettings) -> Self {
+        Self {
+            user_agent: settings.user_agent.clone(),
+            device_type: settings.device_type,
+            device_identifier: settings.device_identifier.clone(),
+            bitwarden_client_version: settings.bitwarden_client_version.clone(),
+            bitwarden_package_type: settings.bitwarden_package_type.clone(),
+        }
+    }
+}
+
 static HOST_PLATFORM_INFO: OnceLock<HostPlatformInfo> = OnceLock::new();
 
 /// Initialize the global [`HostPlatformInfo`].
