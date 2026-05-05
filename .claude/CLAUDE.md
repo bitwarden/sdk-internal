@@ -85,8 +85,9 @@ Monorepo crates organized in **four architectural layers**:
 - **Do not use `#[async_trait(?Send)]` in hand-written code.** Wrap `!Send` types (e.g. JS
   `extern "C"` bindings holding `JsValue`) in `ThreadBoundRunner` instead, which is `Send + Sync`.
   This keeps the SDK compatible with external crates (e.g. `passkey-rs`) that require `Send`
-  upstream and avoids future refactors. The `bitwarden-api-*` crates are exempt since they are
-  auto-generated from OpenAPI specs.
+  upstream and avoids future refactors. Exceptions: the `bitwarden-api-*` crates (auto-generated
+  from OpenAPI specs) and `impl`s of `reqwest_middleware::Middleware`, whose trait declaration
+  applies `?Send` on `wasm32` upstream so impls must mirror it.
 
 ### Error Handling (bitwarden-error-macro)
 
