@@ -42,7 +42,7 @@ extern "C" {
         user_id: UserId,
     ) -> Result<Option<SymmetricCryptoKey>, JsValue>;
 
-    /// Supress the vault timeout for the given duration.
+    /// Supress the vault timeout for the given duration (in milliseconds).
     #[wasm_bindgen(method, catch)]
     async fn suppress_vault_timeout(
         this: &RawJsSharedUnlockDriver,
