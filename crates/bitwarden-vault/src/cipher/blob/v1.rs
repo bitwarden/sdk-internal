@@ -32,6 +32,8 @@ pub(crate) enum CipherTypeDataV1 {
     SecureNote(SecureNoteDataV1),
     SshKey(SshKeyDataV1),
     BankAccount(BankAccountDataV1),
+    Passport(PassportDataV1),
+    DriversLicense(DriversLicenseDataV1),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -124,6 +126,40 @@ pub(crate) struct SshKeyDataV1 {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PassportDataV1 {
+    pub surname: Option<String>,
+    pub given_name: Option<String>,
+    pub date_of_birth: Option<String>,
+    pub sex: Option<String>,
+    pub birth_place: Option<String>,
+    pub nationality: Option<String>,
+    pub issuing_country: Option<String>,
+    pub passport_number: Option<String>,
+    pub passport_type: Option<String>,
+    pub national_identification_number: Option<String>,
+    pub issuing_authority: Option<String>,
+    pub issue_date: Option<String>,
+    pub expiration_date: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DriversLicenseDataV1 {
+    pub first_name: Option<String>,
+    pub middle_name: Option<String>,
+    pub last_name: Option<String>,
+    pub date_of_birth: Option<String>,
+    pub license_number: Option<String>,
+    pub issuing_country: Option<String>,
+    pub issuing_state: Option<String>,
+    pub issue_date: Option<String>,
+    pub expiration_date: Option<String>,
+    pub issuing_authority: Option<String>,
+    pub license_class: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct BankAccountDataV1 {
     pub bank_name: Option<String>,
     pub name_on_account: Option<String>,
@@ -188,6 +224,14 @@ mod tests {
     const TEST_VECTOR_BANK_ACCOUNT_CEK: &str =
         "pQEEAlCz1mvOGP9yRKdx0pA5WbP7AzoAARFvBIEEIFggF30KGp58Duu4VcVvoFJ+Lhw1yEpfQvTUW2dvOP+WMd0B";
     const TEST_VECTOR_BANK_ACCOUNT_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFCz1mvOGP9yRKdx0pA5WbP7OgABOIECOgABOIABoQVYGDbBFtW702QwCdi03+f9Uahq4Xf0bJ8i7VkBQxZB8XgvwLS13sHp8iz3VmTVcWJCyoxp6ycEUNSllpzURnZtfTsm9hkHCM0iFvMAXgDHBamHpI+8cX4sZ1qyjrGx4JDkGL1wDPUKMY7pLIN6alssjgYNl/6ijicWk2uNDneAGVgJdAHmxVKYPKbwYp0e8bLeAjgj6FOSFHaXv1a6TdF82iRCF/r5Uh/Ohx1FEbtRnaCSMJ4tLsf8YC9oq3duarJzSB2aINL9EnGAqqUlJ8cy8lyfkopUxV0OMnRWiHpja4CrEphhNeKKPoFRezsVoDYQ3f7kjryVAQ661gVxsEG3FB03+CcvVsT849QfrDcERxsQoKwy1E9yHaoE2kgWiYTHS+6gCH/gikDw1t4GBBUdjeJhP3bqQJbmM4cgRxWMgyswfFAfZok25kcA15EpHabkczydiPtnG2UW9qfu+bfw";
+
+    const TEST_VECTOR_PASSPORT_CEK: &str =
+        "pQEEAlBt4j9Ll1AOH1qIRqCdCyTpAzoAARFvBIEEIFggQRD5JRuLW/LBh6tOH9pwzI79EH/uwnkc1g7MmHnQxjsB";
+    const TEST_VECTOR_PASSPORT_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFBt4j9Ll1AOH1qIRqCdCyTpOgABOIECOgABOIABoQVYGMtbFi7dX35y8b7HfGSBUkExZu9xbwLdTVkBfk+53EwDwOJqa1BTtHaKepq8gpn3PD6tX7WmcgM/fMM9g1bqVlKEa9zAuAsjXXqc1jsTmy9J8+y6b9ExcP7JCCTZTNrNDpyghuQc+Xm4URgJMrXryg4aEi5rVD4bI6iI20IsM70ZA0jpvz0rNz6IcyL9zwL6f6aZRtIKAHxQ4AzmBnNItuZShM4UEDDgxGVpkOqTBhfh2DBogQMOAE8DNNbI91gMrj4SVf8zJXIIQhjHCeDJYWp4assoI+3kMyLuoPXSPCLqmvWMtQnQMU3BdONVl/WDtw2GUMp0PpuFVToc6IfieSRVJaFWxqRZpK4GNLECkR6YkZjz9kHg2tXFSi+77RWUg6ZkJ7zYX+vQ1GnnLQ0cWJtt2obwyHVpg8ejz83gAZHFaKN+LLdGW/wt/G188au4zpXjJTxxPSoy1/rd55mGoiwV/cc049L44cbmhjUkdaaiPv2Gtx1MhuM2bJaC2fdUqe4luzTwhzSCcPphwGkFcNM/mANHYwvdXiQ=";
+
+    const TEST_VECTOR_DRIVERS_LICENSE_CEK: &str =
+        "pQEEAlAAl+WJTHKGitbdU9BlEgYOAzoAARFvBIEEIFggvuVlFL4NaxQ6mc2tROVjCg20rDmr8CFy3+dmADa+1JsB";
+    const TEST_VECTOR_DRIVERS_LICENSE_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFAAl+WJTHKGitbdU9BlEgYOOgABOIECOgABOIABoQVYGJYtxnw1bOqtBrpNsa5PLUa6b21jEHl7zFkBUcdN1jS6PfqOuYVrIfqU73+jrZlq7jxK2Hcp8iGsnInC+wyXpWJety8XfWs2X3CfFSVmnO5nc58LWagfY6AAr66GWuE+HCJJ30QinqQ7NbjInJpOvGysXGnu1f5Mjk9Ow4cUobh4Nxp0rsrznwaUTskR0RJVdzoelutqBWLSvkrM1z81syz9QLdhbBRmv4A18/Bc1U85RWYUYhvxCCxsydp1HFmBNsNk3tS3wd/4svgNjpjnrvDLNxuN2o4cyQDdkTLPvQa98Ld0RCzh1D62zFxLlJ634NV6ROEstYN8CHaat3LIyaCzXjqMiEhP0v3JRWTsrJm6FwjZF8TULif4jrJcMdSdxXn7l6GGHwLBMvXRdYdfPqpgIc2CjPJUj62fa9Wx5aBVcDJRriznuaAWmeapcaxOeSOyG1QMpmYMRXJK8pqnkMH5mT4OGJTVeuLkrXM=";
 
     fn test_blob_secure_note() -> CipherBlobV1 {
         CipherBlobV1 {
@@ -325,6 +369,52 @@ mod tests {
         }
     }
 
+    fn test_blob_passport() -> CipherBlobV1 {
+        CipherBlobV1 {
+            name: "Test Passport".to_string(),
+            notes: Some("Passport notes".to_string()),
+            type_data: CipherTypeDataV1::Passport(PassportDataV1 {
+                surname: Some("Doe".to_string()),
+                given_name: Some("Jane".to_string()),
+                date_of_birth: Some("1990-01-01".to_string()),
+                sex: Some("F".to_string()),
+                birth_place: Some("New York".to_string()),
+                nationality: Some("American".to_string()),
+                issuing_country: Some("US".to_string()),
+                passport_number: Some("P12345678".to_string()),
+                passport_type: Some("P".to_string()),
+                national_identification_number: Some("123-45-6789".to_string()),
+                issuing_authority: Some("US State Department".to_string()),
+                issue_date: Some("2020-01-01".to_string()),
+                expiration_date: Some("2030-01-01".to_string()),
+            }),
+            fields: Vec::new(),
+            password_history: Vec::new(),
+        }
+    }
+
+    fn test_blob_drivers_license() -> CipherBlobV1 {
+        CipherBlobV1 {
+            name: "Test Driver's License".to_string(),
+            notes: Some("Driver's license notes".to_string()),
+            type_data: CipherTypeDataV1::DriversLicense(DriversLicenseDataV1 {
+                first_name: Some("John".to_string()),
+                middle_name: Some("Michael".to_string()),
+                last_name: Some("Doe".to_string()),
+                date_of_birth: Some("1985-06-15".to_string()),
+                license_number: Some("DL-987654".to_string()),
+                issuing_country: Some("US".to_string()),
+                issuing_state: Some("NY".to_string()),
+                issue_date: Some("2020-01-01".to_string()),
+                expiration_date: Some("2028-01-01".to_string()),
+                issuing_authority: Some("NY DMV".to_string()),
+                license_class: Some("D".to_string()),
+            }),
+            fields: Vec::new(),
+            password_history: Vec::new(),
+        }
+    }
+
     #[test]
     #[ignore]
     fn generate_test_vectors() {
@@ -335,6 +425,8 @@ mod tests {
             ("SECURE_NOTE", test_blob_secure_note()),
             ("SSH_KEY", test_blob_ssh_key()),
             ("BANK_ACCOUNT", test_blob_bank_account()),
+            ("DRIVERS_LICENSE", test_blob_drivers_license()),
+            ("PASSPORT", test_blob_passport()),
         ];
 
         for (name, blob) in blobs {
@@ -424,6 +516,24 @@ mod tests {
             TEST_VECTOR_BANK_ACCOUNT_CEK,
             TEST_VECTOR_BANK_ACCOUNT_ENVELOPE,
             test_blob_bank_account(),
+        );
+    }
+
+    #[test]
+    fn test_recorded_passport_test_vector() {
+        verify_test_vector(
+            TEST_VECTOR_PASSPORT_CEK,
+            TEST_VECTOR_PASSPORT_ENVELOPE,
+            test_blob_passport(),
+        );
+    }
+
+    #[test]
+    fn test_recorded_drivers_license_test_vector() {
+        verify_test_vector(
+            TEST_VECTOR_DRIVERS_LICENSE_CEK,
+            TEST_VECTOR_DRIVERS_LICENSE_ENVELOPE,
+            test_blob_drivers_license(),
         );
     }
 }

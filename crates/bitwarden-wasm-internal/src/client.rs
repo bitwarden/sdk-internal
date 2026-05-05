@@ -1,9 +1,10 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
-use bitwarden_core::ClientSettings;
+use bitwarden_core::{ClientSettings, key_management::state_bridge::StateBridgeClient};
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
+use bitwarden_policies::PolicyClient;
 use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
 use wasm_bindgen::prelude::*;
 
@@ -77,6 +78,11 @@ impl PasswordManagerClient {
         self.0.0.crypto()
     }
 
+    /// Key management state bridge operations.
+    pub fn km_state_bridge(&self) -> StateBridgeClient {
+        self.0.0.km_state_bridge()
+    }
+
     /// User crypto management related operations.
     pub fn user_crypto_management(&self) -> UserCryptoManagementClient {
         self.0.0.user_crypto_management()
@@ -100,6 +106,11 @@ impl PasswordManagerClient {
     /// Exporter related operations.
     pub fn exporters(&self) -> ExporterClient {
         self.0.exporters()
+    }
+
+    /// Policy related operations.
+    pub fn policies(&self) -> PolicyClient {
+        self.0.policies()
     }
 
     /// Send related operations.

@@ -1,6 +1,6 @@
 mod conversions;
+mod encryption;
 mod sealed;
-#[allow(dead_code)]
 mod v1;
 
 use bitwarden_crypto::{
@@ -8,6 +8,10 @@ use bitwarden_crypto::{
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
 #[allow(unused_imports)]
+pub(crate) use encryption::{
+    BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher, is_blob_encrypted,
+    is_legacy_cipher,
+};
 use sealed::{SealedCipherBlob, SealedCipherBlobError};
 use serde::{Deserialize, Serialize};
 use v1::CipherBlobV1;
@@ -18,7 +22,6 @@ generate_versioned_sealable!(
     [CipherBlobV1 => "1"]
 );
 
-#[allow(dead_code)]
 pub(crate) type CipherBlobLatest = CipherBlobV1;
 
 #[cfg(test)]

@@ -12,17 +12,16 @@ use super::CipherBlob;
 const FORMAT_VERSION: u8 = 1;
 
 /// Error type for `SealedCipherBlob` operations.
-#[allow(dead_code)]
 #[derive(Debug, Error)]
-pub(super) enum SealedCipherBlobError {
+pub(crate) enum SealedCipherBlobError {
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
     #[error("CBOR encoding error")]
-    CborEncodingError,
+    CborEncoding,
     #[error("CBOR decoding error")]
-    CborDecodingError,
+    CborDecoding,
     #[error("Base64 decoding error")]
-    Base64DecodingError,
+    Base64Decoding,
     #[error(transparent)]
     DataEnvelope(#[from] DataEnvelopeError),
 }
@@ -30,7 +29,6 @@ pub(super) enum SealedCipherBlobError {
 /// Sealed container that packages a wrapped CEK and encrypted `DataEnvelope` together.
 ///
 /// Serializable into the `Cipher.data: Option<String>` field.
-#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(super) struct SealedCipherBlob {
     format_version: u8,
@@ -38,7 +36,6 @@ pub(super) struct SealedCipherBlob {
     envelope: DataEnvelope,
 }
 
-#[allow(dead_code)]
 impl SealedCipherBlob {
     /// Seals a `CipherBlob` into a `SealedCipherBlob` by encrypting it with a new CEK
     /// wrapped by the provided wrapping key.
@@ -76,17 +73,16 @@ impl SealedCipherBlob {
     pub(super) fn to_opaque_string(&self) -> Result<String, SealedCipherBlobError> {
         let mut buf = Vec::new();
         ciborium::ser::into_writer(self, &mut buf)
-            .map_err(|_| SealedCipherBlobError::CborEncodingError)?;
+            .map_err(|_| SealedCipherBlobError::CborEncoding)?;
         Ok(B64::from(buf).to_string())
     }
 
     /// Deserializes a `SealedCipherBlob` from an opaque base64-encoded CBOR string.
     pub(super) fn from_opaque_string(s: &str) -> Result<Self, SealedCipherBlobError> {
         let bytes = B64::try_from(s)
-            .map_err(|_| SealedCipherBlobError::Base64DecodingError)?
+            .map_err(|_| SealedCipherBlobError::Base64Decoding)?
             .into_bytes();
-        ciborium::de::from_reader(bytes.as_slice())
-            .map_err(|_| SealedCipherBlobError::CborDecodingError)
+        ciborium::de::from_reader(bytes.as_slice()).map_err(|_| SealedCipherBlobError::CborDecoding)
     }
 }
 
@@ -159,20 +155,14 @@ mod tests {
     #[test]
     fn test_invalid_base64() {
         let result = SealedCipherBlob::from_opaque_string("not valid base64!@#$");
-        assert!(matches!(
-            result,
-            Err(SealedCipherBlobError::Base64DecodingError)
-        ));
+        assert!(matches!(result, Err(SealedCipherBlobError::Base64Decoding)));
     }
 
     #[test]
     fn test_invalid_cbor() {
         let not_cbor = B64::from(b"this is not valid cbor data".as_slice()).to_string();
         let result = SealedCipherBlob::from_opaque_string(&not_cbor);
-        assert!(matches!(
-            result,
-            Err(SealedCipherBlobError::CborDecodingError)
-        ));
+        assert!(matches!(result, Err(SealedCipherBlobError::CborDecoding)));
     }
 
     #[test]

@@ -20,7 +20,7 @@ pub trait CommunicationBackend: Send + Sync + 'static {
     fn send(
         &self,
         message: OutgoingMessage,
-    ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send + Sync;
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.
@@ -92,7 +92,7 @@ pub(crate) mod test_support {
     use std::sync::Arc;
 
     use tokio::sync::{
-        RwLock,
+        Mutex, RwLock,
         broadcast::{self, Receiver, Sender},
     };
 
@@ -188,6 +188,78 @@ pub(crate) mod test_support {
                 .recv()
                 .await
                 .expect("Failed to receive incoming message"))
+        }
+    }
+
+    #[allow(unused)]
+    #[derive(Clone)]
+    pub struct TestTwoWayCommunicationBackend {
+        outgoing: broadcast::Sender<OutgoingMessage>,
+        receiver: TestTwoWayCommunicationBackendReceiver,
+    }
+
+    #[allow(unused)]
+    #[derive(Clone)]
+    pub struct TestTwoWayCommunicationBackendReceiver {
+        incoming: Arc<Mutex<broadcast::Receiver<OutgoingMessage>>>,
+    }
+
+    impl CommunicationBackendReceiver for TestTwoWayCommunicationBackendReceiver {
+        type ReceiveError = ();
+
+        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
+            let mut incoming = self.incoming.lock().await;
+            let message = incoming
+                .recv()
+                .await
+                .expect("Failed to receive incoming message");
+            Ok(IncomingMessage {
+                payload: message.payload,
+                destination: message.destination,
+                source: crate::endpoint::Source::DesktopMain,
+                topic: message.topic,
+            })
+        }
+    }
+
+    impl TestTwoWayCommunicationBackend {
+        #[allow(unused)]
+        pub fn new() -> (Self, Self) {
+            let (outgoing0, incoming0) = broadcast::channel(128);
+            let (outgoing1, incoming1) = broadcast::channel(128);
+            let one = TestTwoWayCommunicationBackend {
+                outgoing: outgoing0,
+                receiver: TestTwoWayCommunicationBackendReceiver {
+                    incoming: Arc::new(Mutex::new(incoming1)),
+                },
+            };
+            let two = TestTwoWayCommunicationBackend {
+                outgoing: outgoing1,
+                receiver: TestTwoWayCommunicationBackendReceiver {
+                    incoming: Arc::new(Mutex::new(incoming0)),
+                },
+            };
+            (one, two)
+        }
+    }
+
+    impl CommunicationBackend for TestTwoWayCommunicationBackend {
+        type SendError = ();
+        type Receiver = TestTwoWayCommunicationBackendReceiver;
+
+        async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
+            self.outgoing
+                .send(message)
+                .expect("Failed to send outgoing message");
+            Ok(())
+        }
+
+        async fn subscribe(&self) -> Self::Receiver {
+            TestTwoWayCommunicationBackendReceiver {
+                incoming: Arc::new(Mutex::new(
+                    self.receiver.incoming.lock().await.resubscribe(),
+                )),
+            }
         }
     }
 }

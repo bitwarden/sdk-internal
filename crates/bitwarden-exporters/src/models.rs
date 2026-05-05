@@ -46,6 +46,16 @@ impl crate::Cipher {
                 // match arm to future-proof against the API returning bank account ciphers.
                 crate::CipherType::BankAccount
             }
+            CipherType::Passport => {
+                // Passports are not currently supported by the exporter, but we include this
+                // match arm to future-proof against the API returning passport ciphers.
+                crate::CipherType::Passport
+            }
+            CipherType::DriversLicense => {
+                // Drivers licenses are not currently supported by the exporter, but we include this
+                // match arm to future-proof against the API returning drivers license ciphers.
+                crate::CipherType::DriversLicense
+            }
         };
 
         Ok(Self {
@@ -273,6 +283,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            passport: None,
+            drivers_license: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -327,6 +339,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            passport: None,
+            drivers_license: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,

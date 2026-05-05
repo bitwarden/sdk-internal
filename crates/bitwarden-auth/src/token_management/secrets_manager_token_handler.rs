@@ -5,10 +5,11 @@ use std::sync::{Arc, RwLock};
 use bitwarden_core::{
     NotAuthenticatedError, OrganizationId,
     auth::{TokenHandler, login::LoginError},
-    client::login_method::{LoginMethod, ServiceAccountLoginMethod},
+    client::login_method::ServiceAccountLoginMethod,
     key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
+use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 
 use super::middleware::{MiddlewareExt, MiddlewareWrapper};
@@ -27,7 +28,7 @@ struct SecretsManagerTokenHandlerInner {
 
     // The following are passed as optional as they are filled in when instantiating the
     // middleware.
-    login_method: Option<Arc<RwLock<Option<Arc<LoginMethod>>>>>,
+    login_method: Option<Arc<ServiceAccountLoginMethod>>,
     identity_config: Option<bitwarden_api_api::Configuration>,
     key_store: Option<KeyStore<KeySlotIds>>,
 }
@@ -36,13 +37,12 @@ struct SecretsManagerTokenHandlerInner {
 impl TokenHandler for SecretsManagerTokenHandler {
     fn initialize_middleware(
         &self,
-        login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
+        _state_registry: &StateRegistry,
         identity_config: bitwarden_api_api::Configuration,
         key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         {
             let mut inner = self.inner.write().expect("RwLock is not poisoned");
-            inner.login_method = Some(login_method);
             inner.identity_config = Some(identity_config);
             inner.key_store = Some(key_store);
         }
@@ -59,20 +59,21 @@ impl TokenHandler for SecretsManagerTokenHandler {
         inner.access_token = Some(access_token);
         inner.expires_on = Some(Utc::now().timestamp() + expires_in as i64);
     }
+
+    async fn set_sm_login_method(&self, login_method: ServiceAccountLoginMethod) {
+        let mut inner = self.inner.write().expect("RwLock is not poisoned");
+        inner.login_method = Some(Arc::new(login_method));
+    }
 }
 
 impl SecretsManagerTokenHandler {
     /// Get the organization ID associated with the current access token, if available.
     pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
-        let guard = self.inner.read().ok()?;
-        let login_method = guard.login_method.as_ref()?.read().ok()?;
-
-        match login_method.as_ref()?.as_ref() {
-            LoginMethod::User(_) => None,
-            LoginMethod::ServiceAccount(ServiceAccountLoginMethod::AccessToken {
-                organization_id,
-                ..
-            }) => Some(*organization_id),
+        let inner = self.inner.read().ok()?;
+        match inner.login_method.as_deref()? {
+            ServiceAccountLoginMethod::AccessToken {
+                organization_id, ..
+            } => Some(*organization_id),
         }
     }
 }
@@ -95,26 +96,15 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
             return Ok(inner.access_token.clone());
         }
 
-        // These should always be set by initialize_middleware before we get here, but we return an
-        // error if not.
+        // These should always be set by initialize_middleware / set_sm_login_method before we get
+        // here, but we return an error if not.
         let login_method = inner.login_method.ok_or(NotAuthenticatedError)?;
         let identity_config = inner.identity_config.ok_or(NotAuthenticatedError)?;
         let key_store = inner.key_store.ok_or(NotAuthenticatedError)?;
 
-        let login_method = login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .clone()
-            .ok_or(NotAuthenticatedError)?;
-
-        let LoginMethod::ServiceAccount(service_account_login_method) = login_method.as_ref()
-        else {
-            return Err(NotAuthenticatedError.into());
-        };
-
         let (access_token, refresh_token, expires_in) =
             bitwarden_core::auth::renew::renew_sm_token_sdk_managed(
-                service_account_login_method,
+                login_method.as_ref(),
                 identity_config,
                 key_store,
             )
@@ -128,35 +118,31 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        str::FromStr,
-        sync::{Arc, RwLock},
-    };
+    use std::str::FromStr;
 
     use bitwarden_core::{
         auth::{AccessToken, TokenHandler},
-        client::login_method::{LoginMethod, ServiceAccountLoginMethod},
+        client::login_method::ServiceAccountLoginMethod,
         key_management::KeySlotIds,
     };
     use bitwarden_crypto::KeyStore;
+    use bitwarden_state::registry::StateRegistry;
     use wiremock::MockServer;
 
     use super::*;
     use crate::token_management::test_utils::*;
 
-    fn service_account_login_method() -> Arc<RwLock<Option<Arc<LoginMethod>>>> {
+    fn service_account_login_method() -> ServiceAccountLoginMethod {
         let access_token = AccessToken::from_str(
             "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==",
         )
         .unwrap();
 
-        Arc::new(RwLock::new(Some(Arc::new(LoginMethod::ServiceAccount(
-            ServiceAccountLoginMethod::AccessToken {
-                access_token,
-                organization_id: "00000000-0000-0000-0000-000000000001".parse().unwrap(),
-                state_file: None,
-            },
-        )))))
+        ServiceAccountLoginMethod::AccessToken {
+            access_token,
+            organization_id: "00000000-0000-0000-0000-000000000001".parse().unwrap(),
+            state_file: None,
+        }
     }
 
     #[tokio::test]
@@ -166,11 +152,15 @@ mod tests {
 
         let handler = SecretsManagerTokenHandler::default();
         handler
+            .set_sm_login_method(service_account_login_method())
+            .await;
+        handler
             .set_tokens("original-token".to_string(), None, 3600)
             .await;
 
+        let registry = StateRegistry::new_with_memory_db();
         let client = build_client(handler.initialize_middleware(
-            service_account_login_method(),
+            &registry,
             identity_config(&identity_server.uri()),
             KeyStore::<KeySlotIds>::default(),
         ));
@@ -187,13 +177,17 @@ mod tests {
         let identity_server = start_renewal_server("renewed-token").await;
 
         let handler = SecretsManagerTokenHandler::default();
+        handler
+            .set_sm_login_method(service_account_login_method())
+            .await;
         // expires_in=0 means the token is immediately considered expired
         handler
             .set_tokens("expired-token".to_string(), None, 0)
             .await;
 
+        let registry = StateRegistry::new_with_memory_db();
         let client = build_client(handler.initialize_middleware(
-            service_account_login_method(),
+            &registry,
             identity_config(&identity_server.uri()),
             KeyStore::<KeySlotIds>::default(),
         ));

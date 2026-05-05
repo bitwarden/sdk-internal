@@ -11,28 +11,37 @@ use bitwarden_organizations::{
     OrganizationUserStatusType, OrganizationUserType, ProfileOrganization,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 use uuid::Uuid;
 
 /// A newtype representing the policy type.
-#[derive(PartialEq, Serialize, Deserialize, Debug)]
-pub struct PolicyType(pub u8);
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Copy, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct PolicyType(
+    /// The raw integer value as defined by the server.
+    pub u8,
+);
 
 /// An organization policy.
-#[derive(Serialize, Deserialize, Debug)]
+#[allow(missing_docs)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PolicyView {
-    id: Uuid,
-    organization_id: Uuid,
-    r#type: PolicyType,
-    data: Option<HashMap<String, serde_json::Value>>,
-    enabled: bool,
+    pub(crate) id: Uuid,
+    pub(crate) organization_id: Uuid,
+    pub(crate) r#type: PolicyType,
+    #[cfg_attr(feature = "wasm", tsify(type = "Record<string, unknown>"))]
+    pub(crate) data: Option<HashMap<String, serde_json::Value>>,
+    pub(crate) enabled: bool,
 }
 
 /// Defines the filtering behavior for a specific policy type.
 ///
 /// Implement this trait to control how a policy is enforced.
 pub trait Policy: Send + Sync + 'static {
-    /// The wire-format integer for this policy type.
-    const TYPE: PolicyType;
+    /// Returns the policy type this definition handles.
+    fn policy_type(&self) -> PolicyType;
 
     /// Returns the organization roles that are exempt from this policy.
     ///
@@ -61,10 +70,10 @@ pub trait Policy: Send + Sync + 'static {
     }
 }
 
-/// Extension trait that adds a [`filter`](PolicyExt::filter) method to every [`Policy`].
+/// Extension trait that adds a [`filter`](PolicyFilter::filter) method to every [`Policy`].
 ///
 /// Implemented automatically for all `T: Policy`.
-pub trait PolicyExt: Policy {
+pub trait PolicyFilter: Policy {
     /// Filters `policies` to those that should be enforced against the user.
     /// This evaluates common business rules (e.g. the policy is enabled),
     /// as well as policy-specific rules according to its [`Policy`].
@@ -81,7 +90,7 @@ pub trait PolicyExt: Policy {
 
         policies
             .iter()
-            .filter(|p| p.r#type == Self::TYPE)
+            .filter(|p| p.r#type == self.policy_type())
             .filter(|p| p.enabled)
             .filter(|p| {
                 match org_map.get(&p.organization_id) {
@@ -99,7 +108,7 @@ pub trait PolicyExt: Policy {
     }
 }
 
-impl<T: Policy> PolicyExt for T {}
+impl<T: Policy> PolicyFilter for T {}
 
 #[cfg(test)]
 mod tests {
@@ -133,7 +142,9 @@ mod tests {
 
     struct TestPolicy;
     impl Policy for TestPolicy {
-        const TYPE: PolicyType = PolicyType(1);
+        fn policy_type(&self) -> PolicyType {
+            PolicyType(1)
+        }
 
         // These happen to match the default impl, but repeating here
         // to decouple the filter tests from the default impl
