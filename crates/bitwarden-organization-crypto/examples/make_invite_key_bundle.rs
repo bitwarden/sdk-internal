@@ -26,9 +26,10 @@ fn main() {
         .unwrap_symmetric_key(organization_key, organization_wrapped_invitation_key)
         .expect("unwrapping should work");
 
-    // Testing purposes only
-    // DO NOT REPLICATE
-    #[allow(deprecated)]
+    #[allow(
+        deprecated,
+        reason = "DO NOT REPLICATE, this is done for testing purposes only"
+    )]
     let decrypted_bytes = B64Url::from(
         ctx.dangerous_get_symmetric_key(unwrapped_key_id)
             .expect("getting key bytes from keystore should work")
