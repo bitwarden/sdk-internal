@@ -414,7 +414,7 @@ mod tests {
     use bitwarden_crypto::{EncString, KeyId, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::key_management::state_bridge::test_support::InMemoryStateBridge;
+    use crate::key_management::{V2UpgradeToken, state_bridge::test_support::InMemoryStateBridge};
 
     fn decrypt_encrypted_pin(client: &Client, encrypted_pin: &EncString) -> String {
         encrypted_pin
@@ -763,5 +763,374 @@ mod tests {
             .expect("set_pin succeeds");
         assert!(system.validate_pin("1234".into()).await);
         assert!(!system.validate_pin("wrong".into()).await);
+    }
+
+    /// Snapshot of the persisted state a client would have after a V1→V2 user-key upgrade,
+    /// before the PIN envelope has been re-sealed.
+    struct V1State {
+        envelope: PasswordProtectedKeyEnvelope,
+        encrypted_pin: EncString,
+        token: V2UpgradeToken,
+    }
+
+    /// Builds a client with a V2 user key in the `User` slot plus the disk-shaped artifacts
+    /// of a prior V1 PIN enrollment: a V1 key sealed in a PIN envelope, an encrypted PIN under that
+    /// V1 key, and a V2 upgrade token tying the two.
+    fn fresh_v1_state_with_v2_user_key(pin: &str) -> (Client, V1State) {
+        let client = Client::new(None);
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+
+        let state = {
+            let key_store = client.internal.get_key_store();
+            let mut ctx = key_store.context_mut();
+
+            let v1_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            let v2_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+            let envelope = PasswordProtectedKeyEnvelope::seal(
+                v1_local,
+                pin,
+                PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+                &ctx,
+            )
+            .expect("v1 envelope seals");
+            let encrypted_pin = pin
+                .encrypt(&mut ctx, v1_local)
+                .expect("pin encrypts under v1 key");
+            let token =
+                V2UpgradeToken::create(v1_local, v2_local, &ctx).expect("upgrade token created");
+
+            ctx.persist_symmetric_key(v2_local, SymmetricKeySlotId::User)
+                .expect("persisting v2 user key succeeds");
+
+            V1State {
+                envelope,
+                encrypted_pin,
+                token,
+            }
+        };
+
+        (client, state)
+    }
+
+    /// Like `client_with_user_key`, but installs a V1 (Aes256CbcHmac) user key, so
+    /// `get_symmetric_key_id(User)` returns `None`.
+    fn client_with_v1_user_key() -> Client {
+        let client = Client::new(None);
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+        {
+            let key_store = client.internal.get_key_store();
+            let mut ctx = key_store.context_mut();
+            let user_key = ctx.generate_symmetric_key();
+            ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+                .expect("persisting v1 user key should succeed");
+        }
+        client
+    }
+
+    async fn assert_pin_envelopes_equal(
+        envelope_1: &PasswordProtectedKeyEnvelope,
+        envelope_2: &PasswordProtectedKeyEnvelope,
+    ) {
+        assert_eq!(
+            serde_json::to_string(envelope_1).expect("envelope serializes"),
+            serde_json::to_string(envelope_2).expect("envelope serializes"),
+            "envelopes should be identical",
+        );
+    }
+
+    async fn assert_pin_fully_unenrolled(client: &Client) {
+        let bridge = client.km_state_bridge();
+        assert!(bridge.get_persistent_pin_envelope().await.is_none());
+        assert!(bridge.get_ephemeral_pin_envelope().await.is_none());
+        assert!(bridge.get_encrypted_pin().await.is_none());
+        assert_eq!(
+            PinLockSystem::with_client(client).get_pin_status().await,
+            PinUnlockStatus::NotSet,
+        );
+    }
+
+    #[tokio::test]
+    async fn migrate_v1_to_v2_reseals_envelope_with_user_key() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&state.envelope).await;
+        bridge.set_encrypted_pin(&state.encrypted_pin).await;
+        bridge.set_v2_upgrade_token(&state.token).await;
+
+        assert_eq!(
+            state.envelope.contained_key_id().expect("readable"),
+            None,
+            "starting envelope is V1 (no key_id)",
+        );
+
+        let user_key_id = user_key_id(&client);
+        let system = PinLockSystem::with_client(&client);
+
+        system.migrate_pin_envelope_if_needed().await;
+
+        let persistent = bridge
+            .get_persistent_pin_envelope()
+            .await
+            .expect("persistent envelope present after migration");
+        let ephemeral = bridge
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("ephemeral envelope present after migration");
+        let encrypted_pin = bridge
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin present after migration");
+
+        assert_envelope_wraps_user_key(&client, &persistent, pin, &user_key_id);
+        assert_envelope_wraps_user_key(&client, &ephemeral, pin, &user_key_id);
+        assert_eq!(decrypt_encrypted_pin(&client, &encrypted_pin), pin);
+        assert_eq!(
+            system.get_pin_lock_type().await,
+            Some(PinLockType::BeforeFirstUnlock),
+        );
+        assert_eq!(system.get_pin_status().await, PinUnlockStatus::Available);
+        assert!(system.unlock(pin).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn on_unlock_triggers_v1_to_v2_migration() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&state.envelope).await;
+        bridge.set_encrypted_pin(&state.encrypted_pin).await;
+        bridge.set_v2_upgrade_token(&state.token).await;
+
+        let user_key_id = user_key_id(&client);
+        let system = PinLockSystem::with_client(&client);
+
+        system.on_unlock().await;
+
+        let persistent = bridge
+            .get_persistent_pin_envelope()
+            .await
+            .expect("persistent envelope present after on_unlock");
+        assert_envelope_wraps_user_key(&client, &persistent, pin, &user_key_id);
+        assert!(system.unlock(pin).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn migrate_no_persistent_envelope_is_noop() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+
+        system.migrate_pin_envelope_if_needed().await;
+
+        assert_pin_fully_unenrolled(&client).await;
+    }
+
+    #[tokio::test]
+    async fn migrate_v2_envelope_matching_user_key_is_noop() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        let bridge = client.km_state_bridge();
+        let persistent_before = &bridge
+            .get_persistent_pin_envelope()
+            .await
+            .expect("persistent envelope present");
+        let ephemeral_before = &bridge
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("ephemeral envelope present");
+        let encrypted_pin_before = bridge
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin present")
+            .to_string();
+
+        system.migrate_pin_envelope_if_needed().await;
+
+        let persistent_after = &bridge
+            .get_persistent_pin_envelope()
+            .await
+            .expect("persistent envelope still present");
+        let ephemeral_after = &bridge
+            .get_ephemeral_pin_envelope()
+            .await
+            .expect("ephemeral envelope still present");
+        let encrypted_pin_after = bridge
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin still present")
+            .to_string();
+
+        assert_pin_envelopes_equal(persistent_before, persistent_after).await;
+        assert_pin_envelopes_equal(ephemeral_before, ephemeral_after).await;
+        assert_eq!(encrypted_pin_before, encrypted_pin_after);
+    }
+
+    #[tokio::test]
+    async fn migrate_v1_envelope_with_v1_user_key_is_noop() {
+        let pin = "1234";
+        let client = client_with_v1_user_key();
+        let envelope = seal_envelope(&client, pin);
+        let encrypted_pin = pin
+            .encrypt(
+                &mut client.internal.get_key_store().context_mut(),
+                SymmetricKeySlotId::User,
+            )
+            .expect("encrypt under v1 user key");
+
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&envelope).await;
+        bridge.set_encrypted_pin(&encrypted_pin).await;
+
+        assert_eq!(envelope.contained_key_id().expect("readable"), None);
+
+        let persistent_before = envelope_json(&envelope);
+        let encrypted_pin_before = encrypted_pin.to_string();
+
+        let system = PinLockSystem::with_client(&client);
+        system.migrate_pin_envelope_if_needed().await;
+
+        let persistent_after = envelope_json(
+            &bridge
+                .get_persistent_pin_envelope()
+                .await
+                .expect("persistent envelope still present"),
+        );
+        let encrypted_pin_after = bridge
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin still present")
+            .to_string();
+        assert_eq!(persistent_before, persistent_after);
+        assert_eq!(encrypted_pin_before, encrypted_pin_after);
+        assert!(bridge.get_ephemeral_pin_envelope().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn migrate_v2_envelope_not_matching_user_key_unenrolls() {
+        let client = client_with_user_key();
+        let system = PinLockSystem::with_client(&client);
+        system
+            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        // Replace the persistent envelope with one sealed under a *different* V2 key.
+        let mismatched_envelope = {
+            let mut ctx = client.internal.get_key_store().context_mut();
+            let other_v2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            PasswordProtectedKeyEnvelope::seal(
+                other_v2,
+                "1234",
+                PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+                &ctx,
+            )
+            .expect("seal under other v2 key")
+        };
+        client
+            .km_state_bridge()
+            .set_persistent_pin_envelope(&mismatched_envelope)
+            .await;
+
+        system.migrate_pin_envelope_if_needed().await;
+
+        assert_pin_fully_unenrolled(&client).await;
+    }
+
+    #[tokio::test]
+    async fn migrate_v2_envelope_with_v1_user_key_unenrolls() {
+        let client = client_with_v1_user_key();
+
+        // Build a V2-sealed envelope using a transient V2 key.
+        let v2_envelope = {
+            let key_store = client.internal.get_key_store();
+            let mut ctx = key_store.context_mut();
+            let v2_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            PasswordProtectedKeyEnvelope::seal(
+                v2_local,
+                "1234",
+                PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+                &ctx,
+            )
+            .expect("seal under v2 key")
+        };
+        assert!(
+            v2_envelope.contained_key_id().expect("readable").is_some(),
+            "envelope should be V2",
+        );
+
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&v2_envelope).await;
+
+        let system = PinLockSystem::with_client(&client);
+        system.migrate_pin_envelope_if_needed().await;
+
+        assert_pin_fully_unenrolled(&client).await;
+    }
+
+    #[tokio::test]
+    async fn migrate_v1_to_v2_without_upgrade_token_unenrolls() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&state.envelope).await;
+        bridge.set_encrypted_pin(&state.encrypted_pin).await;
+        // Intentionally omit set_v2_upgrade_token.
+
+        let system = PinLockSystem::with_client(&client);
+        system.migrate_pin_envelope_if_needed().await;
+
+        assert_pin_fully_unenrolled(&client).await;
+    }
+
+    #[tokio::test]
+    async fn migrate_v1_to_v2_without_encrypted_pin_unenrolls() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&state.envelope).await;
+        bridge.set_v2_upgrade_token(&state.token).await;
+        // Intentionally omit set_encrypted_pin.
+
+        let system = PinLockSystem::with_client(&client);
+        system.migrate_pin_envelope_if_needed().await;
+
+        assert_pin_fully_unenrolled(&client).await;
+    }
+
+    #[tokio::test]
+    async fn migrate_v1_to_v2_with_mismatched_upgrade_token_unenrolls() {
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+
+        // Build an unrelated upgrade token from a different (v1, v2) key pair. Its
+        // wrapped_user_key_1 is sealed under a V2 key that is *not* in the User slot, so
+        // unwrap_v1(SymmetricKeySlotId::User, ..) will fail to decrypt it.
+        let unrelated_token = {
+            let key_store = bitwarden_crypto::KeyStore::<KeySlotIds>::default();
+            let mut ctx = key_store.context_mut();
+            let v1 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            let v2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            V2UpgradeToken::create(v1, v2, &ctx).expect("unrelated token created")
+        };
+
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&state.envelope).await;
+        bridge.set_encrypted_pin(&state.encrypted_pin).await;
+        bridge.set_v2_upgrade_token(&unrelated_token).await;
+
+        let system = PinLockSystem::with_client(&client);
+        system.migrate_pin_envelope_if_needed().await;
+
+        assert_pin_fully_unenrolled(&client).await;
     }
 }
