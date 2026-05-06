@@ -11,7 +11,13 @@ use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKey
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::Client;
+use crate::{
+    Client,
+    key_management::{
+        MasterPasswordUnlockData, V2UpgradeToken,
+        account_cryptographic_state::WrappedAccountCryptographicState,
+    },
+};
 
 /// Thread-safe wrapper around the registered [`StateBridgeImpl`] instance.
 pub struct StateBridge {
@@ -120,4 +126,7 @@ bitwarden_state_bridge_macro::state_bridge! {
     persistent_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     ephemeral_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     encrypted_pin: EncString as ts "EncString",
+    v2_upgrade_token: V2UpgradeToken as ts "V2UpgradeToken",
+    account_cryptographic_state: WrappedAccountCryptographicState as ts "WrappedAccountCryptographicState",
+    masterpassword_unlock_data: MasterPasswordUnlockData as ts "MasterPasswordUnlockData",
 }
