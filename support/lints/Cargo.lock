@@ -86,6 +86,7 @@ dependencies = [
  "clippy_utils",
  "dylint_linting",
  "dylint_testing",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

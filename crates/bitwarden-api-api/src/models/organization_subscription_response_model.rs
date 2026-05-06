@@ -305,6 +305,12 @@ pub struct OrganizationSubscriptionResponseModel {
     )]
     pub use_my_items: Option<bool>,
     #[serde(
+        rename = "useInviteLinks",
+        alias = "UseInviteLinks",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_invite_links: Option<bool>,
+    #[serde(
         rename = "storageName",
         alias = "StorageName",
         skip_serializing_if = "Option::is_none"
@@ -402,6 +408,7 @@ impl OrganizationSubscriptionResponseModel {
             use_disable_sm_ads_for_users: None,
             use_phishing_blocker: None,
             use_my_items: None,
+            use_invite_links: None,
             storage_name: None,
             storage_gb: None,
             customer_discount: None,

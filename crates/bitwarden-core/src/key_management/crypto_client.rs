@@ -1,6 +1,3 @@
-#[cfg(all(feature = "wasm", not(feature = "uniffi")))]
-use std::str::FromStr;
-
 #[cfg(any(feature = "wasm", test))]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{
@@ -198,7 +195,6 @@ impl CryptoClient {
     /// Takes a raw key and returns the corresponding key id. This is used for the biometrics
     /// subsystem and should be removed after moving over biometric management to the SDK.
     pub fn get_key_id_for_symmetric_key(
-        &self,
         key: Vec<u8>,
     ) -> Result<Option<Vec<u8>>, CryptoClientError> {
         let symmetric_key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key))?;

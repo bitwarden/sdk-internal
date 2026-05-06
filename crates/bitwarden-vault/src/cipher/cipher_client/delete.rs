@@ -97,6 +97,7 @@ async fn process_soft_delete<R: Repository<Cipher> + ?Sized>(
     Ok(())
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Deletes the [Cipher] with the matching [CipherId] from the server.

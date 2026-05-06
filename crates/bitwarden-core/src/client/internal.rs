@@ -33,7 +33,7 @@ use crate::{
     error::NotAuthenticatedError,
     key_management::{
         MasterPasswordUnlockData, SecurityState, V2UpgradeToken,
-        account_cryptographic_state::WrappedAccountCryptographicState,
+        account_cryptographic_state::WrappedAccountCryptographicState, state_bridge::StateBridge,
     },
 };
 
@@ -127,6 +127,12 @@ pub struct InternalClient {
     // feature flags are removed.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
     pub(crate) state_registry: StateRegistry,
+
+    // A bridge used to map in KM state into the SDK, until a more robust solution is implemented
+    // by platform. This is not a stable API and other teams should not use it. It will be
+    // removed as soon as KM state can be mapped via the platform APIs.
+    #[cfg(feature = "internal")]
+    pub(crate) state_bridge: StateBridge,
 }
 
 impl InternalClient {

@@ -79,7 +79,7 @@ async fn internal_rotate_user_keys(
 
     let sync = sync_current_account_data(api_client)
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
 
     // Create a separate scope so that the mutable context is not held across the await point
     let post_request = {
@@ -100,7 +100,7 @@ async fn internal_rotate_user_keys(
                 &rotation_context.new_user_key_id,
                 &mut ctx,
             )
-            .map_err(|_| RotateUserKeysError::CryptoError)?;
+            .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account data for user key rotation");
         let account_data_model = reencrypt_data(
@@ -111,18 +111,18 @@ async fn internal_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account primary unlock method for user key rotation");
         let unlock_method_input =
             PrimaryUnlockMethod::from_key_rotation_method(request.key_rotation_method, &sync)
-                .map_err(|_| RotateUserKeysError::ApiError)?;
+                .map_err(|_| RotateUserKeysError::Api)?;
         let unlock_method_data = reencrypt_unlock_method_data(
             unlock_method_input,
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account common unlock data for user key rotation");
         let common_unlock_data = reencrypt_common_unlock_data(
@@ -136,7 +136,7 @@ async fn internal_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         RotateUserKeysRequestModel {
             wrapped_account_cryptographic_state: Box::new(
@@ -153,7 +153,7 @@ async fn internal_rotate_user_keys(
         .accounts_key_management_api()
         .rotate_user_keys(Some(post_request))
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
     info!("Successfully rotated user account keys and data");
     Ok(())
 }
@@ -209,9 +209,6 @@ mod tests {
             folders: Some(vec![]),
             ciphers: Some(vec![]),
             sends: Some(vec![]),
-            collections: None,
-            domains: None,
-            policies: None,
             user_decryption: Some(Box::new(UserDecryptionResponseModel {
                 master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
                     kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
@@ -226,6 +223,7 @@ mod tests {
                 web_authn_prf_options: None,
                 v2_upgrade_token: None,
             })),
+            ..Default::default()
         };
 
         (store, sync_response)
@@ -359,7 +357,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
@@ -437,7 +435,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
             mock.organizations_api.checkpoint();
