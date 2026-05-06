@@ -35,7 +35,7 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
 # Team-owned crates
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
-crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+crates/bitwarden-auth/** @bitwarden/team-auth-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
@@ -55,7 +55,7 @@ crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-d
 
 # BW CLI
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev
-crates/bw/src/auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+crates/bw/src/auth/** @bitwarden/team-auth-dev
 crates/bw/src/tools/** @bitwarden/team-platform-dev
 crates/bw/src/vault/** @bitwarden/team-vault-dev
 
