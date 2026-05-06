@@ -832,7 +832,7 @@ mod tests {
         client
     }
 
-    async fn assert_pin_envelopes_equal(
+    fn assert_pin_envelopes_equal(
         envelope_1: &PasswordProtectedKeyEnvelope,
         envelope_2: &PasswordProtectedKeyEnvelope,
     ) {
@@ -970,8 +970,8 @@ mod tests {
             .expect("encrypted pin still present")
             .to_string();
 
-        assert_pin_envelopes_equal(persistent_before, persistent_after).await;
-        assert_pin_envelopes_equal(ephemeral_before, ephemeral_after).await;
+        assert_pin_envelopes_equal(persistent_before, persistent_after);
+        assert_pin_envelopes_equal(ephemeral_before, ephemeral_after);
         assert_eq!(encrypted_pin_before, encrypted_pin_after);
     }
 
@@ -1008,7 +1008,7 @@ mod tests {
             .await
             .expect("encrypted pin still present")
             .to_string();
-        assert_pin_envelopes_equal(persistent_before, persistent_after).await;
+        assert_pin_envelopes_equal(persistent_before, persistent_after);
         assert_eq!(encrypted_pin_before, encrypted_pin_after);
         assert!(bridge.get_ephemeral_pin_envelope().await.is_none());
     }
