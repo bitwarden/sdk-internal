@@ -598,6 +598,20 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
+    /// Return the key id of the symmetric key stored in the context for the given key slot, if it exists.
+    pub fn get_symmetric_key_id(&self, key_slot_id: Ids::Symmetric) -> Option<KeyId> {
+        if key_slot_id.is_local() {
+            self.local_symmetric_keys.get(key_slot_id).map(|key| key.key_id()).flatten()
+        } else {
+            self.global_keys
+                .get()
+                .symmetric_keys
+                .get(key_slot_id)
+                .map(|key| key.key_id())
+                .flatten()
+        }
+    }
+
     pub(super) fn get_private_key(&self, key_id: Ids::Private) -> Result<&PrivateKey> {
         if key_id.is_local() {
             self.local_private_keys.get(key_id)

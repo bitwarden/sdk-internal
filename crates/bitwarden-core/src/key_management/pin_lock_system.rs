@@ -12,7 +12,7 @@ use bitwarden_crypto::{
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
 };
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+use tracing::{info, warn};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -125,6 +125,100 @@ impl PinLockSystem<'_> {
             .map_err(|_| UnlockError::InternalError)
     }
 
+    /// After a V2 upgrade, when a V2 upgrade token is present and the persistent
+    /// PIN envelope is still encrypted with the V1 user key, this function migrates
+    /// the persistent PIN enrollment to be encrypted with the current user-key.
+    async fn migrate_pin_envelope_if_needed(&self) {
+        let Some(envelope) = self
+            .client
+            .km_state_bridge()
+            .get_persistent_pin_envelope()
+            .await
+        else {
+            return;
+        };
+
+        let Ok(envelope_key_id) = envelope.contained_key_id() else {
+            warn!("Failed to read PIN envelope key id, unenrolling PIN");
+            self.unset_pin().await;
+            return;
+        };
+        let current_user_key_id = self
+            .key_store()
+            .context()
+            .get_symmetric_key_id(SymmetricKeySlotId::User);
+        // Detect which scenario we are in. A key id being present indicates V2 encryption.
+        // Absence of a key indicates V1 encryption. A key rotation changes the key id.
+        match (envelope_key_id, current_user_key_id) {
+            // Envelope is up-to-date, no migration needed
+            (Some(envelope_key_id), Some(current_user_key_id))
+                if envelope_key_id == current_user_key_id =>
+            {
+                return;
+            }
+            // V1 -> V2 migration
+            (None, Some(_)) => {
+                info!(
+                    "A V1 -> V2 key migration happened. Migrating PIN envelope to be encrypted with the current user key."
+                );
+            }
+            // V2 -> V2 key rotation. Not supported currently. Have to unenroll.
+            (Some(_), Some(_)) => {
+                info!(
+                    "A V2 key rotation happened, but PIN state was not cleared. Upgrading is currently not supported; unenrolling from PIN unlock."
+                );
+                self.unset_pin().await;
+                return;
+            }
+            // V2 -> V1 migration. Not possible, something strange happened.
+            (Some(_), None) => {
+                warn!(
+                    "PIN envelope uses V2 encryption, but user uses V1 encryption. Please report this as a bug!"
+                );
+                self.unset_pin().await;
+                return;
+            }
+            // V1 -> V1 (unable to see whether key changed)
+            (None, None) => {
+                return;
+            }
+        }
+
+        let Some(token) = self.client.km_state_bridge().get_v2_upgrade_token().await else {
+            warn!("No V2 upgrade token available, unenrolling PIN");
+            self.unset_pin().await;
+            return;
+        };
+        let Some(encrypted_pin) = self.client.km_state_bridge().get_encrypted_pin().await else {
+            warn!("No encrypted PIN available for migration, unenrolling PIN");
+            self.unset_pin().await;
+            return;
+        };
+
+        // Attempt to decrypt the previous PIN via the upgrade token.
+        let Ok(pin) = (|| -> Result<String, ()> {
+            let mut ctx = self.key_store().context_mut();
+            let v1_slot = token
+                .unwrap_v1(SymmetricKeySlotId::User, &mut ctx)
+                .map_err(|_| ())?;
+            encrypted_pin.decrypt(&mut ctx, v1_slot).map_err(|_| ())
+        })() else {
+            warn!("Failed to decrypt PIN for migration, unenrolling PIN");
+            self.unset_pin().await;
+            return;
+        };
+
+        // Do a fresh enrollment with the new user-key
+        if self
+            .set_pin(pin, PinLockType::BeforeFirstUnlock)
+            .await
+            .is_err()
+        {
+            warn!("Failed to re-seal PIN envelope after migration, unenrolling PIN");
+            self.unset_pin().await;
+        }
+    }
+
     /// Refreshes in-memory PIN unlock material after a successful non-PIN unlock.
     ///
     /// This recreates the ephemeral PIN envelope from the encrypted PIN, when available.
@@ -133,6 +227,8 @@ impl PinLockSystem<'_> {
         if !self.client.km_state_bridge().is_bridge_registered() {
             return;
         }
+
+        self.migrate_pin_envelope_if_needed().await;
 
         let encrypted_pin = self.client.km_state_bridge().get_encrypted_pin().await;
 
