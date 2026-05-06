@@ -2,7 +2,7 @@ warning: struct `BadExample` implements Error but doesn't end with 'Error'
   --> $DIR/main.rs:3:8
    |
 LL | struct BadExample {}
-   |        ^^^^^^^^^^
+   |        ^^^^^^^^^^ help: rename to: `BadExampleError`
    |
    = note: `#[warn(error_suffix)]` on by default
 
@@ -10,7 +10,7 @@ warning: struct `BadManualExample` implements Error but doesn't end with 'Error'
   --> $DIR/main.rs:10:8
    |
 LL | struct BadManualExample {}
-   |        ^^^^^^^^^^^^^^^^
+   |        ^^^^^^^^^^^^^^^^ help: rename to: `BadManualExampleError`
 
 warning: 2 warnings emitted
 

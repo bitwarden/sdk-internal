@@ -105,6 +105,8 @@ jobs:
 
       - name: Cargo dylint
         run: cargo dylint --all -- --all-features --all-targets
+        env:
+          RUSTFLAGS: "-D warnings"
 
       - name: Check Cargo.lock unchanged
         run: |

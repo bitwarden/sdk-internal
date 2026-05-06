@@ -29,7 +29,7 @@ pub struct AcquiredCookie {
 #[bitwarden_error(flat)]
 pub enum AcquireCookieError {
     /// Cookie acquisition was cancelled by the user
-    #[error("Cookie acquisition was cancelled")]
+    #[error("Must sync to connect to server")]
     Cancelled,
 
     /// The server configuration does not support cookie acquisition
@@ -47,11 +47,11 @@ pub enum AcquireCookieError {
 
     /// Failed to retrieve server configuration from repository
     #[error("Failed to get server configuration: {0}")]
-    RepositoryGetError(String),
+    RepositoryGet(String),
 
     /// Failed to save updated configuration to repository
     #[error("Failed to save server configuration: {0}")]
-    RepositorySaveError(String),
+    RepositorySave(String),
 }
 
 /// Platform API for acquiring cookies from the platform client

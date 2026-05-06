@@ -624,7 +624,9 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-state-bridge-macro",
  "bitwarden-test",
+ "bitwarden-threading",
  "bitwarden-uniffi-error",
  "bitwarden-uuid",
  "chrono",
@@ -1079,6 +1081,15 @@ dependencies = [
  "tokio",
  "tsify",
  "uniffi",
+]
+
+[[package]]
+name = "bitwarden-state-bridge-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
