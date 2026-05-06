@@ -993,24 +993,22 @@ mod tests {
 
         assert_eq!(envelope.contained_key_id().expect("readable"), None);
 
-        let persistent_before = envelope_json(&envelope);
+        let persistent_before = &envelope;
         let encrypted_pin_before = encrypted_pin.to_string();
 
         let system = PinLockSystem::with_client(&client);
         system.migrate_pin_envelope_if_needed().await;
 
-        let persistent_after = envelope_json(
-            &bridge
-                .get_persistent_pin_envelope()
-                .await
-                .expect("persistent envelope still present"),
-        );
+        let persistent_after = &bridge
+            .get_persistent_pin_envelope()
+            .await
+            .expect("persistent envelope still present");
         let encrypted_pin_after = bridge
             .get_encrypted_pin()
             .await
             .expect("encrypted pin still present")
             .to_string();
-        assert_eq!(persistent_before, persistent_after);
+        assert_pin_envelopes_equal(persistent_before, persistent_after).await;
         assert_eq!(encrypted_pin_before, encrypted_pin_after);
         assert!(bridge.get_ephemeral_pin_envelope().await.is_none());
     }
