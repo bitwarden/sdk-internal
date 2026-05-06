@@ -540,6 +540,8 @@ mod tests {
             collections: None,
             domains: None,
             policies: None,
+            policies_new: None,
+            organizations_new: None,
             user_decryption: Some(Box::new(create_test_user_decryption())),
         }
     }

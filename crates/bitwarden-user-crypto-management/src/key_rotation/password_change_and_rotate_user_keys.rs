@@ -195,6 +195,8 @@ mod tests {
             collections: None,
             domains: None,
             policies: None,
+            policies_new: None,
+            organizations_new: None,
             user_decryption: Some(Box::new(UserDecryptionResponseModel {
                 master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
                     kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
