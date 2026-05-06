@@ -93,7 +93,7 @@ where
             .repository
             .get(domain.clone())
             .await
-            .map_err(|e| AcquireCookieError::RepositoryGetError(format!("{:?}", e)))?;
+            .map_err(|e| AcquireCookieError::RepositoryGet(format!("{:?}", e)))?;
 
         let Some(config) = config else {
             return Ok(vec![]);
@@ -242,7 +242,7 @@ where
             .repository
             .get(domain.to_string())
             .await
-            .map_err(|e| AcquireCookieError::RepositoryGetError(format!("{:?}", e)))?
+            .map_err(|e| AcquireCookieError::RepositoryGet(format!("{:?}", e)))?
             .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
 
         // Verify this is an SSO cookie vendor configuration and get mutable reference
