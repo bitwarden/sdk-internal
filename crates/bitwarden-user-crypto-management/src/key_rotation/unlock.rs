@@ -4,14 +4,16 @@
 use bitwarden_api_api::models::{
     self, CommonUnlockDataRequestModel, EmergencyAccessWithIdRequestModel,
     MasterPasswordUnlockAndAuthenticationDataModel, OtherDeviceKeysUpdateRequestModel,
-    ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel, WebAuthnLoginRotateKeyRequestModel,
+    ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel, V2UpgradeTokenRequestModel,
+    WebAuthnLoginRotateKeyRequestModel,
 };
 use bitwarden_core::key_management::{
     KeySlotIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeySlotId,
+    V2UpgradeToken,
 };
-use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, UnsignedSharedKey};
+use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
-use tracing::debug_span;
+use tracing::{debug_span, error};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -46,6 +48,8 @@ pub(super) enum ReencryptError {
     KeysetUnlockDataReencryption,
     /// Failed to update the unlock data for emergency access or organization membership
     KeySharingError,
+    /// Failed to create v2 upgrade token
+    UpgradeTokenCreation,
 }
 
 pub(super) struct ReencryptMasterPasswordChangeAndUnlockInput {
@@ -98,7 +102,7 @@ pub(super) fn reencrypt_master_password_change_unlock_data(
             .organization_account_recovery_unlock_data,
         passkey_unlock_data: common_unlock_data.passkey_unlock_data,
         device_key_unlock_data: common_unlock_data.device_key_unlock_data,
-        v2_upgrade_token: None,
+        v2_upgrade_token: common_unlock_data.v2_upgrade_token,
     })
 }
 
@@ -125,12 +129,14 @@ pub(super) fn reencrypt_common_unlock_data(
     let organizations_memberships =
         reencrypt_organization_memberships(input.trusted_organization_keys, new_user_key_id, ctx)?;
 
+    let upgrade_token = make_upgrade_token_if_needed(current_user_key_id, new_user_key_id, ctx)?;
+
     Ok(CommonUnlockDataRequestModel {
         emergency_access_unlock_data: Some(emergency_accesses),
         organization_account_recovery_unlock_data: Some(organizations_memberships),
         passkey_unlock_data: Some(prf_passkey_unlock_data),
         device_key_unlock_data: Some(tde_device_unlock_data),
-        v2_upgrade_token: None,
+        v2_upgrade_token: upgrade_token,
     })
 }
 
@@ -293,6 +299,30 @@ fn to_authentication_and_unlock_data(
     })
 }
 
+fn make_upgrade_token_if_needed(
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+) -> Result<Option<Box<V2UpgradeTokenRequestModel>>, ReencryptError> {
+    match (
+        ctx.get_symmetric_key_algorithm(current_user_key_id),
+        ctx.get_symmetric_key_algorithm(new_user_key_id),
+    ) {
+        (
+            Ok(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305),
+        ) => {
+            let token =
+                V2UpgradeToken::create(current_user_key_id, new_user_key_id, ctx).map_err(|e| {
+                    error!("Failed to create V2 upgrade token: {e}");
+                    ReencryptError::UpgradeTokenCreation
+                })?;
+            Ok(Some(Box::new(token.into())))
+        }
+        _ => Ok(None),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
@@ -333,6 +363,15 @@ mod tests {
             .dangerous_get_symmetric_key(key_id_2)
             .expect("key 2 should exist");
         assert_eq!(key_1, key_2, "symmetric keys should be equal");
+    }
+
+    fn empty_common_unlock_input() -> ReencryptCommonUnlockDataInput {
+        ReencryptCommonUnlockDataInput {
+            trusted_devices: vec![],
+            webauthn_credentials: vec![],
+            trusted_organization_keys: vec![],
+            trusted_emergency_access_keys: vec![],
+        }
     }
 
     #[test]
@@ -598,5 +637,79 @@ mod tests {
             .decapsulate(org_key, &mut ctx)
             .expect("unwrap should succeed");
         assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_common_unlock_data_v1_to_v2_creates_upgrade_token() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = reencrypt_common_unlock_data(
+            empty_common_unlock_input(),
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+        assert!(
+            unlock_data.v2_upgrade_token.is_some(),
+            "v2_upgrade_token should be populated for V1 -> V2 rotation"
+        );
+    }
+
+    #[test]
+    fn test_reencrypt_common_unlock_data_v2_to_v2_no_upgrade_token() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = reencrypt_common_unlock_data(
+            empty_common_unlock_input(),
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+        assert!(
+            unlock_data.v2_upgrade_token.is_none(),
+            "v2_upgrade_token should be None for V2 -> V2 rotation"
+        );
+    }
+
+    #[test]
+    fn test_reencrypt_master_password_change_unlock_data_forwards_v2_upgrade_token() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let input = ReencryptMasterPasswordChangeAndUnlockInput {
+            password: "test_password".to_string(),
+            hint: None,
+            kdf: create_test_kdf_pbkdf2(),
+            salt: "test@example.com".to_string(),
+            common_unlock_data: empty_common_unlock_input(),
+        };
+
+        let unlock_data = reencrypt_master_password_change_unlock_data(
+            input,
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        )
+        .expect("should be ok");
+
+        assert!(
+            unlock_data.v2_upgrade_token.is_some(),
+            "v2_upgrade_token should be forwarded from common unlock data into UnlockDataRequestModel"
+        );
     }
 }
