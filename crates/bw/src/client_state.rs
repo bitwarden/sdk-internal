@@ -16,66 +16,6 @@ use color_eyre::eyre::{Result, eyre};
 
 use crate::render::CommandResult;
 
-mod sealed {
-    pub trait Sealed {}
-}
-
-/// Marker trait implemented by the five client-state types in this module.
-///
-/// Sealed: the auth/lock matrix is a closed enumeration; new states should be added here, not
-/// in downstream code.
-pub trait ClientState:
-    sealed::Sealed + TryFrom<ClientContext, Error = color_eyre::eyre::Error>
-{
-}
-
-/// Unauthenticated state. The extractor rejects when a user is already logged in.
-pub struct LoggedOut {
-    pub global: GlobalClient,
-}
-
-/// Authenticated state, lock-status-agnostic. The extractor requires a user.
-pub struct LoggedIn {
-    pub global: GlobalClient,
-    pub user: PasswordManagerClient,
-}
-
-/// Authenticated and locked. The extractor rejects an unlocked vault.
-pub struct Locked {
-    pub global: GlobalClient,
-    pub user: PasswordManagerClient,
-}
-
-/// Authenticated and unlocked. The extractor requires the user's symmetric key to be loaded.
-pub struct Unlocked {
-    pub global: GlobalClient,
-    pub user: PasswordManagerClient,
-}
-
-/// Catch-all. The extractor is infallible.
-pub struct AnyState {
-    pub global: GlobalClient,
-    pub user: Option<PasswordManagerClient>,
-}
-
-impl sealed::Sealed for LoggedOut {}
-impl sealed::Sealed for LoggedIn {}
-impl sealed::Sealed for Locked {}
-impl sealed::Sealed for Unlocked {}
-impl sealed::Sealed for AnyState {}
-
-impl ClientState for LoggedOut {}
-impl ClientState for LoggedIn {}
-impl ClientState for Locked {}
-impl ClientState for Unlocked {}
-impl ClientState for AnyState {}
-
-/// Per-invocation context built once in `process_commands` and consumed by a single extractor.
-pub struct ClientContext {
-    pub global: GlobalClient,
-    pub user: Option<PasswordManagerClient>,
-}
-
 /// Trait implemented by commands that participate in the typestate dispatch.
 ///
 /// Commands that don't depend on auth/lock state (e.g. shell-completion generation, base64
@@ -127,6 +67,33 @@ impl<C: BwCommand> BwCommandExt for C {
     }
 }
 
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// Marker trait implemented by the five client-state types in this module.
+///
+/// Sealed: the auth/lock matrix is a closed enumeration; new states should be added here, not
+/// in downstream code.
+pub trait ClientState:
+    sealed::Sealed + TryFrom<ClientContext, Error = color_eyre::eyre::Error>
+{
+}
+
+/// Per-invocation context built once in `process_commands` and consumed by a single extractor.
+pub struct ClientContext {
+    pub global: GlobalClient,
+    pub user: Option<PasswordManagerClient>,
+}
+
+/// Unauthenticated state. The extractor rejects when a user is already logged in.
+pub struct LoggedOut {
+    pub global: GlobalClient,
+}
+
+impl sealed::Sealed for LoggedOut {}
+impl ClientState for LoggedOut {}
+
 impl TryFrom<ClientContext> for LoggedOut {
     type Error = color_eyre::eyre::Error;
 
@@ -139,6 +106,15 @@ impl TryFrom<ClientContext> for LoggedOut {
         Ok(LoggedOut { global: ctx.global })
     }
 }
+
+/// Authenticated state, lock-status-agnostic. The extractor requires a user.
+pub struct LoggedIn {
+    pub global: GlobalClient,
+    pub user: PasswordManagerClient,
+}
+
+impl sealed::Sealed for LoggedIn {}
+impl ClientState for LoggedIn {}
 
 impl TryFrom<ClientContext> for LoggedIn {
     type Error = color_eyre::eyre::Error;
@@ -153,6 +129,15 @@ impl TryFrom<ClientContext> for LoggedIn {
         })
     }
 }
+
+/// Authenticated and locked. The extractor rejects an unlocked vault.
+pub struct Locked {
+    pub global: GlobalClient,
+    pub user: PasswordManagerClient,
+}
+
+impl sealed::Sealed for Locked {}
+impl ClientState for Locked {}
 
 impl TryFrom<ClientContext> for Locked {
     type Error = color_eyre::eyre::Error;
@@ -173,20 +158,42 @@ impl TryFrom<ClientContext> for Locked {
     }
 }
 
+/// Authenticated and unlocked. The extractor requires the user's symmetric key to be loaded.
+pub struct Unlocked {
+    pub global: GlobalClient,
+    pub user: PasswordManagerClient,
+}
+
+impl sealed::Sealed for Unlocked {}
+impl ClientState for Unlocked {}
+
 impl TryFrom<ClientContext> for Unlocked {
     type Error = color_eyre::eyre::Error;
 
     fn try_from(ctx: ClientContext) -> Result<Self> {
         let user = ctx
             .user
-            .filter(PasswordManagerClient::is_unlocked)
-            .ok_or_else(|| eyre!("Your vault is locked. Unlock it with `--session`."))?;
+            .ok_or_else(|| eyre!("You are not logged in. Run `bw login` first."))?;
+        if !user.is_unlocked() {
+            return Err(eyre!(
+                "Your vault is locked. Unlock it by setting the session key with `--session` or `BW_SESSION`."
+            ));
+        }
         Ok(Unlocked {
             global: ctx.global,
             user,
         })
     }
 }
+
+/// Catch-all. The extractor is infallible.
+pub struct AnyState {
+    pub global: GlobalClient,
+    pub user: Option<PasswordManagerClient>,
+}
+
+impl sealed::Sealed for AnyState {}
+impl ClientState for AnyState {}
 
 impl TryFrom<ClientContext> for AnyState {
     type Error = color_eyre::eyre::Error;
