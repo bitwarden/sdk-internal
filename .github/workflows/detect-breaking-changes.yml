@@ -161,7 +161,6 @@ jobs:
           echo "💬 Creating/updating breaking change detection status comment..."
 
           COMMENT_MARKER="<!-- SDK-BREAKING-CHANGE-CHECK -->"
-          ROW_MARKER="<!-- row:${_CLIENT_LABEL} -->"
           OUR_ROW="| ${_CLIENT_LABEL} | ⏳ In progress | [View workflow](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) |"
 
           # Check for existing shared comment
@@ -173,18 +172,16 @@ jobs:
             echo "Found existing comment ID: $EXISTING_ID"
             EXISTING_BODY=$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING_ID" --jq '.body')
 
-            # Check if our row marker exists
-            if echo "$EXISTING_BODY" | grep -q "$ROW_MARKER"; then
-              # Update existing row using awk for reliable multiline handling
-              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v marker="$ROW_MARKER" -v newrow="$ROW_MARKER\n$OUR_ROW" '
-                $0 ~ marker { found=1; print newrow; next }
-                found && /^\|/ { found=0; next }
-                found && /^<!-- row:/ { found=0 }
-                !found { print }
+            # Check if a row for this client already exists (match on client label in first column)
+            if echo "$EXISTING_BODY" | grep -q "^| ${_CLIENT_LABEL} |"; then
+              # Update existing row by matching client label in first table cell
+              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v label="${_CLIENT_LABEL}" -v newrow="$OUR_ROW" '
+                /^\|/ && index($0, "| " label " |") { print newrow; next }
+                { print }
               ')
             else
               # Append new row before the closing hr/footer
-              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v newrow="$ROW_MARKER\n$OUR_ROW" '
+              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v newrow="$OUR_ROW" '
                 /^---$/ && !inserted { print newrow; inserted=1 }
                 { print }
               ')
@@ -201,15 +198,14 @@ jobs:
 
           **SDK Version:** \`${SDK_VERSION}\`
 
-          > ⚠️ **If breaking changes are detected, you MUST have a corresponding pull request addressing the breaking changes ready for merge in the affected client repository.**
+          > ⚠️ **If breaking changes are detected, a corresponding pull request addressing them must be ready for merge in the affected client repository.**
 
           | Client | Status | Details |
           |--------|--------|---------|
-          ${ROW_MARKER}
           ${OUR_ROW}
-
           ---
-          *Results update as workflows complete.*
+            *Breaking change detection uses the build of the SDK from this branch, including any incompatibities pre-existing on `main` or merged into this branch. Check the workflow logs to confirm.*
+            *Results update as workflows complete.*
           EOF
             )
 
@@ -359,14 +355,12 @@ jobs:
             exit 0
           fi
 
-          ROW_MARKER="<!-- row:${_CLIENT_LABEL} -->"
-
           # Determine status message
           case "$CLIENT_STATUS" in
             "breaking-changes-detected")
               STATUS_EMOJI="❌"
               STATUS_MESSAGE="Breaking changes detected"
-              STATUS_DETAILS="Compilation failed with new SDK version. **A corresponding pull request addressing the breaking changes MUST be ready for merge in $_CLIENT_REPO.** - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_DETAILS="Compilation failed with new SDK version. **A corresponding pull request addressing the breaking changes must be ready for merge in $_CLIENT_REPO.** - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             "no-breaking-changes")
               STATUS_EMOJI="✅"
@@ -385,12 +379,10 @@ jobs:
           # Get current comment body
           EXISTING_BODY=$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')
 
-          # Update our row using awk
-          NEW_BODY=$(echo "$EXISTING_BODY" | awk -v marker="$ROW_MARKER" -v newrow="$ROW_MARKER\n$OUR_ROW" '
-            $0 ~ marker { found=1; print newrow; next }
-            found && /^\|/ { found=0; next }
-            found && /^<!-- row:/ { found=0 }
-            !found { print }
+          # Update our row by matching client label in first table cell
+          NEW_BODY=$(echo "$EXISTING_BODY" | awk -v label="${_CLIENT_LABEL}" -v newrow="$OUR_ROW" '
+            /^\|/ && index($0, "| " label " |") { print newrow; next }
+            { print }
           ')
 
           gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" \
