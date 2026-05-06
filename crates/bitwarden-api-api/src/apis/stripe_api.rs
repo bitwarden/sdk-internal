@@ -27,10 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait StripeApi: Send + Sync {
     /// POST /setup-intent/bank-account
-    async fn create_setup_intent_for_bank_account(&self) -> Result<(), Error>;
+    async fn create_setup_intent_for_bank_account(&self) -> Result<String, Error>;
 
     /// POST /setup-intent/card
-    async fn create_setup_intent_for_card(&self) -> Result<(), Error>;
+    async fn create_setup_intent_for_card(&self) -> Result<String, Error>;
 
     /// GET /tax/is-country-supported
     async fn is_country_supported<'a>(&self, country: Option<&'a str>) -> Result<(), Error>;
@@ -49,7 +49,7 @@ impl StripeApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl StripeApi for StripeApiClient {
-    async fn create_setup_intent_for_bank_account(&self) -> Result<(), Error> {
+    async fn create_setup_intent_for_bank_account(&self) -> Result<String, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -63,10 +63,10 @@ impl StripeApi for StripeApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn create_setup_intent_for_card(&self) -> Result<(), Error> {
+    async fn create_setup_intent_for_card(&self) -> Result<String, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -77,7 +77,7 @@ impl StripeApi for StripeApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn is_country_supported<'a>(&self, country: Option<&'a str>) -> Result<(), Error> {

@@ -209,9 +209,6 @@ mod tests {
             folders: Some(vec![]),
             ciphers: Some(vec![]),
             sends: Some(vec![]),
-            collections: None,
-            domains: None,
-            policies: None,
             user_decryption: Some(Box::new(UserDecryptionResponseModel {
                 master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
                     kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
@@ -226,6 +223,7 @@ mod tests {
                 web_authn_prf_options: None,
                 v2_upgrade_token: None,
             })),
+            ..Default::default()
         };
 
         (store, sync_response)

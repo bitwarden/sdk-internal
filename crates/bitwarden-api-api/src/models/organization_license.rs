@@ -287,6 +287,12 @@ pub struct OrganizationLicense {
     )]
     pub use_my_items: Option<bool>,
     #[serde(
+        rename = "useInviteLinks",
+        alias = "UseInviteLinks",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_invite_links: Option<bool>,
+    #[serde(
         rename = "hash",
         alias = "Hash",
         skip_serializing_if = "Option::is_none"
@@ -355,6 +361,7 @@ impl OrganizationLicense {
             use_automatic_user_confirmation: None,
             use_disable_sm_ads_for_users: None,
             use_my_items: None,
+            use_invite_links: None,
             hash: None,
             signature: None,
             token: None,

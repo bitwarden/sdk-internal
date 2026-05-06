@@ -1,10 +1,12 @@
 #![feature(rustc_private)]
 #![warn(unused_extern_crates)]
 
+extern crate rustc_errors;
 extern crate rustc_hir;
 extern crate rustc_span;
 
-use clippy_utils::{diagnostics::span_lint, ty::implements_trait};
+use clippy_utils::{diagnostics::span_lint_and_sugg, ty::implements_trait};
+use rustc_errors::Applicability;
 use rustc_hir::{Item, ItemKind};
 use rustc_lint::LateLintPass;
 use rustc_span::symbol::sym;
@@ -57,12 +59,15 @@ impl<'tcx> LateLintPass<'tcx> for EnumVariantEndsWithError {
 
             for variant in enum_def.variants {
                 let variant_name = variant.ident.name.as_str();
-                if variant_name.ends_with("Error") {
-                    span_lint(
+                if let Some(stripped) = variant_name.strip_suffix("Error") {
+                    span_lint_and_sugg(
                         cx,
                         ENUM_VARIANT_ENDS_WITH_ERROR,
                         variant.ident.span,
                         format!("enum variant `{}` ends with 'Error'", variant_name),
+                        "rename to",
+                        stripped.to_string(),
+                        Applicability::MaybeIncorrect,
                     );
                 }
             }
@@ -72,5 +77,5 @@ impl<'tcx> LateLintPass<'tcx> for EnumVariantEndsWithError {
 
 #[test]
 fn ui() {
-    dylint_testing::ui_test(env!("CARGO_PKG_NAME"), "ui");
+    dylint_testing::ui_test_example(env!("CARGO_PKG_NAME"), "ui");
 }
