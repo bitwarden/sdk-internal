@@ -588,7 +588,6 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-uuid",
  "serde",
- "serde_repr",
  "thiserror 2.0.18",
  "tsify",
  "uniffi",

@@ -7,7 +7,6 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 use bitwarden_uuid::uuid_newtype;
 use serde::{Deserialize, Serialize};
-use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
@@ -50,20 +49,19 @@ pub struct CollectionView {
 }
 
 /// Type of collection
-#[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-#[repr(u8)]
 pub enum CollectionType {
     /// Default collection type. Can be assigned by an organization to user(s) or group(s)
-    SharedCollection = 0,
+    SharedCollection,
     /// Default collection assigned to a user for an organization that has
     /// OrganizationDataOwnership (formerly PersonalOwnership) policy enabled.
-    DefaultUserCollection = 1,
+    DefaultUserCollection,
 }
 
 #[allow(missing_docs)]
