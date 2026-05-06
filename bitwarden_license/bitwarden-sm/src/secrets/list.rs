@@ -91,8 +91,8 @@ impl SecretIdentifiersResponse {
 pub struct SecretIdentifierResponse {
     pub id: Uuid,
     pub organization_id: Uuid,
-
     pub key: String,
+    pub project_ids: Vec<Uuid>,
 }
 
 impl SecretIdentifierResponse {
@@ -107,9 +107,17 @@ impl SecretIdentifierResponse {
             .parse::<EncString>()?
             .decrypt(ctx, enc_key)?;
 
+        let project_ids = response
+            .projects
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|p| p.id)
+            .collect();
+
         Ok(SecretIdentifierResponse {
             id: require!(response.id),
             organization_id,
+            project_ids,
             key,
         })
     }
