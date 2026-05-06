@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`53dc0c40d74aa6d02c049970751d9692a426fed3`](https://github.com/bitwarden/server/commit/53dc0c40d74aa6d02c049970751d9692a426fed3)
+  [`ea007b6a4f9796b391653e28c0282c17301b761e`](https://github.com/bitwarden/server/commit/ea007b6a4f9796b391653e28c0282c17301b761e)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -278,6 +278,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationIntegrationConfigurationApi_ | [**delete**](docs/OrganizationIntegrationConfigurationApi.md#organization_integration_configuration_delete)                                                      | **DELETE** /organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId} |
 | _OrganizationIntegrationConfigurationApi_ | [**get**](docs/OrganizationIntegrationConfigurationApi.md#organization_integration_configuration_get)                                                            | **GET** /organizations/{organizationId}/integrations/{integrationId}/configurations                      |
 | _OrganizationIntegrationConfigurationApi_ | [**update**](docs/OrganizationIntegrationConfigurationApi.md#organization_integration_configuration_update)                                                      | **PUT** /organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}    |
+| _OrganizationInviteLinksApi_              | [**create**](docs/OrganizationInviteLinksApi.md#organization_invite_links_create)                                                                                | **POST** /organizations/{orgId}/invite-link                                                              |
 | _OrganizationReportsApi_                  | [**create_organization_report**](docs/OrganizationReportsApi.md#organization_reports_create_organization_report)                                                 | **POST** /reports/organizations/{organizationId}                                                         |
 | _OrganizationReportsApi_                  | [**get_latest_organization_report**](docs/OrganizationReportsApi.md#organization_reports_get_latest_organization_report)                                         | **GET** /reports/organizations/{organizationId}/latest                                                   |
 | _OrganizationReportsApi_                  | [**get_organization_report**](docs/OrganizationReportsApi.md#organization_reports_get_organization_report)                                                       | **GET** /reports/organizations/{organizationId}/{reportId}                                               |
@@ -621,6 +622,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ConfigResponseModel](docs/ConfigResponseModel.md)
 - [CreateClientOrganizationRequestBody](docs/CreateClientOrganizationRequestBody.md)
 - [CreateCollectionRequestModel](docs/CreateCollectionRequestModel.md)
+- [CreateOrganizationInviteLinkRequestModel](docs/CreateOrganizationInviteLinkRequestModel.md)
 - [CreatePremiumCheckoutSessionRequest](docs/CreatePremiumCheckoutSessionRequest.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
 - [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
@@ -762,6 +764,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationSubscriptionUpdateRequestModel](docs/OrganizationSubscriptionUpdateRequestModel.md)
 - [OrganizationUpdateRequestModel](docs/OrganizationUpdateRequestModel.md)
 - [OrganizationUpgradeRequestModel](docs/OrganizationUpgradeRequestModel.md)
+- [OrganizationUser](docs/OrganizationUser.md)
 - [OrganizationUserAcceptInitRequestModel](docs/OrganizationUserAcceptInitRequestModel.md)
 - [OrganizationUserAcceptRequestModel](docs/OrganizationUserAcceptRequestModel.md)
 - [OrganizationUserBulkConfirmRequestModel](docs/OrganizationUserBulkConfirmRequestModel.md)
@@ -886,6 +889,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ResponseData](docs/ResponseData.md)
 - [RestartSubscriptionRequest](docs/RestartSubscriptionRequest.md)
 - [RestoreSecretVersionRequestModel](docs/RestoreSecretVersionRequestModel.md)
+- [RevocationReason](docs/RevocationReason.md)
 - [RevokeAccessTokensRequest](docs/RevokeAccessTokensRequest.md)
 - [RotateUserAccountKeysAndDataRequestModel](docs/RotateUserAccountKeysAndDataRequestModel.md)
 - [RotateUserKeysRequestModel](docs/RotateUserKeysRequestModel.md)

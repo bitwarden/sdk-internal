@@ -188,6 +188,12 @@ pub struct ProfileOrganizationResponseModel {
     )]
     pub use_my_items: Option<bool>,
     #[serde(
+        rename = "useInviteLinks",
+        alias = "UseInviteLinks",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_invite_links: Option<bool>,
+    #[serde(
         rename = "selfHost",
         alias = "SelfHost",
         skip_serializing_if = "Option::is_none"
@@ -419,6 +425,7 @@ impl ProfileOrganizationResponseModel {
             use_disable_sm_ads_for_users: None,
             use_phishing_blocker: None,
             use_my_items: None,
+            use_invite_links: None,
             self_host: None,
             seats: None,
             max_collections: None,
