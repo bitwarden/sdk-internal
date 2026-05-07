@@ -1,22 +1,40 @@
 use super::{DriversLicenseDataV1, DriversLicenseView};
 
-impl_bidirectional_from!(
-    DriversLicenseView,
-    DriversLicenseDataV1,
-    [
-        first_name,
-        middle_name,
-        last_name,
-        date_of_birth,
-        license_number,
-        issuing_country,
-        issuing_state,
-        issue_date,
-        expiration_date,
-        issuing_authority,
-        license_class,
-    ]
-);
+impl From<&DriversLicenseView> for DriversLicenseDataV1 {
+    fn from(src: &DriversLicenseView) -> Self {
+        Self {
+            first_name: src.first_name.clone(),
+            middle_name: src.middle_name.clone(),
+            last_name: src.last_name.clone(),
+            date_of_birth: src.date_of_birth.map(|d| d.to_string()),
+            license_number: src.license_number.clone(),
+            issuing_country: src.issuing_country.clone(),
+            issuing_state: src.issuing_state.clone(),
+            issue_date: src.issue_date.map(|d| d.to_string()),
+            expiration_date: src.expiration_date.map(|d| d.to_string()),
+            issuing_authority: src.issuing_authority.clone(),
+            license_class: src.license_class.clone(),
+        }
+    }
+}
+
+impl From<&DriversLicenseDataV1> for DriversLicenseView {
+    fn from(src: &DriversLicenseDataV1) -> Self {
+        Self {
+            first_name: src.first_name.clone(),
+            middle_name: src.middle_name.clone(),
+            last_name: src.last_name.clone(),
+            date_of_birth: src.date_of_birth.as_deref().and_then(|s| s.parse().ok()),
+            license_number: src.license_number.clone(),
+            issuing_country: src.issuing_country.clone(),
+            issuing_state: src.issuing_state.clone(),
+            issue_date: src.issue_date.as_deref().and_then(|s| s.parse().ok()),
+            expiration_date: src.expiration_date.as_deref().and_then(|s| s.parse().ok()),
+            issuing_authority: src.issuing_authority.clone(),
+            license_class: src.license_class.clone(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -36,12 +54,12 @@ mod tests {
                 first_name: Some("John".to_string()),
                 middle_name: Some("Michael".to_string()),
                 last_name: Some("Doe".to_string()),
-                date_of_birth: Some("1985-06-15".to_string()),
+                date_of_birth: chrono::NaiveDate::from_ymd_opt(1985, 6, 15),
                 license_number: Some("DL-987654".to_string()),
                 issuing_country: Some("US".to_string()),
                 issuing_state: Some("NY".to_string()),
-                issue_date: Some("2020-01-01".to_string()),
-                expiration_date: Some("2028-01-01".to_string()),
+                issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+                expiration_date: chrono::NaiveDate::from_ymd_opt(2028, 1, 1),
                 issuing_authority: Some("NY DMV".to_string()),
                 license_class: Some("D".to_string()),
             }),

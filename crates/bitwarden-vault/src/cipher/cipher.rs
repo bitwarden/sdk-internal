@@ -3488,7 +3488,7 @@ mod tests {
         let passport = passport::PassportView {
             given_name: Some("Jane".to_string()),
             surname: Some("Doe".to_string()),
-            date_of_birth: Some("1990-01-01".to_string()),
+            date_of_birth: chrono::NaiveDate::from_ymd_opt(1990, 1, 1),
             sex: Some("F".to_string()),
             birth_place: Some("New York".to_string()),
             nationality: Some("American".to_string()),
@@ -3497,8 +3497,8 @@ mod tests {
             passport_type: Some("P".to_string()),
             national_identification_number: Some("123-45-6789".to_string()),
             issuing_authority: Some("US State Department".to_string()),
-            issue_date: Some("2020-01-01".to_string()),
-            expiration_date: Some("2030-01-01".to_string()),
+            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+            expiration_date: chrono::NaiveDate::from_ymd_opt(2030, 1, 1),
         };
 
         let cipher_view = CipherView {
@@ -3526,12 +3526,12 @@ mod tests {
             first_name: Some("John".to_string()),
             middle_name: Some("Michael".to_string()),
             last_name: Some("Doe".to_string()),
-            date_of_birth: Some("1985-06-15".to_string()),
+            date_of_birth: chrono::NaiveDate::from_ymd_opt(1985, 6, 15),
             license_number: Some("DL-987654".to_string()),
             issuing_country: Some("US".to_string()),
             issuing_state: Some("NY".to_string()),
-            issue_date: Some("2020-01-01".to_string()),
-            expiration_date: Some("2028-01-01".to_string()),
+            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+            expiration_date: chrono::NaiveDate::from_ymd_opt(2028, 1, 1),
             issuing_authority: Some("NY DMV".to_string()),
             license_class: Some("D".to_string()),
         };
@@ -3958,12 +3958,12 @@ mod tests {
                             first_name: Some("Jane".to_string()),
                             middle_name: Some("Q".to_string()),
                             last_name: Some("Doe".to_string()),
-                            date_of_birth: Some("1990-01-01".to_string()),
+                            date_of_birth: chrono::NaiveDate::from_ymd_opt(1990, 1, 1),
                             license_number: Some("D1234567".to_string()),
                             issuing_country: Some("US".to_string()),
                             issuing_state: Some("CA".to_string()),
-                            issue_date: Some("2020-01-01".to_string()),
-                            expiration_date: Some("2030-01-01".to_string()),
+                            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+                            expiration_date: chrono::NaiveDate::from_ymd_opt(2030, 1, 1),
                             issuing_authority: Some("DMV".to_string()),
                             license_class: Some("C".to_string()),
                         });
@@ -3975,7 +3975,7 @@ mod tests {
                         v.passport = Some(PassportView {
                             surname: Some("Doe".to_string()),
                             given_name: Some("Jane".to_string()),
-                            date_of_birth: Some("1990-01-01".to_string()),
+                            date_of_birth: chrono::NaiveDate::from_ymd_opt(1990, 1, 1),
                             sex: Some("F".to_string()),
                             birth_place: Some("Anytown".to_string()),
                             nationality: Some("US".to_string()),
@@ -3984,8 +3984,8 @@ mod tests {
                             passport_type: Some("P".to_string()),
                             national_identification_number: Some("000-00-0000".to_string()),
                             issuing_authority: Some("State Dept".to_string()),
-                            issue_date: Some("2020-01-01".to_string()),
-                            expiration_date: Some("2030-01-01".to_string()),
+                            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+                            expiration_date: chrono::NaiveDate::from_ymd_opt(2030, 1, 1),
                         });
                     }),
                 ),
