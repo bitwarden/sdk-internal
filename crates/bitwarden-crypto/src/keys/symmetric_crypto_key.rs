@@ -8,6 +8,7 @@ use rand::RngExt;
 use rand::SeedableRng;
 #[cfg(test)]
 use rand_chacha::ChaChaRng;
+use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
@@ -536,6 +537,30 @@ impl EncodedSymmetricKey {
     }
 }
 
+// Note: Deserialize and Serialize are only implemented until external usages of
+// symmetric crypto keys are removed. We do not want to support these, but while
+// these have to be supported, we want to have type-safety over having raw byte
+// arrays.
+impl<'de> Deserialize<'de> for SymmetricCryptoKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let encoded_key = BitwardenLegacyKeyBytes::deserialize(deserializer)?;
+        SymmetricCryptoKey::try_from(&encoded_key).map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for SymmetricCryptoKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let encoded_key = self.to_encoded();
+        encoded_key.serialize(serializer)
+    }
+}
+
 /// Test only helper for deriving a symmetric key.
 #[cfg(test)]
 pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
@@ -570,6 +595,14 @@ mod tests {
         println!("{:?}", aes_key);
         let xchacha_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         println!("{:?}", xchacha_key);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_symmetric_crypto_key() {
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let serialized = serde_json::to_string(&key).unwrap();
+        let deserialized: SymmetricCryptoKey = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(key, deserialized);
     }
 
     #[test]
