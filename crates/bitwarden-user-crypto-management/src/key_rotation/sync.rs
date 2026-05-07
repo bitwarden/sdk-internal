@@ -530,10 +530,8 @@ mod tests {
             folders: Some(vec![create_test_folder(uuid::Uuid::new_v4())]),
             ciphers: Some(vec![create_test_cipher(uuid::Uuid::new_v4())]),
             sends: Some(vec![create_test_send(uuid::Uuid::new_v4())]),
-            collections: None,
-            domains: None,
-            policies: None,
             user_decryption: Some(Box::new(create_test_user_decryption())),
+            ..Default::default()
         }
     }
 

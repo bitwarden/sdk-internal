@@ -141,6 +141,16 @@ impl PasswordManagerClient {
     pub fn sync(&self) -> bitwarden_sync::SyncClient {
         self.0.sync()
     }
+
+    /// Returns true when the user's symmetric key is loaded into the key store.
+    pub fn is_unlocked(&self) -> bool {
+        use bitwarden_core::key_management::SymmetricKeySlotId;
+        self.0
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeySlotId::User)
+    }
 }
 
 #[cfg(test)]

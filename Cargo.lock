@@ -625,7 +625,9 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-state-bridge-macro",
  "bitwarden-test",
+ "bitwarden-threading",
  "bitwarden-uniffi-error",
  "bitwarden-uuid",
  "chrono",
@@ -999,13 +1001,13 @@ version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-threading",
  "js-sys",
  "serde",
- "serde_bytes",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -1080,6 +1082,15 @@ dependencies = [
  "tokio",
  "tsify",
  "uniffi",
+]
+
+[[package]]
+name = "bitwarden-state-bridge-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1290,6 +1301,7 @@ dependencies = [
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-server-communication-config",
+ "bitwarden-shared-unlock",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",
