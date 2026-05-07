@@ -30,7 +30,7 @@ impl UserCryptoManagementClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let organizations = sync::sync_orgs(api_client)
             .await
-            .map_err(|_| RotateUserKeysError::ApiError)?;
+            .map_err(|_| RotateUserKeysError::Api)?;
         Ok(organizations)
     }
 
@@ -42,7 +42,7 @@ impl UserCryptoManagementClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let emergency_access = sync::sync_emergency_access(api_client)
             .await
-            .map_err(|_| RotateUserKeysError::ApiError)?;
+            .map_err(|_| RotateUserKeysError::Api)?;
         Ok(emergency_access)
     }
 }
@@ -51,13 +51,13 @@ impl UserCryptoManagementClient {
 #[bitwarden_error(flat)]
 pub enum RotateUserKeysError {
     #[error("API error during key rotation")]
-    ApiError,
+    Api,
     #[error("Cryptographic error during key rotation")]
-    CryptoError,
+    Crypto,
     #[error("Invalid public key provided during key rotation")]
     InvalidPublicKey,
     #[error("Untrusted key encountered during key rotation")]
-    UntrustedKeyError,
+    UntrustedKey,
     #[error("Unimplemented key rotation method")]
     UnimplementedKeyRotationMethod,
     #[error("Vault contains old attachments that must be re-uploaded before key rotation")]

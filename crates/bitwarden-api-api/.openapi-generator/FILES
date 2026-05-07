@@ -29,6 +29,7 @@ src/apis/organization_domain_api.rs
 src/apis/organization_export_api.rs
 src/apis/organization_integration_api.rs
 src/apis/organization_integration_configuration_api.rs
+src/apis/organization_invite_links_api.rs
 src/apis/organization_reports_api.rs
 src/apis/organization_sponsorships_api.rs
 src/apis/organization_users_api.rs
@@ -170,6 +171,7 @@ src/models/communication_settings.rs
 src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
 src/models/create_collection_request_model.rs
+src/models/create_organization_invite_link_request_model.rs
 src/models/create_premium_checkout_session_request.rs
 src/models/credential_create_options.rs
 src/models/delete_attachment_response_model.rs
@@ -312,6 +314,7 @@ src/models/organization_subscription_update_request.rs
 src/models/organization_subscription_update_request_model.rs
 src/models/organization_update_request_model.rs
 src/models/organization_upgrade_request_model.rs
+src/models/organization_user.rs
 src/models/organization_user_accept_init_request_model.rs
 src/models/organization_user_accept_request_model.rs
 src/models/organization_user_bulk_confirm_request_model.rs
@@ -436,6 +439,7 @@ src/models/reset_password_with_org_id_request_model.rs
 src/models/response_data.rs
 src/models/restart_subscription_request.rs
 src/models/restore_secret_version_request_model.rs
+src/models/revocation_reason.rs
 src/models/revoke_access_tokens_request.rs
 src/models/rotate_user_account_keys_and_data_request_model.rs
 src/models/rotate_user_keys_request_model.rs

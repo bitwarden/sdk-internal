@@ -61,7 +61,7 @@ async fn internal_password_change_and_rotate_user_keys(
 ) -> Result<(), RotateUserKeysError> {
     let sync = sync_current_account_data(api_client)
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
 
     // Fail early if any cipher has old attachments that would become irrecoverable
     check_for_old_attachments(&sync.ciphers)?;
@@ -84,7 +84,7 @@ async fn internal_password_change_and_rotate_user_keys(
             &rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account data for user key rotation");
         let account_data_model = reencrypt_data(
@@ -95,10 +95,10 @@ async fn internal_password_change_and_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account unlock data for user key rotation");
-        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::ApiError)?;
+        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::Api)?;
         let unlock_data_model = reencrypt_master_password_change_unlock_data(
             ReencryptMasterPasswordChangeAndUnlockInput {
                 password: request.password,
@@ -116,11 +116,11 @@ async fn internal_password_change_and_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         let old_master_password_authentication_data =
             MasterPasswordAuthenticationData::derive(&request.old_password, &kdf, &salt)
-                .map_err(|_| RotateUserKeysError::CryptoError)?;
+                .map_err(|_| RotateUserKeysError::Crypto)?;
 
         RotateUserAccountKeysAndDataRequestModel {
             old_master_key_authentication_hash: Some(
@@ -139,7 +139,7 @@ async fn internal_password_change_and_rotate_user_keys(
         .accounts_key_management_api()
         .password_change_and_rotate_user_account_keys(Some(post_request))
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
     info!("Successfully rotated user account keys and data");
     Ok(())
 }
@@ -195,9 +195,6 @@ mod tests {
             folders: Some(vec![]),
             ciphers: Some(vec![]),
             sends: Some(vec![]),
-            collections: None,
-            domains: None,
-            policies: None,
             user_decryption: Some(Box::new(UserDecryptionResponseModel {
                 master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
                     kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
@@ -212,6 +209,7 @@ mod tests {
                 web_authn_prf_options: None,
                 v2_upgrade_token: None,
             })),
+            ..Default::default()
         };
 
         (store, sync_response)
@@ -283,7 +281,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
@@ -321,7 +319,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
             mock.organizations_api.checkpoint();
@@ -403,7 +401,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
             mock.organizations_api.checkpoint();

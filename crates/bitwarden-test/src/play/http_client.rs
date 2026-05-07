@@ -89,7 +89,7 @@ impl PlayHttpClient {
         } else {
             let body = response.text().await.unwrap_or_default();
             debug!(body = %body, "Play error response body");
-            Err(PlayError::ServerError {
+            Err(PlayError::Response {
                 status: status.as_u16(),
                 body,
             })
@@ -107,7 +107,7 @@ impl PlayHttpClient {
         } else {
             let body = response.text().await.unwrap_or_default();
             debug!(status = %status, body = %body, "Play error response");
-            Err(PlayError::ServerError {
+            Err(PlayError::Response {
                 status: status.as_u16(),
                 body,
             })
@@ -193,7 +193,7 @@ mod tests {
             client.post_seeder("/seed/", &serde_json::json!({})).await;
 
         match result {
-            Err(PlayError::ServerError { status, body }) => {
+            Err(PlayError::Response { status, body }) => {
                 assert_eq!(status, 500);
                 assert_eq!(body, "Internal Server Error");
             }
@@ -237,7 +237,7 @@ mod tests {
         let result = client.delete_seeder("/seed/test-id").await;
 
         match result {
-            Err(PlayError::ServerError { status, body }) => {
+            Err(PlayError::Response { status, body }) => {
                 assert_eq!(status, 404);
                 assert_eq!(body, "Not found");
             }

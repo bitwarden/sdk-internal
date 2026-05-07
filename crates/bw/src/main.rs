@@ -5,19 +5,23 @@
     reason = "The CLI uses stdout/stderr for user interaction"
 )]
 
-use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
+use bitwarden_core::{DeviceType, GlobalClient, HostPlatformInfo, init_host_platform_info};
 use clap::{CommandFactory, Parser};
-use clap_complete::Shell;
 use color_eyre::eyre::Result;
 use tracing_subscriber::{
     EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
 };
 
-use crate::{command::*, render::CommandResult};
+use crate::{
+    client_state::{BwCommandExt, ClientContext},
+    command::*,
+    render::CommandResult,
+};
 
 mod admin_console;
 mod auth;
+mod client_state;
 mod command;
 mod dirt;
 mod key_management;
@@ -48,6 +52,8 @@ async fn main() -> Result<()> {
         .with(filter)
         .init();
 
+    init_cli_platform_info();
+
     let cli = Cli::parse();
     install_color_eyre(cli.color)?;
     let render_config = render::RenderConfig::new(&cli);
@@ -65,22 +71,21 @@ async fn main() -> Result<()> {
 }
 
 async fn process_commands(command: Commands, _session: Option<String>) -> CommandResult {
-    // Try to initialize the client with the session if provided
-    // Ideally we'd have separate clients and this would be an enum, something like:
-    // enum CliClient {
-    //   Unlocked(_),  // If the user already logged in and the provided session is valid
-    //   Locked(_),    // If the user is logged in, but the session hasn't been provided
-    //   LoggedOut(_), // If the user is not logged in
-    // }
-    // If the session was invalid, we'd just return an error immediately
-    // This would allow each command to match on the client type that they need, and we don't need
-    // to do two matches over the whole command tree
-    let client = bitwarden_pm::PasswordManagerClient::new(None);
+    let global = GlobalClient::new();
 
-    // Temporary until rehydration
-    if let (Ok(email), Ok(password)) = (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD")) {
+    // Temporary until session persistence (PM-35206): if the legacy env vars are present, eagerly
+    // construct + log in a `PasswordManagerClient` so commands that need a logged-in user can run.
+    let user = if let (Ok(email), Ok(password)) =
+        (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD"))
+    {
+        let client = bitwarden_pm::PasswordManagerClient::new(None);
         temp_login(&client.0, email, password).await?;
-    }
+        Some(client)
+    } else {
+        None
+    };
+
+    let ctx = ClientContext { global, user };
 
     match command {
         // Auth commands
@@ -92,31 +97,12 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands
-        Commands::Sync(args) => args.execute_sync(client).await,
-
-        Commands::Encode => {
-            let input = std::io::read_to_string(std::io::stdin())?;
-            let encoded = STANDARD.encode(input);
-            Ok(encoded.into())
-        }
-
-        Commands::Config { command } => command.run().await,
+        Commands::Sync(args) => args.dispatch(ctx).await,
+        Commands::Encode(args) => args.dispatch(ctx).await,
+        Commands::Config { command } => command.dispatch(ctx).await,
+        Commands::Completion(args) => args.dispatch(ctx).await,
 
         Commands::Update { .. } => todo!(),
-
-        Commands::Completion { shell } => {
-            let Some(shell) = shell.or_else(Shell::from_env) else {
-                return Ok(
-                    "Couldn't autodetect a valid shell. Run `bw completion --help` for more info."
-                        .into(),
-                );
-            };
-
-            let mut cmd = Cli::command();
-            let name = cmd.get_name().to_string();
-            clap_complete::generate(shell, &mut cmd, name, &mut std::io::stdout());
-            Ok(().into())
-        }
 
         Commands::Status(_) => todo!(),
 
@@ -134,7 +120,12 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Move(_args) => todo!(),
 
         // Tools commands
-        Commands::Generate(arg) => arg.run(&client),
+        Commands::Generate(args) => {
+            let client = ctx
+                .user
+                .unwrap_or_else(|| bitwarden_pm::PasswordManagerClient::new(None));
+            args.run(&client)
+        }
         Commands::Import(_args) => todo!(),
         Commands::Export(_args) => todo!(),
         Commands::Send(_args) => todo!(),
@@ -167,4 +158,23 @@ async fn temp_login(
     tracing::info!("Login result: {:?}", result);
 
     Ok(())
+}
+
+fn init_cli_platform_info() {
+    let device_type = if cfg!(target_os = "windows") {
+        DeviceType::WindowsCLI
+    } else if cfg!(target_os = "macos") {
+        DeviceType::MacOsCLI
+    } else {
+        DeviceType::LinuxCLI
+    };
+
+    init_host_platform_info(HostPlatformInfo {
+        user_agent: format!("Bitwarden_CLI/{}", env!("CARGO_PKG_VERSION")),
+        device_type,
+        // Stable identifier comes from session persistence (PM-35206).
+        device_identifier: None,
+        bitwarden_client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        bitwarden_package_type: Some("cli".to_string()),
+    });
 }

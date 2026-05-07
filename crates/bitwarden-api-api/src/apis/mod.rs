@@ -30,6 +30,7 @@ pub mod organization_domain_api;
 pub mod organization_export_api;
 pub mod organization_integration_api;
 pub mod organization_integration_configuration_api;
+pub mod organization_invite_links_api;
 pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
 pub mod organization_users_api;
@@ -116,6 +117,7 @@ struct ApiClientReal {
     organization_integration_api: organization_integration_api::OrganizationIntegrationApiClient,
     organization_integration_configuration_api:
         organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient,
+    organization_invite_links_api: organization_invite_links_api::OrganizationInviteLinksApiClient,
     organization_reports_api: organization_reports_api::OrganizationReportsApiClient,
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
     organization_users_api: organization_users_api::OrganizationUsersApiClient,
@@ -194,6 +196,8 @@ pub struct ApiClientMock {
     pub organization_integration_api: organization_integration_api::MockOrganizationIntegrationApi,
     pub organization_integration_configuration_api:
         organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi,
+    pub organization_invite_links_api:
+        organization_invite_links_api::MockOrganizationInviteLinksApi,
     pub organization_reports_api: organization_reports_api::MockOrganizationReportsApi,
     pub organization_sponsorships_api:
         organization_sponsorships_api::MockOrganizationSponsorshipsApi,
@@ -271,6 +275,7 @@ impl ApiClient {
             organization_export_api: organization_export_api::OrganizationExportApiClient::new(configuration.clone()),
             organization_integration_api: organization_integration_api::OrganizationIntegrationApiClient::new(configuration.clone()),
             organization_integration_configuration_api: organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient::new(configuration.clone()),
+            organization_invite_links_api: organization_invite_links_api::OrganizationInviteLinksApiClient::new(configuration.clone()),
             organization_reports_api: organization_reports_api::OrganizationReportsApiClient::new(configuration.clone()),
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
             organization_users_api: organization_users_api::OrganizationUsersApiClient::new(configuration.clone()),
@@ -344,6 +349,7 @@ impl ApiClient {
             organization_export_api: organization_export_api::MockOrganizationExportApi::new(),
             organization_integration_api: organization_integration_api::MockOrganizationIntegrationApi::new(),
             organization_integration_configuration_api: organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi::new(),
+            organization_invite_links_api: organization_invite_links_api::MockOrganizationInviteLinksApi::new(),
             organization_reports_api: organization_reports_api::MockOrganizationReportsApi::new(),
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
             organization_users_api: organization_users_api::MockOrganizationUsersApi::new(),
@@ -607,6 +613,15 @@ impl ApiClient {
             ApiClient::Real(real) => &real.organization_integration_configuration_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_integration_configuration_api,
+        }
+    }
+    pub fn organization_invite_links_api(
+        &self,
+    ) -> &dyn organization_invite_links_api::OrganizationInviteLinksApi {
+        match self {
+            ApiClient::Real(real) => &real.organization_invite_links_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.organization_invite_links_api,
         }
     }
     pub fn organization_reports_api(
