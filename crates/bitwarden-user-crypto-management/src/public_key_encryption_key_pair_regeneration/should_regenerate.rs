@@ -94,7 +94,7 @@ async fn check_key_pair(
         }
         Err(e) => {
             error!("Failed to fetch user keys from server: {e:?}");
-            return Err(KeyPairRegenerationError::ApiError);
+            return Err(KeyPairRegenerationError::Api);
         }
     };
 
@@ -224,14 +224,14 @@ fn verify_public_key_matches(
 ) -> Result<bool, KeyPairRegenerationError> {
     let derived_public_key = ctx
         .get_public_key(private_key_id)
-        .map_err(|_| KeyPairRegenerationError::CryptoError)?;
+        .map_err(|_| KeyPairRegenerationError::Crypto)?;
     let derived_b64 = B64::from(
         derived_public_key
             .to_der()
-            .map_err(|_| KeyPairRegenerationError::CryptoError)?,
+            .map_err(|_| KeyPairRegenerationError::Crypto)?,
     );
     let server_b64 =
-        B64::from_str(server_public_key_b64).map_err(|_| KeyPairRegenerationError::CryptoError)?;
+        B64::from_str(server_public_key_b64).map_err(|_| KeyPairRegenerationError::Crypto)?;
     Ok(derived_b64.to_string() == server_b64.to_string())
 }
 
@@ -360,7 +360,7 @@ mod tests {
         let result =
             internal_should_regenerate_public_key_encryption_key_pair(&key_store, &api_client)
                 .await;
-        assert!(matches!(result, Err(KeyPairRegenerationError::ApiError)));
+        assert!(matches!(result, Err(KeyPairRegenerationError::Api)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();

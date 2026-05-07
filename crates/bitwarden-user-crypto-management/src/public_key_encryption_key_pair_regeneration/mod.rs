@@ -30,9 +30,9 @@ pub enum KeyPairRegenerationError {
     #[error("User key is not available in key store")]
     UserKeyNotAvailable,
     #[error("API call failed during key pair regeneration")]
-    ApiError,
+    Api,
     #[error("Cryptographic error during key pair regeneration")]
-    CryptoError,
+    Crypto,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

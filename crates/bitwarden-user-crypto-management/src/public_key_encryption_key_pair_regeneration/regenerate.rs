@@ -23,20 +23,20 @@ pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
             .is_v1_symmetric_key(SymmetricKeySlotId::User)
             .map_err(|_| KeyPairRegenerationError::UserKeyNotAvailable)?
         {
-            return Err(KeyPairRegenerationError::CryptoError);
+            return Err(KeyPairRegenerationError::Crypto);
         }
 
         let new_private_key_id = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let wrapped = ctx
             .wrap_private_key(SymmetricKeySlotId::User, new_private_key_id)
-            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::Crypto)?;
         let public_key = ctx
             .get_public_key(new_private_key_id)
-            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::Crypto)?;
         let public_key_b64 = B64::from(
             public_key
                 .to_der()
-                .map_err(|_| KeyPairRegenerationError::CryptoError)?,
+                .map_err(|_| KeyPairRegenerationError::Crypto)?,
         )
         .to_string();
 
@@ -55,7 +55,7 @@ pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
         .await
         .map_err(|e| {
             error!("Failed to post regenerated keys to server: {e:?}");
-            KeyPairRegenerationError::ApiError
+            KeyPairRegenerationError::Api
         })?;
 
     let state = {
@@ -63,12 +63,12 @@ pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
 
         let temp_private_key_id = ctx
             .unwrap_private_key(SymmetricKeySlotId::User, &wrapped_private_key)
-            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::Crypto)?;
         ctx.persist_private_key(temp_private_key_id, PrivateKeySlotId::UserPrivateKey)
-            .map_err(|_| KeyPairRegenerationError::CryptoError)?;
+            .map_err(|_| KeyPairRegenerationError::Crypto)?;
 
         WrappedAccountCryptographicState::get_v1_from_key_store(&ctx)
-            .map_err(|_| KeyPairRegenerationError::CryptoError)?
+            .map_err(|_| KeyPairRegenerationError::Crypto)?
     };
 
     info!("Successfully regenerated user public key encryption key pair");
@@ -200,7 +200,7 @@ mod tests {
 
         let result =
             internal_regenerate_public_key_encryption_key_pair(&key_store, &api_client).await;
-        assert!(matches!(result, Err(KeyPairRegenerationError::ApiError)));
+        assert!(matches!(result, Err(KeyPairRegenerationError::Api)));
 
         {
             let ctx = key_store.context();
@@ -254,7 +254,7 @@ mod tests {
 
         let result =
             internal_regenerate_public_key_encryption_key_pair(&key_store, &api_client).await;
-        assert!(matches!(result, Err(KeyPairRegenerationError::CryptoError)));
+        assert!(matches!(result, Err(KeyPairRegenerationError::Crypto)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
