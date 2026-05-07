@@ -35,11 +35,14 @@ pub(crate) enum DataReencryptionError {
 pub(super) fn check_for_old_attachments(
     ciphers: &[bitwarden_vault::Cipher],
 ) -> Result<(), RotateUserKeysError> {
-    let has_old = ciphers.iter().any(|c| {
-        c.attachments
-            .as_ref()
-            .is_some_and(|atts| atts.iter().any(|a| a.key.is_none()))
-    });
+    let has_old = ciphers
+        .iter()
+        .filter(|c| c.organization_id.is_none())
+        .any(|c| {
+            c.attachments
+                .as_ref()
+                .is_some_and(|atts| atts.iter().any(|a| a.key.is_none()))
+        });
     if has_old {
         return Err(RotateUserKeysError::OldAttachments);
     }
@@ -203,6 +206,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            passport: None,
+            drivers_license: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: false,
@@ -259,6 +264,21 @@ mod tests {
             check_for_old_attachments(&ciphers),
             Err(RotateUserKeysError::OldAttachments)
         ));
+    }
+
+    #[test]
+    fn test_check_for_old_attachments_ignores_organization_ciphers() {
+        let mut cipher = make_test_cipher(Some(vec![Attachment {
+            id: Some("att1".to_string()),
+            url: None,
+            size: None,
+            size_name: None,
+            file_name: Some(TEST_ENC_STRING.parse().unwrap()),
+            key: None,
+        }]));
+        cipher.organization_id = Some(bitwarden_core::OrganizationId::new_v4());
+        let ciphers = vec![cipher];
+        assert!(check_for_old_attachments(&ciphers).is_ok());
     }
 
     #[test]
