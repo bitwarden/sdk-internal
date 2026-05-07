@@ -13,11 +13,13 @@ use bitwarden_core::key_management::{
 };
 use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
-use tracing::{debug_span, error};
+use tracing::{debug, debug_span, error, info};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
+use crate::key_rotation::{
+    partial_rotateable_keyset::PartialRotateableKeyset, rotate_user_keys::UpgradeTokenAction,
+};
 
 /// The data necessary to re-share the user-key to a V1 emergency access membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
@@ -92,6 +94,7 @@ pub(super) fn reencrypt_master_password_change_unlock_data(
         input.common_unlock_data,
         current_user_key_id,
         new_user_key_id,
+        UpgradeTokenAction::Skip,
         ctx,
     )?;
 
@@ -102,7 +105,9 @@ pub(super) fn reencrypt_master_password_change_unlock_data(
             .organization_account_recovery_unlock_data,
         passkey_unlock_data: common_unlock_data.passkey_unlock_data,
         device_key_unlock_data: common_unlock_data.device_key_unlock_data,
-        v2_upgrade_token: common_unlock_data.v2_upgrade_token,
+        // Master password change + key rotation always needs to logout other sessions, so no
+        // upgrade token is created.
+        v2_upgrade_token: None,
     })
 }
 
@@ -110,6 +115,7 @@ pub(super) fn reencrypt_common_unlock_data(
     input: ReencryptCommonUnlockDataInput,
     current_user_key_id: SymmetricKeySlotId,
     new_user_key_id: SymmetricKeySlotId,
+    upgrade_token_action: UpgradeTokenAction,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<CommonUnlockDataRequestModel, ReencryptError> {
     let tde_device_unlock_data = reencrypt_tde_devices(
@@ -129,7 +135,12 @@ pub(super) fn reencrypt_common_unlock_data(
     let organizations_memberships =
         reencrypt_organization_memberships(input.trusted_organization_keys, new_user_key_id, ctx)?;
 
-    let upgrade_token = make_upgrade_token_if_needed(current_user_key_id, new_user_key_id, ctx)?;
+    let upgrade_token = make_upgrade_token_if_needed(
+        current_user_key_id,
+        new_user_key_id,
+        upgrade_token_action,
+        ctx,
+    )?;
 
     Ok(CommonUnlockDataRequestModel {
         emergency_access_unlock_data: Some(emergency_accesses),
@@ -302,8 +313,14 @@ fn to_authentication_and_unlock_data(
 fn make_upgrade_token_if_needed(
     current_user_key_id: SymmetricKeySlotId,
     new_user_key_id: SymmetricKeySlotId,
+    upgrade_token_action: UpgradeTokenAction,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Option<Box<V2UpgradeTokenRequestModel>>, ReencryptError> {
+    if matches!(upgrade_token_action, UpgradeTokenAction::Skip) {
+        debug!("UpgradeTokenAction::Skip, skipping upgrade token creation");
+        return Ok(None);
+    }
+
     match (
         ctx.get_symmetric_key_algorithm(current_user_key_id),
         ctx.get_symmetric_key_algorithm(new_user_key_id),
@@ -317,6 +334,7 @@ fn make_upgrade_token_if_needed(
                     error!("Failed to create V2 upgrade token: {e}");
                     ReencryptError::UpgradeTokenCreation
                 })?;
+            info!("Upgrade token created for the key rotation");
             Ok(Some(Box::new(token.into())))
         }
         _ => Ok(None),
@@ -371,6 +389,19 @@ mod tests {
             webauthn_credentials: vec![],
             trusted_organization_keys: vec![],
             trusted_emergency_access_keys: vec![],
+        }
+    }
+
+    fn request_model_to_token(request: V2UpgradeTokenRequestModel) -> V2UpgradeToken {
+        V2UpgradeToken {
+            wrapped_user_key_1: request
+                .wrapped_user_key1
+                .parse()
+                .expect("wrapped_user_key1 should parse"),
+            wrapped_user_key_2: request
+                .wrapped_user_key2
+                .parse()
+                .expect("wrapped_user_key2 should parse"),
         }
     }
 
@@ -481,6 +512,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -521,6 +553,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -570,6 +603,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -617,6 +651,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -651,18 +686,53 @@ mod tests {
             empty_common_unlock_input(),
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+        let token_request = *unlock_data
+            .v2_upgrade_token
+            .expect("v2_upgrade_token should be populated for V1 -> V2 rotation");
+        let token = request_model_to_token(token_request);
+
+        let unwrapped_v2_id = token
+            .unwrap_v2(current_user_key_id, &mut ctx)
+            .expect("unwrap_v2 should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, unwrapped_v2_id, &mut ctx);
+
+        let unwrapped_v1_id = token
+            .unwrap_v1(new_user_key_id, &mut ctx)
+            .expect("unwrap_v1 should succeed");
+        assert_symmetric_keys_equal(current_user_key_id, unwrapped_v1_id, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_common_unlock_data_v1_to_v2_upgrade_token_action_skip_returns_none() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = reencrypt_common_unlock_data(
+            empty_common_unlock_input(),
+            current_user_key_id,
+            new_user_key_id,
+            UpgradeTokenAction::Skip,
             &mut ctx,
         );
 
         let unlock_data = result.expect("should be ok");
         assert!(
-            unlock_data.v2_upgrade_token.is_some(),
-            "v2_upgrade_token should be populated for V1 -> V2 rotation"
+            unlock_data.v2_upgrade_token.is_none(),
+            "UpgradeTokenAction::Skip skips the creation of the upgrade token"
         );
     }
 
     #[test]
-    fn test_reencrypt_common_unlock_data_v2_to_v2_no_upgrade_token() {
+    fn test_reencrypt_common_unlock_data_v2_to_v2_upgrade_token_action_create_if_needed_returns_none()
+     {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
@@ -673,18 +743,19 @@ mod tests {
             empty_common_unlock_input(),
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
         let unlock_data = result.expect("should be ok");
         assert!(
             unlock_data.v2_upgrade_token.is_none(),
-            "v2_upgrade_token should be None for V2 -> V2 rotation"
+            "UpgradeTokenAction::CreateIfNeeded should not create a v2_upgrade_token for V2 -> V2 rotation"
         );
     }
 
     #[test]
-    fn test_reencrypt_master_password_change_unlock_data_forwards_v2_upgrade_token() {
+    fn test_reencrypt_master_password_change_unlock_data_never_returns_upgrade_token() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
@@ -708,8 +779,8 @@ mod tests {
         .expect("should be ok");
 
         assert!(
-            unlock_data.v2_upgrade_token.is_some(),
-            "v2_upgrade_token should be forwarded from common unlock data into UnlockDataRequestModel"
+            unlock_data.v2_upgrade_token.is_none(),
+            "master password change rotation must never include a v2 upgrade token"
         );
     }
 }
