@@ -4,7 +4,8 @@ use bitwarden_api_api::models::{
     WebAuthnCredentialCreateOptionsResponseModel, WebAuthnLoginCredentialCreateRequestModel,
 };
 use bitwarden_core::{
-    Client, key_management::SymmetricKeyId, mobile::KdfClient, platform::SecretVerificationRequest,
+    Client, key_management::SymmetricKeySlotId, mobile::KdfClient,
+    platform::SecretVerificationRequest,
 };
 use bitwarden_crypto::{HashPurpose, Kdf, RotateableKeySet};
 use chrono::{DateTime, Utc};
@@ -51,12 +52,14 @@ impl DeviceAuthKeyAuthenticator<'_> {
         &mut self,
         client_name: String,
         web_vault_url: String,
-        // TODO: These parameters are limiting:
-        // - Is there some way to accept the master password hash directly instead of having to do
-        //   it in here?
-        // - Do we need to support all the options (master password hash, OTP, secret, auth access
-        //   token)? Or just master password hash and OTP?
-        // We do this in get_user_api_key, consider centralizing this logic
+        // TODO(PM-22681): We should define an enum to accept all the different
+        // SecretVerificationRequest input methods that the server can accept,
+        // and have a centralized place where the secret verification can be
+        // derived from the input.
+        //
+        // For now, we are hard-coding master password hash and OTP.
+        // When PM-22681 is complete, we can use that implementation here as a
+        // breaking change.
         email: String,
         secret_verification_request: SecretVerificationRequest,
         kdf_params: Kdf,
@@ -146,8 +149,8 @@ impl DeviceAuthKeyAuthenticator<'_> {
             })?;
         let key_set = {
             let ctx = self.client.internal.get_key_store().context();
-            RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User).map_err(|err| {
-                tracing::error!(%err, "Failed to generate rotateable key set from PRF output");
+            RotateableKeySet::new(&ctx, &prf_key, SymmetricKeySlotId::User).map_err(|err| {
+                tracing::error!(%err, "Failed to gen/Conerate rotateable key set from PRF output");
                 DeviceAuthKeyError::PrfFailure
             })?
         };
@@ -354,7 +357,6 @@ async fn build_secret_verification_request(
         None
     };
 
-    // TODO: Make this an enum?
     Ok(SecretVerificationRequestModel {
         master_password_hash,
         otp: input.otp.clone(),
@@ -521,14 +523,8 @@ pub struct DeviceAuthKeyRecord {
     /// Credential ID for the WebAuthn credential.
     pub credential_id: Vec<u8>,
 
-    /// Private key material.
+    /// Private key material, formatted as a COSE key.
     pub key: Vec<u8>,
-
-    /// COSE algorithm identifier for the key.
-    pub key_alg: i64,
-
-    /// COSE elliptic curve identifier for the key.
-    pub key_curve: i64,
 
     /// RP ID of the WebAuthn credential.
     pub rp_id: String,
@@ -565,8 +561,6 @@ impl TryFrom<Passkey> for DeviceAuthKeyRecord {
         Ok(DeviceAuthKeyRecord {
             credential_id,
             key,
-            key_alg: -7,  // ECDSA w/ SHA-256
-            key_curve: 1, // P-256
             rp_id: value.rp_id,
             user_id,
             counter: value.counter,
@@ -643,7 +637,7 @@ pub enum DeviceAuthKeyError {
 
     /// Failed to convert between Rust types.
     #[error("Failed to convert between Rust types")]
-    ConversionError,
+    Conversion,
 
     /// Credential excluded.
     #[error("The existing device auth key is already registered on the server.")]
@@ -783,8 +777,13 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
     }
 
     async fn update_credential(&mut self, _cred: Passkey) -> Result<(), StatusCode> {
-        // This is only used to update the conuter, which we're not currently using.
-        unimplemented!()
+        // This is only used to update the counter, which we're not currently using.
+        tracing::warn!("called update_credential() on device auth key, which is not supported");
+        Err(StatusCode::Ctap2(
+            VendorError::try_from(0xF3)
+                .expect("valid vendor error")
+                .into(),
+        ))
     }
 
     async fn get_info(&self) -> StoreInfo {

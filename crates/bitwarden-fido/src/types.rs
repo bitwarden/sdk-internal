@@ -245,7 +245,7 @@ pub enum WebAuthnEntityError {
     InvalidRpId,
 
     #[error("Invalid public key credential parameters")]
-    PublicKeyCredentialParmametersError(#[from] PublicKeyCredentialParametersError),
+    InvalidPublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
 
     #[error("Unknown type")]
     UnknownEnum(#[from] UnknownEnumError),
