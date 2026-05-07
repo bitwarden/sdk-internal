@@ -53,7 +53,7 @@ extern "C" {
         user_id: UserId,
     ) -> Result<(), JsValue>;
 
-    /// Triggers a biometrics UV check. Retruns true if the check succeeded.
+    /// Triggers a biometrics UV check. Returns true if the check succeeded.
     #[wasm_bindgen(method, catch)]
     async fn authenticate_biometrics(this: &RawJsBiometricsDriver) -> Result<bool, JsValue>;
 }
