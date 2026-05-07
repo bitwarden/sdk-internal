@@ -54,24 +54,16 @@ impl UserCryptoManagementClient {
         &self,
         request: RotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
-        // This guard should be removed once other key rotation methods are implemented.
-        match &request.key_rotation_method {
-            KeyRotationMethod::KeyConnector | KeyRotationMethod::Tde => {
-                return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
-            }
-            KeyRotationMethod::Password { .. } => {}
-        }
-
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
         let sync = sync_current_account_data(api_client)
             .await
-            .map_err(|_| RotateUserKeysError::ApiError)?;
+            .map_err(|_| RotateUserKeysError::Api)?;
 
         self.regenerate_public_key_encryption_key_pair_if_needed_with_ciphers(&sync.ciphers)
             .await
-            .map_err(|_| RotateUserKeysError::CryptoError)?;
+            .map_err(|_| RotateUserKeysError::Crypto)?;
 
         internal_rotate_user_keys(key_store, api_client, request, sync).await
     }
@@ -84,6 +76,14 @@ async fn internal_rotate_user_keys(
     request: RotateUserKeysRequest,
     sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
+    // This guard should be removed once other key rotation methods are implemented.
+    match &request.key_rotation_method {
+        KeyRotationMethod::KeyConnector | KeyRotationMethod::Tde => {
+            return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
+        }
+        KeyRotationMethod::Password { .. } => {}
+    }
+
     // Create a separate scope so that the mutable context is not held across the await point
     let post_request = {
         let mut ctx = key_store.context_mut();
@@ -103,7 +103,7 @@ async fn internal_rotate_user_keys(
                 &rotation_context.new_user_key_id,
                 &mut ctx,
             )
-            .map_err(|_| RotateUserKeysError::CryptoError)?;
+            .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account data for user key rotation");
         let account_data_model = reencrypt_data(
@@ -114,18 +114,18 @@ async fn internal_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account primary unlock method for user key rotation");
         let unlock_method_input =
             PrimaryUnlockMethod::from_key_rotation_method(request.key_rotation_method, &sync)
-                .map_err(|_| RotateUserKeysError::ApiError)?;
+                .map_err(|_| RotateUserKeysError::Api)?;
         let unlock_method_data = reencrypt_unlock_method_data(
             unlock_method_input,
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account common unlock data for user key rotation");
         let common_unlock_data = reencrypt_common_unlock_data(
@@ -139,7 +139,7 @@ async fn internal_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         RotateUserKeysRequestModel {
             wrapped_account_cryptographic_state: Box::new(
@@ -156,7 +156,7 @@ async fn internal_rotate_user_keys(
         .accounts_key_management_api()
         .rotate_user_keys(Some(post_request))
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
     info!("Successfully rotated user account keys and data");
     Ok(())
 }
@@ -203,6 +203,66 @@ mod tests {
         };
 
         (store, sync)
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_key_connector_returns_unimplemented() {
+        let (key_store, sync) = make_test_key_store_and_synced_data();
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .never();
+        });
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::KeyConnector,
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+            },
+            sync,
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
+        ));
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_tde_returns_unimplemented() {
+        let (key_store, sync) = make_test_key_store_and_synced_data();
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .never();
+        });
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Tde,
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+            },
+            sync,
+        )
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
+        ));
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
     }
 
     #[tokio::test]
@@ -263,7 +323,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }
