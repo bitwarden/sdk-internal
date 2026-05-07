@@ -255,7 +255,7 @@ pub async fn ipc_register_biometrics_handlers(
         .await;
 }
 
-/// Sends a `GetBiometricsStatus` RPC request to a destination endpoint.
+/// Sends a `GetBiometricsStatus` RPC request to the desktop renderer
 #[wasm_bindgen(js_name = ipcRequestGetBiometricsStatus)]
 pub async fn ipc_request_get_biometrics_status(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
@@ -272,7 +272,7 @@ pub async fn ipc_request_get_biometrics_status(
         .await
 }
 
-/// Sends an `UnlockBiometrics` RPC request to a destination endpoint.
+/// Sends an `UnlockBiometrics` RPC request to the desktop renderer
 #[wasm_bindgen(js_name = ipcRequestUnlockBiometrics)]
 pub async fn ipc_request_unlock_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
@@ -289,7 +289,7 @@ pub async fn ipc_request_unlock_biometrics(
         .await
 }
 
-/// Sends an `AuthenticateBiometrics` RPC request to a destination endpoint.
+/// Sends an `AuthenticateBiometrics` RPC request to the desktop renderer.
 #[wasm_bindgen(js_name = ipcRequestAuthenticateBiometrics)]
 pub async fn ipc_request_authenticate_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
