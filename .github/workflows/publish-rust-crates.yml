@@ -1,18 +1,8 @@
 name: Publish Rust crates
-run-name: Publish Rust crates ${{ inputs.release_type }}
 
 on:
   workflow_dispatch:
     inputs:
-      release_type:
-        description: "Release Options"
-        required: true
-        default: "Initial Release"
-        type: choice
-        options:
-          - Initial Release
-          - Redeploy
-          - Dry Run
       version:
         description: "Version to publish (default: latest rust crates release)"
         required: true
