@@ -1,6 +1,8 @@
 //! Client implementation for rotating user keys without a password change.
 use bitwarden_api_api::models::RotateUserKeysRequestModel;
-use bitwarden_core::key_management::KeySlotIds;
+use bitwarden_core::key_management::{
+    KeySlotIds, account_cryptographic_state::WrappedAccountCryptographicState,
+};
 use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
 use tracing::{info, instrument};
@@ -61,11 +63,20 @@ impl UserCryptoManagementClient {
             .await
             .map_err(|_| RotateUserKeysError::Api)?;
 
-        self.regenerate_public_key_encryption_key_pair_if_needed_with_ciphers(&sync.ciphers)
+        let wrapped_account_cryptographic_state = self
+            .regenerate_public_key_encryption_key_pair_if_needed_with_ciphers(&sync.ciphers)
             .await
-            .map_err(|_| RotateUserKeysError::Crypto)?;
+            .map_err(|_| RotateUserKeysError::Crypto)?
+            .unwrap_or_else(|| sync.wrapped_account_cryptographic_state.clone());
 
-        internal_rotate_user_keys(key_store, api_client, request, sync).await
+        internal_rotate_user_keys(
+            key_store,
+            api_client,
+            request,
+            wrapped_account_cryptographic_state,
+            sync,
+        )
+        .await
     }
 }
 
@@ -74,6 +85,7 @@ async fn internal_rotate_user_keys(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     request: RotateUserKeysRequest,
+    wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
     // This guard should be removed once other key rotation methods are implemented.
@@ -98,7 +110,7 @@ async fn internal_rotate_user_keys(
         info!("Rotating account cryptographic state for user key rotation");
         let wrapped_account_cryptographic_state_request_model =
             rotate_account_cryptographic_state_to_wrapped_model(
-                &sync.wrapped_account_cryptographic_state,
+                &wrapped_account_cryptographic_state,
                 &rotation_context.current_user_key_id,
                 &rotation_context.new_user_key_id,
                 &mut ctx,
@@ -222,6 +234,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
             },
+            sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
         .await;
@@ -252,6 +265,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
             },
+            sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
         .await;
@@ -285,6 +299,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
             },
+            sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
         .await;
@@ -319,6 +334,7 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
             },
+            sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
         .await;
