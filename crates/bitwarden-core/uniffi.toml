@@ -16,3 +16,27 @@ ffi_module_name = "BitwardenCoreFFI"
 module_name = "BitwardenCore"
 generate_immutable_records = true
 generate_codable_conformance = true
+
+[bindings.swift.custom_types.NaiveDate]
+type_name = "Date"
+imports = ["Foundation"]
+into_custom = """
+{
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    formatter.dateFormat = "yyyy-MM-dd"
+    formatter.isLenient = false
+    return formatter.date(from: {})
+}()
+"""
+from_custom = """
+{
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    formatter.dateFormat = "yyyy-MM-dd"
+    formatter.isLenient = false
+    return formatter.string(from: {})
+}()
+"""
