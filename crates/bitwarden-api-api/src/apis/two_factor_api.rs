@@ -32,7 +32,7 @@ pub trait TwoFactorApi: Send + Sync {
         two_factor_web_authn_delete_request_model: Option<
             models::TwoFactorWebAuthnDeleteRequestModel,
         >,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error<DeleteWebAuthnError>>;
+    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error>;
 
     /// DELETE /two-factor/authenticator
     async fn disable_authenticator<'a>(
@@ -40,61 +40,59 @@ pub trait TwoFactorApi: Send + Sync {
         two_factor_authenticator_disable_request_model: Option<
             models::TwoFactorAuthenticatorDisableRequestModel,
         >,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error<DisableAuthenticatorError>>;
+    ) -> Result<models::TwoFactorProviderResponseModel, Error>;
 
     /// GET /two-factor
-    async fn get(
-        &self,
-    ) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error<GetError>>;
+    async fn get(&self) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error>;
 
     /// POST /two-factor/get-authenticator
     async fn get_authenticator<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<GetAuthenticatorError>>;
+    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error>;
 
     /// POST /two-factor/get-duo
     async fn get_duo<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<GetDuoError>>;
+    ) -> Result<models::TwoFactorDuoResponseModel, Error>;
 
     /// POST /two-factor/get-email
     async fn get_email<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorEmailResponseModel, Error<GetEmailError>>;
+    ) -> Result<models::TwoFactorEmailResponseModel, Error>;
 
     /// GET /organizations/{id}/two-factor
     async fn get_organization<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error<GetOrganizationError>>;
+    ) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{id}/two-factor/get-duo
     async fn get_organization_duo<'a>(
         &self,
         id: &'a str,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<GetOrganizationDuoError>>;
+    ) -> Result<models::TwoFactorDuoResponseModel, Error>;
 
     /// POST /two-factor/get-recover
     async fn get_recover<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorRecoverResponseModel, Error<GetRecoverError>>;
+    ) -> Result<models::TwoFactorRecoverResponseModel, Error>;
 
     /// POST /two-factor/get-webauthn
     async fn get_web_authn<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error<GetWebAuthnError>>;
+    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error>;
 
     /// POST /two-factor/get-yubikey
     async fn get_yubi_key<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error<GetYubiKeyError>>;
+    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error>;
 
     /// PUT /two-factor/authenticator
     async fn put_authenticator<'a>(
@@ -102,45 +100,45 @@ pub trait TwoFactorApi: Send + Sync {
         update_two_factor_authenticator_request_model: Option<
             models::UpdateTwoFactorAuthenticatorRequestModel,
         >,
-    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<PutAuthenticatorError>>;
+    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error>;
 
     /// PUT /two-factor/disable
     async fn put_disable<'a>(
         &self,
         two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error<PutDisableError>>;
+    ) -> Result<models::TwoFactorProviderResponseModel, Error>;
 
     /// PUT /two-factor/duo
     async fn put_duo<'a>(
         &self,
         update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<PutDuoError>>;
+    ) -> Result<models::TwoFactorDuoResponseModel, Error>;
 
     /// PUT /two-factor/email
     async fn put_email<'a>(
         &self,
         update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
-    ) -> Result<models::TwoFactorEmailResponseModel, Error<PutEmailError>>;
+    ) -> Result<models::TwoFactorEmailResponseModel, Error>;
 
     /// PUT /organizations/{id}/two-factor/disable
     async fn put_organization_disable<'a>(
         &self,
         id: &'a str,
         two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error<PutOrganizationDisableError>>;
+    ) -> Result<models::TwoFactorProviderResponseModel, Error>;
 
     /// PUT /organizations/{id}/two-factor/duo
     async fn put_organization_duo<'a>(
         &self,
         id: &'a str,
         update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<PutOrganizationDuoError>>;
+    ) -> Result<models::TwoFactorDuoResponseModel, Error>;
 
     /// PUT /two-factor/webauthn
     async fn put_web_authn<'a>(
         &self,
         two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error<PutWebAuthnError>>;
+    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error>;
 
     /// PUT /two-factor/yubikey
     async fn put_yubi_key<'a>(
@@ -148,19 +146,19 @@ pub trait TwoFactorApi: Send + Sync {
         update_two_factor_yubico_otp_request_model: Option<
             models::UpdateTwoFactorYubicoOtpRequestModel,
         >,
-    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error<PutYubiKeyError>>;
+    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error>;
 
     /// POST /two-factor/send-email
     async fn send_email<'a>(
         &self,
         two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-    ) -> Result<(), Error<SendEmailError>>;
+    ) -> Result<(), Error>;
 
     /// POST /two-factor/send-email-login
     async fn send_email_login<'a>(
         &self,
         two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-    ) -> Result<(), Error<SendEmailLoginError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct TwoFactorApiClient {
@@ -181,7 +179,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         two_factor_web_authn_delete_request_model: Option<
             models::TwoFactorWebAuthnDeleteRequestModel,
         >,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error<DeleteWebAuthnError>> {
+    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -203,7 +201,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         two_factor_authenticator_disable_request_model: Option<
             models::TwoFactorAuthenticatorDisableRequestModel,
         >,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error<DisableAuthenticatorError>> {
+    ) -> Result<models::TwoFactorProviderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -222,9 +220,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get(
-        &self,
-    ) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error<GetError>> {
+    async fn get(&self) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -241,7 +237,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn get_authenticator<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<GetAuthenticatorError>> {
+    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -262,7 +258,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn get_duo<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<GetDuoError>> {
+    ) -> Result<models::TwoFactorDuoResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -280,7 +276,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn get_email<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorEmailResponseModel, Error<GetEmailError>> {
+    ) -> Result<models::TwoFactorEmailResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -299,8 +295,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn get_organization<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error<GetOrganizationError>>
-    {
+    ) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -322,7 +317,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         &self,
         id: &'a str,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<GetOrganizationDuoError>> {
+    ) -> Result<models::TwoFactorDuoResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -344,7 +339,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn get_recover<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorRecoverResponseModel, Error<GetRecoverError>> {
+    ) -> Result<models::TwoFactorRecoverResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -365,7 +360,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn get_web_authn<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error<GetWebAuthnError>> {
+    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -386,7 +381,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn get_yubi_key<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error<GetYubiKeyError>> {
+    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -409,7 +404,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         update_two_factor_authenticator_request_model: Option<
             models::UpdateTwoFactorAuthenticatorRequestModel,
         >,
-    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error<PutAuthenticatorError>> {
+    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -431,7 +426,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn put_disable<'a>(
         &self,
         two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error<PutDisableError>> {
+    ) -> Result<models::TwoFactorProviderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -449,7 +444,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn put_duo<'a>(
         &self,
         update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<PutDuoError>> {
+    ) -> Result<models::TwoFactorDuoResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -467,7 +462,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn put_email<'a>(
         &self,
         update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
-    ) -> Result<models::TwoFactorEmailResponseModel, Error<PutEmailError>> {
+    ) -> Result<models::TwoFactorEmailResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -486,7 +481,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         &self,
         id: &'a str,
         two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error<PutOrganizationDisableError>> {
+    ) -> Result<models::TwoFactorProviderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -509,7 +504,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         &self,
         id: &'a str,
         update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error<PutOrganizationDuoError>> {
+    ) -> Result<models::TwoFactorDuoResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -531,7 +526,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn put_web_authn<'a>(
         &self,
         two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error<PutWebAuthnError>> {
+    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -552,7 +547,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         update_two_factor_yubico_otp_request_model: Option<
             models::UpdateTwoFactorYubicoOtpRequestModel,
         >,
-    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error<PutYubiKeyError>> {
+    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -571,7 +566,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn send_email<'a>(
         &self,
         two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-    ) -> Result<(), Error<SendEmailError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -592,7 +587,7 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn send_email_login<'a>(
         &self,
         two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-    ) -> Result<(), Error<SendEmailLoginError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -609,131 +604,4 @@ impl TwoFactorApi for TwoFactorApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`TwoFactorApi::delete_web_authn`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteWebAuthnError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::disable_authenticator`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DisableAuthenticatorError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_authenticator`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAuthenticatorError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_duo`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetDuoError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetEmailError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_organization_duo`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationDuoError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_recover`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetRecoverError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_web_authn`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetWebAuthnError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::get_yubi_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetYubiKeyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_authenticator`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutAuthenticatorError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_disable`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDisableError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_duo`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDuoError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutEmailError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_organization_disable`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutOrganizationDisableError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_organization_duo`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutOrganizationDuoError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_web_authn`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutWebAuthnError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::put_yubi_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutYubiKeyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::send_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SendEmailError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TwoFactorApi::send_email_login`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SendEmailLoginError {
-    UnknownValue(serde_json::Value),
 }

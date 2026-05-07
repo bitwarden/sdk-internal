@@ -34,7 +34,7 @@ pub trait OrganizationIntegrationConfigurationApi: Send + Sync {
         organization_integration_configuration_request_model: Option<
             models::OrganizationIntegrationConfigurationRequestModel,
         >,
-    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error<CreateError>>;
+    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error>;
 
     /// DELETE /organizations/{organizationId}/integrations/{integrationId}/configurations/
     /// {configurationId}
@@ -43,14 +43,14 @@ pub trait OrganizationIntegrationConfigurationApi: Send + Sync {
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
         configuration_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/{integrationId}/configurations
     async fn get<'a>(
         &self,
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
-    ) -> Result<Vec<models::OrganizationIntegrationConfigurationResponseModel>, Error<GetError>>;
+    ) -> Result<Vec<models::OrganizationIntegrationConfigurationResponseModel>, Error>;
 
     /// PUT /organizations/{organizationId}/integrations/{integrationId}/configurations/
     /// {configurationId}
@@ -62,7 +62,7 @@ pub trait OrganizationIntegrationConfigurationApi: Send + Sync {
         organization_integration_configuration_request_model: Option<
             models::OrganizationIntegrationConfigurationRequestModel,
         >,
-    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error<UpdateError>>;
+    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error>;
 }
 
 pub struct OrganizationIntegrationConfigurationApiClient {
@@ -85,7 +85,7 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
         organization_integration_configuration_request_model: Option<
             models::OrganizationIntegrationConfigurationRequestModel,
         >,
-    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error<CreateError>> {
+    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -111,7 +111,7 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
         configuration_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -135,8 +135,7 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
         &self,
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
-    ) -> Result<Vec<models::OrganizationIntegrationConfigurationResponseModel>, Error<GetError>>
-    {
+    ) -> Result<Vec<models::OrganizationIntegrationConfigurationResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -163,7 +162,7 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
         organization_integration_configuration_request_model: Option<
             models::OrganizationIntegrationConfigurationRequestModel,
         >,
-    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error<UpdateError>> {
+    ) -> Result<models::OrganizationIntegrationConfigurationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -184,29 +183,4 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationIntegrationConfigurationApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationIntegrationConfigurationApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationIntegrationConfigurationApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationIntegrationConfigurationApi::update`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateError {
-    UnknownValue(serde_json::Value),
 }

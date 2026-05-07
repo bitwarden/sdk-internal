@@ -7,7 +7,9 @@
 //! without breaking the other direction's validation.
 
 use bitwarden_api_api::models::V2UpgradeTokenResponseModel;
-use bitwarden_crypto::{Decryptable, EncString, KeyIds, KeyStoreContext, SymmetricKeyAlgorithm};
+use bitwarden_crypto::{
+    Decryptable, EncString, KeySlotIds, KeyStoreContext, SymmetricKeyAlgorithm,
+};
 use thiserror::Error;
 use tracing::instrument;
 
@@ -31,7 +33,7 @@ impl V2UpgradeToken {
     /// (XChaCha20Poly1305) in the KeyStore. Type-checks both keys, then wraps V1 with V2 and
     /// V2 with V1.
     #[instrument(skip(ctx))]
-    pub fn create<Ids: KeyIds>(
+    pub fn create<Ids: KeySlotIds>(
         v1_key_id: Ids::Symmetric,
         v2_key_id: Ids::Symmetric,
         ctx: &KeyStoreContext<Ids>,
@@ -72,7 +74,7 @@ impl V2UpgradeToken {
     /// Unwraps `wrapped_user_key_1` using `v2_key_id`, validates the result can unwrap
     /// `wrapped_user_key_2`, then adds the V1 key to the KeyStore and returns its key ID.
     #[instrument(skip(self, ctx))]
-    pub fn unwrap_v1<Ids: KeyIds>(
+    pub fn unwrap_v1<Ids: KeySlotIds>(
         &self,
         v2_key_id: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
@@ -94,7 +96,7 @@ impl V2UpgradeToken {
     /// Unwraps `wrapped_user_key_2` using `v1_key_id`, validates the result can unwrap
     /// `wrapped_user_key_1`, then adds the V2 key to the KeyStore and returns its key ID.
     #[instrument(skip(self, ctx))]
-    pub fn unwrap_v2<Ids: KeyIds>(
+    pub fn unwrap_v2<Ids: KeySlotIds>(
         &self,
         v1_key_id: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
@@ -170,11 +172,11 @@ mod tests {
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::key_management::KeyIds;
+    use crate::key_management::KeySlotIds;
 
     #[test]
     fn test_create_and_round_trip() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         // Create V1 and V2 keys
@@ -205,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_unwrap_bidirectional() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         // Create V1 and V2 keys
@@ -242,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_create_wrong_key_type_error() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         // Try to create token with two V1 keys
@@ -255,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_serialization_round_trip() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();
@@ -280,7 +282,7 @@ mod tests {
         assert_eq!(serialized, reserialized);
     }
 
-    fn build_response_model<Ids: bitwarden_crypto::KeyIds>(
+    fn build_response_model<Ids: bitwarden_crypto::KeySlotIds>(
         v1_key_id: Ids::Symmetric,
         v2_key_id: Ids::Symmetric,
         ctx: &KeyStoreContext<Ids>,
@@ -307,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_from_response_model_missing_wrapped_uk2() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();
@@ -324,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();

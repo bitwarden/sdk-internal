@@ -3,7 +3,7 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_core::{
     OrganizationId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
@@ -73,7 +73,7 @@ pub struct SecretIdentifiersResponse {
 impl SecretIdentifiersResponse {
     pub(crate) fn process_response(
         response: SecretWithProjectsListResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
         Ok(SecretIdentifiersResponse {
             data: response
@@ -91,25 +91,33 @@ impl SecretIdentifiersResponse {
 pub struct SecretIdentifierResponse {
     pub id: Uuid,
     pub organization_id: Uuid,
-
     pub key: String,
+    pub project_ids: Vec<Uuid>,
 }
 
 impl SecretIdentifierResponse {
     pub(crate) fn process_response(
         response: SecretsWithProjectsInnerSecret,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretIdentifierResponse, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let enc_key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
+        let enc_key = SymmetricKeySlotId::Organization(OrganizationId::new(organization_id));
 
         let key = require!(response.key)
             .parse::<EncString>()?
             .decrypt(ctx, enc_key)?;
 
+        let project_ids = response
+            .projects
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|p| p.id)
+            .collect();
+
         Ok(SecretIdentifierResponse {
             id: require!(response.id),
             organization_id,
+            project_ids,
             key,
         })
     }

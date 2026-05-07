@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use bitwarden_threading::cancellation_token::CancellationToken;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
-use tokio::{select, sync::RwLock};
+use tokio::select;
 
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
-    error::{ReceiveError, SendError, SubscribeError, TypedReceiveError},
+    error::{AlreadyRunningError, ReceiveError, SendError, SubscribeError, TypedReceiveError},
     message::{
         IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
         TypedOutgoingMessage,
@@ -51,8 +51,8 @@ where
     sessions: Ses,
 
     handlers: RpcHandlerRegistry,
-    incoming: RwLock<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
-    cancellation_token: RwLock<Option<CancellationToken>>,
+    incoming: Mutex<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
+    cancellation_token: Mutex<Option<CancellationToken>>,
 }
 
 /// An IPC client that handles communication between different components and clients.
@@ -98,8 +98,8 @@ where
                 sessions,
 
                 handlers: RpcHandlerRegistry::new(),
-                incoming: RwLock::new(None),
-                cancellation_token: RwLock::new(None),
+                incoming: Mutex::new(None),
+                cancellation_token: Mutex::new(None),
             }),
         }
     }
@@ -112,18 +112,29 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
-    async fn start(&self) {
-        let cancellation_token = CancellationToken::new();
+    async fn start(
+        &self,
+        cancellation_token: Option<CancellationToken>,
+    ) -> Result<(), AlreadyRunningError> {
+        if self.is_running() {
+            return Err(AlreadyRunningError);
+        }
+
+        let cancellation_token = cancellation_token.unwrap_or_default();
         self.inner
             .cancellation_token
-            .write()
-            .await
+            .lock()
+            .expect("Failed to lock cancellation token mutex")
             .replace(cancellation_token.clone());
 
         let com_receiver = self.inner.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
-        self.inner.incoming.write().await.replace(client_rx);
+        self.inner
+            .incoming
+            .lock()
+            .expect("Failed to lock incoming mutex")
+            .replace(client_rx);
 
         let inner = self.inner.clone();
         let future = async move {
@@ -154,7 +165,7 @@ where
                 }
             }
             tracing::debug!("IPC client shutting down");
-            stop_inner(&inner).await;
+            stop_inner(&inner);
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -162,16 +173,26 @@ where
 
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(future);
+
+        Ok(())
     }
 
-    async fn is_running(&self) -> bool {
-        let has_incoming = self.inner.incoming.read().await.is_some();
-        let has_cancellation_token = self.inner.cancellation_token.read().await.is_some();
+    fn is_running(&self) -> bool {
+        let has_incoming = self
+            .inner
+            .incoming
+            .lock()
+            .expect("Failed to lock incoming mutex")
+            .as_ref()
+            .map(|receiver| !receiver.is_closed())
+            .unwrap_or(false);
+        let has_cancellation_token = self
+            .inner
+            .cancellation_token
+            .lock()
+            .expect("Failed to lock cancellation token mutex")
+            .is_some();
         has_incoming && has_cancellation_token
-    }
-
-    async fn stop(&self) {
-        stop_inner(&self.inner).await;
     }
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError> {
@@ -183,7 +204,7 @@ where
 
         if let Err(ref error) = result {
             tracing::error!(?error, "Error sending message");
-            self.stop().await;
+            stop_inner(&self.inner);
         }
 
         result.map_err(|e| SendError(format!("{e:?}")))
@@ -197,8 +218,8 @@ where
             receiver: self
                 .inner
                 .incoming
-                .read()
-                .await
+                .lock()
+                .expect("Failed to lock incoming mutex")
                 .as_ref()
                 .ok_or(SubscribeError::NotStarted)?
                 .resubscribe(),
@@ -214,16 +235,17 @@ where
     }
 }
 
-async fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)
+fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
-    let mut incoming = inner.incoming.write().await;
-    let _ = incoming.take();
+    let mut cancellation_token = inner
+        .cancellation_token
+        .lock()
+        .expect("Failed to lock cancellation token mutex");
 
-    let mut cancellation_token = inner.cancellation_token.write().await;
     if let Some(cancellation_token) = cancellation_token.take() {
         cancellation_token.cancel();
     }
@@ -426,7 +448,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        let _ = client.start(None).await;
 
         let error = client.send(message).await.unwrap_err();
 
@@ -445,7 +467,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        let _ = client.start(None).await;
 
         client.send(message.clone()).await.unwrap();
 
@@ -470,7 +492,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        let _ = client.start(None).await;
 
         let mut subscription = client
             .subscribe(None)
@@ -510,7 +532,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        let _ = client.start(None).await;
         let mut subscription = client
             .subscribe(Some("matching_topic".to_owned()))
             .await
@@ -562,7 +584,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        let _ = client.start(None).await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -608,7 +630,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        let _ = client.start(None).await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -633,10 +655,10 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        let _ = client.start(None).await;
 
         let error = client.send(message).await.unwrap_err();
-        let is_running = client.is_running().await;
+        let is_running = client.is_running();
 
         assert!(error.to_string().contains("Crypto error"));
         assert!(!is_running);
@@ -651,11 +673,36 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        let cancellation_token = CancellationToken::new();
+        let _ = client.start(Some(cancellation_token.clone())).await;
 
         // Give the client some time to process the error
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running().await;
+        let is_running = client.is_running();
+
+        assert!(!is_running);
+        assert!(cancellation_token.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn ipc_client_is_not_running_if_cancellation_token_is_cancelled() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
+        let cancellation_token = CancellationToken::new();
+        let _ = client.start(Some(cancellation_token.clone())).await;
+
+        // Give the client some time to process
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Cancel the token and give the client some time to process the cancellation
+        cancellation_token.cancel();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running();
 
         assert!(!is_running);
     }
@@ -669,13 +716,53 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        let cancellation_token = CancellationToken::new();
+        let _ = client.start(Some(cancellation_token.clone())).await;
 
         // Give the client some time to process
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running().await;
+        let is_running = client.is_running();
 
         assert!(is_running);
+        assert!(!cancellation_token.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn ipc_client_is_not_running_if_not_started() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
+
+        // Give the client some time to process
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running();
+
+        assert!(!is_running);
+    }
+
+    #[tokio::test]
+    async fn ipc_client_start_returns_error_if_already_running() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
+        let cancellation_token = CancellationToken::new();
+        let first_result = client.start(Some(cancellation_token.clone())).await;
+        assert_eq!(first_result, Ok(()));
+
+        // Give the client some time to process
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(client.is_running());
+
+        let second_result = client.start(Some(cancellation_token.clone())).await;
+        assert_eq!(second_result, Err(AlreadyRunningError));
     }
 
     mod request {
@@ -715,10 +802,10 @@ mod tests {
         async fn request_sends_message_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
             let communication_provider = TestCommunicationBackend::new();
-            let session_map = InMemorySessionRepository::new(HashMap::new());
+            let session_map = InMemorySessionRepository::default();
             let client =
                 IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-            client.start().await;
+            let _ = client.start(None).await;
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
 
@@ -773,10 +860,10 @@ mod tests {
         async fn incoming_rpc_message_handles_request_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
             let communication_provider = TestCommunicationBackend::new();
-            let session_map = InMemorySessionRepository::new(HashMap::new());
+            let session_map = InMemorySessionRepository::default();
             let client =
                 IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-            client.start().await;
+            let _ = client.start(None).await;
             let request_id = uuid::Uuid::new_v4().to_string();
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };

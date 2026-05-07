@@ -27,73 +27,66 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CollectionsApi: Send + Sync {
     /// DELETE /organizations/{orgId}/collections/{id}
-    async fn delete<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/collections
     async fn delete_many<'a>(
         &self,
         org_id: uuid::Uuid,
         collection_bulk_delete_request_model: Option<models::CollectionBulkDeleteRequestModel>,
-    ) -> Result<(), Error<DeleteManyError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/collections/{id}
     async fn get<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::CollectionResponseModel, Error<GetError>>;
+    ) -> Result<models::CollectionResponseModel, Error>;
 
     /// GET /organizations/{orgId}/collections
     async fn get_all<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::CollectionResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::CollectionResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/collections/{id}/details
     async fn get_details<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::CollectionAccessDetailsResponseModel, Error<GetDetailsError>>;
+    ) -> Result<models::CollectionAccessDetailsResponseModel, Error>;
 
     /// GET /organizations/{orgId}/collections/details
     async fn get_many_with_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::CollectionAccessDetailsResponseModelListResponseModel,
-        Error<GetManyWithDetailsError>,
-    >;
+    ) -> Result<models::CollectionAccessDetailsResponseModelListResponseModel, Error>;
 
     /// GET /collections
     async fn get_user(
         &self,
-    ) -> Result<models::CollectionDetailsResponseModelListResponseModel, Error<GetUserError>>;
+    ) -> Result<models::CollectionDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/collections/{id}/users
     async fn get_users<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<Vec<models::SelectionReadOnlyResponseModel>, Error<GetUsersError>>;
+    ) -> Result<Vec<models::SelectionReadOnlyResponseModel>, Error>;
 
     /// POST /organizations/{orgId}/collections
     async fn post<'a>(
         &self,
         org_id: uuid::Uuid,
         create_collection_request_model: Option<models::CreateCollectionRequestModel>,
-    ) -> Result<models::CollectionResponseModel, Error<PostError>>;
+    ) -> Result<models::CollectionResponseModel, Error>;
 
     /// POST /organizations/{orgId}/collections/bulk-access
     async fn post_bulk_collection_access<'a>(
         &self,
         org_id: uuid::Uuid,
         bulk_collection_access_request_model: Option<models::BulkCollectionAccessRequestModel>,
-    ) -> Result<(), Error<PostBulkCollectionAccessError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/collections/{id}
     async fn put<'a>(
@@ -101,7 +94,7 @@ pub trait CollectionsApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
-    ) -> Result<models::CollectionResponseModel, Error<PutError>>;
+    ) -> Result<models::CollectionResponseModel, Error>;
 }
 
 pub struct CollectionsApiClient {
@@ -117,11 +110,7 @@ impl CollectionsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CollectionsApi for CollectionsApiClient {
-    async fn delete<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -144,7 +133,7 @@ impl CollectionsApi for CollectionsApiClient {
         &self,
         org_id: uuid::Uuid,
         collection_bulk_delete_request_model: Option<models::CollectionBulkDeleteRequestModel>,
-    ) -> Result<(), Error<DeleteManyError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -167,7 +156,7 @@ impl CollectionsApi for CollectionsApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::CollectionResponseModel, Error<GetError>> {
+    ) -> Result<models::CollectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -189,7 +178,7 @@ impl CollectionsApi for CollectionsApiClient {
     async fn get_all<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::CollectionResponseModelListResponseModel, Error<GetAllError>> {
+    ) -> Result<models::CollectionResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -211,7 +200,7 @@ impl CollectionsApi for CollectionsApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::CollectionAccessDetailsResponseModel, Error<GetDetailsError>> {
+    ) -> Result<models::CollectionAccessDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -233,10 +222,7 @@ impl CollectionsApi for CollectionsApiClient {
     async fn get_many_with_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::CollectionAccessDetailsResponseModelListResponseModel,
-        Error<GetManyWithDetailsError>,
-    > {
+    ) -> Result<models::CollectionAccessDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -256,7 +242,7 @@ impl CollectionsApi for CollectionsApiClient {
 
     async fn get_user(
         &self,
-    ) -> Result<models::CollectionDetailsResponseModelListResponseModel, Error<GetUserError>> {
+    ) -> Result<models::CollectionDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -274,7 +260,7 @@ impl CollectionsApi for CollectionsApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<Vec<models::SelectionReadOnlyResponseModel>, Error<GetUsersError>> {
+    ) -> Result<Vec<models::SelectionReadOnlyResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -297,7 +283,7 @@ impl CollectionsApi for CollectionsApiClient {
         &self,
         org_id: uuid::Uuid,
         create_collection_request_model: Option<models::CreateCollectionRequestModel>,
-    ) -> Result<models::CollectionResponseModel, Error<PostError>> {
+    ) -> Result<models::CollectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -320,7 +306,7 @@ impl CollectionsApi for CollectionsApiClient {
         &self,
         org_id: uuid::Uuid,
         bulk_collection_access_request_model: Option<models::BulkCollectionAccessRequestModel>,
-    ) -> Result<(), Error<PostBulkCollectionAccessError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -344,7 +330,7 @@ impl CollectionsApi for CollectionsApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         update_collection_request_model: Option<models::UpdateCollectionRequestModel>,
-    ) -> Result<models::CollectionResponseModel, Error<PutError>> {
+    ) -> Result<models::CollectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -363,71 +349,4 @@ impl CollectionsApi for CollectionsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`CollectionsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::delete_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::get_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::get_many_with_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetManyWithDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::get_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::get_users`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUsersError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::post_bulk_collection_access`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostBulkCollectionAccessError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CollectionsApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
 }

@@ -1,16 +1,16 @@
 use tracing::instrument;
 
-use crate::{CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
+use crate::{CryptoError, EncString, KeySlotId, KeySlotIds, store::KeyStoreContext};
 
 /// A decryption operation that takes the input value and decrypts it into the output value.
 /// Implementations should generally consist of calling [Decryptable::decrypt] for all the fields of
 /// the type.
-pub trait Decryptable<Ids: KeyIds, Key: KeyId, Output> {
+pub trait Decryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
     #[allow(missing_docs)]
     fn decrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
-impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
+impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
     #[instrument(err, skip_all)]
     fn decrypt(
         &self,
@@ -21,7 +21,7 @@ impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
     }
 }
 
-impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
+impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
     #[instrument(err, skip_all)]
     fn decrypt(
         &self,
@@ -33,7 +33,7 @@ impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
     }
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: Decryptable<Ids, Key, Output>, Output>
+impl<Ids: KeySlotIds, Key: KeySlotId, T: Decryptable<Ids, Key, Output>, Output>
     Decryptable<Ids, Key, Option<Output>> for Option<T>
 {
     fn decrypt(
@@ -47,7 +47,7 @@ impl<Ids: KeyIds, Key: KeyId, T: Decryptable<Ids, Key, Output>, Output>
     }
 }
 
-impl<Ids: KeyIds, Key: KeyId, T: Decryptable<Ids, Key, Output>, Output>
+impl<Ids: KeySlotIds, Key: KeySlotId, T: Decryptable<Ids, Key, Output>, Output>
     Decryptable<Ids, Key, Vec<Output>> for Vec<T>
 {
     fn decrypt(

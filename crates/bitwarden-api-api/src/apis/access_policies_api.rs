@@ -30,80 +30,56 @@ pub trait AccessPoliciesApi: Send + Sync {
     async fn get_people_potential_grantees<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::PotentialGranteeResponseModelListResponseModel,
-        Error<GetPeoplePotentialGranteesError>,
-    >;
+    ) -> Result<models::PotentialGranteeResponseModelListResponseModel, Error>;
 
     /// GET /projects/{id}/access-policies/people
     async fn get_project_people_access_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ProjectPeopleAccessPoliciesResponseModel,
-        Error<GetProjectPeopleAccessPoliciesError>,
-    >;
+    ) -> Result<models::ProjectPeopleAccessPoliciesResponseModel, Error>;
 
     /// GET /organizations/{id}/access-policies/projects/potential-grantees
     async fn get_project_potential_grantees<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::PotentialGranteeResponseModelListResponseModel,
-        Error<GetProjectPotentialGranteesError>,
-    >;
+    ) -> Result<models::PotentialGranteeResponseModelListResponseModel, Error>;
 
     /// GET /projects/{id}/access-policies/service-accounts
     async fn get_project_service_accounts_access_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ProjectServiceAccountsAccessPoliciesResponseModel,
-        Error<GetProjectServiceAccountsAccessPoliciesError>,
-    >;
+    ) -> Result<models::ProjectServiceAccountsAccessPoliciesResponseModel, Error>;
 
     /// GET /secrets/{secretId}/access-policies
     async fn get_secret_access_policies<'a>(
         &self,
         secret_id: uuid::Uuid,
-    ) -> Result<models::SecretAccessPoliciesResponseModel, Error<GetSecretAccessPoliciesError>>;
+    ) -> Result<models::SecretAccessPoliciesResponseModel, Error>;
 
     /// GET /service-accounts/{id}/granted-policies
     async fn get_service_account_granted_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel,
-        Error<GetServiceAccountGrantedPoliciesError>,
-    >;
+    ) -> Result<models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel, Error>;
 
     /// GET /service-accounts/{id}/access-policies/people
     async fn get_service_account_people_access_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ServiceAccountPeopleAccessPoliciesResponseModel,
-        Error<GetServiceAccountPeopleAccessPoliciesError>,
-    >;
+    ) -> Result<models::ServiceAccountPeopleAccessPoliciesResponseModel, Error>;
 
     /// GET /organizations/{id}/access-policies/service-accounts/potential-grantees
     async fn get_service_accounts_potential_grantees<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::PotentialGranteeResponseModelListResponseModel,
-        Error<GetServiceAccountsPotentialGranteesError>,
-    >;
+    ) -> Result<models::PotentialGranteeResponseModelListResponseModel, Error>;
 
     /// PUT /projects/{id}/access-policies/people
     async fn put_project_people_access_policies<'a>(
         &self,
         id: uuid::Uuid,
         people_access_policies_request_model: Option<models::PeopleAccessPoliciesRequestModel>,
-    ) -> Result<
-        models::ProjectPeopleAccessPoliciesResponseModel,
-        Error<PutProjectPeopleAccessPoliciesError>,
-    >;
+    ) -> Result<models::ProjectPeopleAccessPoliciesResponseModel, Error>;
 
     /// PUT /projects/{id}/access-policies/service-accounts
     async fn put_project_service_accounts_access_policies<'a>(
@@ -112,10 +88,7 @@ pub trait AccessPoliciesApi: Send + Sync {
         project_service_accounts_access_policies_request_model: Option<
             models::ProjectServiceAccountsAccessPoliciesRequestModel,
         >,
-    ) -> Result<
-        models::ProjectServiceAccountsAccessPoliciesResponseModel,
-        Error<PutProjectServiceAccountsAccessPoliciesError>,
-    >;
+    ) -> Result<models::ProjectServiceAccountsAccessPoliciesResponseModel, Error>;
 
     /// PUT /service-accounts/{id}/granted-policies
     async fn put_service_account_granted_policies<'a>(
@@ -124,20 +97,14 @@ pub trait AccessPoliciesApi: Send + Sync {
         service_account_granted_policies_request_model: Option<
             models::ServiceAccountGrantedPoliciesRequestModel,
         >,
-    ) -> Result<
-        models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel,
-        Error<PutServiceAccountGrantedPoliciesError>,
-    >;
+    ) -> Result<models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel, Error>;
 
     /// PUT /service-accounts/{id}/access-policies/people
     async fn put_service_account_people_access_policies<'a>(
         &self,
         id: uuid::Uuid,
         people_access_policies_request_model: Option<models::PeopleAccessPoliciesRequestModel>,
-    ) -> Result<
-        models::ServiceAccountPeopleAccessPoliciesResponseModel,
-        Error<PutServiceAccountPeopleAccessPoliciesError>,
-    >;
+    ) -> Result<models::ServiceAccountPeopleAccessPoliciesResponseModel, Error>;
 }
 
 pub struct AccessPoliciesApiClient {
@@ -156,10 +123,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_people_potential_grantees<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::PotentialGranteeResponseModelListResponseModel,
-        Error<GetPeoplePotentialGranteesError>,
-    > {
+    ) -> Result<models::PotentialGranteeResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -180,10 +144,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_project_people_access_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ProjectPeopleAccessPoliciesResponseModel,
-        Error<GetProjectPeopleAccessPoliciesError>,
-    > {
+    ) -> Result<models::ProjectPeopleAccessPoliciesResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -204,10 +165,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_project_potential_grantees<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::PotentialGranteeResponseModelListResponseModel,
-        Error<GetProjectPotentialGranteesError>,
-    > {
+    ) -> Result<models::PotentialGranteeResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -228,10 +186,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_project_service_accounts_access_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ProjectServiceAccountsAccessPoliciesResponseModel,
-        Error<GetProjectServiceAccountsAccessPoliciesError>,
-    > {
+    ) -> Result<models::ProjectServiceAccountsAccessPoliciesResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -252,8 +207,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_secret_access_policies<'a>(
         &self,
         secret_id: uuid::Uuid,
-    ) -> Result<models::SecretAccessPoliciesResponseModel, Error<GetSecretAccessPoliciesError>>
-    {
+    ) -> Result<models::SecretAccessPoliciesResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -274,10 +228,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_service_account_granted_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel,
-        Error<GetServiceAccountGrantedPoliciesError>,
-    > {
+    ) -> Result<models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -298,10 +249,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_service_account_people_access_policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::ServiceAccountPeopleAccessPoliciesResponseModel,
-        Error<GetServiceAccountPeopleAccessPoliciesError>,
-    > {
+    ) -> Result<models::ServiceAccountPeopleAccessPoliciesResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -322,10 +270,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_service_accounts_potential_grantees<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<
-        models::PotentialGranteeResponseModelListResponseModel,
-        Error<GetServiceAccountsPotentialGranteesError>,
-    > {
+    ) -> Result<models::PotentialGranteeResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -347,10 +292,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
         &self,
         id: uuid::Uuid,
         people_access_policies_request_model: Option<models::PeopleAccessPoliciesRequestModel>,
-    ) -> Result<
-        models::ProjectPeopleAccessPoliciesResponseModel,
-        Error<PutProjectPeopleAccessPoliciesError>,
-    > {
+    ) -> Result<models::ProjectPeopleAccessPoliciesResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -375,10 +317,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
         project_service_accounts_access_policies_request_model: Option<
             models::ProjectServiceAccountsAccessPoliciesRequestModel,
         >,
-    ) -> Result<
-        models::ProjectServiceAccountsAccessPoliciesResponseModel,
-        Error<PutProjectServiceAccountsAccessPoliciesError>,
-    > {
+    ) -> Result<models::ProjectServiceAccountsAccessPoliciesResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -404,10 +343,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
         service_account_granted_policies_request_model: Option<
             models::ServiceAccountGrantedPoliciesRequestModel,
         >,
-    ) -> Result<
-        models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel,
-        Error<PutServiceAccountGrantedPoliciesError>,
-    > {
+    ) -> Result<models::ServiceAccountGrantedPoliciesPermissionDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -431,10 +367,7 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
         &self,
         id: uuid::Uuid,
         people_access_policies_request_model: Option<models::PeopleAccessPoliciesRequestModel>,
-    ) -> Result<
-        models::ServiceAccountPeopleAccessPoliciesResponseModel,
-        Error<PutServiceAccountPeopleAccessPoliciesError>,
-    > {
+    ) -> Result<models::ServiceAccountPeopleAccessPoliciesResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -452,81 +385,4 @@ impl AccessPoliciesApi for AccessPoliciesApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`AccessPoliciesApi::get_people_potential_grantees`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPeoplePotentialGranteesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccessPoliciesApi::get_project_people_access_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProjectPeopleAccessPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccessPoliciesApi::get_project_potential_grantees`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProjectPotentialGranteesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`AccessPoliciesApi::get_project_service_accounts_access_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProjectServiceAccountsAccessPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccessPoliciesApi::get_secret_access_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSecretAccessPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccessPoliciesApi::get_service_account_granted_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetServiceAccountGrantedPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`AccessPoliciesApi::get_service_account_people_access_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetServiceAccountPeopleAccessPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccessPoliciesApi::get_service_accounts_potential_grantees`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetServiceAccountsPotentialGranteesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccessPoliciesApi::put_project_people_access_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutProjectPeopleAccessPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`AccessPoliciesApi::put_project_service_accounts_access_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutProjectServiceAccountsAccessPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccessPoliciesApi::put_service_account_granted_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutServiceAccountGrantedPoliciesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`AccessPoliciesApi::put_service_account_people_access_policies`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutServiceAccountPeopleAccessPoliciesError {
-    UnknownValue(serde_json::Value),
 }

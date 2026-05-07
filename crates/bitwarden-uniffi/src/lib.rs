@@ -48,7 +48,7 @@ impl Client {
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
     ) -> Self {
-        init_logger(None);
+        init_logger(None, None);
         setup_error_converter();
 
         #[cfg(target_os = "android")]
@@ -120,6 +120,33 @@ impl Client {
 
 static INIT: Once = Once::new();
 
+/// Log level for SDK logging
+#[derive(uniffi::Enum)]
+pub enum LogLevel {
+    /// Most verbose: all trace, debug, info, warn, and error messages
+    Trace,
+    /// Verbose: debug, info, warn, and error messages
+    Debug,
+    /// Default: info, warn, and error messages
+    Info,
+    /// Only warn and error messages
+    Warn,
+    /// Only error messages
+    Error,
+}
+
+impl LogLevel {
+    fn as_str(&self) -> &'static str {
+        match self {
+            LogLevel::Trace => "trace",
+            LogLevel::Debug => "debug",
+            LogLevel::Info => "info",
+            LogLevel::Warn => "warn",
+            LogLevel::Error => "error",
+        }
+    }
+}
+
 /// Initialize the SDK logger
 ///
 /// This function should be called once before creating any SDK clients.
@@ -129,11 +156,13 @@ static INIT: Once = Once::new();
 /// # Parameters
 /// - `callback`: Optional callback to receive SDK log events. Pass `None` to use only platform
 ///   loggers (oslog on iOS, logcat on Android).
+/// - `level`: Optional log level. Defaults to `Info` if not specified. Can be overridden by
+///   `RUST_LOG` environment variable at runtime or compile time.
 ///
 /// # Example
 /// ```kotlin
-/// // Initialize with callback before creating clients
-/// initLogger(FlightRecorderCallback())
+/// // Initialize with callback and trace-level logging before creating clients
+/// initLogger(FlightRecorderCallback(), LogLevel.TRACE)
 /// val client = Client(tokenProvider, settings)
 /// ```
 ///
@@ -142,18 +171,20 @@ static INIT: Once = Once::new();
 /// - If not called explicitly, logging is auto-initialized when first client is created
 /// - Platform loggers (oslog/logcat) are always enabled regardless of callback
 #[uniffi::export]
-pub fn init_logger(callback: Option<Arc<dyn LogCallback>>) {
+pub fn init_logger(callback: Option<Arc<dyn LogCallback>>, level: Option<LogLevel>) {
     use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
     INIT.call_once(|| {
         // the log level prioritization is determined by:
         //    1. if RUST_LOG is detected at runtime
         //    2. if RUST_LOG is provided at compile time
-        //    3. default to INFO
+        //    3. the level parameter passed by the caller
+        //    4. default to INFO
+        let level = level.as_ref().map(|l| l.as_str()).unwrap_or("info");
         let filter = EnvFilter::builder()
             .with_default_directive(
                 option_env!("RUST_LOG")
-                    .unwrap_or("info")
+                    .unwrap_or(level)
                     .parse()
                     .expect("should provide valid log level at compile time."),
             )
@@ -249,7 +280,7 @@ mod tests {
         let callback = Arc::new(TestLogCallback { logs: logs.clone() });
 
         // Initialize logger with callback before creating client
-        init_logger(Some(callback));
+        init_logger(Some(callback), None);
 
         // Create client
         let _client = Client::new(Arc::new(MockTokenProvider), None);

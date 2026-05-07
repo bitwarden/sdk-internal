@@ -30,13 +30,13 @@ pub trait UsersApi: Send + Sync {
     async fn get_account_keys<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::PublicKeysResponseModel, Error<GetAccountKeysError>>;
+    ) -> Result<models::PublicKeysResponseModel, Error>;
 
     /// GET /users/{id}/public-key
     async fn get_public_key<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::UserKeyResponseModel, Error<GetPublicKeyError>>;
+    ) -> Result<models::UserKeyResponseModel, Error>;
 }
 
 pub struct UsersApiClient {
@@ -55,7 +55,7 @@ impl UsersApi for UsersApiClient {
     async fn get_account_keys<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::PublicKeysResponseModel, Error<GetAccountKeysError>> {
+    ) -> Result<models::PublicKeysResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -76,7 +76,7 @@ impl UsersApi for UsersApiClient {
     async fn get_public_key<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::UserKeyResponseModel, Error<GetPublicKeyError>> {
+    ) -> Result<models::UserKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -93,17 +93,4 @@ impl UsersApi for UsersApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`UsersApi::get_account_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAccountKeysError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`UsersApi::get_public_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPublicKeyError {
-    UnknownValue(serde_json::Value),
 }

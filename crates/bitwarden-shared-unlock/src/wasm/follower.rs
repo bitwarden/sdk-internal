@@ -1,7 +1,4 @@
-use bitwarden_threading::{
-    ThreadBoundRunner,
-    cancellation_token::wasm::{AbortController, AbortControllerExt},
-};
+use bitwarden_threading::cancellation_token::wasm::{AbortController, AbortControllerExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::drivers::{JsSharedUnlockDriver, RawJsSharedUnlockDriver};
@@ -17,14 +14,12 @@ pub struct SharedUnlockFollower {
 impl SharedUnlockFollower {
     /// Creates a new shared-unlock follower
     #[wasm_bindgen]
-    pub async fn try_new(
+    pub fn try_new(
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
         driver: RawJsSharedUnlockDriver,
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
-        let runner = ThreadBoundRunner::new(driver);
-        let driver = JsSharedUnlockDriver::new(runner);
-        let follower = Follower::create(driver, ipc_client.client.clone()).await;
-
+        let driver = JsSharedUnlockDriver::new(driver);
+        let follower = Follower::create(driver, ipc_client.client.clone());
         Ok(Self { follower })
     }
 

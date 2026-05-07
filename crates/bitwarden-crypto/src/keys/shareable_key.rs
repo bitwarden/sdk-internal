@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
-use generic_array::GenericArray;
-use hmac::Mac;
+use hmac::{KeyInit, Mac};
+use hybrid_array::Array;
 use typenum::{U32, U64};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -26,10 +26,9 @@ pub fn derive_shareable_key(
             .into_bytes(),
     );
 
-    let mut key: Pin<Box<GenericArray<u8, U64>>> =
-        hkdf_expand(&res, info).expect("Input is a valid size");
-    let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(&key[..32]));
-    let mac_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(&key[32..]));
+    let mut key: Pin<Box<Array<u8, U64>>> = hkdf_expand(&res, info).expect("Input is a valid size");
+    let enc_key = Box::pin(Array::<u8, U32>::try_from(&key[..32]).expect("slice is 32 bytes"));
+    let mac_key = Box::pin(Array::<u8, U32>::try_from(&key[32..]).expect("slice is 32 bytes"));
     key.zeroize();
     Aes256CbcHmacKey { enc_key, mac_key }
 }

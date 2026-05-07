@@ -22,18 +22,23 @@ can be used for compatibility checks.
 
 Register the handler so the client responds to incoming discover requests:
 
-```rust,ignore
+```rust,no_run
+# use bitwarden_ipc::{*, discover::*};
+# async fn test(ipc_client: impl IpcClient) {
 let handler = DiscoverHandler::new(DiscoverResponse {
     version: "1.0.0".to_string(),
 });
 ipc_client.register_rpc_handler(handler).await;
+# }
 ```
 
 ### Sending a discover request
 
 Send a discover request to a specific endpoint:
 
-```rust,ignore
+```rust,no_run
+# use bitwarden_ipc::{*, discover::*};
+# async fn test(ipc_client: impl IpcClient, destination_endpoint: Endpoint) -> Result<(), Box<dyn std::error::Error>> {
 let response = ipc_client
     .request::<DiscoverRequest>(
         DiscoverRequest,
@@ -42,6 +47,8 @@ let response = ipc_client
     )
     .await?;
 println!("Remote version: {}", response.version);
+# Ok(())
+# }
 ```
 
 ### WASM

@@ -27,7 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ConfigApi: Send + Sync {
     /// GET /config
-    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error<GetConfigsError>>;
+    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error>;
 }
 
 pub struct ConfigApiClient {
@@ -43,7 +43,7 @@ impl ConfigApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ConfigApi for ConfigApiClient {
-    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error<GetConfigsError>> {
+    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -56,11 +56,4 @@ impl ConfigApi for ConfigApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ConfigApi::get_configs`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetConfigsError {
-    UnknownValue(serde_json::Value),
 }

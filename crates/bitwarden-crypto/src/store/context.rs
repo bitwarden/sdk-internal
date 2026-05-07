@@ -11,7 +11,7 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeyIds, LocalId,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotId, KeySlotIds, LocalId,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
@@ -37,47 +37,47 @@ use crate::{
 ///
 /// ```rust
 /// # use bitwarden_crypto::*;
-/// # key_ids! {
+/// # key_slot_ids! {
 /// #     #[symmetric]
-/// #     pub enum SymmKeyId {
+/// #     pub enum SymmKeySlotIds {
 /// #         User,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[private]
-/// #     pub enum PrivateKeyId {
+/// #     pub enum PrivateKeySlotIds {
 /// #         UserPrivate,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[signing]
-/// #     pub enum SigningKeyId {
+/// #     pub enum SigningKeySlotIds {
 /// #         UserSigning,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
-/// #     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
+/// #     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
 /// # }
 /// struct Data {
 ///     key: EncString,
 ///     name: String,
 /// }
-/// # impl IdentifyKey<SymmKeyId> for Data {
-/// #    fn key_identifier(&self) -> SymmKeyId {
-/// #        SymmKeyId::User
+/// # impl IdentifyKey<SymmKeySlotIds> for Data {
+/// #    fn key_identifier(&self) -> SymmKeySlotIds {
+/// #        SymmKeySlotIds::User
 /// #    }
 /// # }
 ///
 ///
-/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeySlotIds, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeySlotIds) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
 /// }
 /// ```
 #[must_use]
-pub struct KeyStoreContext<'a, Ids: KeyIds> {
+pub struct KeyStoreContext<'a, Ids: KeySlotIds> {
     pub(super) global_keys: GlobalKeys<'a, Ids>,
 
     pub(super) local_symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
@@ -95,12 +95,12 @@ pub struct KeyStoreContext<'a, Ids: KeyIds> {
 /// encryption/decryption. We also have the option to create a read/write context, which allows us
 /// to modify the global keys, but only allows one context at a time. This is controlled by a
 /// [std::sync::RwLock] on the global keys, and this struct stores both types of guards.
-pub(crate) enum GlobalKeys<'a, Ids: KeyIds> {
+pub(crate) enum GlobalKeys<'a, Ids: KeySlotIds> {
     ReadOnly(RwLockReadGuard<'a, KeyStoreInner<Ids>>),
     ReadWrite(RwLockWriteGuard<'a, KeyStoreInner<Ids>>),
 }
 
-impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
+impl<Ids: KeySlotIds> GlobalKeys<'_, Ids> {
     /// Get a shared reference to the underlying `KeyStoreInner`.
     ///
     /// This returns a shared reference regardless of whether the global keys were locked
@@ -129,7 +129,7 @@ impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
     }
 }
 
-impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
+impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// Clears all the local keys stored in this context
     /// This will not affect the global keys even if this context has write access.
     /// To clear the global keys, you need to use [super::KeyStore::clear] instead.

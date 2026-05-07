@@ -33,23 +33,16 @@ pub trait ProviderOrganizationsApi: Send + Sync {
         provider_organization_add_request_model: Option<
             models::ProviderOrganizationAddRequestModel,
         >,
-    ) -> Result<(), Error<AddError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /providers/{providerId}/organizations/{id}
-    async fn delete<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/organizations
     async fn get<'a>(
         &self,
         provider_id: uuid::Uuid,
-    ) -> Result<
-        models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel,
-        Error<GetError>,
-    >;
+    ) -> Result<models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel, Error>;
 
     /// POST /providers/{providerId}/organizations
     async fn post<'a>(
@@ -58,7 +51,7 @@ pub trait ProviderOrganizationsApi: Send + Sync {
         provider_organization_create_request_model: Option<
             models::ProviderOrganizationCreateRequestModel,
         >,
-    ) -> Result<models::ProviderOrganizationResponseModel, Error<PostError>>;
+    ) -> Result<models::ProviderOrganizationResponseModel, Error>;
 }
 
 pub struct ProviderOrganizationsApiClient {
@@ -80,7 +73,7 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
         provider_organization_add_request_model: Option<
             models::ProviderOrganizationAddRequestModel,
         >,
-    ) -> Result<(), Error<AddError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -100,11 +93,7 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -126,10 +115,8 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
     async fn get<'a>(
         &self,
         provider_id: uuid::Uuid,
-    ) -> Result<
-        models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel,
-        Error<GetError>,
-    > {
+    ) -> Result<models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel, Error>
+    {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -153,7 +140,7 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
         provider_organization_create_request_model: Option<
             models::ProviderOrganizationCreateRequestModel,
         >,
-    ) -> Result<models::ProviderOrganizationResponseModel, Error<PostError>> {
+    ) -> Result<models::ProviderOrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -172,29 +159,4 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ProviderOrganizationsApi::add`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderOrganizationsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderOrganizationsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderOrganizationsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
 }

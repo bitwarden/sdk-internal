@@ -5,7 +5,9 @@ use bitwarden_api_api::models::{
     MasterPasswordUnlockDataRequestModel,
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
 };
-use bitwarden_crypto::{EncString, Kdf, KeyIds, KeyStoreContext, MasterKey, SymmetricCryptoKey};
+use bitwarden_crypto::{
+    EncString, Kdf, KeySlotIds, KeyStoreContext, MasterKey, SymmetricCryptoKey,
+};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -60,7 +62,7 @@ pub struct MasterPasswordUnlockData {
 
 impl MasterPasswordUnlockData {
     /// Unwrap the user key into the key store context using the provided password.
-    pub fn unwrap_to_context<Ids: KeyIds>(
+    pub fn unwrap_to_context<Ids: KeySlotIds>(
         &self,
         password: &str,
         ctx: &mut KeyStoreContext<Ids>,
@@ -94,7 +96,7 @@ impl MasterPasswordUnlockData {
 
     /// Derive master password unlock data from a password and user key in the key store.
     #[tracing::instrument(skip(password, salt, ctx))]
-    pub fn derive<Ids: KeyIds>(
+    pub fn derive<Ids: KeySlotIds>(
         password: &str,
         kdf: &Kdf,
         salt: &str,
@@ -141,7 +143,19 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
 impl From<&MasterPasswordUnlockData> for MasterPasswordUnlockDataRequestModel {
     fn from(data: &MasterPasswordUnlockData) -> Self {
         Self {
-            kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
+            kdf: Box::new(kdf_to_api_kdf_request_model(&data.kdf)),
+            master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
+            salt: data.salt.to_owned(),
+        }
+    }
+}
+
+impl From<&MasterPasswordUnlockData>
+    for bitwarden_api_identity::models::MasterPasswordUnlockDataRequestModel
+{
+    fn from(data: &MasterPasswordUnlockData) -> Self {
+        Self {
+            kdf: Box::new(kdf_to_identity_kdf_request_model(&data.kdf)),
             master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
             salt: data.salt.to_owned(),
         }
@@ -158,7 +172,7 @@ fn kdf_parse_nonzero_u32(value: impl TryInto<u32>) -> Result<NonZeroU32, MasterP
 
 /// Represents the data required to authenticate with the master password.
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -195,7 +209,7 @@ impl MasterPasswordAuthenticationData {
 impl From<&MasterPasswordAuthenticationData> for MasterPasswordAuthenticationDataRequestModel {
     fn from(data: &MasterPasswordAuthenticationData) -> Self {
         Self {
-            kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
+            kdf: Box::new(kdf_to_api_kdf_request_model(&data.kdf)),
             master_password_authentication_hash: data
                 .master_password_authentication_hash
                 .to_string(),
@@ -204,7 +218,21 @@ impl From<&MasterPasswordAuthenticationData> for MasterPasswordAuthenticationDat
     }
 }
 
-fn kdf_to_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
+impl From<&MasterPasswordAuthenticationData>
+    for bitwarden_api_identity::models::MasterPasswordAuthenticationDataRequestModel
+{
+    fn from(data: &MasterPasswordAuthenticationData) -> Self {
+        Self {
+            kdf: Box::new(kdf_to_identity_kdf_request_model(&data.kdf)),
+            master_password_authentication_hash: data
+                .master_password_authentication_hash
+                .to_string(),
+            salt: data.salt.to_owned(),
+        }
+    }
+}
+
+fn kdf_to_api_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
     match kdf {
         Kdf::PBKDF2 { iterations } => KdfRequestModel {
             kdf_type: KdfType::PBKDF2_SHA256,
@@ -225,13 +253,34 @@ fn kdf_to_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
     }
 }
 
+fn kdf_to_identity_kdf_request_model(kdf: &Kdf) -> bitwarden_api_identity::models::KdfRequestModel {
+    match kdf {
+        Kdf::PBKDF2 { iterations } => bitwarden_api_identity::models::KdfRequestModel {
+            kdf_type: bitwarden_api_identity::models::KdfType::PBKDF2_SHA256,
+            iterations: iterations.get() as i32,
+            memory: None,
+            parallelism: None,
+        },
+        Kdf::Argon2id {
+            iterations,
+            memory,
+            parallelism,
+        } => bitwarden_api_identity::models::KdfRequestModel {
+            kdf_type: bitwarden_api_identity::models::KdfType::Argon2id,
+            iterations: iterations.get() as i32,
+            memory: Some(memory.get() as i32),
+            parallelism: Some(parallelism.get() as i32),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::{KdfType, MasterPasswordUnlockKdfResponseModel};
     use bitwarden_crypto::KeyStore;
 
     use super::*;
-    use crate::key_management::{KeyIds, SymmetricKeyId};
+    use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
 
     const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
     const TEST_INVALID_USER_KEY: &str = "-1.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=";
@@ -511,10 +560,10 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let key_id = data
-            .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
+            .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
             .expect("Failed to unwrap to context");
 
         // Verify that the key was added to the context
@@ -539,9 +588,9 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Attempt to unwrap with wrong password
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
-        let result = data.unwrap_to_context::<KeyIds>("wrong_password", &mut ctx);
+        let result = data.unwrap_to_context::<KeySlotIds>("wrong_password", &mut ctx);
 
         assert!(matches!(result, Err(MasterPasswordError::WrongPassword)));
     }
@@ -557,20 +606,20 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = data
-                .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
+                .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
                 .expect("Failed to unwrap to context");
 
             // Persist the local key to the User key slot
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .expect("Failed to persist symmetric key");
         }
 
         // Verify the key is accessible with the User key id in a new context
         let ctx = store.context();
-        assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
+        assert!(ctx.has_symmetric_key(SymmetricKeySlotId::User));
     }
 }

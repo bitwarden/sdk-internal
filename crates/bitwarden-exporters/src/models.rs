@@ -1,4 +1,4 @@
-use bitwarden_core::{MissingFieldError, key_management::KeyIds, require};
+use bitwarden_core::{MissingFieldError, key_management::KeySlotIds, require};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
     CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
@@ -18,7 +18,7 @@ impl TryFrom<FolderView> for crate::Folder {
 
 impl crate::Cipher {
     pub(crate) fn from_cipher(
-        key_store: &KeyStore<KeyIds>,
+        key_store: &KeyStore<KeySlotIds>,
         cipher: Cipher,
     ) -> Result<Self, crate::error::ExportError> {
         let view: CipherView = key_store.decrypt(&cipher)?;
@@ -40,6 +40,21 @@ impl crate::Cipher {
             CipherType::SshKey => {
                 let s = require!(view.ssh_key);
                 crate::CipherType::SshKey(Box::new(s.into()))
+            }
+            CipherType::BankAccount => {
+                // Bank accounts are not currently supported by the exporter, but we include this
+                // match arm to future-proof against the API returning bank account ciphers.
+                crate::CipherType::BankAccount
+            }
+            CipherType::Passport => {
+                // Passports are not currently supported by the exporter, but we include this
+                // match arm to future-proof against the API returning passport ciphers.
+                crate::CipherType::Passport
+            }
+            CipherType::DriversLicense => {
+                // Drivers licenses are not currently supported by the exporter, but we include this
+                // match arm to future-proof against the API returning drivers license ciphers.
+                crate::CipherType::DriversLicense
             }
         };
 
@@ -67,7 +82,7 @@ impl crate::Cipher {
 /// Convert a `LoginView` into a `crate::Login`.
 fn from_login(
     view: &CipherView,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
 ) -> Result<crate::Login, MissingFieldError> {
     let l = require!(view.login.clone());
 
@@ -267,6 +282,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            passport: None,
+            drivers_license: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -320,6 +338,9 @@ mod tests {
             card: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
+            passport: None,
+            drivers_license: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,

@@ -31,21 +31,13 @@ pub trait OrganizationDomainApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<GetError>>;
+    ) -> Result<models::OrganizationDomainResponseModel, Error>;
 
     /// GET /organizations/{orgId}/domain
     async fn get_all<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error<GetAllError>>;
-
-    /// POST /organizations/domain/sso/details
-    async fn get_org_domain_sso_details<'a>(
-        &self,
-        organization_domain_sso_details_request_model: Option<
-            models::OrganizationDomainSsoDetailsRequestModel,
-        >,
-    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error<GetOrgDomainSsoDetailsError>>;
+    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error>;
 
     /// POST /organizations/domain/sso/verified
     async fn get_verified_org_domain_sso_details<'a>(
@@ -53,31 +45,24 @@ pub trait OrganizationDomainApi: Send + Sync {
         organization_domain_sso_details_request_model: Option<
             models::OrganizationDomainSsoDetailsRequestModel,
         >,
-    ) -> Result<
-        models::VerifiedOrganizationDomainSsoDetailsResponseModel,
-        Error<GetVerifiedOrgDomainSsoDetailsError>,
-    >;
+    ) -> Result<models::VerifiedOrganizationDomainSsoDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/domain
     async fn post<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_domain_request_model: Option<models::OrganizationDomainRequestModel>,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<PostError>>;
+    ) -> Result<models::OrganizationDomainResponseModel, Error>;
 
     /// DELETE /organizations/{orgId}/domain/{id}
-    async fn remove_domain<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveDomainError>>;
+    async fn remove_domain<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/domain/{id}/verify
     async fn verify<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<VerifyError>>;
+    ) -> Result<models::OrganizationDomainResponseModel, Error>;
 }
 
 pub struct OrganizationDomainApiClient {
@@ -97,7 +82,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<GetError>> {
+    ) -> Result<models::OrganizationDomainResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -119,7 +104,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
     async fn get_all<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error<GetAllError>> {
+    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -137,40 +122,12 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get_org_domain_sso_details<'a>(
-        &self,
-        organization_domain_sso_details_request_model: Option<
-            models::OrganizationDomainSsoDetailsRequestModel,
-        >,
-    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error<GetOrgDomainSsoDetailsError>>
-    {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/domain/sso/details",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&organization_domain_sso_details_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
     async fn get_verified_org_domain_sso_details<'a>(
         &self,
         organization_domain_sso_details_request_model: Option<
             models::OrganizationDomainSsoDetailsRequestModel,
         >,
-    ) -> Result<
-        models::VerifiedOrganizationDomainSsoDetailsResponseModel,
-        Error<GetVerifiedOrgDomainSsoDetailsError>,
-    > {
+    ) -> Result<models::VerifiedOrganizationDomainSsoDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -193,7 +150,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_domain_request_model: Option<models::OrganizationDomainRequestModel>,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<PostError>> {
+    ) -> Result<models::OrganizationDomainResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -212,11 +169,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn remove_domain<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveDomainError>> {
+    async fn remove_domain<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -239,7 +192,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<VerifyError>> {
+    ) -> Result<models::OrganizationDomainResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -257,47 +210,4 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationDomainApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::get_org_domain_sso_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrgDomainSsoDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::get_verified_org_domain_sso_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetVerifiedOrgDomainSsoDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::remove_domain`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RemoveDomainError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::verify`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum VerifyError {
-    UnknownValue(serde_json::Value),
 }

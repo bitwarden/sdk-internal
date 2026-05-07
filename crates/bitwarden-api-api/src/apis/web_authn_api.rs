@@ -30,25 +30,23 @@ pub trait WebAuthnApi: Send + Sync {
     async fn assertion_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error<AssertionOptionsError>>;
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error>;
 
     /// POST /webauthn/attestation-options
     async fn attestation_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error<AttestationOptionsError>>;
+    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error>;
 
     /// POST /webauthn/{id}/delete
     async fn delete<'a>(
         &self,
         id: uuid::Uuid,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>>;
+    ) -> Result<(), Error>;
 
     /// GET /webauthn
-    async fn get(
-        &self,
-    ) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error<GetError>>;
+    async fn get(&self) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error>;
 
     /// POST /webauthn
     async fn post<'a>(
@@ -56,7 +54,7 @@ pub trait WebAuthnApi: Send + Sync {
         web_authn_login_credential_create_request_model: Option<
             models::WebAuthnLoginCredentialCreateRequestModel,
         >,
-    ) -> Result<models::WebAuthnCredentialResponseModel, Error<PostError>>;
+    ) -> Result<models::WebAuthnCredentialResponseModel, Error>;
 
     /// PUT /webauthn
     async fn update_credential<'a>(
@@ -64,7 +62,7 @@ pub trait WebAuthnApi: Send + Sync {
         web_authn_login_credential_update_request_model: Option<
             models::WebAuthnLoginCredentialUpdateRequestModel,
         >,
-    ) -> Result<(), Error<UpdateCredentialError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct WebAuthnApiClient {
@@ -83,8 +81,7 @@ impl WebAuthnApi for WebAuthnApiClient {
     async fn assertion_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error<AssertionOptionsError>>
-    {
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -105,8 +102,7 @@ impl WebAuthnApi for WebAuthnApiClient {
     async fn attestation_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error<AttestationOptionsError>>
-    {
+    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -128,7 +124,7 @@ impl WebAuthnApi for WebAuthnApiClient {
         &self,
         id: uuid::Uuid,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -147,9 +143,7 @@ impl WebAuthnApi for WebAuthnApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get(
-        &self,
-    ) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error<GetError>> {
+    async fn get(&self) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -168,7 +162,7 @@ impl WebAuthnApi for WebAuthnApiClient {
         web_authn_login_credential_create_request_model: Option<
             models::WebAuthnLoginCredentialCreateRequestModel,
         >,
-    ) -> Result<models::WebAuthnCredentialResponseModel, Error<PostError>> {
+    ) -> Result<models::WebAuthnCredentialResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -189,7 +183,7 @@ impl WebAuthnApi for WebAuthnApiClient {
         web_authn_login_credential_update_request_model: Option<
             models::WebAuthnLoginCredentialUpdateRequestModel,
         >,
-    ) -> Result<(), Error<UpdateCredentialError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -204,41 +198,4 @@ impl WebAuthnApi for WebAuthnApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`WebAuthnApi::assertion_options`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AssertionOptionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::attestation_options`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AttestationOptionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::update_credential`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateCredentialError {
-    UnknownValue(serde_json::Value),
 }

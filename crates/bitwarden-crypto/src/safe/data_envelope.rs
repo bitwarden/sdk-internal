@@ -9,7 +9,7 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
+    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeySlotIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
     safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
@@ -60,7 +60,7 @@ pub struct DataEnvelope {
 impl DataEnvelope {
     /// Seals a struct into an encrypted blob, and stores the content-encryption-key in the provided
     /// context.
-    pub fn seal<Ids: KeyIds, T>(
+    pub fn seal<Ids: KeySlotIds, T>(
         data: T,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
     ) -> Result<(Self, Ids::Symmetric), DataEnvelopeError>
@@ -70,13 +70,13 @@ impl DataEnvelope {
         let (envelope, cek) = Self::seal_ref(&data, T::NAMESPACE)?;
         let cek_id = ctx.generate_symmetric_key();
         ctx.set_symmetric_key_internal(cek_id, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
-            .map_err(|_| DataEnvelopeError::KeyStoreError)?;
+            .map_err(|_| DataEnvelopeError::KeyStore)?;
         Ok((envelope, cek_id))
     }
 
     /// Seals a struct into an encrypted blob. The content encryption key is wrapped with the
     /// provided wrapping key
-    pub fn seal_with_wrapping_key<Ids: KeyIds, T>(
+    pub fn seal_with_wrapping_key<Ids: KeySlotIds, T>(
         data: T,
         wrapping_key: &Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
@@ -88,7 +88,7 @@ impl DataEnvelope {
 
         let wrapped_cek = ctx
             .wrap_symmetric_key(*wrapping_key, cek)
-            .map_err(|_| DataEnvelopeError::EncryptionError)?;
+            .map_err(|_| DataEnvelopeError::Encryption)?;
 
         Ok((envelope, wrapped_cek))
     }
@@ -106,13 +106,13 @@ impl DataEnvelope {
 
         // Serialize the message
         let serialized_message =
-            SerializedMessage::encode(&data).map_err(|_| DataEnvelopeError::EncodingError)?;
+            SerializedMessage::encode(&data).map_err(|_| DataEnvelopeError::Encoding)?;
         if serialized_message.content_type() != coset::iana::CoapContentFormat::Cbor {
             return Err(DataEnvelopeError::UnsupportedContentFormat);
         }
 
-        let serialized_and_padded_message = pad_cbor(serialized_message.as_bytes())
-            .map_err(|_| DataEnvelopeError::EncodingError)?;
+        let serialized_and_padded_message =
+            pad_cbor(serialized_message.as_bytes()).map_err(|_| DataEnvelopeError::Encoding)?;
 
         // Build the COSE headers
         let mut protected_header = coset::HeaderBuilder::new()
@@ -143,7 +143,7 @@ impl DataEnvelope {
         let envelope_data = encrypt0
             .to_vec()
             .map(CoseEncrypt0Bytes::from)
-            .map_err(|_| DataEnvelopeError::EncodingError)?;
+            .map_err(|_| DataEnvelopeError::Encoding)?;
 
         // Disable key operations other than decrypt on the CEK
         cek.disable_key_operation(coset::iana::KeyOperation::Encrypt)
@@ -155,7 +155,7 @@ impl DataEnvelope {
 
     /// Unseals the data from the encrypted blob using a content-encryption-key stored in the
     /// context.
-    pub fn unseal<Ids: KeyIds, T>(
+    pub fn unseal<Ids: KeySlotIds, T>(
         &self,
         cek_keyslot: Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
@@ -165,7 +165,7 @@ impl DataEnvelope {
     {
         let cek = ctx
             .get_symmetric_key(cek_keyslot)
-            .map_err(|_| DataEnvelopeError::KeyStoreError)?;
+            .map_err(|_| DataEnvelopeError::KeyStore)?;
 
         match cek {
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(T::NAMESPACE, key),
@@ -174,7 +174,7 @@ impl DataEnvelope {
     }
 
     /// Unseals the data from the encrypted blob and wrapped content-encryption-key.
-    pub fn unseal_with_wrapping_key<Ids: KeyIds, T>(
+    pub fn unseal_with_wrapping_key<Ids: KeySlotIds, T>(
         &self,
         wrapping_key: &Ids::Symmetric,
         wrapped_cek: &EncString,
@@ -185,7 +185,7 @@ impl DataEnvelope {
     {
         let cek = ctx
             .unwrap_symmetric_key(*wrapping_key, wrapped_cek)
-            .map_err(|_| DataEnvelopeError::DecryptionError)?;
+            .map_err(|_| DataEnvelopeError::Decryption)?;
         self.unseal(cek, ctx)
     }
 
@@ -200,16 +200,16 @@ impl DataEnvelope {
     {
         // Parse the COSE message
         let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref())
-            .map_err(|_| DataEnvelopeError::CoseDecodingError)?;
+            .map_err(|_| DataEnvelopeError::CoseDecoding)?;
         let content_format =
-            content_format(&msg.protected).map_err(|_| DataEnvelopeError::DecodingError)?;
+            content_format(&msg.protected).map_err(|_| DataEnvelopeError::Decoding)?;
 
         // Validate the message
         if !matches!(
             msg.protected.header.alg,
             Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305)),
         ) {
-            return Err(DataEnvelopeError::DecryptionError);
+            return Err(DataEnvelopeError::Decryption);
         }
         if msg.protected.header.key_id != cek.key_id.as_slice() {
             return Err(DataEnvelopeError::WrongKey);
@@ -243,17 +243,17 @@ impl DataEnvelope {
                     )
                 },
             )
-            .map_err(|_| DataEnvelopeError::DecryptionError)?;
+            .map_err(|_| DataEnvelopeError::Decryption)?;
 
         let unpadded_message =
-            unpad_cbor(&decrypted_message).map_err(|_| DataEnvelopeError::DecryptionError)?;
+            unpad_cbor(&decrypted_message).map_err(|_| DataEnvelopeError::Decryption)?;
 
         // Deserialize the message
         let serialized_message =
             SerializedMessage::from_bytes(unpadded_message, CoapContentFormat::Cbor);
         serialized_message
             .decode()
-            .map_err(|_| DataEnvelopeError::DecodingError)
+            .map_err(|_| DataEnvelopeError::Decoding)
     }
 }
 
@@ -346,25 +346,25 @@ pub enum DataEnvelopeError {
     UnsupportedContentFormat,
     /// Indicates that there was an error during decoding of the message.
     #[error("Failed to decode COSE message")]
-    CoseDecodingError,
+    CoseDecoding,
     /// Indicates that there was an error during decoding of the message.
     #[error("Failed to decode the content of the envelope")]
-    DecodingError,
+    Decoding,
     /// Indicates that there was an error during encoding of the message.
     #[error("Encoding error")]
-    EncodingError,
+    Encoding,
     /// Indicates that there was an error with the key store.
     #[error("KeyStore error")]
-    KeyStoreError,
+    KeyStore,
     /// Indicates that there was an error during decryption.
     #[error("Decryption error")]
-    DecryptionError,
+    Decryption,
     /// Indicates that there was an error during encryption.
     #[error("Encryption error")]
-    EncryptionError,
+    Encryption,
     /// Indicates that there was an error parsing the DataEnvelope.
     #[error("Parsing error: {0}")]
-    ParsingError(String),
+    Parsing(String),
     /// Indicates that the data envelope namespace is invalid.
     #[error("Invalid namespace")]
     InvalidNamespace,

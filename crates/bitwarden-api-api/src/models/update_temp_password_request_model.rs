@@ -14,10 +14,26 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateTempPasswordRequestModel {
-    #[serde(rename = "newMasterPasswordHash", alias = "NewMasterPasswordHash")]
-    pub new_master_password_hash: String,
-    #[serde(rename = "key", alias = "Key")]
-    pub key: String,
+    #[serde(
+        rename = "resetMasterPassword",
+        alias = "ResetMasterPassword",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub reset_master_password: Option<bool>,
+    #[serde(
+        rename = "resetTwoFactor",
+        alias = "ResetTwoFactor",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub reset_two_factor: Option<bool>,
+    #[serde(
+        rename = "newMasterPasswordHash",
+        alias = "NewMasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub new_master_password_hash: Option<String>,
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
     #[serde(
         rename = "masterPasswordHint",
         alias = "MasterPasswordHint",
@@ -27,10 +43,12 @@ pub struct UpdateTempPasswordRequestModel {
 }
 
 impl UpdateTempPasswordRequestModel {
-    pub fn new(new_master_password_hash: String, key: String) -> UpdateTempPasswordRequestModel {
+    pub fn new() -> UpdateTempPasswordRequestModel {
         UpdateTempPasswordRequestModel {
-            new_master_password_hash,
-            key,
+            reset_master_password: None,
+            reset_two_factor: None,
+            new_master_password_hash: None,
+            key: None,
             master_password_hint: None,
         }
     }

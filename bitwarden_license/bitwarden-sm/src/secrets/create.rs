@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::SecretCreateRequestModel;
-use bitwarden_core::key_management::SymmetricKeyId;
+use bitwarden_core::key_management::SymmetricKeySlotId;
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ pub(crate) async fn create_secret(
         .get_access_token_organization()
         .expect("Access token isn't associated with an organization");
 
-    let key = SymmetricKeyId::Organization(organization_id);
+    let key = SymmetricKeySlotId::Organization(organization_id);
 
     let secret = {
         let mut ctx = key_store.context();

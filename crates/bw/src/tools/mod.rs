@@ -1,10 +1,31 @@
-use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest};
+use bitwarden_generators::{
+    MAXIMUM_MIN_CHAR_COUNT, MAXIMUM_PASSPHRASE_NUM_WORDS, MAXIMUM_PASSWORD_LENGTH,
+    MINIMUM_MIN_CHAR_COUNT, MINIMUM_PASSPHRASE_NUM_WORDS, MINIMUM_PASSWORD_LENGTH,
+    PassphraseGeneratorRequest, PasswordGeneratorRequest,
+};
 use bitwarden_pm::PasswordManagerClient;
 use clap::{Args, Subcommand};
 
 use crate::render::CommandResult;
 
 #[derive(Args, Clone)]
+#[command(
+    about = "Generate a password/passphrase.",
+    after_help = r#"Notes:
+    Default options are `-uln --length 14`.
+    Minimum `length` is 5.
+    Minimum `words` is 3.
+
+Examples:
+    bw generate
+    bw generate -u -l --length 18
+    bw generate -ulns --length 25
+    bw generate -ul
+    bw generate -p --separator _
+    bw generate -p --words 5 --separator space
+    bw generate -p --words 5 --separator empty
+    "#
+)]
 pub struct GenerateArgs {
     // Password arguments
     #[arg(short = 'u', long, action, help = "Include uppercase characters (A-Z)")]
@@ -24,14 +45,27 @@ pub struct GenerateArgs {
     )]
     pub special: bool,
 
-    #[arg(long, default_value = "16", help = "Length of generated password")]
+    #[arg(long, default_value = "14", help = "Length of generated password")]
     pub length: u8,
 
-    #[arg(long, help = "Minimum number of numeric characters")]
-    pub min_numbers: Option<u8>,
+    // Default is 0 so the cascade below (`min_number > 0 → enable numbers`) only triggers when
+    // the user explicitly passed the flag. When `-n` is enabled but `--min-number` is omitted,
+    // the SDK's `get_minimum` still enforces at least one digit.
+    #[arg(
+        long,
+        alias = "minNumber",
+        default_value = "0",
+        help = "Minimum number of numeric characters"
+    )]
+    pub min_number: u8,
 
-    #[arg(long, help = "Minimum number of special characters")]
-    pub min_special: Option<u8>,
+    #[arg(
+        long,
+        alias = "minSpecial",
+        default_value = "0",
+        help = "Minimum number of special characters"
+    )]
+    pub min_special: u8,
 
     #[arg(long, action, help = "Avoid ambiguous characters")]
     pub ambiguous: bool,
@@ -40,44 +74,68 @@ pub struct GenerateArgs {
     #[arg(short = 'p', long, action, help = "Generate a passphrase")]
     pub passphrase: bool,
 
-    #[arg(long, default_value = "5", help = "Number of words in the passphrase")]
+    #[arg(long, default_value = "6", help = "Number of words in the passphrase")]
     pub words: u8,
 
     #[arg(long, default_value = "-", help = "Separator between words")]
-    pub separator: char,
+    pub separator: String,
 
-    #[arg(long, action, help = "Capitalize the first letter of each word")]
+    #[arg(long, action, help = "Title case passphrase.")]
     pub capitalize: bool,
 
-    #[arg(long, action, help = "Include a number in one of the words")]
+    #[arg(
+        long,
+        alias = "includeNumber",
+        action,
+        help = "Include a number in one of the words"
+    )]
     pub include_number: bool,
 }
 
 impl GenerateArgs {
-    pub fn run(mut self, client: &PasswordManagerClient) -> CommandResult {
+    pub fn run(self, client: &PasswordManagerClient) -> CommandResult {
         let result = if self.passphrase {
             client.generator().passphrase(PassphraseGeneratorRequest {
-                num_words: self.words,
-                word_separator: self.separator.to_string(),
+                // Silently clamp to the SDK's supported range, matching the Angular clients'
+                // `fitToBounds` in `passphrase-policy-constraints.ts`.
+                num_words: self
+                    .words
+                    .clamp(MINIMUM_PASSPHRASE_NUM_WORDS, MAXIMUM_PASSPHRASE_NUM_WORDS),
+                word_separator: normalize_separator(self.separator),
                 capitalize: self.capitalize,
                 include_number: self.include_number,
             })?
         } else {
-            // Default options if none are specified
-            if !self.lowercase && !self.uppercase && !self.number && !self.special {
-                self.lowercase = true;
-                self.uppercase = true;
-                self.number = true;
-            }
+            // When the user selects no charset, default to lowercase + uppercase + number,
+            // matching the legacy CLI.
+            let any_explicit = self.lowercase || self.uppercase || self.number || self.special;
+            let lowercase = if any_explicit { self.lowercase } else { true };
+            let uppercase = if any_explicit { self.uppercase } else { true };
+            // Cascade `--min-number` / `--min-special` > 0 into enabling the charset, matching
+            // `PasswordGeneratorOptionsEvaluator.applyPolicy` in the Angular clients.
+            let number = if any_explicit {
+                self.number || self.min_number > 0
+            } else {
+                true
+            };
+            let special = self.special || self.min_special > 0;
 
             client.generator().password(PasswordGeneratorRequest {
-                lowercase: self.lowercase,
-                uppercase: self.uppercase,
-                numbers: self.number,
-                special: self.special,
-                length: self.length,
-                min_number: self.min_numbers,
-                min_special: self.min_special,
+                lowercase,
+                uppercase,
+                numbers: number,
+                special,
+                length: self
+                    .length
+                    .clamp(MINIMUM_PASSWORD_LENGTH, MAXIMUM_PASSWORD_LENGTH),
+                min_number: Some(
+                    self.min_number
+                        .clamp(MINIMUM_MIN_CHAR_COUNT, MAXIMUM_MIN_CHAR_COUNT),
+                ),
+                min_special: Some(
+                    self.min_special
+                        .clamp(MINIMUM_MIN_CHAR_COUNT, MAXIMUM_MIN_CHAR_COUNT),
+                ),
                 avoid_ambiguous: self.ambiguous,
                 ..Default::default()
             })?
@@ -85,6 +143,22 @@ impl GenerateArgs {
 
         Ok(result.into())
     }
+}
+
+/// Map CLI-level separator input ("space", "empty", or a string) to the single character the
+/// generator expects.
+fn normalize_separator(separator: String) -> String {
+    match separator.as_str() {
+        "space" => " ".to_string(),
+        "empty" => String::new(),
+        s if s.len() > 1 => s.chars().next().map(|c| c.to_string()).unwrap_or_default(),
+        _ => separator,
+    }
+}
+
+#[derive(Args, Clone)]
+pub struct GetSendArgs {
+    pub id: String,
 }
 
 #[derive(Args, Clone)]
@@ -97,8 +171,12 @@ pub struct ImportArgs {
     #[arg(long, help = "List formats")]
     pub formats: bool,
 
-    #[arg(long, help = "ID of the organization to import to.")]
-    pub organizationid: Option<String>,
+    #[arg(
+        long,
+        alias = "organizationid",
+        help = "ID of the organization to import to."
+    )]
+    pub organization_id: Option<String>,
 }
 
 #[derive(Args, Clone)]
@@ -115,8 +193,12 @@ pub struct ExportArgs {
     )]
     pub password: Option<String>,
 
-    #[arg(long, help = "Organization id for an organization.")]
-    pub organizationid: Option<String>,
+    #[arg(
+        long,
+        alias = "organizationid",
+        help = "Organization id for an organization."
+    )]
+    pub organization_id: Option<String>,
 }
 
 #[derive(Args, Clone)]
@@ -166,13 +248,13 @@ pub struct SendArgs {
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum SendCommands {
-    #[command(long_about = "List all the Sends owned by you.")]
+    #[command(about = "List all the Sends owned by you.")]
     List,
 
-    #[command(long_about = "Get json templates for send objects.")]
+    #[command(about = "Get json templates for send objects.")]
     Template { object: String },
 
-    #[command(long_about = "Get Sends owned by you.")]
+    #[command(about = "Get Sends owned by you.")]
     Get {
         id: String,
 
@@ -183,7 +265,7 @@ pub enum SendCommands {
         text: bool,
     },
 
-    #[command(long_about = "Access a Bitwarden Send from a url.")]
+    #[command(about = "Access a Bitwarden Send from a url.")]
     Receive {
         url: String,
 
@@ -194,7 +276,7 @@ pub enum SendCommands {
         obj: Option<String>,
     },
 
-    #[command(long_about = "Create a Send.")]
+    #[command(about = "Create a Send.")]
     Create {
         encoded_json: Option<String>,
 
@@ -237,7 +319,7 @@ pub enum SendCommands {
         full_object: bool,
     },
 
-    #[command(long_about = "Edit a Send.")]
+    #[command(about = "Edit a Send.")]
     Edit {
         encoded_json: Option<String>,
 
@@ -261,10 +343,10 @@ pub enum SendCommands {
         hidden: bool,
     },
 
-    #[command(long_about = "Removes the saved password from a Send.")]
+    #[command(about = "Removes the saved password from a Send.")]
     RemovePassword { id: String },
 
-    #[command(long_about = "Delete a Send.")]
+    #[command(about = "Delete a Send.")]
     Delete { id: String },
 }
 

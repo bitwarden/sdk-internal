@@ -27,10 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait PlansApi: Send + Sync {
     /// GET /plans
-    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error<GetError>>;
+    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error>;
 
     /// GET /plans/premium
-    async fn get_premium_plan(&self) -> Result<(), Error<GetPremiumPlanError>>;
+    async fn get_premium_plan(&self) -> Result<(), Error>;
 }
 
 pub struct PlansApiClient {
@@ -46,7 +46,7 @@ impl PlansApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl PlansApi for PlansApiClient {
-    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error<GetError>> {
+    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -60,7 +60,7 @@ impl PlansApi for PlansApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get_premium_plan(&self) -> Result<(), Error<GetPremiumPlanError>> {
+    async fn get_premium_plan(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -73,17 +73,4 @@ impl PlansApi for PlansApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`PlansApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PlansApi::get_premium_plan`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPremiumPlanError {
-    UnknownValue(serde_json::Value),
 }

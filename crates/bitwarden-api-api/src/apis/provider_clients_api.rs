@@ -31,7 +31,7 @@ pub trait ProviderClientsApi: Send + Sync {
         &self,
         provider_id: uuid::Uuid,
         add_existing_organization_request_body: Option<models::AddExistingOrganizationRequestBody>,
-    ) -> Result<(), Error<AddExistingOrganizationError>>;
+    ) -> Result<(), Error>;
 
     /// POST /providers/{providerId}/clients
     async fn create<'a>(
@@ -40,13 +40,10 @@ pub trait ProviderClientsApi: Send + Sync {
         create_client_organization_request_body: Option<
             models::CreateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<CreateError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/clients/addable
-    async fn get_addable_organizations<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetAddableOrganizationsError>>;
+    async fn get_addable_organizations<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
 
     /// PUT /providers/{providerId}/clients/{providerOrganizationId}
     async fn update<'a>(
@@ -56,7 +53,7 @@ pub trait ProviderClientsApi: Send + Sync {
         update_client_organization_request_body: Option<
             models::UpdateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<UpdateError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct ProviderClientsApiClient {
@@ -76,7 +73,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         &self,
         provider_id: uuid::Uuid,
         add_existing_organization_request_body: Option<models::AddExistingOrganizationRequestBody>,
-    ) -> Result<(), Error<AddExistingOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -101,7 +98,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         create_client_organization_request_body: Option<
             models::CreateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<CreateError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -121,10 +118,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_addable_organizations<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetAddableOrganizationsError>> {
+    async fn get_addable_organizations<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -149,7 +143,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         update_client_organization_request_body: Option<
             models::UpdateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<UpdateError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -169,29 +163,4 @@ impl ProviderClientsApi for ProviderClientsApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ProviderClientsApi::add_existing_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddExistingOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderClientsApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderClientsApi::get_addable_organizations`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAddableOrganizationsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderClientsApi::update`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateError {
-    UnknownValue(serde_json::Value),
 }

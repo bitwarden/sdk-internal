@@ -33,13 +33,13 @@ pub trait NotificationsApi: Send + Sync {
         deleted_status_filter: Option<bool>,
         continuation_token: Option<&'a str>,
         page_size: Option<i32>,
-    ) -> Result<models::NotificationResponseModelListResponseModel, Error<ListError>>;
+    ) -> Result<models::NotificationResponseModelListResponseModel, Error>;
 
     /// PATCH /notifications/{id}/delete
-    async fn mark_as_deleted<'a>(&self, id: uuid::Uuid) -> Result<(), Error<MarkAsDeletedError>>;
+    async fn mark_as_deleted<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// PATCH /notifications/{id}/read
-    async fn mark_as_read<'a>(&self, id: uuid::Uuid) -> Result<(), Error<MarkAsReadError>>;
+    async fn mark_as_read<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct NotificationsApiClient {
@@ -61,7 +61,7 @@ impl NotificationsApi for NotificationsApiClient {
         deleted_status_filter: Option<bool>,
         continuation_token: Option<&'a str>,
         page_size: Option<i32>,
-    ) -> Result<models::NotificationResponseModelListResponseModel, Error<ListError>> {
+    ) -> Result<models::NotificationResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -91,7 +91,7 @@ impl NotificationsApi for NotificationsApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn mark_as_deleted<'a>(&self, id: uuid::Uuid) -> Result<(), Error<MarkAsDeletedError>> {
+    async fn mark_as_deleted<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -109,7 +109,7 @@ impl NotificationsApi for NotificationsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn mark_as_read<'a>(&self, id: uuid::Uuid) -> Result<(), Error<MarkAsReadError>> {
+    async fn mark_as_read<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -126,23 +126,4 @@ impl NotificationsApi for NotificationsApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`NotificationsApi::list`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`NotificationsApi::mark_as_deleted`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MarkAsDeletedError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`NotificationsApi::mark_as_read`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MarkAsReadError {
-    UnknownValue(serde_json::Value),
 }

@@ -44,14 +44,14 @@ pub struct SsoCookieVendorConfig {
     /// Identity provider login URL for browser redirect during bootstrap
     pub idp_login_url: Option<String>,
     /// Cookie name (base name, without shard suffix)
-    pub cookie_name: Option<String>,
+    pub cookie_name: String,
     /// Cookie domain for validation
-    pub cookie_domain: Option<String>,
+    pub cookie_domain: String,
     /// Vault URL for cookie acquisition redirect
     ///
     /// This is the full vault URL (scheme + host + port) where the browser
     /// should be redirected for SSO cookie acquisition.
-    pub vault_url: Option<String>,
+    pub vault_url: String,
     /// Acquired cookies
     ///
     /// For sharded cookies, this contains multiple entries with names like
@@ -110,14 +110,14 @@ pub struct SsoCookieVendorConfigRequest {
     /// Identity provider login URL for browser redirect during bootstrap
     pub idp_login_url: Option<String>,
     /// Cookie name (base name, without shard suffix)
-    pub cookie_name: Option<String>,
+    pub cookie_name: String,
     /// Cookie domain for validation
-    pub cookie_domain: Option<String>,
+    pub cookie_domain: String,
     /// Vault URL for cookie acquisition redirect
     ///
     /// This is the full vault URL (scheme + host + port) where the browser
     /// should be redirected for SSO cookie acquisition.
-    pub vault_url: Option<String>,
+    pub vault_url: String,
 }
 
 // We manually implement Debug to make sure we don't print sensitive cookie values
@@ -158,9 +158,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://timeloop-auth.acme.com/login".to_string()),
-                cookie_name: Some("ALBAuthSessionCookie".to_string()),
-                cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "ALBAuthSessionCookie".to_string(),
+                cookie_domain: "vault.example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -178,8 +178,8 @@ mod tests {
                 vendor.idp_login_url,
                 Some("https://idp.example.com/login".to_string())
             );
-            assert_eq!(vendor.cookie_name, Some("TestCookie".to_string()));
-            assert_eq!(vendor.cookie_domain, Some("example.com".to_string()));
+            assert_eq!(vendor.cookie_name, "TestCookie");
+            assert_eq!(vendor.cookie_domain, "example.com");
         } else {
             panic!("Expected SsoCookieVendor variant");
         }
@@ -190,14 +190,8 @@ mod tests {
                 vendor_config.idp_login_url,
                 Some("https://timeloop-auth.acme.com/login".to_string())
             );
-            assert_eq!(
-                vendor_config.cookie_name,
-                Some("ALBAuthSessionCookie".to_string())
-            );
-            assert_eq!(
-                vendor_config.cookie_domain,
-                Some("vault.example.com".to_string())
-            );
+            assert_eq!(vendor_config.cookie_name, "ALBAuthSessionCookie");
+            assert_eq!(vendor_config.cookie_domain, "vault.example.com");
             assert!(vendor_config.cookie_value.is_none());
         } else {
             panic!("Expected SsoCookieVendor variant");
@@ -211,9 +205,9 @@ mod tests {
         // Test with None
         let config_none = SsoCookieVendorConfig {
             idp_login_url: Some("https://example.com".to_string()),
-            cookie_name: Some("TestCookie".to_string()),
-            cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
+            cookie_name: "TestCookie".to_string(),
+            cookie_domain: "example.com".to_string(),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: None,
         };
 
@@ -224,9 +218,9 @@ mod tests {
         // Test with Some - single cookie
         let config_some = SsoCookieVendorConfig {
             idp_login_url: Some("https://example.com".to_string()),
-            cookie_name: Some("TestCookie".to_string()),
-            cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
+            cookie_name: "TestCookie".to_string(),
+            cookie_domain: "example.com".to_string(),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
                 value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -244,9 +238,9 @@ mod tests {
         // Test with multiple shards
         let config_sharded = SsoCookieVendorConfig {
             idp_login_url: Some("https://example.com".to_string()),
-            cookie_name: Some("TestCookie".to_string()),
-            cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
+            cookie_name: "TestCookie".to_string(),
+            cookie_domain: "example.com".to_string(),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: Some(vec![
                 AcquiredCookie {
                     name: "TestCookie-0".to_string(),
@@ -280,9 +274,9 @@ mod tests {
 
         let vendor = BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
             idp_login_url: Some("https://example.com".to_string()),
-            cookie_name: Some("Cookie".to_string()),
-            cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
+            cookie_name: "Cookie".to_string(),
+            cookie_domain: "example.com".to_string(),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: None,
         });
         assert!(matches!(vendor, BootstrapConfig::SsoCookieVendor(_)));
@@ -295,9 +289,9 @@ mod tests {
         // Test that cookie values are not exposed in Debug output
         let config_with_cookie = SsoCookieVendorConfig {
             idp_login_url: Some("https://example.com/login".to_string()),
-            cookie_name: Some("SessionCookie".to_string()),
-            cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
+            cookie_name: "SessionCookie".to_string(),
+            cookie_domain: "example.com".to_string(),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "SessionCookie".to_string(),
                 value: "super-secret-cookie-value-abc123".to_string(),

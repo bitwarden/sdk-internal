@@ -30,14 +30,14 @@ pub trait SecretsManagerPortingApi: Send + Sync {
     async fn export<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SmExportResponseModel, Error<ExportError>>;
+    ) -> Result<models::SmExportResponseModel, Error>;
 
     /// POST /sm/{organizationId}/import
     async fn import<'a>(
         &self,
         organization_id: uuid::Uuid,
         sm_import_request_model: Option<models::SmImportRequestModel>,
-    ) -> Result<(), Error<ImportError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct SecretsManagerPortingApiClient {
@@ -56,7 +56,7 @@ impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
     async fn export<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SmExportResponseModel, Error<ExportError>> {
+    ) -> Result<models::SmExportResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -78,7 +78,7 @@ impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
         &self,
         organization_id: uuid::Uuid,
         sm_import_request_model: Option<models::SmImportRequestModel>,
-    ) -> Result<(), Error<ImportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -96,17 +96,4 @@ impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SecretsManagerPortingApi::export`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ExportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecretsManagerPortingApi::import`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ImportError {
-    UnknownValue(serde_json::Value),
 }

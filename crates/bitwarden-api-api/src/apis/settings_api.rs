@@ -30,13 +30,13 @@ pub trait SettingsApi: Send + Sync {
     async fn get_domains<'a>(
         &self,
         excluded: Option<bool>,
-    ) -> Result<models::DomainsResponseModel, Error<GetDomainsError>>;
+    ) -> Result<models::DomainsResponseModel, Error>;
 
     /// PUT /settings/domains
     async fn put_domains<'a>(
         &self,
         update_domains_request_model: Option<models::UpdateDomainsRequestModel>,
-    ) -> Result<models::DomainsResponseModel, Error<PutDomainsError>>;
+    ) -> Result<models::DomainsResponseModel, Error>;
 }
 
 pub struct SettingsApiClient {
@@ -55,7 +55,7 @@ impl SettingsApi for SettingsApiClient {
     async fn get_domains<'a>(
         &self,
         excluded: Option<bool>,
-    ) -> Result<models::DomainsResponseModel, Error<GetDomainsError>> {
+    ) -> Result<models::DomainsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -76,7 +76,7 @@ impl SettingsApi for SettingsApiClient {
     async fn put_domains<'a>(
         &self,
         update_domains_request_model: Option<models::UpdateDomainsRequestModel>,
-    ) -> Result<models::DomainsResponseModel, Error<PutDomainsError>> {
+    ) -> Result<models::DomainsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -90,17 +90,4 @@ impl SettingsApi for SettingsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SettingsApi::get_domains`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetDomainsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SettingsApi::put_domains`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDomainsError {
-    UnknownValue(serde_json::Value),
 }

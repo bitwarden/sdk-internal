@@ -55,10 +55,11 @@ use bitwarden_core::Client;
 use bitwarden_exporters::{ExporterClientExt, ExportFormat};
 # use bitwarden_vault::{Cipher, Folder};
 
-fn export(client: &Client, folders: Vec<Folder>, ciphers: Vec<Cipher>) {
+async fn export(client: &Client, folders: Vec<Folder>, ciphers: Vec<Cipher>) {
     let export = client
         .exporters()
         .export_vault(folders, ciphers, ExportFormat::Json)
+        .await
         .unwrap();
 }
 ```

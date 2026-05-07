@@ -31,7 +31,7 @@ pub trait LicensesApi: Send + Sync {
         &self,
         id: &'a str,
         key: Option<&'a str>,
-    ) -> Result<models::UserLicense, Error<GetUserError>>;
+    ) -> Result<models::UserLicense, Error>;
 
     /// GET /licenses/organization/{id}
     async fn organization_sync<'a>(
@@ -40,7 +40,7 @@ pub trait LicensesApi: Send + Sync {
         self_hosted_organization_license_request_model: Option<
             models::SelfHostedOrganizationLicenseRequestModel,
         >,
-    ) -> Result<models::OrganizationLicense, Error<OrganizationSyncError>>;
+    ) -> Result<models::OrganizationLicense, Error>;
 }
 
 pub struct LicensesApiClient {
@@ -60,7 +60,7 @@ impl LicensesApi for LicensesApiClient {
         &self,
         id: &'a str,
         key: Option<&'a str>,
-    ) -> Result<models::UserLicense, Error<GetUserError>> {
+    ) -> Result<models::UserLicense, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -88,7 +88,7 @@ impl LicensesApi for LicensesApiClient {
         self_hosted_organization_license_request_model: Option<
             models::SelfHostedOrganizationLicenseRequestModel,
         >,
-    ) -> Result<models::OrganizationLicense, Error<OrganizationSyncError>> {
+    ) -> Result<models::OrganizationLicense, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -107,17 +107,4 @@ impl LicensesApi for LicensesApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`LicensesApi::get_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`LicensesApi::organization_sync`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationSyncError {
-    UnknownValue(serde_json::Value),
 }

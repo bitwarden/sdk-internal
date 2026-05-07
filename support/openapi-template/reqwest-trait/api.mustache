@@ -62,7 +62,7 @@ pub trait {{{classname}}}: Send + Sync {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>>;
+    }}, Error>;
 {{/vendorExtensions.x-group-parameters}}
 {{/isDeprecated}}
 {{/operation}}
@@ -141,7 +141,7 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
+    }}, Error> {
         {{#allParams}}{{#-first}}
         let {{{vendorExtensions.x-action-name}}}Params {
             {{#allParams}}
@@ -176,7 +176,7 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Regular return type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
+    }}, Error> {
     {{/vendorExtensions.x-group-parameters}}
         let local_var_configuration = &self.configuration;
 
@@ -428,50 +428,3 @@ impl {{classname}} for {{classname}}Client {
     {{/operation}}
     {{/operations}}
 }
-
-{{#supportMultipleResponses}}
-{{#operations}}
-{{#operation}}
-{{^isDeprecated}}
-/// struct for typed successes of method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum {{{vendorExtensions.x-action-name}}}Success {
-    {{#responses}}
-    {{#is2xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is2xx}}
-    {{#is3xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is3xx}}
-    {{/responses}}
-    UnknownValue(serde_json::Value),
-}
-
-{{/isDeprecated}}
-{{/operation}}
-{{/operations}}
-{{/supportMultipleResponses}}
-{{#operations}}
-{{#operation}}
-{{^isDeprecated}}
-/// struct for typed errors of method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum {{{vendorExtensions.x-action-name}}}Error {
-    {{#responses}}
-    {{#is4xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is4xx}}
-    {{#is5xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is5xx}}
-    {{#isDefault}}
-    DefaultResponse({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/isDefault}}
-    {{/responses}}
-    UnknownValue(serde_json::Value),
-}
-{{/isDeprecated}}
-{{/operation}}
-{{/operations}}

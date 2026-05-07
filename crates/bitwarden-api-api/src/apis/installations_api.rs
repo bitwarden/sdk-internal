@@ -27,16 +27,13 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait InstallationsApi: Send + Sync {
     /// GET /installations/{id}
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::InstallationResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::InstallationResponseModel, Error>;
 
     /// POST /installations
     async fn post<'a>(
         &self,
         installation_request_model: Option<models::InstallationRequestModel>,
-    ) -> Result<models::InstallationResponseModel, Error<PostError>>;
+    ) -> Result<models::InstallationResponseModel, Error>;
 }
 
 pub struct InstallationsApiClient {
@@ -52,10 +49,7 @@ impl InstallationsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl InstallationsApi for InstallationsApiClient {
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::InstallationResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::InstallationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -76,7 +70,7 @@ impl InstallationsApi for InstallationsApiClient {
     async fn post<'a>(
         &self,
         installation_request_model: Option<models::InstallationRequestModel>,
-    ) -> Result<models::InstallationResponseModel, Error<PostError>> {
+    ) -> Result<models::InstallationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -90,17 +84,4 @@ impl InstallationsApi for InstallationsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`InstallationsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`InstallationsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
 }

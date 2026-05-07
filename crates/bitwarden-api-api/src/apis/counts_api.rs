@@ -30,19 +30,19 @@ pub trait CountsApi: Send + Sync {
     async fn get_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::OrganizationCountsResponseModel, Error<GetByOrganizationError>>;
+    ) -> Result<models::OrganizationCountsResponseModel, Error>;
 
     /// GET /projects/{projectId}/sm-counts
     async fn get_by_project<'a>(
         &self,
         project_id: uuid::Uuid,
-    ) -> Result<models::ProjectCountsResponseModel, Error<GetByProjectError>>;
+    ) -> Result<models::ProjectCountsResponseModel, Error>;
 
     /// GET /service-accounts/{serviceAccountId}/sm-counts
     async fn get_by_service_account<'a>(
         &self,
         service_account_id: uuid::Uuid,
-    ) -> Result<models::ServiceAccountCountsResponseModel, Error<GetByServiceAccountError>>;
+    ) -> Result<models::ServiceAccountCountsResponseModel, Error>;
 }
 
 pub struct CountsApiClient {
@@ -61,7 +61,7 @@ impl CountsApi for CountsApiClient {
     async fn get_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::OrganizationCountsResponseModel, Error<GetByOrganizationError>> {
+    ) -> Result<models::OrganizationCountsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -82,7 +82,7 @@ impl CountsApi for CountsApiClient {
     async fn get_by_project<'a>(
         &self,
         project_id: uuid::Uuid,
-    ) -> Result<models::ProjectCountsResponseModel, Error<GetByProjectError>> {
+    ) -> Result<models::ProjectCountsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -103,7 +103,7 @@ impl CountsApi for CountsApiClient {
     async fn get_by_service_account<'a>(
         &self,
         service_account_id: uuid::Uuid,
-    ) -> Result<models::ServiceAccountCountsResponseModel, Error<GetByServiceAccountError>> {
+    ) -> Result<models::ServiceAccountCountsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -120,23 +120,4 @@ impl CountsApi for CountsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`CountsApi::get_by_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CountsApi::get_by_project`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByProjectError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CountsApi::get_by_service_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByServiceAccountError {
-    UnknownValue(serde_json::Value),
 }

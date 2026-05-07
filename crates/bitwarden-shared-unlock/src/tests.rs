@@ -8,6 +8,8 @@ use std::{
 };
 
 use bitwarden_core::UserId;
+use bitwarden_crypto::SymmetricCryptoKey;
+use bitwarden_encoding::B64;
 use bitwarden_ipc::{
     Endpoint, HostId, InMemorySessionRepository, IncomingMessage, IpcClient,
     NoEncryptionCryptoProvider, Source, TestCommunicationBackend, TestIpcClient,
@@ -15,7 +17,7 @@ use bitwarden_ipc::{
 };
 
 use crate::{
-    DeviceEvent, Follower, FollowerMessage, Leader, LeaderMessage, LockState, UserKey,
+    DeviceEvent, Follower, FollowerMessage, Leader, LeaderMessage, LockState,
     drivers::SharedUnlockDriver,
 };
 
@@ -69,7 +71,7 @@ impl SharedUnlockDriver for MockDriver {
         Ok(())
     }
 
-    async fn unlock_user(&self, user_id: UserId, user_key: UserKey) -> Result<(), ()> {
+    async fn unlock_user(&self, user_id: UserId, user_key: SymmetricCryptoKey) -> Result<(), ()> {
         self.states
             .lock()
             .unwrap()
@@ -89,11 +91,11 @@ impl SharedUnlockDriver for MockDriver {
         self.vault_urls.lock().unwrap().get(&user_id).cloned()
     }
 
-    async fn suppress_vault_timeout(&self, user_id: UserId, until: Duration) {
+    async fn suppress_vault_timeout(&self, user_id: UserId, suppression_duration: Duration) {
         self.timeout_suppressions
             .lock()
             .unwrap()
-            .push((user_id, until));
+            .push((user_id, suppression_duration));
     }
     async fn discover_leader(&self) -> Option<Endpoint> {
         Some(self.endpoint.clone())
@@ -106,8 +108,8 @@ fn follower_source() -> Source {
     Source::BrowserBackground { id: HostId::Own }
 }
 
-fn test_user_key() -> UserKey {
-    UserKey::from_bytes(vec![1u8; 64])
+fn test_user_key() -> SymmetricCryptoKey {
+    SymmetricCryptoKey::try_from(B64::from([1u8; 64].to_vec())).unwrap()
 }
 
 fn user_a() -> UserId {
@@ -157,7 +159,8 @@ impl Harness {
             InMemorySessionRepository::new(HashMap::new()),
         ));
 
-        let follower = Follower::create(follower_lock.clone(), ipc_client).await;
+        let follower = Follower::create(follower_lock.clone(), ipc_client);
+        follower.start_sessions().await;
 
         let mut harness = Self {
             leader,
@@ -271,40 +274,6 @@ async fn test_follower_startup_unlocked_propagates_to_leader() {
 }
 
 #[tokio::test]
-async fn test_follower_unlock_propagates_to_leader() {
-    let user = user_a();
-    let key = test_user_key();
-    let leader_states = HashMap::from([(user, LockState::Locked)]);
-    let follower_states = HashMap::from([(user, LockState::Locked)]);
-
-    let mut harness = Harness::new(leader_states, follower_states).await;
-
-    // Follower manually unlocks
-    harness
-        .follower
-        .handle_device_event(DeviceEvent::ManualUnlock {
-            user_id: user,
-            user_key: key.as_bytes().to_vec(),
-        })
-        .await
-        .unwrap();
-
-    harness.pump().await;
-
-    assert_eq!(
-        harness.leader_lock.get_state(user),
-        LockState::Unlocked {
-            user_key: key.clone()
-        }
-    );
-    // Follower also receives the echo back and unlocks locally
-    assert_eq!(
-        harness.follower_lock.get_state(user),
-        LockState::Unlocked { user_key: key }
-    );
-}
-
-#[tokio::test]
 async fn test_follower_lock_propagates_to_leader() {
     let user = user_a();
     let key = test_user_key();
@@ -327,7 +296,6 @@ async fn test_follower_lock_propagates_to_leader() {
     harness.pump().await;
 
     assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
-    assert_eq!(harness.follower_lock.get_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -368,7 +336,7 @@ async fn test_leader_unlock_broadcasts_to_follower() {
         .leader
         .handle_device_event(DeviceEvent::ManualUnlock {
             user_id: user,
-            user_key: key.as_bytes().to_vec(),
+            user_key: key.clone(),
         })
         .await
         .unwrap();
@@ -379,29 +347,6 @@ async fn test_leader_unlock_broadcasts_to_follower() {
         harness.follower_lock.get_state(user),
         LockState::Unlocked { user_key: key }
     );
-}
-
-#[tokio::test]
-async fn test_heartbeat_round_trip() {
-    let user = user_a();
-    let leader_states = HashMap::from([(user, LockState::Locked)]);
-    let follower_states = HashMap::from([(user, LockState::Locked)]);
-
-    let mut harness = Harness::new(leader_states, follower_states).await;
-
-    // Follower fires Timer -> sends HeartBeat for all users
-    harness
-        .follower
-        .handle_device_event(DeviceEvent::Timer)
-        .await
-        .unwrap();
-
-    harness.pump().await;
-
-    let suppressions = harness.follower_lock.timeout_suppressions.lock().unwrap();
-    assert_eq!(suppressions.len(), 1);
-    assert_eq!(suppressions[0].0, user);
-    assert_eq!(suppressions[0].1, crate::HEARTBEAT_INTERVAL);
 }
 
 #[tokio::test]

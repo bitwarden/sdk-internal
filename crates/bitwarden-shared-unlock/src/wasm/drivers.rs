@@ -1,20 +1,20 @@
 use bitwarden_core::UserId;
-use bitwarden_encoding::B64;
+use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_ipc::{Endpoint, HostId};
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
-use crate::{LockState, SharedUnlockDriver, UserKey};
+use crate::{LockState, SharedUnlockDriver};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
 export interface SharedUnlockDriver {
     lock_user(user_id: UserId): Promise<void>;
-    unlock_user(user_id: UserId, user_key: Uint8Array): Promise<void>;
+    unlock_user(user_id: UserId, user_key: SymmetricKey): Promise<void>;
     list_users(): Promise<UserId[]>;
-    get_user_key(user_id: UserId): Promise<string | undefined>;
-    suppress_vault_timeout(until: number, userId: UserId): Promise<void>;
+    get_user_key(user_id: UserId): Promise<SymmetricKey | undefined>;
+    suppress_vault_timeout(user_id: UserId, suppression_duration: number): Promise<void>;
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
 }
@@ -32,7 +32,7 @@ extern "C" {
     async fn unlock_user(
         this: &RawJsSharedUnlockDriver,
         user_id: UserId,
-        user_key: Box<[u8]>,
+        user_key: SymmetricCryptoKey,
     ) -> Result<(), JsValue>;
     #[wasm_bindgen(method, catch)]
     async fn list_users(this: &RawJsSharedUnlockDriver) -> Result<js_sys::Array, JsValue>;
@@ -40,14 +40,14 @@ extern "C" {
     async fn get_user_key(
         this: &RawJsSharedUnlockDriver,
         user_id: UserId,
-    ) -> Result<JsValue, JsValue>;
+    ) -> Result<Option<SymmetricCryptoKey>, JsValue>;
 
-    /// Supress the vault timeout until the given timestamp (in milliseconds since unix epoch).
+    /// Supress the vault timeout for the given duration (in milliseconds).
     #[wasm_bindgen(method, catch)]
     async fn suppress_vault_timeout(
         this: &RawJsSharedUnlockDriver,
-        until: f64,
         user_id: UserId,
+        suppression_duration: f64,
     ) -> Result<(), JsValue>;
 
     /// Get the client type of the current device
@@ -68,8 +68,10 @@ pub(super) struct JsSharedUnlockDriver {
 }
 
 impl JsSharedUnlockDriver {
-    pub(super) fn new(runner: ThreadBoundRunner<RawJsSharedUnlockDriver>) -> Self {
-        Self { runner }
+    pub(super) fn new(driver: RawJsSharedUnlockDriver) -> Self {
+        Self {
+            runner: ThreadBoundRunner::new(driver),
+        }
     }
 }
 
@@ -84,13 +86,10 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             .map_err(|_| ())?
     }
 
-    async fn unlock_user(&self, user_id: UserId, user_key: UserKey) -> Result<(), ()> {
+    async fn unlock_user(&self, user_id: UserId, user_key: SymmetricCryptoKey) -> Result<(), ()> {
         self.runner
             .run_in_thread(move |driver| async move {
-                driver
-                    .unlock_user(user_id, user_key.as_bytes().into())
-                    .await
-                    .map_err(|_| ())
+                driver.unlock_user(user_id, user_key).await.map_err(|_| ())
             })
             .await
             .map_err(|_| ())?
@@ -115,18 +114,8 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
         self.runner
             .run_in_thread(move |driver| async move {
-                match driver
-                    .get_user_key(user_id)
-                    .await
-                    .ok()
-                    .and_then(|js_value| js_value.as_string())
-                {
-                    Some(user_key_b64) => match B64::try_from(user_key_b64.as_str()) {
-                        Ok(user_key) => LockState::Unlocked {
-                            user_key: UserKey::from_bytes(user_key.into_bytes()),
-                        },
-                        Err(_) => LockState::Locked,
-                    },
+                match driver.get_user_key(user_id).await.ok().flatten() {
+                    Some(user_key) => LockState::Unlocked { user_key },
                     None => LockState::Locked,
                 }
             })
@@ -148,12 +137,17 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             .flatten()
     }
 
-    async fn suppress_vault_timeout(&self, user_id: UserId, until: std::time::Duration) {
-        let until_ms = js_sys::Date::now() + until.as_millis() as f64;
+    async fn suppress_vault_timeout(
+        &self,
+        user_id: UserId,
+        suppression_duration: std::time::Duration,
+    ) {
         let result = self
             .runner
             .run_in_thread(move |driver| async move {
-                driver.suppress_vault_timeout(until_ms, user_id).await
+                driver
+                    .suppress_vault_timeout(user_id, suppression_duration.as_millis() as f64)
+                    .await
             })
             .await;
         match result {

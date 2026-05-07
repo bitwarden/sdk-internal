@@ -31,55 +31,43 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         &self,
         organization_id: &'a str,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/address
-    async fn get_billing_address<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetBillingAddressError>>;
+    async fn get_billing_address<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/credit
-    async fn get_credit<'a>(&self, organization_id: &'a str) -> Result<(), Error<GetCreditError>>;
+    async fn get_credit<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/metadata
-    async fn get_metadata<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetMetadataError>>;
+    async fn get_metadata<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/payment-method
-    async fn get_payment_method<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetPaymentMethodError>>;
+    async fn get_payment_method<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/warnings
-    async fn get_warnings<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetWarningsError>>;
+    async fn get_warnings<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
     /// POST /organizations/{organizationId}/billing/vnext/subscription/restart
     async fn restart_subscription<'a>(
         &self,
         organization_id: &'a str,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
-    ) -> Result<(), Error<RestartSubscriptionError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{organizationId}/billing/vnext/address
     async fn update_billing_address<'a>(
         &self,
         organization_id: &'a str,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{organizationId}/billing/vnext/payment-method
     async fn update_payment_method<'a>(
         &self,
         organization_id: &'a str,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationBillingVNextApiClient {
@@ -99,7 +87,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         &self,
         organization_id: &'a str,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -118,10 +106,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_billing_address<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetBillingAddressError>> {
+    async fn get_billing_address<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -139,7 +124,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_credit<'a>(&self, organization_id: &'a str) -> Result<(), Error<GetCreditError>> {
+    async fn get_credit<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -157,10 +142,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_metadata<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetMetadataError>> {
+    async fn get_metadata<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -178,10 +160,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_payment_method<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetPaymentMethodError>> {
+    async fn get_payment_method<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -199,10 +178,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_warnings<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<GetWarningsError>> {
+    async fn get_warnings<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -224,7 +200,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         &self,
         organization_id: &'a str,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
-    ) -> Result<(), Error<RestartSubscriptionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -247,7 +223,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         &self,
         organization_id: &'a str,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -270,7 +246,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         &self,
         organization_id: &'a str,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -288,59 +264,4 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationBillingVNextApi::add_credit_via_bit_pay`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddCreditViaBitPayError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_credit`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCreditError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_metadata`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMetadataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_warnings`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetWarningsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::restart_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestartSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::update_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::update_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdatePaymentMethodError {
-    UnknownValue(serde_json::Value),
 }

@@ -30,33 +30,30 @@ pub trait ProjectsApi: Send + Sync {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>>;
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{organizationId}/projects
     async fn create<'a>(
         &self,
         organization_id: uuid::Uuid,
         project_create_request_model: Option<models::ProjectCreateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error<CreateError>>;
+    ) -> Result<models::ProjectResponseModel, Error>;
 
     /// GET /projects/{id}
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::ProjectResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProjectResponseModel, Error>;
 
     /// GET /organizations/{organizationId}/projects
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::ProjectResponseModelListResponseModel, Error<ListByOrganizationError>>;
+    ) -> Result<models::ProjectResponseModelListResponseModel, Error>;
 
     /// PUT /projects/{id}
     async fn update<'a>(
         &self,
         id: uuid::Uuid,
         project_update_request_model: Option<models::ProjectUpdateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error<UpdateError>>;
+    ) -> Result<models::ProjectResponseModel, Error>;
 }
 
 pub struct ProjectsApiClient {
@@ -75,7 +72,7 @@ impl ProjectsApi for ProjectsApiClient {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>> {
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -94,7 +91,7 @@ impl ProjectsApi for ProjectsApiClient {
         &self,
         organization_id: uuid::Uuid,
         project_create_request_model: Option<models::ProjectCreateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error<CreateError>> {
+    ) -> Result<models::ProjectResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -113,10 +110,7 @@ impl ProjectsApi for ProjectsApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::ProjectResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProjectResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -137,7 +131,7 @@ impl ProjectsApi for ProjectsApiClient {
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::ProjectResponseModelListResponseModel, Error<ListByOrganizationError>> {
+    ) -> Result<models::ProjectResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -159,7 +153,7 @@ impl ProjectsApi for ProjectsApiClient {
         &self,
         id: uuid::Uuid,
         project_update_request_model: Option<models::ProjectUpdateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error<UpdateError>> {
+    ) -> Result<models::ProjectResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -177,35 +171,4 @@ impl ProjectsApi for ProjectsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ProjectsApi::bulk_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProjectsApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProjectsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProjectsApi::list_by_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListByOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProjectsApi::update`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateError {
-    UnknownValue(serde_json::Value),
 }

@@ -2,8 +2,8 @@ use bitwarden_api_api::models::{
     OtherDeviceKeysUpdateRequestModel, WebAuthnLoginRotateKeyRequestModel,
 };
 #[cfg(test)]
-use bitwarden_core::key_management::PrivateKeyId;
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::key_management::PrivateKeySlotId;
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     Decryptable, EncString, KeyStoreContext, PrimitiveEncryptable, PublicKey, UnsignedSharedKey,
 };
@@ -45,9 +45,9 @@ impl PartialRotateableKeyset {
     #[instrument(skip(self, ctx))]
     pub(super) fn rotate_userkey(
         &self,
-        current_user_key_id: SymmetricKeyId,
-        new_user_key_id: SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        current_user_key_id: SymmetricKeySlotId,
+        new_user_key_id: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<PartialRotateableKeyset, ()> {
         let pubkey_bytes: Vec<u8> = self
             .encrypted_public_key
@@ -72,9 +72,9 @@ impl PartialRotateableKeyset {
     /// The private key is stored on the context since it is no present on the partial keyset.
     #[cfg(test)]
     pub(crate) fn make_test_keyset(
-        downstream_key_id: SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
-    ) -> (Self, PrivateKeyId) {
+        downstream_key_id: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> (Self, PrivateKeySlotId) {
         use bitwarden_crypto::PublicKeyEncryptionAlgorithm;
 
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
@@ -99,14 +99,14 @@ impl PartialRotateableKeyset {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::KeyIds;
+    use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{Bytes, KeyStore, SpkiPublicKeyDerContentFormat};
 
     use super::*;
 
     #[test]
     fn test_keyset_reencrypt() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Generate two symmetric keys, old and new

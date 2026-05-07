@@ -33,29 +33,29 @@ pub trait SecurityTaskApi: Send + Sync {
         bulk_create_security_tasks_request_model: Option<
             models::BulkCreateSecurityTasksRequestModel,
         >,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<BulkCreateTasksError>>;
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error>;
 
     /// PATCH /tasks/{taskId}/complete
-    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error<CompleteError>>;
+    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /tasks
     async fn get<'a>(
         &self,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<GetError>>;
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error>;
 
     /// GET /tasks/{organizationId}/metrics
     async fn get_task_metrics_for_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecurityTaskMetricsResponseModel, Error<GetTaskMetricsForOrganizationError>>;
+    ) -> Result<models::SecurityTaskMetricsResponseModel, Error>;
 
     /// GET /tasks/organization
     async fn list_for_organization<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<ListForOrganizationError>>;
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error>;
 }
 
 pub struct SecurityTaskApiClient {
@@ -77,8 +77,7 @@ impl SecurityTaskApi for SecurityTaskApiClient {
         bulk_create_security_tasks_request_model: Option<
             models::BulkCreateSecurityTasksRequestModel,
         >,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<BulkCreateTasksError>>
-    {
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -98,7 +97,7 @@ impl SecurityTaskApi for SecurityTaskApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error<CompleteError>> {
+    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -119,7 +118,7 @@ impl SecurityTaskApi for SecurityTaskApiClient {
     async fn get<'a>(
         &self,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<GetError>> {
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -140,8 +139,7 @@ impl SecurityTaskApi for SecurityTaskApiClient {
     async fn get_task_metrics_for_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecurityTaskMetricsResponseModel, Error<GetTaskMetricsForOrganizationError>>
-    {
+    ) -> Result<models::SecurityTaskMetricsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -163,8 +161,7 @@ impl SecurityTaskApi for SecurityTaskApiClient {
         &self,
         organization_id: Option<uuid::Uuid>,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<ListForOrganizationError>>
-    {
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -185,35 +182,4 @@ impl SecurityTaskApi for SecurityTaskApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SecurityTaskApi::bulk_create_tasks`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkCreateTasksError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::complete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CompleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::get_task_metrics_for_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTaskMetricsForOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::list_for_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListForOrganizationError {
-    UnknownValue(serde_json::Value),
 }

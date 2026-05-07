@@ -27,31 +27,29 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait FoldersApi: Send + Sync {
     /// DELETE /folders/{id}
-    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error>;
 
     /// DELETE /folders/all
-    async fn delete_all(&self) -> Result<(), Error<DeleteAllError>>;
+    async fn delete_all(&self) -> Result<(), Error>;
 
     /// GET /folders/{id}
-    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error>;
 
     /// GET /folders
-    async fn get_all(
-        &self,
-    ) -> Result<models::FolderResponseModelListResponseModel, Error<GetAllError>>;
+    async fn get_all(&self) -> Result<models::FolderResponseModelListResponseModel, Error>;
 
     /// POST /folders
     async fn post<'a>(
         &self,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PostError>>;
+    ) -> Result<models::FolderResponseModel, Error>;
 
     /// PUT /folders/{id}
     async fn put<'a>(
         &self,
         id: &'a str,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PutError>>;
+    ) -> Result<models::FolderResponseModel, Error>;
 }
 
 pub struct FoldersApiClient {
@@ -67,7 +65,7 @@ impl FoldersApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl FoldersApi for FoldersApiClient {
-    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -85,7 +83,7 @@ impl FoldersApi for FoldersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete_all(&self) -> Result<(), Error<DeleteAllError>> {
+    async fn delete_all(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -99,7 +97,7 @@ impl FoldersApi for FoldersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -117,9 +115,7 @@ impl FoldersApi for FoldersApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get_all(
-        &self,
-    ) -> Result<models::FolderResponseModelListResponseModel, Error<GetAllError>> {
+    async fn get_all(&self) -> Result<models::FolderResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -136,7 +132,7 @@ impl FoldersApi for FoldersApiClient {
     async fn post<'a>(
         &self,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PostError>> {
+    ) -> Result<models::FolderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -155,7 +151,7 @@ impl FoldersApi for FoldersApiClient {
         &self,
         id: &'a str,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PutError>> {
+    ) -> Result<models::FolderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -173,41 +169,4 @@ impl FoldersApi for FoldersApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`FoldersApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::delete_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
 }

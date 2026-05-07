@@ -30,7 +30,7 @@ pub trait SyncApi: Send + Sync {
     async fn get<'a>(
         &self,
         exclude_domains: Option<bool>,
-    ) -> Result<models::SyncResponseModel, Error<GetError>>;
+    ) -> Result<models::SyncResponseModel, Error>;
 }
 
 pub struct SyncApiClient {
@@ -49,7 +49,7 @@ impl SyncApi for SyncApiClient {
     async fn get<'a>(
         &self,
         exclude_domains: Option<bool>,
-    ) -> Result<models::SyncResponseModel, Error<GetError>> {
+    ) -> Result<models::SyncResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -66,11 +66,4 @@ impl SyncApi for SyncApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SyncApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
 }

@@ -1,10 +1,13 @@
-use bitwarden_core::ApiError;
+use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{CipherId, cipher_client::admin::CipherAdminClient};
+use crate::{
+    Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher,
+    cipher_client::admin::CipherAdminClient,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -12,17 +15,33 @@ use crate::{CipherId, cipher_client::admin::CipherAdminClient};
 pub enum DeleteAttachmentAdminError {
     #[error(transparent)]
     Api(#[from] ApiError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+    #[error(transparent)]
+    VaultParse(#[from] VaultParseError),
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for DeleteAttachmentAdminError {
+    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(value.into())
+    }
 }
 
 async fn delete_attachment(
     cipher_id: CipherId,
     attachment_id: &str,
     api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<(), ApiError> {
+) -> Result<Cipher, DeleteAttachmentAdminError> {
     let api = api_client.ciphers_api();
-    api.delete_attachment_admin(cipher_id.into(), attachment_id)
+    let response = api
+        .delete_attachment_admin(cipher_id.into(), attachment_id)
         .await?;
-    Ok(())
+
+    let cipher_response = response
+        .cipher
+        .map(|c| *c)
+        .ok_or(MissingFieldError("cipher"))?;
+    Ok(cipher_response.merge_with_cipher(None)?)
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -33,18 +52,20 @@ impl CipherAdminClient {
         &self,
         cipher_id: CipherId,
         attachment_id: String,
-    ) -> Result<(), DeleteAttachmentAdminError> {
-        Ok(delete_attachment(
+    ) -> Result<Cipher, DeleteAttachmentAdminError> {
+        delete_attachment(
             cipher_id,
             &attachment_id,
             &self.client.internal.get_api_configurations().api_client,
         )
-        .await?)
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_api_api::models::{CipherMiniResponseModel, DeleteAttachmentResponseModel};
+
     use super::*;
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
@@ -52,7 +73,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_attachment_as_admin() {
-        delete_attachment(
+        let result = delete_attachment(
             TEST_CIPHER_ID.parse().unwrap(),
             TEST_ATTACHMENT_ID,
             &bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
@@ -60,12 +81,25 @@ mod tests {
                     move |id, attachment_id| {
                         assert_eq!(&id.to_string(), TEST_CIPHER_ID);
                         assert_eq!(attachment_id, TEST_ATTACHMENT_ID);
-                        Ok(Default::default())
+                        Ok(DeleteAttachmentResponseModel {
+                            object: None,
+                            cipher: Some(Box::new(CipherMiniResponseModel {
+                                id: Some(TEST_CIPHER_ID.try_into().unwrap()),
+                                name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".to_string()),
+                                r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                                creation_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
+                                revision_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
+                                attachments: None,
+                                ..Default::default()
+                            })),
+                        })
                     },
                 );
             }),
         )
         .await
-        .unwrap()
+        .unwrap();
+
+        assert!(result.attachments.is_none());
     }
 }

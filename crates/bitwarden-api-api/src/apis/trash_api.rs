@@ -31,20 +31,20 @@ pub trait TrashApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<EmptyTrashError>>;
+    ) -> Result<(), Error>;
 
     /// GET /secrets/{organizationId}/trash
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error<ListByOrganizationError>>;
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error>;
 
     /// POST /secrets/{organizationId}/trash/restore
     async fn restore_trash<'a>(
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<RestoreTrashError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct TrashApiClient {
@@ -64,7 +64,7 @@ impl TrashApi for TrashApiClient {
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<EmptyTrashError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -86,7 +86,7 @@ impl TrashApi for TrashApiClient {
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error<ListByOrganizationError>> {
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -108,7 +108,7 @@ impl TrashApi for TrashApiClient {
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<RestoreTrashError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -126,23 +126,4 @@ impl TrashApi for TrashApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`TrashApi::empty_trash`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum EmptyTrashError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TrashApi::list_by_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListByOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TrashApi::restore_trash`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestoreTrashError {
-    UnknownValue(serde_json::Value),
 }

@@ -46,7 +46,7 @@ pub(crate) async fn get_user_api_key(
     info!("Getting Api Key");
     debug!(?input);
 
-    let login_method = get_login_method(client)?;
+    let login_method = get_login_method(client).await?;
     let config = client.internal.get_api_configurations();
 
     let request = build_secret_verification_request(&login_method, input)?;
@@ -59,10 +59,11 @@ pub(crate) async fn get_user_api_key(
     UserApiKeyResponse::process_response(response)
 }
 
-fn get_login_method(client: &Client) -> Result<UserLoginMethod, NotAuthenticatedError> {
+async fn get_login_method(client: &Client) -> Result<UserLoginMethod, NotAuthenticatedError> {
     client
         .internal
         .get_login_method()
+        .await
         .ok_or(NotAuthenticatedError)
 }
 
