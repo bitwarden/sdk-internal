@@ -628,7 +628,6 @@ pub struct DeviceAuthKeyMetadata {
 }
 
 /// Errors related to processing the device auth key.
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 #[derive(Debug, thiserror::Error)]
 pub enum DeviceAuthKeyError {
     /// Authenticator failed to produce a valid response.
@@ -704,6 +703,23 @@ pub enum DeviceAuthKeyError {
     /// User cancelled the operation.
     #[error("User cancelled the operation")]
     UserCancelled,
+
+    /// An unknown error occurred.
+    #[error("An unknown error occurred")]
+    Unknown {
+        /// Reason for the error.
+        reason: String,
+    },
+}
+
+// Need to implement this From<> impl in order to handle unexpected callback errors.  See the
+// following page in the Uniffi user guide:
+// <https://mozilla.github.io/uniffi-rs/foreign_traits.html#error-handling>
+#[cfg(feature = "uniffi")]
+impl From<uniffi::UnexpectedUniFFICallbackError> for DeviceAuthKeyError {
+    fn from(e: uniffi::UnexpectedUniFFICallbackError) -> Self {
+        Self::Unknown { reason: e.reason }
+    }
 }
 
 /// A trait used to interact with the device auth key data on the device.
