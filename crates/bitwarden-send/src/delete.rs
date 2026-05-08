@@ -22,11 +22,7 @@ async fn delete_send<R: Repository<Send> + ?Sized>(
     repository: &R,
     send_id: SendId,
 ) -> Result<(), DeleteSendError> {
-    api_client
-        .sends_api()
-        .delete(&send_id.to_string())
-        .await
-        .map_err(ApiError::from)?;
+    api_client.sends_api().delete(&send_id.to_string()).await?;
 
     repository.remove(send_id).await?;
 

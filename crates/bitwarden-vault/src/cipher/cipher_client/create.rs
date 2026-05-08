@@ -39,12 +39,6 @@ pub enum CreateCipherError {
     Repository(#[from] RepositoryError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Request to add a cipher.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -130,8 +124,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
                 collection_ids: Some(collection_ids.iter().cloned().map(Into::into).collect()),
                 cipher: Box::new(cipher_request),
             }))
-            .await
-            .map_err(ApiError::from)?
+            .await?
             .merge_with_cipher(None)?;
         cipher.collection_ids = collection_ids;
         repository.set(require!(cipher.id), cipher.clone()).await?;
@@ -139,8 +132,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
         cipher = api_client
             .ciphers_api()
             .post(Some(cipher_request))
-            .await
-            .map_err(ApiError::from)?
+            .await?
             .merge_with_cipher(None)?;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }

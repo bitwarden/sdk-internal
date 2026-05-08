@@ -172,11 +172,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
 
     let send_request = key_store.encrypt(request_with_key)?;
 
-    let resp = api_client
-        .sends_api()
-        .put(&id, Some(send_request))
-        .await
-        .map_err(ApiError::from)?;
+    let resp = api_client.sends_api().put(&id, Some(send_request)).await?;
 
     let send: Send = resp.try_into()?;
 

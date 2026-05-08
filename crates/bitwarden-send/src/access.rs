@@ -109,8 +109,7 @@ async fn access_send_v1(
     let resp = api_client
         .sends_api()
         .access(send_id, Some(models::SendAccessRequestModel { password }))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.try_into()?)
 }
 
@@ -121,8 +120,7 @@ async fn access_send(
     let resp = api_client
         .sends_api()
         .access_using_auth(access_token)
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.try_into()?)
 }
 
@@ -139,8 +137,7 @@ async fn get_file_download_data_v1(
             file_id,
             Some(models::SendAccessRequestModel { password }),
         )
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.into())
 }
 
@@ -152,8 +149,7 @@ async fn get_file_download_data(
     let resp = api_client
         .sends_api()
         .get_send_file_download_data_using_auth(file_id, access_token)
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.into())
 }
 

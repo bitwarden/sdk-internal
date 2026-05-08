@@ -47,12 +47,6 @@ pub enum EditCipherError {
     Uuid(#[from] uuid::Error),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Request to edit a cipher.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -200,8 +194,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher: Cipher = api_client
         .ciphers_api()
         .put(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(original_cipher))?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
@@ -234,8 +227,7 @@ async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher: Cipher = api_client
         .ciphers_api()
         .put_partial(cipher_id.into(), Some(partial_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(original_cipher))?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;

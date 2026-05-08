@@ -131,8 +131,7 @@ impl SendClient {
             .api_client
             .sends_api()
             .post_file(Some(send_request))
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         let url = require!(resp.url);
         let file_upload_type: FileUploadType = require!(resp.file_upload_type).try_into()?;
@@ -200,9 +199,7 @@ impl SendClient {
             .with_extension(AuthRequired::Bearer)
             .multipart(form);
 
-        bitwarden_api_base::process_with_empty_response(req_builder)
-            .await
-            .map_err(|e: bitwarden_api_api::apis::Error<()>| ApiError::from(e))?;
+        bitwarden_api_base::process_with_empty_response(req_builder).await?;
 
         Ok(())
     }
@@ -221,8 +218,7 @@ impl SendClient {
             .api_client
             .sends_api()
             .renew_file_upload(&send_id.to_string(), &file_id)
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         Ok(require!(resp.url))
     }

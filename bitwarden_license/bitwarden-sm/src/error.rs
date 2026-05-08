@@ -1,4 +1,3 @@
-use bitwarden_api_api::apis::Error as ApiApisError;
 use thiserror::Error;
 use tracing::debug;
 use validator::ValidationErrors;
@@ -79,11 +78,5 @@ impl From<ValidationErrors> for ValidationError {
 impl From<ValidationErrors> for SecretsManagerError {
     fn from(e: ValidationErrors) -> Self {
         SecretsManagerError::Validation(e.into())
-    }
-}
-
-impl<T> From<ApiApisError<T>> for SecretsManagerError {
-    fn from(e: bitwarden_api_api::apis::Error<T>) -> Self {
-        SecretsManagerError::Api(e.into())
     }
 }

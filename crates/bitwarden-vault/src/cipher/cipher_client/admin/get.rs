@@ -20,12 +20,6 @@ pub enum GetAssignedOrgCiphersAdminError {
     VaultParse(#[from] VaultParseError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for GetAssignedOrgCiphersAdminError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -34,12 +28,6 @@ pub enum GetOrganizationCiphersAdminError {
     VaultParse(#[from] VaultParseError),
     #[error(transparent)]
     Api(#[from] ApiError),
-}
-
-impl<T> From<bitwarden_api_api::apis::Error<T>> for GetOrganizationCiphersAdminError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
