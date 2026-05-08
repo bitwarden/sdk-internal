@@ -288,11 +288,9 @@ mod tests {
         }
 
         let api_client = ApiClient::new_mocked(move |mock| {
-            mock.sends_api.expect_post().returning(move |_model| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.sends_api
+                .expect_post()
+                .returning(move |_model| Err(std::io::Error::other("Simulated error").into()));
         });
 
         let repository = MemoryRepository::<Send>::default();
