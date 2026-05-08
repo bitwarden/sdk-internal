@@ -1,15 +1,13 @@
+use bitwarden_api_base::ResponseContent;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    ApiError,
-    auth::{
-        api::response::{
-            IdentityTokenFailResponse, IdentityTokenPayloadResponse, IdentityTokenRefreshResponse,
-            IdentityTokenSuccessResponse, IdentityTwoFactorResponse,
-        },
-        login::LoginError,
+use crate::auth::{
+    api::response::{
+        IdentityTokenFailResponse, IdentityTokenPayloadResponse, IdentityTokenRefreshResponse,
+        IdentityTokenSuccessResponse, IdentityTwoFactorResponse,
     },
+    login::LoginError,
 };
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -35,11 +33,9 @@ pub(crate) fn parse_identity_response(
     } else if let Ok(r) = serde_json::from_str::<IdentityTokenFailResponse>(&response) {
         Err(LoginError::IdentityFail(r))
     } else {
-        Err(ApiError::ResponseContent {
-            status,
-            message: response,
-        }
-        .into())
+        Err(LoginError::Api(
+            ResponseContent::new(status, response).into(),
+        ))
     }
 }
 

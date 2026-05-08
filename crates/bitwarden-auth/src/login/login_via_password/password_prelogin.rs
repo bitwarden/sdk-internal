@@ -56,6 +56,7 @@ impl LoginClient {
 mod tests {
     use std::num::NonZeroU32;
 
+    use bitwarden_api_api::ResponseContent;
     use bitwarden_api_identity::models::KdfType;
     use bitwarden_core::{ClientSettings, DeviceType};
     use bitwarden_crypto::Kdf;
@@ -262,13 +263,13 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            PasswordPreloginError::Api(bitwarden_core::ApiError::ResponseContent {
+            PasswordPreloginError::Api(bitwarden_core::ApiError::Response(ResponseContent {
                 status,
                 message: _,
-            }) => {
-                assert_eq!(status, reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+            })) => {
+                assert_eq!(status, reqwest::StatusCode::INTERNAL_SERVER_ERROR.as_u16());
             }
-            other => panic!("Expected Api ResponseContent error, got {:?}", other),
+            other => panic!("Expected Api Response error, got {:?}", other),
         }
     }
 }
