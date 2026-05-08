@@ -169,13 +169,13 @@ impl RegistrationClient {
 
     /// Initializes new password-based cryptographic state for a user
     /// and posts the state to the server
-    pub async fn post_user_password_registration(
+    pub async fn post_keys_for_user_password_registration(
         &self,
         request: UserMasterPasswordRegistrationRequest,
     ) -> Result<UserMasterPasswordRegistrationResponse, RegistrationError> {
         let client = &self.client.internal;
         let identity_client = &client.get_api_configurations().identity_client;
-        internal_post_user_password_registration(self, identity_client, request).await
+        internal_post_keys_for_user_password_registration(self, identity_client, request).await
     }
 }
 
@@ -513,7 +513,7 @@ pub struct JitMasterPasswordRegistrationResponse {
     pub user_key: B64,
 }
 
-async fn internal_post_user_password_registration(
+async fn internal_post_keys_for_user_password_registration(
     registration_client: &RegistrationClient,
     identity_client: &bitwarden_api_identity::apis::ApiClient,
     request: UserMasterPasswordRegistrationRequest,
@@ -1519,7 +1519,7 @@ mod tests {
             provider_user_id: None,
         };
 
-        let result = internal_post_user_password_registration(
+        let result = internal_post_keys_for_user_password_registration(
             &registration_client,
             &identity_client,
             request,
@@ -1569,7 +1569,7 @@ mod tests {
             provider_user_id: None,
         };
 
-        let result = internal_post_user_password_registration(
+        let result = internal_post_keys_for_user_password_registration(
             &registration_client,
             &identity_client,
             request,
