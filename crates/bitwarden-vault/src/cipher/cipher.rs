@@ -70,12 +70,6 @@ pub enum CipherError {
     Api(#[from] ApiError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 /// Helper trait for operations on cipher types.
 pub(super) trait CipherKind {
     /// Returns the item's subtitle.

@@ -18,12 +18,6 @@ pub enum MoveCipherError {
     Repository(#[from] RepositoryError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for MoveCipherError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Moves multiple [`Cipher`](crate::Cipher) objects to a folder, or clears their folder when

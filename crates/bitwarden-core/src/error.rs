@@ -1,48 +1,9 @@
 //! Errors that can occur when using this SDK
 
-use std::fmt::Debug;
-
-use bitwarden_api_base::{Error as BaseApiError, ResponseContent};
+pub use bitwarden_api_base::Error as ApiError;
 #[cfg(feature = "internal")]
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-
-/// Errors from performing network requests.
-#[allow(missing_docs)]
-#[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
-pub enum ApiError {
-    #[error(transparent)]
-    Reqwest(#[from] reqwest::Error),
-    #[error(transparent)]
-    ReqwestMiddleware(#[from] reqwest_middleware::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-
-    #[error("Received error message from server: [{}] {}", _0.status, _0.message)]
-    Response(ResponseContent),
-}
-
-impl<T> From<BaseApiError<T>> for ApiError {
-    fn from(e: BaseApiError<T>) -> Self {
-        match e {
-            BaseApiError::Reqwest(e) => Self::Reqwest(e),
-            BaseApiError::ReqwestMiddleware(e) => Self::ReqwestMiddleware(e),
-            BaseApiError::Response(e) => Self::Response(e),
-            BaseApiError::Serde(e) => Self::Serde(e),
-            BaseApiError::Io(e) => Self::Io(e),
-            BaseApiError::_Phantom(_, _) => unreachable!(),
-        }
-    }
-}
-
-impl From<ResponseContent> for ApiError {
-    fn from(value: ResponseContent) -> Self {
-        Self::Response(value)
-    }
-}
 
 /// Client is not authenticated or the session has expired.
 #[derive(Debug, Error)]

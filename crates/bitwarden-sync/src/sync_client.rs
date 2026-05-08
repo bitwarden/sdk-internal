@@ -139,8 +139,7 @@ impl SyncClient {
             .api_client
             .sync_api()
             .get(input.exclude_subdomains)
-            .await
-            .map_err(|e| SyncError::Api(e.into()))?;
+            .await?;
 
         Ok(sync)
     }
