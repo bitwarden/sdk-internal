@@ -321,11 +321,9 @@ mod tests {
     #[tokio::test]
     async fn test_sync_error_notifies_error_handlers() {
         let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
-            mock.sync_api.expect_get().returning(|_| {
-                Err(bitwarden_api_api::Error::Io(std::io::Error::other(
-                    "test error",
-                )))
-            });
+            mock.sync_api
+                .expect_get()
+                .returning(|_| Err(std::io::Error::other("test error").into()));
         }));
         let error_log = Arc::new(Mutex::new(Vec::new()));
 

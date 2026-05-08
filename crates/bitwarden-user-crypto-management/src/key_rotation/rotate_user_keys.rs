@@ -338,9 +338,7 @@ mod tests {
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
         let api_client = ApiClient::new_mocked(|mock| {
             mock.sync_api.expect_get().once().returning(|_| {
-                Err(bitwarden_api_api::apis::Error::Serde(
-                    serde_json::Error::io(std::io::Error::other("network error")),
-                ))
+                Err(serde_json::Error::io(std::io::Error::other("network error")).into())
             });
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
@@ -419,9 +417,7 @@ mod tests {
                 .expect_rotate_user_keys()
                 .once()
                 .returning(|_| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
                 });
         });
 
