@@ -34,3 +34,4 @@ jobs:
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           task: publish-sdk-internal-rust-crates
+          data: '{"version": "${{ inputs.version }}", "packages": "${{ inputs.packages }}"}'
