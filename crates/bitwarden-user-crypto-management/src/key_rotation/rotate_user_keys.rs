@@ -318,9 +318,7 @@ mod tests {
                 .expect_rotate_user_keys()
                 .once()
                 .returning(|_| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
                 });
         });
 
