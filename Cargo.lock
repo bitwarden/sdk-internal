@@ -476,7 +476,7 @@ checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 
 [[package]]
 name = "bitwarden-api-api"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
@@ -492,7 +492,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-base"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "http",
  "reqwest",
@@ -504,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-identity"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
@@ -520,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-key-connector"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-auth"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -557,7 +557,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_urlencoded",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -570,7 +570,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-cli"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "clap",
  "color-eyre",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-collections"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -589,7 +589,7 @@ dependencies = [
  "bitwarden-uuid",
  "serde",
  "serde_repr",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "uuid",
@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-commercial-vault"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-core",
  "serde",
@@ -613,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-core"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -647,7 +647,7 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_repr",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -662,7 +662,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-core-macro"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -671,7 +671,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-crypto"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "aes 0.9.0",
  "argon2",
@@ -705,7 +705,7 @@ dependencies = [
  "sha1",
  "sha2 0.11.0",
  "subtle",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tracing",
  "tsify",
  "typenum",
@@ -718,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-encoding"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-uniffi-error",
  "data-encoding",
@@ -726,7 +726,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-error-macro",
  "js-sys",
@@ -748,7 +748,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error-macro"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "darling 0.20.11",
  "js-sys",
@@ -756,14 +756,14 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tsify",
  "wasm-bindgen",
 ]
 
 [[package]]
 name = "bitwarden-exporters"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
@@ -779,7 +779,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "url",
@@ -790,7 +790,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ffi"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-ffi-macro",
  "trybuild",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ffi-macro"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -808,7 +808,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-fido"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
@@ -817,14 +817,14 @@ dependencies = [
  "bitwarden-vault",
  "chrono",
  "coset",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "p256 0.13.2",
  "passkey",
  "passkey-client",
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uniffi",
@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-generators"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
@@ -844,7 +844,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -854,7 +854,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ipc"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -867,7 +867,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "snow",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -879,7 +879,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-logging"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "chrono",
  "criterion",
@@ -893,7 +893,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-organizations"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-core",
  "chrono",
@@ -907,7 +907,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-pm"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-auth",
@@ -932,7 +932,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-policies"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -948,7 +948,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-send"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -962,7 +962,7 @@ dependencies = [
  "serde",
  "serde_repr",
  "sha2 0.11.0",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -974,7 +974,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-server-communication-config"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -986,7 +986,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -997,7 +997,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-shared-unlock"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
@@ -1020,7 +1020,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-sm"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-auth",
@@ -1031,7 +1031,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
@@ -1041,7 +1041,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ssh"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-vault",
@@ -1060,7 +1060,7 @@ dependencies = [
  "serde",
  "ssh-cipher",
  "ssh-key",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-state"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -1078,7 +1078,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-state-bridge-macro"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1095,7 +1095,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-sync"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -1104,13 +1104,13 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "serde",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
 ]
 
 [[package]]
 name = "bitwarden-test"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -1121,7 +1121,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
@@ -1130,7 +1130,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-test-macro"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1139,7 +1139,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-threading"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -1147,7 +1147,7 @@ dependencies = [
  "gloo-timers",
  "js-sys",
  "serde",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-test",
  "tokio-util",
@@ -1193,14 +1193,14 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uniffi-error"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "anyhow",
 ]
 
 [[package]]
 name = "bitwarden-user-crypto-management"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-api-key-connector",
@@ -1216,7 +1216,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -1229,7 +1229,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uuid"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
  "serde",
@@ -1241,7 +1241,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uuid-macro"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "quote",
  "syn",
@@ -1249,7 +1249,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-vault"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -1275,7 +1275,7 @@ dependencies = [
  "sha1",
  "sha2 0.11.0",
  "subtle",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
