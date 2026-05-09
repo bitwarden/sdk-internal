@@ -40,11 +40,26 @@ pub enum KeyRotationMethod {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum UpgradeTokenAction {
+    /// Skip creating and sending an upgrade token to the server. This will be the default behavior
+    /// if the field is omitted.
+    Skip,
+    /// Creates an upgrade token for V1 -> V2 key rotations.
+    /// For V2 -> V2 rotations, no upgrade token is needed.
+    CreateIfNeeded,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RotateUserKeysRequest {
     pub key_rotation_method: KeyRotationMethod,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
     pub trusted_organization_public_keys: Vec<PublicKey>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub upgrade_token_action: Option<UpgradeTokenAction>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -137,6 +152,9 @@ async fn internal_rotate_user_keys(
             },
             rotation_context.current_user_key_id,
             rotation_context.new_user_key_id,
+            request
+                .upgrade_token_action
+                .unwrap_or(UpgradeTokenAction::Skip),
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;
@@ -288,6 +306,7 @@ mod tests {
                 key_rotation_method: KeyRotationMethod::KeyConnector,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
             },
         )
         .await;
@@ -319,6 +338,7 @@ mod tests {
                 key_rotation_method: KeyRotationMethod::Tde,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
             },
         )
         .await;
@@ -354,6 +374,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
             },
         )
         .await;
@@ -389,6 +410,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
             },
         )
         .await;
@@ -430,11 +452,153 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
             },
         )
         .await;
 
         assert!(matches!(result, Err(RotateUserKeysError::Api)));
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sync_api.checkpoint();
+            mock.organizations_api.checkpoint();
+            mock.emergency_access_api.checkpoint();
+            mock.devices_api.checkpoint();
+            mock.web_authn_api.checkpoint();
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_upgrade_token_action_none_omits_token() {
+        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sync_api
+                .expect_get()
+                .once()
+                .returning(move |_| Ok(sync_response.clone()));
+            mock_empty_sync_calls(mock);
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .once()
+                .returning(|req| {
+                    let req = req.expect("request body should be present");
+                    assert!(
+                        req.unlock_data.v2_upgrade_token.is_none(),
+                        "upgrade_token_action None, should omit the v2_upgrade_token"
+                    );
+                    Ok(())
+                });
+        });
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
+            },
+        )
+        .await;
+
+        assert!(result.is_ok());
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sync_api.checkpoint();
+            mock.organizations_api.checkpoint();
+            mock.emergency_access_api.checkpoint();
+            mock.devices_api.checkpoint();
+            mock.web_authn_api.checkpoint();
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_upgrade_token_action_skip_omits_token() {
+        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sync_api
+                .expect_get()
+                .once()
+                .returning(move |_| Ok(sync_response.clone()));
+            mock_empty_sync_calls(mock);
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .once()
+                .returning(|req| {
+                    let req = req.expect("request body should be present");
+                    assert!(
+                        req.unlock_data.v2_upgrade_token.is_none(),
+                        "upgrade_token_action Skip, should omit the v2_upgrade_token"
+                    );
+                    Ok(())
+                });
+        });
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: Some(UpgradeTokenAction::Skip),
+            },
+        )
+        .await;
+
+        assert!(result.is_ok());
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.sync_api.checkpoint();
+            mock.organizations_api.checkpoint();
+            mock.emergency_access_api.checkpoint();
+            mock.devices_api.checkpoint();
+            mock.web_authn_api.checkpoint();
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_upgrade_token_action_create_if_needed_includes_token() {
+        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sync_api
+                .expect_get()
+                .once()
+                .returning(move |_| Ok(sync_response.clone()));
+            mock_empty_sync_calls(mock);
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .once()
+                .returning(|req| {
+                    let req = req.expect("request body should be present");
+                    assert!(
+                        req.unlock_data.v2_upgrade_token.is_some(),
+                        "upgrade_token_action CreateIfNeeded, should include a v2_upgrade_token for V1 -> V2 rotations"
+                    );
+                    Ok(())
+                });
+        });
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: Some(UpgradeTokenAction::CreateIfNeeded),
+            },
+        )
+        .await;
+
+        assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
             mock.organizations_api.checkpoint();
@@ -492,6 +656,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
             },
         )
         .await;
