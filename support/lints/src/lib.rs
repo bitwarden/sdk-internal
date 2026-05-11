@@ -11,4 +11,5 @@ extern crate rustc_session;
 pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint::LintStore) {
     bitwarden_error_enum::register_lints(sess, lint_store);
     bitwarden_error_suffix::register_lints(sess, lint_store);
+    bitwarden_repr_with_tsify::register_lints(sess, lint_store);
 }
