@@ -72,7 +72,7 @@ chrono = { workspace = true, features = ["std"] }
 # We don't use these directly (they're used by rand), but we need them here to enable WASM support
 # Unfortunately we have a lof of dependencies that use different versions of getrandom, so we
 # need to enable WASM support for all of them.
-getrandom2 = { package = "getrandom", version = "0.2", optional = true }
+getrandom2 = { package = "getrandom", version = "0.4", optional = true }
 getrandom3 = { package = "getrandom", version = "0.3", optional = true }
 getrandom4 = { package = "getrandom", version = "0.4", optional = true }
 http = { workspace = true }
