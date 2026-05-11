@@ -119,8 +119,9 @@ impl StateBridgeClient {
 //
 // Each field expands to three methods on each of [`StateBridgeImpl`], [`StateBridge`], and
 // [`StateBridgeClient`] (`set_$name`, `get_$name`, `clear_$name`); WASM extern bindings on
-// [`RawWasmStateBridge`]; a [`StateBridgeImpl`] forwarder impl for [`WasmStateBridge`]; and the
-// matching `WasmStateBridge` TypeScript interface.
+// [`RawWasmStateBridge`]; a [`StateBridgeImpl`] forwarder impl for [`WasmStateBridge`]; the
+// matching `WasmStateBridge` TypeScript interface; and a `#[cfg(test)] pub(crate) mod test_support`
+// containing an `InMemoryStateBridge` test fixture.
 bitwarden_state_bridge_macro::state_bridge! {
     user_key: SymmetricCryptoKey as ts "SymmetricKey",
     persistent_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
