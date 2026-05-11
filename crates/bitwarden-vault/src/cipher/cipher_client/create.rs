@@ -336,11 +336,9 @@ mod tests {
         }
 
         let api_client = ApiClient::new_mocked(move |mock| {
-            mock.ciphers_api.expect_post().returning(move |_body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.ciphers_api
+                .expect_post()
+                .returning(move |_body| Err(std::io::Error::other("Simulated error").into()));
         });
 
         let repository = MemoryRepository::<Cipher>::default();
