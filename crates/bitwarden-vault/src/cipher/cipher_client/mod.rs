@@ -17,6 +17,7 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    blob::encrypt_blob_cipher,
     cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
@@ -107,7 +108,14 @@ impl CiphersClient {
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        let cipher = key_store.encrypt(cipher_view)?;
+        let cipher = if cipher_view.key.is_some()
+            && self.should_use_blob_encryption(cipher_view.organization_id)
+        {
+            encrypt_blob_cipher(&mut cipher_view, &mut key_store.context())?
+        } else {
+            key_store.encrypt(cipher_view)?
+        };
+
         Ok(EncryptionContext {
             cipher,
             encrypted_for: user_id,

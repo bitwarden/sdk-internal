@@ -12,7 +12,7 @@ use crate::cipher::{
 };
 
 #[derive(Debug, Error)]
-pub(crate) enum BlobEncryptionError {
+pub enum BlobEncryptionError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
