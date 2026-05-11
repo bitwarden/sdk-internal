@@ -34,8 +34,7 @@ pub async fn list_org_ciphers(
     let api = api_client.ciphers_api();
     let response: CipherMiniDetailsResponseModelListResponseModel = api
         .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     let ciphers = response
         .data
         .into_iter()

@@ -45,8 +45,7 @@ impl LoginClient {
             .identity_client
             .accounts_api()
             .post_password_prelogin(Some(request_model))
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         Ok(PasswordPreloginResponse::try_from(response)?)
     }

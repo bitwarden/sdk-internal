@@ -133,11 +133,7 @@ async fn create_send<R: Repository<Send> + ?Sized>(
 
     let send_request = key_store.encrypt(request)?;
 
-    let resp = api_client
-        .sends_api()
-        .post(Some(send_request))
-        .await
-        .map_err(ApiError::from)?;
+    let resp = api_client.sends_api().post(Some(send_request)).await?;
 
     let send: Send = resp.try_into()?;
 
