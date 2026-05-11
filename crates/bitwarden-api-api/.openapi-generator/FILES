@@ -541,6 +541,7 @@ src/models/update_client_organization_request_body.rs
 src/models/update_collection_request_model.rs
 src/models/update_devices_trust_request_model.rs
 src/models/update_domains_request_model.rs
+src/models/update_organization_invite_link_request_model.rs
 src/models/update_organization_report_application_data_request.rs
 src/models/update_organization_report_data_request.rs
 src/models/update_organization_report_request.rs

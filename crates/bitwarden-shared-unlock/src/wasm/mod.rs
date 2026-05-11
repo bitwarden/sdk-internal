@@ -1,3 +1,4 @@
+mod biometrics;
 mod drivers;
 mod follower;
 mod leader;
