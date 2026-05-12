@@ -364,14 +364,14 @@ impl WrappedAccountCryptographicState {
         ))
     }
 
-    /// Reads the current V1 account cryptographic state from the key store by wrapping the
+    /// Reads the current account cryptographic state from the key store by wrapping the
     /// user's private key with the user key.
     ///
-    /// This is useful for obtaining the wrapped state after an asymmetric key regeneration.
+    /// Currently only supports V1 accounts.
     ///
-    /// Fails if the user key is not V1 (Aes256CbcHmac) or if the private key is not available.
+    /// This is useful for obtaining the wrapped state after an asymmetric key regeneration.
     #[instrument(skip_all, err)]
-    pub fn get_v1_from_key_store(
+    pub fn get_from_key_store(
         ctx: &KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, RotateCryptographyStateError> {
         if !ctx
@@ -1298,6 +1298,52 @@ mod tests {
         assert!(!matches!(
             result.unwrap_err(),
             AccountCryptographyInitializationError::WrongUserKeyType
+        ));
+    }
+
+    #[test]
+    fn test_get_from_key_store_v1() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (user_key, state) = WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
+        state
+            .set_to_context(&RwLock::new(None), user_key, &store, ctx)
+            .unwrap();
+
+        let ctx = store.context();
+        let result = WrappedAccountCryptographicState::get_from_key_store(&ctx);
+        assert!(result.is_ok());
+        assert!(matches!(
+            result.unwrap(),
+            WrappedAccountCryptographicState::V1 { .. }
+        ));
+    }
+
+    #[test]
+    fn test_get_from_key_store_v2_returns_error() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (user_key, state) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+        state
+            .set_to_context(&RwLock::new(None), user_key, &store, ctx)
+            .unwrap();
+
+        let ctx = store.context();
+        let result = WrappedAccountCryptographicState::get_from_key_store(&ctx);
+        assert!(matches!(
+            result,
+            Err(RotateCryptographyStateError::InvalidData)
+        ));
+    }
+
+    #[test]
+    fn test_get_from_key_store_no_user_key() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let ctx = store.context();
+        let result = WrappedAccountCryptographicState::get_from_key_store(&ctx);
+        assert!(matches!(
+            result,
+            Err(RotateCryptographyStateError::KeyMissing)
         ));
     }
 }

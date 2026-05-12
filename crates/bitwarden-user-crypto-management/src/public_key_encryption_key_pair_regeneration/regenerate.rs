@@ -1,8 +1,5 @@
 use bitwarden_api_api::models::KeyRegenerationRequestModel;
-use bitwarden_core::key_management::{
-    KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId,
-    account_cryptographic_state::WrappedAccountCryptographicState,
-};
+use bitwarden_core::key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId};
 use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm};
 use bitwarden_encoding::B64;
 use tracing::{error, info, instrument};
@@ -15,7 +12,7 @@ use super::KeyPairRegenerationError;
 pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<WrappedAccountCryptographicState, KeyPairRegenerationError> {
+) -> Result<(), KeyPairRegenerationError> {
     let (wrapped_private_key, public_key_b64) = {
         let mut ctx = key_store.context_mut();
 
@@ -58,7 +55,7 @@ pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
             KeyPairRegenerationError::Api
         })?;
 
-    let state = {
+    {
         let mut ctx = key_store.context_mut();
 
         let temp_private_key_id = ctx
@@ -66,13 +63,10 @@ pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
             .map_err(|_| KeyPairRegenerationError::Crypto)?;
         ctx.persist_private_key(temp_private_key_id, PrivateKeySlotId::UserPrivateKey)
             .map_err(|_| KeyPairRegenerationError::Crypto)?;
-
-        WrappedAccountCryptographicState::get_v1_from_key_store(&ctx)
-            .map_err(|_| KeyPairRegenerationError::Crypto)?
-    };
+    }
 
     info!("Successfully regenerated user public key encryption key pair");
-    Ok(state)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -85,7 +79,6 @@ mod tests {
     use bitwarden_crypto::{
         EncString, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
     };
-    use bitwarden_encoding::B64;
 
     use super::*;
     use crate::UserCryptoManagementClient;
@@ -162,21 +155,15 @@ mod tests {
                 });
         });
 
-        let state = internal_regenerate_public_key_encryption_key_pair(&key_store, &api_client)
+        internal_regenerate_public_key_encryption_key_pair(&key_store, &api_client)
             .await
             .expect("regeneration should succeed");
-        assert!(
-            matches!(state, WrappedAccountCryptographicState::V1 { .. }),
-            "Should return a V1 state"
-        );
 
-        {
-            let ctx = key_store.context();
-            assert!(
-                ctx.has_private_key(PrivateKeySlotId::UserPrivateKey),
-                "UserPrivateKey should be set after regeneration"
-            );
-        }
+        let ctx = key_store.context();
+        assert!(
+            ctx.has_private_key(PrivateKeySlotId::UserPrivateKey),
+            "UserPrivateKey should be set after regeneration"
+        );
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
@@ -318,13 +305,9 @@ mod tests {
         .unwrap();
         assert!(should);
 
-        let state = internal_regenerate_public_key_encryption_key_pair(&key_store, &api_client)
+        internal_regenerate_public_key_encryption_key_pair(&key_store, &api_client)
             .await
             .unwrap();
-        assert!(
-            matches!(state, WrappedAccountCryptographicState::V1 { .. }),
-            "Should be a V1 state"
-        );
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();

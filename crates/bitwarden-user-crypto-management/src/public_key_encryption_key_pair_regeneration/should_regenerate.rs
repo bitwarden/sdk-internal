@@ -24,7 +24,7 @@ pub(super) async fn internal_should_regenerate_public_key_encryption_key_pair(
     match check_key_pair(key_store, api_client).await? {
         KeyPairCheckResult::Valid => Ok(false),
         KeyPairCheckResult::NeedsRegeneration => Ok(true),
-        KeyPairCheckResult::NeedsCipherCheck => {
+        KeyPairCheckResult::RegenerateIfUserKeyIsValid => {
             is_user_key_valid_from_api(key_store, api_client).await
         }
     }
@@ -47,16 +47,16 @@ pub(super) async fn internal_should_regenerate_public_key_encryption_key_pair_wi
     match check_key_pair(key_store, api_client).await? {
         KeyPairCheckResult::Valid => Ok(false),
         KeyPairCheckResult::NeedsRegeneration => Ok(true),
-        KeyPairCheckResult::NeedsCipherCheck => is_user_key_valid(key_store, ciphers),
+        KeyPairCheckResult::RegenerateIfUserKeyIsValid => is_user_key_valid(key_store, ciphers),
     }
 }
 
 enum KeyPairCheckResult {
     Valid,
     NeedsRegeneration,
-    /// Private key is undecryptable — need to validate user key via cipher decryption
-    /// before deciding whether to regenerate.
-    NeedsCipherCheck,
+    /// Private key is undecryptable — need to confirm user key is valid (e.g. via cipher
+    /// decryption) before regenerating.
+    RegenerateIfUserKeyIsValid,
 }
 
 /// Returns whether the key pair is valid, needs regeneration, or requires a cipher-based
@@ -76,7 +76,7 @@ async fn check_key_pair(
 
         if !ctx
             .is_v1_symmetric_key(SymmetricKeySlotId::User)
-            .map_err(|_| KeyPairRegenerationError::UserKeyNotAvailable)?
+            .map_err(|_| KeyPairRegenerationError::Crypto)?
         {
             info!("User has non-V1 encryption, key pair regeneration not applicable");
             return Ok(KeyPairCheckResult::Valid);
@@ -152,8 +152,8 @@ async fn check_key_pair(
         }
     }
 
-    // Step 6: Private key is undecryptable — need cipher check to validate user key
-    Ok(KeyPairCheckResult::NeedsCipherCheck)
+    // Step 6: Private key is undecryptable — need to validate user key before regenerating
+    Ok(KeyPairCheckResult::RegenerateIfUserKeyIsValid)
 }
 
 /// Validates the user key by fetching ciphers from the API and attempting to decrypt a personal
@@ -334,6 +334,7 @@ mod tests {
         let result =
             internal_should_regenerate_public_key_encryption_key_pair(&key_store, &api_client)
                 .await;
+        // V2 encryption should not regenerate
         assert!(matches!(result, Ok(false)));
 
         if let ApiClient::Mock(mut mock) = api_client {

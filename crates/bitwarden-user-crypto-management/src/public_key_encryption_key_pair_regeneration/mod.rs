@@ -40,27 +40,36 @@ impl UserCryptoManagementClient {
     /// Checks whether the user's public key encryption key pair needs regeneration, and if so,
     /// generates a new key pair and submits it to the server.
     ///
-    /// Returns `None` if no regeneration was needed, or the updated
-    /// [`WrappedAccountCryptographicState`] if regeneration was performed. Callers should
-    /// persist the returned state to their local account cryptographic state.
+    /// If regeneration is performed, the updated [`WrappedAccountCryptographicState`] is
+    /// persisted via the state bridge (when registered).
     ///
     /// Requires the client to be unlocked so the current user key is available in memory.
     /// Only applicable to V1 encryption accounts.
     pub async fn regenerate_public_key_encryption_key_pair_if_needed(
         &self,
-    ) -> Result<Option<WrappedAccountCryptographicState>, KeyPairRegenerationError> {
+    ) -> Result<(), KeyPairRegenerationError> {
         let key_store = self.client.internal.get_key_store();
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let should_regenerate =
             internal_should_regenerate_public_key_encryption_key_pair(key_store, api_client)
                 .await?;
         if !should_regenerate {
-            return Ok(None);
+            return Ok(());
         }
 
-        let state =
-            internal_regenerate_public_key_encryption_key_pair(key_store, api_client).await?;
-        Ok(Some(state))
+        internal_regenerate_public_key_encryption_key_pair(key_store, api_client).await?;
+
+        let state_bridge = self.client.km_state_bridge();
+        if state_bridge.is_bridge_registered() {
+            let state = {
+                let ctx = key_store.context();
+                WrappedAccountCryptographicState::get_from_key_store(&ctx)
+                    .map_err(|_| KeyPairRegenerationError::Crypto)?
+            };
+            state_bridge.set_account_cryptographic_state(&state).await;
+        }
+
+        Ok(())
     }
 
     /// Checks whether the user's public key encryption key pair needs regeneration.
@@ -78,6 +87,9 @@ impl UserCryptoManagementClient {
 
     /// Variant of [`Self::regenerate_public_key_encryption_key_pair_if_needed`] that accepts
     /// pre-fetched ciphers instead of fetching them from the API.
+    ///
+    /// Returns `None` if no regeneration was needed, or the updated
+    /// [`WrappedAccountCryptographicState`] read from the key store after regeneration.
     pub(crate) async fn regenerate_public_key_encryption_key_pair_if_needed_with_ciphers(
         &self,
         ciphers: &[Cipher],
@@ -93,8 +105,11 @@ impl UserCryptoManagementClient {
             return Ok(None);
         }
 
-        let state =
-            internal_regenerate_public_key_encryption_key_pair(key_store, api_client).await?;
+        internal_regenerate_public_key_encryption_key_pair(key_store, api_client).await?;
+
+        let ctx = key_store.context();
+        let state = WrappedAccountCryptographicState::get_from_key_store(&ctx)
+            .map_err(|_| KeyPairRegenerationError::Crypto)?;
         Ok(Some(state))
     }
 }
