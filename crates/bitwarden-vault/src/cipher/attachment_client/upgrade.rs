@@ -207,12 +207,11 @@ impl AttachmentsClient {
         cipher_id: CipherId,
         attachment_id: String,
     ) -> Result<AttachmentUpgrade, CipherPrepareAttachmentUpgradeError> {
-        let http_client = reqwest::Client::new();
         prepare_attachment_upgrade(
             cipher_id,
             &attachment_id,
             &self.api_configurations.api_client,
-            &http_client,
+            &self.http_client,
             self.repository.require()?.as_ref(),
             &self.key_store,
         )
