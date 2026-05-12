@@ -17,6 +17,8 @@ mod log_callback;
 #[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
+pub mod policies;
+#[allow(missing_docs)]
 pub mod tool;
 mod uniffi_support;
 #[allow(missing_docs)]
@@ -98,6 +100,12 @@ impl Client {
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
         AuthClient(self.0.0.clone())
+    }
+
+    /// Policy operations
+    pub fn policies(&self) -> policies::PoliciesClient {
+        use bitwarden_policies::PoliciesClientExt;
+        policies::PoliciesClient(self.0.0.policies())
     }
 
     /// Test method, echoes back the input
