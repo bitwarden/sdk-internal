@@ -3,22 +3,23 @@
 use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor};
-use ciborium::Value;
-use coset::{CborSerializable, CoseEncrypt0Builder, HeaderBuilder};
+use coset::CborSerializable;
 use serde::{Deserialize, Serialize};
+use symmetric_cose_encrypt0_key::{
+    symmetric_key_seal_key_into_cose, symmetric_key_unseal_key_from_cose,
+};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeySlotIds,
-    KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
-    cose::{CONTAINED_KEY_ID, ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
+    KeySlotIds, KeyStoreContext,
+    cose::ContentNamespace,
     keys::KeyId,
-    safe::helpers::{
-        debug_fmt, extract_contained_key_id, set_safe_namespaces, validate_safe_namespaces,
-    },
+    safe::helpers::{debug_fmt, extract_contained_key_id},
 };
+
+mod symmetric_cose_encrypt0_key;
 
 /// Errors that can occur when sealing or unsealing a symmetric key with envelope operations.
 #[derive(Debug, Error)]
@@ -41,6 +42,12 @@ pub enum SymmetricKeyEnvelopeError {
     /// The symmetric key envelope namespace is invalid.
     #[error("Invalid namespace")]
     InvalidNamespace,
+    /// Incorrectly structured cose_encrypt0 ciphertext
+    #[error("Ciphertext is not structured correctly")]
+    IncorrectCiphertextStructure,
+    /// Encryption failed while sealing a key
+    #[error("Encryption failed while sealing a key")]
+    EncryptionFailed,
 }
 
 /// A symmetric key protected by another symmetric key
@@ -66,46 +73,7 @@ impl SymmetricKeyEnvelope {
             .get_symmetric_key(sealing_key)
             .map_err(|_| SymmetricKeyEnvelopeError::KeyMissing)?;
 
-        // For now, just XChaCha20Poly1305 is supported as wrapping key
-        let wrapping_key: &XChaCha20Poly1305Key = match wrapping_key {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
-            _ => {
-                return Err(SymmetricKeyEnvelopeError::Parsing(
-                    "Wrapping key must be XChaCha20Poly1305".to_string(),
-                ));
-            }
-        };
-
-        let (content_format, key_bytes) = match key_to_seal.to_encoded_raw() {
-            EncodedSymmetricKey::BitwardenLegacyKey(key_bytes) => {
-                (ContentFormat::BitwardenLegacyKey, key_bytes.to_vec())
-            }
-            EncodedSymmetricKey::CoseKey(key_bytes) => (ContentFormat::CoseKey, key_bytes.to_vec()),
-        };
-
-        let mut header_builder = HeaderBuilder::from(content_format);
-
-        // Only set the contained key ID if the key has one
-        if let Some(key_id) = key_to_seal.key_id() {
-            header_builder =
-                header_builder.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
-        }
-
-        let mut protected_header = header_builder.build();
-        set_safe_namespaces(
-            &mut protected_header,
-            SafeObjectNamespace::SymmetricKeyEnvelope,
-            namespace,
-        );
-        protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
-        protected_header.key_id = wrapping_key.key_id.as_slice().into();
-
-        let cose_encrypt0 = crate::cose::encrypt_cose(
-            CoseEncrypt0Builder::new().protected(protected_header),
-            &key_bytes,
-            wrapping_key,
-        );
-
+        let cose_encrypt0 = symmetric_key_seal_key_into_cose(key_to_seal, wrapping_key, namespace)?;
         Ok(SymmetricKeyEnvelope { cose_encrypt0 })
     }
 
@@ -120,53 +88,22 @@ impl SymmetricKeyEnvelope {
             .get_symmetric_key(wrapping_key)
             .map_err(|_| SymmetricKeyEnvelopeError::KeyMissing)?;
 
-        let wrapping_key_inner = match wrapping_key_ref {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
-            _ => {
-                return Err(SymmetricKeyEnvelopeError::Parsing(
-                    "Wrapping key must be XChaCha20Poly1305".to_string(),
-                ));
-            }
-        };
-
-        validate_safe_namespaces(
-            &self.cose_encrypt0.protected.header,
-            SafeObjectNamespace::SymmetricKeyEnvelope,
-            namespace,
-        )
-        .map_err(|_| SymmetricKeyEnvelopeError::InvalidNamespace)?;
-
-        // Validate the content format
-        let content_format = ContentFormat::try_from(&self.cose_encrypt0.protected.header)
-            .map_err(|_| {
-                SymmetricKeyEnvelopeError::Parsing("Invalid content format".to_string())
-            })?;
-
-        // Decrypt the key bytes
-        let key_bytes = crate::cose::decrypt_cose(&self.cose_encrypt0, wrapping_key_inner)
-            .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;
-
-        // Reconstruct the encoded symmetric key from the content format
-        let encoded_key = match content_format {
-            ContentFormat::BitwardenLegacyKey => {
-                EncodedSymmetricKey::BitwardenLegacyKey(BitwardenLegacyKeyBytes::from(key_bytes))
-            }
-            ContentFormat::CoseKey => EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes)),
-            _ => {
-                return Err(SymmetricKeyEnvelopeError::WrongKeyType);
-            }
-        };
-
-        let key = SymmetricCryptoKey::try_from(encoded_key)
-            .map_err(|_| SymmetricKeyEnvelopeError::WrongKeyType)?;
+        let key =
+            symmetric_key_unseal_key_from_cose(wrapping_key_ref, &self.cose_encrypt0, namespace)?;
 
         Ok(ctx.add_local_symmetric_key(key))
     }
 
     /// Get the key ID of the contained key.
     pub fn contained_key_id(&self) -> Result<Option<KeyId>, SymmetricKeyEnvelopeError> {
-        extract_contained_key_id(&self.cose_encrypt0.protected.header)
-            .map_err(|_| SymmetricKeyEnvelopeError::Parsing("Invalid contained key id".to_string()))
+        match extract_contained_key_id(&self.cose_encrypt0.protected.header).map_err(|_| {
+            SymmetricKeyEnvelopeError::Parsing("Invalid contained key id".to_string())
+        })? {
+            None => extract_contained_key_id(&self.cose_encrypt0.unprotected).map_err(|_| {
+                SymmetricKeyEnvelopeError::Parsing("Invalid contained key id".to_string())
+            }),
+            Some(key_id) => Ok(Some(key_id)),
+        }
     }
 }
 
@@ -329,7 +266,7 @@ impl ContentNamespace for SymmetricKeyEnvelopeNamespace {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
+    use crate::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     const TEST_VECTOR_SEALING_KEY: &str = "pQEEAlBLD8tcKNRLZaXNSr8OcwkgAzoAARFvBIQDBAUGIFgggG++dwvSRVPaPrIis1+XXXCizFYcakDZxSJP2HlJj0YB";
     const TEST_VECTOR_KEY_TO_SEAL: &str = "pQEEAlCEjXxxMulOVJtq1CSNv1aqAzoAARFvBIQDBAUGIFggwdF1yfFVwesj1CMQlVMhm+tvjwA1pxvTnQVUmfBMlJMB";

@@ -6,7 +6,7 @@
 use std::fmt::Debug;
 
 use coset::{
-    CborSerializable, ContentType, CoseEncrypt0, CoseEncrypt0Builder, Header, Label,
+    CborSerializable, ContentType, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
 use hybrid_array::Array;
@@ -28,6 +28,7 @@ use crate::{
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+pub(crate) const AES256_CBC_HMAC: i64 = -70001;
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
 
 // Custom labels for COSE headers
@@ -102,48 +103,6 @@ pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq + Debu
 pub(crate) const SAFE_CONTENT_NAMESPACE: i64 = -80001;
 
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
-
-/// Encrypt a plaintext message with a given key
-pub(crate) fn encrypt_cose(
-    cose_encrypt0_builder: CoseEncrypt0Builder,
-    plaintext: &[u8],
-    key: &XChaCha20Poly1305Key,
-) -> CoseEncrypt0 {
-    let mut nonce = [0u8; xchacha20::NONCE_SIZE];
-    cose_encrypt0_builder
-        .create_ciphertext(plaintext, &[], |data, aad| {
-            let ciphertext =
-                crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
-            nonce = ciphertext.nonce();
-            ciphertext.encrypted_bytes().to_vec()
-        })
-        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
-        .build()
-}
-
-pub struct DecryptFailed;
-/// Decrypt a CoseEncrypt0 message with a CoseKey
-pub(crate) fn decrypt_cose(
-    cose_encrypt0: &CoseEncrypt0,
-    key: &XChaCha20Poly1305Key,
-) -> Result<Vec<u8>, DecryptFailed> {
-    let nonce: [u8; xchacha20::NONCE_SIZE] = cose_encrypt0
-        .unprotected
-        .iv
-        .clone()
-        .try_into()
-        .map_err(|_| DecryptFailed)?;
-    cose_encrypt0
-        .clone()
-        .decrypt_ciphertext(
-            &[],
-            || CryptoError::MissingField("ciphertext"),
-            |data, aad| {
-                xchacha20::decrypt_xchacha20_poly1305(&nonce, &(*key.enc_key).into(), data, aad)
-            },
-        )
-        .map_err(|_| DecryptFailed)
-}
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(

@@ -14,6 +14,8 @@ use crate::fingerprint::FingerprintError;
 pub enum CryptoError {
     #[error("The decryption operation failed")]
     Decrypt,
+    #[error("The encryption operation failed")]
+    Encrypt,
     #[error("The provided key is not the expected type")]
     InvalidKey,
     #[error("Error while decrypting EncString")]
