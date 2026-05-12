@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    blob::encrypt_blob_cipher, cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -26,6 +26,8 @@ use crate::{
 pub enum CreateCipherError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    BlobEncryption(#[from] crate::blob::BlobEncryptionError),
     #[error(transparent)]
     Api(#[from] ApiError),
     #[error(transparent)]
@@ -111,11 +113,16 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
-    view: CipherView,
+    mut view: CipherView,
+    use_blob_encryption: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let collection_ids = view.collection_ids.clone();
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    let cipher: Cipher = if use_blob_encryption {
+        encrypt_blob_cipher(&mut view, &mut key_store.context())?
+    } else {
+        key_store.encrypt(view)?
+    };
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -178,12 +185,16 @@ impl CiphersClient {
             view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
+        let use_blob_encryption =
+            view.key.is_some() && self.should_use_blob_encryption(view.organization_id);
+
         create_cipher(
             key_store,
             &config.api_client,
             repository.as_ref(),
             user_id,
             view,
+            use_blob_encryption,
         )
         .await
     }
@@ -295,6 +306,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await
         .unwrap();
@@ -351,6 +363,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await;
 
@@ -419,6 +432,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await
         .unwrap();

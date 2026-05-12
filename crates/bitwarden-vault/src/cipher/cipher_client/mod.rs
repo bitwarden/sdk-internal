@@ -164,6 +164,7 @@ impl CiphersClient {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
+        // TODO: [PM-33107] Add support for cipher blob encryption when rotating keys.
         let cipher = cipher_view.encrypt_composite(&mut ctx, new_key_id)?;
 
         Ok(EncryptionContext {

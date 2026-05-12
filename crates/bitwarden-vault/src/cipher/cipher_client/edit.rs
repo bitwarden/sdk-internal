@@ -2,7 +2,8 @@ use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestMode
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
-    key_management::KeySlotIds, require,
+    key_management::{BLOB_SECURITY_VERSION, KeySlotIds},
+    require,
 };
 use bitwarden_crypto::{CryptoError, EncString, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
@@ -19,6 +20,7 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, VaultParseError,
+    blob::encrypt_blob_cipher,
     cipher::cipher::{PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
 };
@@ -31,6 +33,8 @@ pub enum EditCipherError {
     ItemNotFound(#[from] ItemNotFoundError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    BlobEncryption(#[from] crate::blob::BlobEncryptionError),
     #[error(transparent)]
     Api(#[from] ApiError),
     #[error(transparent)]
@@ -176,7 +180,14 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         view.generate_cipher_key(&mut key_store.context(), key)?;
     }
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    let cipher: Cipher = if view.key.is_some()
+        && view.organization_id.is_none()
+        && key_store.context().get_security_state_version() >= BLOB_SECURITY_VERSION
+    {
+        encrypt_blob_cipher(&mut view, &mut key_store.context())?
+    } else {
+        key_store.encrypt(view)?
+    };
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
