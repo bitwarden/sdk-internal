@@ -1,11 +1,11 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError};
+use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{Cipher, CipherId, CiphersClient, VaultParseError, cipher::cipher::PartialCipher};
+use crate::{AttachmentsClient, Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -53,9 +53,8 @@ pub async fn delete_attachment<R: Repository<Cipher> + ?Sized>(
     Ok(cipher)
 }
 
-#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl CiphersClient {
+impl AttachmentsClient {
     /// Deletes an attachment from a cipher, and updates the local repository with the new cipher
     /// data returned from the API.
     pub async fn delete_attachment(
@@ -63,12 +62,11 @@ impl CiphersClient {
         cipher_id: CipherId,
         attachment_id: String,
     ) -> Result<Cipher, CipherDeleteAttachmentError> {
-        let configs = self.client.internal.get_api_configurations();
         delete_attachment(
             cipher_id,
             &attachment_id,
-            &configs.api_client,
-            &*self.get_repository()?,
+            &self.api_configurations.api_client,
+            self.repository.require()?.as_ref(),
         )
         .await
     }
@@ -84,70 +82,70 @@ mod tests {
     use bitwarden_test::MemoryRepository;
 
     use super::*;
-    use crate::Attachment;
+    use crate::{Attachment, CipherRepromptType, CipherType};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_ATTACHMENT_ID: &str = "uf7bkexzag04d3cw04jsbqqkbpbwhxs0";
+    const TEST_CIPHER_NAME: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+    const TEST_FILE_NAME: &str = "2.mV50WiLq6duhwGbhM1TO0A==|dTufWNH8YTPP0EMlNLIpFA==|QHp+7OM8xHtEmCfc9QPXJ0Ro2BeakzvLgxJZ7NdLuDc=";
 
-    fn generate_test_cipher() -> Cipher {
+    fn test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
-            r#type: crate::CipherType::Login,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            r#type: CipherType::Login,
             attachments: Some(vec![Attachment {
                 id: Some(TEST_ATTACHMENT_ID.to_string()),
                 url: Some("http://localhost:4000/attachments/test".to_string()),
-                file_name: Some("2.mV50WiLq6duhwGbhM1TO0A==|dTufWNH8YTPP0EMlNLIpFA==|QHp+7OM8xHtEmCfc9QPXJ0Ro2BeakzvLgxJZ7NdLuDc=".parse().unwrap()),
+                file_name: Some(TEST_FILE_NAME.parse().unwrap()),
                 key: None,
                 size: Some("65".to_string()),
                 size_name: Some("65 Bytes".to_string()),
             }]),
-            notes: Default::default(),
-            organization_id: Default::default(),
-            folder_id: Default::default(),
-            favorite: Default::default(),
-            reprompt: Default::default(),
-            fields: Default::default(),
-            collection_ids: Default::default(),
-            key: Default::default(),
-            login: Default::default(),
-            identity: Default::default(),
-            card: Default::default(),
-            secure_note: Default::default(),
-            ssh_key: Default::default(),
-            bank_account: Default::default(),
-            drivers_license: Default::default(),
-            passport: Default::default(),
-            organization_use_totp: Default::default(),
-            edit: Default::default(),
-            permissions: Default::default(),
-            view_password: Default::default(),
-            local_data: Default::default(),
-            password_history: Default::default(),
-            creation_date: Default::default(),
-            deleted_date: Default::default(),
-            revision_date: Default::default(),
-            archived_date: Default::default(),
-            data: Default::default(),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            notes: None,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
+            archived_date: None,
+            data: None,
         }
     }
 
     #[tokio::test]
-    async fn test_delete_attachment() {
-        let cipher = generate_test_cipher();
+    async fn returns_updated_cipher_on_success() {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-
-        let api_client = ApiClient::new_mocked(move |mock| {
+        let api_client = ApiClient::new_mocked(|mock| {
             mock.ciphers_api
                 .expect_delete_attachment()
-                .returning(move |id, attachment_id| {
+                .returning(|id, attachment_id| {
                     assert_eq!(&id.to_string(), TEST_CIPHER_ID);
                     assert_eq!(attachment_id, TEST_ATTACHMENT_ID);
                     Ok(DeleteAttachmentResponseModel {
                         object: None,
                         cipher: Some(Box::new(CipherMiniResponseModel {
                             id: Some(TEST_CIPHER_ID.try_into().unwrap()),
-                            name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".to_string()),
+                            name: Some(TEST_CIPHER_NAME.to_string()),
                             r#type: Some(bitwarden_api_api::models::CipherType::Login),
                             creation_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
                             revision_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
@@ -159,29 +157,25 @@ mod tests {
         });
 
         let repository = MemoryRepository::<Cipher>::default();
-        repository.set(cipher_id, cipher).await.unwrap();
+        repository.set(cipher_id, test_cipher()).await.unwrap();
 
         let result = delete_attachment(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
             .await
             .unwrap();
 
-        // The returned cipher should have no attachments (API response had none)
         assert!(result.attachments.is_none());
 
-        // Verify the repository was updated
         let repo_cipher = repository.get(cipher_id).await.unwrap().unwrap();
         assert!(repo_cipher.attachments.is_none());
     }
 
     #[tokio::test]
-    async fn test_delete_attachment_missing_cipher_in_response() {
-        let cipher = generate_test_cipher();
+    async fn errors_when_response_has_no_cipher() {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-
-        let api_client = ApiClient::new_mocked(move |mock| {
+        let api_client = ApiClient::new_mocked(|mock| {
             mock.ciphers_api
                 .expect_delete_attachment()
-                .returning(move |_id, _attachment_id| {
+                .returning(|_id, _attachment_id| {
                     Ok(DeleteAttachmentResponseModel {
                         object: None,
                         cipher: None,
@@ -190,14 +184,11 @@ mod tests {
         });
 
         let repository = MemoryRepository::<Cipher>::default();
-        repository.set(cipher_id, cipher).await.unwrap();
+        repository.set(cipher_id, test_cipher()).await.unwrap();
 
         let result =
             delete_attachment(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository).await;
 
-        assert!(
-            result.is_err(),
-            "Should fail when API response has no cipher"
-        );
+        assert!(result.is_err());
     }
 }
