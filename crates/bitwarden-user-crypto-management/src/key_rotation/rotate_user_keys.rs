@@ -103,9 +103,6 @@ async fn internal_rotate_user_keys(
     wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
-    // Fail early if any cipher has old attachments that would become irrecoverable
-    check_for_old_attachments(&sync.ciphers)?;
-
     // This guard should be removed once other key rotation methods are implemented.
     match &request.key_rotation_method {
         KeyRotationMethod::KeyConnector | KeyRotationMethod::Tde => {
@@ -113,6 +110,9 @@ async fn internal_rotate_user_keys(
         }
         KeyRotationMethod::Password { .. } => {}
     }
+
+    // Fail early if any cipher has old attachments that would become irrecoverable
+    check_for_old_attachments(&sync.ciphers)?;
 
     // Create a separate scope so that the mutable context is not held across the await point
     let post_request = {

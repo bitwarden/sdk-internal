@@ -47,14 +47,14 @@ impl UserCryptoManagementClient {
     /// Only applicable to V1 encryption accounts.
     pub async fn regenerate_public_key_encryption_key_pair_if_needed(
         &self,
-    ) -> Result<(), KeyPairRegenerationError> {
+    ) -> Result<bool, KeyPairRegenerationError> {
         let key_store = self.client.internal.get_key_store();
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let should_regenerate =
             internal_should_regenerate_public_key_encryption_key_pair(key_store, api_client)
                 .await?;
         if !should_regenerate {
-            return Ok(());
+            return Ok(false);
         }
 
         internal_regenerate_public_key_encryption_key_pair(key_store, api_client).await?;
@@ -69,7 +69,7 @@ impl UserCryptoManagementClient {
             state_bridge.set_account_cryptographic_state(&state).await;
         }
 
-        Ok(())
+        Ok(true)
     }
 
     /// Checks whether the user's public key encryption key pair needs regeneration.
