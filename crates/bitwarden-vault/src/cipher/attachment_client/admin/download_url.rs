@@ -1,5 +1,6 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
+use reqwest::StatusCode;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -14,6 +15,8 @@ pub enum CipherAdminGetAttachmentDownloadUrlError {
     Api(#[from] ApiError),
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
+    #[error("Attachment not found")]
+    NotFound,
 }
 
 impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherAdminGetAttachmentDownloadUrlError {
@@ -22,7 +25,9 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherAdminGetAttachmentDown
     }
 }
 
-/// Fetches the download URL for an attachment from the admin API
+/// Fetches the download URL for an attachment from the admin API. The admin client has no
+/// local repository to fall back to on 404, so a server-side 404 is surfaced as
+/// [`CipherAdminGetAttachmentDownloadUrlError::NotFound`] for the caller to handle.
 pub async fn get_attachment_download_url(
     cipher_id: CipherId,
     attachment_id: &str,
@@ -31,7 +36,15 @@ pub async fn get_attachment_download_url(
     let response = api_client
         .ciphers_api()
         .get_attachment_data_admin(cipher_id.into(), attachment_id)
-        .await?;
+        .await
+        .map_err(|e| match e {
+            bitwarden_api_api::apis::Error::ResponseError(content)
+                if content.status == StatusCode::NOT_FOUND =>
+            {
+                CipherAdminGetAttachmentDownloadUrlError::NotFound
+            }
+            other => other.into(),
+        })?;
 
     response.url.ok_or_else(|| MissingFieldError("url").into())
 }
@@ -115,7 +128,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn propagates_api_errors() {
+    async fn returns_not_found_on_404() {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.ciphers_api
                 .expect_get_attachment_data_admin()
@@ -124,6 +137,33 @@ mod tests {
                         bitwarden_api_api::apis::ResponseContent {
                             status: StatusCode::NOT_FOUND,
                             content: String::new(),
+                            entity: None,
+                        },
+                    ))
+                });
+        });
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let err = get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            CipherAdminGetAttachmentDownloadUrlError::NotFound
+        ));
+    }
+
+    #[tokio::test]
+    async fn propagates_non_404_api_errors() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api
+                .expect_get_attachment_data_admin()
+                .returning(|_id, _attachment_id| {
+                    Err(bitwarden_api_api::apis::Error::ResponseError(
+                        bitwarden_api_api::apis::ResponseContent {
+                            status: StatusCode::INTERNAL_SERVER_ERROR,
+                            content: "bitwarden".to_string(),
                             entity: None,
                         },
                     ))

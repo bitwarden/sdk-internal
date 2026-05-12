@@ -77,8 +77,8 @@ async fn fallback_url_from_repository<R: Repository<Cipher> + ?Sized>(
 
 /// Fetches the download URL for an attachment via the emergency-access endpoint, used when
 /// the grantee is viewing the grantor's cipher. The SDK has no local repository for the
-/// grantor's ciphers, so this function does not fall back to a stored URL on 404 — the caller
-/// is responsible for handling that fallback.
+/// grantor's ciphers, so a server-side 404 is surfaced as
+/// [`CipherGetAttachmentDownloadUrlError::NotFound`] for the caller to handle.
 pub async fn get_emergency_access_attachment_download_url(
     emergency_access_id: uuid::Uuid,
     cipher_id: CipherId,
@@ -88,7 +88,16 @@ pub async fn get_emergency_access_attachment_download_url(
     let response = api_client
         .emergency_access_api()
         .get_attachment_data(emergency_access_id, cipher_id.into(), attachment_id)
-        .await?;
+        .await
+        .map_err(|e| match e {
+            bitwarden_api_api::apis::Error::ResponseError(content)
+                if content.status == StatusCode::NOT_FOUND =>
+            {
+                CipherGetAttachmentDownloadUrlError::NotFound
+            }
+            other => other.into(),
+        })?;
+
     response.url.ok_or_else(|| MissingFieldError("url").into())
 }
 
@@ -325,7 +334,7 @@ mod tests {
                     Err(bitwarden_api_api::apis::Error::ResponseError(
                         bitwarden_api_api::apis::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
-                            content: "boom".to_string(),
+                            content: "bitwarden".to_string(),
                             entity: None,
                         },
                     ))
@@ -408,15 +417,37 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn emergency_access_propagates_api_errors() {
+    async fn emergency_access_returns_not_found_on_404() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.emergency_access_api
+                .expect_get_attachment_data()
+                .returning(|_ea_id, _cipher_id, _attachment_id| Err(not_found_response()));
+        });
+
+        let emergency_access_id: uuid::Uuid = TEST_EMERGENCY_ACCESS_ID.parse().unwrap();
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let err = get_emergency_access_attachment_download_url(
+            emergency_access_id,
+            cipher_id,
+            TEST_ATTACHMENT_ID,
+            &api_client,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(matches!(err, CipherGetAttachmentDownloadUrlError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn emergency_access_propagates_non_404_api_errors() {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.emergency_access_api
                 .expect_get_attachment_data()
                 .returning(|_ea_id, _cipher_id, _attachment_id| {
                     Err(bitwarden_api_api::apis::Error::ResponseError(
                         bitwarden_api_api::apis::ResponseContent {
-                            status: StatusCode::NOT_FOUND,
-                            content: String::new(),
+                            status: StatusCode::INTERNAL_SERVER_ERROR,
+                            content: "bitwarden".to_string(),
                             entity: None,
                         },
                     ))
