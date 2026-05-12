@@ -54,13 +54,9 @@ pub struct CollectionView {
 
 /// Type of collection
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
 #[repr(u8)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CollectionType {
     /// Default collection type. Can be assigned by an organization to user(s) or group(s)
     SharedCollection = 0,

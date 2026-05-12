@@ -205,7 +205,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                 let message = FollowerMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
-                        user_key: super::UserKey::from_bytes(user_key.to_owned()),
+                        user_key: user_key.to_owned(),
                     },
                 };
                 self.send_message(message, leader).await;

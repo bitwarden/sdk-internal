@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::LockState;
 
 /// The messages sent from followers to the leader
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum FollowerMessage {
     /// Synchronizes a user's lock state between participants.
     LockStateUpdate {
@@ -32,7 +32,7 @@ pub enum FollowerMessage {
 }
 
 /// The messages sent from the leader to followers
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum LeaderMessage {
     /// Synchronizes a user's lock state between participants.
     LockStateUpdate {
