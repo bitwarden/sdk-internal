@@ -11,7 +11,7 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotId, KeySlotIds, LocalId,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeySlotId, KeySlotIds, LocalId,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
@@ -536,6 +536,14 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         key_id: Ids::Symmetric,
     ) -> Result<&SymmetricCryptoKey> {
         self.get_symmetric_key(key_id)
+    }
+
+    /// Return the key id if the symmetric key exists in the context
+    pub fn get_symmetric_key_id(&self, key_slot_id: Ids::Symmetric) -> Option<KeyId> {
+        let Ok(key) = self.get_symmetric_key(key_slot_id) else {
+            return None;
+        };
+        key.key_id()
     }
 
     /// Return a reference to a signing key stored in the context.

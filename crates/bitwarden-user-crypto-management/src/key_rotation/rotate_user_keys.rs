@@ -16,7 +16,7 @@ use crate::{
     key_rotation::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_wrapped_model,
-        data::reencrypt_data,
+        data::{check_for_old_attachments, reencrypt_data},
         rotation_context::make_rotation_context,
         sync::{SyncedAccountData, sync_current_account_data},
         unlock::{ReencryptCommonUnlockDataInput, reencrypt_common_unlock_data},
@@ -103,6 +103,9 @@ async fn internal_rotate_user_keys(
     wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
+    // Fail early if any cipher has old attachments that would become irrecoverable
+    check_for_old_attachments(&sync.ciphers)?;
+
     // This guard should be removed once other key rotation methods are implemented.
     match &request.key_rotation_method {
         KeyRotationMethod::KeyConnector | KeyRotationMethod::Tde => {
@@ -193,12 +196,16 @@ async fn internal_rotate_user_keys(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use bitwarden_api_api::apis::ApiClient;
     use bitwarden_core::key_management::{
         KeySlotIds, SymmetricKeySlotId,
         account_cryptographic_state::WrappedAccountCryptographicState,
     };
     use bitwarden_crypto::{Kdf, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_vault::{Attachment, Cipher, CipherType};
+    use chrono::DateTime;
 
     use super::*;
 
@@ -477,6 +484,82 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_old_attachments_returns_error() {
+        let (key_store, mut sync) = make_test_key_store_and_synced_data();
+        let enc_string = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
+
+        // Add a cipher with an old attachment (key is None)
+        sync.ciphers = vec![Cipher {
+            id: None,
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: Default::default(),
+            organization_use_totp: false,
+            edit: false,
+            permissions: None,
+            view_password: false,
+            name: enc_string.parse().unwrap(),
+            revision_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
+            archived_date: None,
+            creation_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
+            attachments: Some(vec![Attachment {
+                id: None,
+                url: None,
+                size: None,
+                size_name: None,
+                file_name: None,
+                key: None, // Old attachment - no per-attachment key
+            }]),
+            fields: None,
+            key: None,
+            notes: None,
+            local_data: None,
+            password_history: None,
+            deleted_date: None,
+            data: None,
+        }];
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            // Rotation API should never be called
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .never();
+        });
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: None,
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await;
+
+        assert!(matches!(result, Err(RotateUserKeysError::OldAttachments)));
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }

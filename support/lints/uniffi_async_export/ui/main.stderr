@@ -1,0 +1,32 @@
+warning: `#[uniffi::export]` on `async fn`s must specify `async_runtime = "tokio"`
+  --> $DIR/main.rs:10:5
+   |
+LL |     #[uniffi::export]
+   |     ^^^^^^^^^^^^^^^^^ help: specify the tokio async runtime: `#[uniffi::export(async_runtime = "tokio")]`
+   |
+   = note: `#[warn(uniffi_async_export)]` on by default
+
+warning: `#[uniffi::export]` on `async fn`s must specify `async_runtime = "tokio"`
+  --> $DIR/main.rs:21:5
+   |
+LL |     #[uniffi::export(callback_interface)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add `async_runtime = "tokio"` to the attribute arguments
+
+warning: `#[uniffi::export]` on `async fn`s must specify `async_runtime = "tokio"`
+  --> $DIR/main.rs:32:5
+   |
+LL |     #[uniffi::export(async_runtime = "other")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: add `async_runtime = "tokio"` to the attribute arguments
+
+warning: `#[uniffi::export]` on `async fn`s must specify `async_runtime = "tokio"`
+  --> $DIR/main.rs:63:5
+   |
+LL |     #[uniffi::export]
+   |     ^^^^^^^^^^^^^^^^^ help: specify the tokio async runtime: `#[uniffi::export(async_runtime = "tokio")]`
+
+warning: 4 warnings emitted
+
