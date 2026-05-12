@@ -5,8 +5,7 @@ use thiserror::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher,
-    cipher_client::admin::CipherAdminClient,
+    AttachmentAdminClient, Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher,
 };
 
 #[allow(missing_docs)]
@@ -45,7 +44,7 @@ async fn delete_attachment(
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl CipherAdminClient {
+impl AttachmentAdminClient {
     /// Deletes an attachment from a cipher using the admin endpoint.
     /// Affects server data only, does not modify local state.
     pub async fn delete_attachment(
@@ -56,7 +55,7 @@ impl CipherAdminClient {
         delete_attachment(
             cipher_id,
             &attachment_id,
-            &self.client.internal.get_api_configurations().api_client,
+            &self.api_configurations.api_client,
         )
         .await
     }

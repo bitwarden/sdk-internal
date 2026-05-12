@@ -22,7 +22,9 @@ pub(crate) mod ssh_key;
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
-pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
+pub use attachment_client::{
+    AttachmentAdminClient, AttachmentsClient, DecryptFileError, EncryptFileError,
+};
 pub use bank_account::BankAccountView;
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
