@@ -375,10 +375,7 @@ mod tests {
 
     /// Asserts that the provided wrapped local user data key can be decrypted, and is the v1 test
     /// key
-    fn assert_local_user_data_key_is_correct(
-        ctx: &Client,
-        wrapped_key: WrappedLocalUserDataKey,
-    ) {
+    fn assert_local_user_data_key_is_correct(ctx: &Client, wrapped_key: WrappedLocalUserDataKey) {
         let mut ctx = ctx.internal.get_key_store().context_mut();
         let v1_user_key = load_v1_user_key(&mut ctx);
         let v2_user_key = load_v2_user_key(&mut ctx);
