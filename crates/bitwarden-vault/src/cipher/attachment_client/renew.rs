@@ -1,0 +1,139 @@
+use bitwarden_core::{ApiError, MissingFieldError};
+use bitwarden_error::bitwarden_error;
+use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+use crate::{AttachmentsClient, CipherId};
+
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum CipherRenewFileUploadUrlError {
+    #[error(transparent)]
+    Api(#[from] ApiError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherRenewFileUploadUrlError {
+    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(value.into())
+    }
+}
+
+/// Fetches a refreshed upload URL for an attachment whose initial upload URL has expired.
+/// The attachment slot itself is not modified — only the URL the caller should push bytes
+/// to is renewed.
+pub async fn renew_file_upload_url(
+    cipher_id: CipherId,
+    attachment_id: &str,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+) -> Result<String, CipherRenewFileUploadUrlError> {
+    let response = api_client
+        .ciphers_api()
+        .renew_file_upload_url(cipher_id.into(), attachment_id)
+        .await?;
+
+    response.url.ok_or_else(|| MissingFieldError("url").into())
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl AttachmentsClient {
+    /// Returns a refreshed upload URL for the given attachment.
+    pub async fn renew_file_upload_url(
+        &self,
+        cipher_id: CipherId,
+        attachment_id: String,
+    ) -> Result<String, CipherRenewFileUploadUrlError> {
+        renew_file_upload_url(
+            cipher_id,
+            &attachment_id,
+            &self.api_configurations.api_client,
+        )
+        .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_api_api::{apis::ApiClient, models::AttachmentUploadDataResponseModel};
+    use reqwest::StatusCode;
+
+    use super::*;
+
+    const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
+    const TEST_ATTACHMENT_ID: &str = "uf7bkexzag04d3cw04jsbqqkbpbwhxs0";
+    const TEST_RENEW_URL: &str = "http://localhost:4000/attachments/test/renewed";
+
+    #[tokio::test]
+    async fn returns_url_from_api_response() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api
+                .expect_renew_file_upload_url()
+                .returning(|id, attachment_id| {
+                    assert_eq!(&id.to_string(), TEST_CIPHER_ID);
+                    assert_eq!(attachment_id, TEST_ATTACHMENT_ID);
+                    Ok(AttachmentUploadDataResponseModel {
+                        url: Some(TEST_RENEW_URL.to_string()),
+                        ..Default::default()
+                    })
+                });
+        });
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let url = renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+            .await
+            .unwrap();
+
+        assert_eq!(url, TEST_RENEW_URL);
+    }
+
+    #[tokio::test]
+    async fn returns_missing_field_when_response_has_no_url() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api
+                .expect_renew_file_upload_url()
+                .returning(|_id, _attachment_id| {
+                    Ok(AttachmentUploadDataResponseModel {
+                        url: None,
+                        ..Default::default()
+                    })
+                });
+        });
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let err = renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            CipherRenewFileUploadUrlError::MissingField(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn propagates_api_errors() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api
+                .expect_renew_file_upload_url()
+                .returning(|_id, _attachment_id| {
+                    Err(bitwarden_api_api::apis::Error::ResponseError(
+                        bitwarden_api_api::apis::ResponseContent {
+                            status: StatusCode::INTERNAL_SERVER_ERROR,
+                            content: "boom".to_string(),
+                            entity: None,
+                        },
+                    ))
+                });
+        });
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let err = renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, CipherRenewFileUploadUrlError::Api(_)));
+    }
+}
