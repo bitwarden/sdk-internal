@@ -22,10 +22,7 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherAdminGetAttachmentDown
     }
 }
 
-/// Fetches the download URL for an attachment from the admin API. Unlike the user-side
-/// counterpart on [`crate::AttachmentsClient`], this method does **not** fall back to a
-/// repository-stored URL on 404 — the admin client is server-only and does not own a
-/// local cipher repository.
+/// Fetches the download URL for an attachment from the admin API
 pub async fn get_attachment_download_url(
     cipher_id: CipherId,
     attachment_id: &str,
