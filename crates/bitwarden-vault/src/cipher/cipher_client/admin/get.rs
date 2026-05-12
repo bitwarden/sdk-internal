@@ -114,8 +114,7 @@ mod tests {
         },
     };
     use bitwarden_core::{
-        client::ApiConfigurations,
-        key_management::{KeySlotIds, SymmetricKeySlotId, create_test_crypto_with_user_key},
+        client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
     };
     use bitwarden_crypto::SymmetricCryptoKey;
     use chrono::Utc;
