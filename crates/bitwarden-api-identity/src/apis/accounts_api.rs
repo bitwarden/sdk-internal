@@ -29,22 +29,19 @@ pub trait AccountsApi: Send + Sync {
     /// GET /accounts/webauthn/assertion-options
     async fn get_web_authn_login_assertion_options(
         &self,
-    ) -> Result<
-        models::WebAuthnLoginAssertionOptionsResponseModel,
-        Error<GetWebAuthnLoginAssertionOptionsError>,
-    >;
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error>;
 
     /// POST /accounts/prelogin/password
     async fn post_password_prelogin<'a>(
         &self,
         password_prelogin_request_model: Option<models::PasswordPreloginRequestModel>,
-    ) -> Result<models::PasswordPreloginResponseModel, Error<PostPasswordPreloginError>>;
+    ) -> Result<models::PasswordPreloginResponseModel, Error>;
 
     /// POST /accounts/register/finish
     async fn post_register_finish<'a>(
         &self,
         register_finish_request_model: Option<models::RegisterFinishRequestModel>,
-    ) -> Result<models::RegisterFinishResponseModel, Error<PostRegisterFinishError>>;
+    ) -> Result<models::RegisterFinishResponseModel, Error>;
 
     /// POST /accounts/register/send-verification-email
     async fn post_register_send_verification_email<'a>(
@@ -52,7 +49,7 @@ pub trait AccountsApi: Send + Sync {
         register_send_verification_email_request_model: Option<
             models::RegisterSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterSendVerificationEmailError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/register/verification-email-clicked
     async fn post_register_verification_email_clicked<'a>(
@@ -60,7 +57,7 @@ pub trait AccountsApi: Send + Sync {
         register_verification_email_clicked_request_model: Option<
             models::RegisterVerificationEmailClickedRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterVerificationEmailClickedError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/trial/send-verification-email
     async fn post_trial_initiation_send_verification_email<'a>(
@@ -68,7 +65,7 @@ pub trait AccountsApi: Send + Sync {
         trial_send_verification_email_request_model: Option<
             models::TrialSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostTrialInitiationSendVerificationEmailError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct AccountsApiClient {
@@ -86,10 +83,7 @@ impl AccountsApiClient {
 impl AccountsApi for AccountsApiClient {
     async fn get_web_authn_login_assertion_options(
         &self,
-    ) -> Result<
-        models::WebAuthnLoginAssertionOptionsResponseModel,
-        Error<GetWebAuthnLoginAssertionOptionsError>,
-    > {
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -101,47 +95,13 @@ impl AccountsApi for AccountsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::WebAuthnLoginAssertionOptionsResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::WebAuthnLoginAssertionOptionsResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetWebAuthnLoginAssertionOptionsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_password_prelogin<'a>(
         &self,
         password_prelogin_request_model: Option<models::PasswordPreloginRequestModel>,
-    ) -> Result<models::PasswordPreloginResponseModel, Error<PostPasswordPreloginError>> {
+    ) -> Result<models::PasswordPreloginResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -155,47 +115,13 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.json(&password_prelogin_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PasswordPreloginResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PasswordPreloginResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostPasswordPreloginError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_register_finish<'a>(
         &self,
         register_finish_request_model: Option<models::RegisterFinishRequestModel>,
-    ) -> Result<models::RegisterFinishResponseModel, Error<PostRegisterFinishError>> {
+    ) -> Result<models::RegisterFinishResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -209,41 +135,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.json(&register_finish_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::RegisterFinishResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::RegisterFinishResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostRegisterFinishError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_register_send_verification_email<'a>(
@@ -251,7 +143,7 @@ impl AccountsApi for AccountsApiClient {
         register_send_verification_email_request_model: Option<
             models::RegisterSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterSendVerificationEmailError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -266,23 +158,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&register_send_verification_email_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostRegisterSendVerificationEmailError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_register_verification_email_clicked<'a>(
@@ -290,7 +166,7 @@ impl AccountsApi for AccountsApiClient {
         register_verification_email_clicked_request_model: Option<
             models::RegisterVerificationEmailClickedRequestModel,
         >,
-    ) -> Result<(), Error<PostRegisterVerificationEmailClickedError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -305,23 +181,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&register_verification_email_clicked_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostRegisterVerificationEmailClickedError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_trial_initiation_send_verification_email<'a>(
@@ -329,7 +189,7 @@ impl AccountsApi for AccountsApiClient {
         trial_send_verification_email_request_model: Option<
             models::TrialSendVerificationEmailRequestModel,
         >,
-    ) -> Result<(), Error<PostTrialInitiationSendVerificationEmailError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -344,59 +204,6 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&trial_send_verification_email_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostTrialInitiationSendVerificationEmailError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`AccountsApi::get_web_authn_login_assertion_options`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetWebAuthnLoginAssertionOptionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_password_prelogin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostPasswordPreloginError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_register_finish`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostRegisterFinishError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_register_send_verification_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostRegisterSendVerificationEmailError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_register_verification_email_clicked`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostRegisterVerificationEmailClickedError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_trial_initiation_send_verification_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostTrialInitiationSendVerificationEmailError {
-    UnknownValue(serde_json::Value),
 }

@@ -1,5 +1,5 @@
 use bitwarden_collections::collection::Collection;
-use bitwarden_core::{Client, key_management::KeyIds};
+use bitwarden_core::{Client, key_management::KeySlotIds};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
 use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
 
@@ -11,7 +11,7 @@ use crate::{
     json::export_json,
 };
 
-pub(crate) fn export_vault(
+pub(crate) async fn export_vault(
     client: &Client,
     folders: Vec<Folder>,
     ciphers: Vec<Cipher>,
@@ -34,7 +34,7 @@ pub(crate) fn export_vault(
             folders,
             ciphers,
             password,
-            client.internal.get_kdf()?,
+            client.internal.get_kdf().await?,
         )?),
     }
 }
@@ -55,16 +55,22 @@ pub(crate) fn export_cxf(
 ) -> Result<String, ExportError> {
     let key_store = client.internal.get_key_store();
 
-    let ciphers: Vec<crate::Cipher> = ciphers
+    let mut ciphers: Vec<crate::Cipher> = ciphers
         .into_iter()
         .flat_map(|c| crate::Cipher::from_cipher(key_store, c))
         .collect();
+
+    for cipher in &mut ciphers {
+        if let crate::CipherType::Login(login) = &mut cipher.r#type {
+            login.sanitize_uris();
+        }
+    }
 
     Ok(build_cxf(account, ciphers)?)
 }
 
 fn encrypt_import(
-    ctx: &mut KeyStoreContext<KeyIds>,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
     cipher: ImportingCipher,
 ) -> Result<Cipher, ExportError> {
     let mut view: CipherView = cipher.clone().into();

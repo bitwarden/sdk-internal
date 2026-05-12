@@ -45,6 +45,7 @@ crate::register_repository_item!(String => SettingItem, "Setting");
 /// // Delete the value
 /// setting.delete().await?;
 /// ```
+#[derive(Clone)]
 pub struct Setting<T> {
     repository: Arc<dyn Repository<SettingItem>>,
     key: Key<T>,

@@ -1,12 +1,12 @@
 use bitwarden_api_api::models::SecretsSyncResponseModel;
-use bitwarden_core::{Client, key_management::KeyIds, require};
+use bitwarden_core::{key_management::KeySlotIds, require};
 use bitwarden_crypto::KeyStoreContext;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{error::SecretsManagerError, secrets::SecretResponse};
+use crate::{SecretsManagerClient, error::SecretsManagerError, secrets::SecretResponse};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -19,9 +19,10 @@ pub struct SecretsSyncRequest {
 }
 
 pub(crate) async fn sync_secrets(
-    client: &Client,
+    client: &SecretsManagerClient,
     input: &SecretsSyncRequest,
 ) -> Result<SecretsSyncResponse, SecretsManagerError> {
+    let client = client.client();
     let config = client.internal.get_api_configurations();
     let last_synced_date = input.last_synced_date.map(|date| date.to_rfc3339());
 
@@ -47,7 +48,7 @@ pub struct SecretsSyncResponse {
 impl SecretsSyncResponse {
     pub(crate) fn process_response(
         response: SecretsSyncResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretsSyncResponse, SecretsManagerError> {
         let has_changes = require!(response.has_changes);
 

@@ -31,78 +31,75 @@ pub trait OrganizationsApi: Send + Sync {
         &self,
         id: &'a str,
         organization_api_key_request_model: Option<models::OrganizationApiKeyRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<ApiKeyError>>;
+    ) -> Result<models::ApiKeyResponseModel, Error>;
 
     /// GET /organizations/{id}/api-key-information/{type}
     async fn api_key_information<'a>(
         &self,
         id: uuid::Uuid,
         r#type: models::OrganizationApiKeyType,
-    ) -> Result<models::OrganizationApiKeyInformationListResponseModel, Error<ApiKeyInformationError>>;
+    ) -> Result<models::OrganizationApiKeyInformationListResponseModel, Error>;
 
     /// POST /organizations/create-without-payment
     async fn create_without_payment<'a>(
         &self,
         organization_no_payment_create_request: Option<models::OrganizationNoPaymentCreateRequest>,
-    ) -> Result<models::OrganizationResponseModel, Error<CreateWithoutPaymentError>>;
+    ) -> Result<models::OrganizationResponseModel, Error>;
 
     /// DELETE /organizations/{id}
     async fn delete<'a>(
         &self,
         id: &'a str,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{id}
-    async fn get<'a>(
-        &self,
-        id: &'a str,
-    ) -> Result<models::OrganizationResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: &'a str) -> Result<models::OrganizationResponseModel, Error>;
 
     /// GET /organizations/{identifier}/auto-enroll-status
     async fn get_auto_enroll_status<'a>(
         &self,
         identifier: &'a str,
-    ) -> Result<models::OrganizationAutoEnrollStatusResponseModel, Error<GetAutoEnrollStatusError>>;
+    ) -> Result<models::OrganizationAutoEnrollStatusResponseModel, Error>;
 
     /// GET /organizations/{id}/license
     async fn get_license<'a>(
         &self,
         id: uuid::Uuid,
         installation_id: Option<uuid::Uuid>,
-    ) -> Result<models::OrganizationLicense, Error<GetLicenseError>>;
+    ) -> Result<models::OrganizationLicense, Error>;
 
     /// GET /organizations/{id}/public-key
     async fn get_public_key<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::OrganizationPublicKeyResponseModel, Error<GetPublicKeyError>>;
+    ) -> Result<models::OrganizationPublicKeyResponseModel, Error>;
 
     /// GET /organizations/{id}/sso
     async fn get_sso<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationSsoResponseModel, Error<GetSsoError>>;
+    ) -> Result<models::OrganizationSsoResponseModel, Error>;
 
     /// GET /organizations/{id}/subscription
     async fn get_subscription<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationSubscriptionResponseModel, Error<GetSubscriptionError>>;
+    ) -> Result<models::OrganizationSubscriptionResponseModel, Error>;
 
     /// GET /organizations
     async fn get_user(
         &self,
-    ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error<GetUserError>>;
+    ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{id}/leave
-    async fn leave<'a>(&self, id: uuid::Uuid) -> Result<(), Error<LeaveError>>;
+    async fn leave<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /organizations
     async fn post<'a>(
         &self,
         organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
-    ) -> Result<models::OrganizationResponseModel, Error<PostError>>;
+    ) -> Result<models::OrganizationResponseModel, Error>;
 
     /// POST /organizations/{id}/cancel
     async fn post_cancel<'a>(
@@ -111,7 +108,7 @@ pub trait OrganizationsApi: Send + Sync {
         subscription_cancellation_request_model: Option<
             models::SubscriptionCancellationRequestModel,
         >,
-    ) -> Result<(), Error<PostCancelError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{id}/delete-recover-token
     async fn post_delete_recover_token<'a>(
@@ -120,24 +117,24 @@ pub trait OrganizationsApi: Send + Sync {
         organization_verify_delete_recover_request_model: Option<
             models::OrganizationVerifyDeleteRecoverRequestModel,
         >,
-    ) -> Result<(), Error<PostDeleteRecoverTokenError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{id}/keys
     async fn post_keys<'a>(
         &self,
         id: uuid::Uuid,
         organization_keys_request_model: Option<models::OrganizationKeysRequestModel>,
-    ) -> Result<models::OrganizationKeysResponseModel, Error<PostKeysError>>;
+    ) -> Result<models::OrganizationKeysResponseModel, Error>;
 
     /// POST /organizations/{id}/reinstate
-    async fn post_reinstate<'a>(&self, id: uuid::Uuid) -> Result<(), Error<PostReinstateError>>;
+    async fn post_reinstate<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /organizations/{id}/seat
     async fn post_seat<'a>(
         &self,
         id: uuid::Uuid,
         organization_seat_request_model: Option<models::OrganizationSeatRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostSeatError>>;
+    ) -> Result<models::PaymentResponseModel, Error>;
 
     /// POST /organizations/{id}/sm-subscription
     async fn post_sm_subscription<'a>(
@@ -146,21 +143,21 @@ pub trait OrganizationsApi: Send + Sync {
         secrets_manager_subscription_update_request_model: Option<
             models::SecretsManagerSubscriptionUpdateRequestModel,
         >,
-    ) -> Result<models::ProfileOrganizationResponseModel, Error<PostSmSubscriptionError>>;
+    ) -> Result<models::ProfileOrganizationResponseModel, Error>;
 
     /// POST /organizations/{id}/sso
     async fn post_sso<'a>(
         &self,
         id: uuid::Uuid,
         organization_sso_request_model: Option<models::OrganizationSsoRequestModel>,
-    ) -> Result<models::OrganizationSsoResponseModel, Error<PostSsoError>>;
+    ) -> Result<models::OrganizationSsoResponseModel, Error>;
 
     /// POST /organizations/{id}/storage
     async fn post_storage<'a>(
         &self,
         id: &'a str,
         storage_request_model: Option<models::StorageRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostStorageError>>;
+    ) -> Result<models::PaymentResponseModel, Error>;
 
     /// POST /organizations/{id}/subscribe-secrets-manager
     async fn post_subscribe_secrets_manager<'a>(
@@ -169,7 +166,7 @@ pub trait OrganizationsApi: Send + Sync {
         secrets_manager_subscribe_request_model: Option<
             models::SecretsManagerSubscribeRequestModel,
         >,
-    ) -> Result<models::ProfileOrganizationResponseModel, Error<PostSubscribeSecretsManagerError>>;
+    ) -> Result<models::ProfileOrganizationResponseModel, Error>;
 
     /// POST /organizations/{id}/subscription
     async fn post_subscription<'a>(
@@ -178,21 +175,21 @@ pub trait OrganizationsApi: Send + Sync {
         organization_subscription_update_request_model: Option<
             models::OrganizationSubscriptionUpdateRequestModel,
         >,
-    ) -> Result<models::ProfileOrganizationResponseModel, Error<PostSubscriptionError>>;
+    ) -> Result<models::ProfileOrganizationResponseModel, Error>;
 
     /// POST /organizations/{id}/upgrade
     async fn post_upgrade<'a>(
         &self,
         id: uuid::Uuid,
         organization_upgrade_request_model: Option<models::OrganizationUpgradeRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostUpgradeError>>;
+    ) -> Result<models::PaymentResponseModel, Error>;
 
     /// PUT /organizations/{organizationId}
     async fn put<'a>(
         &self,
         organization_id: uuid::Uuid,
         organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{id}/collection-management
     async fn put_collection_management<'a>(
@@ -201,14 +198,14 @@ pub trait OrganizationsApi: Send + Sync {
         organization_collection_management_update_request_model: Option<
             models::OrganizationCollectionManagementUpdateRequestModel,
         >,
-    ) -> Result<models::OrganizationResponseModel, Error<PutCollectionManagementError>>;
+    ) -> Result<models::OrganizationResponseModel, Error>;
 
     /// POST /organizations/{id}/rotate-api-key
     async fn rotate_api_key<'a>(
         &self,
         id: &'a str,
         organization_api_key_request_model: Option<models::OrganizationApiKeyRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<RotateApiKeyError>>;
+    ) -> Result<models::ApiKeyResponseModel, Error>;
 }
 
 pub struct OrganizationsApiClient {
@@ -228,7 +225,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         &self,
         id: &'a str,
         organization_api_key_request_model: Option<models::OrganizationApiKeyRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<ApiKeyError>> {
+    ) -> Result<models::ApiKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -244,49 +241,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_api_key_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<ApiKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn api_key_information<'a>(
         &self,
         id: uuid::Uuid,
         r#type: models::OrganizationApiKeyType,
-    ) -> Result<models::OrganizationApiKeyInformationListResponseModel, Error<ApiKeyInformationError>>
-    {
+    ) -> Result<models::OrganizationApiKeyInformationListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -297,47 +259,13 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationApiKeyInformationListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationApiKeyInformationListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<ApiKeyInformationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn create_without_payment<'a>(
         &self,
         organization_no_payment_create_request: Option<models::OrganizationNoPaymentCreateRequest>,
-    ) -> Result<models::OrganizationResponseModel, Error<CreateWithoutPaymentError>> {
+    ) -> Result<models::OrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -352,48 +280,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_no_payment_create_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<CreateWithoutPaymentError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn delete<'a>(
         &self,
         id: &'a str,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -409,29 +303,10 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_verification_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get<'a>(
-        &self,
-        id: &'a str,
-    ) -> Result<models::OrganizationResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: &'a str) -> Result<models::OrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -446,47 +321,13 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_auto_enroll_status<'a>(
         &self,
         identifier: &'a str,
-    ) -> Result<models::OrganizationAutoEnrollStatusResponseModel, Error<GetAutoEnrollStatusError>>
-    {
+    ) -> Result<models::OrganizationAutoEnrollStatusResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -501,48 +342,14 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationAutoEnrollStatusResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationAutoEnrollStatusResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAutoEnrollStatusError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_license<'a>(
         &self,
         id: uuid::Uuid,
         installation_id: Option<uuid::Uuid>,
-    ) -> Result<models::OrganizationLicense, Error<GetLicenseError>> {
+    ) -> Result<models::OrganizationLicense, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -561,47 +368,13 @@ impl OrganizationsApi for OrganizationsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationLicense`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationLicense`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_public_key<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::OrganizationPublicKeyResponseModel, Error<GetPublicKeyError>> {
+    ) -> Result<models::OrganizationPublicKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -616,47 +389,13 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationPublicKeyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationPublicKeyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetPublicKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_sso<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationSsoResponseModel, Error<GetSsoError>> {
+    ) -> Result<models::OrganizationSsoResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -671,47 +410,13 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationSsoResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationSsoResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetSsoError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_subscription<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationSubscriptionResponseModel, Error<GetSubscriptionError>> {
+    ) -> Result<models::OrganizationSubscriptionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -726,47 +431,12 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationSubscriptionResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationSubscriptionResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_user(
         &self,
-    ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error<GetUserError>>
-    {
+    ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -777,44 +447,10 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn leave<'a>(&self, id: uuid::Uuid) -> Result<(), Error<LeaveError>> {
+    async fn leave<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -829,29 +465,13 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<LeaveError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post<'a>(
         &self,
         organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
-    ) -> Result<models::OrganizationResponseModel, Error<PostError>> {
+    ) -> Result<models::OrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -863,40 +483,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_create_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_cancel<'a>(
@@ -905,7 +492,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         subscription_cancellation_request_model: Option<
             models::SubscriptionCancellationRequestModel,
         >,
-    ) -> Result<(), Error<PostCancelError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -922,23 +509,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&subscription_cancellation_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostCancelError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_delete_recover_token<'a>(
@@ -947,7 +518,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         organization_verify_delete_recover_request_model: Option<
             models::OrganizationVerifyDeleteRecoverRequestModel,
         >,
-    ) -> Result<(), Error<PostDeleteRecoverTokenError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -964,30 +535,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&organization_verify_delete_recover_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostDeleteRecoverTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_keys<'a>(
         &self,
         id: uuid::Uuid,
         organization_keys_request_model: Option<models::OrganizationKeysRequestModel>,
-    ) -> Result<models::OrganizationKeysResponseModel, Error<PostKeysError>> {
+    ) -> Result<models::OrganizationKeysResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1003,44 +558,10 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_keys_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationKeysResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationKeysResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn post_reinstate<'a>(&self, id: uuid::Uuid) -> Result<(), Error<PostReinstateError>> {
+    async fn post_reinstate<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1055,30 +576,14 @@ impl OrganizationsApi for OrganizationsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostReinstateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_seat<'a>(
         &self,
         id: uuid::Uuid,
         organization_seat_request_model: Option<models::OrganizationSeatRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostSeatError>> {
+    ) -> Result<models::PaymentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1094,41 +599,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_seat_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostSeatError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_sm_subscription<'a>(
@@ -1137,7 +608,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         secrets_manager_subscription_update_request_model: Option<
             models::SecretsManagerSubscriptionUpdateRequestModel,
         >,
-    ) -> Result<models::ProfileOrganizationResponseModel, Error<PostSmSubscriptionError>> {
+    ) -> Result<models::ProfileOrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1154,48 +625,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&secrets_manager_subscription_update_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostSmSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_sso<'a>(
         &self,
         id: uuid::Uuid,
         organization_sso_request_model: Option<models::OrganizationSsoRequestModel>,
-    ) -> Result<models::OrganizationSsoResponseModel, Error<PostSsoError>> {
+    ) -> Result<models::OrganizationSsoResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1211,48 +648,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_sso_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationSsoResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationSsoResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostSsoError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_storage<'a>(
         &self,
         id: &'a str,
         storage_request_model: Option<models::StorageRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostStorageError>> {
+    ) -> Result<models::PaymentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1268,41 +671,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&storage_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostStorageError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_subscribe_secrets_manager<'a>(
@@ -1311,8 +680,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         secrets_manager_subscribe_request_model: Option<
             models::SecretsManagerSubscribeRequestModel,
         >,
-    ) -> Result<models::ProfileOrganizationResponseModel, Error<PostSubscribeSecretsManagerError>>
-    {
+    ) -> Result<models::ProfileOrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1329,41 +697,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&secrets_manager_subscribe_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostSubscribeSecretsManagerError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_subscription<'a>(
@@ -1372,7 +706,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         organization_subscription_update_request_model: Option<
             models::OrganizationSubscriptionUpdateRequestModel,
         >,
-    ) -> Result<models::ProfileOrganizationResponseModel, Error<PostSubscriptionError>> {
+    ) -> Result<models::ProfileOrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1389,48 +723,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&organization_subscription_update_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_upgrade<'a>(
         &self,
         id: uuid::Uuid,
         organization_upgrade_request_model: Option<models::OrganizationUpgradeRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostUpgradeError>> {
+    ) -> Result<models::PaymentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1446,48 +746,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_upgrade_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostUpgradeError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put<'a>(
         &self,
         organization_id: uuid::Uuid,
         organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1503,22 +769,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_update_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn put_collection_management<'a>(
@@ -1527,7 +778,7 @@ impl OrganizationsApi for OrganizationsApiClient {
         organization_collection_management_update_request_model: Option<
             models::OrganizationCollectionManagementUpdateRequestModel,
         >,
-    ) -> Result<models::OrganizationResponseModel, Error<PutCollectionManagementError>> {
+    ) -> Result<models::OrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1544,48 +795,14 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&organization_collection_management_update_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PutCollectionManagementError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn rotate_api_key<'a>(
         &self,
         id: &'a str,
         organization_api_key_request_model: Option<models::OrganizationApiKeyRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<RotateApiKeyError>> {
+    ) -> Result<models::ApiKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1601,203 +818,6 @@ impl OrganizationsApi for OrganizationsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_api_key_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<RotateApiKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationsApi::api_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ApiKeyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::api_key_information`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ApiKeyInformationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::create_without_payment`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateWithoutPaymentError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::get_auto_enroll_status`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAutoEnrollStatusError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::get_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::get_public_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPublicKeyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::get_sso`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSsoError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::get_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::get_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::leave`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum LeaveError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_cancel`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostCancelError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_delete_recover_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostDeleteRecoverTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostKeysError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_reinstate`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostReinstateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_seat`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSeatError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_sm_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSmSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_sso`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSsoError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_storage`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostStorageError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_subscribe_secrets_manager`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSubscribeSecretsManagerError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::post_upgrade`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostUpgradeError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::put_collection_management`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutCollectionManagementError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::rotate_api_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RotateApiKeyError {
-    UnknownValue(serde_json::Value),
 }

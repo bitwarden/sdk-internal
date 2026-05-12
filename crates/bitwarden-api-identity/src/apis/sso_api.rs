@@ -27,7 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SsoApi: Send + Sync {
     /// GET /sso/ExternalCallback
-    async fn external_callback(&self) -> Result<(), Error<ExternalCallbackError>>;
+    async fn external_callback(&self) -> Result<(), Error>;
 
     /// GET /sso/ExternalChallenge
     async fn external_challenge<'a>(
@@ -36,16 +36,13 @@ pub trait SsoApi: Send + Sync {
         return_url: Option<&'a str>,
         user_identifier: Option<&'a str>,
         sso_token: Option<&'a str>,
-    ) -> Result<(), Error<ExternalChallengeError>>;
+    ) -> Result<(), Error>;
 
     /// GET /sso/Login
-    async fn login<'a>(&self, return_url: Option<&'a str>) -> Result<(), Error<LoginError>>;
+    async fn login<'a>(&self, return_url: Option<&'a str>) -> Result<(), Error>;
 
     /// GET /sso/PreValidate
-    async fn pre_validate<'a>(
-        &self,
-        domain_hint: Option<&'a str>,
-    ) -> Result<(), Error<PreValidateError>>;
+    async fn pre_validate<'a>(&self, domain_hint: Option<&'a str>) -> Result<(), Error>;
 }
 
 pub struct SsoApiClient {
@@ -61,7 +58,7 @@ impl SsoApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SsoApi for SsoApiClient {
-    async fn external_callback(&self) -> Result<(), Error<ExternalCallbackError>> {
+    async fn external_callback(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -71,23 +68,7 @@ impl SsoApi for SsoApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<ExternalCallbackError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn external_challenge<'a>(
@@ -96,7 +77,7 @@ impl SsoApi for SsoApiClient {
         return_url: Option<&'a str>,
         user_identifier: Option<&'a str>,
         sso_token: Option<&'a str>,
-    ) -> Result<(), Error<ExternalChallengeError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -125,26 +106,10 @@ impl SsoApi for SsoApiClient {
                 local_var_req_builder.query(&[("ssoToken", &param_value.to_string())]);
         }
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<ExternalChallengeError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn login<'a>(&self, return_url: Option<&'a str>) -> Result<(), Error<LoginError>> {
+    async fn login<'a>(&self, return_url: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -158,29 +123,10 @@ impl SsoApi for SsoApiClient {
                 local_var_req_builder.query(&[("returnUrl", &param_value.to_string())]);
         }
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<LoginError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn pre_validate<'a>(
-        &self,
-        domain_hint: Option<&'a str>,
-    ) -> Result<(), Error<PreValidateError>> {
+    async fn pre_validate<'a>(&self, domain_hint: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -194,47 +140,6 @@ impl SsoApi for SsoApiClient {
                 local_var_req_builder.query(&[("domainHint", &param_value.to_string())]);
         }
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PreValidateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SsoApi::external_callback`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ExternalCallbackError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SsoApi::external_challenge`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ExternalChallengeError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SsoApi::login`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum LoginError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SsoApi::pre_validate`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PreValidateError {
-    UnknownValue(serde_json::Value),
 }

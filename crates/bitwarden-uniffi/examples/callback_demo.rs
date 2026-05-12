@@ -49,7 +49,7 @@ fn main() {
 
     // Initialize logger with callback BEFORE creating any clients
     println!("Step 1: Initialize SDK logger with callback...\n");
-    bitwarden_uniffi::init_logger(Some(callback));
+    bitwarden_uniffi::init_logger(Some(callback), None);
 
     println!("Step 2: Create SDK client...\n");
     let _client = Client::new(Arc::new(DemoTokenProvider), None);

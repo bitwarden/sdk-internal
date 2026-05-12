@@ -32,7 +32,6 @@ impl From<bitwarden_core::MissingFieldError> for PasswordPreloginError {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl LoginClient {
     /// Retrieves the data required before authenticating with a password.
     /// This includes the user's KDF configuration needed to properly derive the master key.

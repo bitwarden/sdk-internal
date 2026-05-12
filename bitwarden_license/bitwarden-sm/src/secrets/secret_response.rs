@@ -3,7 +3,7 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_core::{
     OrganizationId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
@@ -33,7 +33,7 @@ pub struct SecretResponse {
 impl SecretResponse {
     pub(crate) fn process_response(
         response: SecretResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretResponse, SecretsManagerError> {
         let base = BaseSecretResponseModel {
             object: response.object,
@@ -50,10 +50,10 @@ impl SecretResponse {
     }
     pub(crate) fn process_base_response(
         response: BaseSecretResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretResponse, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let enc_key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
+        let enc_key = SymmetricKeySlotId::Organization(OrganizationId::new(organization_id));
 
         let key = require!(response.key)
             .parse::<EncString>()?
@@ -96,7 +96,7 @@ pub struct SecretsResponse {
 impl SecretsResponse {
     pub(crate) fn process_response(
         response: BaseSecretResponseModelListResponseModel,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<SecretsResponse, SecretsManagerError> {
         Ok(SecretsResponse {
             data: response

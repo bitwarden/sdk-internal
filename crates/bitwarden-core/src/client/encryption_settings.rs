@@ -12,7 +12,7 @@ use tracing::{info, instrument};
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
 #[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::key_management::{KeyIds, SymmetricKeyId};
+use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
 use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
 
 #[allow(missing_docs)]
@@ -67,13 +67,13 @@ impl EncryptionSettings {
     pub(crate) fn new_single_org_key(
         organization_id: OrganizationId,
         key: SymmetricCryptoKey,
-        store: &KeyStore<KeyIds>,
+        store: &KeyStore<KeySlotIds>,
     ) {
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
         #[allow(deprecated)]
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::Organization(organization_id), key)
+            .set_symmetric_key(SymmetricKeySlotId::Organization(organization_id), key)
             .expect("Mutable context");
     }
 
@@ -81,9 +81,9 @@ impl EncryptionSettings {
     #[instrument(err, skip_all)]
     pub(crate) fn set_org_keys(
         org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
-        store: &KeyStore<KeyIds>,
+        store: &KeyStore<KeySlotIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use crate::key_management::PrivateKeyId;
+        use crate::key_management::PrivateKeySlotId;
 
         let mut ctx = store.context_mut();
 
@@ -93,14 +93,16 @@ impl EncryptionSettings {
             return Ok(());
         }
 
-        if !ctx.has_private_key(PrivateKeyId::UserPrivateKey) {
+        if !ctx.has_private_key(PrivateKeySlotId::UserPrivateKey) {
             info!("User private key is missing, cannot set organization keys");
             return Err(MissingPrivateKeyError.into());
         }
 
         // Make sure we only keep the keys given in the arguments and not any of the previous
         // ones, which might be from organizations that the user is no longer a part of anymore
-        ctx.retain_symmetric_keys(|key_ref| !matches!(key_ref, SymmetricKeyId::Organization(_)));
+        ctx.retain_symmetric_keys(|key_ref| {
+            !matches!(key_ref, SymmetricKeySlotId::Organization(_))
+        });
 
         info!("Decrypting organization keys");
         // Decrypt the org keys with the private key
@@ -108,7 +110,7 @@ impl EncryptionSettings {
             let _span =
                 tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
                     .entered();
-            match org_enc_key.decapsulate(PrivateKeyId::UserPrivateKey, &mut ctx) {
+            match org_enc_key.decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx) {
                 Err(e) => {
                     tracing::error!("Failed to decapsulate organization key: {}", e);
                     return Err(e.into());
@@ -120,7 +122,7 @@ impl EncryptionSettings {
                     );
                     ctx.persist_symmetric_key(
                         org_symmetric_key,
-                        SymmetricKeyId::Organization(org_id),
+                        SymmetricKeySlotId::Organization(org_id),
                     )?;
                 }
             }

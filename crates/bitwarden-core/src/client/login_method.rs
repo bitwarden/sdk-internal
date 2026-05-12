@@ -2,6 +2,7 @@
 use std::path::PathBuf;
 
 use bitwarden_crypto::Kdf;
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "secrets")]
 use crate::{OrganizationId, auth::AccessToken};
@@ -17,7 +18,7 @@ pub enum LoginMethod {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserLoginMethod {
     Username {
         client_id: String,

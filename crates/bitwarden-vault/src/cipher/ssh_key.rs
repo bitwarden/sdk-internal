@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherSshKeyModel;
 use bitwarden_core::{
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -41,11 +41,11 @@ pub struct SshKeyView {
     pub fingerprint: String,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SshKey> for SshKeyView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<SshKey, CryptoError> {
         Ok(SshKey {
             private_key: self.private_key.encrypt(ctx, key)?,
@@ -55,11 +55,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, SshKey> for SshKeyView {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, SshKeyView> for SshKey {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, SshKeyView> for SshKey {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<SshKeyView, CryptoError> {
         Ok(SshKeyView {
             private_key: self.private_key.decrypt(ctx, key)?,
@@ -72,8 +72,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SshKeyView> for SshKey {
 impl CipherKind for SshKey {
     fn decrypt_subtitle(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<String, CryptoError> {
         self.fingerprint.decrypt(ctx, key)
     }
@@ -117,7 +117,7 @@ mod tests {
     fn test_subtitle_ssh_key() {
         let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
         let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
+        let key = SymmetricKeySlotId::User;
         let mut ctx = key_store.context();
 
         let original_subtitle = "SHA256:1JjFjvPRkj1Gbf2qRP1dgHiIzEuNAEvp+92x99jw3K0".to_string();

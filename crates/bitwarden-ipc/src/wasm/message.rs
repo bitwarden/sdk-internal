@@ -3,13 +3,14 @@ use std::str;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    endpoint::Endpoint,
+    endpoint::{Endpoint, Source},
     message::{IncomingMessage, OutgoingMessage},
 };
 
 #[wasm_bindgen]
 impl OutgoingMessage {
     #[wasm_bindgen(constructor)]
+    /// Create an outgoing IPC message from raw payload bytes.
     pub fn new(payload: Vec<u8>, destination: Endpoint, topic: Option<String>) -> OutgoingMessage {
         OutgoingMessage {
             payload,
@@ -40,10 +41,11 @@ impl OutgoingMessage {
 #[wasm_bindgen]
 impl IncomingMessage {
     #[wasm_bindgen(constructor)]
+    /// Create an incoming IPC message from raw payload bytes.
     pub fn new(
         payload: Vec<u8>,
         destination: Endpoint,
-        source: Endpoint,
+        source: Source,
         topic: Option<String>,
     ) -> IncomingMessage {
         IncomingMessage {

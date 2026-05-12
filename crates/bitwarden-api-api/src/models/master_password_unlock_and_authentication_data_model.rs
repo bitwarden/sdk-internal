@@ -48,6 +48,12 @@ pub struct MasterPasswordUnlockAndAuthenticationDataModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub master_password_hint: Option<String>,
+    #[serde(
+        rename = "masterPasswordSalt",
+        alias = "MasterPasswordSalt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub master_password_salt: Option<String>,
 }
 
 impl MasterPasswordUnlockAndAuthenticationDataModel {
@@ -67,6 +73,7 @@ impl MasterPasswordUnlockAndAuthenticationDataModel {
             master_key_authentication_hash,
             master_key_encrypted_user_key,
             master_password_hint: None,
+            master_password_salt: None,
         }
     }
 }

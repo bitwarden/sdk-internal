@@ -44,9 +44,7 @@ impl SyncClient {
     /// Create a new SyncClient from a Bitwarden client
     pub fn new(client: Client) -> Self {
         Self {
-            api_configurations: client
-                .get_part()
-                .expect("ApiConfigurations should never fail"),
+            api_configurations: client.get_part(),
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: Mutex::new(()),
@@ -204,8 +202,6 @@ mod tests {
         let dummy_config = bitwarden_api_api::Configuration {
             base_path: String::new(),
             client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
-            oauth_access_token: None,
-            user_agent: None,
         };
         SyncClient {
             api_configurations: Arc::new(ApiConfigurations {
@@ -325,11 +321,9 @@ mod tests {
     #[tokio::test]
     async fn test_sync_error_notifies_error_handlers() {
         let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
-            mock.sync_api.expect_get().returning(|_| {
-                Err(bitwarden_api_api::Error::Io(std::io::Error::other(
-                    "test error",
-                )))
-            });
+            mock.sync_api
+                .expect_get()
+                .returning(|_| Err(std::io::Error::other("test error").into()));
         }));
         let error_log = Arc::new(Mutex::new(Vec::new()));
 

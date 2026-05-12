@@ -1,10 +1,10 @@
 use super::StoreBackend;
-use crate::store::KeyId;
+use crate::store::KeySlotId;
 
 mod basic;
 
 /// Initializes a key store backend with the best available implementation for the current platform
-pub fn create_store<Key: KeyId>() -> Box<dyn StoreBackend<Key>> {
+pub fn create_store<Key: KeySlotId>() -> Box<dyn StoreBackend<Key>> {
     Box::new(basic::BasicBackend::<Key>::new())
 }
 

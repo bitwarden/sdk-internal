@@ -7,8 +7,6 @@ pub fn identity_config(server_uri: &str) -> bitwarden_api_api::Configuration {
     bitwarden_api_api::Configuration {
         base_path: server_uri.to_string(),
         client: reqwest::Client::new().into(),
-        oauth_access_token: None,
-        user_agent: None,
     }
 }
 

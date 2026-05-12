@@ -1,6 +1,5 @@
-use bitwarden_core::Client;
-
 use crate::{
+    SecretsManagerClient,
     error::SecretsManagerError,
     secrets::{
         SecretCreateRequest, SecretGetRequest, SecretIdentifiersByProjectRequest,
@@ -13,12 +12,12 @@ use crate::{
 
 #[allow(missing_docs)]
 pub struct SecretsClient {
-    client: Client,
+    client: SecretsManagerClient,
 }
 
 impl SecretsClient {
     #[allow(missing_docs)]
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: SecretsManagerClient) -> Self {
         Self { client }
     }
 

@@ -12,18 +12,21 @@ pub trait SessionRepository<Session>: Send + Sync + 'static {
     fn get(
         &self,
         destination: Endpoint,
-    ) -> impl std::future::Future<Output = Result<Option<Session>, Self::GetError>>;
+    ) -> impl std::future::Future<Output = Result<Option<Session>, Self::GetError>> + Send + Sync;
     fn save(
         &self,
         destination: Endpoint,
         session: Session,
-    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>> + Send + Sync;
     fn remove(
         &self,
         destination: Endpoint,
-    ) -> impl std::future::Future<Output = Result<(), Self::RemoveError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::RemoveError>> + Send + Sync;
 }
 
+/// An in-memory session repository implementation that stores sessions in a `HashMap` protected by
+/// an `RwLock`. This is a simple implementation that can be used for testing or in scenarios where
+/// persistence is not required.
 pub type InMemorySessionRepository<Session> = RwLock<HashMap<Endpoint, Session>>;
 impl<Session> SessionRepository<Session> for InMemorySessionRepository<Session>
 where

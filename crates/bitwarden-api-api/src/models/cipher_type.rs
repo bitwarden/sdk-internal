@@ -19,6 +19,9 @@ pub enum CipherType {
     Card,
     Identity,
     SSHKey,
+    BankAccount,
+    DriversLicense,
+    Passport,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -32,6 +35,9 @@ impl CipherType {
             Self::Card => 3,
             Self::Identity => 4,
             Self::SSHKey => 5,
+            Self::BankAccount => 6,
+            Self::DriversLicense => 7,
+            Self::Passport => 8,
             Self::__Unknown(v) => *v,
         }
     }
@@ -43,6 +49,9 @@ impl CipherType {
             3 => Self::Card,
             4 => Self::Identity,
             5 => Self::SSHKey,
+            6 => Self::BankAccount,
+            7 => Self::DriversLicense,
+            8 => Self::Passport,
             v => Self::__Unknown(v),
         }
     }

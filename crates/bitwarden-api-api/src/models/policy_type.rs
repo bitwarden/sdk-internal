@@ -34,6 +34,8 @@ pub enum PolicyType {
     AutotypeDefaultSetting,
     AutomaticUserConfirmation,
     BlockClaimedDomainAccountCreation,
+    OrganizationUserNotification,
+    SendControls,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -62,6 +64,8 @@ impl PolicyType {
             Self::AutotypeDefaultSetting => 17,
             Self::AutomaticUserConfirmation => 18,
             Self::BlockClaimedDomainAccountCreation => 19,
+            Self::OrganizationUserNotification => 20,
+            Self::SendControls => 21,
             Self::__Unknown(v) => *v,
         }
     }
@@ -88,6 +92,8 @@ impl PolicyType {
             17 => Self::AutotypeDefaultSetting,
             18 => Self::AutomaticUserConfirmation,
             19 => Self::BlockClaimedDomainAccountCreation,
+            20 => Self::OrganizationUserNotification,
+            21 => Self::SendControls,
             v => Self::__Unknown(v),
         }
     }

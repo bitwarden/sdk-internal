@@ -11,7 +11,7 @@ use tokio::task::spawn_local;
 use wasm_bindgen_futures::spawn_local;
 
 type CallFunction<ThreadState> =
-    Box<dyn FnOnce(Rc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send>;
+    Box<dyn FnOnce(Rc<ThreadState>) -> Pin<Box<dyn Future<Output = ()>>> + Send + Sync>;
 
 struct CallRequest<ThreadState> {
     function: CallFunction<ThreadState>,
@@ -128,7 +128,7 @@ where
     /// A future that resolves to the result of the function once it has been executed.
     pub async fn run_in_thread<F, Fut, Output>(&self, function: F) -> Result<Output, CallError>
     where
-        F: FnOnce(Rc<ThreadState>) -> Fut + Send + 'static,
+        F: FnOnce(Rc<ThreadState>) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Output>,
         Output: Send + Sync + 'static,
     {

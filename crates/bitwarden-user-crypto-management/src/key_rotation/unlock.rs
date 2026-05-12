@@ -1,43 +1,25 @@
 //! Functionality for re-encrypting unlock (decryption) methods during user key rotation.
 //! During key-rotation, a new user-key is sampled. The unlock module then creates a set of newly
 //! encrypted copies, one for each decryption/unlock method.
-
-use core::panic;
-
 use bitwarden_api_api::models::{
-    self, EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
-    OtherDeviceKeysUpdateRequestModel, ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel,
+    self, CommonUnlockDataRequestModel, EmergencyAccessWithIdRequestModel,
+    MasterPasswordUnlockAndAuthenticationDataModel, OtherDeviceKeysUpdateRequestModel,
+    ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel, V2UpgradeTokenRequestModel,
     WebAuthnLoginRotateKeyRequestModel,
 };
 use bitwarden_core::key_management::{
-    KeyIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeyId,
+    KeySlotIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeySlotId,
+    V2UpgradeToken,
 };
-use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, UnsignedSharedKey};
+use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
-use tracing::debug_span;
+use tracing::{debug, debug_span, error, info};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
-
-/// The unlock method that uses the master-key field on the user's account. This can be either
-/// the master password, or the key-connector. For TDE users without a master password, this field
-/// is empty.
-pub(super) enum MasterkeyUnlockMethod {
-    /// The master password based unlock method.
-    Password {
-        password: String,
-        hint: Option<String>,
-        kdf: Kdf,
-        salt: String,
-    },
-    /// The key-connector based unlock method.
-    /// NOTE: THIS IS NOT SUPPORTED YET AND WILL PANIC IF USED
-    KeyConnector,
-    /// No master-key based unlock method. This is TDE users without a master password.
-    /// NOTE: THIS IS NOT SUPPORTED YET AND WILL PANIC IF USED
-    None,
-}
+use crate::key_rotation::{
+    partial_rotateable_keyset::PartialRotateableKeyset, rotate_user_keys::UpgradeTokenAction,
+};
 
 /// The data necessary to re-share the user-key to a V1 emergency access membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
@@ -45,6 +27,7 @@ pub(super) enum MasterkeyUnlockMethod {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct V1EmergencyAccessMembership {
     pub id: uuid::Uuid,
+    pub grantee_id: uuid::Uuid,
     pub name: String,
     pub public_key: PublicKey,
 }
@@ -67,12 +50,21 @@ pub(super) enum ReencryptError {
     KeysetUnlockDataReencryption,
     /// Failed to update the unlock data for emergency access or organization membership
     KeySharingError,
+    /// Failed to create v2 upgrade token
+    UpgradeTokenCreation,
 }
 
-/// Input data for re-encrypting unlock methods during user key rotation.
-pub(super) struct ReencryptUnlockInput {
-    /// The master-key based unlock method.
-    pub(super) master_key_unlock_method: MasterkeyUnlockMethod,
+pub(super) struct ReencryptMasterPasswordChangeAndUnlockInput {
+    /// Master password change data.
+    pub(super) password: String,
+    pub(super) hint: Option<String>,
+    pub(super) kdf: Kdf,
+    pub(super) salt: String,
+    /// Common unlock data to re-encrypt
+    pub(super) common_unlock_data: ReencryptCommonUnlockDataInput,
+}
+
+pub(super) struct ReencryptCommonUnlockDataInput {
     /// The trusted device keysets.
     pub(super) trusted_devices: Vec<PartialRotateableKeyset>,
     /// The webauthn credential keysets.
@@ -83,33 +75,49 @@ pub(super) struct ReencryptUnlockInput {
     pub(super) trusted_emergency_access_keys: Vec<V1EmergencyAccessMembership>,
 }
 
-/// Update the unlock methods for the updated user-key.
-pub(super) fn reencrypt_unlock(
-    input: ReencryptUnlockInput,
-    current_user_key_id: SymmetricKeyId,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+pub(super) fn reencrypt_master_password_change_unlock_data(
+    input: ReencryptMasterPasswordChangeAndUnlockInput,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<UnlockDataRequestModel, ReencryptError> {
-    let master_password_unlock_data = match input.master_key_unlock_method {
-        MasterkeyUnlockMethod::Password {
-            password,
-            hint,
-            kdf,
-            salt,
-        } => reencrypt_userkey_for_masterpassword_unlock(
-            password,
-            hint,
-            kdf,
-            salt,
-            new_user_key_id,
-            ctx,
-        )?,
-        MasterkeyUnlockMethod::KeyConnector => {
-            panic!("KeyConnector based masterkey unlock method is not supported yet")
-        }
-        MasterkeyUnlockMethod::None => panic!("None masterkey unlock method is not supported yet"),
-    };
+    let master_password_unlock_data = reencrypt_userkey_for_masterpassword_unlock(
+        input.password,
+        input.hint,
+        input.kdf,
+        input.salt,
+        new_user_key_id,
+        ctx,
+    )?;
 
+    let common_unlock_data = reencrypt_common_unlock_data(
+        input.common_unlock_data,
+        current_user_key_id,
+        new_user_key_id,
+        UpgradeTokenAction::Skip,
+        ctx,
+    )?;
+
+    Ok(UnlockDataRequestModel {
+        master_password_unlock_data: Box::new(master_password_unlock_data),
+        emergency_access_unlock_data: common_unlock_data.emergency_access_unlock_data,
+        organization_account_recovery_unlock_data: common_unlock_data
+            .organization_account_recovery_unlock_data,
+        passkey_unlock_data: common_unlock_data.passkey_unlock_data,
+        device_key_unlock_data: common_unlock_data.device_key_unlock_data,
+        // Master password change + key rotation always needs to logout other sessions, so no
+        // upgrade token is created.
+        v2_upgrade_token: None,
+    })
+}
+
+pub(super) fn reencrypt_common_unlock_data(
+    input: ReencryptCommonUnlockDataInput,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    upgrade_token_action: UpgradeTokenAction,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+) -> Result<CommonUnlockDataRequestModel, ReencryptError> {
     let tde_device_unlock_data = reencrypt_tde_devices(
         &input.trusted_devices,
         current_user_key_id,
@@ -127,22 +135,28 @@ pub(super) fn reencrypt_unlock(
     let organizations_memberships =
         reencrypt_organization_memberships(input.trusted_organization_keys, new_user_key_id, ctx)?;
 
-    Ok(UnlockDataRequestModel {
-        master_password_unlock_data: Box::new(master_password_unlock_data),
+    let upgrade_token = make_upgrade_token_if_needed(
+        current_user_key_id,
+        new_user_key_id,
+        upgrade_token_action,
+        ctx,
+    )?;
+
+    Ok(CommonUnlockDataRequestModel {
         emergency_access_unlock_data: Some(emergency_accesses),
         organization_account_recovery_unlock_data: Some(organizations_memberships),
         passkey_unlock_data: Some(prf_passkey_unlock_data),
         device_key_unlock_data: Some(tde_device_unlock_data),
-        v2_upgrade_token: None,
+        v2_upgrade_token: upgrade_token,
     })
 }
 
 /// Re-encrypt TDE device keys for the new user key.
 fn reencrypt_tde_devices(
     trusted_devices: &[PartialRotateableKeyset],
-    current_user_key_id: SymmetricKeyId,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<OtherDeviceKeysUpdateRequestModel>, ReencryptError> {
     trusted_devices
         .iter()
@@ -159,9 +173,9 @@ fn reencrypt_tde_devices(
 /// Re-encrypt passkey (WebAuthn PRF) credentials for the new user key.
 fn reencrypt_passkey_credentials(
     webauthn_credentials: &[PartialRotateableKeyset],
-    current_user_key_id: SymmetricKeyId,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<WebAuthnLoginRotateKeyRequestModel>, ReencryptError> {
     webauthn_credentials
         .iter()
@@ -178,8 +192,8 @@ fn reencrypt_passkey_credentials(
 /// Re-encrypt emergency access keys for the new user key.
 fn reencrypt_emergency_access_keys(
     trusted_emergency_access_keys: Vec<V1EmergencyAccessMembership>,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<EmergencyAccessWithIdRequestModel>, ReencryptError> {
     trusted_emergency_access_keys
         .into_iter()
@@ -206,8 +220,8 @@ fn reencrypt_emergency_access_keys(
 /// Re-encrypt organization membership keys for the new user key.
 fn reencrypt_organization_memberships(
     trusted_organization_keys: Vec<V1OrganizationMembership>,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<ResetPasswordWithOrgIdRequestModel>, ReencryptError> {
     trusted_organization_keys
         .into_iter()
@@ -234,8 +248,8 @@ fn reencrypt_userkey_for_masterpassword_unlock(
     hint: Option<String>,
     kdf: Kdf,
     salt: String,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<MasterPasswordUnlockAndAuthenticationDataModel, ReencryptError> {
     let _span = debug_span!("derive_master_password_unlock_data").entered();
     let unlock_data =
@@ -292,7 +306,39 @@ fn to_authentication_and_unlock_data(
                 .to_string(),
         ),
         master_password_hint: hint,
+        master_password_salt: Some(master_password_unlock_data.salt.clone()),
     })
+}
+
+fn make_upgrade_token_if_needed(
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    upgrade_token_action: UpgradeTokenAction,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+) -> Result<Option<Box<V2UpgradeTokenRequestModel>>, ReencryptError> {
+    if matches!(upgrade_token_action, UpgradeTokenAction::Skip) {
+        debug!("UpgradeTokenAction::Skip, skipping upgrade token creation");
+        return Ok(None);
+    }
+
+    match (
+        ctx.get_symmetric_key_algorithm(current_user_key_id),
+        ctx.get_symmetric_key_algorithm(new_user_key_id),
+    ) {
+        (
+            Ok(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305),
+        ) => {
+            let token =
+                V2UpgradeToken::create(current_user_key_id, new_user_key_id, ctx).map_err(|e| {
+                    error!("Failed to create V2 upgrade token: {e}");
+                    ReencryptError::UpgradeTokenCreation
+                })?;
+            info!("Upgrade token created for the key rotation");
+            Ok(Some(Box::new(token.into())))
+        }
+        _ => Ok(None),
+    }
 }
 
 #[cfg(test)]
@@ -300,7 +346,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_api_api::models::KdfType;
-    use bitwarden_core::key_management::KeyIds;
+    use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{Kdf, KeyStore, PublicKeyEncryptionAlgorithm, UnsignedSharedKey};
     use uuid::Uuid;
 
@@ -321,22 +367,10 @@ mod tests {
         }
     }
 
-    fn create_test_unlock_data() -> MasterkeyUnlockMethod {
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
-        MasterkeyUnlockMethod::Password {
-            password,
-            hint: None,
-            kdf,
-            salt,
-        }
-    }
-
     fn assert_symmetric_keys_equal(
-        key_id_1: SymmetricKeyId,
-        key_id_2: SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        key_id_1: SymmetricKeySlotId,
+        key_id_2: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) {
         #[allow(deprecated)]
         let key_1 = ctx
@@ -349,9 +383,31 @@ mod tests {
         assert_eq!(key_1, key_2, "symmetric keys should be equal");
     }
 
+    fn empty_common_unlock_input() -> ReencryptCommonUnlockDataInput {
+        ReencryptCommonUnlockDataInput {
+            trusted_devices: vec![],
+            webauthn_credentials: vec![],
+            trusted_organization_keys: vec![],
+            trusted_emergency_access_keys: vec![],
+        }
+    }
+
+    fn request_model_to_token(request: V2UpgradeTokenRequestModel) -> V2UpgradeToken {
+        V2UpgradeToken {
+            wrapped_user_key_1: request
+                .wrapped_user_key1
+                .parse()
+                .expect("wrapped_user_key1 should parse"),
+            wrapped_user_key_2: request
+                .wrapped_user_key2
+                .parse()
+                .expect("wrapped_user_key2 should parse"),
+        }
+    }
+
     #[test]
     fn test_to_authentication_and_unlock_data_pbkdf2() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let kdf = create_test_kdf_pbkdf2();
@@ -395,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_to_authentication_and_unlock_data_argon2id() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let kdf = create_test_kdf_argon2id();
@@ -438,19 +494,17 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_device_key_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
-        let master_key_unlock_method = create_test_unlock_data();
 
         let (device_keyset, device_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![device_keyset],
                 webauthn_credentials: vec![],
                 trusted_organization_keys: vec![],
@@ -458,6 +512,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -480,19 +535,17 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_webauthn_prf_credential_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
-        let master_key_unlock_method = create_test_unlock_data();
 
         let (credential_keyset, credential_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![],
                 webauthn_credentials: vec![credential_keyset],
                 trusted_organization_keys: vec![],
@@ -500,6 +553,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -523,26 +577,25 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_emergency_access_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
-        let master_key_unlock_method = create_test_unlock_data();
 
         let organization_private_key =
             ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let emergency_access = V1EmergencyAccessMembership {
             id: Uuid::new_v4(),
+            grantee_id: Uuid::new_v4(),
             name: "Test User".to_string(),
             public_key: ctx
                 .get_public_key(organization_private_key)
                 .expect("key exists"),
         };
 
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![],
                 webauthn_credentials: vec![],
                 trusted_organization_keys: vec![],
@@ -550,6 +603,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -575,12 +629,8 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_organization_membership_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
-
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
 
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
@@ -592,17 +642,8 @@ mod tests {
             public_key: ctx.get_public_key(org_key).expect("key exists"),
         };
 
-        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
-        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
-            password: password.clone(),
-            hint: None,
-            kdf: kdf.clone(),
-            salt: salt.clone(),
-        };
-
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![],
                 webauthn_credentials: vec![],
                 trusted_organization_keys: vec![org_membership],
@@ -610,6 +651,7 @@ mod tests {
             },
             current_user_key_id,
             new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
             &mut ctx,
         );
 
@@ -630,5 +672,115 @@ mod tests {
             .decapsulate(org_key, &mut ctx)
             .expect("unwrap should succeed");
         assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_common_unlock_data_v1_to_v2_creates_upgrade_token() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = reencrypt_common_unlock_data(
+            empty_common_unlock_input(),
+            current_user_key_id,
+            new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+        let token_request = *unlock_data
+            .v2_upgrade_token
+            .expect("v2_upgrade_token should be populated for V1 -> V2 rotation");
+        let token = request_model_to_token(token_request);
+
+        let unwrapped_v2_id = token
+            .unwrap_v2(current_user_key_id, &mut ctx)
+            .expect("unwrap_v2 should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, unwrapped_v2_id, &mut ctx);
+
+        let unwrapped_v1_id = token
+            .unwrap_v1(new_user_key_id, &mut ctx)
+            .expect("unwrap_v1 should succeed");
+        assert_symmetric_keys_equal(current_user_key_id, unwrapped_v1_id, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_common_unlock_data_v1_to_v2_upgrade_token_action_skip_returns_none() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = reencrypt_common_unlock_data(
+            empty_common_unlock_input(),
+            current_user_key_id,
+            new_user_key_id,
+            UpgradeTokenAction::Skip,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+        assert!(
+            unlock_data.v2_upgrade_token.is_none(),
+            "UpgradeTokenAction::Skip skips the creation of the upgrade token"
+        );
+    }
+
+    #[test]
+    fn test_reencrypt_common_unlock_data_v2_to_v2_upgrade_token_action_create_if_needed_returns_none()
+     {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = reencrypt_common_unlock_data(
+            empty_common_unlock_input(),
+            current_user_key_id,
+            new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+        assert!(
+            unlock_data.v2_upgrade_token.is_none(),
+            "UpgradeTokenAction::CreateIfNeeded should not create a v2_upgrade_token for V2 -> V2 rotation"
+        );
+    }
+
+    #[test]
+    fn test_reencrypt_master_password_change_unlock_data_never_returns_upgrade_token() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let input = ReencryptMasterPasswordChangeAndUnlockInput {
+            password: "test_password".to_string(),
+            hint: None,
+            kdf: create_test_kdf_pbkdf2(),
+            salt: "test@example.com".to_string(),
+            common_unlock_data: empty_common_unlock_input(),
+        };
+
+        let unlock_data = reencrypt_master_password_change_unlock_data(
+            input,
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        )
+        .expect("should be ok");
+
+        assert!(
+            unlock_data.v2_upgrade_token.is_none(),
+            "master password change rotation must never include a v2 upgrade token"
+        );
     }
 }

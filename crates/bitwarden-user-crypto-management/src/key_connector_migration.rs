@@ -2,7 +2,7 @@
 
 use bitwarden_api_api::models::KeyConnectorEnrollmentRequestModel;
 use bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel;
-use bitwarden_core::key_management::SymmetricKeyId;
+use bitwarden_core::key_management::SymmetricKeySlotId;
 use bitwarden_crypto::{EncString, KeyConnectorKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -61,7 +61,7 @@ async fn internal_migrate_to_key_connector(
             .get_key_store();
         let ctx = key_store.context();
         key_connector_key
-            .wrap_user_key(SymmetricKeyId::User, &ctx)
+            .wrap_user_key(SymmetricKeySlotId::User, &ctx)
             .map_err(|_| MigrateToKeyConnectorError::UserKeyNotAvailable)?
     };
 
@@ -91,7 +91,7 @@ async fn enroll_user_into_key_connector(
         .await
         .map_err(|e| {
             error!("Failed to post key connector migration request: {e:?}");
-            MigrateToKeyConnectorError::ApiError
+            MigrateToKeyConnectorError::Api
         })
 }
 
@@ -127,7 +127,7 @@ async fn post_key_connector_key_to_key_connector(
 
     result.map_err(|e| {
         error!("Failed to post key connector key to key connector server: {e:?}");
-        MigrateToKeyConnectorError::KeyConnectorApiError
+        MigrateToKeyConnectorError::KeyConnectorApi
     })
 }
 
@@ -137,11 +137,11 @@ pub enum MigrateToKeyConnectorError {
     #[error("Current user key is not available")]
     UserKeyNotAvailable,
     #[error("Cryptographic error during key connector migration")]
-    CryptoError,
+    Crypto,
     #[error("Bitwarden API call failed during key connector migration")]
-    ApiError,
+    Api,
     #[error("Key Connector API call failed during key connector migration")]
-    KeyConnectorApiError,
+    KeyConnectorApi,
 }
 
 #[cfg(test)]
@@ -159,7 +159,7 @@ mod tests {
             let mut ctx = key_store.context_mut();
             let local_user_key =
                 ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeyId::User);
+            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeySlotId::User);
         }
 
         UserCryptoManagementClient::new(client)
@@ -265,7 +265,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(MigrateToKeyConnectorError::KeyConnectorApiError)
+            Err(MigrateToKeyConnectorError::KeyConnectorApi)
         ));
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -294,9 +294,7 @@ mod tests {
                     wrapped_key
                         .parse::<EncString>()
                         .expect("key_connector_key_wrapped_user_key should be a valid EncString");
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
                 });
         });
 
@@ -326,7 +324,7 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(result, Err(MigrateToKeyConnectorError::ApiError)));
+        assert!(matches!(result, Err(MigrateToKeyConnectorError::Api)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();

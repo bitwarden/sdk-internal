@@ -2,6 +2,7 @@
 
 mod b64;
 mod b64url;
+mod chunked;
 mod serde;
 
 pub use b64::{B64, NotB64EncodedError};

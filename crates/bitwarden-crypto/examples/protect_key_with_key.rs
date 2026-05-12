@@ -2,7 +2,7 @@
 //! [`SymmetrickeyEnvelope`].
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, key_ids,
+    KeyStore, KeyStoreContext, key_slot_ids,
     safe::{SymmetricKeyEnvelope, SymmetricKeyEnvelopeError, SymmetricKeyEnvelopeNamespace},
 };
 
@@ -74,7 +74,7 @@ impl MockDisk {
     }
 }
 
-key_ids! {
+key_slot_ids! {
     #[symmetric]
     pub enum ExampleSymmetricKey {
         #[local]

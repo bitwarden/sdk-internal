@@ -47,6 +47,12 @@ pub struct OrganizationUserResetPasswordDetailsResponseModel {
     )]
     pub kdf_parallelism: Option<i32>,
     #[serde(
+        rename = "masterPasswordSalt",
+        alias = "MasterPasswordSalt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub master_password_salt: Option<String>,
+    #[serde(
         rename = "resetPasswordKey",
         alias = "ResetPasswordKey",
         skip_serializing_if = "Option::is_none"
@@ -69,6 +75,7 @@ impl OrganizationUserResetPasswordDetailsResponseModel {
             kdf_iterations: None,
             kdf_memory: None,
             kdf_parallelism: None,
+            master_password_salt: None,
             reset_password_key: None,
             encrypted_private_key: None,
         }

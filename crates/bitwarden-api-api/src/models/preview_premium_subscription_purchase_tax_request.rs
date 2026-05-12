@@ -19,11 +19,11 @@ pub struct PreviewPremiumSubscriptionPurchaseTaxRequest {
     #[serde(rename = "billingAddress", alias = "BillingAddress")]
     pub billing_address: Box<models::MinimalBillingAddressRequest>,
     #[serde(
-        rename = "coupon",
-        alias = "Coupon",
+        rename = "coupons",
+        alias = "Coupons",
         skip_serializing_if = "Option::is_none"
     )]
-    pub coupon: Option<String>,
+    pub coupons: Option<Vec<String>>,
 }
 
 impl PreviewPremiumSubscriptionPurchaseTaxRequest {
@@ -34,7 +34,7 @@ impl PreviewPremiumSubscriptionPurchaseTaxRequest {
         PreviewPremiumSubscriptionPurchaseTaxRequest {
             additional_storage,
             billing_address: Box::new(billing_address),
-            coupon: None,
+            coupons: None,
         }
     }
 }

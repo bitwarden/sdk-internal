@@ -32,12 +32,8 @@ pub struct OrganizationCreateRequestModel {
     pub plan_type: Option<models::PlanType>,
     #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(
-        rename = "keys",
-        alias = "Keys",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub keys: Option<Box<models::OrganizationKeysRequestModel>>,
+    #[serde(rename = "keys", alias = "Keys")]
+    pub keys: Box<models::OrganizationKeysRequestModel>,
     #[serde(
         rename = "paymentMethodType",
         alias = "PaymentMethodType",
@@ -154,6 +150,12 @@ pub struct OrganizationCreateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub skip_trial: Option<bool>,
+    #[serde(
+        rename = "coupons",
+        alias = "Coupons",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub coupons: Option<Vec<String>>,
 }
 
 impl OrganizationCreateRequestModel {
@@ -161,6 +163,7 @@ impl OrganizationCreateRequestModel {
         name: String,
         billing_email: String,
         key: String,
+        keys: models::OrganizationKeysRequestModel,
         use_secrets_manager: bool,
     ) -> OrganizationCreateRequestModel {
         OrganizationCreateRequestModel {
@@ -169,7 +172,7 @@ impl OrganizationCreateRequestModel {
             billing_email,
             plan_type: None,
             key,
-            keys: None,
+            keys: Box::new(keys),
             payment_method_type: None,
             payment_token: None,
             additional_seats: None,
@@ -190,6 +193,7 @@ impl OrganizationCreateRequestModel {
             is_from_secrets_manager_trial: None,
             initiation_path: None,
             skip_trial: None,
+            coupons: None,
         }
     }
 }

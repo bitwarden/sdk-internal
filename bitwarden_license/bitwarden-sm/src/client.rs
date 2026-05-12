@@ -10,6 +10,7 @@ use bitwarden_generators::GeneratorClientsExt;
 use crate::{ProjectsClient, SecretsClient};
 
 /// The main struct for interacting with the Secrets Manager service through the SM SDK.
+#[derive(Clone)]
 pub struct SecretsManagerClient {
     client: bitwarden_core::Client,
     token_handler: Arc<SecretsManagerTokenHandler>,
@@ -27,12 +28,12 @@ impl SecretsManagerClient {
 
     /// Get access to the Projects API
     pub fn projects(&self) -> ProjectsClient {
-        ProjectsClient::new(self.client.clone())
+        ProjectsClient::new(self.clone())
     }
 
     /// Get access to the Secrets API
     pub fn secrets(&self) -> SecretsClient {
-        SecretsClient::new(self.client.clone())
+        SecretsClient::new(self.clone())
     }
 
     /// Get access to the Auth API
@@ -45,8 +46,12 @@ impl SecretsManagerClient {
         self.client.generator()
     }
 
-    #[doc(hidden)]
+    /// Get the Organization ID for the access token
     pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
         self.token_handler.get_access_token_organization()
+    }
+
+    pub(crate) fn client(&self) -> &bitwarden_core::Client {
+        &self.client
     }
 }

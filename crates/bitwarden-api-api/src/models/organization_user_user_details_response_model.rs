@@ -133,6 +133,12 @@ pub struct OrganizationUserUserDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub groups: Option<Vec<uuid::Uuid>>,
+    #[serde(
+        rename = "revocationReason",
+        alias = "RevocationReason",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub revocation_reason: Option<models::RevocationReason>,
 }
 
 impl OrganizationUserUserDetailsResponseModel {
@@ -158,6 +164,7 @@ impl OrganizationUserUserDetailsResponseModel {
             claimed_by_organization: None,
             collections: None,
             groups: None,
+            revocation_reason: None,
         }
     }
 }

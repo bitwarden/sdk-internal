@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
-use bitwarden_core::{ApiError, OrganizationId, key_management::KeyIds};
+use bitwarden_core::{ApiError, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -29,7 +29,7 @@ pub async fn list_org_ciphers(
     org_id: OrganizationId,
     include_member_items: bool,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
 ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
     let api = api_client.ciphers_api();
     let response: CipherMiniDetailsResponseModelListResponseModel = api
@@ -73,7 +73,7 @@ mod tests {
         apis::ApiClient,
         models::{CipherMiniDetailsResponseModel, CipherMiniDetailsResponseModelListResponseModel},
     };
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use chrono::Utc;
 
@@ -110,6 +110,9 @@ mod tests {
             card: Default::default(),
             secure_note: Default::default(),
             ssh_key: Default::default(),
+            bank_account: Default::default(),
+            drivers_license: Default::default(),
+            passport: Default::default(),
             organization_use_totp: Default::default(),
             edit: Default::default(),
             permissions: Default::default(),
@@ -137,11 +140,11 @@ mod tests {
         }
     }
 
-    fn setup_key_store() -> KeyStore<KeyIds> {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+    fn setup_key_store() -> KeyStore<KeySlotIds> {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         store
