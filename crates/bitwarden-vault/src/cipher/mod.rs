@@ -23,7 +23,8 @@ pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
 pub use attachment_client::{
-    AttachmentAdminClient, AttachmentsClient, DecryptFileError, EncryptFileError,
+    AttachmentAdminClient, AttachmentUpgrade, AttachmentsClient, CreatedAttachment,
+    DecryptFileError, EncryptFileError, FileUploadType,
 };
 pub use bank_account::BankAccountView;
 pub use card::{CardBrand, CardListView, CardView};

@@ -21,6 +21,8 @@ mod renew;
 mod upgrade;
 
 pub use admin::AttachmentAdminClient;
+pub use create::{CreatedAttachment, FileUploadType};
+pub use upgrade::AttachmentUpgrade;
 
 /// Generic error type for vault encryption errors.
 #[allow(missing_docs)]
