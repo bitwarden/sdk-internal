@@ -173,11 +173,9 @@ mod tests {
     #[tokio::test]
     async fn test_create_folder_http_error() {
         let client = create_client(ApiClient::new_mocked(move |mock| {
-            mock.folders_api.expect_post().returning(move |_model| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.folders_api
+                .expect_post()
+                .returning(move |_model| Err(std::io::Error::other("Simulated error").into()));
         }));
 
         let result = client
