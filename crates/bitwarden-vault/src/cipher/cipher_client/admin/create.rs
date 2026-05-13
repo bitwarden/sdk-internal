@@ -79,6 +79,7 @@ async fn create_cipher(
     }
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
     /// Creates a new [Cipher] for an organization, using the admin server endpoints.
