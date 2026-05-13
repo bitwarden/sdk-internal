@@ -93,7 +93,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Logout => todo!(),
 
         // KM commands
-        Commands::Lock => todo!(),
+        Commands::Lock(args) => args.dispatch(ctx).await,
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands

@@ -15,7 +15,7 @@ use clap::{Parser, Subcommand};
 use crate::{
     admin_console::{ConfirmCommand, MoveArgs},
     auth::LoginArgs,
-    key_management::UnlockArgs,
+    key_management::{LockArgs, UnlockArgs},
     platform::{CompletionArgs, ConfigCommand, EncodeArgs, ServeArgs, StatusArgs, SyncArgs},
     render::Output,
     tools::{ExportArgs, GenerateArgs, ImportArgs, ReceiveArgs, SendArgs},
@@ -99,7 +99,7 @@ pub enum Commands {
     Logout,
 
     #[command(about = "Lock the vault and destroy active session keys.")]
-    Lock,
+    Lock(LockArgs),
 
     // KM commands
     #[command(about = "Unlock the vault and return a session key.")]

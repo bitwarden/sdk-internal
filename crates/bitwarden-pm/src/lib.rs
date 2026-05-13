@@ -9,6 +9,7 @@ use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
+    client::persisted_state::SESSION_PROTECTED_USER_KEY,
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
@@ -150,6 +151,21 @@ impl PasswordManagerClient {
             .get_key_store()
             .context()
             .has_symmetric_key(SymmetricKeySlotId::User)
+    }
+
+    /// Invalidate the persisted session key, locking the vault for future invocations.
+    ///
+    /// Removes [`SESSION_PROTECTED_USER_KEY`] from the database. Distinct from
+    /// `lock()` on long-lived clients (mobile, desktop), which clears keys from memory: the
+    /// CLI process exits between invocations, so locking must delete the persisted session
+    /// key rather than mutate in-memory state.
+    pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
+        self.0
+            .platform()
+            .state()
+            .setting(SESSION_PROTECTED_USER_KEY)?
+            .delete()
+            .await
     }
 }
 
