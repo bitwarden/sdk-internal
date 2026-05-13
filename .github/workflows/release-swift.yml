@@ -228,6 +228,15 @@ jobs:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
         working-directory: sdk
         run: |
+          if [ -z "$_SDK_SWIFT_REF" ]; then
+            echo "::error::SDK Swift Commit SHA is empty."
+            exit 1
+          fi
+
+          if [ -z "$_RELEASE_NAME" ]; then
+            echo "::error::Release Name is empty."
+            exit 1
+          fi
           echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/ios repo..."
           gh workflow run sdlc-sdk-update.yml --repo bitwarden/ios --ref main -f run-mode="Update" -f sdk-version="$_RELEASE_NAME" -f sdk-swift-ref="$_SDK_SWIFT_REF"
 
