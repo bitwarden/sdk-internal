@@ -56,6 +56,26 @@ pub struct SyncResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub policies: Option<Vec<models::PolicyResponseModel>>,
+    /// Policies for organizations where the user is in the Confirmed or Accepted status. Null when
+    /// the `pm-34145-policies-in-accepted-state` feature flag is disabled. New clients should
+    /// prefer this property and fall back to
+    /// Bit.Api.Vault.Models.Response.SyncResponseModel.Policies if absent.
+    #[serde(
+        rename = "policiesNew",
+        alias = "PoliciesNew",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub policies_new: Option<Vec<models::PolicyResponseModel>>,
+    /// Organizations where the user is in the Confirmed or Accepted status. Null when the
+    /// `pm-34145-policies-in-accepted-state` feature flag is disabled. New clients should prefer
+    /// this property and fall back to
+    /// Bit.Api.Vault.Models.Response.SyncResponseModel.Profile.`Organizations` if absent.
+    #[serde(
+        rename = "organizationsNew",
+        alias = "OrganizationsNew",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub organizations_new: Option<Vec<models::ProfileOrganizationResponseModel>>,
     #[serde(
         rename = "sends",
         alias = "Sends",
@@ -80,6 +100,8 @@ impl SyncResponseModel {
             ciphers: None,
             domains: None,
             policies: None,
+            policies_new: None,
+            organizations_new: None,
             sends: None,
             user_decryption: None,
         }

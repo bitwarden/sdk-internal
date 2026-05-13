@@ -72,21 +72,13 @@ impl CipherAdminClient {
     /// Deletes the Cipher with the matching CipherId from the server, using the admin endpoint.
     /// Affects server data only, does not modify local state.
     pub async fn delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherAdminError> {
-        Ok(delete_cipher(
-            cipher_id,
-            &self.client.internal.get_api_configurations().api_client,
-        )
-        .await?)
+        Ok(delete_cipher(cipher_id, &self.api_configurations.api_client).await?)
     }
 
     /// Soft-deletes the Cipher with the matching CipherId from the server, using the admin
     /// endpoint. Affects server data only, does not modify local state.
     pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherAdminError> {
-        Ok(soft_delete(
-            cipher_id,
-            &self.client.internal.get_api_configurations().api_client,
-        )
-        .await?)
+        Ok(soft_delete(cipher_id, &self.api_configurations.api_client).await?)
     }
 
     /// Deletes all Cipher objects with a matching CipherId from the server, using the admin
@@ -99,7 +91,7 @@ impl CipherAdminClient {
         Ok(delete_ciphers_many(
             cipher_ids,
             organization_id,
-            &self.client.internal.get_api_configurations().api_client,
+            &self.api_configurations.api_client,
         )
         .await?)
     }
@@ -114,7 +106,7 @@ impl CipherAdminClient {
         Ok(soft_delete_many(
             cipher_ids,
             organization_id,
-            &self.client.internal.get_api_configurations().api_client,
+            &self.api_configurations.api_client,
         )
         .await?)
     }

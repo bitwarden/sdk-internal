@@ -112,8 +112,8 @@
 //! This is met by origin validation.
 
 use bitwarden_core::UserId;
+use bitwarden_crypto::SymmetricCryptoKey;
 use serde::{Deserialize, Serialize};
-use serde_bytes::ByteBuf;
 
 mod drivers;
 pub use drivers::*;
@@ -124,6 +124,10 @@ pub use leader::*;
 mod message;
 pub use message::*;
 
+/// Wasm support module for shared unlock
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 /// Interval used by followers to send heartbeat keep-alive messages to their leader.
 pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 /// Additional grace period added to the vault timeout when suppressing it on heartbeat
@@ -132,37 +136,15 @@ pub const VAULT_TIMEOUT_GRACE_PERIOD: std::time::Duration = std::time::Duration:
 #[cfg(test)]
 mod tests;
 
-/// Wrapper type containing a serialized user key used for unlock propagation.
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, zeroize::ZeroizeOnDrop)]
-pub struct UserKey(ByteBuf);
-
-impl UserKey {
-    /// Returns the raw user key bytes.
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-
-    /// Creates a user key wrapper from raw key bytes.
-    pub fn from_bytes(bytes: Vec<u8>) -> Self {
-        Self(ByteBuf::from(bytes))
-    }
-}
-
-impl std::fmt::Debug for UserKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("UserKey").field(&"<redacted>").finish()
-    }
-}
-
 /// Represents the lock state of a user.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum LockState {
     /// The user is locked (does not have a user-key in memory).
     Locked,
     /// The user is unlocked (has a user-key in memory).
     Unlocked {
         /// The user-key of the unlocked user
-        user_key: UserKey,
+        user_key: SymmetricCryptoKey,
     },
 }
 
@@ -187,6 +169,7 @@ pub enum DeviceEvent {
         /// User whose vault was manually unlocked.
         user_id: UserId,
         /// Raw user key bytes used to unlock the vault.
-        user_key: Vec<u8>,
+        #[tsify(type = "SymmetricKey")]
+        user_key: SymmetricCryptoKey,
     },
 }

@@ -210,10 +210,10 @@ pub enum AcquireCookieError {
     CookieNameMismatch { expected: String, actual: String },
 
     #[error("Failed to get server configuration: {0}")]
-    RepositoryGetError(String),
+    RepositoryGet(String),
 
     #[error("Failed to save server configuration: {0}")]
-    RepositorySaveError(String),
+    RepositorySave(String),
 }
 ```
 

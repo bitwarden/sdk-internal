@@ -86,6 +86,7 @@ dependencies = [
  "clippy_utils",
  "dylint_linting",
  "dylint_testing",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -104,7 +105,17 @@ version = "0.1.0"
 dependencies = [
  "bitwarden_error_enum",
  "bitwarden_error_suffix",
+ "bitwarden_uniffi_async_export",
  "dylint_linting",
+]
+
+[[package]]
+name = "bitwarden_uniffi_async_export"
+version = "0.1.0"
+dependencies = [
+ "clippy_utils",
+ "dylint_linting",
+ "dylint_testing",
 ]
 
 [[package]]

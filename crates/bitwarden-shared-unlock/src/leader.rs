@@ -15,9 +15,7 @@ use tracing::{info, warn};
 #[cfg(feature = "wasm")]
 use web_time::Instant;
 
-use crate::{
-    DeviceEvent, FollowerMessage, LeaderMessage, LockState, UserKey, drivers::SharedUnlockDriver,
-};
+use crate::{DeviceEvent, FollowerMessage, LeaderMessage, LockState, drivers::SharedUnlockDriver};
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(30);
 
@@ -328,7 +326,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 let message = LeaderMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
-                        user_key: UserKey::from_bytes(user_key.to_owned()),
+                        user_key: user_key.to_owned(),
                     },
                 };
                 self.broadcast_to_active_followers(message).await;
