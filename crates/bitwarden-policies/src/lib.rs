@@ -2,6 +2,8 @@
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
+#[cfg(feature = "uniffi")]
+mod uniffi_support;
 
 pub mod filter;
 mod master_password_policy_response;
