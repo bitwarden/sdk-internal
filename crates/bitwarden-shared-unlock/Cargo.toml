@@ -19,18 +19,19 @@ wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
+    "bitwarden-crypto/wasm",
     "bitwarden-ipc/wasm",
 ]
 
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-core = { workspace = true }
+bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true, optional = true }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true }
 bitwarden-threading = { workspace = true }
 serde = { workspace = true }
-serde_bytes = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -44,6 +45,7 @@ zeroize = { version = "1.8.2", features = ["zeroize_derive"] }
 js-sys = { workspace = true }
 
 [dev-dependencies]
+bitwarden-encoding = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["test-support"] }
 tokio = { workspace = true, features = ["rt"] }
 

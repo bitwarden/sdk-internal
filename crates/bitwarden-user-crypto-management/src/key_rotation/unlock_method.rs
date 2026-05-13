@@ -31,7 +31,7 @@ impl PrimaryUnlockMethod {
                 let (kdf, salt) = synced_account_data
                     .kdf_and_salt
                     .clone()
-                    .ok_or(RotateUserKeysError::ApiError)?;
+                    .ok_or(RotateUserKeysError::Api)?;
                 Ok(PrimaryUnlockMethod::Password {
                     password,
                     kdf,
@@ -172,7 +172,7 @@ mod tests {
             &synced_data,
         );
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
     }
 
     #[test]
