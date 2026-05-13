@@ -197,18 +197,34 @@ impl CiphersClient {
 
         let mut ctx = key_store.context();
 
-        let prepared_views: Vec<CipherView> = cipher_views
+        // Per-item loop instead of key_store.encrypt_list for two reasons:
+        // 1. blob-eligible ciphers must go through encrypt_blob_cipher, which is incompatible with
+        //    the batch encrypt_list interface (no per-item dispatch).
+        // 2. encrypt_list uses Rayon internally, but on WASM (the only build target for this
+        //    function) Rayon runs sequentially, so there is no real parallelism to lose.
+        //
+        // Alternatives considered and deferred:
+        // - Split-batch: partition into blob vs. field-level groups, batch the field-level group
+        //   via encrypt_list, encrypt blob items individually, then merge back in order. Deferred:
+        //   index-based merge adds ordering complexity that outweighs the benefit.
+        // - BlobCipherEncrypt(CipherView) wrapper (analogous to StrictDecrypt): rejected because
+        //   BlobEncryptionError cannot be cleanly converted to CryptoError — SealedCipherBlobError
+        //   contains CBOR, format-version, and base64 errors with no CryptoError equivalents.
+        let ciphers: Vec<Cipher> = cipher_views
             .into_iter()
             .map(|mut cv| {
                 if cv.key.is_none() && enable_cipher_key {
                     let key = cv.key_identifier();
                     cv.generate_cipher_key(&mut ctx, key)?;
                 }
-                Ok(cv)
+                if cv.key.is_some() && self.should_use_blob_encryption(cv.organization_id) {
+                    Ok(encrypt_blob_cipher(&mut cv, &mut ctx)
+                        .map_err(EncryptError::BlobEncryption)?)
+                } else {
+                    Ok(key_store.encrypt(cv)?)
+                }
             })
-            .collect::<Result<Vec<_>, bitwarden_crypto::CryptoError>>()?;
-
-        let ciphers: Vec<Cipher> = key_store.encrypt_list(&prepared_views)?;
+            .collect::<Result<Vec<_>, EncryptError>>()?;
 
         Ok(ciphers
             .into_iter()
