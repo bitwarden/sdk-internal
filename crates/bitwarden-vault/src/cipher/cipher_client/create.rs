@@ -450,4 +450,61 @@ mod tests {
         assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
         assert_eq!(response.organization_id, Some(TEST_ORG_ID.parse().unwrap()));
     }
+
+    #[tokio::test]
+    async fn test_create_cipher_blob_encryption() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+                .unwrap();
+        }
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_post()
+                .returning(move |body| {
+                    let body = body.unwrap();
+                    Ok(CipherResponseModel {
+                        id: Some(cipher_id.into()),
+                        name: Some(body.name.clone()),
+                        r#type: body.r#type,
+                        key: body.key.clone(),
+                        data: body.data.clone(),
+                        view_password: Some(true),
+                        edit: Some(true),
+                        organization_use_totp: Some(false),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let repository = MemoryRepository::<Cipher>::default();
+        let request = generate_test_cipher_create_request();
+
+        let cipher_view = convert_request_to_cipher_view(request);
+        create_cipher(
+            &store,
+            &api_client,
+            &repository,
+            TEST_USER_ID.parse().unwrap(),
+            cipher_view,
+            true, // use_blob_encryption
+        )
+        .await
+        .unwrap();
+
+        let stored: Cipher = repository
+            .get(TEST_CIPHER_ID.parse().unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(crate::blob::is_blob_encrypted(&stored));
+    }
 }

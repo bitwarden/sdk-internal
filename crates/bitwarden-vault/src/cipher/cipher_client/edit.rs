@@ -282,7 +282,7 @@ impl CiphersClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
-    use bitwarden_core::key_management::SymmetricKeySlotId;
+    use bitwarden_core::key_management::{BLOB_SECURITY_VERSION, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use chrono::TimeZone;
@@ -565,6 +565,63 @@ mod tests {
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), EditCipherError::Api(_)));
+    }
+
+    #[tokio::test]
+    async fn test_edit_cipher_blob_encryption() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+                .unwrap();
+        }
+        store.set_security_state_version(BLOB_SECURITY_VERSION);
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put()
+                .returning(move |_id, body| {
+                    let body = body.unwrap();
+                    Ok(CipherResponseModel {
+                        id: Some(cipher_id.into()),
+                        name: Some(body.name.clone()),
+                        r#type: body.r#type,
+                        key: body.key.clone(),
+                        data: body.data.clone(),
+                        view_password: Some(true),
+                        edit: Some(true),
+                        organization_use_totp: Some(false),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let repository = MemoryRepository::<Cipher>::default();
+        repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
+
+        let cipher_view = generate_test_cipher();
+        let request = cipher_view.try_into().unwrap();
+
+        edit_cipher(
+            &store,
+            &api_client,
+            &repository,
+            TEST_USER_ID.parse().unwrap(),
+            request,
+            false,
+            true, // enable_cipher_key_encryption → generates key → blob path fires
+        )
+        .await
+        .unwrap();
+
+        let stored: Cipher = repository.get(cipher_id).await.unwrap().unwrap();
+        assert!(crate::blob::is_blob_encrypted(&stored));
     }
 
     /// Build the edit-side view the way the flow does: request → view, then

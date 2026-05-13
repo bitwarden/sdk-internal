@@ -938,6 +938,28 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn test_encrypt_list_uses_blob_when_eligible() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        let cipher_views = vec![test_cipher_view(), test_cipher_view()];
+        let contexts = client
+            .vault()
+            .ciphers()
+            .encrypt_list(cipher_views)
+            .await
+            .unwrap();
+
+        for ctx in &contexts {
+            assert!(crate::blob::is_blob_encrypted(&ctx.cipher));
+        }
+    }
+
     #[tokio::test]
     async fn should_use_blob_encryption_individual_above_threshold_returns_true() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
