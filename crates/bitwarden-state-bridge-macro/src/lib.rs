@@ -191,7 +191,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
             #[wasm_bindgen(method)]
             pub async fn #get(
                 this: &crate::key_management::state_bridge::RawWasmStateBridge,
-            ) -> Option<#ty>;
+            ) -> ::wasm_bindgen::JsValue;
             #[doc = #clear_doc]
             #[wasm_bindgen(method)]
             pub async fn #clear(
@@ -227,9 +227,11 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
 
     let wasm_impls = fields.iter().map(|f| {
         let ty = &f.ty;
+        let n = f.name.to_string();
         let set = format_ident!("set_{}", f.name);
         let get = format_ident!("get_{}", f.name);
         let clear = format_ident!("clear_{}", f.name);
+        let get_err = format!("State bridge `get_{n}` failed to deserialize value from JsValue");
         quote! {
             async fn #set(&self, value: #ty) {
                 self.0
@@ -240,12 +242,20 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
                     .expect("State bridge call panicked");
             }
             async fn #get(&self) -> Option<#ty> {
-                self.0
+                let js: ::wasm_bindgen::JsValue = self.0
                     .run_in_thread(|state| async move {
                         state.#get().await
                     })
                     .await
-                    .expect("State bridge call panicked")
+                    .expect("State bridge call panicked");
+                if js.is_null() || js.is_undefined() {
+                    None
+                } else {
+                    Some(
+                        <#ty as ::core::convert::TryFrom<::wasm_bindgen::JsValue>>::try_from(js)
+                            .expect(#get_err),
+                    )
+                }
             }
             async fn #clear(&self) {
                 self.0

@@ -125,6 +125,15 @@ pub enum WrappedAccountCryptographicState {
     },
 }
 
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for WrappedAccountCryptographicState {
+    type Error = serde_wasm_bindgen::Error;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value)
+    }
+}
+
 impl std::fmt::Debug for WrappedAccountCryptographicState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

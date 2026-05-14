@@ -62,6 +62,16 @@ impl IntoWasmAbi for SymmetricCryptoKey {
     }
 }
 
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for SymmetricCryptoKey {
+    type Error = CryptoError;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        let string = value.as_string().ok_or(CryptoError::InvalidKey)?;
+        Self::try_from(string)
+    }
+}
+
 /// The symmetric key algorithm to use when generating a new symmetric key.
 #[derive(Debug, PartialEq)]
 pub enum SymmetricKeyAlgorithm {

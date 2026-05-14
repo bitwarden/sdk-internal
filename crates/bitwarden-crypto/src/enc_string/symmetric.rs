@@ -115,6 +115,19 @@ impl IntoWasmAbi for EncString {
     }
 }
 
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for EncString {
+    type Error = CryptoError;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        let string = value
+            .as_string()
+            .ok_or(EncStringParseError::NoType)
+            .map_err(CryptoError::from)?;
+        Self::from_str(&string)
+    }
+}
+
 /// Deserializes an [EncString] from a string.
 impl FromStr for EncString {
     type Err = CryptoError;

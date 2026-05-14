@@ -1,0 +1,139 @@
+import {
+  init_sdk,
+  PasswordManagerClient,
+  type EncString,
+  type InitUserCryptoRequest,
+  type MasterPasswordUnlockData,
+  type PasswordProtectedKeyEnvelope,
+  type TokenProvider,
+  type UserId,
+  type V2UpgradeToken,
+  type WasmStateBridge,
+  type WrappedAccountCryptographicState,
+} from "@bitwarden/sdk-internal";
+
+const encstring = (s: string) => s as unknown as EncString;
+const userId = (s: string) => s as unknown as UserId;
+
+function makeStateBridge(): WasmStateBridge {
+  let persistentPinEnvelope: PasswordProtectedKeyEnvelope | undefined;
+  let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | undefined;
+  let encryptedPin: EncString | undefined;
+  let v2UpgradeToken: V2UpgradeToken | undefined;
+  let accountCryptographicState: WrappedAccountCryptographicState | undefined;
+  let masterPasswordUnlockData: MasterPasswordUnlockData | undefined;
+
+  return {
+    // SymmetricCryptoKey doesn't round-trip cleanly through JS in this build
+    // (serialized as base64 string, expected to deserialize as struct Bytes).
+    // Return undefined so the registration self-test skips deserialization;
+    // the PIN flow reads the user key from the in-memory key store, not here.
+    set_user_key: async () => {},
+    get_user_key: async () => undefined,
+    clear_user_key: async () => {},
+
+    set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) =>
+      void (persistentPinEnvelope = v),
+    get_persistent_pin_envelope: async () => persistentPinEnvelope,
+    clear_persistent_pin_envelope: async () => void (persistentPinEnvelope = undefined),
+
+    set_ephemeral_pin_envelope: async (v: PasswordProtectedKeyEnvelope) =>
+      void (ephemeralPinEnvelope = v),
+    get_ephemeral_pin_envelope: async () => ephemeralPinEnvelope,
+    clear_ephemeral_pin_envelope: async () => void (ephemeralPinEnvelope = undefined),
+
+    set_encrypted_pin: async (v: EncString) => void (encryptedPin = v),
+    get_encrypted_pin: async () => encryptedPin,
+    clear_encrypted_pin: async () => void (encryptedPin = undefined),
+
+    set_v2_upgrade_token: async (v: V2UpgradeToken) => void (v2UpgradeToken = v),
+    get_v2_upgrade_token: async () => v2UpgradeToken,
+    clear_v2_upgrade_token: async () => void (v2UpgradeToken = undefined),
+
+    set_account_cryptographic_state: async (v: WrappedAccountCryptographicState) =>
+      void (accountCryptographicState = v),
+    get_account_cryptographic_state: async () => accountCryptographicState,
+    clear_account_cryptographic_state: async () => void (accountCryptographicState = undefined),
+
+    set_masterpassword_unlock_data: async (v: MasterPasswordUnlockData) =>
+      void (masterPasswordUnlockData = v),
+    get_masterpassword_unlock_data: async () => masterPasswordUnlockData,
+    clear_masterpassword_unlock_data: async () => void (masterPasswordUnlockData = undefined),
+  };
+}
+
+const TEST_EMAIL = "test@bitwarden.com";
+const TEST_PASSWORD = "asdfasdfasdf";
+const TEST_PIN = "1234";
+
+const PRIVATE_KEY =
+  "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=";
+
+const MASTER_KEY_WRAPPED_USER_KEY =
+  "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=";
+
+describe("pin lock tests", () => {
+  let client: PasswordManagerClient;
+  let stateBridge: WasmStateBridge;
+
+  beforeAll(async () => {
+    init_sdk();
+
+    const tokens: TokenProvider = {
+      get_access_token: async () => undefined,
+    };
+
+    stateBridge = makeStateBridge();
+    client = new PasswordManagerClient(tokens);
+    await client.km_state_bridge().register_bridge_impl(stateBridge);
+
+    const req: InitUserCryptoRequest = {
+      userId: userId("00000000-0000-0000-0000-000000000000"),
+      kdfParams: { pBKDF2: { iterations: 100_000 } },
+      email: TEST_EMAIL,
+      accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
+      method: {
+        masterPasswordUnlock: {
+          password: TEST_PASSWORD,
+          master_password_unlock: {
+            kdf: { pBKDF2: { iterations: 100_000 } },
+            masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
+            salt: TEST_EMAIL,
+          },
+        },
+      },
+    };
+
+    await client.crypto().initialize_user_crypto(req);
+  });
+
+  it("exposes an SDK version", () => {
+    expect(client.version()).toEqual(expect.any(String));
+  });
+
+  it("enrolls a PIN with BeforeFirstUnlock lock type", async () => {
+    const pinSettings = client.user_crypto_management().pin_settings();
+
+    await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
+
+    expect(await pinSettings.get_status()).toEqual("Available");
+    expect(await pinSettings.get_lock_type()).toBe("BeforeFirstUnlock");
+    expect(await stateBridge.get_encrypted_pin()).toBeDefined();
+    // BeforeFirstUnlock populates both envelopes
+    expect(await stateBridge.get_persistent_pin_envelope()).toBeDefined();
+    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeDefined();
+  });
+
+  it("enrolls a PIN with AfterFirstUnlock lock type", async () => {
+    const pinSettings = client.user_crypto_management().pin_settings();
+
+    await pinSettings.set_pin(TEST_PIN, "AfterFirstUnlock");
+
+    expect(await pinSettings.get_status()).toEqual("Available");
+    expect(await pinSettings.get_lock_type()).toBe("AfterFirstUnlock");
+    expect(await stateBridge.get_encrypted_pin()).toBeDefined();
+    // AfterFirstUnlock populates only the ephemeral envelope
+    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeDefined();
+    expect(await stateBridge.get_persistent_pin_envelope()).toBeUndefined();
+  });
+});
