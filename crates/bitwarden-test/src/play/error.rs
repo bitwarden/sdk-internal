@@ -15,7 +15,7 @@ pub enum PlayError {
 
     /// Server returned an error response
     #[error("Server error [{status}]: {body}")]
-    ServerError {
+    Response {
         /// HTTP status code
         status: u16,
         /// Response body
