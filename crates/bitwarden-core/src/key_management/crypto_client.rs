@@ -205,7 +205,7 @@ impl CryptoClient {
 impl CryptoClient {
     /// Initializes the user's crypto state from a pre-decrypted user key.
     ///
-    /// Used by [`bitwarden_pm::PasswordManagerClient::unlock_from_state`] to restore
+    /// Used by `PasswordManagerClient::unlock_from_state` (in `bitwarden-pm`) to restore
     /// the vault after loading from persisted state with a session key.
     ///
     /// Passes `&None` for the upgrade token (Deviation 8 from PM-31879 deviations).
