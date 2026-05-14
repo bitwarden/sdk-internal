@@ -262,6 +262,76 @@ impl PasswordManagerClient {
             .await?;
         Ok(())
     }
+
+    /// Reconstructs a [`PasswordManagerClient`] from persisted state.
+    ///
+    /// Reads [`USER_ID`] and [`BASE_URLS`] from the registry, constructs
+    /// [`ClientSettings`] using the globally-initialized [`HostPlatformInfo`]
+    /// (set via [`bitwarden_core::client::client_settings::init_host_platform_info`]),
+    /// and returns a fully wired client backed by the provided registry.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`init_host_platform_info`] has not been called before this function.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if [`USER_ID`] or [`BASE_URLS`] are missing from the registry,
+    /// or if registry operations fail.
+    pub async fn load_from_state(registry: StateRegistry) -> Result<Self, RehydrationError> {
+        use bitwarden_core::{
+            UserId,
+            client::persisted_state::{BASE_URLS, USER_ID},
+        };
+
+        // Read USER_ID directly as UserId (Deviation 2: stored as UserId, not String)
+        let user_id: UserId = registry
+            .setting(USER_ID)
+            .map_err(|e| RehydrationError::State(e.into()))?
+            .get()
+            .await
+            .map_err(RehydrationError::State)?
+            .ok_or(RehydrationError::MissingState)?;
+
+        // Read BASE_URLS for constructing ClientSettings
+        let base_urls = registry
+            .setting(BASE_URLS)
+            .map_err(|e| RehydrationError::State(e.into()))?
+            .get()
+            .await
+            .map_err(RehydrationError::State)?
+            .ok_or(RehydrationError::MissingState)?;
+
+        // Build ClientSettings from HostPlatformInfo (Deviation 5: no AppSettings type)
+        // Panics if init_host_platform_info was not called — documented above
+        let platform = get_host_platform_info();
+        let settings = bitwarden_core::ClientSettings {
+            identity_url: base_urls.identity_url,
+            api_url: base_urls.api_url,
+            user_agent: platform.user_agent.clone(),
+            device_type: platform.device_type,
+            device_identifier: platform.device_identifier.clone(),
+            bitwarden_client_version: platform.bitwarden_client_version.clone(),
+            bitwarden_package_type: platform.bitwarden_package_type.clone(),
+        };
+
+        // Construct client with the existing registry (Deviation 4: use
+        // PasswordManagerClientBuilder)
+        let client = PasswordManagerClientBuilder::new()
+            .with_settings(settings)
+            .with_state(registry)
+            .build();
+
+        // Initialize the user ID on the newly constructed client
+        client
+            .0
+            .internal
+            .init_user_id(user_id)
+            .await
+            .map_err(|_| RehydrationError::MissingState)?;
+
+        Ok(client)
+    }
 }
 
 #[cfg(test)]
@@ -270,6 +340,101 @@ mod tests {
 
     use super::*;
 
+    fn init_platform_info_for_tests() {
+        bitwarden_core::init_host_platform_info(bitwarden_core::HostPlatformInfo {
+            user_agent: "test-agent".to_string(),
+            device_type: bitwarden_core::DeviceType::SDK,
+            device_identifier: None,
+            bitwarden_client_version: None,
+            bitwarden_package_type: None,
+        });
+    }
+
+
+    async fn load_from_state_round_trips_user_id() {
+        use bitwarden_core::{UserId, client::persisted_state::USER_ID};
+
+        init_platform_info_for_tests();
+
+        let registry = StateRegistry::new_with_memory_db();
+        let user_id = UserId::new_v4();
+
+        registry
+            .setting(USER_ID)
+            .expect("USER_ID key should be registered")
+            .update(user_id)
+            .await
+            .expect("seeding USER_ID should succeed");
+
+        registry
+            .setting(BASE_URLS)
+            .expect("BASE_URLS key should be registered")
+            .update(BaseUrls {
+                identity_url: "https://identity.bitwarden.com".to_string(),
+                api_url: "https://api.bitwarden.com".to_string(),
+            })
+            .await
+            .expect("seeding BASE_URLS should succeed");
+
+        let client = PasswordManagerClient::load_from_state(registry)
+            .await
+            .expect("load_from_state should succeed");
+
+        assert_eq!(
+            client.0.internal.get_user_id(),
+            Some(user_id),
+            "loaded client should have seeded user_id"
+        );
+    }
+
+    #[tokio::test]
+    async fn load_from_state_fails_without_user_id() {
+        init_platform_info_for_tests();
+
+        let registry = StateRegistry::new_with_memory_db();
+
+        registry
+            .setting(BASE_URLS)
+            .expect("BASE_URLS key should be registered")
+            .update(BaseUrls {
+                identity_url: "https://identity.bitwarden.com".to_string(),
+                api_url: "https://api.bitwarden.com".to_string(),
+            })
+            .await
+            .expect("seeding BASE_URLS should succeed");
+
+        let result = PasswordManagerClient::load_from_state(registry).await;
+        assert!(
+            matches!(result, Err(RehydrationError::MissingState)),
+            "expected MissingState"
+        );
+    }
+
+    #[tokio::test]
+    async fn load_from_state_fails_without_base_urls() {
+        use bitwarden_core::{UserId, client::persisted_state::USER_ID};
+
+        init_platform_info_for_tests();
+
+        let registry = StateRegistry::new_with_memory_db();
+        let user_id = UserId::new_v4();
+
+        registry
+            .setting(USER_ID)
+            .expect("USER_ID key should be registered")
+            .update(user_id)
+            .await
+            .expect("seeding USER_ID should succeed");
+
+        let result = PasswordManagerClient::load_from_state(registry).await;
+        assert!(
+            matches!(result, Err(RehydrationError::MissingState)),
+            "expected MissingState"
+        );
+    }
+
+
+    #[tokio::test]
     async fn save_to_state_persists_base_urls() {
         use bitwarden_core::{ClientSettings, client::persisted_state::BASE_URLS};
 
