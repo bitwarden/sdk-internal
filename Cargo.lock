@@ -938,6 +938,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-organizations",
+ "chrono",
  "serde",
  "tsify",
  "uniffi",
