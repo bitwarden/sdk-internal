@@ -78,6 +78,7 @@
         "futures",
         "hmac",
         "http",
+        "http-serde",
         "js-sys",
         "mockall",
         "proc-macro2",
