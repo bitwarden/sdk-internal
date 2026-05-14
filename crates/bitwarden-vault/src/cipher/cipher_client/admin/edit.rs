@@ -126,6 +126,7 @@ pub async fn add_to_collections(
     }
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
     /// Edit an existing [Cipher] and save it to the server.
