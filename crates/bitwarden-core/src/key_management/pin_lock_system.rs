@@ -1026,7 +1026,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn migrate_v2_envelope_not_matching_user_key_unenrolls() {
+    async fn migrate_v2_envelope_not_matching_user_key_returns_v2_key_rotation_unsupported() {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
@@ -1051,13 +1051,14 @@ mod tests {
             .set_persistent_pin_envelope(&mismatched_envelope)
             .await;
 
-        system.migrate_pin_envelope_if_needed().await;
-
-        assert_pin_fully_unenrolled(&client).await;
+        assert!(matches!(
+            system.migrate_pin_envelope_if_needed().await,
+            Err(MigrationFailed::V2KeyRotationUnsupported),
+        ));
     }
 
     #[tokio::test]
-    async fn migrate_v2_envelope_with_v1_user_key_unenrolls() {
+    async fn migrate_v2_envelope_with_v1_user_key_returns_v2_envelope_with_v1_user_key() {
         let client = client_with_v1_user_key();
 
         // Build a V2-sealed envelope using a transient V2 key.
@@ -1082,13 +1083,14 @@ mod tests {
         bridge.set_persistent_pin_envelope(&v2_envelope).await;
 
         let system = PinLockSystem::with_client(&client);
-        system.migrate_pin_envelope_if_needed().await;
-
-        assert_pin_fully_unenrolled(&client).await;
+        assert!(matches!(
+            system.migrate_pin_envelope_if_needed().await,
+            Err(MigrationFailed::V2EnvelopeWithV1UserKey),
+        ));
     }
 
     #[tokio::test]
-    async fn migrate_v1_to_v2_without_upgrade_token_unenrolls() {
+    async fn migrate_v1_to_v2_without_upgrade_token_returns_missing_v2_upgrade_token() {
         let pin = "1234";
         let (client, state) = fresh_v1_state_with_v2_user_key(pin);
         let bridge = client.km_state_bridge();
@@ -1097,13 +1099,14 @@ mod tests {
         // Intentionally omit set_v2_upgrade_token.
 
         let system = PinLockSystem::with_client(&client);
-        system.migrate_pin_envelope_if_needed().await;
-
-        assert_pin_fully_unenrolled(&client).await;
+        assert!(matches!(
+            system.migrate_pin_envelope_if_needed().await,
+            Err(MigrationFailed::MissingV2UpgradeToken),
+        ));
     }
 
     #[tokio::test]
-    async fn migrate_v1_to_v2_without_encrypted_pin_unenrolls() {
+    async fn migrate_v1_to_v2_without_encrypted_pin_returns_missing_encrypted_pin() {
         let pin = "1234";
         let (client, state) = fresh_v1_state_with_v2_user_key(pin);
         let bridge = client.km_state_bridge();
@@ -1112,13 +1115,14 @@ mod tests {
         // Intentionally omit set_encrypted_pin.
 
         let system = PinLockSystem::with_client(&client);
-        system.migrate_pin_envelope_if_needed().await;
-
-        assert_pin_fully_unenrolled(&client).await;
+        assert!(matches!(
+            system.migrate_pin_envelope_if_needed().await,
+            Err(MigrationFailed::MissingEncryptedPin),
+        ));
     }
 
     #[tokio::test]
-    async fn migrate_v1_to_v2_with_mismatched_upgrade_token_unenrolls() {
+    async fn migrate_v1_to_v2_with_mismatched_upgrade_token_returns_pin_decryption_failure() {
         let pin = "1234";
         let (client, state) = fresh_v1_state_with_v2_user_key(pin);
 
@@ -1139,7 +1143,24 @@ mod tests {
         bridge.set_v2_upgrade_token(&unrelated_token).await;
 
         let system = PinLockSystem::with_client(&client);
-        system.migrate_pin_envelope_if_needed().await;
+        assert!(matches!(
+            system.migrate_pin_envelope_if_needed().await,
+            Err(MigrationFailed::PinDecryption),
+        ));
+    }
+
+    #[tokio::test]
+    async fn on_unlock_unenrolls_when_migration_fails() {
+        // Reuse the missing-upgrade-token scenario to drive migration failure end-to-end.
+        let pin = "1234";
+        let (client, state) = fresh_v1_state_with_v2_user_key(pin);
+        let bridge = client.km_state_bridge();
+        bridge.set_persistent_pin_envelope(&state.envelope).await;
+        bridge.set_encrypted_pin(&state.encrypted_pin).await;
+        // Intentionally omit set_v2_upgrade_token so migration fails.
+
+        let system = PinLockSystem::with_client(&client);
+        system.on_unlock().await;
 
         assert_pin_fully_unenrolled(&client).await;
     }
