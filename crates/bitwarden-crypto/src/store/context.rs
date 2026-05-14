@@ -811,7 +811,8 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     }
 
     /// A test helper to assert that the symmetric keys corresponding to the given identifiers are
-    /// equal. DO NOT USE THIS FOR NON-TEST CODE
+    /// equal.
+    #[cfg(any(test, feature = "test-utils"))]
     pub fn assert_symmetric_keys_equal(&self, key_id_1: Ids::Symmetric, key_id_2: Ids::Symmetric) {
         let key_1 = self
             .get_symmetric_key(key_id_1)
