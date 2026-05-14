@@ -47,6 +47,8 @@ async-trait = { workspace = true }
 bitwarden-auth = { workspace = true }
 bitwarden-commercial-vault = { workspace = true, optional = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
@@ -59,6 +61,7 @@ bitwarden-user-crypto-management = { workspace = true }
 bitwarden-vault = { workspace = true }
 
 reqwest-middleware = { workspace = true }
+thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 wasm-bindgen = { workspace = true, optional = true }

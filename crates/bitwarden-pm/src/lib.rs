@@ -9,12 +9,18 @@ use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
-    client::persisted_state::SESSION_PROTECTED_USER_KEY,
+    client::{
+        client_settings::get_host_platform_info,
+        persisted_state::{BASE_URLS, BaseUrls, SESSION_PROTECTED_USER_KEY},
+    },
 };
+use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
+use bitwarden_state::registry::StateRegistry;
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};
@@ -42,6 +48,25 @@ pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
+
+/// Errors that can occur during client rehydration operations.
+#[bitwarden_error(flat)]
+#[derive(Debug, thiserror::Error)]
+pub enum RehydrationError {
+    /// The session key does not decrypt the wrapped user key (wrong key presented
+    /// to [`PasswordManagerClient::unlock_from_state`]).
+    #[error("Session key does not decrypt stored user key")]
+    NotAuthenticated,
+    /// A state read/write operation failed.
+    #[error(transparent)]
+    State(#[from] bitwarden_state::SettingsError),
+    /// A key wrapping or unwrapping operation failed.
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    /// A required state setting is absent (e.g. ACCOUNT_CRYPTO_STATE not found).
+    #[error("Required state setting is missing")]
+    MissingState,
+}
 
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
@@ -167,6 +192,51 @@ impl PasswordManagerClient {
             .delete()
             .await
     }
+
+    /// Generates a fresh session key and persists the user key wrapped by it.
+    ///
+    /// The session key is an ephemeral XChaCha20-Poly1305 key used to protect
+    /// the user key between CLI invocations. The wrapped user key is stored as
+    /// [`SESSION_PROTECTED_USER_KEY`] in the state registry.
+    ///
+    /// Returns the raw session key bytes. The caller is responsible for storing
+    /// these bytes securely (e.g., in the OS keychain or a secure enclave).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the user key is not loaded or if state persistence fails.
+    pub async fn generate_session_key(&self) -> Result<Vec<u8>, RehydrationError> {
+        use bitwarden_core::key_management::SymmetricKeySlotId;
+
+        let (session_key_id, wrapped_user_key) = {
+            let mut ctx = self.0.internal.get_key_store().context_mut();
+            let session_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let wrapped_user_key = ctx
+                .wrap_symmetric_key(session_key_id, SymmetricKeySlotId::User)
+                .map_err(RehydrationError::Crypto)?;
+            (session_key_id, wrapped_user_key)
+        };
+
+        self.0
+            .platform()
+            .state()
+            .setting(SESSION_PROTECTED_USER_KEY)
+            .map_err(RehydrationError::State)?
+            .update(wrapped_user_key)
+            .await
+            .map_err(RehydrationError::State)?;
+
+        let session_key_bytes = {
+            let ctx = self.0.internal.get_key_store().context_mut();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(session_key_id)
+                .map_err(RehydrationError::Crypto)?
+                .to_encoded()
+                .to_vec()
+        };
+
+        Ok(session_key_bytes)
+    }
 }
 
 #[cfg(test)]
@@ -174,6 +244,16 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+
+    #[tokio::test]
+    async fn generate_session_key_fails_when_not_unlocked() {
+        let client = PasswordManagerClient::new(None);
+        let result = client.generate_session_key().await;
+        assert!(
+            result.is_err(),
+            "expected error when user key is not loaded"
+        );
+    }
 
     #[test]
     fn new_with_server_communication_config_constructs() {
