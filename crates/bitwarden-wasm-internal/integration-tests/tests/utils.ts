@@ -1,4 +1,17 @@
-import { WasmStateBridge, PasswordProtectedKeyEnvelope, EncString, SymmetricKey, V2UpgradeToken, WrappedAccountCryptographicState, MasterPasswordUnlockData, PasswordManagerClient, init_sdk, TokenProvider, InitUserCryptoRequest, UserId } from "@bitwarden/sdk-internal";
+import {
+  WasmStateBridge,
+  PasswordProtectedKeyEnvelope,
+  EncString,
+  SymmetricKey,
+  V2UpgradeToken,
+  WrappedAccountCryptographicState,
+  MasterPasswordUnlockData,
+  PasswordManagerClient,
+  init_sdk,
+  TokenProvider,
+  InitUserCryptoRequest,
+  UserId,
+} from "@bitwarden/sdk-internal";
 
 const encstring = (s: string) => s as unknown as EncString;
 const userId = (s: string) => s as unknown as UserId;
@@ -16,36 +29,61 @@ export function makeStateBridge(): WasmStateBridge {
   let masterPasswordUnlockData: MasterPasswordUnlockData | null;
 
   return {
-    set_user_key: async (v: SymmetricKey) => { user_key = v },
+    set_user_key: async (v: SymmetricKey) => {
+      user_key = v;
+    },
     get_user_key: async () => user_key,
-    clear_user_key: async () => { user_key = null },
+    clear_user_key: async () => {
+      user_key = null;
+    },
 
-    set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) => { persistentPinEnvelope = v },
+    set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) => {
+      persistentPinEnvelope = v;
+    },
     get_persistent_pin_envelope: async () => persistentPinEnvelope,
-    clear_persistent_pin_envelope: async () => { persistentPinEnvelope = null },
+    clear_persistent_pin_envelope: async () => {
+      persistentPinEnvelope = null;
+    },
 
-    set_ephemeral_pin_envelope: async (v: PasswordProtectedKeyEnvelope) =>
-      { ephemeralPinEnvelope = v },
+    set_ephemeral_pin_envelope: async (v: PasswordProtectedKeyEnvelope) => {
+      ephemeralPinEnvelope = v;
+    },
     get_ephemeral_pin_envelope: async () => ephemeralPinEnvelope,
-    clear_ephemeral_pin_envelope: async () => { ephemeralPinEnvelope = null },
+    clear_ephemeral_pin_envelope: async () => {
+      ephemeralPinEnvelope = null;
+    },
 
-    set_encrypted_pin: async (v: EncString) => { encryptedPin = v },
+    set_encrypted_pin: async (v: EncString) => {
+      encryptedPin = v;
+    },
     get_encrypted_pin: async () => encryptedPin,
-    clear_encrypted_pin: async () => { encryptedPin = null },
+    clear_encrypted_pin: async () => {
+      encryptedPin = null;
+    },
 
-    set_v2_upgrade_token: async (v: V2UpgradeToken) => { v2UpgradeToken = v },
+    set_v2_upgrade_token: async (v: V2UpgradeToken) => {
+      v2UpgradeToken = v;
+    },
     get_v2_upgrade_token: async () => v2UpgradeToken,
-    clear_v2_upgrade_token: async () => { v2UpgradeToken = null },
+    clear_v2_upgrade_token: async () => {
+      v2UpgradeToken = null;
+    },
 
-    set_account_cryptographic_state: async (v: WrappedAccountCryptographicState) =>
-      { accountCryptographicState = v },
+    set_account_cryptographic_state: async (v: WrappedAccountCryptographicState) => {
+      accountCryptographicState = v;
+    },
     get_account_cryptographic_state: async () => accountCryptographicState,
-    clear_account_cryptographic_state: async () => { accountCryptographicState = null },
+    clear_account_cryptographic_state: async () => {
+      accountCryptographicState = null;
+    },
 
-    set_masterpassword_unlock_data: async (v: MasterPasswordUnlockData) =>
-      { masterPasswordUnlockData = v },
+    set_masterpassword_unlock_data: async (v: MasterPasswordUnlockData) => {
+      masterPasswordUnlockData = v;
+    },
     get_masterpassword_unlock_data: async () => masterPasswordUnlockData,
-    clear_masterpassword_unlock_data: async () => { masterPasswordUnlockData = null },
+    clear_masterpassword_unlock_data: async () => {
+      masterPasswordUnlockData = null;
+    },
   };
 }
 
@@ -60,33 +98,35 @@ export const MASTER_KEY_WRAPPED_USER_KEY =
 /**
  * Makes a password manager client with an initialized crypto state for testing.
  */
-export async function makeInitializedPasswordmanagerClient(stateBridge: WasmStateBridge): Promise<PasswordManagerClient> {
-    init_sdk();
+export async function makeInitializedPasswordmanagerClient(
+  stateBridge: WasmStateBridge,
+): Promise<PasswordManagerClient> {
+  init_sdk();
 
-    const tokens: TokenProvider = {
-      get_access_token: async () => undefined,
-    };
+  const tokens: TokenProvider = {
+    get_access_token: async () => undefined,
+  };
 
-    const client = new PasswordManagerClient(tokens);
-    client.km_state_bridge().register_bridge_impl(stateBridge);
+  const client = new PasswordManagerClient(tokens);
+  client.km_state_bridge().register_bridge_impl(stateBridge);
 
-    const req: InitUserCryptoRequest = {
-      userId: userId("00000000-0000-0000-0000-000000000000"),
-      kdfParams: { pBKDF2: { iterations: 100_000 } },
-      email: TEST_EMAIL,
-      accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
-      method: {
-        masterPasswordUnlock: {
-          password: TEST_PASSWORD,
-          master_password_unlock: {
-            kdf: { pBKDF2: { iterations: 100_000 } },
-            masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
-            salt: TEST_EMAIL,
-          },
+  const req: InitUserCryptoRequest = {
+    userId: userId("00000000-0000-0000-0000-000000000000"),
+    kdfParams: { pBKDF2: { iterations: 100_000 } },
+    email: TEST_EMAIL,
+    accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
+    method: {
+      masterPasswordUnlock: {
+        password: TEST_PASSWORD,
+        master_password_unlock: {
+          kdf: { pBKDF2: { iterations: 100_000 } },
+          masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
+          salt: TEST_EMAIL,
         },
       },
-    };
+    },
+  };
 
-    await client.crypto().initialize_user_crypto(req);
-    return client;
+  await client.crypto().initialize_user_crypto(req);
+  return client;
 }

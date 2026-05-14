@@ -1,7 +1,4 @@
-import {
-  PasswordManagerClient,
-  type WasmStateBridge,
-} from "@bitwarden/sdk-internal";
+import { PasswordManagerClient, type WasmStateBridge } from "@bitwarden/sdk-internal";
 import { makeInitializedPasswordmanagerClient, makeStateBridge, TEST_PIN } from "./utils";
 
 describe("pin lock tests", () => {
