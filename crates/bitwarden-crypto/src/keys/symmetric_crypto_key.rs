@@ -1,6 +1,6 @@
-use std::pin::Pin;
+use std::{pin::Pin, str::FromStr};
 
-use bitwarden_encoding::B64;
+use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::{CborSerializable, RegisteredLabelWithPrivate, iana::KeyOperation};
 use hybrid_array::Array;
 use rand::RngExt;
@@ -556,8 +556,16 @@ impl<'de> Deserialize<'de> for SymmetricCryptoKey {
     where
         D: serde::Deserializer<'de>,
     {
-        let encoded_key = BitwardenLegacyKeyBytes::deserialize(deserializer)?;
-        SymmetricCryptoKey::try_from(&encoded_key).map_err(serde::de::Error::custom)
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl FromStr for SymmetricCryptoKey {
+    type Err = CryptoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = B64::try_from(s.to_string()).map_err(|_| CryptoError::InvalidKey)?;
+        Self::try_from(bytes).map_err(|_| CryptoError::InvalidKey)
     }
 }
 
@@ -566,8 +574,7 @@ impl Serialize for SymmetricCryptoKey {
     where
         S: serde::Serializer,
     {
-        let encoded_key = self.to_encoded();
-        encoded_key.serialize(serializer)
+        serializer.serialize_str(&self.to_base64().to_string())
     }
 }
 

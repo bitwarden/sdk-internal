@@ -1,6 +1,7 @@
 import {
   init_sdk,
   PasswordManagerClient,
+  SymmetricKey,
   type EncString,
   type InitUserCryptoRequest,
   type MasterPasswordUnlockData,
@@ -19,18 +20,15 @@ function makeStateBridge(): WasmStateBridge {
   let persistentPinEnvelope: PasswordProtectedKeyEnvelope | undefined;
   let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | undefined;
   let encryptedPin: EncString | undefined;
+  let user_key: SymmetricKey | undefined;
   let v2UpgradeToken: V2UpgradeToken | undefined;
   let accountCryptographicState: WrappedAccountCryptographicState | undefined;
   let masterPasswordUnlockData: MasterPasswordUnlockData | undefined;
 
   return {
-    // SymmetricCryptoKey doesn't round-trip cleanly through JS in this build
-    // (serialized as base64 string, expected to deserialize as struct Bytes).
-    // Return undefined so the registration self-test skips deserialization;
-    // the PIN flow reads the user key from the in-memory key store, not here.
-    set_user_key: async () => {},
-    get_user_key: async () => undefined,
-    clear_user_key: async () => {},
+    set_user_key: async (v: SymmetricKey) => void (user_key = v),
+    get_user_key: async () => user_key,
+    clear_user_key: async () => void (user_key = undefined),
 
     set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) =>
       void (persistentPinEnvelope = v),
