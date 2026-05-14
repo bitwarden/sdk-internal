@@ -16,47 +16,49 @@ import {
 const encstring = (s: string) => s as unknown as EncString;
 const userId = (s: string) => s as unknown as UserId;
 
+/**
+ * Makes a simple in-memory implementation of the WasmStateBridge for testing.
+ */
 function makeStateBridge(): WasmStateBridge {
-  let persistentPinEnvelope: PasswordProtectedKeyEnvelope | undefined;
-  let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | undefined;
-  let encryptedPin: EncString | undefined;
-  let user_key: SymmetricKey | undefined;
-  let v2UpgradeToken: V2UpgradeToken | undefined;
-  let accountCryptographicState: WrappedAccountCryptographicState | undefined;
-  let masterPasswordUnlockData: MasterPasswordUnlockData | undefined;
+  let persistentPinEnvelope: PasswordProtectedKeyEnvelope | null;
+  let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | null;
+  let encryptedPin: EncString | null;
+  let user_key: SymmetricKey | null;
+  let v2UpgradeToken: V2UpgradeToken | null;
+  let accountCryptographicState: WrappedAccountCryptographicState | null;
+  let masterPasswordUnlockData: MasterPasswordUnlockData | null;
 
   return {
-    set_user_key: async (v: SymmetricKey) => void (user_key = v),
+    set_user_key: async (v: SymmetricKey) => { user_key = v },
     get_user_key: async () => user_key,
-    clear_user_key: async () => void (user_key = undefined),
+    clear_user_key: async () => { user_key = null },
 
-    set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) =>
-      void (persistentPinEnvelope = v),
+    set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) => { persistentPinEnvelope = v },
     get_persistent_pin_envelope: async () => persistentPinEnvelope,
-    clear_persistent_pin_envelope: async () => void (persistentPinEnvelope = undefined),
+    clear_persistent_pin_envelope: async () => { persistentPinEnvelope = null },
 
     set_ephemeral_pin_envelope: async (v: PasswordProtectedKeyEnvelope) =>
-      void (ephemeralPinEnvelope = v),
+      { ephemeralPinEnvelope = v },
     get_ephemeral_pin_envelope: async () => ephemeralPinEnvelope,
-    clear_ephemeral_pin_envelope: async () => void (ephemeralPinEnvelope = undefined),
+    clear_ephemeral_pin_envelope: async () => { ephemeralPinEnvelope = null },
 
-    set_encrypted_pin: async (v: EncString) => void (encryptedPin = v),
+    set_encrypted_pin: async (v: EncString) => { encryptedPin = v },
     get_encrypted_pin: async () => encryptedPin,
-    clear_encrypted_pin: async () => void (encryptedPin = undefined),
+    clear_encrypted_pin: async () => { encryptedPin = null },
 
-    set_v2_upgrade_token: async (v: V2UpgradeToken) => void (v2UpgradeToken = v),
+    set_v2_upgrade_token: async (v: V2UpgradeToken) => { v2UpgradeToken = v },
     get_v2_upgrade_token: async () => v2UpgradeToken,
-    clear_v2_upgrade_token: async () => void (v2UpgradeToken = undefined),
+    clear_v2_upgrade_token: async () => { v2UpgradeToken = null },
 
     set_account_cryptographic_state: async (v: WrappedAccountCryptographicState) =>
-      void (accountCryptographicState = v),
+      { accountCryptographicState = v },
     get_account_cryptographic_state: async () => accountCryptographicState,
-    clear_account_cryptographic_state: async () => void (accountCryptographicState = undefined),
+    clear_account_cryptographic_state: async () => { accountCryptographicState = null },
 
     set_masterpassword_unlock_data: async (v: MasterPasswordUnlockData) =>
-      void (masterPasswordUnlockData = v),
+      { masterPasswordUnlockData = v },
     get_masterpassword_unlock_data: async () => masterPasswordUnlockData,
-    clear_masterpassword_unlock_data: async () => void (masterPasswordUnlockData = undefined),
+    clear_masterpassword_unlock_data: async () => { masterPasswordUnlockData = null },
   };
 }
 
