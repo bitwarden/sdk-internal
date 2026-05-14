@@ -12,7 +12,7 @@ use bitwarden_crypto::{
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::warn;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -56,6 +56,26 @@ pub(crate) enum UnlockError {
     NoPinSet,
     PinWrong,
     InternalError,
+}
+
+#[derive(Debug)]
+pub(crate) enum MigrationFailed {
+    /// Could not read the contained key id from the persistent envelope.
+    EnvelopeMalformed,
+    /// Envelope is V2-encrypted and user key is V2, but the key ids differ.
+    /// V2 -> V2 key rotation is not currently supported here.
+    V2KeyRotationUnsupported,
+    /// Envelope is V2-encrypted but the user key is V1 — inconsistent state.
+    V2EnvelopeWithV1UserKey,
+    /// V1 -> V2 migration is required but no V2 upgrade token is stored.
+    MissingV2UpgradeToken,
+    /// V1 -> V2 migration is required but no encrypted PIN is stored.
+    MissingEncryptedPin,
+    /// V1 -> V2 migration could not decrypt the encrypted PIN via the upgrade
+    /// token.
+    PinDecryption,
+    /// Re-sealing the envelope under the new user key failed.
+    Reenrollment,
 }
 
 /// Provides PIN-based unlock functionality. This includes enrolling into PIN-based unlock,
@@ -128,21 +148,19 @@ impl PinLockSystem<'_> {
     /// After a V2 upgrade, when a V2 upgrade token is present and the persistent
     /// PIN envelope is still encrypted with the V1 user key, this function migrates
     /// the persistent PIN enrollment to be encrypted with the current user-key.
-    async fn migrate_pin_envelope_if_needed(&self) {
+    async fn migrate_pin_envelope_if_needed(&self) -> Result<(), MigrationFailed> {
         let Some(envelope) = self
             .client
             .km_state_bridge()
             .get_persistent_pin_envelope()
             .await
         else {
-            return;
+            return Ok(());
         };
 
-        let Ok(envelope_key_id) = envelope.contained_key_id() else {
-            warn!("Failed to read PIN envelope key id, unenrolling PIN");
-            self.unset_pin().await;
-            return;
-        };
+        let envelope_key_id = envelope
+            .contained_key_id()
+            .map_err(|_| MigrationFailed::EnvelopeMalformed)?;
         let current_user_key_id = self
             .key_store()
             .context()
@@ -154,69 +172,47 @@ impl PinLockSystem<'_> {
             (Some(envelope_key_id), Some(current_user_key_id))
                 if envelope_key_id == current_user_key_id =>
             {
-                return;
+                return Ok(());
             }
             // V1 -> V2 migration
-            (None, Some(_)) => {
-                info!(
-                    "A V1 -> V2 key migration happened. Migrating PIN envelope to be encrypted with the current user key."
-                );
-            }
-            // V2 -> V2 key rotation. Not supported currently. Have to unenroll.
-            (Some(_), Some(_)) => {
-                info!(
-                    "A V2 key rotation happened, but PIN state was not cleared. Upgrading is currently not supported; unenrolling from PIN unlock."
-                );
-                self.unset_pin().await;
-                return;
-            }
+            (None, Some(_)) => {}
+            // V2 -> V2 key rotation. Not supported currently.
+            (Some(_), Some(_)) => return Err(MigrationFailed::V2KeyRotationUnsupported),
             // V2 -> V1 migration. Not possible, something strange happened.
-            (Some(_), None) => {
-                warn!(
-                    "PIN envelope uses V2 encryption, but user uses V1 encryption. Please report this as a bug!"
-                );
-                self.unset_pin().await;
-                return;
-            }
+            (Some(_), None) => return Err(MigrationFailed::V2EnvelopeWithV1UserKey),
             // V1 -> V1 (unable to see whether key changed)
-            (None, None) => {
-                return;
-            }
+            (None, None) => return Ok(()),
         }
 
-        let Some(token) = self.client.km_state_bridge().get_v2_upgrade_token().await else {
-            warn!("No V2 upgrade token available, unenrolling PIN");
-            self.unset_pin().await;
-            return;
-        };
-        let Some(encrypted_pin) = self.client.km_state_bridge().get_encrypted_pin().await else {
-            warn!("No encrypted PIN available for migration, unenrolling PIN");
-            self.unset_pin().await;
-            return;
-        };
+        let token = self
+            .client
+            .km_state_bridge()
+            .get_v2_upgrade_token()
+            .await
+            .ok_or(MigrationFailed::MissingV2UpgradeToken)?;
+        let encrypted_pin = self
+            .client
+            .km_state_bridge()
+            .get_encrypted_pin()
+            .await
+            .ok_or(MigrationFailed::MissingEncryptedPin)?;
 
         // Attempt to decrypt the previous PIN via the upgrade token.
-        let Ok(pin) = (|| -> Result<String, ()> {
+        let pin = (|| -> Result<String, ()> {
             let mut ctx = self.key_store().context_mut();
             let v1_slot = token
                 .unwrap_v1(SymmetricKeySlotId::User, &mut ctx)
                 .map_err(|_| ())?;
             encrypted_pin.decrypt(&mut ctx, v1_slot).map_err(|_| ())
-        })() else {
-            warn!("Failed to decrypt PIN for migration, unenrolling PIN");
-            self.unset_pin().await;
-            return;
-        };
+        })()
+        .map_err(|_| MigrationFailed::PinDecryption)?;
 
         // Do a fresh enrollment with the new user-key
-        if self
-            .set_pin(pin, PinLockType::BeforeFirstUnlock)
+        self.set_pin(pin, PinLockType::BeforeFirstUnlock)
             .await
-            .is_err()
-        {
-            warn!("Failed to re-seal PIN envelope after migration, unenrolling PIN");
-            self.unset_pin().await;
-        }
+            .map_err(|_| MigrationFailed::Reenrollment)?;
+
+        Ok(())
     }
 
     /// Refreshes in-memory PIN unlock material after a successful non-PIN unlock.
@@ -228,7 +224,11 @@ impl PinLockSystem<'_> {
             return;
         }
 
-        self.migrate_pin_envelope_if_needed().await;
+        if let Err(e) = self.migrate_pin_envelope_if_needed().await {
+            warn!("PIN migration failed: {e:?}, unenrolling PIN");
+            self.unset_pin().await;
+            return;
+        }
 
         let encrypted_pin = self.client.km_state_bridge().get_encrypted_pin().await;
 
@@ -872,7 +872,10 @@ mod tests {
         let user_key_id = user_key_id(&client);
         let system = PinLockSystem::with_client(&client);
 
-        system.migrate_pin_envelope_if_needed().await;
+        system
+            .migrate_pin_envelope_if_needed()
+            .await
+            .expect("migration succeeds");
 
         let persistent = bridge
             .get_persistent_pin_envelope()
@@ -925,7 +928,10 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
 
-        system.migrate_pin_envelope_if_needed().await;
+        system
+            .migrate_pin_envelope_if_needed()
+            .await
+            .expect("migration succeeds");
 
         assert_pin_fully_unenrolled(&client).await;
     }
@@ -954,7 +960,10 @@ mod tests {
             .expect("encrypted pin present")
             .to_string();
 
-        system.migrate_pin_envelope_if_needed().await;
+        system
+            .migrate_pin_envelope_if_needed()
+            .await
+            .expect("migration succeeds");
 
         let persistent_after = &bridge
             .get_persistent_pin_envelope()
@@ -997,7 +1006,10 @@ mod tests {
         let encrypted_pin_before = encrypted_pin.to_string();
 
         let system = PinLockSystem::with_client(&client);
-        system.migrate_pin_envelope_if_needed().await;
+        system
+            .migrate_pin_envelope_if_needed()
+            .await
+            .expect("migration succeeds");
 
         let persistent_after = &bridge
             .get_persistent_pin_envelope()
