@@ -237,6 +237,31 @@ impl PasswordManagerClient {
 
         Ok(session_key_bytes)
     }
+
+    /// Persists the client's base URLs into the state registry.
+    ///
+    /// Must be called after login and before the process exits, so that
+    /// [`PasswordManagerClient::load_from_state`] can reconstruct [`ClientSettings`]
+    /// on the next invocation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry operation fails.
+    pub async fn save_to_state(&self) -> Result<(), RehydrationError> {
+        let api_configs = self.0.internal.get_api_configurations();
+        let base_urls = BaseUrls {
+            identity_url: api_configs.identity_config.base_path.clone(),
+            api_url: api_configs.api_config.base_path.clone(),
+        };
+
+        self.0
+            .platform()
+            .state()
+            .setting(BASE_URLS)?
+            .update(base_urls)
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -244,6 +269,35 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+
+    async fn save_to_state_persists_base_urls() {
+        use bitwarden_core::{ClientSettings, client::persisted_state::BASE_URLS};
+
+        let settings = ClientSettings {
+            identity_url: "https://test-identity.example.com".to_string(),
+            api_url: "https://test-api.example.com".to_string(),
+            ..ClientSettings::default()
+        };
+        let client = PasswordManagerClient::new(Some(settings));
+
+        client
+            .save_to_state()
+            .await
+            .expect("save_to_state should succeed");
+
+        let stored = client
+            .platform()
+            .state()
+            .setting(BASE_URLS)
+            .expect("BASE_URLS key should be registered")
+            .get()
+            .await
+            .expect("get should succeed")
+            .expect("BASE_URLS should be set after save_to_state");
+
+        assert_eq!(stored.identity_url, "https://test-identity.example.com");
+        assert_eq!(stored.api_url, "https://test-api.example.com");
+    }
 
     #[tokio::test]
     async fn generate_session_key_fails_when_not_unlocked() {
