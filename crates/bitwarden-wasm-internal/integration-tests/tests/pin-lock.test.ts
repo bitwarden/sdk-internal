@@ -38,4 +38,25 @@ describe("pin lock tests", () => {
     expect(await stateBridge.get_ephemeral_pin_envelope()).toBeDefined();
     expect(await stateBridge.get_persistent_pin_envelope()).toBeNull();
   });
+
+  it("validates the PIN", async () => {
+    const pinSettings = client.user_crypto_management().pin_settings();
+
+    await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
+    const validated = await pinSettings.validate_pin(TEST_PIN);
+
+    expect(validated).toBe(true);
+  });
+
+  it("unsets the PIN", async () => {
+    const pinSettings = client.user_crypto_management().pin_settings();
+
+    await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
+    await pinSettings.unset_pin();
+
+    expect(await pinSettings.get_status()).toEqual("NotSet");
+    expect(await stateBridge.get_encrypted_pin()).toBeNull();
+    expect(await stateBridge.get_persistent_pin_envelope()).toBeNull();
+    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeNull();
+  });
 });
