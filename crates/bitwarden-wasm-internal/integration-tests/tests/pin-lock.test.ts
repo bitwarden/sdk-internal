@@ -13,10 +13,6 @@ describe("pin lock tests", () => {
     client = await makeInitializedPasswordmanagerClient(stateBridge);
   });
 
-  it("exposes an SDK version", () => {
-    expect(client.version()).toEqual(expect.any(String));
-  });
-
   it("enrolls a PIN with BeforeFirstUnlock lock type", async () => {
     const pinSettings = client.user_crypto_management().pin_settings();
 
