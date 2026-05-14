@@ -90,8 +90,9 @@ pub enum BitwardenError {
     DecryptFido2AutofillCredentials(#[from] bitwarden_fido::DecryptFido2AutofillCredentialsError),
     #[error(transparent)]
     Fido2Client(#[from] bitwarden_fido::Fido2ClientError),
-    // #[error(transparent)]
-    // DeviceAuthKey(#[from] crate::platform::fido2::DeviceAuthKeyError),
+    #[error(transparent)]
+    DeviceAuthKey(#[from] bitwarden_fido::DeviceAuthKeyError),
+
     #[error(transparent)]
     SshGeneration(#[from] bitwarden_ssh::error::KeyGenerationError),
     #[error(transparent)]

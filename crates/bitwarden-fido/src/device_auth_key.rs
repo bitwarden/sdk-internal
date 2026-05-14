@@ -629,6 +629,7 @@ pub struct DeviceAuthKeyMetadata {
 
 /// Errors related to processing the device auth key.
 #[derive(Debug, thiserror::Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum DeviceAuthKeyError {
     /// Authenticator failed to produce a valid response.
     #[error("The authenticator failed to produce a valid response")]

@@ -231,7 +231,7 @@ impl From<Fido2CallbackError> for BitFido2CallbackError {
 
 /// Errors related to processing the device auth key.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum DeviceAuthKeyError {
+pub enum DeviceAuthKeyCallbackError {
     /// Authenticator failed to produce a valid response.
     #[error("The authenticator failed to produce a valid response")]
     AuthenticatorFailure,
@@ -317,43 +317,45 @@ pub enum DeviceAuthKeyError {
 // Need to implement this From<> impl in order to handle unexpected callback errors.  See the
 // following page in the Uniffi user guide:
 // <https://mozilla.github.io/uniffi-rs/foreign_traits.html#error-handling>
-impl From<uniffi::UnexpectedUniFFICallbackError> for DeviceAuthKeyError {
+impl From<uniffi::UnexpectedUniFFICallbackError> for DeviceAuthKeyCallbackError {
     fn from(e: uniffi::UnexpectedUniFFICallbackError) -> Self {
         Self::Unknown { reason: e.reason }
     }
 }
 
-impl From<DeviceAuthKeyError> for BitDeviceAuthKeyError {
-    fn from(val: DeviceAuthKeyError) -> Self {
+impl From<DeviceAuthKeyCallbackError> for BitDeviceAuthKeyError {
+    fn from(val: DeviceAuthKeyCallbackError) -> Self {
         match val {
-            DeviceAuthKeyError::AuthenticatorFailure => Self::AuthenticatorFailure,
-            DeviceAuthKeyError::Conversion => Self::Conversion,
-            DeviceAuthKeyError::CredentialExcluded => Self::CredentialExcluded,
-            DeviceAuthKeyError::InvalidRecordIdentifier => Self::InvalidRecordIdentifier,
-            DeviceAuthKeyError::InvalidWebVaultUrl => Self::InvalidWebVaultUrl,
-            DeviceAuthKeyError::MissingDeviceAuthKey => Self::MissingDeviceAuthKey,
-            DeviceAuthKeyError::UnregisterFailure => Self::UnregisterFailure,
-            DeviceAuthKeyError::InvalidCoseKey => Self::InvalidCoseKey,
-            DeviceAuthKeyError::InvalidPublicKeyCredentialDescriptor => {
+            DeviceAuthKeyCallbackError::AuthenticatorFailure => Self::AuthenticatorFailure,
+            DeviceAuthKeyCallbackError::Conversion => Self::Conversion,
+            DeviceAuthKeyCallbackError::CredentialExcluded => Self::CredentialExcluded,
+            DeviceAuthKeyCallbackError::InvalidRecordIdentifier => Self::InvalidRecordIdentifier,
+            DeviceAuthKeyCallbackError::InvalidWebVaultUrl => Self::InvalidWebVaultUrl,
+            DeviceAuthKeyCallbackError::MissingDeviceAuthKey => Self::MissingDeviceAuthKey,
+            DeviceAuthKeyCallbackError::UnregisterFailure => Self::UnregisterFailure,
+            DeviceAuthKeyCallbackError::InvalidCoseKey => Self::InvalidCoseKey,
+            DeviceAuthKeyCallbackError::InvalidPublicKeyCredentialDescriptor => {
                 Self::InvalidPublicKeyCredentialDescriptor
             }
-            DeviceAuthKeyError::MasterPasswordHash => Self::MasterPasswordHash,
-            DeviceAuthKeyError::MissingCredentialId => Self::MissingCredentialId,
-            DeviceAuthKeyError::MissingHmacSecret => Self::MissingHmacSecret,
-            DeviceAuthKeyError::MissingUserHandle => Self::MissingUserHandle,
-            DeviceAuthKeyError::NotImplemented => Self::NotImplemented,
-            DeviceAuthKeyError::RetrieveRegistrationOptionsFailure => {
+            DeviceAuthKeyCallbackError::MasterPasswordHash => Self::MasterPasswordHash,
+            DeviceAuthKeyCallbackError::MissingCredentialId => Self::MissingCredentialId,
+            DeviceAuthKeyCallbackError::MissingHmacSecret => Self::MissingHmacSecret,
+            DeviceAuthKeyCallbackError::MissingUserHandle => Self::MissingUserHandle,
+            DeviceAuthKeyCallbackError::NotImplemented => Self::NotImplemented,
+            DeviceAuthKeyCallbackError::RetrieveRegistrationOptionsFailure => {
                 Self::RetrieveRegistrationOptionsFailure
             }
-            DeviceAuthKeyError::PrfFailure => Self::PrfFailure,
-            DeviceAuthKeyError::SubmitRegistrationFailure => Self::SubmitRegistrationFailure,
-            DeviceAuthKeyError::UserCancelled => Self::UserCancelled,
-            DeviceAuthKeyError::Unknown { reason } => Self::Unknown { reason },
+            DeviceAuthKeyCallbackError::PrfFailure => Self::PrfFailure,
+            DeviceAuthKeyCallbackError::SubmitRegistrationFailure => {
+                Self::SubmitRegistrationFailure
+            }
+            DeviceAuthKeyCallbackError::UserCancelled => Self::UserCancelled,
+            DeviceAuthKeyCallbackError::Unknown { reason } => Self::Unknown { reason },
         }
     }
 }
 
-impl From<BitDeviceAuthKeyError> for DeviceAuthKeyError {
+impl From<BitDeviceAuthKeyError> for DeviceAuthKeyCallbackError {
     fn from(val: BitDeviceAuthKeyError) -> Self {
         match val {
             BitDeviceAuthKeyError::AuthenticatorFailure => Self::AuthenticatorFailure,
@@ -436,7 +438,7 @@ impl ClientDeviceAuthKeyAuthenticator {
         email: String,
         secret_verification_request: SecretVerificationRequest,
         kdf: Kdf,
-    ) -> Result<(), DeviceAuthKeyError> {
+    ) -> Result<()> {
         let mut store = UniffiTraitBridge(self.store.as_ref());
         let mut authenticator = self.client.create_device_key_authenticator(&mut store);
         authenticator
@@ -448,7 +450,7 @@ impl ClientDeviceAuthKeyAuthenticator {
                 kdf,
             )
             .await
-            .map_err(Into::into)
+            .map_err(Error::DeviceAuthKey)
     }
 
     /// Uses a device auth key to respond to the provided WebAuthn assertion request.
@@ -458,13 +460,13 @@ impl ClientDeviceAuthKeyAuthenticator {
     async fn assert_device_auth_key(
         &self,
         request: GetAssertionRequest,
-    ) -> Result<DeviceAuthKeyGetAssertionResult, DeviceAuthKeyError> {
+    ) -> Result<DeviceAuthKeyGetAssertionResult> {
         let mut store = UniffiTraitBridge(self.store.as_ref());
         let mut authenticator = self.client.create_device_key_authenticator(&mut store);
         authenticator
             .assert_device_auth_key(request)
             .await
-            .map_err(Into::into)
+            .map_err(Error::DeviceAuthKey)
     }
 
     /// Deletes a device auth key and unregisters it from the server.
@@ -473,27 +475,32 @@ impl ClientDeviceAuthKeyAuthenticator {
         email: String,
         secret_verification_request: SecretVerificationRequest,
         kdf: Kdf,
-    ) -> Result<(), DeviceAuthKeyError> {
+    ) -> Result<()> {
         let mut store = UniffiTraitBridge(self.store.as_ref());
         let mut authenticator = self.client.create_device_key_authenticator(&mut store);
         authenticator
             .unregister_device_auth_key(email, secret_verification_request, kdf)
             .await
-            .map_err(Into::into)
+            .map_err(Error::DeviceAuthKey)
     }
 }
 
 #[uniffi::export(with_foreign)]
 #[async_trait::async_trait]
 pub trait DeviceAuthKeyStore: Send + Sync {
-    async fn create_record(&self, record: DeviceAuthKeyRecord) -> Result<(), DeviceAuthKeyError>;
+    async fn create_record(
+        &self,
+        record: DeviceAuthKeyRecord,
+    ) -> Result<(), DeviceAuthKeyCallbackError>;
     async fn create_metadata(
         &self,
         metadata: DeviceAuthKeyMetadata,
-    ) -> Result<(), DeviceAuthKeyError>;
-    async fn get_metadata(&self) -> Result<Option<DeviceAuthKeyMetadata>, DeviceAuthKeyError>;
-    async fn get_record(&self) -> Result<Option<DeviceAuthKeyRecord>, DeviceAuthKeyError>;
-    async fn delete_record_and_metadata(&self) -> Result<(), DeviceAuthKeyError>;
+    ) -> Result<(), DeviceAuthKeyCallbackError>;
+    async fn get_metadata(
+        &self,
+    ) -> Result<Option<DeviceAuthKeyMetadata>, DeviceAuthKeyCallbackError>;
+    async fn get_record(&self) -> Result<Option<DeviceAuthKeyRecord>, DeviceAuthKeyCallbackError>;
+    async fn delete_record_and_metadata(&self) -> Result<(), DeviceAuthKeyCallbackError>;
 }
 
 // See note on UniffiTraitBridge below
