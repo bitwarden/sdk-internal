@@ -267,7 +267,7 @@ mod tests {
                 status,
                 message: _,
             })) => {
-                assert_eq!(status, reqwest::StatusCode::INTERNAL_SERVER_ERROR.as_u16());
+                assert_eq!(status, reqwest::StatusCode::INTERNAL_SERVER_ERROR);
             }
             other => panic!("Expected Api Response error, got {:?}", other),
         }

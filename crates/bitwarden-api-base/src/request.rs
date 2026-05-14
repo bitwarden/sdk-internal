@@ -32,7 +32,11 @@ async fn process_with_json_response_internal<E>(
             )))),
         }
     } else {
-        Err(ResponseContent::new(status, content).into())
+        Err(ResponseContent {
+            status,
+            message: content,
+        }
+        .into())
     }
 }
 
@@ -57,6 +61,10 @@ pub async fn process_with_empty_response<E>(
         Ok(())
     } else {
         let content = response.text().await?;
-        Err(ResponseContent::new(status, content).into())
+        Err(ResponseContent {
+            status,
+            message: content,
+        }
+        .into())
     }
 }

@@ -15,10 +15,12 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["dep:uniffi"]
+uniffi = ["dep:bitwarden-uniffi-error", "dep:uniffi"]
 
 [dependencies]
+bitwarden-uniffi-error = { workspace = true, optional = true }
 http = ">=1.4.0, <2"
+http-serde = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde = { workspace = true }

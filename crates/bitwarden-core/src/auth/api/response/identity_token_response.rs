@@ -34,7 +34,11 @@ pub(crate) fn parse_identity_response(
         Err(LoginError::IdentityFail(r))
     } else {
         Err(LoginError::Api(
-            ResponseContent::new(status, response).into(),
+            ResponseContent {
+                status,
+                message: response,
+            }
+            .into(),
         ))
     }
 }

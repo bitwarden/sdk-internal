@@ -2,24 +2,17 @@
 
 use std::{convert::Infallible, error, fmt, marker::PhantomData};
 
+use serde::{Deserialize, Serialize};
+
 /// Response content from a failed API call.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ResponseContent {
     /// HTTP status code of the response.
-    pub status: u16,
+    #[serde(with = "http_serde::status_code")]
+    pub status: reqwest::StatusCode,
     /// Response body content.
     pub message: String,
-}
-
-impl ResponseContent {
-    /// Constructs a [ResponseContent] from a [reqwest::StatusCode] and message.
-    pub fn new(status: reqwest::StatusCode, message: String) -> Self {
-        Self {
-            status: status.as_u16(),
-            message,
-        }
-    }
 }
 
 /// Errors that can occur during API operations.
