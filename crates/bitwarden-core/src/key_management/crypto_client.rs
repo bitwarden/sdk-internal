@@ -203,6 +203,25 @@ impl CryptoClient {
 }
 
 impl CryptoClient {
+    /// Initializes the user's crypto state from a pre-decrypted user key.
+    ///
+    /// Used by [`bitwarden_pm::PasswordManagerClient::unlock_from_state`] to restore
+    /// the vault after loading from persisted state with a session key.
+    ///
+    /// Passes `&None` for the upgrade token (Deviation 8 from PM-31879 deviations).
+    #[cfg(feature = "internal")]
+    pub fn initialize_with_decrypted_key(
+        &self,
+        user_key: bitwarden_crypto::SymmetricCryptoKey,
+        account_crypto_state: crate::key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+    ) -> Result<(), crate::client::encryption_settings::EncryptionSettingsError> {
+        self.client.internal.initialize_user_crypto_decrypted_key(
+            user_key,
+            account_crypto_state,
+            &None,
+        )
+    }
+
     /// Create the data necessary to update the user's password. The user's encryption key is
     /// re-encrypted with the new password. This returns the new encrypted user key and the new
     /// password hash but does not update sdk state.

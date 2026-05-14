@@ -332,6 +332,76 @@ impl PasswordManagerClient {
 
         Ok(client)
     }
+
+    /// Unlocks the client's vault by decrypting the user key from a stored session key.
+    ///
+    /// The session key is the raw bytes returned by a previous call to
+    /// [`generate_session_key`]. These bytes should have been securely stored
+    /// (e.g., OS keychain) between invocations.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RehydrationError::MissingState`] if `SESSION_PROTECTED_USER_KEY` or
+    /// `ACCOUNT_CRYPTO_STATE` are absent from the registry.
+    /// Returns [`RehydrationError::NotAuthenticated`] if the session key bytes are
+    /// invalid or if decryption fails (wrong key).
+    /// Returns [`RehydrationError::State`] if registry operations fail.
+    pub async fn unlock_from_state(
+        &self,
+        session_key_bytes: Vec<u8>,
+    ) -> Result<(), RehydrationError> {
+        use bitwarden_core::client::persisted_state::ACCOUNT_CRYPTO_STATE;
+        use bitwarden_crypto::BitwardenLegacyKeyBytes;
+
+        // Parse the raw session key bytes into a SymmetricCryptoKey
+        // Invalid bytes = wrong key presented = NotAuthenticated
+        let session_key =
+            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(session_key_bytes))
+                .map_err(|_| RehydrationError::NotAuthenticated)?;
+
+        // Read SESSION_PROTECTED_USER_KEY from state
+        let wrapped_user_key = self
+            .0
+            .platform()
+            .state()
+            .setting(SESSION_PROTECTED_USER_KEY)
+            .map_err(RehydrationError::State)?
+            .get()
+            .await
+            .map_err(RehydrationError::State)?
+            .ok_or(RehydrationError::MissingState)?;
+
+        // Read ACCOUNT_CRYPTO_STATE from state
+        let account_crypto_state = self
+            .0
+            .platform()
+            .state()
+            .setting(ACCOUNT_CRYPTO_STATE)
+            .map_err(RehydrationError::State)?
+            .get()
+            .await
+            .map_err(RehydrationError::State)?
+            .ok_or(RehydrationError::MissingState)?;
+
+        // Decrypt the user key using the session key (ctx dropped before any .await)
+        let decrypted_user_key = {
+            let mut ctx = self.0.internal.get_key_store().context_mut();
+            let session_key_id = ctx.add_local_symmetric_key(session_key);
+            let unwrapped_key_id = ctx
+                .unwrap_symmetric_key(session_key_id, &wrapped_user_key)
+                .map_err(|_| RehydrationError::NotAuthenticated)?;
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(unwrapped_key_id)
+                .map_err(|_| RehydrationError::NotAuthenticated)?
+                .clone()
+        };
+
+        // Initialize the crypto state via CryptoClient public wrapper
+        self.0
+            .crypto()
+            .initialize_with_decrypted_key(decrypted_user_key, account_crypto_state)
+            .map_err(|_| RehydrationError::NotAuthenticated)
+    }
 }
 
 #[cfg(test)]
@@ -350,7 +420,7 @@ mod tests {
         });
     }
 
-
+    #[tokio::test]
     async fn load_from_state_round_trips_user_id() {
         use bitwarden_core::{UserId, client::persisted_state::USER_ID};
 
@@ -433,7 +503,6 @@ mod tests {
         );
     }
 
-
     #[tokio::test]
     async fn save_to_state_persists_base_urls() {
         use bitwarden_core::{ClientSettings, client::persisted_state::BASE_URLS};
@@ -471,6 +540,16 @@ mod tests {
         assert!(
             result.is_err(),
             "expected error when user key is not loaded"
+        );
+    }
+
+    #[tokio::test]
+    async fn unlock_from_state_fails_with_missing_session_key() {
+        let client = PasswordManagerClient::new(None);
+        let result = client.unlock_from_state(vec![0u8; 64]).await;
+        assert!(
+            matches!(result, Err(RehydrationError::MissingState)),
+            "expected MissingState when SESSION_PROTECTED_USER_KEY absent"
         );
     }
 
