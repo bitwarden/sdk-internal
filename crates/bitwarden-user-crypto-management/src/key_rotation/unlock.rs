@@ -50,6 +50,8 @@ pub(super) enum ReencryptError {
     KeysetUnlockDataReencryption,
     /// Failed to update the unlock data for emergency access or organization membership
     KeySharingError,
+    /// Failed to wrap the user key with the Key Connector key
+    KeyConnectorWrapping,
     /// Failed to create v2 upgrade token
     UpgradeTokenCreation,
 }
