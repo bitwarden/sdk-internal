@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_auth::token_management::PasswordManagerTokenHandler;
 use bitwarden_core::{ClientBuilder, client::tracing_middleware::ReqwestTracingMiddleware};
+use bitwarden_state::registry::StateRegistry;
 
 use crate::PasswordManagerClient;
 
@@ -10,6 +11,7 @@ pub struct PasswordManagerClientBuilder {
     settings: Option<bitwarden_core::ClientSettings>,
     cookie_provider:
         Option<std::sync::Arc<dyn bitwarden_server_communication_config::CookieProvider>>,
+    state_registry: Option<StateRegistry>,
 }
 
 impl PasswordManagerClientBuilder {
@@ -18,6 +20,7 @@ impl PasswordManagerClientBuilder {
         Self {
             settings: None,
             cookie_provider: None,
+            state_registry: None,
         }
     }
 
@@ -37,12 +40,24 @@ impl PasswordManagerClientBuilder {
         self
     }
 
+    /// Sets a pre-populated [`StateRegistry`] for the client being built.
+    ///
+    /// Used by [`PasswordManagerClient::load_from_state`] to inject persisted state
+    /// into the newly constructed client.
+    pub fn with_state(mut self, state_registry: StateRegistry) -> Self {
+        self.state_registry = Some(state_registry);
+        self
+    }
+
     /// Consumes the builder and constructs a [`PasswordManagerClient`].
     pub fn build(self) -> PasswordManagerClient {
         let token_handler = Arc::new(PasswordManagerTokenHandler::default());
         let mut builder = ClientBuilder::new().with_token_handler(token_handler);
         if let Some(s) = self.settings {
             builder = builder.with_settings(s);
+        }
+        if let Some(registry) = self.state_registry {
+            builder = builder.with_state(registry);
         }
         let mut middleware: Vec<Arc<dyn reqwest_middleware::Middleware>> =
             vec![Arc::new(ReqwestTracingMiddleware)];
@@ -80,6 +95,14 @@ mod tests {
         let settings = bitwarden_core::ClientSettings::default();
         let _client = PasswordManagerClientBuilder::new()
             .with_settings(settings)
+            .build();
+    }
+
+    #[test]
+    fn test_pm_builder_with_state_builds() {
+        let registry = StateRegistry::new_with_memory_db();
+        let _client = PasswordManagerClientBuilder::new()
+            .with_state(registry)
             .build();
     }
 
