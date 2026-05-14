@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ResponseContent {
     /// HTTP status code of the response.
-    #[serde(with = "http_serde::status_code")]
+    #[serde(with = "crate::status_code_serializer")]
     pub status: reqwest::StatusCode,
     /// Response body content.
     pub message: String,

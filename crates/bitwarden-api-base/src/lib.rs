@@ -9,6 +9,7 @@ mod uniffi_support;
 mod configuration;
 mod error;
 mod request;
+mod status_code_serializer;
 mod util;
 
 pub use configuration::Configuration;
