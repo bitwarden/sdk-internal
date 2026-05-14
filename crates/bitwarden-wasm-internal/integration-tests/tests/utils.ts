@@ -1,17 +1,4 @@
-import {
-  init_sdk,
-  PasswordManagerClient,
-  SymmetricKey,
-  type EncString,
-  type InitUserCryptoRequest,
-  type MasterPasswordUnlockData,
-  type PasswordProtectedKeyEnvelope,
-  type TokenProvider,
-  type UserId,
-  type V2UpgradeToken,
-  type WasmStateBridge,
-  type WrappedAccountCryptographicState,
-} from "@bitwarden/sdk-internal";
+import { WasmStateBridge, PasswordProtectedKeyEnvelope, EncString, SymmetricKey, V2UpgradeToken, WrappedAccountCryptographicState, MasterPasswordUnlockData, PasswordManagerClient, init_sdk, TokenProvider, InitUserCryptoRequest, UserId } from "@bitwarden/sdk-internal";
 
 const encstring = (s: string) => s as unknown as EncString;
 const userId = (s: string) => s as unknown as UserId;
@@ -19,7 +6,7 @@ const userId = (s: string) => s as unknown as UserId;
 /**
  * Makes a simple in-memory implementation of the WasmStateBridge for testing.
  */
-function makeStateBridge(): WasmStateBridge {
+export function makeStateBridge(): WasmStateBridge {
   let persistentPinEnvelope: PasswordProtectedKeyEnvelope | null;
   let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | null;
   let encryptedPin: EncString | null;
@@ -62,30 +49,26 @@ function makeStateBridge(): WasmStateBridge {
   };
 }
 
-const TEST_EMAIL = "test@bitwarden.com";
-const TEST_PASSWORD = "asdfasdfasdf";
-const TEST_PIN = "1234";
-
-const PRIVATE_KEY =
+export const TEST_EMAIL = "test@bitwarden.com";
+export const TEST_PASSWORD = "asdfasdfasdf";
+export const TEST_PIN = "1234";
+export const PRIVATE_KEY =
   "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=";
-
-const MASTER_KEY_WRAPPED_USER_KEY =
+export const MASTER_KEY_WRAPPED_USER_KEY =
   "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=";
 
-describe("pin lock tests", () => {
-  let client: PasswordManagerClient;
-  let stateBridge: WasmStateBridge;
-
-  beforeAll(async () => {
+/**
+ * Makes a password manager client with an initialized crypto state for testing.
+ */
+export async function makeInitializedPasswordmanagerClient(stateBridge: WasmStateBridge): Promise<PasswordManagerClient> {
     init_sdk();
 
     const tokens: TokenProvider = {
       get_access_token: async () => undefined,
     };
 
-    stateBridge = makeStateBridge();
-    client = new PasswordManagerClient(tokens);
-    await client.km_state_bridge().register_bridge_impl(stateBridge);
+    const client = new PasswordManagerClient(tokens);
+    client.km_state_bridge().register_bridge_impl(stateBridge);
 
     const req: InitUserCryptoRequest = {
       userId: userId("00000000-0000-0000-0000-000000000000"),
@@ -105,35 +88,5 @@ describe("pin lock tests", () => {
     };
 
     await client.crypto().initialize_user_crypto(req);
-  });
-
-  it("exposes an SDK version", () => {
-    expect(client.version()).toEqual(expect.any(String));
-  });
-
-  it("enrolls a PIN with BeforeFirstUnlock lock type", async () => {
-    const pinSettings = client.user_crypto_management().pin_settings();
-
-    await pinSettings.set_pin(TEST_PIN, "BeforeFirstUnlock");
-
-    expect(await pinSettings.get_status()).toEqual("Available");
-    expect(await pinSettings.get_lock_type()).toBe("BeforeFirstUnlock");
-    expect(await stateBridge.get_encrypted_pin()).toBeDefined();
-    // BeforeFirstUnlock populates both envelopes
-    expect(await stateBridge.get_persistent_pin_envelope()).toBeDefined();
-    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeDefined();
-  });
-
-  it("enrolls a PIN with AfterFirstUnlock lock type", async () => {
-    const pinSettings = client.user_crypto_management().pin_settings();
-
-    await pinSettings.set_pin(TEST_PIN, "AfterFirstUnlock");
-
-    expect(await pinSettings.get_status()).toEqual("Available");
-    expect(await pinSettings.get_lock_type()).toBe("AfterFirstUnlock");
-    expect(await stateBridge.get_encrypted_pin()).toBeDefined();
-    // AfterFirstUnlock populates only the ephemeral envelope
-    expect(await stateBridge.get_ephemeral_pin_envelope()).toBeDefined();
-    expect(await stateBridge.get_persistent_pin_envelope()).toBeUndefined();
-  });
-});
+    return client;
+}
