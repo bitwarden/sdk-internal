@@ -2,6 +2,8 @@
 package_name = "com.bitwarden.organizations"
 generate_immutable_records = true
 android = true
+# Temporary workaround for https://github.com/mozilla/uniffi-rs/issues/2740
+omit_checksums = true
 
 [bindings.swift]
 ffi_module_name = "BitwardenOrganizationsFFI"
