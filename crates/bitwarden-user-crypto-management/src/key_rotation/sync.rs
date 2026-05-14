@@ -530,10 +530,8 @@ mod tests {
             folders: Some(vec![create_test_folder(uuid::Uuid::new_v4())]),
             ciphers: Some(vec![create_test_cipher(uuid::Uuid::new_v4())]),
             sends: Some(vec![create_test_send(uuid::Uuid::new_v4())]),
-            collections: None,
-            domains: None,
-            policies: None,
             user_decryption: Some(Box::new(create_test_user_decryption())),
+            ..Default::default()
         }
     }
 
@@ -718,9 +716,7 @@ mod tests {
                 .expect_get()
                 .once()
                 .returning(move |_exclude_domains| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
                 });
             mock.organizations_api.expect_get_user().never();
             mock.organizations_api.expect_get_public_key().never();
@@ -807,9 +803,7 @@ mod tests {
                 .expect_get_public_key()
                 .once()
                 .returning(move |_| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("Network error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
                 });
         });
 
@@ -913,9 +907,7 @@ mod tests {
                 .expect_get_user()
                 .once()
                 .returning(move || {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("Network error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
                 });
 
             mock.organizations_api.expect_get_public_key().never();
@@ -955,9 +947,7 @@ mod tests {
                 .expect_get_public_key()
                 .once()
                 .returning(move |_| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("Network error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
                 });
         });
 
@@ -1103,9 +1093,7 @@ mod tests {
     async fn test_sync_passkeys_network_error() {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.web_authn_api.expect_get().once().returning(move || {
-                Err(bitwarden_api_api::apis::Error::Serde(
-                    serde_json::Error::io(std::io::Error::other("Network error")),
-                ))
+                Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
             });
         });
 
@@ -1195,9 +1183,7 @@ mod tests {
     async fn test_sync_devices_network_error() {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.devices_api.expect_get_all().once().returning(move || {
-                Err(bitwarden_api_api::apis::Error::Serde(
-                    serde_json::Error::io(std::io::Error::other("Network error")),
-                ))
+                Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
             });
         });
 
@@ -1257,9 +1243,7 @@ mod tests {
                 .expect_get_public_key()
                 .once()
                 .returning(move |_| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("Network error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
                 });
         });
 
@@ -1373,9 +1357,7 @@ mod tests {
                 .expect_get_contacts()
                 .once()
                 .returning(move || {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("Network error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
                 });
 
             mock.users_api.expect_get_public_key().never();
@@ -1420,9 +1402,7 @@ mod tests {
                 .expect_get_public_key()
                 .once()
                 .returning(move |_| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("Network error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("Network error")).into())
                 });
         });
 

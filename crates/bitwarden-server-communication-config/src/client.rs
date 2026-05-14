@@ -93,7 +93,7 @@ where
             .repository
             .get(domain.clone())
             .await
-            .map_err(|e| AcquireCookieError::RepositoryGetError(format!("{:?}", e)))?;
+            .map_err(|e| AcquireCookieError::RepositoryGet(format!("{:?}", e)))?;
 
         let Some(config) = config else {
             return Ok(vec![]);
@@ -231,8 +231,8 @@ where
     ///   ([`AcquireCookieError::UnsupportedConfiguration`])
     /// - Acquired cookie name doesn't match expected name
     ///   ([`AcquireCookieError::CookieNameMismatch`])
-    /// - Repository operations fail ([`AcquireCookieError::RepositoryGetError`] or
-    ///   [`AcquireCookieError::RepositorySaveError`])
+    /// - Repository operations fail ([`AcquireCookieError::RepositoryGet`] or
+    ///   [`AcquireCookieError::RepositorySave`])
     pub async fn acquire_cookie(
         &self,
         domain: &str,
@@ -242,7 +242,7 @@ where
             .repository
             .get(domain.to_string())
             .await
-            .map_err(|e| AcquireCookieError::RepositoryGetError(format!("{:?}", e)))?
+            .map_err(|e| AcquireCookieError::RepositoryGet(format!("{:?}", e)))?
             .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
 
         // Verify this is an SSO cookie vendor configuration and get mutable reference
@@ -306,7 +306,7 @@ where
         self.repository
             .save(domain.to_string(), config)
             .await
-            .map_err(|e| AcquireCookieError::RepositorySaveError(format!("{:?}", e)))?;
+            .map_err(|e| AcquireCookieError::RepositorySave(format!("{:?}", e)))?;
 
         Ok(cookies)
     }

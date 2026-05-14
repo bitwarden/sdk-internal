@@ -436,11 +436,9 @@ mod tests {
             .unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
-            mock.sends_api.expect_put().returning(move |_id, _model| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.sends_api
+                .expect_put()
+                .returning(move |_id, _model| Err(std::io::Error::other("Simulated error").into()));
         });
 
         let result = edit_send(

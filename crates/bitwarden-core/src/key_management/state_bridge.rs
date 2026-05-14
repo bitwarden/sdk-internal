@@ -11,7 +11,13 @@ use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKey
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::Client;
+use crate::{
+    Client,
+    key_management::{
+        MasterPasswordUnlockData, V2UpgradeToken,
+        account_cryptographic_state::WrappedAccountCryptographicState,
+    },
+};
 
 /// Thread-safe wrapper around the registered [`StateBridgeImpl`] instance.
 pub struct StateBridge {
@@ -113,11 +119,15 @@ impl StateBridgeClient {
 //
 // Each field expands to three methods on each of [`StateBridgeImpl`], [`StateBridge`], and
 // [`StateBridgeClient`] (`set_$name`, `get_$name`, `clear_$name`); WASM extern bindings on
-// [`RawWasmStateBridge`]; a [`StateBridgeImpl`] forwarder impl for [`WasmStateBridge`]; and the
-// matching `WasmStateBridge` TypeScript interface.
+// [`RawWasmStateBridge`]; a [`StateBridgeImpl`] forwarder impl for [`WasmStateBridge`]; the
+// matching `WasmStateBridge` TypeScript interface; and a `#[cfg(test)] pub(crate) mod test_support`
+// containing an `InMemoryStateBridge` test fixture.
 bitwarden_state_bridge_macro::state_bridge! {
     user_key: SymmetricCryptoKey as ts "SymmetricKey",
     persistent_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     ephemeral_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     encrypted_pin: EncString as ts "EncString",
+    v2_upgrade_token: V2UpgradeToken as ts "V2UpgradeToken",
+    account_cryptographic_state: WrappedAccountCryptographicState as ts "WrappedAccountCryptographicState",
+    masterpassword_unlock_data: MasterPasswordUnlockData as ts "MasterPasswordUnlockData",
 }

@@ -11,7 +11,7 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotId, KeySlotIds, LocalId,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeySlotId, KeySlotIds, LocalId,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
@@ -212,11 +212,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
 
         let key = match (wrapped_key, wrapping_key) {
-            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
-                        .map_err(|_| CryptoError::Decrypt)?,
-                ))?
+            (EncString::Aes256Cbc_B64 { .. }, SymmetricCryptoKey::Aes256CbcKey(_)) => {
+                return Err(CryptoError::OperationNotSupported(
+                    UnsupportedOperationError::DecryptionNotImplementedForKey,
+                ));
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
@@ -538,6 +537,14 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.get_symmetric_key(key_id)
     }
 
+    /// Return the key id if the symmetric key exists in the context
+    pub fn get_symmetric_key_id(&self, key_slot_id: Ids::Symmetric) -> Option<KeyId> {
+        let Ok(key) = self.get_symmetric_key(key_slot_id) else {
+            return None;
+        };
+        key.key_id()
+    }
+
     /// Return a reference to a signing key stored in the context.
     ///
     /// Deprecated: intended only for internal use and tests. This exposes the underlying
@@ -716,9 +723,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         let key = self.get_symmetric_key(key)?;
 
         match (data, key) {
-            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
-                    .map_err(|_| CryptoError::Decrypt)
+            (EncString::Aes256Cbc_B64 { .. }, SymmetricCryptoKey::Aes256CbcKey(_)) => {
+                Err(CryptoError::OperationNotSupported(
+                    UnsupportedOperationError::DecryptionNotImplementedForKey,
+                ))
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
@@ -809,7 +817,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable,
+        CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable, EncString,
         KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
         SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
         SymmetricKeyAlgorithm,
@@ -1107,5 +1115,92 @@ mod tests {
         // Ensure the old key id is gone and the new `one has the key
         assert!(!ctx.has_symmetric_key(key));
         assert!(ctx.has_symmetric_key(new_key_id));
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_data_fails_when_key_is_type_0() {
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+
+        let key_id = TestSymmKey::A(0);
+        let key = SymmetricCryptoKey::Aes256CbcKey(crate::Aes256CbcKey {
+            enc_key: Box::pin([0u8; 32].into()),
+        });
+        ctx.set_symmetric_key_internal(key_id, key).unwrap();
+
+        let data_to_encrypt: Vec<u8> = vec![1, 2, 3, 4, 5];
+        let result = ctx.encrypt_data_with_symmetric_key(
+            key_id,
+            &data_to_encrypt,
+            crate::ContentFormat::OctetStream,
+        );
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::OperationNotSupported(
+                    crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey
+                ))
+            ),
+            "Expected encrypt to fail when using deprecated type 0 keys",
+        );
+
+        let data_to_decrypt = EncString::Aes256Cbc_B64 {
+            iv: [0; 16],
+            data: data_to_encrypt,
+        }; // dummy value; shouldn't matter
+        let result = ctx.decrypt_data_with_symmetric_key(key_id, &data_to_decrypt);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::OperationNotSupported(
+                    crate::error::UnsupportedOperationError::DecryptionNotImplementedForKey
+                ))
+            ),
+            "Expected decrypt to fail when using deprecated type 0 keys",
+        );
+    }
+
+    #[test]
+    fn test_wrap_unwrap_key_fails_when_key_is_type_0() {
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+
+        let wrapping_key_id = TestSymmKey::A(0);
+        let wrapping_key = SymmetricCryptoKey::Aes256CbcKey(crate::Aes256CbcKey {
+            enc_key: Box::pin([0u8; 32].into()),
+        });
+        ctx.set_symmetric_key_internal(wrapping_key_id, wrapping_key)
+            .unwrap();
+
+        let key_to_wrap_id = TestSymmKey::A(1);
+        let key_to_wrap = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        ctx.set_symmetric_key_internal(key_to_wrap_id, key_to_wrap)
+            .unwrap();
+
+        let result = ctx.wrap_symmetric_key(wrapping_key_id, key_to_wrap_id);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::OperationNotSupported(
+                    crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey
+                ))
+            ),
+            "Expected encrypt to fail when using deprecated type 0 keys",
+        );
+
+        let wrapped_key = &EncString::Aes256Cbc_B64 {
+            iv: [0; 16],
+            data: vec![0],
+        }; // dummy value; shouldn't matter
+        let result = ctx.unwrap_symmetric_key(wrapping_key_id, wrapped_key);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::OperationNotSupported(
+                    crate::error::UnsupportedOperationError::DecryptionNotImplementedForKey
+                ))
+            ),
+            "Expected decrypt to fail when using deprecated type 0 keys",
+        );
     }
 }

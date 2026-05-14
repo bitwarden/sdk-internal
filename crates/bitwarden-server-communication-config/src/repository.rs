@@ -9,11 +9,11 @@ use crate::ServerCommunicationConfig;
 pub enum ServerCommunicationConfigRepositoryError {
     /// Error occurred while retrieving configuration
     #[error("Failed to get configuration: {0}")]
-    GetError(String),
+    Get(String),
 
     /// Error occurred while saving configuration
     #[error("Failed to save configuration: {0}")]
-    SaveError(String),
+    Save(String),
 }
 
 /// Repository for storing server communication configuration
