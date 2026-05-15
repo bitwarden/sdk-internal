@@ -33,7 +33,7 @@ pub struct FolderResponseModel {
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub revision_date: Option<String>,
+    pub revision_date: Option<jiff::Timestamp>,
 }
 
 impl FolderResponseModel {

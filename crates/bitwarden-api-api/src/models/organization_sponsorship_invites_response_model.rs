@@ -49,13 +49,13 @@ pub struct OrganizationSponsorshipInvitesResponseModel {
         alias = "LastSyncDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub last_sync_date: Option<String>,
+    pub last_sync_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "validUntil",
         alias = "ValidUntil",
         skip_serializing_if = "Option::is_none"
     )]
-    pub valid_until: Option<String>,
+    pub valid_until: Option<jiff::Timestamp>,
     #[serde(
         rename = "toDelete",
         alias = "ToDelete",

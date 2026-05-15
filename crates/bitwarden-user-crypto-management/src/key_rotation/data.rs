@@ -183,7 +183,7 @@ mod tests {
     use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStore};
     use bitwarden_send::SendView;
     use bitwarden_vault::{Attachment, Cipher, CipherRepromptType, CipherType};
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use super::check_for_old_attachments;
     use crate::key_rotation::RotateUserKeysError;
@@ -300,7 +300,7 @@ mod tests {
             name: "Test Cipher".to_string(),
             notes: Some("Some cipher notes".to_string()),
             favorite: false,
-            revision_date: Utc::now(),
+            revision_date: Timestamp::now(),
             deleted_date: None,
             fields: None,
             login: Some(LoginView {
@@ -328,7 +328,7 @@ mod tests {
             drivers_license: None,
             permissions: None,
             view_password: false,
-            creation_date: Utc::now(),
+            creation_date: Timestamp::now(),
             archived_date: None,
             edit: false,
             password_history: None,
@@ -372,7 +372,7 @@ mod tests {
         let folder = bitwarden_vault::FolderView {
             id: None,
             name: "Test Folder".to_string(),
-            revision_date: Utc::now(),
+            revision_date: Timestamp::now(),
         };
         let encrypted_folder = folder.encrypt_composite(&mut ctx, user_key_old).unwrap();
 
@@ -415,8 +415,8 @@ mod tests {
             access_count: 0,
             disabled: false,
             hide_email: false,
-            revision_date: Utc::now(),
-            deletion_date: Utc::now(),
+            revision_date: Timestamp::now(),
+            deletion_date: Timestamp::now(),
             expiration_date: None,
             new_password: None,
             has_password: false,

@@ -5,7 +5,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -19,8 +19,8 @@ pub struct ProjectResponse {
     pub id: Uuid,
     pub organization_id: Uuid,
     pub name: String,
-    pub creation_date: DateTime<Utc>,
-    pub revision_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
+    pub revision_date: Timestamp,
 }
 
 impl ProjectResponse {
@@ -40,8 +40,8 @@ impl ProjectResponse {
             organization_id,
             name,
 
-            creation_date: require!(response.creation_date).parse()?,
-            revision_date: require!(response.revision_date).parse()?,
+            creation_date: require!(response.creation_date),
+            revision_date: require!(response.revision_date),
         })
     }
 }

@@ -39,7 +39,7 @@ pub struct SecretVersionResponseModel {
         alias = "VersionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub version_date: Option<String>,
+    pub version_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "editorServiceAccountId",
         alias = "EditorServiceAccountId",

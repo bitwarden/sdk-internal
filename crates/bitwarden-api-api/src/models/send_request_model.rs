@@ -68,12 +68,12 @@ pub struct SendRequestModel {
         alias = "ExpirationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expiration_date: Option<String>,
+    pub expiration_date: Option<jiff::Timestamp>,
     /// The date after which a send may be automatically deleted from the server. The server
     /// enforces a maximum of 31 days from creation. A background job deletes sends once this date
     /// has passed.
     #[serde(rename = "deletionDate", alias = "DeletionDate")]
-    pub deletion_date: String,
+    pub deletion_date: jiff::Timestamp,
     #[serde(
         rename = "file",
         alias = "File",
@@ -117,7 +117,7 @@ pub struct SendRequestModel {
 
 impl SendRequestModel {
     /// A send request issued by a Bitwarden client
-    pub fn new(key: String, deletion_date: String, disabled: bool) -> SendRequestModel {
+    pub fn new(key: String, deletion_date: jiff::Timestamp, disabled: bool) -> SendRequestModel {
         SendRequestModel {
             r#type: None,
             auth_type: None,

@@ -11,7 +11,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_uuid::uuid_newtype;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
@@ -248,9 +248,9 @@ pub struct Send {
     pub disabled: bool,
     pub hide_email: bool,
 
-    pub revision_date: DateTime<Utc>,
-    pub deletion_date: DateTime<Utc>,
-    pub expiration_date: Option<DateTime<Utc>>,
+    pub revision_date: Timestamp,
+    pub deletion_date: Timestamp,
+    pub expiration_date: Option<Timestamp>,
 
     /// Email addresses for OTP authentication (comma-separated).
     ///
@@ -278,8 +278,8 @@ impl From<Send> for SendWithIdRequestModel {
             notes: send.notes.map(|notes| notes.to_string()),
             key: send.key.to_string(),
             max_access_count: send.max_access_count.map(|count| count as i32),
-            expiration_date: send.expiration_date.map(|date| date.to_rfc3339()),
-            deletion_date: send.deletion_date.to_rfc3339(),
+            expiration_date: send.expiration_date,
+            deletion_date: send.deletion_date,
             file: send.file.map(|file| Box::new(file.into())),
             text: send.text.map(|text| Box::new(text.into())),
             password: send.password,
@@ -324,9 +324,9 @@ pub struct SendView {
     pub disabled: bool,
     pub hide_email: bool,
 
-    pub revision_date: DateTime<Utc>,
-    pub deletion_date: DateTime<Utc>,
-    pub expiration_date: Option<DateTime<Utc>>,
+    pub revision_date: Timestamp,
+    pub deletion_date: Timestamp,
+    pub expiration_date: Option<Timestamp>,
 
     /// Email addresses for OTP authentication.
     /// **Note**: Mutually exclusive with `new_password`. If both are set, only password
@@ -350,9 +350,9 @@ pub struct SendListView {
     pub r#type: SendType,
     pub disabled: bool,
 
-    pub revision_date: DateTime<Utc>,
-    pub deletion_date: DateTime<Utc>,
-    pub expiration_date: Option<DateTime<Utc>>,
+    pub revision_date: Timestamp,
+    pub deletion_date: Timestamp,
+    pub expiration_date: Option<Timestamp>,
 
     pub auth_type: AuthType,
 }
@@ -609,9 +609,9 @@ impl TryFrom<SendResponseModel> for Send {
             access_count: require!(send.access_count) as u32,
             disabled: send.disabled.unwrap_or(false),
             hide_email: send.hide_email.unwrap_or(false),
-            revision_date: require!(send.revision_date).parse()?,
-            deletion_date: require!(send.deletion_date).parse()?,
-            expiration_date: send.expiration_date.map(|s| s.parse()).transpose()?,
+            revision_date: require!(send.revision_date),
+            deletion_date: require!(send.deletion_date),
+            expiration_date: send.expiration_date,
             emails: send.emails,
             auth_type,
         })
@@ -964,15 +964,9 @@ mod tests {
     #[test]
     fn test_send_into_send_with_id_request_model() {
         let send_id = "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().unwrap();
-        let revision_date = DateTime::parse_from_rfc3339("2024-01-07T23:56:48Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let deletion_date = DateTime::parse_from_rfc3339("2024-01-14T23:56:48Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let expiration_date = DateTime::parse_from_rfc3339("2024-01-20T23:56:48Z")
-            .unwrap()
-            .with_timezone(&Utc);
+        let revision_date: Timestamp = "2024-01-07T23:56:48Z".parse().unwrap();
+        let deletion_date: Timestamp = "2024-01-14T23:56:48Z".parse().unwrap();
+        let expiration_date: Timestamp = "2024-01-20T23:56:48Z".parse().unwrap();
 
         let name = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
         let notes = "2.2VPyLzk1tMLug0X3x7RkaQ==|mrMt9vbZsCJhJIj4eebKyg==|aZ7JeyndytEMR1+uEBupEvaZuUE69D/ejhfdJL8oKq0=";
@@ -1025,18 +1019,8 @@ mod tests {
         assert_eq!(model.notes.as_deref(), Some(notes));
         assert_eq!(model.key, key);
         assert_eq!(model.max_access_count, Some(42));
-        assert_eq!(
-            model
-                .expiration_date
-                .unwrap()
-                .parse::<DateTime<Utc>>()
-                .unwrap(),
-            expiration_date
-        );
-        assert_eq!(
-            model.deletion_date.parse::<DateTime<Utc>>().unwrap(),
-            deletion_date
-        );
+        assert_eq!(model.expiration_date.unwrap(), expiration_date);
+        assert_eq!(model.deletion_date, deletion_date);
         assert_eq!(model.password.as_deref(), Some("hash"));
         assert_eq!(
             model.emails.as_deref(),

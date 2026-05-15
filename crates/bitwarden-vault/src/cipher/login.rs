@@ -8,7 +8,7 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use bitwarden_encoding::B64;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use subtle::ConstantTimeEq;
@@ -102,7 +102,7 @@ pub struct Fido2Credential {
     pub rp_name: Option<EncString>,
     pub user_display_name: Option<EncString>,
     pub discoverable: EncString,
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -138,7 +138,7 @@ pub struct Fido2CredentialView {
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
     pub discoverable: String,
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
 }
 
 // This is mostly a copy of the Fido2CredentialView, but with the key exposed
@@ -160,7 +160,7 @@ pub struct Fido2CredentialFullView {
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
     pub discoverable: String,
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
 }
 
 // This is mostly a copy of the Fido2CredentialView, meant to be exposed to the clients
@@ -182,7 +182,7 @@ pub struct Fido2CredentialNewView {
     pub counter: String,
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
 }
 
 impl From<Fido2CredentialFullView> for Fido2CredentialNewView {
@@ -289,7 +289,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialFullView> for Fi
 pub struct Login {
     pub username: Option<EncString>,
     pub password: Option<EncString>,
-    pub password_revision_date: Option<DateTime<Utc>>,
+    pub password_revision_date: Option<Timestamp>,
 
     pub uris: Option<Vec<LoginUri>>,
     pub totp: Option<EncString>,
@@ -306,7 +306,7 @@ pub struct Login {
 pub struct LoginView {
     pub username: Option<String>,
     pub password: Option<String>,
-    pub password_revision_date: Option<DateTime<Utc>>,
+    pub password_revision_date: Option<Timestamp>,
 
     pub uris: Option<Vec<LoginUriView>>,
     pub totp: Option<String>,
@@ -355,7 +355,7 @@ impl LoginView {
         if original_password.is_empty() {
             // No original password - set revision date only if adding new password
             if !current_password.is_empty() {
-                self.password_revision_date = Some(Utc::now());
+                self.password_revision_date = Some(Timestamp::now());
             }
             vec![]
         } else if original_password == current_password {
@@ -364,7 +364,7 @@ impl LoginView {
             vec![]
         } else {
             // Password changed - update revision date and track change
-            self.password_revision_date = Some(Utc::now());
+            self.password_revision_date = Some(Timestamp::now());
             vec![PasswordHistoryView::new_password(original_password)]
         }
     }
@@ -590,10 +590,7 @@ impl TryFrom<CipherLoginModel> for Login {
         Ok(Self {
             username: EncString::try_from_optional(login.username)?,
             password: EncString::try_from_optional(login.password)?,
-            password_revision_date: login
-                .password_revision_date
-                .map(|d| d.parse())
-                .transpose()?,
+            password_revision_date: login.password_revision_date,
             uris: login
                 .uris
                 .map(|v| v.into_iter().map(|u| u.try_into()).collect())
@@ -661,7 +658,7 @@ impl TryFrom<bitwarden_api_api::models::CipherFido2CredentialModel> for Fido2Cre
                 .ok()
                 .flatten(),
             discoverable: require!(value.discoverable).parse()?,
-            creation_date: value.creation_date.parse()?,
+            creation_date: value.creation_date,
         })
     }
 }
@@ -706,7 +703,7 @@ impl From<Fido2Credential> for bitwarden_api_api::models::CipherFido2CredentialM
             rp_name: cred.rp_name.map(|n| n.to_string()),
             user_display_name: cred.user_display_name.map(|n| n.to_string()),
             discoverable: Some(cred.discoverable.to_string()),
-            creation_date: cred.creation_date.to_rfc3339(),
+            creation_date: cred.creation_date,
         }
     }
 }
@@ -720,7 +717,7 @@ impl From<Login> for bitwarden_api_api::models::CipherLoginModel {
                 .map(|u| u.into_iter().map(|u| u.into()).collect()),
             username: login.username.map(|u| u.to_string()),
             password: login.password.map(|p| p.to_string()),
-            password_revision_date: login.password_revision_date.map(|d| d.to_rfc3339()),
+            password_revision_date: login.password_revision_date,
             totp: login.totp.map(|t| t.to_string()),
             autofill_on_page_load: login.autofill_on_page_load,
             fido2_credentials: login

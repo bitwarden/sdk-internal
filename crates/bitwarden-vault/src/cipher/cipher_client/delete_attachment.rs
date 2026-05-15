@@ -149,8 +149,8 @@ mod tests {
                             id: Some(TEST_CIPHER_ID.try_into().unwrap()),
                             name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".to_string()),
                             r#type: Some(bitwarden_api_api::models::CipherType::Login),
-                            creation_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
-                            revision_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
+                            creation_date: Some("2024-05-31T11:20:58.4566667Z".parse().unwrap()),
+                            revision_date: Some("2024-05-31T11:20:58.4566667Z".parse().unwrap()),
                             attachments: None,
                             ..Default::default()
                         })),

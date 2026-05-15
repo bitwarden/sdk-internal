@@ -6,7 +6,7 @@ use bitwarden_vault::{
     CipherRepromptType, CipherView, Fido2CredentialFullView, FieldView, FolderId, LoginUriView,
     UriMatchType,
 };
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use uuid::Uuid;
 
 #[cfg(feature = "uniffi")]
@@ -69,9 +69,9 @@ pub struct Cipher {
 
     pub fields: Vec<Field>,
 
-    pub revision_date: DateTime<Utc>,
-    pub creation_date: DateTime<Utc>,
-    pub deleted_date: Option<DateTime<Utc>>,
+    pub revision_date: Timestamp,
+    pub creation_date: Timestamp,
+    pub deleted_date: Option<Timestamp>,
 }
 
 /// Import representation of a Bitwarden cipher.
@@ -94,9 +94,9 @@ pub struct ImportingCipher {
 
     pub fields: Vec<Field>,
 
-    pub revision_date: DateTime<Utc>,
-    pub creation_date: DateTime<Utc>,
-    pub deleted_date: Option<DateTime<Utc>>,
+    pub revision_date: Timestamp,
+    pub creation_date: Timestamp,
+    pub deleted_date: Option<Timestamp>,
 }
 
 impl From<Login> for bitwarden_vault::LoginView {
@@ -423,7 +423,7 @@ pub struct Fido2Credential {
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
     pub discoverable: String,
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
 }
 
 impl From<Fido2Credential> for Fido2CredentialFullView {
@@ -510,13 +510,13 @@ pub struct SshKey {
 #[cfg(test)]
 mod tests {
     use bitwarden_vault::{CipherType as VaultCipherType, FieldType};
-    use chrono::{DateTime, Utc};
+    use jiff::Timestamp;
 
     use super::*;
 
     #[test]
     fn test_importing_cipher_to_cipher_view_login() {
-        let test_date: DateTime<Utc> = "2024-01-30T17:55:36.150Z".parse().unwrap();
+        let test_date: Timestamp = "2024-01-30T17:55:36.150Z".parse().unwrap();
         let test_folder_id = uuid::Uuid::new_v4();
 
         let importing_cipher = ImportingCipher {
@@ -583,7 +583,7 @@ mod tests {
 
     #[test]
     fn test_importing_cipher_to_cipher_view_secure_note() {
-        let test_date: DateTime<Utc> = "2024-01-30T17:55:36.150Z".parse().unwrap();
+        let test_date: Timestamp = "2024-01-30T17:55:36.150Z".parse().unwrap();
 
         let importing_cipher = ImportingCipher {
             folder_id: None,
@@ -630,7 +630,7 @@ mod tests {
 
     #[test]
     fn test_importing_cipher_to_cipher_view_card() {
-        let test_date: DateTime<Utc> = "2024-01-30T17:55:36.150Z".parse().unwrap();
+        let test_date: Timestamp = "2024-01-30T17:55:36.150Z".parse().unwrap();
 
         let importing_cipher = ImportingCipher {
             folder_id: None,
@@ -666,7 +666,7 @@ mod tests {
 
     #[test]
     fn test_importing_cipher_to_cipher_view_identity() {
-        let test_date: DateTime<Utc> = "2024-01-30T17:55:36.150Z".parse().unwrap();
+        let test_date: Timestamp = "2024-01-30T17:55:36.150Z".parse().unwrap();
 
         let importing_cipher = ImportingCipher {
             folder_id: None,

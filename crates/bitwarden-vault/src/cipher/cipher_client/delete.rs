@@ -149,7 +149,7 @@ mod tests {
     use bitwarden_api_api::apis::ApiClient;
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use crate::{
         Cipher, CipherId,
@@ -272,11 +272,11 @@ mod tests {
             .await
             .unwrap();
 
-        let start_time = Utc::now();
+        let start_time = Timestamp::now();
         soft_delete(cipher_id, &api_client, &repository)
             .await
             .unwrap();
-        let end_time = Utc::now();
+        let end_time = Timestamp::now();
 
         let cipher: Cipher = repository.get(cipher_id).await.unwrap().unwrap();
         assert!(
@@ -303,12 +303,12 @@ mod tests {
         repository.set(cipher_id, cipher_1).await.unwrap();
         repository.set(cipher_id_2, cipher_2).await.unwrap();
 
-        let start_time = Utc::now();
+        let start_time = Timestamp::now();
 
         soft_delete_many(vec![cipher_id, cipher_id_2], None, &api_client, &repository)
             .await
             .unwrap();
-        let end_time = Utc::now();
+        let end_time = Timestamp::now();
 
         let cipher_1 = repository.get(cipher_id).await.unwrap().unwrap();
         let cipher_2 = repository.get(cipher_id_2).await.unwrap().unwrap();

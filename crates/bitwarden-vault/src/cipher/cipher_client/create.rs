@@ -69,8 +69,8 @@ pub struct CipherCreateRequest {
 /// no meaning outside of this flow.
 pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherView {
     // `creation_date` / `revision_date` are overwritten by the server on
-    // merge; `Utc::now()` is a safe placeholder.
-    let now = chrono::Utc::now();
+    // merge; `Timestamp::now()` is a safe placeholder.
+    let now = jiff::Timestamp::now();
     CipherView {
         id: None,
         organization_id: r.organization_id,
@@ -195,7 +195,7 @@ mod tests {
     use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use super::*;
     use crate::{CipherId, LoginView};
@@ -264,8 +264,8 @@ mod tests {
                         view_password: Some(true),
                         edit: Some(true),
                         organization_use_totp: Some(true),
-                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
-                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        revision_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
+                        creation_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
                         deleted_date: None,
                         login: body.login,
                         card: body.card,
@@ -374,8 +374,8 @@ mod tests {
                             .and_then(|id| id.parse().ok()),
                         name: Some(request_body.cipher.name.clone()),
                         r#type: request_body.cipher.r#type,
-                        creation_date: Some(Utc::now().to_string()),
-                        revision_date: Some(Utc::now().to_string()),
+                        creation_date: Some(Timestamp::now()),
+                        revision_date: Some(Timestamp::now()),
                         ..Default::default()
                     })
                 })

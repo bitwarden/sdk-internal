@@ -8,7 +8,7 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use bitwarden_uuid::uuid_newtype;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
@@ -25,7 +25,7 @@ uuid_newtype!(pub FolderId);
 pub struct Folder {
     pub id: Option<FolderId>,
     pub name: EncString,
-    pub revision_date: DateTime<Utc>,
+    pub revision_date: Timestamp,
 }
 
 bitwarden_state::register_repository_item!(FolderId => Folder, "Folder");
@@ -38,7 +38,7 @@ bitwarden_state::register_repository_item!(FolderId => Folder, "Folder");
 pub struct FolderView {
     pub id: Option<FolderId>,
     pub name: String,
-    pub revision_date: DateTime<Utc>,
+    pub revision_date: Timestamp,
 }
 
 impl IdentifyKey<SymmetricKeySlotId> for Folder {
@@ -87,7 +87,7 @@ impl TryFrom<FolderResponseModel> for Folder {
         Ok(Folder {
             id: folder.id.map(FolderId::new),
             name: require!(EncString::try_from_optional(folder.name)?),
-            revision_date: require!(folder.revision_date).parse()?,
+            revision_date: require!(folder.revision_date),
         })
     }
 }

@@ -7,9 +7,9 @@ use std::{
 use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_error::bitwarden_error;
-use chrono::{DateTime, Utc};
 use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, KeyInit, Mac};
+use jiff::Timestamp;
 use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, percent_encode};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -69,12 +69,12 @@ pub struct TotpResponse {
 /// Arguments:
 /// - `key` - The key to generate the TOTP code from
 /// - `time` - The time in UTC to generate the TOTP code for, defaults to current system time
-pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpResponse, TotpError> {
+pub fn generate_totp(key: String, time: Option<Timestamp>) -> Result<TotpResponse, TotpError> {
     let params: Totp = key.parse()?;
 
-    let time = time.unwrap_or_else(Utc::now);
+    let time = time.unwrap_or_else(Timestamp::now);
 
-    let otp = params.derive_otp(time.timestamp());
+    let otp = params.derive_otp(time.as_second());
 
     Ok(TotpResponse {
         code: otp,
@@ -88,7 +88,7 @@ pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpRes
 pub fn generate_totp_cipher_view(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     view: CipherListView,
-    time: Option<DateTime<Utc>>,
+    time: Option<Timestamp>,
 ) -> Result<TotpResponse, TotpError> {
     let key = view
         .get_totp_key(ctx)?
@@ -375,7 +375,6 @@ fn decode_b32(s: &str) -> Vec<u8> {
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
-    use chrono::Utc;
 
     use super::*;
     use crate::{
@@ -412,11 +411,7 @@ mod tests {
             ("KAKFJWOSFJ12NWL", "093430"),
         ];
 
-        let time = Some(
-            DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
+        let time = Some("2023-01-01T00:00:00.000Z".parse::<Timestamp>().unwrap());
 
         for (key, expected_code) in cases {
             let response = generate_totp(key.to_string(), time).unwrap();
@@ -429,11 +424,7 @@ mod tests {
     #[test]
     fn test_generate_otpauth() {
         let key = "otpauth://totp/test-account?secret=WQIQ25BRKZYCJVYP".to_string();
-        let time = Some(
-            DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
+        let time = Some("2023-01-01T00:00:00.000Z".parse::<Timestamp>().unwrap());
         let response = generate_totp(key, time).unwrap();
 
         assert_eq!(response.code, "194506".to_string());
@@ -452,11 +443,7 @@ mod tests {
     #[test]
     fn test_generate_otpauth_uppercase() {
         let key = "OTPauth://totp/test-account?secret=WQIQ25BRKZYCJVYP".to_string();
-        let time = Some(
-            DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
+        let time = Some("2023-01-01T00:00:00.000Z".parse::<Timestamp>().unwrap());
         let response = generate_totp(key, time).unwrap();
 
         assert_eq!(response.code, "194506".to_string());
@@ -466,11 +453,7 @@ mod tests {
     #[test]
     fn test_generate_otpauth_period() {
         let key = "otpauth://totp/test-account?secret=WQIQ25BRKZYCJVYP&period=60".to_string();
-        let time = Some(
-            DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
+        let time = Some("2023-01-01T00:00:00.000Z".parse::<Timestamp>().unwrap());
         let response = generate_totp(key, time).unwrap();
 
         assert_eq!(response.code, "730364".to_string());
@@ -481,11 +464,7 @@ mod tests {
     fn test_generate_otpauth_algorithm_sha256() {
         let key =
             "otpauth://totp/test-account?secret=WQIQ25BRKZYCJVYP&algorithm=SHA256".to_string();
-        let time = Some(
-            DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
+        let time = Some("2023-01-01T00:00:00.000Z".parse::<Timestamp>().unwrap());
         let response = generate_totp(key, time).unwrap();
 
         assert_eq!(response.code, "842615".to_string());
@@ -770,9 +749,7 @@ mod tests {
         let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
         let key_store = create_test_crypto_with_user_key(key);
 
-        let time = DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
-            .unwrap()
-            .with_timezone(&Utc);
+        let time = "2023-01-01T00:00:00.000Z".parse::<Timestamp>().unwrap();
 
         let response =
             generate_totp_cipher_view(&mut key_store.context(), view, Some(time)).unwrap();

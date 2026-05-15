@@ -39,13 +39,13 @@ pub struct ServiceAccountResponseModel {
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub creation_date: Option<String>,
+    pub creation_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "revisionDate",
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub revision_date: Option<String>,
+    pub revision_date: Option<jiff::Timestamp>,
 }
 
 impl ServiceAccountResponseModel {

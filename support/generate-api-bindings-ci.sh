@@ -13,11 +13,10 @@ rm -rf crates/bitwarden-api-api/src
 
 # Generate new API bindings
 npx openapi-generator-cli generate \
+    -c ./support/openapi-config.yaml \
     -i artifacts/api.json \
-    -g rust \
     -o crates/bitwarden-api-api \
     --package-name bitwarden-api-api \
-    -t ./support/openapi-template \
-    --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,supportMiddleware=true,packageVersion=$VERSION,packageDescription=\"API bindings for the Bitwarden API.\"
+    --additional-properties=packageVersion=$VERSION,packageDescription=\"API bindings for the Bitwarden API.\"
 
 npm run prettier

@@ -8,8 +8,8 @@ use bitwarden_core::{
     platform::SecretVerificationRequest,
 };
 use bitwarden_crypto::{HashPurpose, Kdf, RotateableKeySet};
-use chrono::{DateTime, Utc};
 use coset::{CborSerializable, CoseKey};
+use jiff::Timestamp;
 use passkey::{
     authenticator::{
         DiscoverabilitySupport, StoreInfo, UiHint, UserCheck, extensions::HmacSecretConfig,
@@ -190,7 +190,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
         // Save metadata now that we have the server-assigned record identifier
         let metadata = DeviceAuthKeyMetadata {
             record_identifier,
-            creation_date: chrono::offset::Utc::now(),
+            creation_date: Timestamp::now(),
             credential_id,
             rp_id,
             user_handle,
@@ -601,7 +601,7 @@ pub struct DeviceAuthKeyMetadata {
     pub record_identifier: String,
 
     /// Date the device auth key was created.
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
 
     /// FIDO credential ID for the device auth key.
     pub credential_id: Vec<u8>,

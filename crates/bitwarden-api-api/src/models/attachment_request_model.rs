@@ -40,7 +40,7 @@ pub struct AttachmentRequestModel {
         alias = "LastKnownRevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub last_known_revision_date: Option<String>,
+    pub last_known_revision_date: Option<jiff::Timestamp>,
 }
 
 impl AttachmentRequestModel {

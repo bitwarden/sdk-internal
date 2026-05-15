@@ -41,13 +41,13 @@ pub struct OrganizationDomainResponseModel {
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub creation_date: Option<String>,
+    pub creation_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "nextRunDate",
         alias = "NextRunDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub next_run_date: Option<String>,
+    pub next_run_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "jobRunCount",
         alias = "JobRunCount",
@@ -59,13 +59,13 @@ pub struct OrganizationDomainResponseModel {
         alias = "VerifiedDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub verified_date: Option<String>,
+    pub verified_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "lastCheckedDate",
         alias = "LastCheckedDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub last_checked_date: Option<String>,
+    pub last_checked_date: Option<jiff::Timestamp>,
 }
 
 impl OrganizationDomainResponseModel {

@@ -7,7 +7,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, EncString, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -67,8 +67,8 @@ pub struct CipherEditRequest {
     pub notes: Option<String>,
     pub fields: Vec<FieldView>,
     pub r#type: CipherViewType,
-    pub revision_date: DateTime<Utc>,
-    pub archived_date: Option<DateTime<Utc>>,
+    pub revision_date: Timestamp,
+    pub archived_date: Option<Timestamp>,
     pub attachments: Vec<AttachmentView>,
     pub key: Option<EncString>,
 }
@@ -141,7 +141,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
         fields: Some(r.fields),
         password_history: None,
         // `creation_date` is overwritten by the server on merge
-        creation_date: Utc::now(),
+        creation_date: Timestamp::now(),
         deleted_date: None,
         revision_date: r.revision_date,
         archived_date: r.archived_date,
@@ -274,7 +274,6 @@ mod tests {
     use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
-    use chrono::TimeZone;
 
     use super::*;
     use crate::{
@@ -284,6 +283,15 @@ mod tests {
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
+
+    /// Build a UTC [`Timestamp`] from year/month/day/hour/minute/second values.
+    fn utc_ymd_hms(year: i16, month: i8, day: i8, hour: i8, minute: i8, second: i8) -> Timestamp {
+        jiff::civil::date(year, month, day)
+            .at(hour, minute, second, 0)
+            .to_zoned(jiff::tz::TimeZone::UTC)
+            .unwrap()
+            .timestamp()
+    }
 
     fn generate_test_cipher() -> CipherView {
         CipherView {
@@ -435,8 +443,8 @@ mod tests {
                         view_password: Some(true),
                         edit: Some(true),
                         organization_use_totp: Some(true),
-                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
-                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        revision_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
+                        creation_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
                         deleted_date: None,
                         login: body.login,
                         card: body.card,
@@ -569,10 +577,10 @@ mod tests {
     fn test_password_history_on_password_change() {
         let original_cipher = create_test_login_cipher("old_password");
 
-        let start = Utc::now();
+        let start = Timestamp::now();
         let view =
             edit_view_with_history(create_test_login_cipher("new_password"), &original_cipher);
-        let end = Utc::now();
+        let end = Timestamp::now();
         let history = view.password_history.unwrap_or_default();
 
         assert_eq!(history.len(), 1);
@@ -596,10 +604,10 @@ mod tests {
     fn test_password_history_is_preserved() {
         let mut original_cipher = create_test_login_cipher("same_password");
         original_cipher.password_history = Some(
-            (0..4)
+            (0i8..4)
                 .map(|i| PasswordHistoryView {
-                    password: format!("old_password_{}", i),
-                    last_used_date: Utc.with_ymd_and_hms(2025, i + 1, i + 1, i, i, i).unwrap(),
+                    password: format!("old_password_{i}"),
+                    last_used_date: utc_ymd_hms(2025, i + 1, i + 1, i, i, i),
                 })
                 .collect(),
         );
@@ -610,25 +618,13 @@ mod tests {
 
         assert_eq!(history[0].password, "old_password_0");
 
-        assert_eq!(
-            history[0].last_used_date,
-            Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()
-        );
+        assert_eq!(history[0].last_used_date, utc_ymd_hms(2025, 1, 1, 0, 0, 0));
         assert_eq!(history[1].password, "old_password_1");
-        assert_eq!(
-            history[1].last_used_date,
-            Utc.with_ymd_and_hms(2025, 2, 2, 1, 1, 1).unwrap()
-        );
+        assert_eq!(history[1].last_used_date, utc_ymd_hms(2025, 2, 2, 1, 1, 1));
         assert_eq!(history[2].password, "old_password_2");
-        assert_eq!(
-            history[2].last_used_date,
-            Utc.with_ymd_and_hms(2025, 3, 3, 2, 2, 2).unwrap()
-        );
+        assert_eq!(history[2].last_used_date, utc_ymd_hms(2025, 3, 3, 2, 2, 2));
         assert_eq!(history[3].password, "old_password_3");
-        assert_eq!(
-            history[3].last_used_date,
-            Utc.with_ymd_and_hms(2025, 4, 4, 3, 3, 3).unwrap()
-        );
+        assert_eq!(history[3].last_used_date, utc_ymd_hms(2025, 4, 4, 3, 3, 3));
     }
 
     #[test]
@@ -663,7 +659,7 @@ mod tests {
             (0..10)
                 .map(|i| PasswordHistoryView {
                     password: format!("old_password_{}", i),
-                    last_used_date: Utc::now(),
+                    last_used_date: Timestamp::now(),
                 })
                 .collect(),
         );

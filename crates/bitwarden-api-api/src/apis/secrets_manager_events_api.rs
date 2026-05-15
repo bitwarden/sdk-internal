@@ -30,8 +30,8 @@ pub trait SecretsManagerEventsApi: Send + Sync {
     async fn get_service_account_events<'a>(
         &self,
         service_account_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 }
@@ -52,8 +52,8 @@ impl SecretsManagerEventsApi for SecretsManagerEventsApiClient {
     async fn get_service_account_events<'a>(
         &self,
         service_account_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;

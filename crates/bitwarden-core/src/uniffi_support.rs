@@ -12,7 +12,10 @@ uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 uniffi::use_remote_type!(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope);
 uniffi::use_remote_type!(bitwarden_crypto::SymmetricCryptoKey);
 
-type DateTime = chrono::DateTime<chrono::Utc>;
+/// Type alias kept under the `DateTime` name so that downstream uniffi
+/// `use_remote_type!` declarations don't have to change as part of the chrono → jiff
+/// migration. The exposed FFI type continues to be `std::time::SystemTime`.
+pub type DateTime = jiff::Timestamp;
 uniffi::custom_type!(DateTime, std::time::SystemTime, { remote });
 
 uniffi::custom_type!(Uuid, String, {

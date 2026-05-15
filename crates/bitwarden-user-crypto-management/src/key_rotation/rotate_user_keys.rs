@@ -634,8 +634,8 @@ mod tests {
             organization_id: None,
             r#type: Some(CipherType::Login),
             name: Some(enc_string.to_string()),
-            revision_date: Some("2024-01-01T00:00:00Z".to_string()),
-            creation_date: Some("2024-01-01T00:00:00Z".to_string()),
+            revision_date: Some("2024-01-01T00:00:00Z".parse().unwrap()),
+            creation_date: Some("2024-01-01T00:00:00Z".parse().unwrap()),
             attachments: Some(vec![AttachmentResponseModel {
                 id: Some("att1".to_string()),
                 file_name: Some(enc_string.to_string()),

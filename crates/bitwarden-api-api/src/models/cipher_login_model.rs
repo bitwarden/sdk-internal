@@ -39,7 +39,7 @@ pub struct CipherLoginModel {
         alias = "PasswordRevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub password_revision_date: Option<String>,
+    pub password_revision_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "totp",
         alias = "Totp",

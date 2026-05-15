@@ -480,6 +480,7 @@ version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
+ "jiff",
  "mockall",
  "reqwest",
  "reqwest-middleware",
@@ -508,6 +509,7 @@ version = "3.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-base",
+ "jiff",
  "mockall",
  "reqwest",
  "reqwest-middleware",
@@ -548,8 +550,8 @@ dependencies = [
  "bitwarden-policies",
  "bitwarden-state",
  "bitwarden-test",
- "chrono",
  "http",
+ "jiff",
  "reqwest",
  "reqwest-middleware",
  "serde",
@@ -630,11 +632,11 @@ dependencies = [
  "bitwarden-threading",
  "bitwarden-uniffi-error",
  "bitwarden-uuid",
- "chrono",
  "getrandom 0.2.17",
  "getrandom 0.3.4",
  "getrandom 0.4.2",
  "http",
+ "jiff",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
  "reqwest",
@@ -777,6 +779,7 @@ dependencies = [
  "chrono",
  "credential-exchange-format",
  "csv",
+ "jiff",
  "num-traits",
  "serde",
  "serde_json",
@@ -817,9 +820,9 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-vault",
- "chrono",
  "coset",
  "itertools 0.14.0",
+ "jiff",
  "p256 0.13.2",
  "passkey",
  "passkey-client",
@@ -883,8 +886,8 @@ dependencies = [
 name = "bitwarden-logging"
 version = "3.0.0"
 dependencies = [
- "chrono",
  "criterion",
+ "jiff",
  "serde",
  "serde_json",
  "tracing",
@@ -898,7 +901,7 @@ name = "bitwarden-organizations"
 version = "3.0.0"
 dependencies = [
  "bitwarden-core",
- "chrono",
+ "jiff",
  "serde",
  "serde_repr",
  "tsify",
@@ -959,7 +962,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uuid",
- "chrono",
+ "jiff",
  "serde",
  "serde_repr",
  "sha2 0.11.0",
@@ -1028,7 +1031,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-generators",
- "chrono",
+ "jiff",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -1181,7 +1184,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-uniffi-error",
  "bitwarden-vault",
- "chrono",
+ "jiff",
  "jni",
  "libloading",
  "rustls-platform-verifier",
@@ -1214,7 +1217,7 @@ dependencies = [
  "bitwarden-send",
  "bitwarden-test",
  "bitwarden-vault",
- "chrono",
+ "jiff",
  "reqwest",
  "serde",
  "serde_bytes",
@@ -1265,11 +1268,11 @@ dependencies = [
  "bitwarden-sync",
  "bitwarden-test",
  "bitwarden-uuid",
- "chrono",
  "ciborium",
  "data-encoding",
  "futures",
  "hmac 0.13.0",
+ "jiff",
  "percent-encoding",
  "reqwest",
  "serde",
@@ -3510,9 +3513,9 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jiff"
-version = "0.2.23"
+version = "0.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a3546dc96b6d42c5f24902af9e2538e82e39ad350b0c766eb3fbf2d8f3d8359"
+checksum = "f00b5dbd620d61dfdcb6007c9c1f6054ebd75319f163d886a9055cec1155073d"
 dependencies = [
  "jiff-static",
  "log",
@@ -3523,9 +3526,9 @@ dependencies = [
 
 [[package]]
 name = "jiff-static"
-version = "0.2.23"
+version = "0.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a8c8b344124222efd714b73bb41f8b5120b27a7cc1c75593a6ff768d9d05aa4"
+checksum = "e000de030ff8022ea1da3f466fbb0f3a809f5e51ed31f6dd931c35181ad8e6d7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5130,8 +5133,8 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
- "chrono",
  "dyn-clone",
+ "jiff",
  "ref-cast",
  "schemars_derive",
  "serde",

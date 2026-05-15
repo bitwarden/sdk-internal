@@ -13,11 +13,10 @@ rm -rf crates/bitwarden-api-identity/src
 
 # Generate new Identity bindings
 npx openapi-generator-cli generate \
+    -c ./support/openapi-config.yaml \
     -i artifacts/identity.json \
-    -g rust \
     -o crates/bitwarden-api-identity \
     --package-name bitwarden-api-identity \
-    -t ./support/openapi-template \
-    --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,supportMiddleware=true,packageVersion=$VERSION,packageDescription=\"API bindings for Bitwarden Identity.\"
+    --additional-properties=packageVersion=$VERSION,packageDescription=\"API bindings for Bitwarden Identity.\"
 
 npm run prettier

@@ -51,7 +51,7 @@ pub trait OrganizationBillingApi: Send + Sync {
     async fn get_transactions<'a>(
         &self,
         organization_id: uuid::Uuid,
-        start_after: Option<String>,
+        start_after: Option<jiff::Timestamp>,
     ) -> Result<(), Error>;
 
     /// POST /organizations/{organizationId}/billing/setup-business-unit
@@ -168,7 +168,7 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
     async fn get_transactions<'a>(
         &self,
         organization_id: uuid::Uuid,
-        start_after: Option<String>,
+        start_after: Option<jiff::Timestamp>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 

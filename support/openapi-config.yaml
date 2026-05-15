@@ -1,0 +1,9 @@
+generatorName: rust
+templateDir: ./support/openapi-template
+library: reqwest-trait
+typeMappings:
+  DateTime: "jiff::Timestamp"
+additionalProperties:
+  mockall: true
+  topLevelApiClient: true
+  supportMiddleware: true

@@ -235,7 +235,7 @@ mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_vault::{CipherId, CipherRepromptType, FolderId, LoginView};
-    use chrono::{DateTime, Utc};
+    use jiff::Timestamp;
 
     use super::*;
 
@@ -370,11 +370,11 @@ mod tests {
         assert!(cipher.fields.is_empty());
         assert_eq!(
             cipher.revision_date,
-            "2024-01-30T17:55:36.150Z".parse::<DateTime<Utc>>().unwrap()
+            "2024-01-30T17:55:36.150Z".parse::<Timestamp>().unwrap()
         );
         assert_eq!(
             cipher.creation_date,
-            "2024-01-30T17:55:36.150Z".parse::<DateTime<Utc>>().unwrap()
+            "2024-01-30T17:55:36.150Z".parse::<Timestamp>().unwrap()
         );
         assert_eq!(cipher.deleted_date, None);
 

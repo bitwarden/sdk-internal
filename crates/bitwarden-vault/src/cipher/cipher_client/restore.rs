@@ -143,7 +143,7 @@ mod tests {
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use super::*;
     use crate::{Cipher, CipherId, Login};
@@ -208,7 +208,7 @@ mod tests {
     async fn test_restore() {
         // Set up test ciphers in the repository.
         let mut cipher_1 = generate_test_cipher();
-        cipher_1.deleted_date = Some(Utc::now());
+        cipher_1.deleted_date = Some(Timestamp::now());
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api
@@ -218,8 +218,8 @@ mod tests {
                         id: Some(TEST_CIPHER_ID.try_into().unwrap()),
                         name: Some(cipher_1.name.to_string()),
                         r#type: Some(cipher_1.r#type.into()),
-                        creation_date: Some(cipher_1.creation_date.to_string()),
-                        revision_date: Some(Utc::now().to_string()),
+                        creation_date: Some(cipher_1.creation_date),
+                        revision_date: Some(Timestamp::now()),
                         ..Default::default()
                     })
                 });
@@ -235,7 +235,7 @@ mod tests {
 
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
         let mut cipher = generate_test_cipher();
-        cipher.deleted_date = Some(Utc::now());
+        cipher.deleted_date = Some(Timestamp::now());
         cipher.collection_ids = vec![collection_id];
 
         repository
@@ -243,7 +243,7 @@ mod tests {
             .await
             .unwrap();
 
-        let start_time = Utc::now();
+        let start_time = Timestamp::now();
         let updated_cipher = restore(
             TEST_CIPHER_ID.parse().unwrap(),
             &api_client,
@@ -254,7 +254,7 @@ mod tests {
         .await
         .unwrap();
 
-        let end_time = Utc::now();
+        let end_time = Timestamp::now();
         assert!(updated_cipher.deleted_date.is_none());
         assert!(
             updated_cipher.revision_date >= start_time && updated_cipher.revision_date <= end_time
@@ -281,10 +281,10 @@ mod tests {
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
         let collection_id_2: CollectionId = "b5e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
         let mut cipher_1 = generate_test_cipher();
-        cipher_1.deleted_date = Some(Utc::now());
+        cipher_1.deleted_date = Some(Timestamp::now());
         cipher_1.collection_ids = vec![collection_id];
         let mut cipher_2 = generate_test_cipher();
-        cipher_2.deleted_date = Some(Utc::now());
+        cipher_2.deleted_date = Some(Timestamp::now());
         cipher_2.id = Some(cipher_id_2);
         cipher_2.collection_ids = vec![collection_id_2];
 
@@ -302,9 +302,9 @@ mod tests {
                                     name: Some(cipher_1.name.to_string()),
                                     r#type: Some(cipher_1.r#type.into()),
                                     login: cipher_1.login.clone().map(|l| Box::new(l.into())),
-                                    creation_date: cipher_1.creation_date.to_string().into(),
+                                    creation_date: Some(cipher_1.creation_date),
                                     deleted_date: None,
-                                    revision_date: Some(Utc::now().to_string()),
+                                    revision_date: Some(Timestamp::now()),
                                     ..Default::default()
                                 },
                                 CipherMiniResponseModel {
@@ -312,9 +312,9 @@ mod tests {
                                     name: Some(cipher_2.name.to_string()),
                                     r#type: Some(cipher_2.r#type.into()),
                                     login: cipher_2.login.clone().map(|l| Box::new(l.into())),
-                                    creation_date: cipher_2.creation_date.to_string().into(),
+                                    creation_date: Some(cipher_2.creation_date),
                                     deleted_date: None,
-                                    revision_date: Some(Utc::now().to_string()),
+                                    revision_date: Some(Timestamp::now()),
                                     ..Default::default()
                                 },
                             ]),
@@ -336,7 +336,7 @@ mod tests {
         repository.set(cipher_id, cipher_1).await.unwrap();
         repository.set(cipher_id_2, cipher_2).await.unwrap();
 
-        let start_time = Utc::now();
+        let start_time = Timestamp::now();
         let ciphers = restore_many(
             vec![cipher_id, cipher_id_2],
             &api_client,
@@ -345,7 +345,7 @@ mod tests {
         )
         .await
         .unwrap();
-        let end_time = Utc::now();
+        let end_time = Timestamp::now();
 
         assert_eq!(ciphers.successes.len(), 2,);
         assert_eq!(ciphers.failures.len(), 0,);
@@ -367,7 +367,7 @@ mod tests {
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
 
         let mut cipher = generate_test_cipher();
-        cipher.deleted_date = Some(Utc::now());
+        cipher.deleted_date = Some(Timestamp::now());
         cipher.collection_ids = vec![collection_id];
 
         let cipher_name = cipher.name.to_string();
@@ -379,8 +379,8 @@ mod tests {
                     id: Some(TEST_CIPHER_ID.try_into().unwrap()),
                     name: Some(cipher_name.clone()),
                     r#type: Some(cipher_type.into()),
-                    creation_date: Some("2025-01-01T00:00:00Z".to_string()),
-                    revision_date: Some(Utc::now().to_string()),
+                    creation_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
+                    revision_date: Some(Timestamp::now()),
                     ..Default::default()
                 })
             });
@@ -416,12 +416,12 @@ mod tests {
         let collection_id_2: CollectionId = "b5e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
 
         let mut cipher_1 = generate_test_cipher();
-        cipher_1.deleted_date = Some(Utc::now());
+        cipher_1.deleted_date = Some(Timestamp::now());
         cipher_1.collection_ids = vec![collection_id];
 
         let mut cipher_2 = generate_test_cipher();
         cipher_2.id = Some(cipher_id_2);
-        cipher_2.deleted_date = Some(Utc::now());
+        cipher_2.deleted_date = Some(Timestamp::now());
         cipher_2.collection_ids = vec![collection_id_2];
 
         let api_client = {
@@ -438,9 +438,9 @@ mod tests {
                                     name: Some(cipher_1.name.to_string()),
                                     r#type: Some(cipher_1.r#type.into()),
                                     login: cipher_1.login.clone().map(|l| Box::new(l.into())),
-                                    creation_date: cipher_1.creation_date.to_string().into(),
+                                    creation_date: Some(cipher_1.creation_date),
                                     deleted_date: None,
-                                    revision_date: Some(Utc::now().to_string()),
+                                    revision_date: Some(Timestamp::now()),
                                     ..Default::default()
                                 },
                                 CipherMiniResponseModel {
@@ -448,9 +448,9 @@ mod tests {
                                     name: Some(cipher_2.name.to_string()),
                                     r#type: Some(cipher_2.r#type.into()),
                                     login: cipher_2.login.clone().map(|l| Box::new(l.into())),
-                                    creation_date: cipher_2.creation_date.to_string().into(),
+                                    creation_date: Some(cipher_2.creation_date),
                                     deleted_date: None,
-                                    revision_date: Some(Utc::now().to_string()),
+                                    revision_date: Some(Timestamp::now()),
                                     ..Default::default()
                                 },
                             ]),

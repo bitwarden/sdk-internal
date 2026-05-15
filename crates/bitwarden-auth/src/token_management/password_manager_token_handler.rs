@@ -13,7 +13,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::{registry::StateRegistry, settings::Setting};
-use chrono::Utc;
+use jiff::Timestamp;
 
 use super::middleware::{MiddlewareExt, MiddlewareWrapper};
 use crate::token_management::middleware::TOKEN_RENEW_MARGIN_SECONDS;
@@ -67,7 +67,7 @@ impl TokenHandler for PasswordManagerTokenHandler {
                 .update(AuthenticationTokens {
                     access_token,
                     refresh_token,
-                    expires_on: Utc::now().timestamp() + expires_in as i64,
+                    expires_on: Timestamp::now().as_second() + expires_in as i64,
                 })
                 .await
                 .ok();
@@ -96,7 +96,7 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             .ok_or(NotAuthenticatedError)?;
 
         // Validate the token, returning early if it's still valid.
-        if Utc::now().timestamp() < tokens.expires_on - TOKEN_RENEW_MARGIN_SECONDS {
+        if Timestamp::now().as_second() < tokens.expires_on - TOKEN_RENEW_MARGIN_SECONDS {
             return Ok(Some(tokens.access_token.clone()));
         }
 
@@ -171,7 +171,7 @@ mod tests {
             .update(AuthenticationTokens {
                 access_token: access_token.to_string(),
                 refresh_token: refresh_token.map(str::to_string),
-                expires_on: Utc::now().timestamp() + expires_in,
+                expires_on: Timestamp::now().as_second() + expires_in,
             })
             .await
             .unwrap();

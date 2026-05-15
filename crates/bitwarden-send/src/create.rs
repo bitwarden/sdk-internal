@@ -9,7 +9,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -61,9 +61,9 @@ pub struct SendAddRequest {
     pub hide_email: bool,
 
     /// Date and time when the Send will be permanently deleted.
-    pub deletion_date: DateTime<Utc>,
+    pub deletion_date: Timestamp,
     /// Optional date and time when the Send expires and can no longer be accessed.
-    pub expiration_date: Option<DateTime<Utc>>,
+    pub expiration_date: Option<Timestamp>,
 
     /// Authentication method for accessing this Send.
     pub auth: SendAuthType,
@@ -105,8 +105,8 @@ impl
             // Encrypt the send key itself with the user key
             key: OctetStreamBytes::from(k).encrypt(ctx, key)?.to_string(),
             max_access_count: self.max_access_count.map(|c| c as i32),
-            expiration_date: self.expiration_date.map(|d| d.to_rfc3339()),
-            deletion_date: self.deletion_date.to_rfc3339(),
+            expiration_date: self.expiration_date,
+            deletion_date: self.deletion_date,
             file,
             text,
             password,
@@ -188,7 +188,7 @@ mod tests {
                     Ok(SendResponseModel {
                         id: Some(send_id),
                         name: model.name,
-                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        revision_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
                         object: Some("send".to_string()),
                         access_id: None,
                         r#type: model.r#type,
@@ -256,14 +256,14 @@ mod tests {
         assert!(!result.hide_email);
         assert_eq!(
             result.deletion_date,
-            "2025-01-10T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+            "2025-01-10T00:00:00Z".parse::<Timestamp>().unwrap()
         );
         assert_eq!(result.expiration_date, None);
         assert_eq!(result.emails, Vec::<String>::new());
         assert_eq!(result.auth_type, AuthType::None);
         assert_eq!(
             result.revision_date,
-            "2025-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+            "2025-01-01T00:00:00Z".parse::<Timestamp>().unwrap()
         );
 
         // Confirm the send was stored in the repository
