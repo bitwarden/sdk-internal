@@ -239,22 +239,6 @@ mod tests {
     }
 
     #[test]
-    fn test_from_key_rotation_method_tde_returns_error() {
-        let synced_data = make_synced_account_data(None);
-
-        let result = PrimaryUnlockMethod::from_key_rotation_method(
-            KeyRotationMethod::Tde,
-            &synced_data,
-            None,
-        );
-
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
-        ));
-    }
-
-    #[test]
     fn test_reencrypt_unlock_method_data_password_pbkdf2() {
         let mock_password = "test_password".to_string();
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -355,5 +339,19 @@ mod tests {
             .unwrap_user_key(wrapped_user_key, &mut ctx)
             .expect("unwrap should succeed");
         assert_symmetric_keys_equal(user_key_id, unwrapped_user_key_id, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_unlock_method_data_tde() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key_id = ctx.generate_symmetric_key();
+
+        let result = reencrypt_unlock_method_data(PrimaryUnlockMethod::Tde, user_key_id, &mut ctx);
+
+        let model = result.expect("should be ok");
+        assert_eq!(model.unlock_method, UnlockMethod::Tde);
+        assert!(model.master_password_unlock_data.is_none());
+        assert!(model.key_connector_key_wrapped_user_key.is_none());
     }
 }
