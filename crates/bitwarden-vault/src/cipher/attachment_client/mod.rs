@@ -1,8 +1,9 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
-use bitwarden_core::Client;
-use bitwarden_crypto::EncString;
+use bitwarden_core::{FromClient, client::ApiConfigurations, key_management::KeySlotIds};
+use bitwarden_crypto::{EncString, KeyStore};
 use bitwarden_error::bitwarden_error;
+use bitwarden_state::repository::Repository;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -12,11 +13,16 @@ use crate::{
     Cipher, DecryptError, EncryptError,
 };
 
-#[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub struct AttachmentsClient {
-    pub(crate) client: Client,
-}
+mod admin;
+mod create;
+mod delete;
+mod download_url;
+mod renew;
+mod upgrade;
+
+pub use admin::AttachmentAdminClient;
+pub use create::{CreatedAttachment, FileUploadType};
+pub use upgrade::AttachmentUpgrade;
 
 /// Generic error type for vault encryption errors.
 #[allow(missing_docs)]
@@ -40,8 +46,26 @@ pub enum DecryptFileError {
     Io(#[from] std::io::Error),
 }
 
+/// Wrapper for attachment-specific cipher operations.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[derive(FromClient)]
+pub struct AttachmentsClient {
+    pub(crate) key_store: KeyStore<KeySlotIds>,
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
+    pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
+    pub(crate) http_client: reqwest::Client,
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
+    /// Returns a new client for performing attachment admin operations.
+    /// Uses the admin server API endpoints and does not modify local state.
+    pub fn admin(&self) -> AttachmentAdminClient {
+        AttachmentAdminClient {
+            api_configurations: self.api_configurations.clone(),
+        }
+    }
+
     #[allow(missing_docs)]
     pub fn decrypt_buffer(
         &self,
@@ -49,9 +73,7 @@ impl AttachmentsClient {
         attachment: AttachmentView,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
-
-        Ok(key_store.decrypt(&AttachmentFile {
+        Ok(self.key_store.decrypt(&AttachmentFile {
             cipher,
             attachment,
             contents: EncString::from_buffer(encrypted_buffer)?,
@@ -67,9 +89,7 @@ impl AttachmentsClient {
         attachment: AttachmentView,
         buffer: &[u8],
     ) -> Result<AttachmentEncryptResult, EncryptError> {
-        let key_store = self.client.internal.get_key_store();
-
-        Ok(key_store.encrypt(AttachmentFileView {
+        Ok(self.key_store.encrypt(AttachmentFileView {
             cipher,
             attachment,
             contents: buffer,
