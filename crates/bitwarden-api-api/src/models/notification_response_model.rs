@@ -45,7 +45,7 @@ pub struct NotificationResponseModel {
         alias = "Date",
         skip_serializing_if = "Option::is_none"
     )]
-    pub date: Option<String>,
+    pub date: Option<jiff::Timestamp>,
     #[serde(
         rename = "taskId",
         alias = "TaskId",
@@ -57,13 +57,13 @@ pub struct NotificationResponseModel {
         alias = "ReadDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub read_date: Option<String>,
+    pub read_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "deletedDate",
         alias = "DeletedDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub deleted_date: Option<String>,
+    pub deleted_date: Option<jiff::Timestamp>,
 }
 
 impl NotificationResponseModel {

@@ -10,7 +10,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
-use chrono::Utc;
+use jiff::Timestamp;
 
 use super::middleware::{MiddlewareExt, MiddlewareWrapper};
 use crate::token_management::middleware::TOKEN_RENEW_MARGIN_SECONDS;
@@ -57,7 +57,7 @@ impl TokenHandler for SecretsManagerTokenHandler {
     ) {
         let mut inner = self.inner.write().expect("RwLock is not poisoned");
         inner.access_token = Some(access_token);
-        inner.expires_on = Some(Utc::now().timestamp() + expires_in as i64);
+        inner.expires_on = Some(Timestamp::now().as_second() + expires_in as i64);
     }
 
     async fn set_sm_login_method(&self, login_method: ServiceAccountLoginMethod) {
@@ -91,7 +91,7 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
 
         // Validate the token, returning early if it's still valid.
         if let Some(expires) = inner.expires_on
-            && Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS
+            && Timestamp::now().as_second() < expires - TOKEN_RENEW_MARGIN_SECONDS
         {
             return Ok(inner.access_token.clone());
         }

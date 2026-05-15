@@ -7,7 +7,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -26,8 +26,8 @@ pub struct SecretResponse {
     pub value: String,
     pub note: String,
 
-    pub creation_date: DateTime<Utc>,
-    pub revision_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
+    pub revision_date: Timestamp,
 }
 
 impl SecretResponse {
@@ -80,8 +80,8 @@ impl SecretResponse {
             value,
             note,
 
-            creation_date: require!(response.creation_date).parse()?,
-            revision_date: require!(response.revision_date).parse()?,
+            creation_date: require!(response.creation_date),
+            revision_date: require!(response.revision_date),
         })
     }
 }

@@ -5,7 +5,7 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -230,9 +230,9 @@ pub struct ProfileOrganization {
     /// The URL of the Key Connector service, if enabled.
     pub key_connector_url: Option<String>,
     /// The date the families sponsorship was last synced, if applicable.
-    pub family_sponsorship_last_sync_date: Option<DateTime<Utc>>,
+    pub family_sponsorship_last_sync_date: Option<Timestamp>,
     /// The date the families sponsorship expires, if applicable.
-    pub family_sponsorship_valid_until: Option<DateTime<Utc>>,
+    pub family_sponsorship_valid_until: Option<Timestamp>,
     /// Whether the families sponsorship is scheduled for deletion.
     pub family_sponsorship_to_delete: Option<bool>,
     /// Whether the current user has access to Secrets Manager for this organization.

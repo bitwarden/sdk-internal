@@ -64,7 +64,7 @@ mod tests {
             object: Some("folder".to_string()),
             id: Some(id),
             name: Some(ENCRYPTED_NAME.to_string()),
-            revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+            revision_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
         }
     }
 

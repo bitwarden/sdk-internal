@@ -3,9 +3,7 @@
 //! Handles conversion between internal [Card] and credential exchange [CreditCardCredential].
 
 use bitwarden_vault::CardBrand;
-use chrono::Month;
 use credential_exchange_format::{Credential, CreditCardCredential, EditableFieldYearMonth};
-use num_traits::FromPrimitive;
 
 use crate::{Card, Field, cxf::editable_field::create_field};
 
@@ -14,8 +12,8 @@ impl From<Card> for Vec<Credential> {
         let expiry_date = match (value.exp_year, value.exp_month) {
             (Some(year), Some(month)) => {
                 let year_parsed = year.parse().ok();
-                let numeric_month: Option<u32> = month.parse().ok();
-                let month_parsed = numeric_month.and_then(Month::from_u32);
+                let numeric_month: Option<u8> = month.parse().ok();
+                let month_parsed = numeric_month.and_then(|m| m.try_into().ok());
                 match (year_parsed, month_parsed) {
                     (Some(year), Some(month)) => {
                         Some(EditableFieldYearMonth { year, month }.into())

@@ -20,7 +20,7 @@ wasm = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
 bitwarden-core = { workspace = true }
-chrono = { workspace = true }
+jiff = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
 tsify = { workspace = true, optional = true }

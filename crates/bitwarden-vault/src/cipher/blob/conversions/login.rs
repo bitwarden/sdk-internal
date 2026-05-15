@@ -66,7 +66,7 @@ impl From<&Fido2CredentialDataV1> for Fido2CredentialFullView {
 #[cfg(test)]
 mod tests {
     use bitwarden_crypto::{CompositeEncryptable, Decryptable};
-    use chrono::{TimeZone, Utc};
+    use jiff::Timestamp;
 
     use super::super::{CipherBlobV1, CipherTypeDataV1, LoginUriDataV1, test_support::*};
     use crate::cipher::{
@@ -75,6 +75,14 @@ mod tests {
         linked_id::{LinkedIdType, LoginLinkedIdType},
         login::{Fido2Credential, Fido2CredentialFullView, LoginUriView, LoginView, UriMatchType},
     };
+
+    fn utc_ymd_hms(year: i16, month: i8, day: i8, hour: i8, minute: i8, second: i8) -> Timestamp {
+        jiff::civil::date(year, month, day)
+            .at(hour, minute, second, 0)
+            .to_zoned(jiff::tz::TimeZone::UTC)
+            .unwrap()
+            .timestamp()
+    }
 
     #[test]
     fn test_login_uri_view_to_data_drops_checksum() {
@@ -119,7 +127,7 @@ mod tests {
             rp_name: None,
             user_display_name: None,
             discoverable: "true".to_string(),
-            creation_date: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
+            creation_date: utc_ymd_hms(2024, 1, 1, 0, 0, 0),
         };
 
         let data = super::Fido2CredentialDataV1::from(&full_view);
@@ -146,7 +154,7 @@ mod tests {
             rp_name: None,
             user_display_name: None,
             discoverable: "false".to_string(),
-            creation_date: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
+            creation_date: utc_ymd_hms(2024, 1, 1, 0, 0, 0),
         };
 
         let data = super::Fido2CredentialDataV1::from(&full_view);
@@ -173,7 +181,7 @@ mod tests {
             rp_name: None,
             user_display_name: None,
             discoverable: "true".to_string(),
-            creation_date: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
+            creation_date: utc_ymd_hms(2024, 1, 1, 0, 0, 0),
         };
 
         let data = super::Fido2CredentialDataV1::from(&full_view);
@@ -199,7 +207,7 @@ mod tests {
             rp_name: Some("Example".to_string()),
             user_display_name: Some("Test User".to_string()),
             discoverable: "true".to_string(),
-            creation_date: Utc.with_ymd_and_hms(2024, 6, 1, 10, 30, 0).unwrap(),
+            creation_date: utc_ymd_hms(2024, 6, 1, 10, 30, 0),
         };
         let encrypted_fido2: Fido2Credential =
             fido2_full.encrypt_composite(&mut ctx, key_id).unwrap();
@@ -211,7 +219,7 @@ mod tests {
             login: Some(LoginView {
                 username: Some("testuser@example.com".to_string()),
                 password: Some("p@ssw0rd123".to_string()),
-                password_revision_date: Some(Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap()),
+                password_revision_date: Some(utc_ymd_hms(2024, 1, 15, 12, 0, 0)),
                 uris: Some(vec![LoginUriView {
                     uri: Some("https://example.com/login".to_string()),
                     r#match: Some(UriMatchType::Domain),
@@ -229,7 +237,7 @@ mod tests {
             }]),
             password_history: Some(vec![crate::PasswordHistoryView {
                 password: "old-password-1".to_string(),
-                last_used_date: Utc.with_ymd_and_hms(2023, 12, 1, 8, 0, 0).unwrap(),
+                last_used_date: utc_ymd_hms(2023, 12, 1, 8, 0, 0),
             }]),
             ..create_shell_cipher_view(CipherType::Login)
         };

@@ -27,7 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait InfoApi: Send + Sync {
     /// GET /alive
-    async fn get_alive(&self) -> Result<String, Error>;
+    async fn get_alive(&self) -> Result<jiff::Timestamp, Error>;
 
     /// GET /version
     async fn get_version(&self) -> Result<(), Error>;
@@ -46,7 +46,7 @@ impl InfoApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl InfoApi for InfoApiClient {
-    async fn get_alive(&self) -> Result<String, Error> {
+    async fn get_alive(&self) -> Result<jiff::Timestamp, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;

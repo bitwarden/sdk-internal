@@ -58,7 +58,7 @@ pub trait SecretsApi: Send + Sync {
     async fn get_secrets_sync<'a>(
         &self,
         organization_id: uuid::Uuid,
-        last_synced_date: Option<String>,
+        last_synced_date: Option<jiff::Timestamp>,
     ) -> Result<models::SecretsSyncResponseModel, Error>;
 
     /// GET /organizations/{organizationId}/secrets
@@ -189,7 +189,7 @@ impl SecretsApi for SecretsApiClient {
     async fn get_secrets_sync<'a>(
         &self,
         organization_id: uuid::Uuid,
-        last_synced_date: Option<String>,
+        last_synced_date: Option<jiff::Timestamp>,
     ) -> Result<models::SecretsSyncResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 

@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient,
-    EncryptionContext, VaultParseError, cipher::cipher::PartialCipher,
+    EncryptionContext, cipher::cipher::PartialCipher,
 };
 
 /// Standalone function that shares a cipher to an organization via API call.
@@ -118,17 +118,9 @@ async fn share_ciphers_bulk(
                 .password_history
                 .map(|p| p.into_iter().map(|p| p.try_into()).collect())
                 .transpose()?,
-            creation_date: require!(cipher_mini.creation_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            deleted_date: cipher_mini
-                .deleted_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            revision_date: require!(cipher_mini.revision_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
+            creation_date: require!(cipher_mini.creation_date),
+            deleted_date: cipher_mini.deleted_date,
+            revision_date: require!(cipher_mini.revision_date),
             archived_date: orig_cipher
                 .as_ref()
                 .map(|c| c.archived_date)
@@ -592,8 +584,8 @@ mod tests {
                         ..Default::default()
                     })),
                     reprompt: Some(bitwarden_api_api::models::CipherRepromptType::None),
-                    revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
-                    creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                    revision_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
+                    creation_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
                     edit: Some(true),
                     view_password: Some(true),
                     organization_use_totp: Some(true),
@@ -674,8 +666,8 @@ mod tests {
                         organization_id: Some(org_id.into()),
                         r#type: Some(bitwarden_api_api::models::CipherType::Login),
                         name: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".to_string()),
-                        revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
-                        creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                        revision_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
+                        creation_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
                         ..Default::default()
                     }]),
                     continuation_token: None,
@@ -910,8 +902,8 @@ mod tests {
                     login: request_body.cipher.login,
                     reprompt: request_body.cipher.reprompt,
                     password_history: request_body.cipher.password_history,
-                    revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
-                    creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                    revision_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
+                    creation_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
                     edit: Some(true),
                     view_password: Some(true),
                     organization_use_totp: Some(true),
@@ -1021,8 +1013,8 @@ mod tests {
                             login: cipher.login,
                             reprompt: cipher.reprompt,
                             password_history: cipher.password_history,
-                            revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
-                            creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                            revision_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
+                            creation_date: Some("2024-01-30T17:55:36.150Z".parse().unwrap()),
                             organization_use_totp: Some(true),
                             fields: cipher.fields,
                             key: cipher.key,

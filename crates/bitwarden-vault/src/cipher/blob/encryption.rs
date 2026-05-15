@@ -256,9 +256,9 @@ mod tests {
             attachments: None,
             fields: None,
             password_history: None,
-            creation_date: chrono::Utc::now(),
+            creation_date: jiff::Timestamp::now(),
             deleted_date: None,
-            revision_date: chrono::Utc::now(),
+            revision_date: jiff::Timestamp::now(),
             archived_date: None,
             data,
         }
@@ -536,7 +536,7 @@ mod tests {
             r#type: FieldType::Text,
             linked_id: None,
         }]);
-        let history_date = chrono::Utc::now();
+        let history_date = jiff::Timestamp::now();
         view.password_history = Some(vec![PasswordHistoryView {
             password: "old-p@ssw0rd".to_string(),
             last_used_date: history_date,

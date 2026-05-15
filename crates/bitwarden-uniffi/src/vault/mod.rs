@@ -1,5 +1,5 @@
 use bitwarden_vault::{CipherListView, TotpResponse};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 
 use crate::error::Result;
 
@@ -51,7 +51,7 @@ impl VaultClient {
     /// - A base32 encoded string
     /// - OTP Auth URI
     /// - Steam URI
-    pub fn generate_totp(&self, key: String, time: Option<DateTime<Utc>>) -> Result<TotpResponse> {
+    pub fn generate_totp(&self, key: String, time: Option<Timestamp>) -> Result<TotpResponse> {
         Ok(self.0.totp().generate_totp(key, time)?)
     }
 
@@ -59,7 +59,7 @@ impl VaultClient {
     pub fn generate_totp_cipher_view(
         &self,
         view: CipherListView,
-        time: Option<DateTime<Utc>>,
+        time: Option<Timestamp>,
     ) -> Result<TotpResponse> {
         Ok(self.0.totp().generate_totp_cipher_view(view, time)?)
     }

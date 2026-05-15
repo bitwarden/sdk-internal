@@ -87,11 +87,11 @@ pub struct CipherFido2CredentialModel {
     )]
     pub discoverable: Option<String>,
     #[serde(rename = "creationDate", alias = "CreationDate")]
-    pub creation_date: String,
+    pub creation_date: jiff::Timestamp,
 }
 
 impl CipherFido2CredentialModel {
-    pub fn new(creation_date: String) -> CipherFido2CredentialModel {
+    pub fn new(creation_date: jiff::Timestamp) -> CipherFido2CredentialModel {
         CipherFido2CredentialModel {
             credential_id: None,
             key_type: None,

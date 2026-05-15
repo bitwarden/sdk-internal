@@ -16,6 +16,12 @@ export type Uuid = unknown;
  * RFC3339 compliant date-time string.
  * @typeParam T - Not used in JavaScript.
  */
+export type Timestamp = string;
+
+/**
+ * RFC3339 compliant date-time string.
+ * @typeParam T - Not used in JavaScript.
+ */
 export type DateTime<T = unknown> = string;
 
 /**

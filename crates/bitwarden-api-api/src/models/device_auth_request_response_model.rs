@@ -45,13 +45,13 @@ pub struct DeviceAuthRequestResponseModel {
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub creation_date: Option<String>,
+    pub creation_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "lastActivityDate",
         alias = "LastActivityDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub last_activity_date: Option<String>,
+    pub last_activity_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "isTrusted",
         alias = "IsTrusted",

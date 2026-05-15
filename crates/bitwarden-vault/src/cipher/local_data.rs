@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -10,8 +10,8 @@ use tsify::Tsify;
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct LocalData {
-    last_used_date: Option<DateTime<Utc>>,
-    last_launched: Option<DateTime<Utc>>,
+    last_used_date: Option<Timestamp>,
+    last_launched: Option<Timestamp>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -19,8 +19,8 @@ pub struct LocalData {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct LocalDataView {
-    last_used_date: Option<DateTime<Utc>>,
-    last_launched: Option<DateTime<Utc>>,
+    last_used_date: Option<Timestamp>,
+    last_launched: Option<Timestamp>,
 }
 
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, LocalData> for LocalDataView {

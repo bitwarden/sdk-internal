@@ -4,7 +4,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum SendParseError {
     #[error(transparent)]
-    Chrono(#[from] chrono::ParseError),
+    Jiff(#[from] jiff::Error),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]

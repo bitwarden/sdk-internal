@@ -41,7 +41,7 @@ bitwarden-ssh = { workspace = true, features = ["uniffi"] }
 bitwarden-state = { workspace = true, features = ["uniffi"] }
 bitwarden-uniffi-error = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["uniffi"] }
-chrono = { workspace = true, features = ["std"] }
+jiff = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

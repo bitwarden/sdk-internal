@@ -103,7 +103,7 @@ pub struct EventResponseModel {
         alias = "Date",
         skip_serializing_if = "Option::is_none"
     )]
-    pub date: Option<String>,
+    pub date: Option<jiff::Timestamp>,
     #[serde(
         rename = "deviceType",
         alias = "DeviceType",

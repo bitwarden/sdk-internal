@@ -75,7 +75,7 @@ pub struct PendingOrganizationAuthRequestResponseModel {
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub creation_date: Option<String>,
+    pub creation_date: Option<jiff::Timestamp>,
 }
 
 impl PendingOrganizationAuthRequestResponseModel {

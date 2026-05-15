@@ -118,7 +118,7 @@ mod tests {
     };
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use super::*;
     use crate::{Cipher, CipherId, Login};
@@ -173,7 +173,7 @@ mod tests {
     #[tokio::test]
     async fn test_restore_as_admin() {
         let mut cipher = generate_test_cipher();
-        cipher.deleted_date = Some(Utc::now());
+        cipher.deleted_date = Some(Timestamp::now());
 
         let api_client = {
             let cipher = cipher.clone();
@@ -185,8 +185,8 @@ mod tests {
                             id: Some(TEST_CIPHER_ID.try_into().unwrap()),
                             name: Some(cipher.name.to_string()),
                             r#type: Some(cipher.r#type.into()),
-                            creation_date: Some(cipher.creation_date.to_string()),
-                            revision_date: Some(Utc::now().to_rfc3339()),
+                            creation_date: Some(cipher.creation_date),
+                            revision_date: Some(Timestamp::now()),
                             login: cipher.login.clone().map(|l| Box::new(l.into())),
                             ..Default::default()
                         })
@@ -200,12 +200,12 @@ mod tests {
             SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
-        let start_time = Utc::now();
+        let start_time = Timestamp::now();
         let updated_cipher =
             restore_as_admin(TEST_CIPHER_ID.parse().unwrap(), &api_client, &store, false)
                 .await
                 .unwrap();
-        let end_time = Utc::now();
+        let end_time = Timestamp::now();
 
         assert!(updated_cipher.deleted_date.is_none());
         assert!(
@@ -217,9 +217,9 @@ mod tests {
     async fn test_restore_many_as_admin() {
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
         let mut cipher_1 = generate_test_cipher();
-        cipher_1.deleted_date = Some(Utc::now());
+        cipher_1.deleted_date = Some(Timestamp::now());
         let mut cipher_2 = generate_test_cipher();
-        cipher_2.deleted_date = Some(Utc::now());
+        cipher_2.deleted_date = Some(Timestamp::now());
         cipher_2.id = Some(cipher_id_2);
 
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -234,9 +234,9 @@ mod tests {
                                 name: Some(cipher_1.name.to_string()),
                                 r#type: Some(cipher_1.r#type.into()),
                                 login: cipher_1.login.clone().map(|l| Box::new(l.into())),
-                                creation_date: cipher_1.creation_date.to_string().into(),
+                                creation_date: Some(cipher_1.creation_date),
                                 deleted_date: None,
-                                revision_date: Some(Utc::now().to_rfc3339()),
+                                revision_date: Some(Timestamp::now()),
                                 ..Default::default()
                             },
                             CipherMiniResponseModel {
@@ -244,9 +244,9 @@ mod tests {
                                 name: Some(cipher_2.name.to_string()),
                                 r#type: Some(cipher_2.r#type.into()),
                                 login: cipher_2.login.clone().map(|l| Box::new(l.into())),
-                                creation_date: cipher_2.creation_date.to_string().into(),
+                                creation_date: Some(cipher_2.creation_date),
                                 deleted_date: None,
-                                revision_date: Some(Utc::now().to_rfc3339()),
+                                revision_date: Some(Timestamp::now()),
                                 ..Default::default()
                             },
                         ]),
@@ -261,7 +261,7 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
-        let start_time = Utc::now();
+        let start_time = Timestamp::now();
         let ciphers = restore_many_as_admin(
             vec![
                 TEST_CIPHER_ID.parse().unwrap(),
@@ -273,7 +273,7 @@ mod tests {
         )
         .await
         .unwrap();
-        let end_time = Utc::now();
+        let end_time = Timestamp::now();
 
         assert_eq!(ciphers.successes.len(), 2,);
         assert_eq!(ciphers.failures.len(), 0,);

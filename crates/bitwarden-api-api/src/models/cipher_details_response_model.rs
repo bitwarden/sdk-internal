@@ -129,19 +129,19 @@ pub struct CipherDetailsResponseModel {
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub revision_date: Option<String>,
+    pub revision_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub creation_date: Option<String>,
+    pub creation_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "deletedDate",
         alias = "DeletedDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub deleted_date: Option<String>,
+    pub deleted_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "reprompt",
         alias = "Reprompt",
@@ -179,7 +179,7 @@ pub struct CipherDetailsResponseModel {
         alias = "ArchivedDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub archived_date: Option<String>,
+    pub archived_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "permissions",
         alias = "Permissions",

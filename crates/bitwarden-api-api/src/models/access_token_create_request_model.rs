@@ -25,7 +25,7 @@ pub struct AccessTokenCreateRequestModel {
         alias = "ExpireAt",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expire_at: Option<String>,
+    pub expire_at: Option<jiff::Timestamp>,
 }
 
 impl AccessTokenCreateRequestModel {

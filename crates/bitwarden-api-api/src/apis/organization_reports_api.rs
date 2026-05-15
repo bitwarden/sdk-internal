@@ -71,8 +71,8 @@ pub trait OrganizationReportsApi: Send + Sync {
     async fn get_organization_report_summary_data_by_date_range<'a>(
         &self,
         organization_id: uuid::Uuid,
-        start_date: Option<String>,
-        end_date: Option<String>,
+        start_date: Option<jiff::Timestamp>,
+        end_date: Option<jiff::Timestamp>,
     ) -> Result<Vec<models::OrganizationReportSummaryDataResponse>, Error>;
 
     /// PATCH /reports/organizations/{organizationId}/{reportId}
@@ -266,8 +266,8 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
     async fn get_organization_report_summary_data_by_date_range<'a>(
         &self,
         organization_id: uuid::Uuid,
-        start_date: Option<String>,
-        end_date: Option<String>,
+        start_date: Option<jiff::Timestamp>,
+        end_date: Option<jiff::Timestamp>,
     ) -> Result<Vec<models::OrganizationReportSummaryDataResponse>, Error> {
         let local_var_configuration = &self.configuration;
 

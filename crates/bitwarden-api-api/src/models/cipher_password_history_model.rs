@@ -17,11 +17,11 @@ pub struct CipherPasswordHistoryModel {
     #[serde(rename = "password", alias = "Password")]
     pub password: String,
     #[serde(rename = "lastUsedDate", alias = "LastUsedDate")]
-    pub last_used_date: String,
+    pub last_used_date: jiff::Timestamp,
 }
 
 impl CipherPasswordHistoryModel {
-    pub fn new(password: String, last_used_date: String) -> CipherPasswordHistoryModel {
+    pub fn new(password: String, last_used_date: jiff::Timestamp) -> CipherPasswordHistoryModel {
         CipherPasswordHistoryModel {
             password,
             last_used_date,

@@ -19,7 +19,7 @@ pub struct BillingTransaction {
         alias = "CreatedDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub created_date: Option<String>,
+    pub created_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "amount",
         alias = "Amount",

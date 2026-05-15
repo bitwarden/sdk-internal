@@ -362,13 +362,13 @@ pub struct ProfileOrganizationResponseModel {
         alias = "FamilySponsorshipLastSyncDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub family_sponsorship_last_sync_date: Option<String>,
+    pub family_sponsorship_last_sync_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "familySponsorshipValidUntil",
         alias = "FamilySponsorshipValidUntil",
         skip_serializing_if = "Option::is_none"
     )]
-    pub family_sponsorship_valid_until: Option<String>,
+    pub family_sponsorship_valid_until: Option<jiff::Timestamp>,
     #[serde(
         rename = "familySponsorshipToDelete",
         alias = "FamilySponsorshipToDelete",

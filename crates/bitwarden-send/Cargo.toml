@@ -33,7 +33,7 @@ bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
-chrono = { workspace = true }
+jiff = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
 sha2 = { workspace = true }

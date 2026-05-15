@@ -1,5 +1,44 @@
-use chrono::{DateTime, Utc};
+use jiff::{Timestamp, fmt::temporal::DateTimePrinter};
 use thiserror::Error;
+
+/// The JSON export format previously used `chrono`'s default `Display`, which preserves the
+/// fractional precision of the source value. To keep exports stable across the chrono → jiff
+/// migration we pin to millisecond precision, matching the format produced by typical existing
+/// exports (e.g. `2024-01-30T17:55:36.150Z`).
+mod rfc3339_millis {
+    use serde::Serializer;
+
+    use super::*;
+
+    const PRINTER: DateTimePrinter = DateTimePrinter::new().precision(Some(3));
+
+    pub fn serialize<S>(value: &Timestamp, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut buf = String::new();
+        PRINTER
+            .print_timestamp(value, &mut buf)
+            .map_err(serde::ser::Error::custom)?;
+        serializer.serialize_str(&buf)
+    }
+
+    pub mod option {
+        use serde::Serializer;
+
+        use super::*;
+
+        pub fn serialize<S>(value: &Option<Timestamp>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            match value {
+                Some(ts) => super::serialize(ts, serializer),
+                None => serializer.serialize_none(),
+            }
+        }
+    }
+}
 use uuid::Uuid;
 
 use crate::{
@@ -90,9 +129,12 @@ struct JsonCipher {
     fields: Vec<JsonField>,
     password_history: Option<Vec<String>>,
 
-    revision_date: DateTime<Utc>,
-    creation_date: DateTime<Utc>,
-    deleted_date: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "rfc3339_millis::serialize")]
+    revision_date: Timestamp,
+    #[serde(serialize_with = "rfc3339_millis::serialize")]
+    creation_date: Timestamp,
+    #[serde(serialize_with = "rfc3339_millis::option::serialize")]
+    deleted_date: Option<Timestamp>,
 }
 
 #[derive(serde::Serialize)]

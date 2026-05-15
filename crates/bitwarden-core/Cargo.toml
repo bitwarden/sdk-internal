@@ -69,7 +69,7 @@ bitwarden-test = { workspace = true, optional = true }
 bitwarden-threading = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 bitwarden-uuid = { workspace = true }
-chrono = { workspace = true, features = ["std"] }
+jiff = { workspace = true }
 # We don't use these directly (they're used by rand), but we need them here to enable WASM support
 # Unfortunately we have a lof of dependencies that use different versions of getrandom, so we
 # need to enable WASM support for all of them.
