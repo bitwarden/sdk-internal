@@ -126,7 +126,7 @@ pub struct InternalClient {
     // TODO: Flags have been migrated to Setting but this will have to stay temporarily until the
     // feature flags are removed.
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
-    pub(crate) state_registry: StateRegistry,
+    pub state_registry: StateRegistry,
 
     // A bridge used to map in KM state into the SDK, until a more robust solution is implemented
     // by platform. This is not a stable API and other teams should not use it. It will be
@@ -172,7 +172,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
+    pub async fn get_login_method(&self) -> Option<UserLoginMethod> {
         self.state_registry
             .setting(USER_LOGIN_METHOD)
             .ok()?
@@ -183,7 +183,7 @@ impl InternalClient {
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
-    pub(crate) async fn set_login_method(&self, login_method: LoginMethod) {
+    pub async fn set_login_method(&self, login_method: LoginMethod) {
         match login_method {
             #[cfg(feature = "internal")]
             LoginMethod::User(lm) => {
@@ -286,7 +286,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_key_connector_key(
+    pub fn initialize_user_crypto_key_connector_key(
         &self,
         master_key: MasterKey,
         user_key: EncString,
@@ -299,7 +299,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all, fields(user_id = ?self.get_user_id()))]
-    pub(crate) fn initialize_user_crypto_decrypted_key(
+    pub fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
         account_crypto_state: WrappedAccountCryptographicState,
@@ -338,7 +338,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_pin(
+    pub fn initialize_user_crypto_pin(
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
@@ -355,7 +355,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_pin_envelope(
+    pub fn initialize_user_crypto_pin_envelope(
         &self,
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
@@ -404,7 +404,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_master_password_unlock(
+    pub fn initialize_user_crypto_master_password_unlock(
         &self,
         password: String,
         master_password_unlock: MasterPasswordUnlockData,

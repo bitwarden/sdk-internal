@@ -6,10 +6,10 @@ use crate::{
     key_management::{self, SymmetricKeySlotId, local_user_data_key::WrappedLocalUserDataKey},
 };
 
-pub(crate) struct InitLocalUserDataKeyError;
+pub struct InitLocalUserDataKeyError;
 
 /// Stores [`WrappedLocalUserDataKey`] in state if one does not already exist.
-pub(crate) async fn initialize_local_user_data_key_into_state(
+pub async fn initialize_local_user_data_key_into_state(
     client: &Client,
     user_id: UserId,
 ) -> Result<(), InitLocalUserDataKeyError> {
@@ -39,12 +39,12 @@ pub(crate) async fn initialize_local_user_data_key_into_state(
 }
 
 #[derive(Debug)]
-pub(crate) struct MigrateLocalUserDataKeyForUserKeyUpgradeError;
+pub struct MigrateLocalUserDataKeyForUserKeyUpgradeError;
 
 /// Re-wraps a persisted [`WrappedLocalUserDataKey`] with the current user key after a V1→V2
 /// user-key upgrade, preserving the inner-key plaintext so local data encrypted before the
 /// upgrade remains decryptable. No-ops when migration is unnecessary or impossible.
-pub(crate) async fn migrate_local_user_data_key_for_user_key_upgrade(
+pub async fn migrate_local_user_data_key_for_user_key_upgrade(
     client: &Client,
     user_id: UserId,
 ) -> Result<(), MigrateLocalUserDataKeyForUserKeyUpgradeError> {
@@ -102,10 +102,10 @@ pub(crate) async fn migrate_local_user_data_key_for_user_key_upgrade(
         .map_err(|_| MigrateLocalUserDataKeyForUserKeyUpgradeError)
 }
 
-pub(crate) struct UnableToGetError;
+pub struct UnableToGetError;
 
 /// Retrieves the [`WrappedLocalUserDataKey`] from state.
-pub(crate) async fn get_local_user_data_key_from_state(
+pub async fn get_local_user_data_key_from_state(
     client: &Client,
     user_id: UserId,
 ) -> Result<WrappedLocalUserDataKey, UnableToGetError> {

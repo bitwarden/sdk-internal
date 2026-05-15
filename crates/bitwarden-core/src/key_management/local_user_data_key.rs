@@ -12,12 +12,12 @@ use crate::{
 /// Enables offline decryption of local data after a key rotation: only the wrapped key is
 /// re-encrypted; the local user data key itself stays intact.
 #[derive(Debug, Clone)]
-pub(crate) struct WrappedLocalUserDataKey(pub(crate) EncString);
+pub struct WrappedLocalUserDataKey(pub EncString);
 
 impl WrappedLocalUserDataKey {
     /// Create a user key, wrapped by the user key.
     #[instrument(skip(ctx), err)]
-    pub(crate) fn from_context_user_key(
+    pub fn from_context_user_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, LocalUserDataKeyError> {
         let wrapped_local_user_data_key = ctx
@@ -34,7 +34,7 @@ impl WrappedLocalUserDataKey {
     /// user key and must be re-sealed with the V2 user key so that local data encrypted under
     /// the local user data key remains decryptable after rotation.
     #[instrument(skip(self, ctx), err)]
-    pub(crate) fn rewrap_with_user_key(
+    pub fn rewrap_with_user_key(
         &self,
         old_wrapping_key_id: SymmetricKeySlotId,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -51,7 +51,7 @@ impl WrappedLocalUserDataKey {
     /// Unwrap the local user data key and set it in the context under the
     /// [`SymmetricKeySlotId::LocalUserData`] key id.
     #[instrument(skip(self, ctx), err)]
-    pub(crate) fn unwrap_to_context(
+    pub fn unwrap_to_context(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<(), LocalUserDataKeyError> {

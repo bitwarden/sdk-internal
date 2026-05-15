@@ -58,9 +58,9 @@ mod pin_lock_system;
 pub use pin_lock_system::{PinLockSystem, PinLockType, PinUnlockStatus};
 
 #[cfg(feature = "internal")]
-mod local_user_data_key;
+pub mod local_user_data_key;
 #[cfg(feature = "internal")]
-mod local_user_data_key_state;
+pub mod local_user_data_key_state;
 
 /// A temporary bridge to access KM-related state from within the SDK.
 #[cfg(feature = "internal")]
@@ -75,7 +75,7 @@ use crate::{OrganizationId, UserId};
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct UserKeyState {
-    decrypted_user_key: B64,
+    pub decrypted_user_key: B64,
 }
 
 bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
@@ -86,7 +86,7 @@ bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LocalUserDataKeyState {
-    wrapped_key: EncString,
+    pub wrapped_key: EncString,
 }
 
 bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");

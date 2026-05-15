@@ -195,7 +195,7 @@ pub enum AuthRequestMethod {
 
 /// Initialize the user's cryptographic state.
 #[tracing::instrument(skip_all, err)]
-pub(super) async fn initialize_user_crypto(
+pub async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
@@ -419,7 +419,7 @@ pub struct InitOrgCryptoRequest {
 }
 
 /// Initialize the user's organizational cryptographic state.
-pub(super) async fn initialize_org_crypto(
+pub async fn initialize_org_crypto(
     client: &Client,
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {

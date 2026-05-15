@@ -34,7 +34,7 @@ mod auth_request;
 #[cfg(feature = "internal")]
 pub use auth_request::{ApproveAuthRequestError, AuthRequestResponse};
 #[cfg(feature = "internal")]
-pub(crate) use auth_request::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
+pub use auth_request::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
 #[cfg(feature = "internal")]
 mod register;

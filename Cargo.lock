@@ -1202,6 +1202,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-unlock"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "uniffi",
+]
+
+[[package]]
 name = "bitwarden-user-crypto-management"
 version = "3.0.0"
 dependencies = [

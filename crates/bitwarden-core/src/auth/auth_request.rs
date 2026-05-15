@@ -48,7 +48,7 @@ pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, Crypt
 
 /// Decrypt the user key using the private key generated previously.
 #[cfg(feature = "internal")]
-pub(crate) fn auth_request_decrypt_user_key(
+pub fn auth_request_decrypt_user_key(
     private_key: B64,
     user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
@@ -60,7 +60,7 @@ pub(crate) fn auth_request_decrypt_user_key(
 
 /// Decrypt the user key using the private key generated previously.
 #[cfg(feature = "internal")]
-pub(crate) fn auth_request_decrypt_master_key(
+pub fn auth_request_decrypt_master_key(
     private_key: B64,
     master_key: UnsignedSharedKey,
     user_key: EncString,
