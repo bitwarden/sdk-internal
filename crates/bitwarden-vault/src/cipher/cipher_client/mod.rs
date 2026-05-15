@@ -74,12 +74,7 @@ impl CiphersClient {
         if organization_id.is_some() {
             return false;
         }
-        self.client
-            .internal
-            .get_key_store()
-            .context()
-            .get_security_state_version()
-            >= BLOB_SECURITY_VERSION
+        self.key_store.context().get_security_state_version() >= BLOB_SECURITY_VERSION
     }
 
     #[allow(missing_docs)]
@@ -92,7 +87,6 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let key_store = self.client.internal.get_key_store();
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
@@ -105,15 +99,15 @@ impl CiphersClient {
                 .enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
-            cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
+            cipher_view.generate_cipher_key(&mut self.key_store.context(), key)?;
         }
 
         let cipher = if cipher_view.key.is_some()
             && self.should_use_blob_encryption(cipher_view.organization_id)
         {
-            encrypt_blob_cipher(&mut cipher_view, &mut key_store.context())?
+            encrypt_blob_cipher(&mut cipher_view, &mut self.key_store.context())?
         } else {
-            key_store.encrypt(cipher_view)?
+            self.key_store.encrypt(cipher_view)?
         };
 
         Ok(EncryptionContext {
@@ -152,7 +146,7 @@ impl CiphersClient {
             .await
             .enable_cipher_key_encryption;
 
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let mut ctx = key_store.context();
 
         // Set the new key in the key store context
@@ -187,7 +181,7 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let enable_cipher_key = self
             .client
             .internal
@@ -237,7 +231,7 @@ impl CiphersClient {
 
     #[allow(missing_docs)]
     pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
         } else {
@@ -250,7 +244,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<Vec<CipherListView>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             let strict: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
@@ -266,7 +260,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> DecryptCipherListResult {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             let strict: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
@@ -291,7 +285,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> DecryptCipherResult {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             let strict: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
@@ -314,7 +308,7 @@ impl CiphersClient {
         &self,
         cipher_view: CipherView,
     ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
         Ok(credentials)
     }
@@ -330,7 +324,7 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         fido2_credentials: Vec<Fido2CredentialFullView>,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
 
         cipher_view.set_new_fido2_credentials(&mut key_store.context(), fido2_credentials)?;
 
@@ -343,7 +337,7 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
     }
@@ -354,7 +348,7 @@ impl CiphersClient {
         &self,
         cipher_view: CipherView,
     ) -> Result<String, CipherError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
