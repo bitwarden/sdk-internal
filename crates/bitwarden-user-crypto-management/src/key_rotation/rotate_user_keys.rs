@@ -31,8 +31,6 @@ pub enum KeyRotationMethod {
     /// Key Connector user, key rotation without a password change.
     KeyConnector { key_connector_url: String },
     /// TDE user, key rotation without a password change.
-    /// NOTE: This is not yet implemented and will return a
-    /// RotateUserKeysError::UnimplementedKeyRotationMethod error if used.
     Tde,
 }
 
@@ -100,10 +98,6 @@ async fn internal_rotate_user_keys(
     key_connector_api_client: Option<&bitwarden_api_key_connector::apis::ApiClient>,
     request: RotateUserKeysRequest,
 ) -> Result<(), RotateUserKeysError> {
-    if matches!(request.key_rotation_method, KeyRotationMethod::Tde) {
-        return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
-    }
-
     let sync = sync_current_account_data(api_client)
         .await
         .map_err(|_| RotateUserKeysError::Api)?;

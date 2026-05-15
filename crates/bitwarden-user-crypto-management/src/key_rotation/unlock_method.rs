@@ -20,7 +20,9 @@ pub(super) enum PrimaryUnlockMethod {
     },
     /// The Key Connector based unlock method.
     KeyConnector { key_connector_key: KeyConnectorKey },
-    // Add TDE unlock method here and the inputs needed to rotate it.
+    /// TDE based unlock method. TDE keys themselves are rotated as part of the
+    /// common_unlock_data.
+    Tde,
 }
 
 impl PrimaryUnlockMethod {
@@ -46,7 +48,7 @@ impl PrimaryUnlockMethod {
                     key_connector_key.ok_or(RotateUserKeysError::KeyConnectorApi)?;
                 Ok(PrimaryUnlockMethod::KeyConnector { key_connector_key })
             }
-            KeyRotationMethod::Tde => Err(RotateUserKeysError::UnimplementedKeyRotationMethod),
+            KeyRotationMethod::Tde => Ok(PrimaryUnlockMethod::Tde),
         }
     }
 }
@@ -84,6 +86,11 @@ pub(super) fn reencrypt_unlock_method_data(
                 key_connector_key_wrapped_user_key: Some(wrapped_user_key.to_string()),
             })
         }
+        PrimaryUnlockMethod::Tde => Ok(UnlockMethodRequestModel {
+            unlock_method: models::UnlockMethod::Tde,
+            master_password_unlock_data: None,
+            key_connector_key_wrapped_user_key: None,
+        }),
     }
 }
 
