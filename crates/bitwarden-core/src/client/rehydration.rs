@@ -22,9 +22,6 @@ pub enum RehydrationError {
     /// An error occurred accessing or updating a setting in the state registry.
     #[error("State access error: {0}")]
     State(#[from] bitwarden_state::SettingsError),
-    /// The client already has a user ID set that conflicts with the rehydrated user ID.
-    #[error("User ID conflict during rehydration")]
-    UserIdAlreadySet,
 }
 
 /// Data required to populate a [`StateRegistry`] via [`Client::save_to_state`].
@@ -111,7 +108,7 @@ impl Client {
             .internal
             .init_user_id(user_id)
             .await
-            .map_err(|_| RehydrationError::UserIdAlreadySet)?;
+            .expect("user ID cannot already be set on a freshly built client");
 
         Ok(client)
     }
