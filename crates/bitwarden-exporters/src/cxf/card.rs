@@ -40,19 +40,20 @@ impl From<Card> for Vec<Credential> {
 
 impl From<&CreditCardCredential> for Card {
     fn from(value: &CreditCardCredential) -> Self {
+        let expiry_date = value
+            .expiry_date
+            .as_ref()
+            .and_then(|v| v.value.as_expected().ok());
         Card {
-            cardholder_name: value.full_name.clone().map(|v| v.into()),
-            exp_month: value
-                .expiry_date
-                .as_ref()
-                .map(|v| v.value.month.number_from_month().to_string()),
-            exp_year: value.expiry_date.as_ref().map(|v| v.value.year.to_string()),
-            code: value.verification_number.clone().map(|v| v.into()),
+            cardholder_name: value.full_name.clone().map(Into::into),
+            exp_month: expiry_date.map(|v| v.month.number_from_month().to_string()),
+            exp_year: expiry_date.map(|v| v.year.to_string()),
+            code: value.verification_number.clone().map(Into::into),
             brand: value
                 .card_type
-                .as_ref()
-                .and_then(|brand| sanitize_brand(&brand.value.0)),
-            number: value.number.clone().map(|v| v.into()),
+                .clone()
+                .and_then(|b| sanitize_brand(&String::from(b))),
+            number: value.number.clone().map(Into::into),
         }
     }
 }
@@ -139,29 +140,80 @@ mod tests {
         assert_eq!(credentials.len(), 1);
 
         if let Credential::CreditCard(credit_card) = &credentials[0] {
-            assert_eq!(credit_card.full_name.as_ref().unwrap().value.0, "John Doe");
             assert_eq!(
-                credit_card.expiry_date.as_ref().unwrap().value,
-                EditableFieldYearMonth {
-                    year: 2025,
-                    month: Month::December
-                }
+                credit_card
+                    .full_name
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
+                "John Doe"
             );
             assert_eq!(
-                credit_card.verification_number.as_ref().unwrap().value.0,
+                credit_card
+                    .expiry_date
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected(),
+                Ok(&EditableFieldYearMonth {
+                    year: 2025,
+                    month: Month::December
+                })
+            );
+            assert_eq!(
+                credit_card
+                    .verification_number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "123".to_string()
             );
             assert_eq!(
-                credit_card.card_type.as_ref().unwrap().value.0,
+                credit_card
+                    .card_type
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "Visa".to_string()
             );
             assert_eq!(
-                credit_card.number.as_ref().unwrap().value.0,
+                credit_card
+                    .number
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .as_expected()
+                    .unwrap()
+                    .0,
                 "4111111111111111"
             );
         } else {
             panic!("Expected CreditCardCredential");
         }
+    }
+
+    /// Concealed strings are unwrapped as strings
+    #[test]
+    fn test_credit_card_credential_to_card_mismatched_expiry_date_type() {
+        let credit_card: CreditCardCredential = serde_json::from_value(serde_json::json!({
+            "cardType": {
+                "fieldType": "concealed-string",
+                "value": "visa"
+            }
+        }))
+        .unwrap();
+
+        let (card, _) = to_card(&credit_card);
+        assert_eq!(card.brand.unwrap(), "Visa");
     }
 
     #[test]
