@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - bitwarden-core
+          - bitwarden-sm
       version_number:
         description: "New version (example: '2024.1.0')"
         required: true
@@ -95,6 +96,13 @@ jobs:
         env:
           VERSION_NUMBER: ${{ inputs.version_number }}
         run: cargo set-version -p bitwarden-core "$VERSION_NUMBER"
+
+      ### bitwarden-sm
+      - name: Bump bitwarden-sm crate Version
+        if: ${{ inputs.project == 'bitwarden-sm' }}
+        env:
+          VERSION_NUMBER: ${{ inputs.version_number }}
+        run: cargo set-version -p bitwarden-sm "$VERSION_NUMBER"
 
       ############################
       # VERSION BUMP SECTION END #
