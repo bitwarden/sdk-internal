@@ -26,6 +26,9 @@ wasm = [
     "bitwarden-core/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-state/wasm",
+    "dep:js-sys",
+    "dep:serde-wasm-bindgen",
+    "dep:serde_bytes",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -47,9 +50,12 @@ ciborium = { workspace = true }
 data-encoding = { workspace = true }
 futures = { workspace = true }
 hmac = { workspace = true }
+js-sys = { workspace = true, optional = true }
 percent-encoding = ">=2.1, <3.0"
 reqwest = { workspace = true }
 serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true, optional = true }
+serde_bytes = { workspace = true, optional = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }
 sha1 = { workspace = true }
