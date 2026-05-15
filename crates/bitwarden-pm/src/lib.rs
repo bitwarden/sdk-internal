@@ -38,6 +38,7 @@ pub use commercial::CommercialPasswordManagerClient;
 
 mod builder;
 pub mod migrations;
+pub use bitwarden_core::{RehydrationError, SaveStateData};
 pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
@@ -166,6 +167,27 @@ impl PasswordManagerClient {
             .setting(SESSION_PROTECTED_USER_KEY)?
             .delete()
             .await
+    }
+
+    /// Write rehydration state to a StateRegistry.
+    ///
+    /// Delegates to [`Client::save_to_state`](bitwarden_core::Client::save_to_state).
+    pub async fn save_to_state(
+        data: SaveStateData,
+        reg: &bitwarden_state::registry::StateRegistry,
+    ) -> Result<(), RehydrationError> {
+        bitwarden_core::Client::save_to_state(data, reg).await
+    }
+
+    /// Reconstruct a locked PasswordManagerClient from a populated StateRegistry.
+    ///
+    /// Delegates to [`Client::load_from_state`](bitwarden_core::Client::load_from_state).
+    pub async fn load_from_state(
+        token_handler: std::sync::Arc<dyn bitwarden_core::auth::auth_tokens::TokenHandler>,
+        registry: bitwarden_state::registry::StateRegistry,
+    ) -> Result<Self, RehydrationError> {
+        let client = bitwarden_core::Client::load_from_state(token_handler, registry).await?;
+        Ok(PasswordManagerClient(client))
     }
 }
 
