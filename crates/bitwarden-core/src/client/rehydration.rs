@@ -121,7 +121,9 @@ impl Client {
 mod tests {
     use std::sync::{Arc, Once};
 
-    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{
+        KeyStore, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SymmetricKeyAlgorithm,
+    };
     use bitwarden_state::registry::StateRegistry;
 
     use super::*;
