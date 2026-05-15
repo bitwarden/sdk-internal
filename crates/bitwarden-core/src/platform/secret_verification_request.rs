@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Request to verify a user's secret.
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretVerificationRequest {
