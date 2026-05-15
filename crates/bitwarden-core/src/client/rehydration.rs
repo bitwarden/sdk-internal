@@ -22,9 +22,6 @@ pub enum RehydrationError {
     /// An error occurred accessing or updating a setting in the state registry.
     #[error("State access error: {0}")]
     State(#[from] bitwarden_state::SettingsError),
-    /// A cryptographic operation failed.
-    #[error("Cryptographic operation failed during rehydration")]
-    Crypto,
     /// The client already has a user ID set that conflicts with the rehydrated user ID.
     #[error("User ID conflict during rehydration")]
     UserIdAlreadySet,
