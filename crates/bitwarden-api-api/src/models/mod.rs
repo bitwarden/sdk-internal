@@ -940,6 +940,8 @@ pub mod update_devices_trust_request_model;
 pub use self::update_devices_trust_request_model::UpdateDevicesTrustRequestModel;
 pub mod update_domains_request_model;
 pub use self::update_domains_request_model::UpdateDomainsRequestModel;
+pub mod update_organization_invite_link_request_model;
+pub use self::update_organization_invite_link_request_model::UpdateOrganizationInviteLinkRequestModel;
 pub mod update_organization_report_application_data_request;
 pub use self::update_organization_report_application_data_request::UpdateOrganizationReportApplicationDataRequest;
 pub mod update_organization_report_data_request;

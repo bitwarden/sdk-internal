@@ -56,6 +56,8 @@ impl Parse for StateBridgeInput {
 /// 4. Three method declarations on the WASM `RawWasmStateBridge` extern type and three forwarders
 ///    in the `StateBridgeImpl` impl for `WasmStateBridge`.
 /// 5. Three lines in the `WasmStateBridge` TypeScript interface.
+/// 6. One field on `test_support::InMemoryStateBridge` and three forwarders in its
+///    `StateBridgeImpl` impl, gated on `#[cfg(test)]`.
 ///
 /// All fields share the same shape: `set_$name(value: $ty)`, `get_$name() -> Option<$ty>`,
 /// `clear_$name()`.
@@ -198,6 +200,31 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         }
     });
 
+    let test_support_struct_fields = fields.iter().map(|f| {
+        let name = &f.name;
+        let ty = &f.ty;
+        quote! { #name: ::std::sync::Mutex<Option<#ty>>, }
+    });
+
+    let test_support_impl_methods = fields.iter().map(|f| {
+        let name = &f.name;
+        let ty = &f.ty;
+        let set = format_ident!("set_{}", f.name);
+        let get = format_ident!("get_{}", f.name);
+        let clear = format_ident!("clear_{}", f.name);
+        quote! {
+            async fn #set(&self, value: #ty) {
+                *self.#name.lock().expect("not poisoned") = Some(value);
+            }
+            async fn #get(&self) -> Option<#ty> {
+                self.#name.lock().expect("not poisoned").clone()
+            }
+            async fn #clear(&self) {
+                *self.#name.lock().expect("not poisoned") = None;
+            }
+        }
+    });
+
     let wasm_impls = fields.iter().map(|f| {
         let ty = &f.ty;
         let set = format_ident!("set_{}", f.name);
@@ -264,6 +291,23 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         #[::async_trait::async_trait(?Send)]
         impl StateBridgeImpl for crate::key_management::state_bridge::WasmStateBridge {
             #(#wasm_impls)*
+        }
+
+        #[cfg(test)]
+        pub(crate) mod test_support {
+            use super::*;
+
+            /// In-memory `StateBridgeImpl` for use in tests.
+            #[derive(Default)]
+            pub(crate) struct InMemoryStateBridge {
+                #(#test_support_struct_fields)*
+            }
+
+            #[cfg_attr(target_arch = "wasm32", ::async_trait::async_trait(?Send))]
+            #[cfg_attr(not(target_arch = "wasm32"), ::async_trait::async_trait)]
+            impl super::StateBridgeImpl for InMemoryStateBridge {
+                #(#test_support_impl_methods)*
+            }
         }
     };
 

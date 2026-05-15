@@ -26,14 +26,15 @@ pub struct PolicyType(
 /// An organization policy.
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PolicyView {
-    pub(crate) id: Uuid,
-    pub(crate) organization_id: Uuid,
-    pub(crate) r#type: PolicyType,
-    #[cfg_attr(feature = "wasm", tsify(type = "Record<string, unknown>"))]
-    pub(crate) data: Option<HashMap<String, serde_json::Value>>,
-    pub(crate) enabled: bool,
+    pub id: Uuid,
+    pub organization_id: Uuid,
+    pub r#type: PolicyType,
+    /// The policy's raw configuration data as a JSON string, if any.
+    pub data: Option<String>,
+    pub enabled: bool,
 }
 
 /// Defines the filtering behavior for a specific policy type.
