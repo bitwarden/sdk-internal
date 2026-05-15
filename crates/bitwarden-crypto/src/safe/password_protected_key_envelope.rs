@@ -551,6 +551,20 @@ impl IntoWasmAbi for PasswordProtectedKeyEnvelope {
     }
 }
 
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for PasswordProtectedKeyEnvelope {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        let string = value.as_string().ok_or_else(|| {
+            PasswordProtectedKeyEnvelopeError::Parsing(
+                "PasswordProtectedKeyEnvelope JsValue is not a string".to_string(),
+            )
+        })?;
+        PasswordProtectedKeyEnvelope::from_str(&string)
+    }
+}
+
 /// The content-layer separation namespace for password protected key envelopes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PasswordProtectedKeyEnvelopeNamespace {
