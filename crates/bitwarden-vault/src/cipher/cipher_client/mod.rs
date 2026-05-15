@@ -17,6 +17,7 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    blob::encrypt_blob_cipher,
     cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
@@ -75,12 +76,7 @@ impl CiphersClient {
         if organization_id.is_some() {
             return false;
         }
-        self.client
-            .internal
-            .get_key_store()
-            .context()
-            .get_security_state_version()
-            >= BLOB_SECURITY_VERSION
+        self.key_store.context().get_security_state_version() >= BLOB_SECURITY_VERSION
     }
 
     #[allow(missing_docs)]
@@ -93,7 +89,6 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let key_store = self.client.internal.get_key_store();
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
@@ -106,10 +101,17 @@ impl CiphersClient {
                 .enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
-            cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
+            cipher_view.generate_cipher_key(&mut self.key_store.context(), key)?;
         }
 
-        let cipher = key_store.encrypt(cipher_view)?;
+        let cipher = if cipher_view.key.is_some()
+            && self.should_use_blob_encryption(cipher_view.organization_id)
+        {
+            encrypt_blob_cipher(&mut cipher_view, &mut self.key_store.context())?
+        } else {
+            self.key_store.encrypt(cipher_view)?
+        };
+
         Ok(EncryptionContext {
             cipher,
             encrypted_for: user_id,
@@ -146,7 +148,7 @@ impl CiphersClient {
             .await
             .enable_cipher_key_encryption;
 
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let mut ctx = key_store.context();
 
         // Set the new key in the key store context
@@ -158,6 +160,7 @@ impl CiphersClient {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
+        // TODO: [PM-33107] Add support for cipher blob encryption when rotating keys.
         let cipher = cipher_view.encrypt_composite(&mut ctx, new_key_id)?;
 
         Ok(EncryptionContext {
@@ -180,7 +183,7 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let enable_cipher_key = self
             .client
             .internal
@@ -190,18 +193,34 @@ impl CiphersClient {
 
         let mut ctx = key_store.context();
 
-        let prepared_views: Vec<CipherView> = cipher_views
+        // Per-item loop instead of key_store.encrypt_list for two reasons:
+        // 1. blob-eligible ciphers must go through encrypt_blob_cipher, which is incompatible with
+        //    the batch encrypt_list interface (no per-item dispatch).
+        // 2. encrypt_list uses Rayon internally, but on WASM (the only build target for this
+        //    function) Rayon runs sequentially, so there is no real parallelism to lose.
+        //
+        // Alternatives considered and deferred:
+        // - Split-batch: partition into blob vs. field-level groups, batch the field-level group
+        //   via encrypt_list, encrypt blob items individually, then merge back in order. Deferred:
+        //   index-based merge adds ordering complexity that outweighs the benefit.
+        // - BlobCipherEncrypt(CipherView) wrapper (analogous to StrictDecrypt): rejected because
+        //   BlobEncryptionError cannot be cleanly converted to CryptoError — SealedCipherBlobError
+        //   contains CBOR, format-version, and base64 errors with no CryptoError equivalents.
+        let ciphers: Vec<Cipher> = cipher_views
             .into_iter()
             .map(|mut cv| {
                 if cv.key.is_none() && enable_cipher_key {
                     let key = cv.key_identifier();
                     cv.generate_cipher_key(&mut ctx, key)?;
                 }
-                Ok(cv)
+                if cv.key.is_some() && self.should_use_blob_encryption(cv.organization_id) {
+                    Ok(encrypt_blob_cipher(&mut cv, &mut ctx)
+                        .map_err(EncryptError::BlobEncryption)?)
+                } else {
+                    Ok(key_store.encrypt(cv)?)
+                }
             })
-            .collect::<Result<Vec<_>, bitwarden_crypto::CryptoError>>()?;
-
-        let ciphers: Vec<Cipher> = key_store.encrypt_list(&prepared_views)?;
+            .collect::<Result<Vec<_>, EncryptError>>()?;
 
         Ok(ciphers
             .into_iter()
@@ -214,7 +233,7 @@ impl CiphersClient {
 
     #[allow(missing_docs)]
     pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
         } else {
@@ -227,7 +246,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<Vec<CipherListView>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             let strict: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
@@ -243,7 +262,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> DecryptCipherListResult {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             let strict: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
@@ -268,7 +287,7 @@ impl CiphersClient {
         &self,
         ciphers: Vec<Cipher>,
     ) -> DecryptCipherResult {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         if self.is_strict_decrypt().await {
             let strict: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
@@ -291,7 +310,7 @@ impl CiphersClient {
         &self,
         cipher_view: CipherView,
     ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
         Ok(credentials)
     }
@@ -307,7 +326,7 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         fido2_credentials: Vec<Fido2CredentialFullView>,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
 
         cipher_view.set_new_fido2_credentials(&mut key_store.context(), fido2_credentials)?;
 
@@ -320,7 +339,7 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
     }
@@ -331,7 +350,7 @@ impl CiphersClient {
         &self,
         cipher_view: CipherView,
     ) -> Result<String, CipherError> {
-        let key_store = self.client.internal.get_key_store();
+        let key_store = &self.key_store;
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
@@ -910,6 +929,28 @@ mod tests {
 
         for ctx in contexts {
             assert_eq!(ctx.encrypted_for, expected_user_id);
+        }
+    }
+
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn test_encrypt_list_uses_blob_when_eligible() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        let cipher_views = vec![test_cipher_view(), test_cipher_view()];
+        let contexts = client
+            .vault()
+            .ciphers()
+            .encrypt_list(cipher_views)
+            .await
+            .unwrap();
+
+        for ctx in &contexts {
+            assert!(crate::blob::is_blob_encrypted(&ctx.cipher));
         }
     }
 
