@@ -31,7 +31,7 @@ pub use rehydration::{RehydrationError, SaveStateData};
 pub mod tracing_middleware;
 
 pub use builder::ClientBuilder;
-pub(crate) use builder::{build_default_headers, new_http_client_builder};
+pub(crate) use builder::build_default_headers;
 pub use client::Client;
 pub use client_settings::{
     ClientName, ClientSettings, DeviceType, HostPlatformInfo, get_host_platform_info,
