@@ -494,11 +494,13 @@ dependencies = [
 name = "bitwarden-api-base"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-uniffi-error",
  "http",
  "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
+ "uniffi",
  "url",
 ]
 

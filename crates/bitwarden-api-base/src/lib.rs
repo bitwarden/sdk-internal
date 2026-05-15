@@ -1,8 +1,15 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
+
+#[cfg(feature = "uniffi")]
+mod uniffi_support;
+
 mod configuration;
 mod error;
 mod request;
+mod status_code_serializer;
 mod util;
 
 pub use configuration::Configuration;
