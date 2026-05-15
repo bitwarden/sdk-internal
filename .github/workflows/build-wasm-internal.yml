@@ -103,6 +103,39 @@ jobs:
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*
           if-no-files-found: error
 
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: crates/bitwarden-wasm-internal/integration-tests/package-lock.json
+
+      - name: Download SDK artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: sdk-internal
+          path: crates/bitwarden-wasm-internal/npm
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: crates/bitwarden-wasm-internal/integration-tests
+
+      - name: Run integration tests
+        run: npm test
+        working-directory: crates/bitwarden-wasm-internal/integration-tests
+
   trigger-wasm-publish:
     name: Trigger WASM publish
     if: github.ref == 'refs/heads/main'
