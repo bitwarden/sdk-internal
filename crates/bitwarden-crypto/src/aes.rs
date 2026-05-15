@@ -5,16 +5,22 @@
 //! In most cases you should use the [EncString][crate::EncString] with
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
-use aes::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7};
+use aes::cipher::{
+    BlockModeDecrypt, BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7, inout::InOutBuf,
+};
 use hmac::{KeyInit, Mac};
 use hybrid_array::Array;
+use rand::Rng;
 use subtle::ConstantTimeEq;
 use typenum::U32;
 
 use crate::{
+    CryptoError,
     error::Result,
     util::{PBKDF_SHA256_HMAC_OUT_SIZE, PbkdfSha256Hmac},
 };
+
+const AES_BLOCK_SIZE: usize = 16;
 
 /// An aes operation failed either due to invalid padding or due to an invalid MAC.
 #[derive(Debug)]
@@ -93,6 +99,138 @@ fn encrypt_aes256_internal(
     (iv, data)
 }
 
+/// Streaming AES-256-CBC + HMAC-SHA256 decryptor. The HMAC is verified only at
+/// [`Self::finalize`]; bytes returned from [`Self::update`] are decrypted but **not yet
+/// authenticated** and must be treated as untrusted until `finalize` returns `Ok`.
+pub(crate) struct StreamingAes256CbcHmacDecryptor {
+    decryptor: cbc::Decryptor<aes::Aes256>,
+    hmac: PbkdfSha256Hmac,
+    /// Always retains at least one full block so `finalize` can apply PKCS7 unpadding.
+    pending: Vec<u8>,
+}
+
+impl StreamingAes256CbcHmacDecryptor {
+    pub(crate) fn new(iv: &[u8; 16], mac_key: &Array<u8, U32>, enc_key: &Array<u8, U32>) -> Self {
+        let decryptor = cbc::Decryptor::<aes::Aes256>::new(enc_key, iv.into());
+        let mut hmac =
+            PbkdfSha256Hmac::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
+        hmac.update(iv);
+        Self {
+            decryptor,
+            hmac,
+            pending: Vec::new(),
+        }
+    }
+
+    pub(crate) fn update(&mut self, ciphertext_chunk: &[u8]) -> Vec<u8> {
+        if ciphertext_chunk.is_empty() {
+            return Vec::new();
+        }
+        self.hmac.update(ciphertext_chunk);
+        self.pending.extend_from_slice(ciphertext_chunk);
+
+        // Reserve the final block for `finalize`. Emit only complete blocks beyond that.
+        let complete_blocks = self.pending.len() / AES_BLOCK_SIZE;
+        let blocks_to_emit = complete_blocks.saturating_sub(1);
+        if blocks_to_emit == 0 {
+            return Vec::new();
+        }
+
+        let bytes_to_emit = blocks_to_emit * AES_BLOCK_SIZE;
+        let mut out: Vec<u8> = self.pending.drain(..bytes_to_emit).collect();
+        let (chunks, _) = InOutBuf::from(out.as_mut_slice()).into_chunks();
+        self.decryptor.decrypt_blocks_inout(chunks);
+        out
+    }
+
+    pub(crate) fn finalize(mut self, expected_mac: &[u8; 32]) -> Result<Vec<u8>, CryptoError> {
+        let computed: [u8; PBKDF_SHA256_HMAC_OUT_SIZE] = (*self.hmac.finalize().into_bytes())
+            .try_into()
+            .expect("HMAC output size to be correct");
+        if computed.ct_ne(expected_mac).into() {
+            return Err(CryptoError::Decrypt);
+        }
+
+        if self.pending.is_empty() || !self.pending.len().is_multiple_of(AES_BLOCK_SIZE) {
+            return Err(CryptoError::Decrypt);
+        }
+        let unpadded = self
+            .decryptor
+            .decrypt_padded::<Pkcs7>(&mut self.pending)
+            .map_err(|_| CryptoError::Decrypt)?;
+        let unpadded_len = unpadded.len();
+        self.pending.truncate(unpadded_len);
+        Ok(self.pending)
+    }
+}
+
+/// Streaming AES-256-CBC + HMAC-SHA256 encryptor. The IV and MAC are returned from
+/// [`Self::finalize`].
+pub(crate) struct StreamingAes256CbcHmacEncryptor {
+    encryptor: cbc::Encryptor<aes::Aes256>,
+    hmac: PbkdfSha256Hmac,
+    iv: [u8; 16],
+    pending: Vec<u8>,
+}
+
+pub(crate) struct StreamingEncryptFinal {
+    pub iv: [u8; 16],
+    pub mac: [u8; 32],
+    /// PKCS7 mandates a final padding block even when input is block-aligned, so this is
+    /// always at least 16 bytes.
+    pub trailing_ciphertext: Vec<u8>,
+}
+
+impl StreamingAes256CbcHmacEncryptor {
+    pub(crate) fn new(mac_key: &Array<u8, U32>, enc_key: &Array<u8, U32>) -> Self {
+        let mut iv = [0u8; 16];
+        rand::rng().fill_bytes(&mut iv);
+        let encryptor = cbc::Encryptor::<aes::Aes256>::new(enc_key, &iv.into());
+        let mut hmac =
+            PbkdfSha256Hmac::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
+        hmac.update(&iv);
+        Self {
+            encryptor,
+            hmac,
+            iv,
+            pending: Vec::new(),
+        }
+    }
+
+    pub(crate) fn update(&mut self, plaintext_chunk: &[u8]) -> Vec<u8> {
+        if plaintext_chunk.is_empty() {
+            return Vec::new();
+        }
+        self.pending.extend_from_slice(plaintext_chunk);
+
+        let complete_blocks = self.pending.len() / AES_BLOCK_SIZE;
+        if complete_blocks == 0 {
+            return Vec::new();
+        }
+        let bytes_to_emit = complete_blocks * AES_BLOCK_SIZE;
+        let mut out: Vec<u8> = self.pending.drain(..bytes_to_emit).collect();
+        let (chunks, _) = InOutBuf::from(out.as_mut_slice()).into_chunks();
+        self.encryptor.encrypt_blocks_inout(chunks);
+        self.hmac.update(&out);
+        out
+    }
+
+    pub(crate) fn finalize(mut self) -> StreamingEncryptFinal {
+        let trailing = self.encryptor.encrypt_padded_vec::<Pkcs7>(&self.pending);
+        self.hmac.update(&trailing);
+
+        let mac: [u8; PBKDF_SHA256_HMAC_OUT_SIZE] = (*self.hmac.finalize().into_bytes())
+            .try_into()
+            .expect("HMAC output size to be correct");
+
+        StreamingEncryptFinal {
+            iv: self.iv,
+            mac,
+            trailing_ciphertext: trailing,
+        }
+    }
+}
+
 /// Generate a MAC using HMAC-SHA256.
 fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> [u8; 32] {
     let mut hmac =
@@ -166,5 +304,119 @@ mod tests {
         let decrypted = decrypt_aes256(iv, data.into(), &key).unwrap();
 
         assert_eq!(String::from_utf8(decrypted).unwrap(), "EncryptMe!");
+    }
+
+    fn streaming_keys() -> (Array<u8, U32>, Array<u8, U32>) {
+        (generate_array(0, 1), generate_array(0, 2))
+    }
+
+    /// Feeds the plaintext through the streaming encryptor in 11-byte chunks (deliberately
+    /// not block-aligned), then verifies the produced ciphertext + MAC round-trip through
+    /// the bulk `decrypt_aes256_hmac` to the original plaintext.
+    #[test]
+    fn streaming_encryptor_matches_bulk_decrypt() {
+        let (enc_key, mac_key) = streaming_keys();
+        let plaintext = generate_vec(137, 1, 1);
+
+        let mut enc = StreamingAes256CbcHmacEncryptor::new(&mac_key, &enc_key);
+        let mut ciphertext = Vec::new();
+        for chunk in plaintext.chunks(11) {
+            ciphertext.extend_from_slice(&enc.update(chunk));
+        }
+        let final_ = enc.finalize();
+        ciphertext.extend_from_slice(&final_.trailing_ciphertext);
+
+        let roundtripped =
+            decrypt_aes256_hmac(&final_.iv, &final_.mac, ciphertext, &mac_key, &enc_key).unwrap();
+        assert_eq!(roundtripped, plaintext);
+    }
+
+    /// Encrypts via the bulk path, then decrypts via the streaming decryptor (fed in
+    /// 9-byte chunks). Verifies output equals input.
+    #[test]
+    fn streaming_decryptor_matches_bulk_encrypt() {
+        let (enc_key, mac_key) = streaming_keys();
+        let plaintext = generate_vec(137, 1, 1);
+
+        let (iv, mac, ciphertext) = encrypt_aes256_hmac(&plaintext, &mac_key, &enc_key).unwrap();
+
+        let mut dec = StreamingAes256CbcHmacDecryptor::new(&iv, &mac_key, &enc_key);
+        let mut out = Vec::new();
+        for chunk in ciphertext.chunks(9) {
+            out.extend_from_slice(&dec.update(chunk));
+        }
+        out.extend_from_slice(&dec.finalize(&mac).unwrap());
+
+        assert_eq!(out, plaintext);
+    }
+
+    /// Exercises a block-aligned plaintext length (encryption appends a full PKCS7
+    /// padding block, decryptor must strip it).
+    #[test]
+    fn streaming_roundtrip_block_aligned_input() {
+        let (enc_key, mac_key) = streaming_keys();
+        let plaintext = generate_vec(64, 0, 1);
+
+        let mut enc = StreamingAes256CbcHmacEncryptor::new(&mac_key, &enc_key);
+        let mut ciphertext = Vec::new();
+        ciphertext.extend_from_slice(&enc.update(&plaintext));
+        let final_ = enc.finalize();
+        ciphertext.extend_from_slice(&final_.trailing_ciphertext);
+
+        let mut dec = StreamingAes256CbcHmacDecryptor::new(&final_.iv, &mac_key, &enc_key);
+        let mut out = Vec::new();
+        out.extend_from_slice(&dec.update(&ciphertext));
+        out.extend_from_slice(&dec.finalize(&final_.mac).unwrap());
+
+        assert_eq!(out, plaintext);
+    }
+
+    /// Empty plaintext round-trips: encryptor still emits a full padding block.
+    #[test]
+    fn streaming_roundtrip_empty_input() {
+        let (enc_key, mac_key) = streaming_keys();
+
+        let enc = StreamingAes256CbcHmacEncryptor::new(&mac_key, &enc_key);
+        let final_ = enc.finalize();
+        let ciphertext = final_.trailing_ciphertext;
+        assert_eq!(ciphertext.len(), 16);
+
+        let mut dec = StreamingAes256CbcHmacDecryptor::new(&final_.iv, &mac_key, &enc_key);
+        let _ = dec.update(&ciphertext);
+        let out = dec.finalize(&final_.mac).unwrap();
+        assert!(out.is_empty());
+    }
+
+    /// HMAC tamper detection: flipping a byte in the MAC must cause `finalize` to fail.
+    #[test]
+    fn streaming_decryptor_rejects_bad_mac() {
+        let (enc_key, mac_key) = streaming_keys();
+        let plaintext = generate_vec(50, 0, 1);
+
+        let (iv, mut mac, ciphertext) =
+            encrypt_aes256_hmac(&plaintext, &mac_key, &enc_key).unwrap();
+        mac[0] ^= 0xff;
+
+        let mut dec = StreamingAes256CbcHmacDecryptor::new(&iv, &mac_key, &enc_key);
+        let _ = dec.update(&ciphertext);
+        let err = dec.finalize(&mac).unwrap_err();
+        assert!(matches!(err, CryptoError::Decrypt));
+    }
+
+    /// Ciphertext tamper detection: flipping a byte in the ciphertext must cause
+    /// `finalize` to fail HMAC verification.
+    #[test]
+    fn streaming_decryptor_rejects_tampered_ciphertext() {
+        let (enc_key, mac_key) = streaming_keys();
+        let plaintext = generate_vec(50, 0, 1);
+
+        let (iv, mac, mut ciphertext) =
+            encrypt_aes256_hmac(&plaintext, &mac_key, &enc_key).unwrap();
+        ciphertext[3] ^= 0xff;
+
+        let mut dec = StreamingAes256CbcHmacDecryptor::new(&iv, &mac_key, &enc_key);
+        let _ = dec.update(&ciphertext);
+        let err = dec.finalize(&mac).unwrap_err();
+        assert!(matches!(err, CryptoError::Decrypt));
     }
 }

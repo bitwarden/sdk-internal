@@ -17,6 +17,8 @@ mod admin;
 mod create;
 mod delete;
 mod download_url;
+#[cfg(feature = "wasm")]
+mod io;
 mod renew;
 mod upgrade;
 
@@ -53,7 +55,6 @@ pub struct AttachmentsClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
     pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
-    pub(crate) http_client: reqwest::Client,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

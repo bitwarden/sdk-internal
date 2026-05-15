@@ -7,3 +7,5 @@ pub use symmetric_key_envelope::*;
 mod data_envelope;
 pub use data_envelope::*;
 mod helpers;
+mod streaming_attachment_cipher;
+pub use streaming_attachment_cipher::*;
