@@ -17,7 +17,16 @@ describe("user crypto initialization tests", () => {
     const stateBridge = makeStateBridge();
     const client = makePasswordManagerClient(stateBridge);
 
-    initializeUserCrypto(client, { masterPasswordUnlock: { password: TEST_PASSWORD, master_password_unlock: { masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY), salt: TEST_EMAIL, kdf: TEST_KDF_PARAMS } } });
+    initializeUserCrypto(client, {
+      masterPasswordUnlock: {
+        password: TEST_PASSWORD,
+        master_password_unlock: {
+          masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
+          salt: TEST_EMAIL,
+          kdf: TEST_KDF_PARAMS,
+        },
+      },
+    });
 
     expect(await client.crypto().get_user_encryption_key()).toBeDefined();
   });
@@ -38,8 +47,10 @@ describe("user crypto initialization tests", () => {
 
     // Now make a new client and initialize with the PIN envelope.
     const client = makePasswordManagerClient(stateBridge);
-    await initializeUserCrypto(client, { pinEnvelope: { pin: TEST_PIN, pin_protected_user_key_envelope: pinEnvelope! } });
-    
+    await initializeUserCrypto(client, {
+      pinEnvelope: { pin: TEST_PIN, pin_protected_user_key_envelope: pinEnvelope! },
+    });
+
     expect(await client.crypto().get_user_encryption_key()).toBeDefined();
   });
 
@@ -59,8 +70,8 @@ describe("user crypto initialization tests", () => {
 
     // Now make a new client and initialize with the PIN state.
     const client = makePasswordManagerClient(stateBridge);
-    await initializeUserCrypto(client, { pinState: { pin: TEST_PIN }});
-    
+    await initializeUserCrypto(client, { pinState: { pin: TEST_PIN } });
+
     expect(await client.crypto().get_user_encryption_key()).toBeDefined();
   });
 });

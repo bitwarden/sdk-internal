@@ -122,11 +122,23 @@ export function initializeCryptoDefault(client: PasswordManagerClient) {
     kdfParams: TEST_KDF_PARAMS,
     email: TEST_EMAIL,
     accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
-    method: { masterPasswordUnlock: { password: TEST_PASSWORD, master_password_unlock: { masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY), salt: TEST_EMAIL, kdf: TEST_KDF_PARAMS } } },
+    method: {
+      masterPasswordUnlock: {
+        password: TEST_PASSWORD,
+        master_password_unlock: {
+          masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
+          salt: TEST_EMAIL,
+          kdf: TEST_KDF_PARAMS,
+        },
+      },
+    },
   });
 }
 
-export function initializeUserCrypto (client: PasswordManagerClient, initUserCryptoMethod: InitUserCryptoMethod) {
+export function initializeUserCrypto(
+  client: PasswordManagerClient,
+  initUserCryptoMethod: InitUserCryptoMethod,
+) {
   return client.crypto().initialize_user_crypto({
     userId: TEST_USER_ID,
     kdfParams: TEST_KDF_PARAMS,
