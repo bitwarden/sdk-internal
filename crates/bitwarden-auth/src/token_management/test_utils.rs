@@ -4,10 +4,7 @@ use bitwarden_api_api::apis::AuthRequired;
 use wiremock::MockServer;
 
 pub fn identity_config(server_uri: &str) -> bitwarden_api_api::Configuration {
-    bitwarden_api_api::Configuration {
-        base_path: server_uri.to_string(),
-        client: reqwest::Client::new().into(),
-    }
+    bitwarden_api_api::Configuration::new(server_uri)
 }
 
 /// Start a mock server that accepts any request with a 200 response.
@@ -41,7 +38,7 @@ pub async fn start_renewal_server(renewed_token: &str) -> MockServer {
 pub fn build_client(
     middleware: Arc<dyn reqwest_middleware::Middleware>,
 ) -> reqwest_middleware::ClientWithMiddleware {
-    reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
+    reqwest_middleware::ClientBuilder::new(bitwarden_api_api::new_http_client())
         .with_arc(middleware)
         .build()
 }
