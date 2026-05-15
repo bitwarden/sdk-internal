@@ -26,6 +26,7 @@ jobs:
   direct-maximum-versions:
     name: Check dependencies maximum versions for - ${{ matrix.settings.os }} - ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os || 'ubuntu-24.04' }}
+    timeout-minutes: 10
 
     strategy:
       fail-fast: false
