@@ -114,6 +114,19 @@ impl PartialEq for Aes256CbcHmacKey {
     }
 }
 
+impl Aes256CbcHmacKey {
+    pub(crate) fn streaming_decryptor(
+        &self,
+        iv: &[u8; 16],
+    ) -> crate::aes::StreamingAes256CbcHmacDecryptor {
+        crate::aes::StreamingAes256CbcHmacDecryptor::new(iv, &self.mac_key, &self.enc_key)
+    }
+
+    pub(crate) fn streaming_encryptor(&self) -> crate::aes::StreamingAes256CbcHmacEncryptor {
+        crate::aes::StreamingAes256CbcHmacEncryptor::new(&self.mac_key, &self.enc_key)
+    }
+}
+
 /// [XChaCha20Poly1305Key] is a symmetric encryption key consisting
 /// of one 256-bit key, and contains a key id. In contrast to the
 /// [Aes256CbcKey] and [Aes256CbcHmacKey], this key type is used to create

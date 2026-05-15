@@ -537,6 +537,37 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.get_symmetric_key(key_id)
     }
 
+    /// Builds a streaming AES-256-CBC + HMAC-SHA256 decryptor for the
+    /// [`Aes256CbcHmacKey`] at `key_id`. See [`crate::safe::StreamingAttachmentDecryptor`]
+    /// for the unverified-plaintext caveat.
+    pub fn streaming_decrypt_aes_cbc_hmac(
+        &self,
+        key_id: Ids::Symmetric,
+        iv: &[u8; 16],
+    ) -> Result<crate::safe::StreamingAttachmentDecryptor> {
+        match self.get_symmetric_key(key_id)? {
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => Ok(
+                crate::safe::StreamingAttachmentDecryptor::new(key.streaming_decryptor(iv)),
+            ),
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
+
+    /// Builds a streaming AES-256-CBC + HMAC-SHA256 encryptor for the
+    /// [`Aes256CbcHmacKey`] at `key_id`. The random IV and final MAC are returned via
+    /// [`crate::safe::StreamingAttachmentEncryptor::finalize`].
+    pub fn streaming_encrypt_aes_cbc_hmac(
+        &self,
+        key_id: Ids::Symmetric,
+    ) -> Result<crate::safe::StreamingAttachmentEncryptor> {
+        match self.get_symmetric_key(key_id)? {
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => Ok(
+                crate::safe::StreamingAttachmentEncryptor::new(key.streaming_encryptor()),
+            ),
+            _ => Err(CryptoError::InvalidKey),
+        }
+    }
+
     /// Return the key id if the symmetric key exists in the context
     pub fn get_symmetric_key_id(&self, key_slot_id: Ids::Symmetric) -> Option<KeyId> {
         let Ok(key) = self.get_symmetric_key(key_slot_id) else {
