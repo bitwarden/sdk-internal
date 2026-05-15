@@ -1,0 +1,60 @@
+name: Direct Maximum Version
+
+on:
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+  push:
+    branches:
+      - "main"
+      - "rc"
+      - "hotfix-rc"
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  direct-maximum-versions:
+    name: Check dependencies maximum versions for - ${{ matrix.settings.os }} - ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.os || 'ubuntu-24.04' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.settings.target }}
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: dmaxv-${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}
+
+      - name: Refresh Cargo.lock to latest in-range versions
+        run: cargo update
+
+      - name: Cargo check
+        run: cargo check --all-features
+        env:
+          RUSTFLAGS: "-D warnings"
