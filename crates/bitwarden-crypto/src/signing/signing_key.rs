@@ -9,7 +9,7 @@ use coset::{
 };
 use ed25519_dalek::Signer;
 use hybrid_array::Array;
-use ml_dsa::{B32, KeyGen, MlDsa44, signature::Keypair};
+use ml_dsa::{B32, MlDsa44};
 use rand::Rng;
 
 use super::{
@@ -91,13 +91,14 @@ impl SigningKey {
                 let mut seed = Box::pin(Array::from([0u8; 32]));
                 rand::rng().fill_bytes(&mut seed);
 
-                let kp = MlDsa44::from_seed(&seed);
+                let expanded_signing_key = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
+                let verifying_key = expanded_signing_key.verifying_key().clone();
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa44 {
                         seed,
-                        signing_key: Box::pin(kp.signing_key().clone()),
-                        verifying_key: Box::new(kp.verifying_key().clone()),
+                        signing_key: Box::pin(expanded_signing_key),
+                        verifying_key: Box::new(verifying_key),
                     },
                 }
             }
@@ -199,13 +200,14 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 RegisteredLabel::Assigned(KeyType::AKP),
             ) => {
                 let seed = mldsa_seed(&cose_key)?;
-                let kp = MlDsa44::from_seed(&seed);
+                let expanded_signing_key = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
+                let verifying_key = expanded_signing_key.verifying_key().clone();
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
                     inner: RawSigningKey::MlDsa44 {
                         seed: Box::pin(seed),
-                        signing_key: Box::pin(kp.signing_key().clone()),
-                        verifying_key: Box::new(kp.verifying_key().clone()),
+                        signing_key: Box::pin(expanded_signing_key),
+                        verifying_key: Box::new(verifying_key),
                     },
                 })
             }
