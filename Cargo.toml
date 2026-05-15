@@ -78,16 +78,27 @@ proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"
 rand_chacha = ">=0.10.0, <0.11"
-reqwest = { version = "0.12.28", features = [
+reqwest = { version = "0.13.3", features = [
     "json",
     "multipart",
     "http2",
+    "form",
+    "query",
 ], default-features = false }
-reqwest-middleware = { version = "0.4.2", features = [
+reqwest-middleware = { version = "0.5.1", features = [
     "json",
     "multipart",
+    "form",
+    "query",
 ] }
 rsa = "0.10.0-rc.17"
+rustls = { version = "0.23.27", default-features = false, features = [
+    "std",
+    "tls12",
+    "logging",
+    "ring",
+] }
+rustls-platform-verifier = "0.6.2"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"
