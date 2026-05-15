@@ -10,10 +10,12 @@ uniffi::setup_scaffolding!();
 mod uniffi_support;
 
 #[cfg(feature = "internal")]
-pub use bitwarden_core::key_management::crypto::{
-    AuthRequestMethod, InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest,
-    initialize_org_crypto, initialize_user_crypto,
+pub use bitwarden_core::key_management::{
+    MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData, PinLockSystem,
+    PinLockType, PinUnlockStatus, V2UpgradeToken, V2UpgradeTokenError,
+    account_cryptographic_state::WrappedAccountCryptographicState,
+    crypto::{
+        AuthRequestMethod, InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest,
+        initialize_org_crypto, initialize_user_crypto,
+    },
 };
-
-#[cfg(feature = "internal")]
-pub use bitwarden_core::key_management::{PinLockSystem, PinLockType, PinUnlockStatus};
