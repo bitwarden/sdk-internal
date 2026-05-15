@@ -13,8 +13,8 @@ use wasm_bindgen::prelude::*;
 
 use super::{CiphersClient, EncryptionContext};
 use crate::{
-    Cipher, CipherRepromptType, CipherView, EncryptError, FieldView, FolderId, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    Cipher, CipherRepromptType, CipherView, DecryptError, EncryptError, FieldView, FolderId,
+    VaultParseError, cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -49,6 +49,14 @@ impl From<EncryptError> for CreateCipherError {
             EncryptError::Crypto(c) => Self::Crypto(c),
             EncryptError::BlobEncryption(b) => Self::BlobEncryption(b),
             EncryptError::MissingUserId => Self::NotAuthenticated(NotAuthenticatedError),
+        }
+    }
+}
+
+impl From<DecryptError> for CreateCipherError {
+    fn from(e: DecryptError) -> Self {
+        match e {
+            DecryptError::Crypto(c) => Self::Crypto(c),
         }
     }
 }
@@ -160,7 +168,7 @@ impl CiphersClient {
             repository.set(require!(cipher.id), cipher.clone()).await?;
         }
 
-        Ok(self.key_store.decrypt(&cipher)?)
+        Ok(self.decrypt(cipher).await?)
     }
 }
 
