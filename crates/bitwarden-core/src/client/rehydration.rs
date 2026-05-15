@@ -124,7 +124,7 @@ impl Client {
 mod tests {
     use std::sync::{Arc, Once};
 
-    use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SymmetricKeyAlgorithm};
     use bitwarden_state::registry::StateRegistry;
 
     use super::*;
@@ -133,7 +133,8 @@ mod tests {
         auth::auth_tokens::NoopTokenHandler,
         client::persisted_state::{ACCOUNT_CRYPTO_STATE, BASE_URLS, BaseUrls, USER_ID},
         key_management::{
-            KeySlotIds, account_cryptographic_state::WrappedAccountCryptographicState,
+            KeySlotIds, SecurityState,
+            account_cryptographic_state::WrappedAccountCryptographicState,
         },
     };
 
@@ -165,12 +166,21 @@ mod tests {
     fn test_crypto_state() -> WrappedAccountCryptographicState {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
-        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let private_key_id =
-            ctx.make_private_key(bitwarden_crypto::PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let private_key_id = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let signed_public_key = ctx
+            .make_signed_public_key(private_key_id, signing_key_id)
+            .unwrap();
+        let security_state = SecurityState::new();
+        let signed_security_state = security_state.sign(signing_key_id, &mut ctx).unwrap();
         let wrapped_private = ctx.wrap_private_key(user_key, private_key_id).unwrap();
-        WrappedAccountCryptographicState::V1 {
+        let wrapped_signing = ctx.wrap_signing_key(user_key, signing_key_id).unwrap();
+        WrappedAccountCryptographicState::V2 {
             private_key: wrapped_private,
+            signed_public_key: Some(signed_public_key),
+            signing_key: wrapped_signing,
+            security_state: signed_security_state,
         }
     }
 
@@ -220,8 +230,8 @@ mod tests {
             .unwrap()
             .expect("ACCOUNT_CRYPTO_STATE should be present");
         assert!(
-            matches!(crypto_state, WrappedAccountCryptographicState::V1 { .. }),
-            "Expected V1 crypto state"
+            matches!(crypto_state, WrappedAccountCryptographicState::V2 { .. }),
+            "Expected V2 crypto state"
         );
     }
 
