@@ -93,6 +93,7 @@ mod tests {
             r#type: policy_type,
             data: None,
             enabled,
+            revision_date: Default::default(),
         }
     }
 
