@@ -809,6 +809,24 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             self,
         )
     }
+
+    /// A test helper to assert that the symmetric keys corresponding to the given identifiers are
+    /// equal.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn assert_symmetric_keys_equal(&self, key_id_1: Ids::Symmetric, key_id_2: Ids::Symmetric) {
+        let key_1 = self
+            .get_symmetric_key(key_id_1)
+            .expect("Key 1 should exist in context");
+        let key_2 = self
+            .get_symmetric_key(key_id_2)
+            .expect("Key 2 should exist in context");
+        if key_1 != key_2 {
+            panic!(
+                "Symmetric keys with ids {:?} and {:?} are not equal",
+                key_id_1, key_id_2,
+            );
+        }
+    }
 }
 
 #[cfg(test)]

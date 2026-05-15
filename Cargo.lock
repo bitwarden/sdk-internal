@@ -645,6 +645,7 @@ dependencies = [
  "rustls-platform-verifier",
  "schemars 1.2.1",
  "serde",
+ "serde-wasm-bindgen",
  "serde_bytes",
  "serde_json",
  "serde_qs",
@@ -813,6 +814,7 @@ name = "bitwarden-fido"
 version = "3.0.0"
 dependencies = [
  "async-trait",
+ "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",

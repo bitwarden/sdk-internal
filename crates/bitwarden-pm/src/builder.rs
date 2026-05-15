@@ -39,8 +39,8 @@ impl PasswordManagerClientBuilder {
 
     /// Consumes the builder and constructs a [`PasswordManagerClient`].
     pub fn build(self) -> PasswordManagerClient {
-        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
-        let mut builder = ClientBuilder::new().with_token_handler(token_handler);
+        let mut builder = ClientBuilder::new()
+            .with_token_handler(Arc::new(PasswordManagerTokenHandler::default()));
         if let Some(s) = self.settings {
             builder = builder.with_settings(s);
         }

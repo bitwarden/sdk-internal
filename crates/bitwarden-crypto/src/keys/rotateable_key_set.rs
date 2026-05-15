@@ -26,11 +26,11 @@ use crate::{
 )]
 pub struct RotateableKeySet {
     /// `DownstreamKey` protected by encapsulation key
-    encapsulated_downstream_key: UnsignedSharedKey,
+    pub encapsulated_downstream_key: UnsignedSharedKey,
     /// Encapsulation key protected by `DownstreamKey`
-    encrypted_encapsulation_key: EncString,
+    pub encrypted_encapsulation_key: EncString,
     /// Decapsulation key protected by `UpstreamKey`
-    encrypted_decapsulation_key: EncString,
+    pub encrypted_decapsulation_key: EncString,
 }
 
 impl RotateableKeySet {
