@@ -31,8 +31,6 @@ pub enum KeyRotationMethod {
     /// Key Connector user, key rotation without a password change.
     KeyConnector { key_connector_url: String },
     /// TDE user, key rotation without a password change.
-    /// NOTE: This is not yet implemented and will return a
-    /// RotateUserKeysError::UnimplementedKeyRotationMethod error if used.
     Tde,
 }
 
@@ -100,10 +98,6 @@ async fn internal_rotate_user_keys(
     key_connector_api_client: Option<&bitwarden_api_key_connector::apis::ApiClient>,
     request: RotateUserKeysRequest,
 ) -> Result<(), RotateUserKeysError> {
-    if matches!(request.key_rotation_method, KeyRotationMethod::Tde) {
-        return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
-    }
-
     let sync = sync_current_account_data(api_client)
         .await
         .map_err(|_| RotateUserKeysError::Api)?;
@@ -219,16 +213,20 @@ mod tests {
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{
-            DeviceAuthRequestResponseModelListResponseModel,
+            DeviceAuthRequestResponseModel, DeviceAuthRequestResponseModelListResponseModel,
             EmergencyAccessGranteeDetailsResponseModelListResponseModel, KdfType,
             MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
             PrivateKeysResponseModel, ProfileOrganizationResponseModelListResponseModel,
             ProfileResponseModel, PublicKeyEncryptionKeyPairResponseModel, SyncResponseModel,
-            UserDecryptionResponseModel, WebAuthnCredentialResponseModelListResponseModel,
+            UnlockMethod, UserDecryptionResponseModel,
+            WebAuthnCredentialResponseModelListResponseModel,
         },
     };
-    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_core::key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId};
+    use bitwarden_crypto::{
+        Decryptable, EncString, KeyStore, PrimitiveEncryptable, PublicKeyEncryptionAlgorithm,
+        SymmetricKeyAlgorithm, UnsignedSharedKey,
+    };
 
     use super::*;
 
@@ -285,7 +283,39 @@ mod tests {
         (store, sync_response)
     }
 
-    fn mock_empty_sync_calls(mock: &mut bitwarden_api_api::apis::ApiClientMock) {
+    fn make_trusted_device_response(
+        store: &KeyStore<KeySlotIds>,
+    ) -> (DeviceAuthRequestResponseModel, Vec<u8>) {
+        let mut ctx = store.context_mut();
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let public_key = ctx.get_public_key(private_key).unwrap();
+        let public_key_der = public_key.to_der().unwrap();
+        let encrypted_public_key = public_key_der
+            .clone()
+            .encrypt(&mut ctx, SymmetricKeySlotId::User)
+            .unwrap();
+        let encrypted_user_key =
+            UnsignedSharedKey::encapsulate(SymmetricKeySlotId::User, &public_key, &ctx).unwrap();
+
+        ctx.persist_private_key(private_key, PrivateKeySlotId::UserPrivateKey)
+            .unwrap();
+
+        (
+            DeviceAuthRequestResponseModel {
+                id: Some(uuid::Uuid::new_v4()),
+                is_trusted: Some(true),
+                encrypted_user_key: Some(encrypted_user_key.to_string()),
+                encrypted_public_key: Some(encrypted_public_key.to_string()),
+                ..DeviceAuthRequestResponseModel::new()
+            },
+            public_key_der.as_ref().to_vec(),
+        )
+    }
+
+    fn mock_sync_calls_with_devices(
+        mock: &mut bitwarden_api_api::apis::ApiClientMock,
+        trusted_devices: Vec<DeviceAuthRequestResponseModel>,
+    ) {
         mock.organizations_api
             .expect_get_user()
             .once()
@@ -308,10 +338,10 @@ mod tests {
                     },
                 )
             });
-        mock.devices_api.expect_get_all().once().returning(|| {
+        mock.devices_api.expect_get_all().once().returning(move || {
             Ok(DeviceAuthRequestResponseModelListResponseModel {
                 object: None,
-                data: Some(vec![]),
+                data: Some(trusted_devices.clone()),
                 continuation_token: None,
             })
         });
@@ -324,14 +354,85 @@ mod tests {
         });
     }
 
+    fn mock_empty_sync_calls(mock: &mut bitwarden_api_api::apis::ApiClientMock) {
+        mock_sync_calls_with_devices(mock, vec![]);
+    }
+
     #[tokio::test]
-    async fn test_rotate_user_keys_tde_returns_unimplemented() {
-        let key_store: KeyStore<KeySlotIds> = KeyStore::default();
+    async fn test_rotate_user_keys_tde_success_rotates_common_unlock_data() {
+        let (key_store, mut sync_response) = make_test_key_store_and_sync_response();
+        sync_response.user_decryption = Some(Box::new(UserDecryptionResponseModel {
+            master_password_unlock: None,
+            web_authn_prf_options: None,
+            v2_upgrade_token: None,
+        }));
+        let (trusted_device, trusted_device_public_key_der) =
+            make_trusted_device_response(&key_store);
+        let trusted_device_id = trusted_device.id.expect("device should have an id");
+        let original_encrypted_public_key = trusted_device
+            .encrypted_public_key
+            .clone()
+            .expect("device should have an encrypted public key");
+        let original_encrypted_user_key = trusted_device
+            .encrypted_user_key
+            .clone()
+            .expect("device should have an encrypted user key");
+        let trusted_device_response = trusted_device.clone();
+        let key_store_clone = key_store.clone();
+
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api.expect_get().never();
+            mock.sync_api
+                .expect_get()
+                .once()
+                .returning(move |_| Ok(sync_response.clone()));
+            mock_sync_calls_with_devices(mock, vec![trusted_device_response]);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
-                .never();
+                .once()
+                .returning(move |req| {
+                    let req = req.expect("request body should be present");
+                    assert_eq!(req.unlock_method_data.unlock_method, UnlockMethod::Tde);
+                    assert!(req.unlock_method_data.master_password_unlock_data.is_none());
+                    assert!(
+                        req.unlock_method_data
+                            .key_connector_key_wrapped_user_key
+                            .is_none()
+                    );
+
+                    let device_unlock_data = req
+                        .unlock_data
+                        .device_key_unlock_data
+                        .expect("device unlock data should be present");
+                    assert_eq!(device_unlock_data.len(), 1);
+                    let rotated_device = &device_unlock_data[0];
+                    assert_eq!(rotated_device.device_id, trusted_device_id);
+                    assert_ne!(
+                        rotated_device.encrypted_public_key,
+                        original_encrypted_public_key
+                    );
+                    assert_ne!(
+                        rotated_device.encrypted_user_key,
+                        original_encrypted_user_key
+                    );
+
+                    let encrypted_user_key: UnsignedSharedKey = rotated_device
+                        .encrypted_user_key
+                        .parse()
+                        .expect("encrypted user key should parse");
+                    let encrypted_public_key: EncString = rotated_device
+                        .encrypted_public_key
+                        .parse()
+                        .expect("encrypted public key should parse");
+                    let mut ctx = key_store_clone.context_mut();
+                    let rotated_user_key_id = encrypted_user_key
+                        .decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx)
+                        .expect("rotated device user key should decapsulate");
+                    let decrypted_public_key: Vec<u8> = encrypted_public_key
+                        .decrypt(&mut ctx, rotated_user_key_id)
+                        .expect("rotated device public key should decrypt");
+                    assert_eq!(decrypted_public_key, trusted_device_public_key_der);
+                    Ok(())
+                });
         });
 
         let result = internal_rotate_user_keys(
@@ -347,12 +448,13 @@ mod tests {
         )
         .await;
 
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
-        ));
+        assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
+            mock.organizations_api.checkpoint();
+            mock.emergency_access_api.checkpoint();
+            mock.devices_api.checkpoint();
+            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
