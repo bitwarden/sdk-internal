@@ -26,11 +26,28 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationReportsApi: Send + Sync {
+    /// POST /reports/organizations/file/validate/azure
+    async fn azure_validate_file(&self) -> Result<(), Error>;
+
     /// POST /reports/organizations/{organizationId}
     async fn create_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
-        add_organization_report_request: Option<models::AddOrganizationReportRequest>,
+        add_organization_report_request_model: Option<models::AddOrganizationReportRequestModel>,
+    ) -> Result<(), Error>;
+
+    /// DELETE /reports/organizations/{organizationId}/{reportId}
+    async fn delete_organization_report<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
+    ) -> Result<(), Error>;
+
+    /// GET /reports/organizations/{organizationId}/{reportId}/file/download
+    async fn download_report_file<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
     ) -> Result<(), Error>;
 
     /// GET /reports/organizations/{organizationId}/latest
@@ -53,13 +70,6 @@ pub trait OrganizationReportsApi: Send + Sync {
         report_id: uuid::Uuid,
     ) -> Result<(), Error>;
 
-    /// GET /reports/organizations/{organizationId}/data/report/{reportId}
-    async fn get_organization_report_data<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        report_id: uuid::Uuid,
-    ) -> Result<(), Error>;
-
     /// GET /reports/organizations/{organizationId}/data/summary/{reportId}
     async fn get_organization_report_summary<'a>(
         &self,
@@ -75,12 +85,22 @@ pub trait OrganizationReportsApi: Send + Sync {
         end_date: Option<String>,
     ) -> Result<Vec<models::OrganizationReportSummaryDataResponse>, Error>;
 
+    /// GET /reports/organizations/{organizationId}/{reportId}/file/renew
+    async fn renew_file_upload_url<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
+        report_file_id: Option<&'a str>,
+    ) -> Result<models::OrganizationReportFileResponseModel, Error>;
+
     /// PATCH /reports/organizations/{organizationId}/{reportId}
     async fn update_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
-        report_id: &'a str,
-        update_organization_report_request: Option<models::UpdateOrganizationReportRequest>,
+        report_id: uuid::Uuid,
+        update_organization_report_v2_request_model: Option<
+            models::UpdateOrganizationReportV2RequestModel,
+        >,
     ) -> Result<(), Error>;
 
     /// PATCH /reports/organizations/{organizationId}/data/application/{reportId}
@@ -88,18 +108,8 @@ pub trait OrganizationReportsApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-        update_organization_report_application_data_request: Option<
-            models::UpdateOrganizationReportApplicationDataRequest,
-        >,
-    ) -> Result<(), Error>;
-
-    /// PATCH /reports/organizations/{organizationId}/data/report/{reportId}
-    async fn update_organization_report_data<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        report_id: uuid::Uuid,
-        update_organization_report_data_request: Option<
-            models::UpdateOrganizationReportDataRequest,
+        update_organization_report_application_data_request_model: Option<
+            models::UpdateOrganizationReportApplicationDataRequestModel,
         >,
     ) -> Result<(), Error>;
 
@@ -108,9 +118,17 @@ pub trait OrganizationReportsApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-        update_organization_report_summary_request: Option<
-            models::UpdateOrganizationReportSummaryRequest,
+        update_organization_report_summary_request_model: Option<
+            models::UpdateOrganizationReportSummaryRequestModel,
         >,
+    ) -> Result<(), Error>;
+
+    /// POST /reports/organizations/{organizationId}/{reportId}/file
+    async fn upload_report_file<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
+        report_file_id: Option<&'a str>,
     ) -> Result<(), Error>;
 }
 
@@ -127,10 +145,27 @@ impl OrganizationReportsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationReportsApi for OrganizationReportsApiClient {
+    async fn azure_validate_file(&self) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/reports/organizations/file/validate/azure",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn create_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
-        add_organization_report_request: Option<models::AddOrganizationReportRequest>,
+        add_organization_report_request_model: Option<models::AddOrganizationReportRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -145,7 +180,53 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&add_organization_report_request);
+        local_var_req_builder = local_var_req_builder.json(&add_organization_report_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn delete_organization_report<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/reports/organizations/{organizationId}/{reportId}",
+            local_var_configuration.base_path,
+            organizationId = organization_id,
+            reportId = report_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn download_report_file<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/reports/organizations/{organizationId}/{reportId}/file/download",
+            local_var_configuration.base_path,
+            organizationId = organization_id,
+            reportId = report_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
@@ -217,29 +298,6 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_organization_report_data<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        report_id: uuid::Uuid,
-    ) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/reports/organizations/{organizationId}/data/report/{reportId}",
-            local_var_configuration.base_path,
-            organizationId = organization_id,
-            reportId = report_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
     async fn get_organization_report_summary<'a>(
         &self,
         organization_id: uuid::Uuid,
@@ -294,11 +352,41 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
+    async fn renew_file_upload_url<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
+        report_file_id: Option<&'a str>,
+    ) -> Result<models::OrganizationReportFileResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/reports/organizations/{organizationId}/{reportId}/file/renew",
+            local_var_configuration.base_path,
+            organizationId = organization_id,
+            reportId = report_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = report_file_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("reportFileId", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
     async fn update_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
-        report_id: &'a str,
-        update_organization_report_request: Option<models::UpdateOrganizationReportRequest>,
+        report_id: uuid::Uuid,
+        update_organization_report_v2_request_model: Option<
+            models::UpdateOrganizationReportV2RequestModel,
+        >,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -308,13 +396,14 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
             "{}/reports/organizations/{organizationId}/{reportId}",
             local_var_configuration.base_path,
             organizationId = organization_id,
-            reportId = crate::apis::urlencode(report_id)
+            reportId = report_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&update_organization_report_request);
+        local_var_req_builder =
+            local_var_req_builder.json(&update_organization_report_v2_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
@@ -323,8 +412,8 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-        update_organization_report_application_data_request: Option<
-            models::UpdateOrganizationReportApplicationDataRequest,
+        update_organization_report_application_data_request_model: Option<
+            models::UpdateOrganizationReportApplicationDataRequestModel,
         >,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -342,35 +431,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
-            local_var_req_builder.json(&update_organization_report_application_data_request);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn update_organization_report_data<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        report_id: uuid::Uuid,
-        update_organization_report_data_request: Option<
-            models::UpdateOrganizationReportDataRequest,
-        >,
-    ) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/reports/organizations/{organizationId}/data/report/{reportId}",
-            local_var_configuration.base_path,
-            organizationId = organization_id,
-            reportId = report_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&update_organization_report_data_request);
+            local_var_req_builder.json(&update_organization_report_application_data_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
@@ -379,8 +440,8 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-        update_organization_report_summary_request: Option<
-            models::UpdateOrganizationReportSummaryRequest,
+        update_organization_report_summary_request_model: Option<
+            models::UpdateOrganizationReportSummaryRequestModel,
         >,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -398,7 +459,35 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
-            local_var_req_builder.json(&update_organization_report_summary_request);
+            local_var_req_builder.json(&update_organization_report_summary_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn upload_report_file<'a>(
+        &self,
+        organization_id: uuid::Uuid,
+        report_id: uuid::Uuid,
+        report_file_id: Option<&'a str>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/reports/organizations/{organizationId}/{reportId}/file",
+            local_var_configuration.base_path,
+            organizationId = organization_id,
+            reportId = report_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = report_file_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("reportFileId", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
