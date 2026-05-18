@@ -172,7 +172,7 @@ pub fn fill_with_credential(
         user_name: view.user_name.clone(),
         user_display_name: view.user_display_name.clone(),
         discoverable: "true".to_owned(),
-        creation_date: chrono::offset::Utc::now(),
+        creation_date: jiff::Timestamp::now(),
     })
 }
 
@@ -196,7 +196,7 @@ pub(crate) fn try_from_credential_new_view(
         counter: 0.to_string(),
         user_name: user.name.clone(),
         user_display_name: user.display_name.clone(),
-        creation_date: chrono::offset::Utc::now(),
+        creation_date: jiff::Timestamp::now(),
     })
 }
 
@@ -224,7 +224,7 @@ pub(crate) fn try_from_credential_full(
         user_name: user.name,
         user_display_name: user.display_name,
         discoverable: options.rk.to_string(),
-        creation_date: chrono::offset::Utc::now(),
+        creation_date: jiff::Timestamp::now(),
     })
 }
 

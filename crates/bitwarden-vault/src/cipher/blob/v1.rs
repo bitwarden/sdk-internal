@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::cipher::{
@@ -41,7 +41,7 @@ pub(crate) enum CipherTypeDataV1 {
 pub(crate) struct LoginDataV1 {
     pub username: Option<String>,
     pub password: Option<String>,
-    pub password_revision_date: Option<DateTime<Utc>>,
+    pub password_revision_date: Option<Timestamp>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub uris: Vec<LoginUriDataV1>,
     pub totp: Option<String>,
@@ -72,7 +72,7 @@ pub(crate) struct Fido2CredentialDataV1 {
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
     pub discoverable: bool,
-    pub creation_date: DateTime<Utc>,
+    pub creation_date: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -186,7 +186,7 @@ pub(crate) struct FieldDataV1 {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PasswordHistoryDataV1 {
     pub password: String,
-    pub last_used_date: DateTime<Utc>,
+    pub last_used_date: Timestamp,
 }
 
 #[cfg(test)]
@@ -194,9 +194,16 @@ mod tests {
     use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, safe::DataEnvelope};
     use bitwarden_encoding::B64;
-    use chrono::TimeZone;
 
     use super::*;
+
+    fn utc_ymd_hms(year: i16, month: i8, day: i8, hour: i8, minute: i8, second: i8) -> Timestamp {
+        jiff::civil::date(year, month, day)
+            .at(hour, minute, second, 0)
+            .to_zoned(jiff::tz::TimeZone::UTC)
+            .unwrap()
+            .timestamp()
+    }
     use crate::cipher::{
         blob::CipherBlob, linked_id::LoginLinkedIdType, secure_note::SecureNoteType,
     };
@@ -252,7 +259,7 @@ mod tests {
             type_data: CipherTypeDataV1::Login(LoginDataV1 {
                 username: Some("testuser@example.com".to_string()),
                 password: Some("p@ssw0rd123".to_string()),
-                password_revision_date: Some(Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap()),
+                password_revision_date: Some(utc_ymd_hms(2024, 1, 15, 12, 0, 0)),
                 uris: vec![LoginUriDataV1 {
                     uri: Some("https://example.com/login".to_string()),
                     r#match: Some(UriMatchType::Domain),
@@ -272,7 +279,7 @@ mod tests {
                     rp_name: Some("Example".to_string()),
                     user_display_name: Some("Test User".to_string()),
                     discoverable: true,
-                    creation_date: Utc.with_ymd_and_hms(2024, 6, 1, 10, 30, 0).unwrap(),
+                    creation_date: utc_ymd_hms(2024, 6, 1, 10, 30, 0),
                 }],
             }),
             fields: vec![FieldDataV1 {
@@ -283,7 +290,7 @@ mod tests {
             }],
             password_history: vec![PasswordHistoryDataV1 {
                 password: "old-password-1".to_string(),
-                last_used_date: Utc.with_ymd_and_hms(2023, 12, 1, 8, 0, 0).unwrap(),
+                last_used_date: utc_ymd_hms(2023, 12, 1, 8, 0, 0),
             }],
         }
     }

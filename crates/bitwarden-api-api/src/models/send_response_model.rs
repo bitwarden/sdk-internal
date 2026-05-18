@@ -117,7 +117,7 @@ pub struct SendResponseModel {
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub revision_date: Option<String>,
+    pub revision_date: Option<jiff::Timestamp>,
     /// The date after which a send cannot be accessed. When this value is null, there is no
     /// expiration date.
     #[serde(
@@ -125,14 +125,14 @@ pub struct SendResponseModel {
         alias = "ExpirationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expiration_date: Option<String>,
+    pub expiration_date: Option<jiff::Timestamp>,
     /// The date after which a send may be automatically deleted from the server.
     #[serde(
         rename = "deletionDate",
         alias = "DeletionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub deletion_date: Option<String>,
+    pub deletion_date: Option<jiff::Timestamp>,
     /// When true send access hides the user's email address and displays a confirmation message
     /// instead.
     #[serde(

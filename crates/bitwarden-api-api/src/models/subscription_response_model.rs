@@ -67,7 +67,7 @@ pub struct SubscriptionResponseModel {
         alias = "Expiration",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expiration: Option<String>,
+    pub expiration: Option<jiff::Timestamp>,
 }
 
 impl SubscriptionResponseModel {

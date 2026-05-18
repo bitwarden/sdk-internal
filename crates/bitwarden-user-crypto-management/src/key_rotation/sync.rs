@@ -424,7 +424,7 @@ mod tests {
             object: Some("folder".to_string()),
             id: Some(id),
             name: Some(TEST_ENC_STRING.to_string()),
-            revision_date: Some("2024-01-01T00:00:00Z".to_string()),
+            revision_date: Some("2024-01-01T00:00:00Z".parse().unwrap()),
         }
     }
 
@@ -449,8 +449,8 @@ mod tests {
             password_history: None,
             attachments: None,
             organization_use_totp: Some(false),
-            revision_date: Some("2024-01-01T00:00:00Z".to_string()),
-            creation_date: Some("2024-01-01T00:00:00Z".to_string()),
+            revision_date: Some("2024-01-01T00:00:00Z".parse().unwrap()),
+            creation_date: Some("2024-01-01T00:00:00Z".parse().unwrap()),
             deleted_date: None,
             reprompt: Some(bitwarden_api_api::models::CipherRepromptType::None),
             key: None,
@@ -479,9 +479,9 @@ mod tests {
             access_count: Some(0),
             password: None,
             disabled: Some(false),
-            revision_date: Some("2024-01-01T00:00:00Z".to_string()),
+            revision_date: Some("2024-01-01T00:00:00Z".parse().unwrap()),
             expiration_date: None,
-            deletion_date: Some("2024-12-31T00:00:00Z".to_string()),
+            deletion_date: Some("2024-12-31T00:00:00Z".parse().unwrap()),
             hide_email: Some(false),
             auth_type: None,
             emails: None,

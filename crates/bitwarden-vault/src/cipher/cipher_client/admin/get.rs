@@ -117,7 +117,7 @@ mod tests {
         client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
     };
     use bitwarden_crypto::SymmetricCryptoKey;
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use super::*;
     use crate::{Cipher, CipherType, Login};
@@ -144,8 +144,8 @@ mod tests {
             name: Some(cipher.name.to_string()),
             r#type: Some(cipher.r#type.into()),
             login: cipher.login.clone().map(|l| Box::new(l.into())),
-            creation_date: Some(Utc::now().to_rfc3339()),
-            revision_date: Some(Utc::now().to_rfc3339()),
+            creation_date: Some(Timestamp::now()),
+            revision_date: Some(Timestamp::now()),
             ..Default::default()
         }
     }
@@ -156,8 +156,8 @@ mod tests {
             name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".to_string()),
             r#type: Some(bitwarden_api_api::models::CipherType::Login),
             login: Some(Box::new(bitwarden_api_api::models::CipherLoginModel::default())),
-            creation_date: Some(Utc::now().to_rfc3339()),
-            revision_date: Some(Utc::now().to_rfc3339()),
+            creation_date: Some(Timestamp::now()),
+            revision_date: Some(Timestamp::now()),
             ..Default::default()
         }
     }

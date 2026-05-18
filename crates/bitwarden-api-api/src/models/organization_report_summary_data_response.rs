@@ -21,7 +21,7 @@ pub struct OrganizationReportSummaryDataResponse {
     #[serde(rename = "encryptionKey", alias = "EncryptionKey")]
     pub encryption_key: Option<String>,
     #[serde(rename = "date", alias = "Date")]
-    pub date: String,
+    pub date: jiff::Timestamp,
 }
 
 impl OrganizationReportSummaryDataResponse {
@@ -29,7 +29,7 @@ impl OrganizationReportSummaryDataResponse {
         organization_id: uuid::Uuid,
         encrypted_data: Option<String>,
         encryption_key: Option<String>,
-        date: String,
+        date: jiff::Timestamp,
     ) -> OrganizationReportSummaryDataResponse {
         OrganizationReportSummaryDataResponse {
             organization_id,

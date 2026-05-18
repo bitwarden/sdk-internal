@@ -25,7 +25,7 @@ pub struct BillingInvoice {
         alias = "Date",
         skip_serializing_if = "Option::is_none"
     )]
-    pub date: Option<String>,
+    pub date: Option<jiff::Timestamp>,
     #[serde(rename = "url", alias = "Url", skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
     #[serde(

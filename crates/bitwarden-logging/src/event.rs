@@ -32,7 +32,7 @@ impl From<&tracing::Event<'_>> for FlightRecorderEvent {
         event.record(&mut visitor);
 
         Self {
-            timestamp: chrono::Utc::now().timestamp_millis(),
+            timestamp: jiff::Timestamp::now().as_millisecond(),
             level: event.metadata().level().to_string(),
             target: event.metadata().target().to_string(),
             message: visitor.message,

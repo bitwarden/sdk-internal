@@ -86,8 +86,8 @@ impl TryFrom<Cipher> for Item {
 
         Ok(Self {
             id: value.id.as_bytes().as_slice().into(),
-            creation_at: Some(value.creation_date.timestamp() as u64),
-            modified_at: Some(value.revision_date.timestamp() as u64),
+            creation_at: Some(value.creation_date.as_second() as u64),
+            modified_at: Some(value.revision_date.as_second() as u64),
             title: value.name,
             subtitle: None,
             favorite: Some(value.favorite),

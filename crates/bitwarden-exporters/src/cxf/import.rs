@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     Account as CxfAccount, AddressCredential, ApiKeyCredential, BasicAuthCredential, Credential,
     CreditCardCredential, CustomFieldsCredential, DriversLicenseCredential, EditableField,
@@ -6,6 +5,7 @@ use credential_exchange_format::{
     PasskeyCredential, PassportCredential, PersonNameCredential, SshKeyCredential, TotpCredential,
     WifiCredential,
 };
+use jiff::Timestamp;
 
 use crate::{
     CipherType, Field, ImportingCipher, SecureNote, SecureNoteType,
@@ -36,12 +36,12 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfErro
     Ok(items)
 }
 
-/// Convert a CXF timestamp to a [`DateTime<Utc>`].
+/// Convert a CXF timestamp to a [`Timestamp`].
 ///
 /// If the timestamp is None, the current time is used.
-fn convert_date(ts: Option<u64>) -> DateTime<Utc> {
-    ts.and_then(|ts| DateTime::from_timestamp(ts as i64, 0))
-        .unwrap_or(Utc::now())
+fn convert_date(ts: Option<u64>) -> Timestamp {
+    ts.and_then(|ts| Timestamp::from_second(ts as i64).ok())
+        .unwrap_or_else(Timestamp::now)
 }
 
 /// Convert CustomFields credentials to Bitwarden Fields
@@ -313,8 +313,9 @@ struct GroupedCredentials {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Duration, Month};
+    use chrono::Month;
     use credential_exchange_format::{B64Url, CreditCardCredential, EditableFieldYearMonth};
+    use jiff::SignedDuration;
 
     use super::*;
 
@@ -324,15 +325,15 @@ mod tests {
         let datetime = convert_date(Some(timestamp));
         assert_eq!(
             datetime,
-            "2024-01-30T11:23:54Z".parse::<DateTime<Utc>>().unwrap()
+            "2024-01-30T11:23:54Z".parse::<Timestamp>().unwrap()
         );
     }
 
     #[test]
     fn test_convert_date_none() {
         let datetime = convert_date(None);
-        assert!(datetime > Utc::now() - Duration::seconds(1));
-        assert!(datetime <= Utc::now());
+        assert!(datetime > Timestamp::now() - SignedDuration::from_secs(1));
+        assert!(datetime <= Timestamp::now());
     }
 
     #[test]
@@ -422,7 +423,7 @@ mod tests {
         assert_eq!(passkey.discoverable, "true");
         assert_eq!(
             passkey.creation_date,
-            "2024-11-21T09:39:46Z".parse::<DateTime<Utc>>().unwrap()
+            "2024-11-21T09:39:46Z".parse::<Timestamp>().unwrap()
         );
     }
 

@@ -57,19 +57,19 @@ pub struct UserLicense {
         alias = "Issued",
         skip_serializing_if = "Option::is_none"
     )]
-    pub issued: Option<String>,
+    pub issued: Option<jiff::Timestamp>,
     #[serde(
         rename = "refresh",
         alias = "Refresh",
         skip_serializing_if = "Option::is_none"
     )]
-    pub refresh: Option<String>,
+    pub refresh: Option<jiff::Timestamp>,
     #[serde(
         rename = "expires",
         alias = "Expires",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expires: Option<String>,
+    pub expires: Option<jiff::Timestamp>,
     #[serde(
         rename = "trial",
         alias = "Trial",

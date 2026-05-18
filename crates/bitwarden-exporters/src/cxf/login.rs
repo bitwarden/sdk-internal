@@ -6,11 +6,11 @@
 use bitwarden_core::MissingFieldError;
 use bitwarden_fido::{InvalidGuidError, string_to_guid_bytes};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
-use chrono::{DateTime, Utc};
 use credential_exchange_format::{
     AndroidAppIdCredential, B64Url, BasicAuthCredential, CredentialScope, NotB64UrlEncoded,
     OTPHashAlgorithm, PasskeyCredential, TotpCredential,
 };
+use jiff::Timestamp;
 use thiserror::Error;
 
 use crate::{Fido2Credential, Field, Login, LoginUri};
@@ -49,7 +49,7 @@ fn totp_credential_to_totp(cxf_totp: &TotpCredential) -> Totp {
 }
 
 pub(super) fn to_login(
-    creation_date: DateTime<Utc>,
+    creation_date: Timestamp,
     basic_auth: Option<&BasicAuthCredential>,
     passkey: Option<&PasskeyCredential>,
     totp: Option<&TotpCredential>,

@@ -1,5 +1,5 @@
 use bitwarden_core::Client;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -28,7 +28,7 @@ impl TotpClient {
         key: String,
         time_ms: Option<f64>,
     ) -> Result<TotpResponse, TotpError> {
-        let datetime = time_ms.and_then(|time| DateTime::<Utc>::from_timestamp_millis(time as i64));
+        let datetime = time_ms.and_then(|time| Timestamp::from_millisecond(time as i64).ok());
 
         self.generate_totp(key, datetime)
     }
@@ -44,7 +44,7 @@ impl TotpClient {
     pub fn generate_totp(
         &self,
         key: String,
-        time: Option<DateTime<Utc>>,
+        time: Option<Timestamp>,
     ) -> Result<TotpResponse, TotpError> {
         generate_totp(key, time)
     }
@@ -53,7 +53,7 @@ impl TotpClient {
     pub fn generate_totp_cipher_view(
         &self,
         view: CipherListView,
-        time: Option<DateTime<Utc>>,
+        time: Option<Timestamp>,
     ) -> Result<TotpResponse, TotpError> {
         let key_store = self.client.internal.get_key_store();
 

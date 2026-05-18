@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use bitwarden_crypto::{BitwardenLegacyKeyBytes, EncString, KeyDecryptable, SymmetricCryptoKey};
 use bitwarden_encoding::B64;
-use chrono::Utc;
+use jiff::Timestamp;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -129,7 +129,7 @@ async fn load_tokens_from_state(
     let token: JwtToken = client_state.token.parse()?;
 
     if let Some(organization_id) = token.organization {
-        let time_till_expiration = (token.exp as i64) - Utc::now().timestamp();
+        let time_till_expiration = (token.exp as i64) - Timestamp::now().as_second();
 
         if time_till_expiration > 0 {
             let organization_id: OrganizationId = organization_id

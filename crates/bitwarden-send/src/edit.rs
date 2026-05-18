@@ -9,7 +9,7 @@ use bitwarden_crypto::{
 use bitwarden_encoding::B64Url;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -72,9 +72,9 @@ pub struct SendEditRequest {
     pub hide_email: bool,
 
     /// Date and time when the Send will be permanently deleted.
-    pub deletion_date: DateTime<Utc>,
+    pub deletion_date: Timestamp,
     /// Optional date and time when the Send expires and can no longer be accessed.
-    pub expiration_date: Option<DateTime<Utc>>,
+    pub expiration_date: Option<Timestamp>,
 
     /// Authentication method for accessing this Send.
     pub auth: SendAuthType,
@@ -131,8 +131,8 @@ impl
             // Encrypt the send key itself with the user key
             key: OctetStreamBytes::from(k).encrypt(ctx, key)?.to_string(),
             max_access_count: self.request.max_access_count.map(|c| c as i32),
-            expiration_date: self.request.expiration_date.map(|d| d.to_rfc3339()),
-            deletion_date: self.request.deletion_date.to_rfc3339(),
+            expiration_date: self.request.expiration_date,
+            deletion_date: self.request.deletion_date,
             file,
             text,
             password,
@@ -222,7 +222,7 @@ mod tests {
     use bitwarden_core::key_management::SymmetricKeySlotId;
     use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
-    use chrono::{DateTime, Utc};
+    use jiff::Timestamp;
     use uuid::uuid;
 
     use super::*;
@@ -281,7 +281,7 @@ mod tests {
                     Ok(SendResponseModel {
                         id: Some(send_id),
                         name: model.name,
-                        revision_date: Some("2025-01-02T00:00:00Z".to_string()),
+                        revision_date: Some("2025-01-02T00:00:00Z".parse().unwrap()),
                         object: Some("send".to_string()),
                         access_id: None,
                         r#type: model.r#type,
@@ -333,7 +333,7 @@ mod tests {
         assert!(result.key.is_some(), "Expected a key");
         assert_eq!(
             result.revision_date,
-            "2025-01-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+            "2025-01-02T00:00:00Z".parse::<Timestamp>().unwrap()
         );
 
         // Confirm the send was updated in the repository

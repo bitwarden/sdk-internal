@@ -30,8 +30,8 @@ pub trait EventsApi: Send + Sync {
     async fn get_cipher<'a>(
         &self,
         id: &'a str,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
@@ -39,8 +39,8 @@ pub trait EventsApi: Send + Sync {
     async fn get_organization<'a>(
         &self,
         id: &'a str,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
@@ -49,8 +49,8 @@ pub trait EventsApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
@@ -59,8 +59,8 @@ pub trait EventsApi: Send + Sync {
         &self,
         id: uuid::Uuid,
         org_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
@@ -68,8 +68,8 @@ pub trait EventsApi: Send + Sync {
     async fn get_provider<'a>(
         &self,
         provider_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
@@ -78,8 +78,8 @@ pub trait EventsApi: Send + Sync {
         &self,
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
@@ -88,8 +88,8 @@ pub trait EventsApi: Send + Sync {
         &self,
         id: uuid::Uuid,
         org_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
@@ -98,16 +98,16 @@ pub trait EventsApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /events
     async fn get_user<'a>(
         &self,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 }
@@ -128,8 +128,8 @@ impl EventsApi for EventsApiClient {
     async fn get_cipher<'a>(
         &self,
         id: &'a str,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -164,8 +164,8 @@ impl EventsApi for EventsApiClient {
     async fn get_organization<'a>(
         &self,
         id: &'a str,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -201,8 +201,8 @@ impl EventsApi for EventsApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -239,8 +239,8 @@ impl EventsApi for EventsApiClient {
         &self,
         id: uuid::Uuid,
         org_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -276,8 +276,8 @@ impl EventsApi for EventsApiClient {
     async fn get_provider<'a>(
         &self,
         provider_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -313,8 +313,8 @@ impl EventsApi for EventsApiClient {
         &self,
         provider_id: uuid::Uuid,
         id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -351,8 +351,8 @@ impl EventsApi for EventsApiClient {
         &self,
         id: uuid::Uuid,
         org_id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -389,8 +389,8 @@ impl EventsApi for EventsApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
@@ -425,8 +425,8 @@ impl EventsApi for EventsApiClient {
 
     async fn get_user<'a>(
         &self,
-        start: Option<String>,
-        end: Option<String>,
+        start: Option<jiff::Timestamp>,
+        end: Option<jiff::Timestamp>,
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;

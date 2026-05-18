@@ -39,19 +39,19 @@ pub struct AccessTokenCreationResponseModel {
         alias = "ExpireAt",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expire_at: Option<String>,
+    pub expire_at: Option<jiff::Timestamp>,
     #[serde(
         rename = "creationDate",
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub creation_date: Option<String>,
+    pub creation_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "revisionDate",
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub revision_date: Option<String>,
+    pub revision_date: Option<jiff::Timestamp>,
 }
 
 impl AccessTokenCreationResponseModel {

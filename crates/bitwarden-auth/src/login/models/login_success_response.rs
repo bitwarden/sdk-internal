@@ -76,7 +76,7 @@ impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
         // concrete time rather than a duration. We keep expires_in as well for backward
         // compatibility and convenience.
         let expires_at =
-            chrono::Utc::now().timestamp_millis() + (response.expires_in * 1000) as i64;
+            jiff::Timestamp::now().as_millisecond() + (response.expires_in * 1000) as i64;
 
         Ok(LoginSuccessResponse {
             access_token: response.access_token,

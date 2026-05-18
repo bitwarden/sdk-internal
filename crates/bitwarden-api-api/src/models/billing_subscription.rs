@@ -19,31 +19,31 @@ pub struct BillingSubscription {
         alias = "TrialStartDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub trial_start_date: Option<String>,
+    pub trial_start_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "trialEndDate",
         alias = "TrialEndDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub trial_end_date: Option<String>,
+    pub trial_end_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "periodStartDate",
         alias = "PeriodStartDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub period_start_date: Option<String>,
+    pub period_start_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "periodEndDate",
         alias = "PeriodEndDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub period_end_date: Option<String>,
+    pub period_end_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "cancelledDate",
         alias = "CancelledDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub cancelled_date: Option<String>,
+    pub cancelled_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "cancelAtEndDate",
         alias = "CancelAtEndDate",
@@ -79,13 +79,13 @@ pub struct BillingSubscription {
         alias = "SuspensionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub suspension_date: Option<String>,
+    pub suspension_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "unpaidPeriodEndDate",
         alias = "UnpaidPeriodEndDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub unpaid_period_end_date: Option<String>,
+    pub unpaid_period_end_date: Option<jiff::Timestamp>,
     #[serde(
         rename = "gracePeriod",
         alias = "GracePeriod",

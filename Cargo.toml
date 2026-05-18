@@ -61,17 +61,18 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=3.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=3.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=3.0.0" }
-chrono = { version = ">=0.4.26, <0.5", features = [
-    "clock",
-    "serde",
-    "std",
-], default-features = false }
+# `chrono` is a test-only dev-dependency of `bitwarden-exporters`, used to construct
+# `chrono::Month` / `chrono::NaiveDate` values for CXF round-trip tests. The upstream
+# `credential-exchange-format` crate exposes these on its public API. Production code
+# uses `jiff` (see VULN-578). Can be removed once CXF migrates to jiff.
+chrono = { version = ">=0.4.26, <0.5", default-features = false }
 ciborium = ">=0.2.2, <0.3"
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = "3.0.0-pre.6" }
 futures = ">=0.3.31, <0.4"
 hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
+jiff = { version = ">=0.2.24, <0.3", default-features = false, features = ["std", "serde", "perf-inline"] }
 js-sys = { version = ">=0.3.72, <0.4" }
 mockall = { version = ">=0.13.1, <0.15" }
 proc-macro2 = ">=1.0.89, <2"
@@ -88,7 +89,7 @@ reqwest-middleware = { version = "0.4.2", features = [
     "multipart",
 ] }
 rsa = "0.10.0-rc.17"
-schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
+schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "jiff02"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"
 serde_bytes = { version = ">=0.11.17, <0.12.0" }

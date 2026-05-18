@@ -128,7 +128,7 @@ mod tests {
     use bitwarden_api_api::models::CipherMiniResponseModel;
     use bitwarden_core::{OrganizationId, key_management::SymmetricKeySlotId};
     use bitwarden_crypto::SymmetricCryptoKey;
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use super::*;
     use crate::{CipherRepromptType, CipherViewType, LoginView};
@@ -154,12 +154,8 @@ mod tests {
                             .and_then(|id| id.parse().ok()),
                         name: Some(request.cipher.name.clone()),
                         r#type: request.cipher.r#type,
-                        creation_date: Some(
-                            Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                        ),
-                        revision_date: Some(
-                            Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                        ),
+                        creation_date: Some(Timestamp::now()),
+                        revision_date: Some(Timestamp::now()),
                         ..Default::default()
                     })
                 });

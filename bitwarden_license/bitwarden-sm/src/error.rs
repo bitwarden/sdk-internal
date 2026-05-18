@@ -10,7 +10,7 @@ pub enum SecretsManagerError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    Chrono(#[from] chrono::ParseError),
+    Jiff(#[from] jiff::Error),
 
     #[error(transparent)]
     Api(#[from] bitwarden_core::ApiError),

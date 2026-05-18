@@ -346,14 +346,14 @@ pub struct OrganizationSubscriptionResponseModel {
         alias = "ExpirationWithoutGracePeriod",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expiration_without_grace_period: Option<String>,
+    pub expiration_without_grace_period: Option<jiff::Timestamp>,
     /// Date when a self-hosted organization expires (includes grace period).
     #[serde(
         rename = "expiration",
         alias = "Expiration",
         skip_serializing_if = "Option::is_none"
     )]
-    pub expiration: Option<String>,
+    pub expiration: Option<jiff::Timestamp>,
 }
 
 impl OrganizationSubscriptionResponseModel {

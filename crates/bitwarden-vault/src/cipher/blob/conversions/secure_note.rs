@@ -4,8 +4,6 @@ impl_bidirectional_from!(SecureNoteView, SecureNoteDataV1, [r#type]);
 
 #[cfg(test)]
 mod tests {
-    use chrono::{TimeZone, Utc};
-
     use super::super::{CipherBlobV1, test_support::*};
     use crate::{
         PasswordHistoryView,
@@ -36,7 +34,11 @@ mod tests {
             }]),
             password_history: Some(vec![PasswordHistoryView {
                 password: "old-pass".to_string(),
-                last_used_date: Utc.with_ymd_and_hms(2023, 6, 1, 0, 0, 0).unwrap(),
+                last_used_date: jiff::civil::date(2023, 6, 1)
+                    .at(0, 0, 0, 0)
+                    .to_zoned(jiff::tz::TimeZone::UTC)
+                    .unwrap()
+                    .timestamp(),
             }]),
             ..create_shell_cipher_view(CipherType::SecureNote)
         };

@@ -27,7 +27,7 @@ pub enum DecryptError {
 #[derive(Debug, Error)]
 pub enum VaultParseError {
     #[error(transparent)]
-    Chrono(#[from] chrono::ParseError),
+    Jiff(#[from] jiff::Error),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
@@ -41,7 +41,7 @@ impl From<VaultParseError> for CipherError {
         match e {
             VaultParseError::Crypto(e) => Self::Crypto(e),
             VaultParseError::MissingField(e) => Self::MissingField(e),
-            VaultParseError::Chrono(e) => Self::Chrono(e),
+            VaultParseError::Jiff(e) => Self::Jiff(e),
             VaultParseError::SerdeJson(e) => Self::SerdeJson(e),
         }
     }

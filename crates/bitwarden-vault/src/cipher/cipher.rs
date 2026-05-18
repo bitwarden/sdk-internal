@@ -15,7 +15,7 @@ use bitwarden_crypto::{
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use bitwarden_uuid::uuid_newtype;
-use chrono::{DateTime, SecondsFormat, Utc};
+use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
@@ -63,7 +63,7 @@ pub enum CipherError {
     #[error(transparent)]
     Repository(#[from] RepositoryError),
     #[error(transparent)]
-    Chrono(#[from] chrono::ParseError),
+    Jiff(#[from] jiff::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
     #[error(transparent)]
@@ -191,14 +191,8 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
             passport: cipher.passport.map(|p| Box::new(p.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
-            last_known_revision_date: Some(
-                cipher
-                    .revision_date
-                    .to_rfc3339_opts(SecondsFormat::Millis, true),
-            ),
-            archived_date: cipher
-                .archived_date
-                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+            last_known_revision_date: Some(cipher.revision_date),
+            archived_date: cipher.archived_date,
         })
     }
 }
@@ -264,14 +258,8 @@ impl From<EncryptionContext> for CipherRequestModel {
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
             passport: cipher.passport.map(|p| Box::new(p.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
-            last_known_revision_date: Some(
-                cipher
-                    .revision_date
-                    .to_rfc3339_opts(SecondsFormat::Millis, true),
-            ),
-            archived_date: cipher
-                .archived_date
-                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+            last_known_revision_date: Some(cipher.revision_date),
+            archived_date: cipher.archived_date,
         }
     }
 }
@@ -315,10 +303,10 @@ pub struct Cipher {
     pub fields: Option<Vec<field::Field>>,
     pub password_history: Option<Vec<password_history::PasswordHistory>>,
 
-    pub creation_date: DateTime<Utc>,
-    pub deleted_date: Option<DateTime<Utc>>,
-    pub revision_date: DateTime<Utc>,
-    pub archived_date: Option<DateTime<Utc>>,
+    pub creation_date: Timestamp,
+    pub deleted_date: Option<Timestamp>,
+    pub revision_date: Timestamp,
+    pub archived_date: Option<Timestamp>,
     pub data: Option<String>,
 }
 
@@ -406,10 +394,8 @@ impl TryFrom<Cipher> for CipherRequestModel {
                 .map(|h| h.into_iter().map(Into::into).collect()),
             attachments: None,
             attachments2,
-            last_known_revision_date: Some(
-                c.revision_date.to_rfc3339_opts(SecondsFormat::Secs, true),
-            ),
-            archived_date: c.archived_date.map(|d| d.to_rfc3339()),
+            last_known_revision_date: Some(c.revision_date),
+            archived_date: c.archived_date,
             data: c.data,
         })
     }
@@ -456,10 +442,10 @@ pub struct CipherView {
     pub attachment_decryption_failures: Option<Vec<attachment::AttachmentView>>,
     pub fields: Option<Vec<field::FieldView>>,
     pub password_history: Option<Vec<password_history::PasswordHistoryView>>,
-    pub creation_date: DateTime<Utc>,
-    pub deleted_date: Option<DateTime<Utc>>,
-    pub revision_date: DateTime<Utc>,
-    pub archived_date: Option<DateTime<Utc>>,
+    pub creation_date: Timestamp,
+    pub deleted_date: Option<Timestamp>,
+    pub revision_date: Timestamp,
+    pub archived_date: Option<Timestamp>,
 }
 
 #[allow(missing_docs)]
@@ -534,10 +520,10 @@ pub struct CipherListView {
     /// Indicates if the cipher has old attachments that need to be re-uploaded
     pub has_old_attachments: bool,
 
-    pub creation_date: DateTime<Utc>,
-    pub deleted_date: Option<DateTime<Utc>>,
-    pub revision_date: DateTime<Utc>,
-    pub archived_date: Option<DateTime<Utc>>,
+    pub creation_date: Timestamp,
+    pub deleted_date: Option<Timestamp>,
+    pub revision_date: Timestamp,
+    pub archived_date: Option<Timestamp>,
 
     /// Hints for the presentation layer for which fields can be copied.
     pub copyable_fields: Vec<CopyableCipherFields>,
@@ -831,7 +817,7 @@ impl Cipher {
 
     /// Marks the cipher as soft deleted by setting `deletion_date` to now.
     pub(crate) fn soft_delete(&mut self) {
-        self.deleted_date = Some(Utc::now());
+        self.deleted_date = Some(Timestamp::now());
     }
 }
 impl CipherView {
@@ -1391,11 +1377,11 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .password_history
                 .map(|p| p.into_iter().map(|p| p.try_into()).collect())
                 .transpose()?,
-            creation_date: require!(cipher.creation_date).parse()?,
-            deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
-            revision_date: require!(cipher.revision_date).parse()?,
+            creation_date: require!(cipher.creation_date),
+            deleted_date: cipher.deleted_date,
+            revision_date: require!(cipher.revision_date),
             key: EncString::try_from_optional(cipher.key)?,
-            archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
+            archived_date: cipher.archived_date,
             data: cipher.data,
         })
     }
@@ -1519,11 +1505,11 @@ impl PartialCipher for CipherResponseModel {
                 .password_history
                 .map(|p| p.into_iter().map(|p| p.try_into()).collect())
                 .transpose()?,
-            creation_date: require!(self.creation_date).parse()?,
-            deleted_date: self.deleted_date.map(|d| d.parse()).transpose()?,
-            revision_date: require!(self.revision_date).parse()?,
+            creation_date: require!(self.creation_date),
+            deleted_date: self.deleted_date,
+            revision_date: require!(self.revision_date),
             key: EncString::try_from_optional(self.key)?,
-            archived_date: self.archived_date.map(|d| d.parse()).transpose()?,
+            archived_date: self.archived_date,
             data: self.data,
         })
     }
@@ -1565,17 +1551,9 @@ impl PartialCipher for CipherMiniResponseModel {
                 .password_history
                 .map(|p| p.into_iter().map(|p| p.try_into()).collect())
                 .transpose()?,
-            creation_date: require!(self.creation_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            deleted_date: self
-                .deleted_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            revision_date: require!(self.revision_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
+            creation_date: require!(self.creation_date),
+            deleted_date: self.deleted_date,
+            revision_date: require!(self.revision_date),
             archived_date: cipher.map_or(Default::default(), |c| c.archived_date),
             folder_id: cipher.map_or(Default::default(), |c| c.folder_id),
             favorite: cipher.map_or(Default::default(), |c| c.favorite),
@@ -1625,17 +1603,9 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
                 .password_history
                 .map(|p| p.into_iter().map(|p| p.try_into()).collect())
                 .transpose()?,
-            creation_date: require!(self.creation_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            deleted_date: self
-                .deleted_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            revision_date: require!(self.revision_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
+            creation_date: require!(self.creation_date),
+            deleted_date: self.deleted_date,
+            revision_date: require!(self.revision_date),
             collection_ids: self
                 .collection_ids
                 .into_iter()
@@ -1674,6 +1644,15 @@ mod tests {
     const TEST_ENC_STRING_5: &str = "2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=";
     const TEST_CIPHER_NAME: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
     const TEST_UUID: &str = "fd411a1a-fec8-4070-985d-0e6560860e69";
+
+    /// Build a UTC [`Timestamp`] from year/month/day/hour/minute/second values.
+    fn utc_ymd_hms(year: i16, month: i8, day: i8, hour: i8, minute: i8, second: i8) -> Timestamp {
+        jiff::civil::date(year, month, day)
+            .at(hour, minute, second, 0)
+            .to_zoned(jiff::tz::TimeZone::UTC)
+            .unwrap()
+            .timestamp()
+    }
 
     fn generate_cipher() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -2282,8 +2261,6 @@ mod tests {
 
     #[test]
     fn test_password_history_on_password_change() {
-        use chrono::Utc;
-
         let original_cipher = generate_cipher();
         let mut new_cipher = generate_cipher();
 
@@ -2292,9 +2269,9 @@ mod tests {
             login.password = Some("new_password123".to_string());
         }
 
-        let start = Utc::now();
+        let start = Timestamp::now();
         new_cipher.update_password_history(&original_cipher);
-        let end = Utc::now();
+        let end = Timestamp::now();
 
         assert!(new_cipher.password_history.is_some());
         let history = new_cipher.password_history.unwrap();
@@ -2322,16 +2299,12 @@ mod tests {
 
     #[test]
     fn test_password_history_is_preserved() {
-        use chrono::TimeZone;
-
         let mut original_cipher = generate_cipher();
         original_cipher.password_history = Some(
-            (0..4)
+            (0i8..4)
                 .map(|i| PasswordHistoryView {
-                    password: format!("old_password_{}", i),
-                    last_used_date: chrono::Utc
-                        .with_ymd_and_hms(2025, i + 1, i + 1, i, i, i)
-                        .unwrap(),
+                    password: format!("old_password_{i}"),
+                    last_used_date: utc_ymd_hms(2025, i + 1, i + 1, i, i, i),
                 })
                 .collect(),
         );
@@ -2345,25 +2318,13 @@ mod tests {
         assert_eq!(history.len(), 4);
 
         assert_eq!(history[0].password, "old_password_0");
-        assert_eq!(
-            history[0].last_used_date,
-            chrono::Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()
-        );
+        assert_eq!(history[0].last_used_date, utc_ymd_hms(2025, 1, 1, 0, 0, 0));
         assert_eq!(history[1].password, "old_password_1");
-        assert_eq!(
-            history[1].last_used_date,
-            chrono::Utc.with_ymd_and_hms(2025, 2, 2, 1, 1, 1).unwrap()
-        );
+        assert_eq!(history[1].last_used_date, utc_ymd_hms(2025, 2, 2, 1, 1, 1));
         assert_eq!(history[2].password, "old_password_2");
-        assert_eq!(
-            history[2].last_used_date,
-            chrono::Utc.with_ymd_and_hms(2025, 3, 3, 2, 2, 2).unwrap()
-        );
+        assert_eq!(history[2].last_used_date, utc_ymd_hms(2025, 3, 3, 2, 2, 2));
         assert_eq!(history[3].password, "old_password_3");
-        assert_eq!(
-            history[3].last_used_date,
-            chrono::Utc.with_ymd_and_hms(2025, 4, 4, 3, 3, 3).unwrap()
-        );
+        assert_eq!(history[3].last_used_date, utc_ymd_hms(2025, 4, 4, 3, 3, 3));
     }
 
     #[test]
@@ -2657,7 +2618,7 @@ mod tests {
             (0..10)
                 .map(|i| PasswordHistoryView {
                     password: format!("old_password_{}", i),
-                    last_used_date: chrono::Utc::now(),
+                    last_used_date: Timestamp::now(),
                 })
                 .collect(),
         );

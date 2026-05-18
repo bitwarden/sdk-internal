@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::SecretsSyncResponseModel;
 use bitwarden_core::{key_management::KeySlotIds, require};
 use bitwarden_crypto::KeyStoreContext;
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -15,7 +15,7 @@ pub struct SecretsSyncRequest {
     /// Organization to sync secrets from
     pub organization_id: Uuid,
     /// Optional date time a sync last occurred
-    pub last_synced_date: Option<DateTime<Utc>>,
+    pub last_synced_date: Option<Timestamp>,
 }
 
 pub(crate) async fn sync_secrets(
@@ -24,12 +24,10 @@ pub(crate) async fn sync_secrets(
 ) -> Result<SecretsSyncResponse, SecretsManagerError> {
     let client = client.client();
     let config = client.internal.get_api_configurations();
-    let last_synced_date = input.last_synced_date.map(|date| date.to_rfc3339());
-
     let res = config
         .api_client
         .secrets_api()
-        .get_secrets_sync(input.organization_id, last_synced_date)
+        .get_secrets_sync(input.organization_id, input.last_synced_date)
         .await?;
 
     let key_store = client.internal.get_key_store();

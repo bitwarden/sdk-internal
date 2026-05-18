@@ -83,14 +83,14 @@ pub struct OrganizationUser {
         alias = "CreationDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub creation_date: Option<String>,
+    pub creation_date: Option<jiff::Timestamp>,
     /// The last date the OrganizationUser entry was updated.
     #[serde(
         rename = "revisionDate",
         alias = "RevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub revision_date: Option<String>,
+    pub revision_date: Option<jiff::Timestamp>,
     /// A json blob representing the Bit.Core.Models.Data.Permissions of the OrganizationUser if
     /// they are a Custom user role (i.e. the Bit.Core.Enums.OrganizationUserType is Custom). MAY
     /// be NULL if they are not a custom user, but this is not guaranteed; do not use this to

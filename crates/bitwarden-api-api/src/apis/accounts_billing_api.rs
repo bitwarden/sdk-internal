@@ -37,7 +37,8 @@ pub trait AccountsBillingApi: Send + Sync {
     ) -> Result<(), Error>;
 
     /// GET /accounts/billing/transactions
-    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error>;
+    async fn get_transactions<'a>(&self, start_after: Option<jiff::Timestamp>)
+    -> Result<(), Error>;
 }
 
 pub struct AccountsBillingApiClient {
@@ -99,7 +100,10 @@ impl AccountsBillingApi for AccountsBillingApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error> {
+    async fn get_transactions<'a>(
+        &self,
+        start_after: Option<jiff::Timestamp>,
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;

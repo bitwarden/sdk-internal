@@ -34,8 +34,8 @@ bitwarden-error = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-ssh = { workspace = true }
 bitwarden-vault = { workspace = true }
-chrono = { workspace = true, features = ["std"] }
 credential-exchange-format = { version = ">=0.3, <0.4" }
+jiff = { workspace = true }
 csv = "1.3.0"
 num-traits = ">=0.2, <0.3"
 serde = { workspace = true }
@@ -47,6 +47,11 @@ url = { workspace = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+# Only used in tests to construct `chrono::Month` / `chrono::NaiveDate` values for
+# CXF round-trip assertions. Not part of the production build.
+chrono = { workspace = true }
 
 [lints]
 workspace = true

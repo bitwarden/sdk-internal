@@ -128,7 +128,7 @@ mod tests {
                     Ok(FolderResponseModel {
                         id: Some(folder_id.into()),
                         name: Some(model.unwrap().name),
-                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        revision_date: Some("2025-01-01T00:00:00Z".parse().unwrap()),
                         object: Some("folder".to_string()),
                     })
                 })

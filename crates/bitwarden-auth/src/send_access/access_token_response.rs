@@ -25,7 +25,7 @@ impl From<SendAccessTokenApiSuccessResponse> for SendAccessTokenResponse {
         // concrete time the token will expire as it is easier to build logic around a
         // concrete time rather than a duration.
         let expires_at =
-            chrono::Utc::now().timestamp_millis() + (response.expires_in * 1000) as i64;
+            jiff::Timestamp::now().as_millisecond() + (response.expires_in * 1000) as i64;
 
         SendAccessTokenResponse {
             token: response.access_token,

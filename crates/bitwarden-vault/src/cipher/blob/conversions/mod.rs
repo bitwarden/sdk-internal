@@ -250,12 +250,20 @@ pub(crate) mod test_support {
         KeySlotIds, SymmetricKeySlotId, create_test_crypto_with_user_key,
     };
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
-    use chrono::{TimeZone, Utc};
+    use jiff::Timestamp;
 
     use crate::{
         CipherView,
         cipher::cipher::{CipherRepromptType, CipherType},
     };
+
+    fn utc_ymd_hms(year: i16, month: i8, day: i8, hour: i8, minute: i8, second: i8) -> Timestamp {
+        jiff::civil::date(year, month, day)
+            .at(hour, minute, second, 0)
+            .to_zoned(jiff::tz::TimeZone::UTC)
+            .unwrap()
+            .timestamp()
+    }
 
     pub(crate) fn create_test_key_store() -> (KeyStore<KeySlotIds>, SymmetricKeySlotId) {
         let key = SymmetricCryptoKey::try_from(
@@ -295,9 +303,9 @@ pub(crate) mod test_support {
             attachment_decryption_failures: None,
             fields: None,
             password_history: None,
-            creation_date: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
+            creation_date: utc_ymd_hms(2024, 1, 1, 0, 0, 0),
             deleted_date: None,
-            revision_date: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
+            revision_date: utc_ymd_hms(2024, 1, 1, 0, 0, 0),
             archived_date: None,
         }
     }
