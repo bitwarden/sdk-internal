@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::KeySlotIds;
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, IdentifyKey, KeyStoreContext,
     PrimitiveEncryptable,
@@ -34,13 +34,24 @@ pub(crate) fn is_legacy_cipher(cipher: &Cipher) -> bool {
     !is_blob_encrypted(cipher)
 }
 
-/// Seals a `CipherView` into an opaque blob string.
+/// Seals a `CipherView` into an opaque blob string, using `view.key_identifier()` to unwrap
+/// the cipher key.
 fn seal_cipher(
     view: &CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<String, BlobEncryptionError> {
-    let outer_key = view.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &view.key)?;
+    seal_cipher_with_key(view, ctx, view.key_identifier())
+}
+
+/// Seals a `CipherView` into an opaque blob string, using the provided `wrapping_key` to
+/// unwrap the cipher key. Useful when `view.key` is wrapped under a slot other than
+/// `view.key_identifier()` (e.g. during key rotation).
+fn seal_cipher_with_key(
+    view: &CipherView,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
+) -> Result<String, BlobEncryptionError> {
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
 
     let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
     let versioned: CipherBlob = blob.into();
@@ -68,7 +79,8 @@ fn unseal_cipher(
     }
 }
 
-/// Encrypts a `CipherView` into a blob-encrypted `Cipher`
+/// Encrypts a `CipherView` into a blob-encrypted `Cipher`, using `view.key_identifier()` as
+/// the wrapping key.
 ///
 /// Generates a cipher key if missing, seals the sensitive data into a single blob,
 /// and encrypts attachments and local data separately.
@@ -76,14 +88,26 @@ pub(crate) fn encrypt_blob_cipher(
     view: &mut CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Cipher, BlobEncryptionError> {
+    let wrapping_key = view.key_identifier();
+    encrypt_blob_cipher_with_key(view, ctx, wrapping_key)
+}
+
+/// Encrypts a `CipherView` into a blob-encrypted `Cipher`, using the provided `wrapping_key`
+/// to unwrap the cipher key. Useful when `view.key` is wrapped under a slot other than
+/// `view.key_identifier()` (e.g. during key rotation, where it is wrapped under a local slot
+/// for the new user key).
+pub(crate) fn encrypt_blob_cipher_with_key(
+    view: &mut CipherView,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
+) -> Result<Cipher, BlobEncryptionError> {
     if view.key.is_none() {
-        view.generate_cipher_key(ctx, view.key_identifier())?;
+        view.generate_cipher_key(ctx, wrapping_key)?;
     }
 
-    let outer_key = view.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &view.key)?;
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
 
-    let sealed_string = seal_cipher(view, ctx)?;
+    let sealed_string = seal_cipher_with_key(view, ctx, wrapping_key)?;
 
     let attachments = view.attachments.encrypt_composite(ctx, cipher_key)?;
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;

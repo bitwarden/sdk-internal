@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    blob::encrypt_blob_cipher,
+    blob::{encrypt_blob_cipher, encrypt_blob_cipher_with_key},
     cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
@@ -160,8 +160,14 @@ impl CiphersClient {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
-        // TODO: [PM-33107] Add support for cipher blob encryption when rotating keys.
-        let cipher = cipher_view.encrypt_composite(&mut ctx, new_key_id)?;
+        let cipher = if cipher_view.key.is_some()
+            && self.should_use_blob_encryption(cipher_view.organization_id)
+        {
+            encrypt_blob_cipher_with_key(&mut cipher_view, &mut ctx, new_key_id)
+                .map_err(EncryptError::BlobEncryption)?
+        } else {
+            cipher_view.encrypt_composite(&mut ctx, new_key_id)?
+        };
 
         Ok(EncryptionContext {
             cipher,
@@ -853,6 +859,29 @@ mod tests {
             client.vault().ciphers().decrypt(ctx.cipher).await.err(),
             Some(DecryptError::Crypto(CryptoError::Decrypt))
         ));
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_encrypt_cipher_for_rotation_uses_blob_when_eligible() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let cipher_view = test_cipher_view();
+        let new_key_b64 = new_key.to_base64();
+
+        let ctx = client
+            .vault()
+            .ciphers()
+            .encrypt_cipher_for_rotation(cipher_view, new_key_b64)
+            .await
+            .unwrap();
+
+        assert!(crate::blob::is_blob_encrypted(&ctx.cipher));
     }
 
     #[cfg(feature = "wasm")]
