@@ -299,7 +299,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all, fields(user_id = ?self.get_user_id()))]
-    pub(crate) fn initialize_user_crypto_decrypted_key(
+    pub fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
         account_crypto_state: WrappedAccountCryptographicState,

@@ -37,9 +37,11 @@ pub mod clients {
 pub use commercial::CommercialPasswordManagerClient;
 
 mod builder;
+pub mod key_management;
 pub mod migrations;
 pub use bitwarden_core::{RehydrationError, SaveStateData};
 pub use builder::PasswordManagerClientBuilder;
+pub use key_management::{SessionKey, UnlockError, UnlockMethod};
 
 /// The main entry point for the Bitwarden Password Manager SDK
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
