@@ -53,6 +53,29 @@ pub struct PasswordGeneratorRequest {
     /// The minimum number of special characters in the generated password.
     /// When set, the value must be between 1 and 9. This value is ignored if special is false.
     pub min_special: Option<u8>,
+
+    /// Custom characters that must each be available to the generator and from which at least
+    /// one character is guaranteed to appear in the output. Each character of the string is
+    /// treated as a member of the custom required set. Non-ASCII-printable characters are
+    /// silently dropped during validation.
+    ///
+    /// This is primarily used by the HTML `passwordrules` parser to honor custom required
+    /// character classes (e.g. `required: [!#$]`).
+    pub custom_required_chars: Option<String>,
+    /// Custom characters that are added to the overall pool of allowed characters, but are not
+    /// required to appear. Each character of the string is treated as a member of the custom
+    /// allowed set. Non-ASCII-printable characters are silently dropped during validation.
+    ///
+    /// This is primarily used by the HTML `passwordrules` parser to honor custom allowed
+    /// character classes (e.g. `allowed: [-_.]`).
+    pub custom_allowed_chars: Option<String>,
+
+    /// The maximum number of consecutive identical characters allowed in the generated password,
+    /// as expressed by the HTML `passwordrules` `max-consecutive` property.
+    ///
+    /// Currently parsed and stored, but not yet enforced by the generator.
+    // TODO: enforce `max_consecutive` in the generator.
+    pub max_consecutive: Option<u8>,
 }
 
 const DEFAULT_PASSWORD_LENGTH: u8 = 16;
@@ -81,8 +104,27 @@ impl Default for PasswordGeneratorRequest {
             min_uppercase: None,
             min_number: None,
             min_special: None,
+            custom_required_chars: None,
+            custom_allowed_chars: None,
+            max_consecutive: None,
         }
     }
+}
+
+/// Returns true if `c` is an ASCII-printable, non-whitespace character — the set of
+/// characters that the HTML `passwordrules` spec allows inside a custom class.
+pub(crate) fn is_ascii_printable_non_whitespace(c: char) -> bool {
+    c.is_ascii_graphic()
+}
+
+/// Filters the characters of `s` down to ASCII-printable, non-whitespace, deduplicated
+/// characters, preserving relative order on first occurrence.
+fn sanitize_custom_chars(s: &str) -> Vec<char> {
+    let mut seen = BTreeSet::new();
+    s.chars()
+        .filter(|c| is_ascii_printable_non_whitespace(*c))
+        .filter(|c| seen.insert(*c))
+        .collect()
 }
 
 const UPPER_CHARS_AMBIGUOUS: &[char] = &['I', 'O'];
@@ -147,6 +189,9 @@ struct PasswordGeneratorOptions {
     pub(super) upper: (CharSet, usize),
     pub(super) number: (CharSet, usize),
     pub(super) special: (CharSet, usize),
+    /// Custom required characters from `passwordrules` `required: [...]` entries. At least one
+    /// char from this set is guaranteed to appear in the output when the set is non-empty.
+    pub(super) custom: (CharSet, usize),
     pub(super) all: (CharSet, usize),
 
     pub(super) length: usize,
@@ -158,8 +203,27 @@ impl PasswordGeneratorRequest {
     fn validate_options(self) -> Result<PasswordGeneratorOptions, PasswordError> {
         // TODO: Add password generator policy checks
 
-        // We always have to have at least one character set enabled
-        if !self.lowercase && !self.uppercase && !self.numbers && !self.special {
+        // Sanitize custom char lists defensively: the parser already filters non-printable
+        // characters, but the request type is `pub` so callers can construct it directly.
+        let custom_required = self
+            .custom_required_chars
+            .as_deref()
+            .map(sanitize_custom_chars)
+            .unwrap_or_default();
+        let custom_allowed: Vec<char> = self
+            .custom_allowed_chars
+            .as_deref()
+            .map(sanitize_custom_chars)
+            .unwrap_or_default();
+
+        // We always have to have at least one character set enabled (standard or custom).
+        if !self.lowercase
+            && !self.uppercase
+            && !self.numbers
+            && !self.special
+            && custom_required.is_empty()
+            && custom_allowed.is_empty()
+        {
             return Err(PasswordError::NoCharacterSetEnabled);
         }
 
@@ -182,9 +246,10 @@ impl PasswordGeneratorRequest {
         let min_uppercase = get_minimum(self.min_uppercase, self.uppercase);
         let min_number = get_minimum(self.min_number, self.numbers);
         let min_special = get_minimum(self.min_special, self.special);
+        let min_custom = if custom_required.is_empty() { 0 } else { 1 };
 
         // Check that the minimum lengths aren't larger than the password length
-        let minimum_length = min_lowercase + min_uppercase + min_number + min_special;
+        let minimum_length = min_lowercase + min_uppercase + min_number + min_special + min_custom;
         if minimum_length > length {
             return Err(PasswordError::InvalidLength);
         }
@@ -215,12 +280,19 @@ impl PasswordGeneratorRequest {
             min_special,
         );
 
+        let custom = (
+            CharSet::default().include(custom_required.iter().copied()),
+            min_custom,
+        );
+
         let all = (
             CharSet::default()
                 .include(&lower.0)
                 .include(&upper.0)
                 .include(&number.0)
-                .include(&special.0),
+                .include(&special.0)
+                .include(&custom.0)
+                .include(custom_allowed.iter().copied()),
             length - minimum_length,
         );
 
@@ -229,6 +301,7 @@ impl PasswordGeneratorRequest {
             upper,
             number,
             special,
+            custom,
             all,
             length,
         })
@@ -241,6 +314,17 @@ pub(crate) fn password(input: PasswordGeneratorRequest) -> Result<String, Passwo
     Ok(password_with_rng(rand::rng(), options))
 }
 
+/// Test-only helper that validates a request and runs the generator with a caller-supplied RNG.
+/// Lets the `passwordrules` test module exercise the end-to-end generator path deterministically.
+#[cfg(test)]
+pub(crate) fn password_with_rng_for_test(
+    rng: impl Rng,
+    input: PasswordGeneratorRequest,
+) -> Result<String, PasswordError> {
+    let options = input.validate_options()?;
+    Ok(password_with_rng(rng, options))
+}
+
 fn password_with_rng(mut rng: impl Rng, options: PasswordGeneratorOptions) -> String {
     let mut buf: Vec<char> = Vec::with_capacity(options.length);
 
@@ -250,6 +334,7 @@ fn password_with_rng(mut rng: impl Rng, options: PasswordGeneratorOptions) -> St
         &options.lower,
         &options.number,
         &options.special,
+        &options.custom,
     ];
     for (set, qty) in opts {
         buf.extend(set.sample_iter(&mut rng).take(*qty));
@@ -394,6 +479,7 @@ mod test {
             min_uppercase: Some(5),
             min_number: Some(5),
             min_special: Some(5),
+            ..Default::default()
         }
         .validate_options()
         .unwrap();
