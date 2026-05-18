@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct OrganizationReportMetricsRequest {
+pub struct OrganizationReportMetrics {
     #[serde(
         rename = "totalApplicationCount",
         alias = "TotalApplicationCount",
@@ -88,9 +88,9 @@ pub struct OrganizationReportMetricsRequest {
     pub total_critical_at_risk_password_count: Option<i32>,
 }
 
-impl OrganizationReportMetricsRequest {
-    pub fn new() -> OrganizationReportMetricsRequest {
-        OrganizationReportMetricsRequest {
+impl OrganizationReportMetrics {
+    pub fn new() -> OrganizationReportMetrics {
+        OrganizationReportMetrics {
             total_application_count: None,
             total_at_risk_application_count: None,
             total_critical_application_count: None,
