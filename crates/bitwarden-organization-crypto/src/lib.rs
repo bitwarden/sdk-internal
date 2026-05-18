@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-mod invite_key_envelope;
+mod invite_key_bundle;
 
-pub use invite_key_envelope::{InviteKeyBundle, InviteKeyEnvelopeError};
+pub use invite_key_bundle::{InviteKeyBundle, InviteKeyBundleError};

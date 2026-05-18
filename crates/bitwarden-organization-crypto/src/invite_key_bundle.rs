@@ -4,7 +4,7 @@ use thiserror::Error;
 
 /// Errors that can occur when creating an invite key envelope
 #[derive(Debug, Error)]
-pub enum InviteKeyEnvelopeError {
+pub enum InviteKeyBundleError {
     /// The key wrapping failed while using the provided organization key
     #[error("Unable to wrap invite key with org key")]
     KeyWrappingFailed,
@@ -36,20 +36,20 @@ impl InviteKeyBundle {
     pub fn make<Ids: KeySlotIds>(
         organization_key: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
-    ) -> Result<Self, InviteKeyEnvelopeError> {
+    ) -> Result<Self, InviteKeyBundleError> {
         let key_id =
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         #[allow(deprecated)]
         let raw_key_data = InviteKeyData(
             ctx.dangerous_get_symmetric_key(key_id)
-                .map_err(|_| InviteKeyEnvelopeError::MissingKeyId(format!("{key_id:?}")))?
+                .map_err(|_| InviteKeyBundleError::MissingKeyId(format!("{key_id:?}")))?
                 .clone(),
         );
 
         let wrapped_invite_key = ctx
             .wrap_symmetric_key(organization_key, key_id)
-            .map_err(|_| InviteKeyEnvelopeError::KeyWrappingFailed)?;
+            .map_err(|_| InviteKeyBundleError::KeyWrappingFailed)?;
 
         Ok(Self {
             raw_key_data,
