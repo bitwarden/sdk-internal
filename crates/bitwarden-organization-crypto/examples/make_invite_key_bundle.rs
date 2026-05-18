@@ -19,7 +19,8 @@ fn main() {
     let bundle = InviteKeyBundle::make(ExampleSymmetricKey::Organization(org_id), &mut ctx)
         .expect("generating an invitation key bundle should work");
 
-    let bytes = bundle.raw_invite_key();
+    let key = bundle.raw_invite_key();
+    let key_bytes = B64Url::from(key);
     let organization_wrapped_invitation_key = bundle.organization_wrapped_invite_key();
 
     let unwrapped_key_id = ctx
@@ -37,7 +38,7 @@ fn main() {
             .as_ref(),
     );
 
-    assert_eq!(bytes, decrypted_bytes)
+    assert_eq!(key_bytes, decrypted_bytes)
 }
 
 key_slot_ids! {

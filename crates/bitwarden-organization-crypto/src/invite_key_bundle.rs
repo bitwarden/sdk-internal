@@ -59,8 +59,8 @@ impl InviteKeyBundle {
 
     /// Get the raw invite key bytes in B64Url encoding
     /// CRITICAL: this data MUST NOT be sent to the server
-    pub fn raw_invite_key(&self) -> B64Url {
-        B64Url::from(&self.raw_key_data)
+    pub fn raw_invite_key(&self) -> &InviteKeyData {
+        &self.raw_key_data
     }
 
     /// Get the invite key wrapped using the organization key
@@ -74,7 +74,7 @@ mod tests {
     use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyStore, SymmetricCryptoKey, key_slot_ids};
     use bitwarden_encoding::B64Url;
 
-    use crate::invite_key_envelope::{InviteKeyBundle, InviteKeyData};
+    use crate::invite_key_bundle::{InviteKeyBundle, InviteKeyData};
 
     #[test]
     fn test_basic_invitation_envelope_bundle() {
@@ -112,7 +112,7 @@ mod tests {
             .unwrap()
             .clone();
 
-        assert_eq!(key.raw_key_data.0, unsealed_key);
+        assert_eq!(key.raw_invite_key().0, unsealed_key);
     }
 
     #[test]
