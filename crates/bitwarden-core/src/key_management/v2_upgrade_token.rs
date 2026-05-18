@@ -28,6 +28,15 @@ pub struct V2UpgradeToken {
     pub wrapped_user_key_2: EncString,
 }
 
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for V2UpgradeToken {
+    type Error = serde_wasm_bindgen::Error;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value)
+    }
+}
+
 impl V2UpgradeToken {
     /// Creates a new [`V2UpgradeToken`] from `v1_key_id` (Aes256CbcHmac) and `v2_key_id`
     /// (XChaCha20Poly1305) in the KeyStore. Type-checks both keys, then wraps V1 with V2 and

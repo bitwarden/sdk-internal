@@ -643,6 +643,7 @@ dependencies = [
  "rustls-platform-verifier",
  "schemars 1.2.1",
  "serde",
+ "serde-wasm-bindgen",
  "serde_bytes",
  "serde_json",
  "serde_qs",
@@ -1319,6 +1320,7 @@ dependencies = [
  "tracing-subscriber",
  "tracing-web",
  "tsify",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
