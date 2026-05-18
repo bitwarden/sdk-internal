@@ -18,6 +18,8 @@ keywords.workspace = true
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
 uuid = { workspace = true }
 
 [lints]
