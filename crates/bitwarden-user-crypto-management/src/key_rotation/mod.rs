@@ -56,8 +56,12 @@ pub enum RotateUserKeysError {
     Crypto,
     #[error("Invalid public key provided during key rotation")]
     InvalidPublicKey,
+    #[error("Key Connector API error during key rotation")]
+    KeyConnectorApi,
     #[error("Untrusted key encountered during key rotation")]
     UntrustedKey,
     #[error("Unimplemented key rotation method")]
     UnimplementedKeyRotationMethod,
+    #[error("Vault contains old attachments that must be re-uploaded before key rotation")]
+    OldAttachments,
 }

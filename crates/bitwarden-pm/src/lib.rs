@@ -9,6 +9,7 @@ use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
+    client::persisted_state::SESSION_PROTECTED_USER_KEY,
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
@@ -37,6 +38,7 @@ pub use commercial::CommercialPasswordManagerClient;
 
 mod builder;
 pub mod migrations;
+pub use bitwarden_core::{RehydrationError, SaveStateData};
 pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
@@ -140,6 +142,52 @@ impl PasswordManagerClient {
     /// Sync operations
     pub fn sync(&self) -> bitwarden_sync::SyncClient {
         self.0.sync()
+    }
+
+    /// Returns true when the user's symmetric key is loaded into the key store.
+    pub fn is_unlocked(&self) -> bool {
+        use bitwarden_core::key_management::SymmetricKeySlotId;
+        self.0
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeySlotId::User)
+    }
+
+    /// Invalidate the persisted session key, locking the vault for future invocations.
+    ///
+    /// Removes [`SESSION_PROTECTED_USER_KEY`] from the database. Distinct from
+    /// `lock()` on long-lived clients (mobile, desktop), which clears keys from memory: the
+    /// CLI process exits between invocations, so locking must delete the persisted session
+    /// key rather than mutate in-memory state.
+    pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
+        self.0
+            .platform()
+            .state()
+            .setting(SESSION_PROTECTED_USER_KEY)?
+            .delete()
+            .await
+    }
+
+    /// Write rehydration state to a StateRegistry.
+    ///
+    /// Delegates to [`Client::save_to_state`](bitwarden_core::Client::save_to_state).
+    pub async fn save_to_state(
+        data: SaveStateData,
+        reg: &bitwarden_state::registry::StateRegistry,
+    ) -> Result<(), RehydrationError> {
+        bitwarden_core::Client::save_to_state(data, reg).await
+    }
+
+    /// Reconstruct a locked PasswordManagerClient from a populated StateRegistry.
+    ///
+    /// Delegates to [`Client::load_from_state`](bitwarden_core::Client::load_from_state).
+    pub async fn load_from_state(
+        token_handler: std::sync::Arc<dyn bitwarden_core::auth::auth_tokens::TokenHandler>,
+        registry: bitwarden_state::registry::StateRegistry,
+    ) -> Result<Self, RehydrationError> {
+        let client = bitwarden_core::Client::load_from_state(token_handler, registry).await?;
+        Ok(PasswordManagerClient(client))
     }
 }
 

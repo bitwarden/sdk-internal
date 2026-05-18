@@ -120,9 +120,6 @@ pub trait AccountsApi: Send + Sync {
         password_hint_request_model: Option<models::PasswordHintRequestModel>,
     ) -> Result<(), Error>;
 
-    /// POST /accounts/reinstate-premium
-    async fn post_reinstate(&self) -> Result<(), Error>;
-
     /// POST /accounts/request-otp
     async fn post_request_otp(&self) -> Result<(), Error>;
 
@@ -137,12 +134,6 @@ pub trait AccountsApi: Send + Sync {
         &self,
         set_initial_password_request_model: Option<models::SetInitialPasswordRequestModel>,
     ) -> Result<(), Error>;
-
-    /// POST /accounts/storage
-    async fn post_storage<'a>(
-        &self,
-        storage_request_model: Option<models::StorageRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error>;
 
     /// POST /accounts/verify-email
     async fn post_verify_email(&self) -> Result<(), Error>;
@@ -569,23 +560,6 @@ impl AccountsApi for AccountsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn post_reinstate(&self) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/accounts/reinstate-premium",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
     async fn post_request_otp(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -641,24 +615,6 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.json(&set_initial_password_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn post_storage<'a>(
-        &self,
-        storage_request_model: Option<models::StorageRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!("{}/accounts/storage", local_var_configuration.base_path);
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&storage_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_verify_email(&self) -> Result<(), Error> {

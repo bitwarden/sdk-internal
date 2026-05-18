@@ -44,6 +44,7 @@ wasm = [
     "getrandom4/wasm_js",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
+    "dep:serde-wasm-bindgen",
     "dep:tsify",
 ] # WASM support
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
@@ -81,6 +82,7 @@ reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true, optional = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 serde_qs = { workspace = true }
@@ -103,6 +105,7 @@ rustls = { version = "0.23.19", default-features = false }
 rustls-platform-verifier = "0.6.0"
 
 [dev-dependencies]
+bitwarden-crypto = { workspace = true, features = ["test-utils"] }
 rand_chacha = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }

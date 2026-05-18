@@ -6,7 +6,7 @@
 //! On unwrapping, both directions are validated - an attacker can't modify one wrapped key
 //! without breaking the other direction's validation.
 
-use bitwarden_api_api::models::V2UpgradeTokenResponseModel;
+use bitwarden_api_api::models::{V2UpgradeTokenRequestModel, V2UpgradeTokenResponseModel};
 use bitwarden_crypto::{
     Decryptable, EncString, KeySlotIds, KeyStoreContext, SymmetricKeyAlgorithm,
 };
@@ -26,6 +26,15 @@ pub struct V2UpgradeToken {
     pub wrapped_user_key_1: EncString,
     /// V2 user key encrypted with V1 key (Aes256Cbc_HmacSha256_B64 format)
     pub wrapped_user_key_2: EncString,
+}
+
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for V2UpgradeToken {
+    type Error = serde_wasm_bindgen::Error;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value)
+    }
 }
 
 impl V2UpgradeToken {
@@ -138,6 +147,15 @@ impl TryFrom<&V2UpgradeTokenResponseModel> for V2UpgradeToken {
             wrapped_user_key_1,
             wrapped_user_key_2,
         })
+    }
+}
+
+impl From<V2UpgradeToken> for V2UpgradeTokenRequestModel {
+    fn from(token: V2UpgradeToken) -> Self {
+        V2UpgradeTokenRequestModel {
+            wrapped_user_key1: token.wrapped_user_key_1.to_string(),
+            wrapped_user_key2: token.wrapped_user_key_2.to_string(),
+        }
     }
 }
 
@@ -350,5 +368,34 @@ mod tests {
         #[allow(deprecated)]
         let unwrapped_v2 = ctx.dangerous_get_symmetric_key(unwrapped_v2_id).unwrap();
         assert_eq!(original_v2, unwrapped_v2);
+    }
+
+    #[test]
+    fn test_from_token_to_request_model() {
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let v1_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
+            .expect("Token creation should succeed");
+
+        let expected_wrapped_key1 = token.wrapped_user_key_1.to_string();
+        let expected_wrapped_key2 = token.wrapped_user_key_2.to_string();
+
+        let request_model: V2UpgradeTokenRequestModel = token.into();
+
+        assert_eq!(request_model.wrapped_user_key1, expected_wrapped_key1);
+        assert_eq!(request_model.wrapped_user_key2, expected_wrapped_key2);
+
+        request_model
+            .wrapped_user_key1
+            .parse::<EncString>()
+            .expect("wrapped_user_key1 should be a valid EncString");
+        request_model
+            .wrapped_user_key2
+            .parse::<EncString>()
+            .expect("wrapped_user_key2 should be a valid EncString");
     }
 }

@@ -530,11 +530,9 @@ mod tests {
         let cipher_id: CipherId = "5faa9684-c793-4a2d-8a12-b33900187097".parse().unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
-            mock.ciphers_api.expect_put().returning(move |_id, _body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.ciphers_api
+                .expect_put()
+                .returning(move |_id, _body| Err(std::io::Error::other("Simulated error").into()));
         });
 
         let repository = MemoryRepository::<Cipher>::default();

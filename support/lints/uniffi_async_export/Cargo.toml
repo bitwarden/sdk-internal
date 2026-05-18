@@ -1,0 +1,27 @@
+[package]
+name = "bitwarden_uniffi_async_export"
+version = "0.1.0"
+authors = ["Bitwarden Inc"]
+description = "Lints validating `#[uniffi::export]` usage on async impl blocks"
+edition = "2021"
+publish = false
+
+[features]
+rlib = ["dylint_linting/constituent"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[example]]
+name = "ui"
+path = "ui/main.rs"
+
+[dependencies]
+clippy_utils = { workspace = true }
+dylint_linting = { workspace = true }
+
+[dev-dependencies]
+dylint_testing = { workspace = true }
+
+[package.metadata.rust-analyzer]
+rustc_private = true

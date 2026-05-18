@@ -354,6 +354,12 @@ pub struct OrganizationSubscriptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub expiration: Option<String>,
+    #[serde(
+        rename = "exemptFromBillingAutomation",
+        alias = "ExemptFromBillingAutomation",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub exempt_from_billing_automation: Option<bool>,
 }
 
 impl OrganizationSubscriptionResponseModel {
@@ -416,6 +422,7 @@ impl OrganizationSubscriptionResponseModel {
             upcoming_invoice: None,
             expiration_without_grace_period: None,
             expiration: None,
+            exempt_from_billing_automation: None,
         }
     }
 }

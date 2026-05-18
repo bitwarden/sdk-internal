@@ -294,9 +294,7 @@ mod tests {
                     wrapped_key
                         .parse::<EncString>()
                         .expect("key_connector_key_wrapped_user_key should be a valid EncString");
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
                 });
         });
 

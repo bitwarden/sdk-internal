@@ -15,8 +15,8 @@ use clap::{Parser, Subcommand};
 use crate::{
     admin_console::{ConfirmCommand, MoveArgs},
     auth::LoginArgs,
-    key_management::UnlockArgs,
-    platform::{ConfigCommand, ServeArgs, StatusArgs, SyncArgs},
+    key_management::{LockArgs, UnlockArgs},
+    platform::{CompletionArgs, ConfigCommand, EncodeArgs, ServeArgs, StatusArgs, SyncArgs},
     render::Output,
     tools::{ExportArgs, GenerateArgs, ImportArgs, ReceiveArgs, SendArgs},
     vault::RestoreArgs,
@@ -99,7 +99,7 @@ pub enum Commands {
     Logout,
 
     #[command(about = "Lock the vault and destroy active session keys.")]
-    Lock,
+    Lock(LockArgs),
 
     // KM commands
     #[command(about = "Unlock the vault and return a session key.")]
@@ -110,7 +110,7 @@ pub enum Commands {
     Sync(SyncArgs),
 
     #[command(about = "Base 64 encode stdin.")]
-    Encode,
+    Encode(EncodeArgs),
 
     #[command(about = "Configure CLI settings.")]
     Config {
@@ -125,10 +125,7 @@ pub enum Commands {
     },
 
     #[command(about = "Generate shell completions.")]
-    Completion {
-        #[arg(long, help = "The shell to generate completions for.")]
-        shell: Option<clap_complete::Shell>,
-    },
+    Completion(CompletionArgs),
 
     Status(StatusArgs),
 
