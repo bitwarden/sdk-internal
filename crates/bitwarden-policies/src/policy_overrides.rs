@@ -126,6 +126,7 @@ mod tests {
             r#type: PolicyType(policy_type),
             data: None,
             enabled: true,
+            revision_date: Default::default(),
         }
     }
 
