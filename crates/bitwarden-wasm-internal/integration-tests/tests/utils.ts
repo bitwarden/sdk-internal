@@ -1,3 +1,15 @@
+// Jest's `CustomConsole` (used for test-output buffering) does not implement
+// `console.createTask`, but the debug build of `wasm-bindgen-futures`'
+// `spawn_local` calls it on every task to attach an async stack-trace span.
+{
+  const c = globalThis.console as {
+    createTask?: (name: string) => unknown;
+  };
+  if (typeof c.createTask !== "function") {
+    c.createTask = () => ({ run: <T>(fn: () => T): T => fn() });
+  }
+}
+
 import {
   WasmStateBridge,
   PasswordProtectedKeyEnvelope,
@@ -11,6 +23,17 @@ import {
   TokenProvider,
   InitUserCryptoRequest,
   UserId,
+  IpcClient,
+  IpcCommunicationBackend,
+  IpcCommunicationBackendSender,
+  IncomingMessage,
+  OutgoingMessage,
+  Source,
+  BiometricsUnlock,
+  BiometricsStatus,
+  SharedUnlockDriver,
+  SharedUnlockFollower,
+  SharedUnlockLeader,
 } from "@bitwarden/sdk-internal";
 
 const encstring = (s: string) => s as unknown as EncString;
@@ -87,6 +110,7 @@ export function makeStateBridge(): WasmStateBridge {
   };
 }
 
+export const TEST_USER_ID = userId("00000000-0000-0000-0000-000000000000");
 export const TEST_EMAIL = "test@bitwarden.com";
 export const TEST_PASSWORD = "asdfasdfasdf";
 export const TEST_PIN = "1234";
@@ -129,4 +153,78 @@ export async function makeInitializedPasswordmanagerClient(
 
   await client.crypto().initialize_user_crypto(req);
   return client;
+}
+
+/**
+ * Creates two paired in-memory `IpcCommunicationBackend`s for tests. Anything one
+ * peer sends is delivered to the other peer's incoming queue, with the
+ * sender's `Source` identity. Mirrors `TestTwoWayCommunicationBackend` from the
+ * Rust IPC crate.
+ */
+export function makeMockTransportPair(
+  firstSource: Source = "DesktopMain",
+  secondSource: Source = "DesktopRenderer",
+): [IpcCommunicationBackend, IpcCommunicationBackend] {
+  // We need each sender to reference the *other* peer's backend, but the
+  // backends don't exist until after their senders are constructed. The
+  // forwarder closures capture mutable slots that we fill in below.
+  let deliverToSecond: ((m: OutgoingMessage) => Promise<void>) | null = null;
+  let deliverToFirst: ((m: OutgoingMessage) => Promise<void>) | null = null;
+
+  const firstSender: IpcCommunicationBackendSender = {
+    send: async (message: OutgoingMessage) => {
+      await deliverToSecond!(message);
+    },
+  };
+  const secondSender: IpcCommunicationBackendSender = {
+    send: async (message: OutgoingMessage) => {
+      await deliverToFirst!(message);
+    },
+  };
+
+  const first = new IpcCommunicationBackend(firstSender);
+  const second = new IpcCommunicationBackend(secondSender);
+
+  deliverToSecond = async (outgoing) => {
+    second.receive(
+      new IncomingMessage(outgoing.payload, outgoing.destination, firstSource, outgoing.topic),
+    );
+  };
+  deliverToFirst = async (outgoing) => {
+    first.receive(
+      new IncomingMessage(outgoing.payload, outgoing.destination, secondSource, outgoing.topic),
+    );
+  };
+
+  return [first, second];
+}
+
+export function testSymmetricKey(fill: number = 0x42): SymmetricKey {
+  return Buffer.alloc(64, fill).toString("base64") as unknown as SymmetricKey;
+}
+
+/**
+ * Configuration options for the in-memory biometrics driver.
+ */
+export interface MockBiometricsDriverOptions {
+  status: BiometricsStatus;
+  userKey: SymmetricKey | undefined;
+  uvResult: boolean;
+}
+
+/**
+ * In-memory implementation of the `BiometricsUnlock` JS interface for tests.
+ */
+export function makeMockBiometricsDriver(
+  options: MockBiometricsDriverOptions = {
+    status: BiometricsStatus.Available,
+    userKey: testSymmetricKey(),
+    uvResult: true,
+  }
+): BiometricsUnlock {
+  return {
+    get_biometrics_status: async () => options.status,
+    unlock_biometrics: async () => options.userKey,
+    authenticate_biometrics: async () => options.uvResult,
+  };
 }
