@@ -312,16 +312,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn session_key_round_trips_through_display_and_from_str() {
-        use std::str::FromStr;
-
-        let key = SessionKey::new();
-        let s = key.to_string();
-        let parsed = SessionKey::from_str(&s).unwrap();
-        assert_eq!(s, parsed.to_string());
-    }
-
-    #[tokio::test]
     async fn generate_session_key_persists_envelope() {
         ensure_platform_info();
         let (user_key, crypto_state) = make_test_user_crypto();

@@ -20,16 +20,10 @@ impl SessionKey {
     }
 }
 
-impl Display for SessionKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0.to_base64(), f)
-    }
-}
-
-impl FromStr for SessionKey {
-    type Err = CryptoError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(SymmetricCryptoKey::try_from(s.to_string())?))
+impl PartialEq for SessionKey {
+    fn eq(&self, other: &Self) -> bool {
+        // This is ok because SymmetricCryptoKey implements PartialEq with constant-time equality
+        // checks.
+        self.0 == other.0
     }
 }
