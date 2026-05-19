@@ -13,7 +13,9 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AddOrganizationReportRequest {
+pub struct OrganizationReportResponseModel {
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<uuid::Uuid>,
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
@@ -45,22 +47,51 @@ pub struct AddOrganizationReportRequest {
     )]
     pub application_data: Option<String>,
     #[serde(
-        rename = "metrics",
-        alias = "Metrics",
+        rename = "reportFile",
+        alias = "ReportFile",
         skip_serializing_if = "Option::is_none"
     )]
-    pub metrics: Option<Box<models::OrganizationReportMetricsRequest>>,
+    pub report_file: Option<Box<models::ReportFile>>,
+    #[serde(
+        rename = "reportFileDownloadUrl",
+        alias = "ReportFileDownloadUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub report_file_download_url: Option<String>,
+    #[serde(
+        rename = "fileUploadType",
+        alias = "FileUploadType",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub file_upload_type: Option<models::FileUploadType>,
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub creation_date: Option<String>,
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub revision_date: Option<String>,
 }
 
-impl AddOrganizationReportRequest {
-    pub fn new() -> AddOrganizationReportRequest {
-        AddOrganizationReportRequest {
+impl OrganizationReportResponseModel {
+    pub fn new() -> OrganizationReportResponseModel {
+        OrganizationReportResponseModel {
+            id: None,
             organization_id: None,
             report_data: None,
             content_encryption_key: None,
             summary_data: None,
             application_data: None,
-            metrics: None,
+            report_file: None,
+            report_file_download_url: None,
+            file_upload_type: None,
+            creation_date: None,
+            revision_date: None,
         }
     }
 }
