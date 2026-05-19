@@ -49,7 +49,7 @@ pub async fn timeout<F: std::future::Future>(
         tokio::pin!(sleep_fut);
         tokio::select! {
             result = &mut future => Ok(result),
-            _ = &mut sleep_fut => Err(Elapsed),
+            _ = &mut sleep_fut => Err(ElapsedError),
         }
     })
     .await
