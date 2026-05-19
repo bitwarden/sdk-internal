@@ -1,6 +1,4 @@
-use std::{fmt::Display, str::FromStr};
-
-use bitwarden_crypto::{CryptoError, SymmetricCryptoKey};
+use bitwarden_crypto::SymmetricCryptoKey;
 
 /// A symmetric key that wraps the user key in the persisted state, allowing a
 /// rehydrated client to unlock without re-deriving the user key from a master
