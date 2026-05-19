@@ -9,3 +9,4 @@ omit_checksums = true
 ffi_module_name = "BitwardenCoreFFI"
 module_name = "BitwardenCore"
 generate_immutable_records = true
+generate_codable_conformance = true
