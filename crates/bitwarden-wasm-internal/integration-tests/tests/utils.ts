@@ -1,15 +1,3 @@
-// Jest's `CustomConsole` (used for test-output buffering) does not implement
-// `console.createTask`, but the debug build of `wasm-bindgen-futures`'
-// `spawn_local` calls it on every task to attach an async stack-trace span.
-{
-  const c = globalThis.console as {
-    createTask?: (name: string) => unknown;
-  };
-  if (typeof c.createTask !== "function") {
-    c.createTask = () => ({ run: <T>(fn: () => T): T => fn() });
-  }
-}
-
 import {
   WasmStateBridge,
   PasswordProtectedKeyEnvelope,
