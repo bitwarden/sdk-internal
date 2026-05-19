@@ -35,10 +35,10 @@ pub async fn timeout<F: std::future::Future>(
 }
 
 #[cfg(target_arch = "wasm32")]
-  pub async fn timeout<F: std::future::Future>(
-      duration: Duration,
-      future: F,
-  ) -> Result<F::Output, ElapsedError> {
+pub async fn timeout<F: std::future::Future>(
+    duration: Duration,
+    future: F,
+) -> Result<F::Output, ElapsedError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     wasm_bindgen_futures::spawn_local(async move {
         gloo_timers::future::sleep(duration).await;
