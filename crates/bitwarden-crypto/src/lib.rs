@@ -39,6 +39,8 @@ mod cose;
 pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
 pub use cose::CoseSerializable;
 pub mod safe;
+mod streaming_attachment_cipher;
+pub use streaming_attachment_cipher::*;
 mod signing;
 pub use signing::*;
 mod traits;

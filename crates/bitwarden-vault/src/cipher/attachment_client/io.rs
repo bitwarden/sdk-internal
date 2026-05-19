@@ -2,6 +2,7 @@
 
 #![cfg(feature = "wasm")]
 
+use bitwarden_crypto::{ChunkReader, ChunkWriter, CryptoError};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -60,20 +61,70 @@ extern "C" {
 /// Uses `js_sys::Reflect` + `Uint8Array` directly instead of `serde_wasm_bindgen` because
 /// the serde deserializer can't read a `Uint8Array` into a `Vec<u8>` field — it expects
 /// `serde_bytes`-compatible bytes, not a JS typed array.
-pub(crate) async fn read_chunk(reader: &AttachmentByteReader) -> Result<Option<Vec<u8>>, ()> {
-    let result = reader.read().await.map_err(|_| ())?;
+pub(crate) async fn read_chunk(
+    reader: &AttachmentByteReader,
+) -> Result<Option<Vec<u8>>, CryptoError> {
+    let result = reader.read().await.map_err(|_| CryptoError::StreamIo)?;
     // Missing/non-boolean `done` is a host protocol violation — reject rather than
     // silently spinning the read loop.
     let done = js_sys::Reflect::get(&result, &JsValue::from_str("done"))
-        .map_err(|_| ())?
+        .map_err(|_| CryptoError::StreamIo)?
         .as_bool()
-        .ok_or(())?;
+        .ok_or(CryptoError::StreamIo)?;
     if done {
         return Ok(None);
     }
-    let value = js_sys::Reflect::get(&result, &JsValue::from_str("value")).map_err(|_| ())?;
+    let value = js_sys::Reflect::get(&result, &JsValue::from_str("value"))
+        .map_err(|_| CryptoError::StreamIo)?;
     if value.is_undefined() || value.is_null() {
         return Ok(Some(Vec::new()));
     }
     Ok(Some(js_sys::Uint8Array::new(&value).to_vec()))
+}
+
+/// Wraps the JS [`AttachmentByteReader`], optionally prepending payload bytes that arrived
+/// alongside the legacy attachment header (so they're handed to the streaming decryptor
+/// before the next `read()` call).
+pub(crate) struct PayloadReader {
+    initial: Option<Vec<u8>>,
+    reader: AttachmentByteReader,
+}
+
+impl PayloadReader {
+    pub(crate) fn new(reader: AttachmentByteReader, initial: Vec<u8>) -> Self {
+        let initial = (!initial.is_empty()).then_some(initial);
+        Self { initial, reader }
+    }
+}
+
+impl ChunkReader for PayloadReader {
+    async fn next_chunk(&mut self) -> Result<Option<Vec<u8>>, CryptoError> {
+        if let Some(bytes) = self.initial.take() {
+            return Ok(Some(bytes));
+        }
+        read_chunk(&self.reader).await
+    }
+}
+
+/// Adapter wrapping [`AttachmentByteWriter`] for the [`ChunkWriter`] trait.
+pub(crate) struct AttachmentWriterAdapter(AttachmentByteWriter);
+
+impl AttachmentWriterAdapter {
+    pub(crate) fn new(writer: AttachmentByteWriter) -> Self {
+        Self(writer)
+    }
+}
+
+impl ChunkWriter for AttachmentWriterAdapter {
+    async fn write_chunk(&mut self, bytes: &[u8]) -> Result<(), CryptoError> {
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let view = js_sys::Uint8Array::from(bytes);
+        self.0.write(view).await.map_err(|_| CryptoError::StreamIo)
+    }
+
+    async fn close(&mut self) -> Result<(), CryptoError> {
+        self.0.close().await.map_err(|_| CryptoError::StreamIo)
+    }
 }

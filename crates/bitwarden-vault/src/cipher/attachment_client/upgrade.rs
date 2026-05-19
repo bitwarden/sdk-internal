@@ -1,5 +1,5 @@
 use bitwarden_core::{ApiError, MissingFieldError, key_management::KeySlotIds};
-use bitwarden_crypto::{EncString, IdentifyKey, KeyStore, PrimitiveEncryptable};
+use bitwarden_crypto::{IdentifyKey, KeyStore, PrimitiveEncryptable};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
 use chrono::SecondsFormat;
@@ -9,7 +9,9 @@ use thiserror::Error;
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "wasm")]
-use super::io::{AttachmentByteReader, AttachmentByteWriter, read_chunk};
+use super::io::{
+    AttachmentByteReader, AttachmentByteWriter, AttachmentWriterAdapter, PayloadReader, read_chunk,
+};
 use super::{
     create::{
         CipherCreateAttachmentError, CreateAttachmentRequest, FileUploadType, create_attachment,
@@ -135,8 +137,8 @@ async fn lookup_upgrade_target<R: Repository<Cipher> + ?Sized>(
 pub async fn prepare_attachment_upgrade<R: Repository<Cipher> + ?Sized>(
     cipher_id: CipherId,
     attachment_id: &str,
-    reader: &AttachmentByteReader,
-    writer: &AttachmentByteWriter,
+    reader: AttachmentByteReader,
+    writer: AttachmentByteWriter,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     key_store: &KeyStore<KeySlotIds>,
@@ -148,28 +150,44 @@ pub async fn prepare_attachment_upgrade<R: Repository<Cipher> + ?Sized>(
         iv: legacy_iv,
         mac: legacy_mac,
         leftover,
-    } = read_legacy_header(reader).await?;
+    } = read_legacy_header(&reader).await?;
 
     let UpgradeStreamingState {
-        decryptor,
-        encryptor,
+        mut decryptor,
+        mut encryptor,
         wrapped_attachment_key,
         encrypted_file_name,
-    } = derive_streaming_state(&cipher, &decrypted_file_name, &legacy_iv, key_store)?;
+    } = derive_streaming_state(
+        &cipher,
+        &decrypted_file_name,
+        &legacy_iv,
+        reader,
+        writer,
+        leftover,
+        key_store,
+    )?;
 
-    let UpgradeStreamOutput {
-        size: output_size,
-        iv,
-        mac,
-    } = stream_reencrypt_payload(reader, writer, decryptor, encryptor, &legacy_mac, leftover)
-        .await?;
+    while let Some(plaintext) = decryptor.next_chunk().await.map_err(DecryptError::from)? {
+        encryptor
+            .write_plaintext(&plaintext)
+            .await
+            .map_err(EncryptError::from)?;
+    }
+    let tail = decryptor
+        .finalize(&legacy_mac)
+        .map_err(DecryptError::from)?;
+    encryptor
+        .write_plaintext(&tail)
+        .await
+        .map_err(EncryptError::from)?;
+    let final_ = encryptor.finalize().await.map_err(EncryptError::from)?;
 
     // encType (1) || IV (16) || MAC (32) — the header the caller prepends before upload.
     const ENCSTRING_HEADER_BYTES: usize = 1 + 16 + 32;
     let request = CreateAttachmentRequest {
         key: wrapped_attachment_key.to_string(),
         file_name: encrypted_file_name.to_string(),
-        file_size: (output_size + ENCSTRING_HEADER_BYTES) as i64,
+        file_size: (final_.size + ENCSTRING_HEADER_BYTES) as i64,
         last_known_revision_date: cipher
             .revision_date
             .to_rfc3339_opts(SecondsFormat::Millis, true),
@@ -182,66 +200,9 @@ pub async fn prepare_attachment_upgrade<R: Repository<Cipher> + ?Sized>(
         upload_url: created.upload_url,
         file_upload_type: created.file_upload_type,
         encrypted_file_name: encrypted_file_name.to_string(),
-        iv: iv.to_vec(),
-        mac: mac.to_vec(),
+        iv: final_.iv.to_vec(),
+        mac: final_.mac.to_vec(),
     })
-}
-
-#[cfg(feature = "wasm")]
-struct UpgradeStreamingState {
-    decryptor: bitwarden_crypto::safe::StreamingAttachmentDecryptor,
-    encryptor: bitwarden_crypto::safe::StreamingAttachmentEncryptor,
-    wrapped_attachment_key: EncString,
-    encrypted_file_name: EncString,
-}
-
-/// Scoped synchronously so the [`KeyStoreContext`] isn't held across the streaming I/O
-/// loop's await points.
-#[cfg(feature = "wasm")]
-fn derive_streaming_state(
-    cipher: &Cipher,
-    decrypted_file_name: &str,
-    legacy_iv: &[u8; 16],
-    key_store: &KeyStore<KeySlotIds>,
-) -> Result<UpgradeStreamingState, CipherPrepareAttachmentUpgradeError> {
-    let mut ctx = key_store.context();
-    let identity_key_slot = cipher.key_identifier();
-    let cipher_key_slot = Cipher::decrypt_cipher_key(&mut ctx, identity_key_slot, &cipher.key)
-        .map_err(DecryptError::from)?;
-    // v1 attachments are encrypted with the cipher's identity (user/org) key — see the
-    // legacy branch in `AttachmentFile::decrypt`. This is independent of whether the
-    // cipher has since been migrated to carry its own `cipher.key`, since the rewrap
-    // step skips attachments with no `attachment.key`.
-    let legacy_key_slot = identity_key_slot;
-    let new_attachment_key_slot = ctx.generate_symmetric_key();
-
-    let wrapped_attachment_key = ctx
-        .wrap_symmetric_key(cipher_key_slot, new_attachment_key_slot)
-        .map_err(EncryptError::from)?;
-    let encrypted_file_name = decrypted_file_name
-        .encrypt(&mut ctx, cipher_key_slot)
-        .map_err(EncryptError::from)?;
-
-    let decryptor = ctx
-        .streaming_decrypt_aes_cbc_hmac(legacy_key_slot, legacy_iv)
-        .map_err(DecryptError::from)?;
-    let encryptor = ctx
-        .streaming_encrypt_aes_cbc_hmac(new_attachment_key_slot)
-        .map_err(EncryptError::from)?;
-
-    Ok(UpgradeStreamingState {
-        decryptor,
-        encryptor,
-        wrapped_attachment_key,
-        encrypted_file_name,
-    })
-}
-
-#[cfg(feature = "wasm")]
-struct UpgradeStreamOutput {
-    size: usize,
-    iv: [u8; 16],
-    mac: [u8; 32],
 }
 
 /// Legacy attachment wire format: `encType (1) || IV (16) || MAC (32)` then payload.
@@ -250,6 +211,68 @@ const LEGACY_HEADER_BYTES: usize = 1 + 16 + 32;
 /// `EncString::Aes256Cbc_HmacSha256_B64` — the only encryption type the upgrade flow accepts.
 #[cfg(feature = "wasm")]
 const LEGACY_ATTACHMENT_ENC_TYPE: u8 = 2;
+
+/// Decryptor + encryptor bound to their JS-side reader/writer, plus the request metadata
+/// derived synchronously from the key store.
+#[cfg(feature = "wasm")]
+struct UpgradeStreamingState {
+    decryptor: bitwarden_crypto::StreamingAttachmentDecryptor<PayloadReader>,
+    encryptor: bitwarden_crypto::StreamingAttachmentEncryptor<AttachmentWriterAdapter>,
+    wrapped_attachment_key: bitwarden_crypto::EncString,
+    encrypted_file_name: bitwarden_crypto::EncString,
+}
+
+/// Sets up the streaming pipeline and the slot-open metadata in one synchronous pass so
+/// the [`KeyStoreContext`]'s RwLock guard is released before the caller's `.await` points.
+#[cfg(feature = "wasm")]
+fn derive_streaming_state(
+    cipher: &Cipher,
+    decrypted_file_name: &str,
+    legacy_iv: &[u8; 16],
+    reader: AttachmentByteReader,
+    writer: AttachmentByteWriter,
+    leftover: Vec<u8>,
+    key_store: &KeyStore<KeySlotIds>,
+) -> Result<UpgradeStreamingState, CipherPrepareAttachmentUpgradeError> {
+    let payload_reader = PayloadReader::new(reader, leftover);
+    let writer_adapter = AttachmentWriterAdapter::new(writer);
+
+    let mut ctx = key_store.context();
+    let identity_key_slot = cipher.key_identifier();
+    let cipher_key_slot = Cipher::decrypt_cipher_key(&mut ctx, identity_key_slot, &cipher.key)
+        .map_err(DecryptError::from)?;
+    // v1 attachments are encrypted with the cipher's identity (user/org) key — see the
+    // legacy branch in `AttachmentFile::decrypt`. Independent of whether the cipher has
+    // since been migrated to carry its own `cipher.key`, since the rewrap step skips
+    // attachments with no `attachment.key`.
+    let new_attachment_key_slot = ctx.generate_symmetric_key();
+    let wrapped_attachment_key = ctx
+        .wrap_symmetric_key(cipher_key_slot, new_attachment_key_slot)
+        .map_err(EncryptError::from)?;
+    let encrypted_file_name = decrypted_file_name
+        .encrypt(&mut ctx, cipher_key_slot)
+        .map_err(EncryptError::from)?;
+    let decryptor = bitwarden_crypto::StreamingAttachmentDecryptor::new(
+        payload_reader,
+        identity_key_slot,
+        &ctx,
+        legacy_iv,
+    )
+    .map_err(DecryptError::from)?;
+    let encryptor = bitwarden_crypto::StreamingAttachmentEncryptor::new(
+        writer_adapter,
+        new_attachment_key_slot,
+        &ctx,
+    )
+    .map_err(EncryptError::from)?;
+
+    Ok(UpgradeStreamingState {
+        decryptor,
+        encryptor,
+        wrapped_attachment_key,
+        encrypted_file_name,
+    })
+}
 
 #[cfg(feature = "wasm")]
 struct LegacyHeader {
@@ -286,78 +309,6 @@ async fn read_legacy_header(
     Ok(LegacyHeader { iv, mac, leftover })
 }
 
-/// Pumps ciphertext through decrypt → re-encrypt, writing to `writer`. `initial` is
-/// payload bytes that arrived alongside the header. The legacy HMAC is verified at
-/// end-of-stream, so writes are only authenticated once this returns `Ok`.
-#[cfg(feature = "wasm")]
-async fn stream_reencrypt_payload(
-    reader: &AttachmentByteReader,
-    writer: &AttachmentByteWriter,
-    mut decryptor: bitwarden_crypto::safe::StreamingAttachmentDecryptor,
-    mut encryptor: bitwarden_crypto::safe::StreamingAttachmentEncryptor,
-    legacy_mac: &[u8; 32],
-    initial: Vec<u8>,
-) -> Result<UpgradeStreamOutput, CipherPrepareAttachmentUpgradeError> {
-    let mut size: usize = 0;
-
-    let mut emit = async |bytes: &[u8]| -> Result<(), CipherPrepareAttachmentUpgradeError> {
-        if bytes.is_empty() {
-            return Ok(());
-        }
-        let view = js_sys::Uint8Array::from(bytes);
-        writer
-            .write(view)
-            .await
-            .map_err(|_| CipherPrepareAttachmentUpgradeError::StreamIo)?;
-        size += bytes.len();
-        Ok(())
-    };
-
-    if !initial.is_empty() {
-        let cleartext = decryptor.update(&initial);
-        if !cleartext.is_empty() {
-            let ciphertext = encryptor.update(&cleartext);
-            emit(&ciphertext).await?;
-        }
-    }
-
-    loop {
-        let chunk = read_chunk(reader)
-            .await
-            .map_err(|_| CipherPrepareAttachmentUpgradeError::StreamIo)?;
-        let bytes = match chunk {
-            None => break,
-            Some(bytes) if bytes.is_empty() => continue,
-            Some(bytes) => bytes,
-        };
-        let cleartext = decryptor.update(&bytes);
-        if !cleartext.is_empty() {
-            let ciphertext = encryptor.update(&cleartext);
-            emit(&ciphertext).await?;
-        }
-    }
-
-    // Verifies the legacy MAC; any prior writes are only trustworthy after this returns Ok.
-    let cleartext_tail = decryptor.finalize(legacy_mac).map_err(DecryptError::from)?;
-    if !cleartext_tail.is_empty() {
-        let ciphertext = encryptor.update(&cleartext_tail);
-        emit(&ciphertext).await?;
-    }
-    let final_ = encryptor.finalize();
-    emit(&final_.trailing_ciphertext).await?;
-
-    writer
-        .close()
-        .await
-        .map_err(|_| CipherPrepareAttachmentUpgradeError::StreamIo)?;
-
-    Ok(UpgradeStreamOutput {
-        size,
-        iv: final_.iv,
-        mac: final_.mac,
-    })
-}
-
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl AttachmentsClient {
@@ -377,8 +328,8 @@ impl AttachmentsClient {
         prepare_attachment_upgrade(
             cipher_id,
             &attachment_id,
-            &reader,
-            &writer,
+            reader,
+            writer,
             &self.api_configurations.api_client,
             self.repository.require()?.as_ref(),
             &self.key_store,
