@@ -537,7 +537,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.get_symmetric_key(key_id)
     }
 
-    /// Returns the [`Aes256CbcHmacKey`] stored at `key_id`. Returns
+    /// Returns the [`crate::Aes256CbcHmacKey`] stored at `key_id`. Returns
     /// [`CryptoError::InvalidKey`] when the slot holds a key of a different type.
     pub(crate) fn get_aes256_cbc_hmac_key(
         &self,
