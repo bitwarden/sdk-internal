@@ -11,7 +11,6 @@ import {
   TokenProvider,
   InitUserCryptoRequest,
   UserId,
-  IpcClient,
   IpcCommunicationBackend,
   IpcCommunicationBackendSender,
   IncomingMessage,
@@ -19,9 +18,6 @@ import {
   Source,
   BiometricsUnlock,
   BiometricsStatus,
-  SharedUnlockDriver,
-  SharedUnlockFollower,
-  SharedUnlockLeader,
 } from "@bitwarden/sdk-internal";
 
 const encstring = (s: string) => s as unknown as EncString;
