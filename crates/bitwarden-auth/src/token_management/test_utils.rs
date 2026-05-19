@@ -20,6 +20,25 @@ pub async fn start_app_server() -> MockServer {
     server
 }
 
+/// Start a mock app server that returns 401 for requests carrying `stale_token`
+/// in the Authorization header and 200 for any other request. Useful for exercising
+/// the middleware's retry-on-401 path.
+pub async fn start_app_server_rejecting(stale_token: &str) -> MockServer {
+    let server = MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::header(
+        "Authorization",
+        format!("Bearer {stale_token}").as_str(),
+    ))
+    .respond_with(wiremock::ResponseTemplate::new(401))
+    .mount(&server)
+    .await;
+    wiremock::Mock::given(wiremock::matchers::any())
+        .respond_with(wiremock::ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+    server
+}
+
 /// Start a mock identity server that returns a renewed token on POST /connect/token.
 pub async fn start_renewal_server(renewed_token: &str) -> MockServer {
     let server = MockServer::start().await;
