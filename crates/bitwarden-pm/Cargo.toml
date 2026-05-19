@@ -23,6 +23,7 @@ uniffi = [
     "bitwarden-generators/uniffi",
     "bitwarden-send/uniffi",
     "bitwarden-state/uniffi",
+    "bitwarden-unlock/uniffi",
     "bitwarden-vault/uniffi",
     "dep:uniffi",
 ]
@@ -35,6 +36,7 @@ wasm = [
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
     "bitwarden-state/wasm",
+    "bitwarden-unlock/wasm",
     "bitwarden-vault/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -56,6 +58,7 @@ bitwarden-send = { workspace = true }
 bitwarden-server-communication-config = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
+bitwarden-unlock = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true }
 bitwarden-vault = { workspace = true }
 

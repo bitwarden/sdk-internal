@@ -9,13 +9,13 @@ use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
-    client::persisted_state::SESSION_PROTECTED_USER_KEY,
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
+use bitwarden_unlock::UnlockClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};
 
@@ -31,17 +31,17 @@ pub mod clients {
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::SendClient;
     pub use bitwarden_sync::SyncClient;
+    pub use bitwarden_unlock::UnlockClient;
     pub use bitwarden_vault::VaultClient;
 }
 #[cfg(feature = "bitwarden-license")]
 pub use commercial::CommercialPasswordManagerClient;
 
 mod builder;
-pub mod key_management;
 pub mod migrations;
 pub use bitwarden_core::{RehydrationError, SaveStateData};
+pub use bitwarden_unlock::{SessionKey, UnlockError, UnlockMethod};
 pub use builder::PasswordManagerClientBuilder;
-pub use key_management::{SessionKey, UnlockError, UnlockMethod};
 
 /// The main entry point for the Bitwarden Password Manager SDK
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
@@ -156,19 +156,9 @@ impl PasswordManagerClient {
             .has_symmetric_key(SymmetricKeySlotId::User)
     }
 
-    /// Invalidate the persisted session key, locking the vault for future invocations.
-    ///
-    /// Removes [`SESSION_PROTECTED_USER_KEY`] from the database. Distinct from
-    /// `lock()` on long-lived clients (mobile, desktop), which clears keys from memory: the
-    /// CLI process exits between invocations, so locking must delete the persisted session
-    /// key rather than mutate in-memory state.
-    pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
-        self.0
-            .platform()
-            .state()
-            .setting(SESSION_PROTECTED_USER_KEY)?
-            .delete()
-            .await
+    /// Unlock operations
+    pub fn unlock_client(&self) -> bitwarden_unlock::UnlockClient {
+        self.0.unlock_client()
     }
 
     /// Write rehydration state to a StateRegistry.

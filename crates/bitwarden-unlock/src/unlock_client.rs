@@ -1,23 +1,27 @@
-use bitwarden_core::client::persisted_state::{
-    ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
+//! Client for unlocking a rehydrated Bitwarden SDK client.
+
+use bitwarden_core::{
+    Client,
+    client::persisted_state::{
+        ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
+    },
 };
 use bitwarden_crypto::safe::{SymmetricKeyEnvelope, SymmetricKeyEnvelopeNamespace};
 
-use super::SessionKey;
-use crate::PasswordManagerClient;
+use crate::SessionKey;
 
-/// The unlock factor used to unlock a rehydrated [`PasswordManagerClient`].
+/// The unlock factor used to unlock a rehydrated client.
 ///
 /// Currently only session-key unlock is supported. Master password, PIN,
 /// biometric, and device-key unlock are explicitly out of scope.
 pub enum UnlockMethod {
     /// Unlock using a session key previously obtained from
-    /// [`PasswordManagerClient::generate_session_key`].
+    /// [`UnlockClient::generate_session_key`].
     SessionKey(SessionKey),
 }
 
-/// Errors returned by [`PasswordManagerClient::generate_session_key`] and
-/// [`PasswordManagerClient::unlock`].
+/// Errors returned by [`UnlockClient::generate_session_key`] and
+/// [`UnlockClient::unlock`].
 ///
 /// Detailed causes are emitted via `tracing::error!` rather than carried in the
 /// error type, so callers see a uniform failure shape while operators retain
@@ -29,20 +33,30 @@ pub enum UnlockError {
     Unknown,
 }
 
-impl PasswordManagerClient {
+/// Client for minting session keys and unlocking the vault with one.
+#[derive(Clone)]
+pub struct UnlockClient {
+    pub(crate) client: Client,
+}
+
+impl UnlockClient {
+    pub(crate) fn new(client: Client) -> Self {
+        Self { client }
+    }
+
     /// Mint a new session key and persist the user key wrapped by it.
     ///
     /// Requires the client to be unlocked (the user key must be present in the
     /// key store). The returned [`SessionKey`] should be stored outside the SDK
-    /// by the caller and provided back to [`PasswordManagerClient::unlock`] on
-    /// the next rehydrated client.
+    /// by the caller and provided back to [`UnlockClient::unlock`] on the next
+    /// rehydrated client.
     pub async fn generate_session_key(&self) -> Result<SessionKey, UnlockError> {
         use bitwarden_core::key_management::SymmetricKeySlotId;
 
         let session_key = SessionKey::new();
 
         let envelope = {
-            let key_store = self.0.internal.get_key_store();
+            let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
             let session_key_id = ctx.add_local_symmetric_key(session_key.0.clone());
             SymmetricKeyEnvelope::seal(
@@ -57,7 +71,7 @@ impl PasswordManagerClient {
             })?
         };
 
-        self.0
+        self.client
             .platform()
             .state()
             .setting(SESSION_PROTECTED_USER_KEY)
@@ -83,7 +97,7 @@ impl PasswordManagerClient {
     pub async fn unlock(&self, unlock: UnlockMethod) -> Result<(), UnlockError> {
         let UnlockMethod::SessionKey(session_key) = unlock;
 
-        let state = self.0.platform().state();
+        let state = self.client.platform().state();
 
         let session_protected_user_key = state
             .setting(SESSION_PROTECTED_USER_KEY)
@@ -120,7 +134,7 @@ impl PasswordManagerClient {
             })?;
 
         let decrypted_key = {
-            let key_store = self.0.internal.get_key_store();
+            let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
             let session_key_id = ctx.add_local_symmetric_key(session_key.0.clone());
             let decrypted_key_id = session_protected_user_key
@@ -142,7 +156,7 @@ impl PasswordManagerClient {
                 .clone()
         };
 
-        self.0
+        self.client
             .internal
             .initialize_user_crypto_decrypted_key(decrypted_key, account_crypto_state, &None)
             .map_err(|e| {
@@ -163,7 +177,7 @@ impl PasswordManagerClient {
                 UnlockError::Unknown
             })?;
 
-        self.0
+        self.client
             .internal
             .initialize_org_crypto(org_keys.into_iter().map(|k| (k.org_id, k.key)).collect())
             .map_err(|e| {
@@ -172,6 +186,33 @@ impl PasswordManagerClient {
             })?;
 
         Ok(())
+    }
+
+    /// Invalidate the persisted session key, locking the vault for future invocations.
+    ///
+    /// Removes [`SESSION_PROTECTED_USER_KEY`] from the database. Distinct from
+    /// `lock()` on long-lived clients (mobile, desktop), which clears keys from memory: the
+    /// CLI process exits between invocations, so locking must delete the persisted session
+    /// key rather than mutate in-memory state.
+    pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
+        self.client
+            .platform()
+            .state()
+            .setting(SESSION_PROTECTED_USER_KEY)?
+            .delete()
+            .await
+    }
+}
+
+/// Extension trait to add the unlock client to the main Bitwarden SDK client.
+pub trait UnlockClientExt {
+    /// Get the unlock client.
+    fn unlock_client(&self) -> UnlockClient;
+}
+
+impl UnlockClientExt for Client {
+    fn unlock_client(&self) -> UnlockClient {
+        UnlockClient::new(self.clone())
     }
 }
 
@@ -196,7 +237,6 @@ mod tests {
     use bitwarden_state::registry::StateRegistry;
 
     use super::*;
-    use crate::PasswordManagerClient;
 
     static INIT: Once = Once::new();
 
@@ -221,6 +261,24 @@ mod tests {
             identity_url: "https://identity.example.com".to_string(),
             api_url: "https://api.example.com".to_string(),
         }
+    }
+
+    fn is_unlocked(client: &Client) -> bool {
+        client
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeySlotId::User)
+    }
+
+    fn user_key_base64(client: &Client) -> String {
+        let key_store = client.internal.get_key_store();
+        let ctx = key_store.context();
+        #[allow(deprecated)]
+        ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            .unwrap()
+            .to_base64()
+            .to_string()
     }
 
     /// Mint a fresh `(user_key, account_crypto_state)` pair where the wrapped
@@ -301,16 +359,6 @@ mod tests {
         reg
     }
 
-    fn user_key_base64(client: &PasswordManagerClient) -> String {
-        let key_store = client.0.internal.get_key_store();
-        let ctx = key_store.context();
-        #[allow(deprecated)]
-        ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
-            .unwrap()
-            .to_base64()
-            .to_string()
-    }
-
     #[tokio::test]
     async fn generate_session_key_persists_envelope() {
         ensure_platform_info();
@@ -329,19 +377,15 @@ mod tests {
         .unwrap();
 
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
-        let client = PasswordManagerClient::load_from_state(token_handler, reg)
-            .await
-            .unwrap();
+        let client = Client::load_from_state(token_handler, reg).await.unwrap();
         client
-            .0
             .internal
             .initialize_user_crypto_decrypted_key(user_key, crypto_state, &None)
             .unwrap();
 
-        let _session_key = client.generate_session_key().await.unwrap();
+        let _session_key = client.unlock_client().generate_session_key().await.unwrap();
 
         let envelope: Option<SymmetricKeyEnvelope> = client
-            .0
             .platform()
             .state()
             .setting(SESSION_PROTECTED_USER_KEY)
@@ -364,20 +408,19 @@ mod tests {
 
         let reg = populate_registry_for_unlock(envelope, crypto_state).await;
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
-        let client = PasswordManagerClient::load_from_state(token_handler, reg)
-            .await
-            .unwrap();
+        let client = Client::load_from_state(token_handler, reg).await.unwrap();
         assert!(
-            !client.is_unlocked(),
+            !is_unlocked(&client),
             "Rehydrated client should start locked"
         );
 
         client
+            .unlock_client()
             .unlock(UnlockMethod::SessionKey(session_key))
             .await
             .unwrap();
 
-        assert!(client.is_unlocked());
+        assert!(is_unlocked(&client));
         assert_eq!(
             user_key_base64(&client),
             expected_user_key,
@@ -403,11 +446,12 @@ mod tests {
         .await
         .unwrap();
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
-        let client = PasswordManagerClient::load_from_state(token_handler, reg)
-            .await
-            .unwrap();
+        let client = Client::load_from_state(token_handler, reg).await.unwrap();
 
-        let result = client.unlock(UnlockMethod::SessionKey(session_key)).await;
+        let result = client
+            .unlock_client()
+            .unlock(UnlockMethod::SessionKey(session_key))
+            .await;
         assert!(matches!(result, Err(UnlockError::Unknown)));
     }
 
@@ -434,11 +478,12 @@ mod tests {
             .await
             .unwrap();
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
-        let client = PasswordManagerClient::load_from_state(token_handler, reg)
-            .await
-            .unwrap();
+        let client = Client::load_from_state(token_handler, reg).await.unwrap();
 
-        let result = client.unlock(UnlockMethod::SessionKey(session_key)).await;
+        let result = client
+            .unlock_client()
+            .unlock(UnlockMethod::SessionKey(session_key))
+            .await;
         assert!(matches!(result, Err(UnlockError::Unknown)));
     }
 
@@ -450,12 +495,11 @@ mod tests {
 
         let reg = populate_registry_for_unlock(envelope, crypto_state).await;
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
-        let client = PasswordManagerClient::load_from_state(token_handler, reg)
-            .await
-            .unwrap();
+        let client = Client::load_from_state(token_handler, reg).await.unwrap();
 
         let wrong_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let result = client
+            .unlock_client()
             .unlock(UnlockMethod::SessionKey(SessionKey(wrong_key)))
             .await;
         assert!(matches!(result, Err(UnlockError::Unknown)));

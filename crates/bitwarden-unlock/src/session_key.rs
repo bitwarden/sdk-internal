@@ -6,9 +6,9 @@ use bitwarden_crypto::SymmetricCryptoKey;
 ///
 /// Callers are responsible for storing this key in a secure location outside
 /// the SDK (e.g. the OS keychain) and providing it back to
-/// [`PasswordManagerClient::unlock`](crate::PasswordManagerClient::unlock) when
-/// reconstructing the client.
-pub struct SessionKey(pub(super) SymmetricCryptoKey);
+/// [`UnlockClient::unlock`](crate::UnlockClient::unlock) when reconstructing
+/// the client.
+pub struct SessionKey(pub(crate) SymmetricCryptoKey);
 
 impl SessionKey {
     /// Mint a new random session key.
