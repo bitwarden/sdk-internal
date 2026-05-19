@@ -61,6 +61,7 @@ pub struct PasswordGeneratorRequest {
     ///
     /// This is primarily used by the HTML `passwordrules` parser to honor custom required
     /// character classes (e.g. `required: [!#$]`).
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub custom_required_chars: Option<String>,
     /// Custom characters that are added to the overall pool of allowed characters, but are not
@@ -69,6 +70,7 @@ pub struct PasswordGeneratorRequest {
     ///
     /// This is primarily used by the HTML `passwordrules` parser to honor custom allowed
     /// character classes (e.g. `allowed: [-_.]`).
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub custom_allowed_chars: Option<String>,
 
@@ -77,6 +79,7 @@ pub struct PasswordGeneratorRequest {
     ///
     /// Currently parsed and stored, but not yet enforced by the generator.
     // TODO: enforce `max_consecutive` in the generator.
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub max_consecutive: Option<u8>,
 }

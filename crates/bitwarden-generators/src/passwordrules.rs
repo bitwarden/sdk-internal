@@ -98,17 +98,86 @@ impl ParsedClasses {
     }
 }
 
+/// Accumulator for the per-rule parse loop in [`parse_password_rules`]. Holds the
+/// raw, un-clamped values parsed so far so the post-loop logic can apply spec defaults,
+/// validate bounds, and assemble the final [`PasswordGeneratorRequest`].
+#[derive(Default)]
+struct ParseState {
+    minlength: Option<u32>,
+    maxlength: Option<u32>,
+    max_consecutive: Option<u32>,
+    required: ParsedClasses,
+    allowed: ParsedClasses,
+    /// Tracks whether an `allowed:` rule was encountered, since the spec defaults for
+    /// `allowed` depend on its presence rather than on whether the resulting set is empty.
+    allowed_seen: bool,
+}
+
+/// Dispatches a single `property: value` pair into `state`.
+///
+/// Apple's reference parser lowercases property names before matching, so any mixed-case
+/// spelling (`MinLength`, `REQUIRED`, etc.) is accepted. Class keywords are lowercased
+/// separately in `apply_keyword`; custom-class contents inside `[...]` are NOT lowercased.
+fn apply_property(
+    state: &mut ParseState,
+    property: &str,
+    value: &str,
+) -> Result<(), PasswordRulesError> {
+    match property.to_ascii_lowercase().as_str() {
+        "minlength" => state.minlength = Some(parse_u32(property, value)?),
+        "maxlength" => state.maxlength = Some(parse_u32(property, value)?),
+        "max-consecutive" => state.max_consecutive = Some(parse_u32(property, value)?),
+        "required" => state.required.merge(&parse_classlist(property, value)?),
+        "allowed" => {
+            state.allowed.merge(&parse_classlist(property, value)?);
+            state.allowed_seen = true;
+        }
+        _ => {
+            return Err(PasswordRulesError::UnknownProperty(truncate_for_error(
+                property,
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Resolves the final password length from the (un-clamped) `minlength`/`maxlength` parsed
+/// out of the input, applying the SDK's `[MINIMUM_PASSWORD_LENGTH, MAXIMUM_PASSWORD_LENGTH]`
+/// clamp and validating that `minlength <= maxlength`.
+///
+/// Returns the resolved length as a `u8` (the generator's wire type).
+fn resolve_length(
+    minlength: Option<u32>,
+    maxlength: Option<u32>,
+) -> Result<u8, PasswordRulesError> {
+    // Validate length bounds against the raw user-supplied values BEFORE clamping, so an
+    // inverted `minlength > maxlength` still surfaces as an error even when both values would
+    // be clamped to the same SDK-supported bound.
+    if let (Some(min), Some(max)) = (minlength, maxlength)
+        && min > max
+    {
+        return Err(PasswordRulesError::InvalidLength);
+    }
+
+    // Length: start from the SDK default and clamp into the parsed bounds. Both bounds are
+    // additionally clamped into [`MINIMUM_PASSWORD_LENGTH`, `MAXIMUM_PASSWORD_LENGTH`] — the
+    // entropy floor enforced by every Bitwarden client (`MINIMUM_PASSWORD_LENGTH`) and the
+    // SDK's hard upper bound. This guarantees `min <= max` before `clamp` (which panics on
+    // an inverted range) and matches the behavior of `bw`'s password subcommand.
+    let min_u32 = MINIMUM_PASSWORD_LENGTH as u32;
+    let max_u32 = MAXIMUM_PASSWORD_LENGTH as u32;
+    let lower_bound = minlength.unwrap_or(0).clamp(min_u32, max_u32);
+    let upper_bound = maxlength.unwrap_or(max_u32).clamp(min_u32, max_u32);
+    let clamped = DEFAULT_LENGTH.clamp(lower_bound, upper_bound);
+    u8::try_from(clamped).map_err(|_| PasswordRulesError::InvalidLength)
+}
+
 /// Parses an HTML `passwordrules` attribute string into a [`PasswordGeneratorRequest`].
 ///
 /// Empty or whitespace-only input is accepted and resolves to the spec default
 /// (`allowed: ascii-printable`).
 pub fn parse_password_rules(rules: &str) -> Result<PasswordGeneratorRequest, PasswordRulesError> {
-    let mut minlength: Option<u32> = None;
-    let mut maxlength: Option<u32> = None;
-    let mut max_consecutive: Option<u32> = None;
-    let mut required = ParsedClasses::default();
-    let mut allowed = ParsedClasses::default();
-    let mut allowed_seen = false;
+    let mut state = ParseState::default();
 
     for raw_rule in rules.split(';') {
         let rule = raw_rule.trim();
@@ -117,39 +186,17 @@ pub fn parse_password_rules(rules: &str) -> Result<PasswordGeneratorRequest, Pas
         }
 
         let (property, value) = split_rule(rule)?;
-        let property = property.trim();
-        let value = value.trim();
-        // Apple's reference parser lowercases property names before matching, so accept any
-        // mixed-case spelling (`MinLength`, `REQUIRED`, etc.). Class keywords are lowercased
-        // separately in `apply_keyword`; custom-class contents inside `[...]` are NOT lowercased.
-        let property_lc = property.to_ascii_lowercase();
-
-        match property_lc.as_str() {
-            "minlength" => {
-                minlength = Some(parse_u32(property, value)?);
-            }
-            "maxlength" => {
-                maxlength = Some(parse_u32(property, value)?);
-            }
-            "max-consecutive" => {
-                max_consecutive = Some(parse_u32(property, value)?);
-            }
-            "required" => {
-                let classes = parse_classlist(property, value)?;
-                required.merge(&classes);
-            }
-            "allowed" => {
-                let classes = parse_classlist(property, value)?;
-                allowed.merge(&classes);
-                allowed_seen = true;
-            }
-            _ => {
-                return Err(PasswordRulesError::UnknownProperty(truncate_for_error(
-                    property,
-                )));
-            }
-        }
+        apply_property(&mut state, property.trim(), value.trim())?;
     }
+
+    let ParseState {
+        minlength,
+        maxlength,
+        max_consecutive,
+        required,
+        mut allowed,
+        allowed_seen,
+    } = state;
 
     // Spec defaults:
     //  - If `required` is given but `allowed` is not, `allowed` defaults to the required set.
@@ -165,14 +212,7 @@ pub fn parse_password_rules(rules: &str) -> Result<PasswordGeneratorRequest, Pas
         }
     }
 
-    // Validate length bounds against the raw user-supplied values BEFORE clamping, so an
-    // inverted `minlength > maxlength` still surfaces as an error even when both values would
-    // be clamped to the same SDK-supported bound.
-    if let (Some(min), Some(max)) = (minlength, maxlength)
-        && min > max
-    {
-        return Err(PasswordRulesError::InvalidLength);
-    }
+    let length = resolve_length(minlength, maxlength)?;
 
     // The union of allowed + required determines which standard classes are enabled in the
     // generator. Required classes also drive the min-count fields.
@@ -200,18 +240,6 @@ pub fn parse_password_rules(rules: &str) -> Result<PasswordGeneratorRequest, Pas
     } else {
         Some(custom_allowed_union.into_iter().collect())
     };
-
-    // Length: start from the SDK default and clamp into the parsed bounds. Both bounds are
-    // additionally clamped into [`MINIMUM_PASSWORD_LENGTH`, `MAXIMUM_PASSWORD_LENGTH`] — the
-    // entropy floor enforced by every Bitwarden client (`MINIMUM_PASSWORD_LENGTH`) and the
-    // SDK's hard upper bound. This guarantees `min <= max` before `clamp` (which panics on
-    // an inverted range) and matches the behavior of `bw`'s password subcommand.
-    let min_u32 = MINIMUM_PASSWORD_LENGTH as u32;
-    let max_u32 = MAXIMUM_PASSWORD_LENGTH as u32;
-    let lower_bound = minlength.unwrap_or(0).clamp(min_u32, max_u32);
-    let upper_bound = maxlength.unwrap_or(max_u32).clamp(min_u32, max_u32);
-    let clamped = DEFAULT_LENGTH.clamp(lower_bound, upper_bound);
-    let length = u8::try_from(clamped).map_err(|_| PasswordRulesError::InvalidLength)?;
 
     let max_consecutive = match max_consecutive {
         Some(v) => Some(u8::try_from(v).map_err(|_| PasswordRulesError::InvalidLength)?),
@@ -251,6 +279,50 @@ fn parse_u32(property: &str, value: &str) -> Result<u32, PasswordRulesError> {
         })
 }
 
+/// Scans a `[...]` custom class starting at byte offset `start_bracket` in `value`.
+///
+/// Returns the parsed literal chars and the byte index of the position immediately past
+/// the closing `]` (where the outer scanner should resume).
+///
+/// The grammar permits `]` as the final literal char when written as `[abc]]`: the inner
+/// `]` is the literal and the outer one closes the class. To implement the "`]` is literal
+/// only when it is the last char before the closing `]`" rule, the scanner looks ahead: if
+/// the char *after* the first `]` is also `]`, the inner `]` is treated as a literal.
+///
+/// `start_bracket` MUST point at a `[` byte in `value`.
+fn parse_custom_class_at(
+    property: &str,
+    value: &str,
+    start_bracket: usize,
+) -> Result<(Vec<char>, usize), PasswordRulesError> {
+    let bytes = value.as_bytes();
+    debug_assert_eq!(bytes[start_bracket], b'[');
+
+    let start = start_bracket + 1;
+    let end = bytes[start..]
+        .iter()
+        .position(|&b| b == b']')
+        .map(|p| start + p)
+        .ok_or_else(|| {
+            PasswordRulesError::MalformedCustomClass(format!("unterminated '[' in {property}"))
+        })?;
+
+    let (literal_end, close_idx) = if end + 1 < bytes.len() && bytes[end + 1] == b']' {
+        // The first `]` is a literal at the end of the literal-chars region.
+        (end + 1, end + 1)
+    } else {
+        (end, end)
+    };
+
+    // Safety: `start` and `literal_end` are byte offsets derived from positions of ASCII
+    // bytes (`[` / `]`) inside `value`; any multi-byte UTF-8 sequence lives entirely
+    // between such boundaries, so this byte-slice is valid UTF-8.
+    #[allow(clippy::string_slice)]
+    let literal_slice = &value[start..literal_end];
+    let parsed = parse_custom_literal(literal_slice)?;
+    Ok((parsed, close_idx + 1))
+}
+
 /// Parses a comma-separated class list, handling the spec-defined keywords and
 /// bracketed custom character classes.
 fn parse_classlist(property: &str, value: &str) -> Result<ParsedClasses, PasswordRulesError> {
@@ -271,40 +343,9 @@ fn parse_classlist(property: &str, value: &str) -> Result<ParsedClasses, Passwor
         }
 
         if bytes[i] == b'[' {
-            // Custom class — find the matching closing bracket.
-            let start = i + 1;
-            let end = bytes[start..]
-                .iter()
-                .position(|&b| b == b']')
-                .map(|p| start + p)
-                .ok_or_else(|| {
-                    PasswordRulesError::MalformedCustomClass(format!(
-                        "unterminated '[' in {property}"
-                    ))
-                })?;
-            // The grammar permits `]` as the final literal char when written as `[abc]]`: an
-            // empty class is the first `]`. To allow this, look ahead: if the next non-`]`
-            // closes the token, treat the *last* `]` of a run as the terminator.
-            //
-            // In practice: scan forward from `start` to find the first `]`. If the char *after*
-            // that `]` is also `]`, then the inner `]` is a literal and the outer one closes the
-            // class. This implements the "`]` is literal only when it is the last char before the
-            // closing `]`" rule.
-            let (literal_end, close_idx) = if end + 1 < bytes.len() && bytes[end + 1] == b']' {
-                // The first `]` is a literal at the end of the literal-chars region.
-                (end + 1, end + 1)
-            } else {
-                (end, end)
-            };
-
-            // Safety: `start` and `literal_end` are byte offsets derived from positions of ASCII
-            // bytes (`[` / `]`) inside `value`; any multi-byte UTF-8 sequence lives entirely
-            // between such boundaries, so this byte-slice is valid UTF-8.
-            #[allow(clippy::string_slice)]
-            let literal_slice = &value[start..literal_end];
-            let parsed = parse_custom_literal(literal_slice)?;
+            let (parsed, next) = parse_custom_class_at(property, value, i)?;
             classes.custom.extend(parsed);
-            i = close_idx + 1;
+            i = next;
             continue;
         }
 
@@ -315,7 +356,8 @@ fn parse_classlist(property: &str, value: &str) -> Result<ParsedClasses, Passwor
             .map(|p| i + p)
             .unwrap_or(bytes.len());
         // Safety: `i` and `token_end` are byte offsets derived from positions of ASCII bytes
-        // (`,` / current scan position past ASCII whitespace); see above.
+        // (`,` / current scan position past ASCII whitespace); any multi-byte UTF-8 sequence
+        // lives entirely between such boundaries, so this byte-slice is valid UTF-8.
         #[allow(clippy::string_slice)]
         let token = value[i..token_end].trim();
         if !token.is_empty() {
