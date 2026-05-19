@@ -14,31 +14,31 @@ pub async fn sleep(duration: Duration) {
 
 /// Returned by [`timeout`] when the wrapped future did not complete in time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Elapsed;
+pub struct ElapsedError;
 
-impl std::fmt::Display for Elapsed {
+impl std::fmt::Display for ElapsedError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("operation timed out")
     }
 }
 
-impl std::error::Error for Elapsed {}
+impl std::error::Error for ElapsedError {}
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn timeout<F: std::future::Future>(
     duration: Duration,
     future: F,
-) -> Result<F::Output, Elapsed> {
+) -> Result<F::Output, ElapsedError> {
     tokio::time::timeout(duration, future)
         .await
-        .map_err(|_| Elapsed)
+        .map_err(|_| ElapsedError)
 }
 
 #[cfg(target_arch = "wasm32")]
 pub async fn timeout<F: std::future::Future>(
     duration: Duration,
     future: F,
-) -> Result<F::Output, Elapsed> {
+) -> Result<F::Output, ElapsedError> {
     // Wrap the !Send `gloo_timers` future and the caller's future in a single
     // state machine that we then assert as `Send`. wasm32-unknown-unknown is
     // single-threaded, so the future is never actually moved across threads
@@ -136,13 +136,13 @@ mod test {
     async fn timeout_returns_elapsed_when_sleep_first() {
         use std::time::Duration;
 
-        use super::{Elapsed, timeout};
+        use super::{ElapsedError, timeout};
 
         let result = timeout(
             Duration::from_millis(10),
             tokio::time::sleep(Duration::from_secs(60)),
         )
         .await;
-        assert_eq!(result, Err(Elapsed));
+        assert_eq!(result, Err(ElapsedError));
     }
 }
