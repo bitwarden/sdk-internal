@@ -29,6 +29,8 @@ pub use client::{
     Client, ClientBuilder, ClientName, ClientSettings, DeviceType, FromClient, HostPlatformInfo,
     get_host_platform_info, init_host_platform_info,
 };
+#[cfg(feature = "internal")]
+pub use client::{RehydrationError, SaveStateData};
 pub use global::GlobalClient;
 
 mod ids;
