@@ -241,7 +241,7 @@ fn split_rule(rule: &str) -> Result<(&str, &str), PasswordRulesError> {
         .ok_or(PasswordRulesError::MalformedRule)
 }
 
-/// Parses a `u32` value, returning an [`InvalidValue`] error on failure.
+/// Parses a `u32` value, returning a [`PasswordRulesError::InvalidValue`] error on failure.
 fn parse_u32(property: &str, value: &str) -> Result<u32, PasswordRulesError> {
     value
         .parse::<u32>()
@@ -395,7 +395,7 @@ fn parse_custom_literal(s: &str) -> Result<Vec<char>, PasswordRulesError> {
                     "'[' is not allowed inside a custom class".to_string(),
                 ));
             }
-            other if crate::password::is_ascii_printable_non_whitespace(other) => out.push(other),
+            other if other.is_ascii_graphic() => out.push(other),
             // Silently drop non-ASCII-printable / whitespace chars per the spec.
             _ => {}
         }

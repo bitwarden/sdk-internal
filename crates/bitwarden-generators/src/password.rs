@@ -61,6 +61,7 @@ pub struct PasswordGeneratorRequest {
     ///
     /// This is primarily used by the HTML `passwordrules` parser to honor custom required
     /// character classes (e.g. `required: [!#$]`).
+    #[cfg_attr(feature = "wasm", tsify(optional))]
     pub custom_required_chars: Option<String>,
     /// Custom characters that are added to the overall pool of allowed characters, but are not
     /// required to appear. Each character of the string is treated as a member of the custom
@@ -68,6 +69,7 @@ pub struct PasswordGeneratorRequest {
     ///
     /// This is primarily used by the HTML `passwordrules` parser to honor custom allowed
     /// character classes (e.g. `allowed: [-_.]`).
+    #[cfg_attr(feature = "wasm", tsify(optional))]
     pub custom_allowed_chars: Option<String>,
 
     /// The maximum number of consecutive identical characters allowed in the generated password,
@@ -75,6 +77,7 @@ pub struct PasswordGeneratorRequest {
     ///
     /// Currently parsed and stored, but not yet enforced by the generator.
     // TODO: enforce `max_consecutive` in the generator.
+    #[cfg_attr(feature = "wasm", tsify(optional))]
     pub max_consecutive: Option<u8>,
 }
 
@@ -111,18 +114,12 @@ impl Default for PasswordGeneratorRequest {
     }
 }
 
-/// Returns true if `c` is an ASCII-printable, non-whitespace character — the set of
-/// characters that the HTML `passwordrules` spec allows inside a custom class.
-pub(crate) fn is_ascii_printable_non_whitespace(c: char) -> bool {
-    c.is_ascii_graphic()
-}
-
 /// Filters the characters of `s` down to ASCII-printable, non-whitespace, deduplicated
 /// characters, preserving relative order on first occurrence.
 fn sanitize_custom_chars(s: &str) -> Vec<char> {
     let mut seen = BTreeSet::new();
     s.chars()
-        .filter(|c| is_ascii_printable_non_whitespace(*c))
+        .filter(|c| c.is_ascii_graphic())
         .filter(|c| seen.insert(*c))
         .collect()
 }
