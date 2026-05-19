@@ -1,3 +1,18 @@
+// Jest's `CustomConsole` (used for test-output buffering) does not implement
+// `console.createTask`, but the debug build of `wasm-bindgen-futures`'
+// `spawn_local` calls it on every task to attach an async stack-trace span.
+// The missing method throws a `TypeError` from `__wbg_createTask`'s
+// `handleError`, leaving wasm-bindgen's exception slot populated — a later
+// JS call then trips `debug_assert_eq!(slot == 0)` and panics the module.
+{
+  const c = globalThis.console as {
+    createTask?: (name: string) => unknown;
+  };
+  if (typeof c.createTask !== "function") {
+    c.createTask = () => ({ run: <T>(fn: () => T): T => fn() });
+  }
+}
+
 import {
   WasmStateBridge,
   PasswordProtectedKeyEnvelope,
@@ -11,6 +26,7 @@ import {
   TokenProvider,
   InitUserCryptoRequest,
   UserId,
+  IpcClient,
   IpcCommunicationBackend,
   IpcCommunicationBackendSender,
   IncomingMessage,
@@ -18,6 +34,9 @@ import {
   Source,
   BiometricsUnlock,
   BiometricsStatus,
+  SharedUnlockDriver,
+  SharedUnlockFollower,
+  SharedUnlockLeader,
 } from "@bitwarden/sdk-internal";
 
 const encstring = (s: string) => s as unknown as EncString;
@@ -206,9 +225,152 @@ export function makeMockBiometricsDriver(
     uvResult: true,
   },
 ): BiometricsUnlock {
-  return {
+   return {
     get_biometrics_status: async () => options.status,
     unlock_biometrics: async () => options.userKey,
     authenticate_biometrics: async () => options.uvResult,
+  };
+}
+
+/**
+ * Options for the in-memory shared-unlock driver. `initialStates` maps each
+ * known user to either the unlock key (unlocked) or `undefined` (locked).
+ * `clientName` drives `discover_leader`: `"web"` → `BrowserBackground`,
+ * `"browser"` / `"cli"` → `DesktopRenderer`.
+ */
+export interface MockSharedUnlockDriverOptions {
+  initialStates?: Map<UserId, SymmetricKey | undefined>;
+  clientName?: "web" | "browser" | "cli" | "desktop";
+  vaultUrls?: Map<UserId, string>;
+}
+
+/**
+ * Mock shared-unlock driver plus inspection helpers. Tests pass `.driver` into
+ * `SharedUnlockLeader.try_new` / `SharedUnlockFollower.try_new`, and inspect
+ * post-condition state via `getUserKey` and `suppressedTimeouts`.
+ */
+export interface MockSharedUnlockDriverHandle {
+  driver: SharedUnlockDriver;
+  getUserKey(user_id: UserId): SymmetricKey | undefined;
+  suppressedTimeouts: Array<{ user_id: UserId; duration_ms: number }>;
+}
+
+/**
+ * In-memory implementation of the `SharedUnlockDriver` JS interface for tests.
+ * Lock/unlock calls mutate the same in-memory state that `get_user_key` reads,
+ * so the driver reflects whatever the protocol last did to it.
+ */
+export function makeMockSharedUnlockDriver(
+  options: MockSharedUnlockDriverOptions = {},
+): MockSharedUnlockDriverHandle {
+  const states = new Map(options.initialStates ?? []);
+  const vaultUrls = new Map(options.vaultUrls ?? []);
+  const clientName = options.clientName ?? "browser";
+  const suppressedTimeouts: Array<{ user_id: UserId; duration_ms: number }> = [];
+
+  const driver: SharedUnlockDriver = {
+    lock_user: async (user_id) => {
+      states.set(user_id, undefined);
+    },
+    unlock_user: async (user_id, user_key) => {
+      states.set(user_id, user_key);
+    },
+    list_users: async () => Array.from(states.keys()),
+    get_user_key: async (user_id) => states.get(user_id) ?? undefined,
+    suppress_vault_timeout: async (user_id, suppression_duration) => {
+      suppressedTimeouts.push({ user_id, duration_ms: suppression_duration });
+    },
+    get_client_name: async () => clientName,
+    get_vault_url: async (user_id) => vaultUrls.get(user_id),
+  };
+
+  return {
+    driver,
+    getUserKey: (user_id) => states.get(user_id) ?? undefined,
+    suppressedTimeouts,
+  };
+}
+
+/**
+ * Yields back to the event loop several times so background tasks spawned by
+ * the SDK (`spawn_local` futures pumping IPC messages) can drain. The
+ * in-memory transport delivers synchronously, but downstream message handling
+ * happens on the microtask/setImmediate queue.
+ */
+export async function flushAsyncQueue(ticks: number = 20): Promise<void> {
+  for (let i = 0; i < ticks; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
+/**
+ * Wires up a `SharedUnlockLeader` and `SharedUnlockFollower` over a paired
+ * in-memory IPC transport. The leader is started before the follower, so the
+ * leader has subscribed to `FollowerMessage` before the follower's
+ * `start_sessions` sends its first `StartSession`.
+ *
+ * Both `start()` calls run background loops that only exit when their abort
+ * controllers fire — call `cleanup()` (or the returned controllers) at the
+ * end of each test to terminate them.
+ */
+export interface SharedUnlockPair {
+  leader: SharedUnlockLeader;
+  follower: SharedUnlockFollower;
+  leaderHandle: MockSharedUnlockDriverHandle;
+  followerHandle: MockSharedUnlockDriverHandle;
+  cleanup: () => Promise<void>;
+}
+
+export async function setupSharedUnlockPair(
+  options: {
+    leader?: MockSharedUnlockDriverOptions;
+    follower?: MockSharedUnlockDriverOptions;
+  } = {},
+): Promise<SharedUnlockPair> {
+  init_sdk();
+
+  // First peer = follower (sends to DesktopRenderer = leader's endpoint).
+  // Second peer = leader (replies to DesktopMain = follower's source).
+  const [followerBackend, leaderBackend] = makeMockTransportPair("DesktopMain", "DesktopRenderer");
+
+  const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
+  const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend);
+
+  await leaderIpc.start();
+  await followerIpc.start();
+
+  const leaderHandle = makeMockSharedUnlockDriver(options.leader);
+  const followerHandle = makeMockSharedUnlockDriver(options.follower);
+
+  const leader = SharedUnlockLeader.try_new(leaderIpc, leaderHandle.driver);
+  const follower = SharedUnlockFollower.try_new(followerIpc, followerHandle.driver);
+
+  const leaderAbort = new AbortController();
+  const followerAbort = new AbortController();
+
+  // Start the leader first so it has subscribed before the follower sends
+  // its initial `StartSession` messages.
+  await leader.start(leaderAbort);
+  await follower.start(followerAbort);
+
+  return {
+    leader,
+    follower,
+    leaderHandle,
+    followerHandle,
+    cleanup: async () => {
+      leaderAbort.abort();
+      followerAbort.abort();
+      // Drain the receive + heartbeat tasks so they observe the cancellation
+      // and finish before the next test starts. If we let them run past the
+      // test boundary, their `console.info` calls hit jest's "log after tests
+      // are done" guard and the WASM heap can desync.
+      await flushAsyncQueue(40);
+      // A real-time delay lets pending `setTimeout` callbacks scheduled by
+      // `gloo_timers` (used by the WASM heartbeat sleep) drain in case the
+      // cancellation raced their scheduling.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await flushAsyncQueue(20);
+    },
   };
 }
