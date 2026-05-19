@@ -241,7 +241,7 @@ fn split_rule(rule: &str) -> Result<(&str, &str), PasswordRulesError> {
         .ok_or(PasswordRulesError::MalformedRule)
 }
 
-/// Parses a `u32` value, returning an [`InvalidValue`] error on failure.
+/// Parses a `u32` value, returning a [`PasswordRulesError::InvalidValue`] error on failure.
 fn parse_u32(property: &str, value: &str) -> Result<u32, PasswordRulesError> {
     value
         .parse::<u32>()
