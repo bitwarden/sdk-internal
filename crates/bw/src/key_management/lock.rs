@@ -14,7 +14,7 @@ impl BwCommand for LockArgs {
     type Client = LoggedIn;
 
     async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
-        user.unlock_client().invalidate_session_key().await?;
+        user.locking().invalidate_session_key().await?;
         Ok("Your vault is now locked.".into())
     }
 }

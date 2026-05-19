@@ -1,5 +1,5 @@
 [package]
-name = "bitwarden-unlock"
+name = "bitwarden-locking"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
