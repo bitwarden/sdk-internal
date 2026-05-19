@@ -3,14 +3,12 @@
 //! Provides:
 //! - `#[derive(FromClient)]` derive macro for implementing the `FromClient` trait on client
 //!   structs.
-//! - `#[client_trait]` attribute macro for generating a mockable trait alongside a feature client's
-//!   inherent impl block.
+//! - `#[client_trait]` attribute macro that generates a `FromClientShared` bridge for a feature
+//!   client's hand-written trait.
 
 use proc_macro::TokenStream;
-use syn::{DeriveInput, Expr, ItemImpl, parse::Parser, parse_macro_input};
-
-mod client_trait;
-mod from_client;
+use quote::quote;
+use syn::{DeriveInput, Expr, ItemTrait, parse::Parser, parse_macro_input};
 
 /// Derive macro for implementing the `FromClient` trait on client structs.
 ///
@@ -47,55 +45,71 @@ mod from_client;
 #[proc_macro_derive(FromClient)]
 pub fn derive_from_client(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    from_client::expand(input).into()
+
+    let struct_name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    let syn::Data::Struct(syn::DataStruct {
+        fields: syn::Fields::Named(fields),
+        ..
+    }) = &input.data
+    else {
+        return syn::Error::new_spanned(
+            &input,
+            "FromClient can only be derived for structs with named fields",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    let field_inits = fields.named.iter().filter_map(|f| {
+        let field_name = f.ident.as_ref()?;
+        let field_type = &f.ty;
+        Some(quote! {
+            #field_name: ::bitwarden_core::client::FromClientPart::<#field_type>::get_part(client)
+        })
+    });
+
+    let expanded = quote! {
+        impl #impl_generics ::bitwarden_core::client::FromClient for #struct_name #ty_generics #where_clause {
+            fn from_client(client: &::bitwarden_core::Client) -> Self {
+                Self {
+                    #(#field_inits),*
+                }
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
 }
 
-/// Attribute macro for generating a mockable trait alongside a feature client's inherent impl.
+/// Attribute macro that emits the `FromClientShared` bridge for a hand-written feature client
+/// trait.
 ///
-/// Applied to an inherent `impl Foo { ... }` block, this macro generates a public trait
-/// `FooTrait` mirroring the `pub` methods, plus a forwarding `impl FooTrait for Foo`. The
-/// original `impl` block is re-emitted unchanged, so existing call sites keep working.
-///
-/// When `cfg(test)` or `feature = "test-fixtures"` is active, the generated trait is decorated
-/// with `#[mockall::automock]`, giving consumers a free `MockFooTrait` for unit tests.
-///
-/// # Auto-bridging into `FromClient`
-///
-/// Pass `via = <expression>` to also emit `impl FromClientShared for dyn FooTrait`, so a
-/// struct deriving [`FromClient`] can hold an `Arc<dyn FooTrait>` field and have it
-/// constructed automatically. The expression is evaluated with `client: &Client` in scope and
-/// must produce `Self`:
+/// Applied to a `trait FooTrait { ... }` declaration with a `via = <expression>` argument, it
+/// re-emits the trait unchanged and adds:
 ///
 /// ```ignore
-/// #[client_trait(via = client.sync())]            // extension method (idiomatic)
-/// #[client_trait(via = SyncClient::new(client.clone()))]   // free constructor
-/// #[client_trait(via = Self::from_client(client))]         // FromClient if you want it
+/// impl FromClientShared for dyn FooTrait {
+///     fn from_client_shared(client: &Client) -> Arc<Self> {
+///         Arc::new(<expression>)
+///     }
+/// }
 /// ```
 ///
-/// When `via` is omitted, no `FromClientShared` impl is generated - you get only the trait,
-/// forwarding impl, and mock.
+/// The expression has `client: &Client` in scope and must evaluate to a value that can be
+/// wrapped in `Arc<dyn FooTrait>` (typically a concrete struct that implements the trait).
 ///
 /// # Example
 ///
 /// ```ignore
-/// use bitwarden_core_macro::client_trait;
-///
 /// #[client_trait(via = client.folders())]
-/// impl FoldersClient {
-///     pub async fn get(&self, id: FolderId) -> Result<FolderView, FolderError> { /* ... */ }
-///     pub fn count(&self) -> usize { /* ... */ }
-///
-///     // Methods without `pub` are not included in the trait.
-///     fn internal_helper(&self) { /* ... */ }
-///
-///     // Use `#[client_trait(skip)]` to opt out of a specific public method.
-///     #[client_trait(skip)]
-///     pub fn weird<T: SomeBound>(&self, t: T) { /* ... */ }
+/// #[cfg_attr(any(test, feature = "test-fixtures"), mockall::automock)]
+/// #[async_trait::async_trait]
+/// pub trait FoldersClientTrait: Send + Sync {
+///     async fn get(&self, id: FolderId) -> Result<FolderView, FolderError>;
 /// }
 /// ```
-///
-/// The generated trait has bounds `Send + Sync` so dependents can hold the client as
-/// `Arc<dyn FoldersClientTrait>` across threads.
 #[proc_macro_attribute]
 pub fn client_trait(args: TokenStream, item: TokenStream) -> TokenStream {
     let mut via_expr: Option<Expr> = None;
@@ -104,13 +118,7 @@ pub fn client_trait(args: TokenStream, item: TokenStream) -> TokenStream {
             via_expr = Some(meta.value()?.parse::<Expr>()?);
             Ok(())
         } else {
-            Err(meta.error(format!(
-                "unknown #[client_trait] argument `{}`; expected `via = <expression>`",
-                meta.path
-                    .get_ident()
-                    .map(|i| i.to_string())
-                    .unwrap_or_else(|| "<path>".to_string())
-            )))
+            Err(meta.error("expected `via = <expression>`"))
         }
     });
 
@@ -118,9 +126,27 @@ pub fn client_trait(args: TokenStream, item: TokenStream) -> TokenStream {
         return e.to_compile_error().into();
     }
 
-    let item_impl = parse_macro_input!(item as ItemImpl);
-    match client_trait::expand(item_impl, via_expr) {
-        Ok(ts) => ts.into(),
-        Err(e) => e.to_compile_error().into(),
-    }
+    let item_trait = parse_macro_input!(item as ItemTrait);
+    let Some(via_expr) = via_expr else {
+        return syn::Error::new_spanned(
+            &item_trait.ident,
+            "#[client_trait] requires a `via = <expression>` argument",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    let trait_ident = &item_trait.ident;
+    let expanded = quote! {
+        #item_trait
+
+        impl ::bitwarden_core::client::FromClientShared for dyn #trait_ident {
+            fn from_client_shared(
+                client: &::bitwarden_core::Client,
+            ) -> ::std::sync::Arc<Self> {
+                ::std::sync::Arc::new(#via_expr)
+            }
+        }
+    };
+    expanded.into()
 }
