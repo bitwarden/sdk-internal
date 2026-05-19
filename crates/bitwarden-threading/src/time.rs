@@ -35,49 +35,20 @@ pub async fn timeout<F: std::future::Future>(
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn timeout<F: std::future::Future>(
-    duration: Duration,
-    future: F,
-) -> Result<F::Output, ElapsedError> {
-    // Wrap the !Send `gloo_timers` future and the caller's future in a single
-    // state machine that we then assert as `Send`. wasm32-unknown-unknown is
-    // single-threaded, so the future is never actually moved across threads
-    // and the trait bound on `CryptoProvider::send` is satisfied.
-    wasm_send::WasmSend(async move {
-        let sleep_fut = gloo_timers::future::sleep(duration);
-        tokio::pin!(future);
-        tokio::pin!(sleep_fut);
-        tokio::select! {
-            result = &mut future => Ok(result),
-            _ = &mut sleep_fut => Err(ElapsedError),
-        }
-    })
-    .await
-}
+  pub async fn timeout<F: std::future::Future>(
+      duration: Duration,
+      future: F,
+  ) -> Result<F::Output, ElapsedError> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    wasm_bindgen_futures::spawn_local(async move {
+        gloo_timers::future::sleep(duration).await;
+        let _ = tx.send(());
+    });
 
-#[cfg(target_arch = "wasm32")]
-mod wasm_send {
-    use std::{
-        future::Future,
-        pin::Pin,
-        task::{Context, Poll},
-    };
-
-    pub(super) struct WasmSend<F>(pub F);
-
-    // SAFETY: wasm32-unknown-unknown is single-threaded; the value is never
-    // actually sent across threads.
-    unsafe impl<F> Send for WasmSend<F> {}
-    // SAFETY: see above.
-    unsafe impl<F> Sync for WasmSend<F> {}
-
-    impl<F: Future> Future for WasmSend<F> {
-        type Output = F::Output;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            // SAFETY: structural pin projection of the single inner field.
-            unsafe { self.map_unchecked_mut(|s| &mut s.0) }.poll(cx)
-        }
+    tokio::pin!(future);
+    tokio::select! {
+        result = &mut future => Ok(result),
+        _ = rx => Err(ElapsedError),
     }
 }
 
