@@ -1,30 +1,39 @@
 //! Smoke tests for the `#[client_trait]` attribute macro.
 //!
-//! Two scenarios:
-//!
-//! 1. **Test-side mocking** - construct an `OuterClient` by hand, passing a
-//!    `MockInnerClientTrait` so the test verifies how `OuterClient` interacts with its
-//!    dependency.
-//! 2. **Production wiring through `FromClient`** - `InnerClient` derives `FromClient` and
-//!    has `#[client_trait]` applied to its inherent impl. The macro emits both
-//!    `InnerClientTrait` *and* a `FromClientDyn` impl on `dyn InnerClientTrait`, which
-//!    bridges through the blanket `FromClientPart<Arc<T>> for Client` so `OuterClient`'s
-//!    `#[derive(FromClient)]` can pull an `Arc<dyn InnerClientTrait>` field straight out
-//!    of a `Client` with no hand-written bridge.
+//! Mirrors how feature clients are wired in the rest of the SDK: each one is reachable from a
+//! `Client` through an extension trait (`SyncClientExt::sync`, `VaultClientExt::vault`, etc.).
+//! `#[client_trait(via = client.inner())]` reuses that extension method as the constructor for
+//! the auto-bridge - no `FromClient` derive on the inner client required.
 
 use std::sync::Arc;
 
 use bitwarden_core::{Client, FromClient, client::ApiConfigurations};
 use bitwarden_core_macro::client_trait;
 
-// --- Inner client: the dependency. Pulls its own state from `Client`. ---
-
-#[derive(FromClient)]
+/// Inner client - Represents a dependency of another feature client
 struct InnerClient {
     api_configurations: Arc<ApiConfigurations>,
 }
 
-#[client_trait]
+impl InnerClient {
+    fn new(client: &Client) -> Self {
+        Self {
+            api_configurations: client.internal.get_api_configurations(),
+        }
+    }
+}
+
+trait InnerClientExt {
+    fn inner(&self) -> InnerClient;
+}
+
+impl InnerClientExt for Client {
+    fn inner(&self) -> InnerClient {
+        InnerClient::new(self)
+    }
+}
+
+#[client_trait(via = client.inner())]
 impl InnerClient {
     pub fn server_url(&self) -> String {
         self.api_configurations.api_config.base_path.clone()
@@ -49,8 +58,7 @@ impl InnerClient {
     }
 }
 
-// --- Outer client: derives `FromClient` and consumes the inner via the trait. ---
-
+/// Outer client which consumes `InnerClient` as a dependency
 #[derive(FromClient)]
 struct OuterClient {
     inner: Arc<dyn InnerClientTrait>,
@@ -66,15 +74,23 @@ impl OuterClient {
     }
 }
 
-// --- Tests ---
+/// A client trait without `via` - no auto-bridge, but the trait + mock still exist.
+struct StandaloneClient;
+
+#[client_trait]
+impl StandaloneClient {
+    pub fn ping(&self) -> &'static str {
+        "pong"
+    }
+}
 
 #[test]
 fn outer_can_be_constructed_via_from_client() {
     let client = Client::new(None);
     let outer = OuterClient::from_client(&client);
 
-    // The real `InnerClient` is wired in - `server_url` comes from the default API
-    // configuration baked into a freshly-constructed `Client`.
+    // The real `InnerClient` is wired in through `InnerClientExt::inner` - `server_url`
+    // comes from the default API configuration baked into a freshly-constructed `Client`.
     let announced = outer.announce();
     assert!(announced.starts_with("[outer] "));
 }
@@ -108,7 +124,19 @@ async fn outer_async_method_uses_mock_inner() {
 #[test]
 fn private_and_skipped_methods_stay_on_inherent_impl() {
     let client = Client::new(None);
-    let inner = InnerClient::from_client(&client);
+    let inner = client.inner();
     assert_eq!(inner.private_helper(), "private");
     assert_eq!(inner.skipped(), "skipped");
+}
+
+#[test]
+fn standalone_client_without_via_still_has_trait_and_mock() {
+    // No `via` means no `FromClientDyn` impl, but the trait + mock still exist.
+    let concrete: Box<dyn StandaloneClientTrait> = Box::new(StandaloneClient);
+    assert_eq!(concrete.ping(), "pong");
+
+    let mut mock = MockStandaloneClientTrait::new();
+    mock.expect_ping().returning(|| "mocked-pong");
+    let via_mock: Box<dyn StandaloneClientTrait> = Box::new(mock);
+    assert_eq!(via_mock.ping(), "mocked-pong");
 }
