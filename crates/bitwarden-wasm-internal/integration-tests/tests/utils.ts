@@ -204,7 +204,7 @@ export function makeMockBiometricsDriver(
     status: BiometricsStatus.Available,
     userKey: testSymmetricKey(),
     uvResult: true,
-  }
+  },
 ): BiometricsUnlock {
   return {
     get_biometrics_status: async () => options.status,
