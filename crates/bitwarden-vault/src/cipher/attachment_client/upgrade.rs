@@ -63,9 +63,8 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherPrepareAttachmentUpgra
 }
 
 /// Result of streaming a legacy attachment through the upgrade pipeline. The body bytes
-/// were pushed to the caller via the [`AttachmentByteWriter`](super::io::AttachmentByteWriter);
-/// the caller composes `encType (0x02) || iv || mac || <body>` and POSTs it to
-/// [`Self::upload_url`].
+/// were pushed to the caller via the `AttachmentByteWriter`; the caller composes
+/// `encType (0x02) || iv || mac || <body>` and POSTs it to [`Self::upload_url`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -223,7 +222,8 @@ struct UpgradeStreamingState {
 }
 
 /// Sets up the streaming pipeline and the slot-open metadata in one synchronous pass so
-/// the [`KeyStoreContext`]'s RwLock guard is released before the caller's `.await` points.
+/// the [`bitwarden_crypto::KeyStoreContext`]'s RwLock guard is released before the
+/// caller's `.await` points.
 #[cfg(feature = "wasm")]
 fn derive_streaming_state(
     cipher: &Cipher,
@@ -316,7 +316,7 @@ impl AttachmentsClient {
     /// key format. The host feeds the downloaded body (header included) into `reader` and
     /// receives the re-encrypted body via `writer`. On `Ok`, the caller composes
     /// `encType (0x02) || iv || mac || <body>` and uploads it; bytes written to `writer`
-    /// are unauthenticated until this resolves. See [`prepare_attachment_upgrade`] for the
+    /// are unauthenticated until this resolves. See `prepare_attachment_upgrade` for the
     /// full contract.
     pub async fn prepare_attachment_upgrade(
         &self,
