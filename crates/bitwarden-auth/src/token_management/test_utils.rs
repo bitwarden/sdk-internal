@@ -41,16 +41,27 @@ pub async fn start_app_server_rejecting(stale_token: &str) -> MockServer {
 
 /// Start a mock identity server that returns a renewed token on POST /connect/token.
 pub async fn start_renewal_server(renewed_token: &str) -> MockServer {
+    start_renewal_server_with_delay(renewed_token, std::time::Duration::ZERO).await
+}
+
+/// Start a mock identity server that returns a renewed token after the given delay.
+/// Useful for exercising concurrent renewal paths.
+pub async fn start_renewal_server_with_delay(
+    renewed_token: &str,
+    delay: std::time::Duration,
+) -> MockServer {
     let server = MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path("/connect/token"))
         .respond_with(
-            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "access_token": renewed_token,
-                "expires_in": 3600,
-                "token_type": "Bearer",
-                "scope": "api"
-            })),
+            wiremock::ResponseTemplate::new(200)
+                .set_delay(delay)
+                .set_body_json(serde_json::json!({
+                    "access_token": renewed_token,
+                    "expires_in": 3600,
+                    "token_type": "Bearer",
+                    "scope": "api"
+                })),
         )
         .mount(&server)
         .await;

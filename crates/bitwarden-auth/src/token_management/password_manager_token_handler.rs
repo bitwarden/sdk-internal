@@ -46,7 +46,7 @@ impl TokenHandler for PasswordManagerTokenHandler {
             inner.login_method = state_registry.setting(USER_LOGIN_METHOD).ok();
             inner.identity_config = Some(identity_config);
         }
-        Arc::new(MiddlewareWrapper(self.clone()))
+        Arc::new(MiddlewareWrapper::new(self.clone()))
     }
 
     async fn set_tokens(
@@ -78,12 +78,9 @@ impl TokenHandler for PasswordManagerTokenHandler {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl MiddlewareExt for PasswordManagerTokenHandler {
-    async fn get_token(&self, force: bool) -> Result<Option<String>, LoginError> {
-        // We're not holding on to a lock for the duration of the token renewal, so if multiple
-        // requests come in at the same time when the token is expired, we may end up renewing the
-        // token multiple times. This is not ideal, but it's the behavior of the previous
-        // implementation. We should be able to introduce an async semaphore or something
-        // similar to prevent this if it becomes an issue in practice.
+    async fn get_token(&mut self, force: bool) -> Result<Option<String>, LoginError> {
+        // Clone and immediately release the RwLock to avoid holding a sync lock across .await
+        // points. Serialization of concurrent renewals is handled by the MiddlewareWrapper mutex.
         let inner = self.inner.read().expect("RwLock is not poisoned").clone();
 
         let tokens = inner
@@ -324,6 +321,53 @@ mod tests {
             "Bearer renewed-token"
         );
         assert_eq!(identity_server.received_requests().await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn concurrent_requests_trigger_a_single_renewal() {
+        let app_server = start_app_server().await;
+        // Delay the renewal so that concurrent renewals would overlap if they weren't serialized.
+        let identity_server =
+            start_renewal_server_with_delay("renewed-token", std::time::Duration::from_millis(100))
+                .await;
+
+        let registry = registry_with_api_key_login().await;
+        seed_tokens(&registry, "expired-token", Some("refresh"), 0).await;
+
+        let handler = PasswordManagerTokenHandler::default();
+        let client = build_client(handler.initialize_middleware(
+            &registry,
+            identity_config(&identity_server.uri()),
+            KeyStore::<KeySlotIds>::default(),
+        ));
+
+        let mut handles = Vec::new();
+        for _ in 0..5 {
+            let client = client.clone();
+            let url = format!("{}/test", app_server.uri());
+            handles.push(tokio::spawn(async move {
+                client
+                    .get(url)
+                    .with_extension(AuthRequired::Bearer)
+                    .send()
+                    .await
+                    .unwrap()
+            }));
+        }
+        for handle in handles {
+            let response = handle.await.unwrap();
+            assert_eq!(response.status(), 200);
+        }
+
+        assert_eq!(identity_server.received_requests().await.unwrap().len(), 1);
+        let app_requests = app_server.received_requests().await.unwrap();
+        assert_eq!(app_requests.len(), 5);
+        for req in app_requests {
+            assert_eq!(
+                req.headers.get("Authorization").unwrap(),
+                "Bearer renewed-token"
+            );
+        }
     }
 
     #[tokio::test]

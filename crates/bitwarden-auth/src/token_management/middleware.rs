@@ -9,18 +9,32 @@ pub(crate) const TOKEN_RENEW_MARGIN_SECONDS: i64 = 5 * 60;
 /// A wrapper that implements [reqwest_middleware::Middleware] by delegating to a [MiddlewareExt]
 /// for token retrieval. We can't implement [Middleware] directly on [MiddlewareExt] because
 /// [Middleware] is defined in an external crate, so we use this wrapper to bridge between them.
-pub(crate) struct MiddlewareWrapper<T>(pub(crate) T);
+///
+/// The inner [tokio::sync::Mutex] serializes all calls to [MiddlewareExt::get_token], ensuring
+/// that at most one token renewal is in-flight at a time and that no request goes out with a
+/// potentially-invalidated token while a renewal is in progress.
+pub(crate) struct MiddlewareWrapper<T>(tokio::sync::Mutex<T>);
+
+impl<T> MiddlewareWrapper<T> {
+    pub(crate) fn new(inner: T) -> Self {
+        Self(tokio::sync::Mutex::new(inner))
+    }
+}
 
 /// Trait used to share over the token attaching middleware. This is implemented by the token
 /// management structs, leaving them responsible for handling token retrieval and renewal logic. The
 /// middleware simply calls [MiddlewareExt::get_token] to get the current token (renewing if
 /// necessary) and attaches it to the request.
+///
+/// All calls to [MiddlewareExt::get_token] are serialized by the [MiddlewareWrapper] mutex,
+/// which guarantees exclusive access (`&mut self`) and prevents both duplicate renewals and
+/// requests going out with stale tokens while a renewal is in progress.
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 pub(crate) trait MiddlewareExt: 'static + Send + Sync {
     /// Retrieves the current access token, renewing it if necessary. If `force` is true,
     /// the token should be renewed regardless of its current expiration time.
-    async fn get_token(&self, force: bool) -> Result<Option<String>, LoginError>;
+    async fn get_token(&mut self, force: bool) -> Result<Option<String>, LoginError>;
 }
 
 /// Implements HTTP middleware that attaches authentication tokens to requests.
@@ -69,7 +83,8 @@ impl<T: MiddlewareExt> MiddlewareWrapper<T> {
     ) -> bool {
         match ext.get::<AuthRequired>() {
             Some(AuthRequired::Bearer) => {
-                match self.0.get_token(force).await {
+                let token = self.0.lock().await.get_token(force).await;
+                match token {
                     Ok(Some(token)) => match format!("Bearer {}", token).parse() {
                         Ok(header_value) => {
                             req.headers_mut()
