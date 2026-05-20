@@ -287,6 +287,24 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 Ok(())
             }
             FollowerMessage::HeartBeat { user_id } => {
+                if self
+                    .0
+                    .follower_sessions
+                    .sessions
+                    .lock()
+                    .unwrap()
+                    .get(&endpoint)
+                    .is_none()
+                {
+                    tracing::info!(
+                        "Received heartbeat from unknown shared-unlock client {:?}, asking for session start",
+                        endpoint
+                    );
+                    let response = LeaderMessage::RequestSessionStart { user_id };
+                    self.send_message(response, endpoint.clone()).await;
+                    return Ok(());
+                }
+
                 self.0.follower_sessions.upsert(endpoint.clone());
 
                 // Echo back the heartbeat to confirm liveness

@@ -90,9 +90,15 @@ describe("shared unlock ipc", () => {
       leader: { initialStates: USER_A_LOCKED_STATE },
     });
     // Wait for heartbeat
-    await sleep(11000);
-
-    await reloaded.follower.handle_device_event(UNLOCK_EVENT);
+    // Note: Currently, there is two heartbeats necessary; Basically:
+    // - Leader reloads, has no crypto state, follower still has crypto session A
+    // - Follower sends heartbeat 1 with session A, leader doesn't recognize session A, sends crypto state invalidated back
+    // - Follower performs handshake, now both follower and leader have crypto session B
+    // - Follower sends heartbeat 2 with session B, leader sets up unlock sharing session
+    // - As of here, a unlock event will work.
+    //
+    // This could be fixed differently on the crypto layer in the future
+    await sleep(5000);
 
     expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
     expect(reloaded.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
