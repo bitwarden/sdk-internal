@@ -41,7 +41,7 @@ pub async fn timeout<F: std::future::Future>(
 ) -> Result<F::Output, ElapsedError> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     wasm_bindgen_futures::spawn_local(async move {
-        gloo_timers::future::sleep(duration).await;
+        sleep(duration).await;
         let _ = tx.send(());
     });
 
