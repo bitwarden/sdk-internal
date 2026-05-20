@@ -77,7 +77,7 @@ describe("shared unlock ipc", () => {
     expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
   });
 
-  it("recovers after process-reloading the leader", async () => {
+  it("reconnects after process-reloading the leader", async () => {
     const pair = await setupSharedUnlockPair({
       leader: { initialStates: USER_A_UNLOCKED_STATE },
       follower: { initialStates: USER_A_UNLOCKED_STATE },
@@ -89,12 +89,12 @@ describe("shared unlock ipc", () => {
     const reloaded = await reloadLeader(pair, {
       leader: { initialStates: USER_A_LOCKED_STATE },
     });
+    // Wait for heartbeat
+    await sleep(11000);
 
-    await reloaded.follower.handle_device_event(UNLOCK_EVENT);
-    await sleep(20);
     await reloaded.follower.handle_device_event(UNLOCK_EVENT);
 
     expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
     expect(reloaded.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
-  });
+  }, 15000);
 });

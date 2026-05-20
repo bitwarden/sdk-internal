@@ -28,6 +28,19 @@ impl<L: SharedUnlockDriver> Clone for Follower<L> {
 struct InnerFollower<D: SharedUnlockDriver> {
     driver: D,
     ipc_client: Arc<dyn IpcClient>,
+    expecting_heartbeat: std::sync::Mutex<bool>,
+}
+
+impl<D: SharedUnlockDriver> InnerFollower<D> {
+    fn set_expecting_heartbeat(&self, value: bool) {
+        let mut lock = self.expecting_heartbeat.lock().unwrap();
+        *lock = value;
+    }
+    
+    fn is_expecting_heartbeat(&self) -> bool {
+        let lock = self.expecting_heartbeat.lock().unwrap();
+        *lock
+    }
 }
 
 impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
@@ -36,7 +49,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
     /// During startup, a `StartSession` message is sent per user so the leader can reconcile
     /// initial lock state.
     pub fn create(driver: L, ipc_client: Arc<dyn IpcClient>) -> Self {
-        Self(Arc::new(InnerFollower { driver, ipc_client }))
+        Self(Arc::new(InnerFollower { driver, ipc_client, expecting_heartbeat: std::sync::Mutex::new(false) }))
     }
 
     pub(crate) async fn start_sessions(&self) {
@@ -47,6 +60,10 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
             .discover_leader()
             .await
             .expect("leader discovery should return a leader");
+
+        if !users.is_empty() {
+            tracing::info!("Starting shared unlock sessions for users: {:?}", users);
+        }
 
         for user_id in users {
             let lock_state = self.0.driver.get_user_lock_state(user_id).await;
@@ -109,6 +126,12 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                         break;
                     }
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
+                        if follower.0.is_expecting_heartbeat() {
+                            follower.0.set_expecting_heartbeat(false);
+                            follower.start_sessions().await;
+                        }
+
+                        follower.0.set_expecting_heartbeat(true);
                         if let Some(leader) = follower.0.driver.discover_leader().await {
                             // For all users that are logged in, send a heartbeat message to the leader.
                             for user_id in follower.0.driver.list_users().await {
@@ -170,6 +193,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                 }
             }
             LeaderMessage::HeartBeat { user_id } => {
+                self.0.set_expecting_heartbeat(false);
                 self.0
                     .driver
                     .suppress_vault_timeout(

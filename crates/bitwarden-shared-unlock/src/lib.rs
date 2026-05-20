@@ -88,6 +88,8 @@
 //! The follower sends a `HeartBeat` for each logged-in user every [`HEARTBEAT_INTERVAL`]
 //! On receiving the echo, the follower suppresses its vault timeout timer,
 //! keeping the vault unlocked as long as the session is active. Stale sessions are pruned.
+//! If a follower does not get a heartbeat response in time, it assumes the leader is unavailable
+//! and will attempt to start a new session.
 //!
 //! ## Security Definitions
 //!
