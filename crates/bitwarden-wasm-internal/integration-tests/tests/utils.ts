@@ -225,7 +225,7 @@ export function makeMockBiometricsDriver(
     uvResult: true,
   },
 ): BiometricsUnlock {
-   return {
+  return {
     get_biometrics_status: async () => options.status,
     unlock_biometrics: async () => options.userKey,
     authenticate_biometrics: async () => options.uvResult,
