@@ -13,7 +13,6 @@ use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 
 use super::middleware::{MiddlewareExt, MiddlewareWrapper};
-use crate::token_management::middleware::TOKEN_RENEW_MARGIN_SECONDS;
 
 /// Token handler for Bitwarden authentication.
 #[derive(Clone, Default)]
@@ -26,8 +25,7 @@ struct SecretsManagerTokenHandlerInner {
     access_token: Option<String>,
     expires_on: Option<i64>,
 
-    // The following are passed as optional as they are filled in when instantiating the
-    // middleware.
+    // Filled in by initialize_middleware / set_sm_login_method.
     login_method: Option<Arc<ServiceAccountLoginMethod>>,
     identity_config: Option<bitwarden_api_api::Configuration>,
     key_store: Option<KeyStore<KeySlotIds>>,
@@ -81,21 +79,14 @@ impl SecretsManagerTokenHandler {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl MiddlewareExt for SecretsManagerTokenHandler {
-    async fn get_token(&mut self, force: bool) -> Result<Option<String>, LoginError> {
-        // Clone and immediately release the RwLock to avoid holding a sync lock across .await
-        // points. Serialization of concurrent renewals is handled by the MiddlewareWrapper mutex.
+    async fn current_token(&self) -> Option<(String, i64)> {
+        let inner = self.inner.read().expect("RwLock is not poisoned").clone();
+        Some((inner.access_token?, inner.expires_on?))
+    }
+
+    async fn renew_token(&mut self) -> Result<Option<String>, LoginError> {
         let inner = self.inner.read().expect("RwLock is not poisoned").clone();
 
-        // Validate the token, returning early if it's still valid.
-        if !force
-            && let Some(expires) = inner.expires_on
-            && Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS
-        {
-            return Ok(inner.access_token.clone());
-        }
-
-        // These should always be set by initialize_middleware / set_sm_login_method before we get
-        // here, but we return an error if not.
         let login_method = inner.login_method.ok_or(NotAuthenticatedError)?;
         let identity_config = inner.identity_config.ok_or(NotAuthenticatedError)?;
         let key_store = inner.key_store.ok_or(NotAuthenticatedError)?;
@@ -119,12 +110,7 @@ mod tests {
     use std::str::FromStr;
 
     use bitwarden_api_api::apis::AuthRequired;
-    use bitwarden_core::{
-        auth::{AccessToken, TokenHandler},
-        client::login_method::ServiceAccountLoginMethod,
-        key_management::KeySlotIds,
-    };
-    use bitwarden_crypto::KeyStore;
+    use bitwarden_core::{auth::AccessToken, client::login_method::ServiceAccountLoginMethod};
     use bitwarden_state::registry::StateRegistry;
     use wiremock::MockServer;
 
@@ -158,11 +144,7 @@ mod tests {
             .await;
 
         let registry = StateRegistry::new_with_memory_db();
-        let client = build_client(handler.initialize_middleware(
-            &registry,
-            identity_config(&identity_server.uri()),
-            KeyStore::<KeySlotIds>::default(),
-        ));
+        let client = build_client(&handler, &registry, &identity_server);
 
         let auth = send_auth_request(&client, &app_server).await;
         assert_eq!(auth.as_deref(), Some("Bearer original-token"));
@@ -179,17 +161,13 @@ mod tests {
         handler
             .set_sm_login_method(service_account_login_method())
             .await;
-        // expires_in=0 means the token is immediately considered expired
+        // expires_in=0 puts the token inside the renewal margin.
         handler
             .set_tokens("expired-token".to_string(), None, 0)
             .await;
 
         let registry = StateRegistry::new_with_memory_db();
-        let client = build_client(handler.initialize_middleware(
-            &registry,
-            identity_config(&identity_server.uri()),
-            KeyStore::<KeySlotIds>::default(),
-        ));
+        let client = build_client(&handler, &registry, &identity_server);
 
         let auth = send_auth_request(&client, &app_server).await;
         assert_eq!(auth.as_deref(), Some("Bearer renewed-token"));
@@ -206,17 +184,13 @@ mod tests {
         handler
             .set_sm_login_method(service_account_login_method())
             .await;
-        // Token is locally valid; the only renewal path is the 401 retry.
+        // Locally-valid token forces renewal through the 401 retry path.
         handler
             .set_tokens("stale-token".to_string(), None, 3600)
             .await;
 
         let registry = StateRegistry::new_with_memory_db();
-        let client = build_client(handler.initialize_middleware(
-            &registry,
-            identity_config(&identity_server.uri()),
-            KeyStore::<KeySlotIds>::default(),
-        ));
+        let client = build_client(&handler, &registry, &identity_server);
 
         let response = client
             .get(format!("{}/test", app_server.uri()))
@@ -241,54 +215,18 @@ mod tests {
 
     #[tokio::test]
     async fn refreshes_on_retry_when_initial_token_unavailable() {
-        // App server rejects unauthenticated requests with 401 but accepts the renewed token.
-        let app_server = MockServer::start().await;
-        wiremock::Mock::given(wiremock::matchers::header(
-            "Authorization",
-            "Bearer renewed-token",
-        ))
-        .respond_with(wiremock::ResponseTemplate::new(200))
-        .mount(&app_server)
-        .await;
-        wiremock::Mock::given(wiremock::matchers::any())
-            .respond_with(wiremock::ResponseTemplate::new(401))
-            .mount(&app_server)
-            .await;
-
-        // Identity server fails the first renewal and succeeds on the second, so the initial
-        // get_token call returns no token, but the forced refresh on retry produces one.
-        let identity_server = MockServer::start().await;
-        wiremock::Mock::given(wiremock::matchers::method("POST"))
-            .and(wiremock::matchers::path("/connect/token"))
-            .respond_with(wiremock::ResponseTemplate::new(500))
-            .up_to_n_times(1)
-            .mount(&identity_server)
-            .await;
-        wiremock::Mock::given(wiremock::matchers::method("POST"))
-            .and(wiremock::matchers::path("/connect/token"))
-            .respond_with(
-                wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                    "access_token": "renewed-token",
-                    "expires_in": 3600,
-                    "token_type": "Bearer",
-                    "scope": "api"
-                })),
-            )
-            .mount(&identity_server)
-            .await;
+        // First identity call fails, so the initial request goes out unauthenticated and the
+        // forced renewal on retry produces a valid token.
+        let app_server = start_app_server_accepting("renewed-token").await;
+        let identity_server = start_renewal_server_failing_then_succeeding("renewed-token").await;
 
         let handler = SecretsManagerTokenHandler::default();
         handler
             .set_sm_login_method(service_account_login_method())
             .await;
-        // No tokens seeded -> get_token always reaches the renewal path.
 
         let registry = StateRegistry::new_with_memory_db();
-        let client = build_client(handler.initialize_middleware(
-            &registry,
-            identity_config(&identity_server.uri()),
-            KeyStore::<KeySlotIds>::default(),
-        ));
+        let client = build_client(&handler, &registry, &identity_server);
 
         let response = client
             .get(format!("{}/test", app_server.uri()))
@@ -309,9 +247,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn concurrent_401s_trigger_a_single_renewal() {
+        // Locally-valid tokens, so renewal only happens via the 401 retry path. Coalescing should
+        // collapse the five retries into a single identity-server call.
+        let app_server = start_app_server_rejecting("stale-token").await;
+        let identity_server =
+            start_renewal_server_with_delay("renewed-token", std::time::Duration::from_millis(100))
+                .await;
+
+        let handler = SecretsManagerTokenHandler::default();
+        handler
+            .set_sm_login_method(service_account_login_method())
+            .await;
+        handler
+            .set_tokens("stale-token".to_string(), None, 3600)
+            .await;
+
+        let registry = StateRegistry::new_with_memory_db();
+        let client = build_client(&handler, &registry, &identity_server);
+
+        send_concurrent_auth_requests(&client, &app_server, 5).await;
+
+        assert_eq!(identity_server.received_requests().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
     async fn concurrent_requests_trigger_a_single_renewal() {
         let app_server = start_app_server().await;
-        // Delay the renewal so that concurrent renewals would overlap if they weren't serialized.
+        // Renewal delay so that concurrent renewals would overlap if not serialized.
         let identity_server =
             start_renewal_server_with_delay("renewed-token", std::time::Duration::from_millis(100))
                 .await;
@@ -325,29 +288,9 @@ mod tests {
             .await;
 
         let registry = StateRegistry::new_with_memory_db();
-        let client = build_client(handler.initialize_middleware(
-            &registry,
-            identity_config(&identity_server.uri()),
-            KeyStore::<KeySlotIds>::default(),
-        ));
+        let client = build_client(&handler, &registry, &identity_server);
 
-        let mut handles = Vec::new();
-        for _ in 0..5 {
-            let client = client.clone();
-            let url = format!("{}/test", app_server.uri());
-            handles.push(tokio::spawn(async move {
-                client
-                    .get(url)
-                    .with_extension(AuthRequired::Bearer)
-                    .send()
-                    .await
-                    .unwrap()
-            }));
-        }
-        for handle in handles {
-            let response = handle.await.unwrap();
-            assert_eq!(response.status(), 200);
-        }
+        send_concurrent_auth_requests(&client, &app_server, 5).await;
 
         assert_eq!(identity_server.received_requests().await.unwrap().len(), 1);
         let app_requests = app_server.received_requests().await.unwrap();
@@ -358,36 +301,5 @@ mod tests {
                 "Bearer renewed-token"
             );
         }
-    }
-
-    #[tokio::test]
-    async fn does_not_retry_when_no_auth_extension() {
-        let server = MockServer::start().await;
-        wiremock::Mock::given(wiremock::matchers::any())
-            .respond_with(wiremock::ResponseTemplate::new(401))
-            .mount(&server)
-            .await;
-
-        // Request is sent without the AuthRequired extension, so the middleware never asks
-        // for a token and must not retry on 401.
-        let handler = SecretsManagerTokenHandler::default();
-
-        let registry = StateRegistry::new_with_memory_db();
-        let client = build_client(handler.initialize_middleware(
-            &registry,
-            identity_config(&server.uri()),
-            KeyStore::<KeySlotIds>::default(),
-        ));
-
-        let response = client
-            .get(format!("{}/test", server.uri()))
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(response.status(), 401);
-
-        let requests = server.received_requests().await.unwrap();
-        assert_eq!(requests.len(), 1);
-        assert!(requests[0].headers.get("Authorization").is_none());
     }
 }
