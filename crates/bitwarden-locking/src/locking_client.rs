@@ -6,7 +6,6 @@ use bitwarden_core::{
         ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
     },
 };
-use bitwarden_crypto::safe::{SymmetricKeyEnvelope, SymmetricKeyEnvelopeNamespace};
 
 use crate::SessionKey;
 
@@ -53,19 +52,10 @@ impl LockingClient {
     pub async fn generate_session_key(&self) -> Result<SessionKey, LockingError> {
         use bitwarden_core::key_management::SymmetricKeySlotId;
 
-        let session_key = SessionKey::make();
-
-        let envelope = {
+        let (envelope, session_key) = {
             let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
-            let session_key_id = ctx.add_local_symmetric_key(session_key.0.clone());
-            SymmetricKeyEnvelope::seal(
-                SymmetricKeySlotId::User,
-                session_key_id,
-                SymmetricKeyEnvelopeNamespace::SessionKey,
-                &ctx,
-            )
-            .map_err(|e| {
+            SessionKey::from_context(SymmetricKeySlotId::User, &mut ctx).map_err(|e| {
                 tracing::error!("Failed to encrypt user key with session key: {e}");
                 LockingError::Unknown
             })?
@@ -136,13 +126,8 @@ impl LockingClient {
         let decrypted_key = {
             let key_store = self.client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
-            let session_key_id = ctx.add_local_symmetric_key(session_key.0.clone());
-            let decrypted_key_id = session_protected_user_key
-                .unseal(
-                    session_key_id,
-                    SymmetricKeyEnvelopeNamespace::SessionKey,
-                    &mut ctx,
-                )
+            let decrypted_key_id = session_key
+                .unwrap_to_context(&session_protected_user_key, &mut ctx)
                 .map_err(|e| {
                     tracing::error!("Failed to unseal user key with session key: {e}");
                     LockingError::Unknown
