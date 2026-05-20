@@ -1,12 +1,9 @@
 use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestModel};
 use bitwarden_collections::collection::CollectionId;
-use bitwarden_core::{
-    ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
-    key_management::KeySlotIds, require,
-};
-use bitwarden_crypto::{CryptoError, EncString, IdentifyKey, KeyStore};
+use bitwarden_core::{ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, require};
+use bitwarden_crypto::{CryptoError, EncString};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError};
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -15,12 +12,11 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use super::CiphersClient;
+use super::{CiphersClient, EncryptionContext};
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
-    FolderId, ItemNotFoundError, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
-    cipher_view_type::CipherViewType,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, DecryptError,
+    EncryptError, FieldView, FolderId, ItemNotFoundError, VaultParseError,
+    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -31,6 +27,8 @@ pub enum EditCipherError {
     ItemNotFound(#[from] ItemNotFoundError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    BlobEncryption(#[from] crate::blob::BlobEncryptionError),
     #[error(transparent)]
     Api(#[from] ApiError),
     #[error(transparent)]
@@ -48,6 +46,24 @@ pub enum EditCipherError {
 impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
     fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
         Self::Api(val.into())
+    }
+}
+
+impl From<EncryptError> for EditCipherError {
+    fn from(e: EncryptError) -> Self {
+        match e {
+            EncryptError::Crypto(c) => Self::Crypto(c),
+            EncryptError::BlobEncryption(b) => Self::BlobEncryption(b),
+            EncryptError::MissingUserId => Self::NotAuthenticated(NotAuthenticatedError),
+        }
+    }
+}
+
+impl From<DecryptError> for EditCipherError {
+    fn from(e: DecryptError) -> Self {
+        match e {
+            DecryptError::Crypto(c) => Self::Crypto(c),
+        }
     }
 }
 
@@ -148,86 +164,39 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
     }
 }
 
-async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
-    key_store: &KeyStore<KeySlotIds>,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &R,
-    encrypted_for: UserId,
-    request: CipherEditRequest,
-    use_strict_decryption: bool,
-    enable_cipher_key_encryption: bool,
-) -> Result<CipherView, EditCipherError> {
-    let cipher_id = request.id;
-
-    let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
-    let original_cipher_view: CipherView = if use_strict_decryption {
-        key_store.decrypt(&StrictDecrypt(original_cipher.clone()))?
-    } else {
-        key_store.decrypt(&original_cipher)?
-    };
-
-    let mut view: CipherView = convert_request_to_cipher_view(request);
-    view.update_password_history(&original_cipher_view);
-
-    // TODO: Once this flag is removed, the key generation logic should be
-    // moved directly into the CompositeEncryptable implementation.
-    if view.key.is_none() && enable_cipher_key_encryption {
-        let key = view.key_identifier();
-        view.generate_cipher_key(&mut key_store.context(), key)?;
-    }
-
-    let cipher: Cipher = key_store.encrypt(view)?;
-    let mut cipher_request: CipherRequestModel = cipher.try_into()?;
-    cipher_request.encrypted_for = Some(encrypted_for.into());
-
-    let cipher: Cipher = api_client
-        .ciphers_api()
-        .put(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
-        .merge_with_cipher(Some(original_cipher))?;
-    debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
-    repository.set(cipher_id, cipher.clone()).await?;
-
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
-}
-
 #[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
-        let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations();
-        let repository = self.get_repository()?;
+        let repository = self.repository.require()?;
+        let api_client = &self.api_configurations.api_client;
 
-        let user_id = self
-            .client
-            .internal
-            .get_user_id()
-            .ok_or(NotAuthenticatedError)?;
+        let cipher_id = request.id;
 
-        let enable_cipher_key_encryption = self
-            .client
-            .internal
-            .get_flags()
+        let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
+        let original_cipher_view = self.decrypt(original_cipher.clone()).await?;
+
+        let mut view: CipherView = convert_request_to_cipher_view(request);
+        view.update_password_history(&original_cipher_view);
+
+        let EncryptionContext {
+            cipher,
+            encrypted_for,
+        } = self.encrypt(view).await?;
+
+        let mut cipher_request: CipherRequestModel = cipher.try_into()?;
+        cipher_request.encrypted_for = Some(encrypted_for.into());
+
+        let cipher: Cipher = api_client
+            .ciphers_api()
+            .put(cipher_id.into(), Some(cipher_request))
             .await
-            .enable_cipher_key_encryption;
+            .map_err(ApiError::from)?
+            .merge_with_cipher(Some(original_cipher))?;
+        repository.set(cipher_id, cipher.clone()).await?;
 
-        edit_cipher(
-            key_store,
-            &config.api_client,
-            repository.as_ref(),
-            user_id,
-            request,
-            self.is_strict_decrypt().await,
-            enable_cipher_key_encryption,
-        )
-        .await
+        Ok(self.decrypt(cipher).await?)
     }
 
     /// Adds the cipher matched by [CipherId] to any number of collections on the server.
@@ -270,9 +239,17 @@ impl CiphersClient {
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::HashMap, sync::Arc};
+
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
-    use bitwarden_core::key_management::SymmetricKeySlotId;
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
+    use bitwarden_core::{
+        client::ApiConfigurations,
+        key_management::{
+            BLOB_SECURITY_VERSION, KeySlotIds, SymmetricKeySlotId, create_test_crypto_with_user_key,
+        },
+    };
+    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
     use chrono::TimeZone;
 
@@ -284,6 +261,31 @@ mod tests {
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
+
+    async fn create_test_client(
+        api_client: ApiClient,
+        key_store: KeyStore<KeySlotIds>,
+        flags: HashMap<String, bool>,
+    ) -> (CiphersClient, Arc<MemoryRepository<Cipher>>) {
+        let repository = Arc::new(MemoryRepository::<Cipher>::default());
+        let core_client = bitwarden_core::Client::new_test(None);
+        core_client
+            .internal
+            .init_user_id(TEST_USER_ID.parse().unwrap())
+            .await
+            .unwrap();
+        if !flags.is_empty() {
+            core_client.internal.load_flags(flags).await;
+        }
+        #[allow(deprecated)]
+        let client = CiphersClient {
+            key_store,
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+            repository: Some(repository.clone() as Arc<dyn Repository<Cipher>>),
+            client: core_client,
+        };
+        (client, repository)
+    }
 
     fn generate_test_cipher() -> CipherView {
         CipherView {
@@ -400,14 +402,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        {
-            let mut ctx = store.context_mut();
-            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
-                .unwrap();
-        }
-
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -457,9 +451,13 @@ mod tests {
                 .once();
         });
 
+        let store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let (client, repository) =
+            create_test_client(api_client, store.clone(), HashMap::new()).await;
+
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
 
-        let repository = MemoryRepository::<Cipher>::default();
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
         // Update the stored cipher to include a collection_id so we can verify it is preserved.
         let mut stored = repository.get(cipher_id).await.unwrap().unwrap();
@@ -467,20 +465,9 @@ mod tests {
         repository.set(cipher_id, stored).await.unwrap();
 
         let cipher_view = generate_test_cipher();
-
         let request = cipher_view.try_into().unwrap();
 
-        let result = edit_cipher(
-            &store,
-            &api_client,
-            &repository,
-            TEST_USER_ID.parse().unwrap(),
-            request,
-            false,
-            false,
-        )
-        .await
-        .unwrap();
+        let result = client.edit(request).await.unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "Test Login");
@@ -490,25 +477,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher_does_not_exist() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-
-        let repository = MemoryRepository::<Cipher>::default();
-
-        let cipher_view = generate_test_cipher();
         let api_client = ApiClient::new_mocked(|_| {});
 
+        let store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let (client, _) = create_test_client(api_client, store, HashMap::new()).await;
+
+        let cipher_view = generate_test_cipher();
         let request = cipher_view.try_into().unwrap();
 
-        let result = edit_cipher(
-            &store,
-            &api_client,
-            &repository,
-            TEST_USER_ID.parse().unwrap(),
-            request,
-            false,
-            false,
-        )
-        .await;
+        let result = client.edit(request).await;
 
         assert!(result.is_err());
         assert!(matches!(
@@ -519,15 +497,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        {
-            let mut ctx = store.context_mut();
-            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
-                .unwrap();
-        }
-
-        let cipher_id: CipherId = "5faa9684-c793-4a2d-8a12-b33900187097".parse().unwrap();
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api
@@ -535,25 +505,63 @@ mod tests {
                 .returning(move |_id, _body| Err(std::io::Error::other("Simulated error").into()));
         });
 
-        let repository = MemoryRepository::<Cipher>::default();
-        repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
-        let cipher_view = generate_test_cipher();
+        let store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let (client, repository) =
+            create_test_client(api_client, store.clone(), HashMap::new()).await;
 
+        repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
+
+        let cipher_view = generate_test_cipher();
         let request = cipher_view.try_into().unwrap();
 
-        let result = edit_cipher(
-            &store,
-            &api_client,
-            &repository,
-            TEST_USER_ID.parse().unwrap(),
-            request,
-            false,
-            false,
-        )
-        .await;
+        let result = client.edit(request).await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), EditCipherError::Api(_)));
+    }
+
+    #[tokio::test]
+    async fn test_edit_cipher_blob_encryption() {
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put()
+                .returning(move |_id, body| {
+                    let body = body.unwrap();
+                    Ok(CipherResponseModel {
+                        id: Some(cipher_id.into()),
+                        name: Some(body.name.clone()),
+                        r#type: body.r#type,
+                        key: body.key.clone(),
+                        data: body.data.clone(),
+                        view_password: Some(true),
+                        edit: Some(true),
+                        organization_use_totp: Some(false),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        store.set_security_state_version(BLOB_SECURITY_VERSION);
+        let flags = HashMap::from([("enableCipherKeyEncryption".to_owned(), true)]);
+        let (client, repository) = create_test_client(api_client, store.clone(), flags).await;
+
+        repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
+
+        let cipher_view = generate_test_cipher();
+        let request = cipher_view.try_into().unwrap();
+
+        client.edit(request).await.unwrap();
+
+        let stored: Cipher = repository.get(cipher_id).await.unwrap().unwrap();
+        assert!(crate::blob::is_blob_encrypted(&stored));
     }
 
     /// Build the edit-side view the way the flow does: request → view, then

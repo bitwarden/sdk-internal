@@ -10,6 +10,8 @@ use crate::CipherError;
 pub enum EncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    BlobEncryption(#[from] crate::blob::BlobEncryptionError),
     #[error("Client User Id has not been set")]
     MissingUserId,
 }

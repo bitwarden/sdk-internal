@@ -13,7 +13,7 @@ const FORMAT_VERSION: u8 = 1;
 
 /// Error type for `SealedCipherBlob` operations.
 #[derive(Debug, Error)]
-pub(crate) enum SealedCipherBlobError {
+pub enum SealedCipherBlobError {
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
     #[error("CBOR encoding error")]
