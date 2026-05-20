@@ -8,6 +8,7 @@ use bitwarden_crypto::SymmetricCryptoKey;
 /// the SDK (e.g. the OS keychain) and providing it back to
 /// [`LockingClient::unlock`](crate::LockingClient::unlock) when reconstructing
 /// the client.
+#[derive(PartialEq)] // This is ok because SymmetricCryptoKey implements PartialEq with constant-time equality checks.
 pub struct SessionKey(pub(crate) SymmetricCryptoKey);
 
 impl SessionKey {
@@ -15,13 +16,5 @@ impl SessionKey {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(SymmetricCryptoKey::make_xchacha20_poly1305_key())
-    }
-}
-
-impl PartialEq for SessionKey {
-    fn eq(&self, other: &Self) -> bool {
-        // This is ok because SymmetricCryptoKey implements PartialEq with constant-time equality
-        // checks.
-        self.0 == other.0
     }
 }
