@@ -292,7 +292,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     .follower_sessions
                     .sessions
                     .lock()
-                    .unwrap()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
                     .get(&endpoint)
                     .is_none()
                 {
