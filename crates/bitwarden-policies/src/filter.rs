@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use bitwarden_organizations::{
     OrganizationUserStatusType, OrganizationUserType, ProfileOrganization,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -35,6 +36,7 @@ pub struct PolicyView {
     /// The policy's raw configuration data as a JSON string, if any.
     pub data: Option<String>,
     pub enabled: bool,
+    pub revision_date: Option<DateTime<Utc>>,
 }
 
 /// Defines the filtering behavior for a specific policy type.
@@ -122,6 +124,7 @@ mod tests {
             r#type: PolicyType(policy_type),
             data: None,
             enabled,
+            revision_date: Default::default(),
         }
     }
 
