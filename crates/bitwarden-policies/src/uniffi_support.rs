@@ -2,6 +2,8 @@ use uuid::Uuid;
 
 use crate::filter::PolicyType;
 
+type DateTime = chrono::DateTime<chrono::Utc>;
+uniffi::use_remote_type!(bitwarden_core::DateTime);
 uniffi::use_remote_type!(bitwarden_core::Uuid);
 
 uniffi::custom_type!(PolicyType, u8, {

@@ -419,6 +419,12 @@ impl PureCrypto {
         let mut rng = rand::rng();
         rng.random_range(min..=max)
     }
+
+    /// Generates a new v4 UUID using a cryptographically secure random number generator
+    pub fn new_guid() -> String {
+        let _span = tracing::info_span!("PureCrypto::new_guid").entered();
+        uuid::Uuid::new_v4().to_string()
+    }
 }
 
 #[wasm_bindgen]
@@ -800,5 +806,15 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let encrypted_data = PureCrypto::rsa_encrypt_data(plain_data.clone(), public_key).unwrap();
         let decrypted_data = PureCrypto::rsa_decrypt_data(encrypted_data, private_key).unwrap();
         assert_eq!(plain_data, decrypted_data);
+    }
+
+    #[test]
+    fn test_new_guid_is_v4_and_unique() {
+        let first = PureCrypto::new_guid();
+        let second = PureCrypto::new_guid();
+
+        let parsed = uuid::Uuid::parse_str(&first).expect("new_guid output must parse as a UUID");
+        assert_eq!(parsed.get_version_num(), 4);
+        assert_ne!(first, second);
     }
 }
