@@ -42,11 +42,7 @@ pub struct InviteKeyData(SymmetricCryptoKey);
 
 impl ConstantTimeEq for InviteKeyData {
     fn ct_eq(&self, other: &InviteKeyData) -> Choice {
-        if self.0 == other.0 {
-            Choice::from(1)
-        } else {
-            Choice::from(0)
-        }
+        self.0.ct_eq(&other.0)
     }
 }
 
