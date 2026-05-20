@@ -53,7 +53,7 @@ impl LockingClient {
     pub async fn generate_session_key(&self) -> Result<SessionKey, LockingError> {
         use bitwarden_core::key_management::SymmetricKeySlotId;
 
-        let session_key = SessionKey::new();
+        let session_key = SessionKey::make();
 
         let envelope = {
             let key_store = self.client.internal.get_key_store();

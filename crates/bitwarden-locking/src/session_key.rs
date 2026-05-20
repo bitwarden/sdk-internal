@@ -13,8 +13,7 @@ pub struct SessionKey(pub(crate) SymmetricCryptoKey);
 
 impl SessionKey {
     /// Mint a new random session key.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn make() -> Self {
         Self(SymmetricCryptoKey::make_xchacha20_poly1305_key())
     }
 }
