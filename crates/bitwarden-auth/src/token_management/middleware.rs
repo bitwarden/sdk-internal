@@ -90,10 +90,7 @@ impl<T: MiddlewareExt> MiddlewareWrapper<T> {
 
     /// Retry resolution after a 401: if a concurrent retry already renewed (the stored token
     /// differs from `previous`), reuse that result. Otherwise renew.
-    async fn resolve_retry(
-        &self,
-        previous: Option<String>,
-    ) -> Result<Option<String>, LoginError> {
+    async fn resolve_retry(&self, previous: Option<String>) -> Result<Option<String>, LoginError> {
         let mut handler = self.0.lock().await;
         if let Some((access_token, _)) = handler.current_token().await
             && let Some(prev) = &previous
