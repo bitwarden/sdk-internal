@@ -39,30 +39,6 @@ pub struct SubscriptionResponseModel {
     )]
     pub max_storage_gb: Option<i32>,
     #[serde(
-        rename = "upcomingInvoice",
-        alias = "UpcomingInvoice",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub upcoming_invoice: Option<Box<models::BillingSubscriptionUpcomingInvoice>>,
-    #[serde(
-        rename = "subscription",
-        alias = "Subscription",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub subscription: Option<Box<models::BillingSubscription>>,
-    #[serde(
-        rename = "customerDiscount",
-        alias = "CustomerDiscount",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub customer_discount: Option<Box<models::BillingCustomerDiscount>>,
-    #[serde(
-        rename = "license",
-        alias = "License",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub license: Option<Box<models::UserLicense>>,
-    #[serde(
         rename = "expiration",
         alias = "Expiration",
         skip_serializing_if = "Option::is_none"
@@ -77,10 +53,6 @@ impl SubscriptionResponseModel {
             storage_name: None,
             storage_gb: None,
             max_storage_gb: None,
-            upcoming_invoice: None,
-            subscription: None,
-            customer_discount: None,
-            license: None,
             expiration: None,
         }
     }

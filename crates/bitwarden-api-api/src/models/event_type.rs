@@ -137,6 +137,12 @@ pub enum EventType {
     PhishingBlocker_SiteAccessed,
     PhishingBlocker_SiteExited,
     PhishingBlocker_Bypassed,
+    Send_Created_Text,
+    Send_Created_Text_WithEmailVerification,
+    Send_Created_Text_WithPasswordProtection,
+    Send_Created_File,
+    Send_Created_File_WithEmailVerification,
+    Send_Created_File_WithPasswordProtection,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -268,6 +274,12 @@ impl EventType {
             Self::PhishingBlocker_SiteAccessed => 2400,
             Self::PhishingBlocker_SiteExited => 2401,
             Self::PhishingBlocker_Bypassed => 2402,
+            Self::Send_Created_Text => 2500,
+            Self::Send_Created_Text_WithEmailVerification => 2501,
+            Self::Send_Created_Text_WithPasswordProtection => 2502,
+            Self::Send_Created_File => 2503,
+            Self::Send_Created_File_WithEmailVerification => 2504,
+            Self::Send_Created_File_WithPasswordProtection => 2505,
             Self::__Unknown(v) => *v,
         }
     }
@@ -401,6 +413,12 @@ impl EventType {
             2400 => Self::PhishingBlocker_SiteAccessed,
             2401 => Self::PhishingBlocker_SiteExited,
             2402 => Self::PhishingBlocker_Bypassed,
+            2500 => Self::Send_Created_Text,
+            2501 => Self::Send_Created_Text_WithEmailVerification,
+            2502 => Self::Send_Created_Text_WithPasswordProtection,
+            2503 => Self::Send_Created_File,
+            2504 => Self::Send_Created_File_WithEmailVerification,
+            2505 => Self::Send_Created_File_WithPasswordProtection,
             v => Self::__Unknown(v),
         }
     }
