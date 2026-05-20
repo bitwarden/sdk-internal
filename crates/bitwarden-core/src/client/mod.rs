@@ -23,6 +23,10 @@ pub(crate) use login_method::UserLoginMethod;
 mod flags;
 #[cfg(feature = "internal")]
 pub mod persisted_state;
+#[cfg(feature = "internal")]
+mod rehydration;
+#[cfg(feature = "internal")]
+pub use rehydration::{RehydrationError, SaveStateData};
 
 pub mod tracing_middleware;
 
