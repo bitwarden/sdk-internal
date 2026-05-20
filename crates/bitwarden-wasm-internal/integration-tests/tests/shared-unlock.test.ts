@@ -1,5 +1,11 @@
 import { UserId } from "@bitwarden/sdk-internal";
-import { sleep, setupSharedUnlockPair, testSymmetricKey, MockSharedUnlockDriverHandle } from "./utils";
+import {
+  sleep,
+  setupSharedUnlockPair,
+  reloadFollower,
+  reloadLeader,
+  testSymmetricKey,
+} from "./utils";
 
 const USER_A = "00000000-0000-0000-0000-000000000001" as unknown as UserId;
 const USER_KEY = testSymmetricKey(0x11);
@@ -51,5 +57,44 @@ describe("shared unlock ipc", () => {
     await leader.handle_device_event(LOCK_EVENT);
     await sleep(20);
     expect(followerHandle.getUserKey(USER_A)).toBeUndefined();
+  });
+
+  it("reconnects after process-reloading a follower", async () => {
+    const pair = await setupSharedUnlockPair({
+      leader: { initialStates: USER_A_UNLOCKED_STATE },
+      follower: { initialStates: USER_A_UNLOCKED_STATE },
+    });
+    await sleep(20);
+    expect(pair.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
+    expect(pair.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
+
+    const reloaded = await reloadFollower(pair, {
+      follower: { initialStates: USER_A_LOCKED_STATE },
+    });
+    await sleep(20);
+
+    expect(reloaded.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
+    expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
+  });
+
+  it("recovers after process-reloading the leader", async () => {
+    const pair = await setupSharedUnlockPair({
+      leader: { initialStates: USER_A_UNLOCKED_STATE },
+      follower: { initialStates: USER_A_UNLOCKED_STATE },
+    });
+    await sleep(20);
+    expect(pair.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
+    expect(pair.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
+
+    const reloaded = await reloadLeader(pair, {
+      leader: { initialStates: USER_A_LOCKED_STATE },
+    });
+
+    await reloaded.follower.handle_device_event(UNLOCK_EVENT);
+    await sleep(20);
+    await reloaded.follower.handle_device_event(UNLOCK_EVENT);
+
+    expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
+    expect(reloaded.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
   });
 });

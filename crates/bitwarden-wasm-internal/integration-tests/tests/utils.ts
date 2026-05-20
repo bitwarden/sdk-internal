@@ -170,6 +170,18 @@ export async function makeInitializedPasswordmanagerClient(
 }
 
 /**
+ * Hook surface for re-pointing where each side of `makeMockTransportPair`
+ * delivers its outgoing messages. Used by `reloadFollower` to attach a fresh
+ * follower-side backend to an existing leader.
+ */
+export interface MockTransportRouter {
+  setFirstReceiver(receive: (m: IncomingMessage) => void): void;
+  setSecondReceiver(receive: (m: IncomingMessage) => void): void;
+  firstSource: Source;
+  secondSource: Source;
+}
+
+/**
  * Creates two paired in-memory `IpcCommunicationBackend`s for tests. Anything one
  * peer sends is delivered to the other peer's incoming queue, with the
  * sender's `Source` identity. Mirrors `TestTwoWayCommunicationBackend` from the
@@ -178,39 +190,42 @@ export async function makeInitializedPasswordmanagerClient(
 export function makeMockTransportPair(
   firstSource: Source = "DesktopMain",
   secondSource: Source = "DesktopRenderer",
-): [IpcCommunicationBackend, IpcCommunicationBackend] {
-  // We need each sender to reference the *other* peer's backend, but the
-  // backends don't exist until after their senders are constructed. The
-  // forwarder closures capture mutable slots that we fill in below.
-  let deliverToSecond: ((m: OutgoingMessage) => Promise<void>) | null = null;
-  let deliverToFirst: ((m: OutgoingMessage) => Promise<void>) | null = null;
+): [IpcCommunicationBackend, IpcCommunicationBackend, MockTransportRouter] {
+  let receiveOnFirst: (m: IncomingMessage) => void;
+  let receiveOnSecond: (m: IncomingMessage) => void;
 
   const firstSender: IpcCommunicationBackendSender = {
-    send: async (message: OutgoingMessage) => {
-      await deliverToSecond!(message);
+    send: async (outgoing: OutgoingMessage) => {
+      receiveOnSecond(
+        new IncomingMessage(outgoing.payload, outgoing.destination, firstSource, outgoing.topic),
+      );
     },
   };
   const secondSender: IpcCommunicationBackendSender = {
-    send: async (message: OutgoingMessage) => {
-      await deliverToFirst!(message);
+    send: async (outgoing: OutgoingMessage) => {
+      receiveOnFirst(
+        new IncomingMessage(outgoing.payload, outgoing.destination, secondSource, outgoing.topic),
+      );
     },
   };
 
   const first = new IpcCommunicationBackend(firstSender);
   const second = new IpcCommunicationBackend(secondSender);
+  receiveOnFirst = (m) => first.receive(m);
+  receiveOnSecond = (m) => second.receive(m);
 
-  deliverToSecond = async (outgoing) => {
-    second.receive(
-      new IncomingMessage(outgoing.payload, outgoing.destination, firstSource, outgoing.topic),
-    );
-  };
-  deliverToFirst = async (outgoing) => {
-    first.receive(
-      new IncomingMessage(outgoing.payload, outgoing.destination, secondSource, outgoing.topic),
-    );
+  const router: MockTransportRouter = {
+    setFirstReceiver: (fn) => {
+      receiveOnFirst = fn;
+    },
+    setSecondReceiver: (fn) => {
+      receiveOnSecond = fn;
+    },
+    firstSource,
+    secondSource,
   };
 
-  return [first, second];
+  return [first, second, router];
 }
 
 export function testSymmetricKey(fill: number = 0x42): SymmetricKey {
@@ -318,6 +333,15 @@ export interface SharedUnlockPair {
   follower: SharedUnlockFollower;
   leaderDriver: MockSharedUnlockDriverHandle;
   followerDriver: MockSharedUnlockDriverHandle;
+  leaderAbort: AbortController;
+  followerAbort: AbortController;
+  _internal: {
+    router: MockTransportRouter;
+    leaderBackend: IpcCommunicationBackend;
+    followerBackend: IpcCommunicationBackend;
+    followerSource: Source;
+    leaderSource: Source;
+  };
 }
 
 export async function setupSharedUnlockPair(
@@ -330,7 +354,12 @@ export async function setupSharedUnlockPair(
 
   // First peer = follower (sends to DesktopRenderer = leader's endpoint).
   // Second peer = leader (replies to DesktopMain = follower's source).
-  const [followerBackend, leaderBackend] = makeMockTransportPair("DesktopMain", "DesktopRenderer");
+  const followerSource: Source = "DesktopMain";
+  const leaderSource: Source = "DesktopRenderer";
+  const [followerBackend, leaderBackend, router] = makeMockTransportPair(
+    followerSource,
+    leaderSource,
+  );
 
   const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
   const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend);
@@ -346,13 +375,128 @@ export async function setupSharedUnlockPair(
 
   // Start the leader first so it has subscribed before the follower sends
   // its initial `StartSession` messages.
-  await leader.start();
-  await follower.start();
+  const leaderAbort = new AbortController();
+  const followerAbort = new AbortController();
+  await leader.start(leaderAbort);
+  await follower.start(followerAbort);
 
   return {
     leader,
     follower,
     leaderDriver,
     followerDriver,
+    leaderAbort,
+    followerAbort,
+    _internal: {
+      router,
+      leaderBackend,
+      followerBackend,
+      followerSource,
+      leaderSource,
+    },
+  };
+}
+
+/**
+ * Simulates a follower process reload: the old follower's background loops
+ * are aborted, then a brand-new `IpcCommunicationBackend`, `IpcClient`,
+ * driver, and `SharedUnlockFollower` are attached to the same leader. The
+ * new follower stamps the same `Source` on outgoing messages so the leader's
+ * session tracking treats it as the same endpoint coming back online.
+ */
+export async function reloadFollower(
+  pair: SharedUnlockPair,
+  options: { follower: MockSharedUnlockDriverOptions },
+): Promise<SharedUnlockPair> {
+  pair.followerAbort.abort();
+
+  const { router, leaderBackend, followerSource } = pair._internal;
+
+  const newFollowerSender: IpcCommunicationBackendSender = {
+    send: async (outgoing: OutgoingMessage) => {
+      leaderBackend.receive(
+        new IncomingMessage(
+          outgoing.payload,
+          outgoing.destination,
+          followerSource,
+          outgoing.topic,
+        ),
+      );
+    },
+  };
+  const newFollowerBackend = new IpcCommunicationBackend(newFollowerSender);
+
+  router.setFirstReceiver((m) => newFollowerBackend.receive(m));
+
+  const newFollowerIpc = IpcClient.newWithSdkInMemorySessions(newFollowerBackend);
+  await newFollowerIpc.start();
+
+  const newFollowerDriver = makeMockSharedUnlockDriver(options.follower);
+  const newFollower = SharedUnlockFollower.try_new(newFollowerIpc, newFollowerDriver.driver);
+
+  const newFollowerAbort = new AbortController();
+  await newFollower.start(newFollowerAbort);
+
+  return {
+    ...pair,
+    follower: newFollower,
+    followerDriver: newFollowerDriver,
+    followerAbort: newFollowerAbort,
+  };
+}
+
+/**
+ * Simulates a leader process reload: the old leader's background loops are
+ * aborted, then a brand-new `IpcCommunicationBackend`, `IpcClient`, driver,
+ * and `SharedUnlockLeader` are attached to the same follower. The new leader
+ * stamps the same `Source` on outgoing messages so the follower's session
+ * tracking treats it as the same endpoint coming back online.
+ *
+ * The new leader does not proactively contact the follower — the follower
+ * must send something (a device event or, eventually, a heartbeat) for the
+ * new leader to learn about the session.
+ */
+export async function reloadLeader(
+  pair: SharedUnlockPair,
+  options: { leader: MockSharedUnlockDriverOptions },
+): Promise<SharedUnlockPair> {
+  pair.leaderAbort.abort();
+
+  const { router, followerBackend, leaderSource } = pair._internal;
+
+  const newLeaderSender: IpcCommunicationBackendSender = {
+    send: async (outgoing: OutgoingMessage) => {
+      followerBackend.receive(
+        new IncomingMessage(
+          outgoing.payload,
+          outgoing.destination,
+          leaderSource,
+          outgoing.topic,
+        ),
+      );
+    },
+  };
+  const newLeaderBackend = new IpcCommunicationBackend(newLeaderSender);
+
+  router.setSecondReceiver((m) => newLeaderBackend.receive(m));
+
+  const newLeaderIpc = IpcClient.newWithSdkInMemorySessions(newLeaderBackend);
+  await newLeaderIpc.start();
+
+  const newLeaderDriver = makeMockSharedUnlockDriver(options.leader);
+  const newLeader = SharedUnlockLeader.try_new(newLeaderIpc, newLeaderDriver.driver);
+
+  const newLeaderAbort = new AbortController();
+  await newLeader.start(newLeaderAbort);
+
+  return {
+    ...pair,
+    leader: newLeader,
+    leaderDriver: newLeaderDriver,
+    leaderAbort: newLeaderAbort,
+    _internal: {
+      ...pair._internal,
+      leaderBackend: newLeaderBackend,
+    },
   };
 }
