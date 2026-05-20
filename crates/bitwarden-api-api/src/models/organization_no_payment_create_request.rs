@@ -144,6 +144,12 @@ pub struct OrganizationNoPaymentCreateRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub initiation_path: Option<String>,
+    #[serde(
+        rename = "trialLength",
+        alias = "TrialLength",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trial_length: Option<i32>,
 }
 
 impl OrganizationNoPaymentCreateRequest {
@@ -180,6 +186,7 @@ impl OrganizationNoPaymentCreateRequest {
             use_secrets_manager,
             is_from_secrets_manager_trial: None,
             initiation_path: None,
+            trial_length: None,
         }
     }
 }
