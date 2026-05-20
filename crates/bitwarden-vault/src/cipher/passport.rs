@@ -131,10 +131,20 @@ impl CipherKind for Passport {
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
-        [self
-            .passport_number
-            .as_ref()
-            .map(|_| CopyableCipherFields::PassportPassportNumber)]
+        [
+            self.given_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportGivenName),
+            self.surname
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportSurname),
+            self.passport_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportPassportNumber),
+            self.national_identification_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportNationalIdentificationNumber),
+        ]
         .into_iter()
         .flatten()
         .collect()
@@ -307,7 +317,12 @@ mod tests {
         let copyable_fields = passport.get_copyable_fields(None);
         assert_eq!(
             copyable_fields,
-            vec![CopyableCipherFields::PassportPassportNumber,]
+            vec![
+                CopyableCipherFields::PassportGivenName,
+                CopyableCipherFields::PassportSurname,
+                CopyableCipherFields::PassportPassportNumber,
+                CopyableCipherFields::PassportNationalIdentificationNumber,
+            ]
         );
     }
 }

@@ -494,11 +494,20 @@ pub enum CopyableCipherFields {
     IdentityAddress,
     SshKey,
     SecureNotes,
+    BankAccountNameOnAccount,
     BankAccountAccountNumber,
     BankAccountRoutingNumber,
+    BankAccountBranchNumber,
     BankAccountPin,
     BankAccountIban,
+    BankAccountSwift,
+    PassportGivenName,
+    PassportSurname,
     PassportPassportNumber,
+    PassportNationalIdentificationNumber,
+    DriversLicenseFirstName,
+    DriversLicenseMiddleName,
+    DriversLicenseLastName,
     DriversLicenseLicenseNumber,
 }
 
@@ -2944,7 +2953,11 @@ mod tests {
         assert_eq!(list_view.subtitle, "Jane Doe");
         assert_eq!(
             list_view.copyable_fields,
-            vec![CopyableCipherFields::PassportPassportNumber]
+            vec![
+                CopyableCipherFields::PassportGivenName,
+                CopyableCipherFields::PassportSurname,
+                CopyableCipherFields::PassportPassportNumber,
+            ]
         );
     }
 
@@ -2972,7 +2985,11 @@ mod tests {
         assert_eq!(list_view.subtitle, "John Doe");
         assert_eq!(
             list_view.copyable_fields,
-            vec![CopyableCipherFields::DriversLicenseLicenseNumber]
+            vec![
+                CopyableCipherFields::DriversLicenseFirstName,
+                CopyableCipherFields::DriversLicenseLastName,
+                CopyableCipherFields::DriversLicenseLicenseNumber,
+            ]
         );
     }
 
