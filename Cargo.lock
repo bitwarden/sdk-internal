@@ -1103,11 +1103,14 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-core",
+ "bitwarden-state",
+ "chrono",
  "reqwest",
  "reqwest-middleware",
  "serde",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

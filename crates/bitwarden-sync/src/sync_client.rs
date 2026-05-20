@@ -5,11 +5,15 @@ use bitwarden_core::{
     Client,
     client::{ApiConfigurations, FromClientPart},
 };
+use bitwarden_state::Setting;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::{SyncErrorHandler, SyncHandler, SyncHandlerError, registry::HandlerRegistry};
+use crate::{
+    SyncErrorHandler, SyncHandler, SyncHandlerError, registry::HandlerRegistry, state::LAST_SYNC,
+};
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
@@ -38,6 +42,7 @@ pub struct SyncClient {
     sync_handlers: HandlerRegistry<dyn SyncHandler>,
     error_handlers: HandlerRegistry<dyn SyncErrorHandler>,
     sync_lock: Mutex<()>,
+    last_sync: Option<Setting<DateTime<Utc>>>,
 }
 
 impl SyncClient {
@@ -48,6 +53,18 @@ impl SyncClient {
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: Mutex::new(()),
+            last_sync: client.platform().state().setting(LAST_SYNC).ok(),
+        }
+    }
+
+    /// Get the timestamp of the last successful sync, if any.
+    pub async fn last_sync(&self) -> Option<DateTime<Utc>> {
+        match self.last_sync.as_ref()?.get().await {
+            Ok(value) => value,
+            Err(e) => {
+                tracing::warn!("Failed to read last sync timestamp: {e}");
+                None
+            }
         }
     }
 
@@ -214,6 +231,7 @@ mod tests {
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: tokio::sync::Mutex::new(()),
+            last_sync: None,
         }
     }
 
