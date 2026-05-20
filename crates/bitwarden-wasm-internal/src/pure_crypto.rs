@@ -93,9 +93,9 @@ impl PureCrypto {
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::symmetric_encrypt_filedata").entered();
         let key = &BitwardenLegacyKeyBytes::from(key);
-        Ok(OctetStreamBytes::from(plain)
+        OctetStreamBytes::from(plain)
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
-            .to_buffer())
+            .to_buffer()
     }
 
     pub fn decrypt_user_key_with_master_password(

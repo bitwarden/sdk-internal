@@ -104,7 +104,13 @@ pub struct InviteKeyEnvelope(EncString);
 
 impl From<&InviteKeyEnvelope> for String {
     fn from(key_data: &InviteKeyEnvelope) -> Self {
-        B64::from(key_data.0.to_buffer()).to_string()
+        B64::from(
+            key_data
+                .0
+                .to_buffer()
+                .expect("`to_buffer` never fails for `EncString`"),
+        )
+        .to_string()
     }
 }
 

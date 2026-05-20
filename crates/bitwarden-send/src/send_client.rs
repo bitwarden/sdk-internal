@@ -134,7 +134,7 @@ impl SendClient {
         let key = Send::get_key(&mut ctx, &send.key, send.key_identifier())?;
 
         let encrypted = OctetStreamBytes::from(buffer).encrypt(&mut ctx, key)?;
-        Ok(encrypted.to_buffer())
+        Ok(encrypted.to_buffer()?)
     }
 }
 
