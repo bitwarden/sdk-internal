@@ -1590,7 +1590,7 @@ impl PartialCipher for CipherMiniResponseModel {
             favorite: cipher.map_or(Default::default(), |c| c.favorite),
             edit: cipher.map_or(Default::default(), |c| c.edit),
             permissions: cipher.map_or(Default::default(), |c| c.permissions),
-            view_password: cipher.map_or(Default::default(), |c| c.view_password),
+            view_password: cipher.map_or(true, |c| c.view_password),
             local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
             data: cipher.map_or(Default::default(), |c| c.data.clone()),
             collection_ids: cipher.map_or(Default::default(), |c| c.collection_ids.clone()),
@@ -1656,7 +1656,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             favorite: cipher.map_or(Default::default(), |c| c.favorite),
             edit: cipher.map_or(Default::default(), |c| c.edit),
             permissions: cipher.map_or(Default::default(), |c| c.permissions),
-            view_password: cipher.map_or(Default::default(), |c| c.view_password),
+            view_password: cipher.map_or(true, |c| c.view_password),
             data: cipher.map_or(Default::default(), |c| c.data.clone()),
             local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
         })
@@ -3061,5 +3061,43 @@ mod tests {
         assert_eq!(decrypted.r#type, CipherType::DriversLicense);
         assert_eq!(decrypted.drivers_license, Some(dl));
         assert!(decrypted.login.is_none());
+    }
+
+    #[test]
+    fn test_mini_response_model_view_password_defaults_to_true() {
+        use chrono::Utc;
+
+        // CipherMiniResponseModel does not include view_password from the API,
+        // so when merge_with_cipher is called with None, it should default to true
+        let mini_response = CipherMiniResponseModel {
+            id: Some(TEST_UUID.parse().unwrap()),
+            name: Some(TEST_CIPHER_NAME.to_string()),
+            r#type: Some(bitwarden_api_api::models::CipherType::Login),
+            creation_date: Some(Utc::now().to_rfc3339()),
+            revision_date: Some(Utc::now().to_rfc3339()),
+            ..Default::default()
+        };
+
+        let cipher = mini_response.merge_with_cipher(None).unwrap();
+        assert!(
+            cipher.view_password,
+            "view_password should default to true for CipherMiniResponseModel"
+        );
+
+        // CipherMiniDetailsResponseModel should also default to true
+        let mini_details_response = CipherMiniDetailsResponseModel {
+            id: Some(TEST_UUID.parse().unwrap()),
+            name: Some(TEST_CIPHER_NAME.to_string()),
+            r#type: Some(bitwarden_api_api::models::CipherType::Login),
+            creation_date: Some(Utc::now().to_rfc3339()),
+            revision_date: Some(Utc::now().to_rfc3339()),
+            ..Default::default()
+        };
+
+        let cipher = mini_details_response.merge_with_cipher(None).unwrap();
+        assert!(
+            cipher.view_password,
+            "view_password should default to true for CipherMiniDetailsResponseModel"
+        );
     }
 }
