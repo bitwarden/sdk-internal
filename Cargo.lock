@@ -1168,6 +1168,7 @@ dependencies = [
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-uniffi-error",
+ "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "chrono",
  "jni",
