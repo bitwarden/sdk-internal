@@ -14,9 +14,6 @@ pub enum InviteKeyBundleError {
     /// Decoding the encrypted InviteKeyEnvelope failed
     #[error("Decoding failed")]
     DecodingFailed,
-    /// Encoding the encrypted InviteKeyEnvelope failed
-    #[error("Encoding failed")]
-    EncodingFailed,
     /// The key wrapping failed while using the provided organization key
     #[error("Unable to seal invite key with org key")]
     KeySealingFailed,
@@ -141,7 +138,7 @@ impl Serialize for InviteKeyEnvelope {
 }
 
 impl InviteKeyEnvelope {
-    /// Given a correct organization key, unseals the `IniteKeyEnvelope`,
+    /// Given a correct organization key, unseals the `InviteKeyEnvelope`,
     /// returning the `InviteKeyData` sealed inside.
     pub fn unseal<Ids: KeySlotIds>(
         &self,
@@ -199,10 +196,10 @@ impl InviteKeyBundle {
     /// Get the raw invite key bytes using `InviteKeyData`
     /// CRITICAL: this data MUST NOT be sent to the server
     ///
-    /// This can be base64 encoded for URL use only:
+    /// This can be base64url encoded for URL use only:
     /// ```ignore
-    /// let key: &InviteKeyData = bundle.dangerous_get_invite_key();
-    /// let key_bytes: B64Url = B64Url::from(key);
+    /// let key: &InviteKeyData = bundle.dangerous_get_raw_invite_key();
+    /// let key_bytes: String = String::from(key);
     /// ```
     pub fn dangerous_get_raw_invite_key(&self) -> &InviteKeyData {
         &self.raw_key_data
@@ -322,7 +319,6 @@ mod tests {
         let data = b"+/=Hello, World!AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         let key =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(data.to_vec())).unwrap();
-        // let expected_raw_key_data = key.to_encoded().to_vec();
 
         let encoded = String::from(&InviteKeyData(key));
 

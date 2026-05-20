@@ -1,5 +1,5 @@
 //! The wasm module holds serialization/encoding needed wasm bindings for
-//! any types related ! to InviteKeyEnvelope. This means base64url for the
+//! any types related to InviteKeyEnvelope. This means base64url for the
 //! InviteKeyData type, and  base64 for the InviteKey type. In order to minimize
 //! complexity, the actual  B64/B64Url encoding/decoding are limited to the
 //! `From<String>` and `FromStr`  implementations. All other serialization
