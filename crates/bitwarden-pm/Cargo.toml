@@ -15,6 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
+cli = ["bitwarden-locking/cli"]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
     "bitwarden-core/uniffi",

@@ -1,10 +1,9 @@
 //! Client for locking and unlocking a rehydrated Bitwarden SDK client.
 
-use bitwarden_core::{
-    Client,
-    client::persisted_state::{
-        ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
-    },
+use bitwarden_core::Client;
+#[cfg(feature = "cli")]
+use bitwarden_core::client::persisted_state::{
+    ACCOUNT_CRYPTO_STATE, OrganizationSharedKey, SESSION_PROTECTED_USER_KEY,
 };
 
 use crate::SessionKey;
@@ -35,6 +34,7 @@ pub enum LockingError {
 /// Client for minting session keys and unlocking the vault with one.
 #[derive(Clone)]
 pub struct LockingClient {
+    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
     pub(crate) client: Client,
 }
 
@@ -49,6 +49,7 @@ impl LockingClient {
     /// key store). The returned [`SessionKey`] should be stored outside the SDK
     /// by the caller and provided back to [`LockingClient::unlock`] on the next
     /// rehydrated client.
+    #[cfg(feature = "cli")]
     pub async fn generate_session_key(&self) -> Result<SessionKey, LockingError> {
         use bitwarden_core::key_management::SymmetricKeySlotId;
 
@@ -84,6 +85,7 @@ impl LockingClient {
     /// Reads [`SESSION_PROTECTED_USER_KEY`] and [`ACCOUNT_CRYPTO_STATE`] from
     /// the state registry, unwraps the user key, initializes the user's crypto
     /// state, and restores any persisted organization keys.
+    #[cfg(feature = "cli")]
     pub async fn unlock(&self, unlock: UnlockMethod) -> Result<(), LockingError> {
         let UnlockMethod::SessionKey(session_key) = unlock;
 
@@ -179,6 +181,7 @@ impl LockingClient {
     /// `lock()` on long-lived clients (mobile, desktop), which clears keys from memory: the
     /// CLI process exits between invocations, so locking must delete the persisted session
     /// key rather than mutate in-memory state.
+    #[cfg(feature = "cli")]
     pub async fn invalidate_session_key(&self) -> Result<(), bitwarden_state::SettingsError> {
         self.client
             .platform()
@@ -201,8 +204,12 @@ impl LockingClientExt for Client {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "cli"))]
 mod tests {
+    // Clippy's automatic test-code exemption for `unwrap_used` keys off a bare
+    // `#[cfg(test)]` and doesn't trigger when extra cfg predicates are present.
+    #![allow(clippy::unwrap_used)]
+
     use std::sync::{Arc, Once};
 
     use bitwarden_core::{

@@ -15,6 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
+cli = [] # CLI support
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
