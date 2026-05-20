@@ -1590,7 +1590,7 @@ impl PartialCipher for CipherMiniResponseModel {
             favorite: cipher.map_or(Default::default(), |c| c.favorite),
             edit: cipher.map_or(Default::default(), |c| c.edit),
             permissions: cipher.map_or(Default::default(), |c| c.permissions),
-            view_password: cipher.map_or(true, |c| c.view_password),
+            view_password: cipher.is_none_or(|c| c.view_password),
             local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
             data: cipher.map_or(Default::default(), |c| c.data.clone()),
             collection_ids: cipher.map_or(Default::default(), |c| c.collection_ids.clone()),
@@ -1656,7 +1656,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             favorite: cipher.map_or(Default::default(), |c| c.favorite),
             edit: cipher.map_or(Default::default(), |c| c.edit),
             permissions: cipher.map_or(Default::default(), |c| c.permissions),
-            view_password: cipher.map_or(true, |c| c.view_password),
+            view_password: cipher.is_none_or(|c: &Cipher| c.view_password),
             data: cipher.map_or(Default::default(), |c| c.data.clone()),
             local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
         })
