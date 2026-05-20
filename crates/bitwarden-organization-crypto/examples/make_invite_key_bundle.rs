@@ -1,44 +1,50 @@
 //! This example demonstrates how to make a new invite key bundle
-//! wrapped with the organization key using the [`InviteKeyBundle`]
+//! sealed with the organization key using the [`InviteKeyBundle`]
 
 use bitwarden_crypto::{KeyStore, KeyStoreContext, key_slot_ids};
-use bitwarden_encoding::B64Url;
-use bitwarden_organization_crypto::InviteKeyBundle;
+use bitwarden_organization_crypto::{InviteKeyBundle, InviteKeyData, InviteKeyEnvelope};
 
 fn main() {
     let key_store = KeyStore::<ExampleIds>::default();
     let mut ctx: KeyStoreContext<'_, ExampleIds> = key_store.context_mut();
     let org_id = uuid::Uuid::default();
 
-    // for the sdk, this is automatically done during initialization by
+    // For the sdk, this is automatically done during initialization by
     // `init_org`.
     let organization_key = ctx.generate_symmetric_key();
     ctx.persist_symmetric_key(organization_key, ExampleSymmetricKey::Organization(org_id))
         .expect("switching key ids should work");
 
+    // 1. Create an `InviteKeyBundle`, each bundle consists of two parts.
     let bundle = InviteKeyBundle::make(ExampleSymmetricKey::Organization(org_id), &mut ctx)
         .expect("generating an invitation key bundle should work");
 
-    let key = bundle.raw_invite_key();
-    let key_bytes = B64Url::from(key);
-    let organization_wrapped_invitation_key = bundle.organization_wrapped_invite_key();
+    // 2. The first part is an `InviteKeyData`. This represents the raw Invite
+    // Key bytes. `InviteKeyData` automatically serializes to `B64Url` when used
+    // in WASM bindings. Or use `String::from(&invite_key_data)` to manually
+    // generate a base64Url-encoded string.
+    //
+    // This method is named dangerous because it is critical this object is not
+    // shared with the server.
+    let key: &InviteKeyData = bundle.dangerous_get_raw_invite_key();
 
-    let unwrapped_key_id = ctx
-        .unwrap_symmetric_key(organization_key, organization_wrapped_invitation_key)
-        .expect("unwrapping should work");
+    // 3. The second part is `InviteKeyEnvelope`. This is the invite
+    // key sealed (a.k.a. sealed) by the org key. `InviteKeyEnvelope`
+    // automatically serializes to `base64` when using serde,
+    // `String::from(&inviteKeyEnvelope)`, or wasm abi serialization.
+    let organization_wrapped_invitation_key: &InviteKeyEnvelope =
+        bundle.get_sealed_invite_key_envelope();
 
-    #[allow(
-        deprecated,
-        reason = "DO NOT REPLICATE, this is done for testing purposes only"
-    )]
-    let decrypted_bytes = B64Url::from(
-        ctx.dangerous_get_symmetric_key(unwrapped_key_id)
-            .expect("getting key bytes from keystore should work")
-            .to_encoded()
-            .as_ref(),
-    );
+    // 4. Given a sealed `InviteKeyEnvelope` and an organization key, it may
+    // be necessary to unseal and access the inner InviteKey, e.g. to implement
+    // `reconstructUrl`. The `InviteKeyEnvelope` provides an easy interface for
+    // transforming `InviteKeyEnvelope` => `InviteKeyData`
+    let unsealed_key = organization_wrapped_invitation_key
+        .unseal(organization_key, &mut ctx)
+        .expect("unsealing should work");
 
-    assert_eq!(key_bytes, decrypted_bytes)
+    assert_eq!(key, &unsealed_key);
+    assert_eq!(String::from(key), String::from(&unsealed_key));
 }
 
 key_slot_ids! {

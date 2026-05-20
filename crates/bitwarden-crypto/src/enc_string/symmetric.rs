@@ -203,7 +203,7 @@ impl EncString {
     }
 
     #[allow(missing_docs)]
-    pub fn to_buffer(&self) -> Result<Vec<u8>> {
+    pub fn to_buffer(&self) -> Vec<u8> {
         let mut buf;
 
         match self {
@@ -227,7 +227,7 @@ impl EncString {
             }
         }
 
-        Ok(buf)
+        buf
     }
 }
 
@@ -625,7 +625,7 @@ mod tests {
         let enc_str: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();
 
-        let enc_buf = enc_string.to_buffer().unwrap();
+        let enc_buf = enc_string.to_buffer();
 
         assert_eq!(
             enc_buf,

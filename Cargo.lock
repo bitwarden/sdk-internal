@@ -899,8 +899,12 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "serde",
+ "subtle",
  "thiserror 1.0.69",
+ "tsify",
  "uuid",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1311,6 +1315,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-logging",
+ "bitwarden-organization-crypto",
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-server-communication-config",

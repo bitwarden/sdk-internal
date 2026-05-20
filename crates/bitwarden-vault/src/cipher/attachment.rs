@@ -146,7 +146,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, AttachmentEncryptResul
             OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
         attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
 
-        let contents = encrypted_contents.to_buffer()?;
+        let contents = encrypted_contents.to_buffer();
 
         // Once we have the encrypted contents, we can set the size of the attachment
         attachment.size = Some(contents.len().to_string());

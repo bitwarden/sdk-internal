@@ -12,6 +12,11 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[package.metadata.cargo-udeps.ignore]
+normal = [
+    "bitwarden-organization-crypto",
+] # Only used to enable wasm-bindgen, not imported directly
+
 [lib]
 crate-type = ["cdylib"]
 
@@ -35,6 +40,10 @@ bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-logging = { workspace = true, features = ["wasm"] }
+# This dependency is not used directly, but we need to include it in order to
+# ensure wasm-bindgen is generated for the `bitwarden-organization-crypto` crate
+# See [package.metadata.cargo-udeps.ignore] above for more.
+bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }

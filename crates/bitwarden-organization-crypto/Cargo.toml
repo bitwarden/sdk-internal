@@ -14,10 +14,23 @@ license-file.workspace = true
 readme.workspace = true
 keywords.workspace = true
 
+[features]
+default = []
+wasm = [
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "bitwarden-crypto/wasm",
+    "bitwarden-encoding/wasm",
+] # WASM support
+
 [dependencies]
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
+serde = { workspace = true }
+subtle = { workspace = true }
 thiserror = { workspace = true }
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 uuid = { workspace = true }
