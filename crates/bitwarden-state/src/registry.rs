@@ -94,13 +94,8 @@ impl StateRegistry {
     /// This method first attempts to retrieve a client-managed repository. If not found,
     /// it falls back to an SDK-managed repository. Both are returned as `Arc<dyn Repository<T>>`.
     ///
-    /// # Type Requirements
-    /// - `T` must implement `RepositoryItem` (for both types)
-    ///
     /// # Errors
-    /// Returns `StateRegistryError` when:
-    /// - Client-managed repository is not registered, AND
-    /// - SDK-managed repository cannot be retrieved (e.g., database not initialized)
+    /// This method never fails, but returns a Result for backwards compatibility.
     pub fn get<T>(&self) -> Result<Arc<dyn Repository<T>>, StateRegistryError>
     where
         T: RepositoryItem,
