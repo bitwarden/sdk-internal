@@ -253,10 +253,13 @@ impl CiphersClient {
                 .await?
                 .merge_with_cipher(orig_cipher)?
         } else {
-            let response: Cipher = api
-                .put_collections(cipher_id.into(), Some(req))
+            let cipher_response = api
+                .put_collections_v_next(cipher_id.into(), Some(req))
                 .await?
-                .merge_with_cipher(orig_cipher)?;
+                .cipher
+                .map(|c| *c)
+                .ok_or(MissingFieldError("cipher"))?;
+            let response: Cipher = cipher_response.merge_with_cipher(orig_cipher)?;
             repository.set(cipher_id, response.clone()).await?;
             response
         };

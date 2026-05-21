@@ -116,6 +116,7 @@ src/models/bulk_create_security_tasks_request_model.rs
 src/models/bulk_delete_response_model.rs
 src/models/bulk_delete_response_model_list_response_model.rs
 src/models/bulk_deny_admin_auth_request_request_model.rs
+src/models/change_kdf_request_model.rs
 src/models/change_plan_frequency_request.rs
 src/models/checkout_billing_address_request.rs
 src/models/cipher_attachment_model.rs
@@ -481,6 +482,8 @@ src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
 src/models/self_hosted_organization_license_request_model.rs
 src/models/send_access_request_model.rs
+src/models/send_access_response_model.rs
+src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs
 src/models/send_request_model.rs

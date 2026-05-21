@@ -96,7 +96,7 @@ pub trait AccountsApi: Send + Sync {
     /// POST /accounts/kdf
     async fn post_kdf<'a>(
         &self,
-        password_request_model: Option<models::PasswordRequestModel>,
+        change_kdf_request_model: Option<models::ChangeKdfRequestModel>,
     ) -> Result<(), Error>;
 
     /// POST /accounts/keys
@@ -470,7 +470,7 @@ impl AccountsApi for AccountsApiClient {
 
     async fn post_kdf<'a>(
         &self,
-        password_request_model: Option<models::PasswordRequestModel>,
+        change_kdf_request_model: Option<models::ChangeKdfRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -481,7 +481,7 @@ impl AccountsApi for AccountsApiClient {
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&password_request_model);
+        local_var_req_builder = local_var_req_builder.json(&change_kdf_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
