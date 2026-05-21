@@ -13,19 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct UpdateOrganizationReportSummaryRequest {
-    #[serde(
-        rename = "organizationId",
-        alias = "OrganizationId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub organization_id: Option<uuid::Uuid>,
-    #[serde(
-        rename = "reportId",
-        alias = "ReportId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub report_id: Option<uuid::Uuid>,
+pub struct UpdateOrganizationReportSummaryRequestModel {
     #[serde(
         rename = "summaryData",
         alias = "SummaryData",
@@ -37,14 +25,12 @@ pub struct UpdateOrganizationReportSummaryRequest {
         alias = "Metrics",
         skip_serializing_if = "Option::is_none"
     )]
-    pub metrics: Option<Box<models::OrganizationReportMetricsRequest>>,
+    pub metrics: Option<Box<models::OrganizationReportMetrics>>,
 }
 
-impl UpdateOrganizationReportSummaryRequest {
-    pub fn new() -> UpdateOrganizationReportSummaryRequest {
-        UpdateOrganizationReportSummaryRequest {
-            organization_id: None,
-            report_id: None,
+impl UpdateOrganizationReportSummaryRequestModel {
+    pub fn new() -> UpdateOrganizationReportSummaryRequestModel {
+        UpdateOrganizationReportSummaryRequestModel {
             summary_data: None,
             metrics: None,
         }

@@ -60,6 +60,15 @@ pub struct MasterPasswordUnlockData {
     pub salt: String,
 }
 
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for MasterPasswordUnlockData {
+    type Error = serde_wasm_bindgen::Error;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value)
+    }
+}
+
 impl MasterPasswordUnlockData {
     /// Unwrap the user key into the key store context using the provided password.
     pub fn unwrap_to_context<Ids: KeySlotIds>(

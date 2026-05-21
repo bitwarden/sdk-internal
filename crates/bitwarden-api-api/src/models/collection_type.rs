@@ -11,7 +11,9 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-///
+/// CollectionType : Represents the type of a Bit.Core.Entities.Collection, indicating how it was
+/// created and how it behaves. Represents the type of a Bit.Core.Entities.Collection, indicating
+/// how it was created and how it behaves.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum CollectionType {
     SharedCollection,

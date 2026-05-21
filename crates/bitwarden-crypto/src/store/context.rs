@@ -164,7 +164,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.local_private_keys.retain(f);
     }
 
-    fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
+    /// Drop a symmetric key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
         if key_id.is_local() {
             self.local_symmetric_keys.remove(key_id);
         } else {
@@ -173,7 +176,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    fn drop_private_key(&mut self, key_id: Ids::Private) -> Result<()> {
+    /// Drop a private key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_private_key(&mut self, key_id: Ids::Private) -> Result<()> {
         if key_id.is_local() {
             self.local_private_keys.remove(key_id);
         } else {
@@ -182,7 +188,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    fn drop_signing_key(&mut self, key_id: Ids::Signing) -> Result<()> {
+    /// Drop a signing key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_signing_key(&mut self, key_id: Ids::Signing) -> Result<()> {
         if key_id.is_local() {
             self.local_signing_keys.remove(key_id);
         } else {
@@ -808,6 +817,24 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             current_user_signing_key_id,
             self,
         )
+    }
+
+    /// A test helper to assert that the symmetric keys corresponding to the given identifiers are
+    /// equal.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn assert_symmetric_keys_equal(&self, key_id_1: Ids::Symmetric, key_id_2: Ids::Symmetric) {
+        let key_1 = self
+            .get_symmetric_key(key_id_1)
+            .expect("Key 1 should exist in context");
+        let key_2 = self
+            .get_symmetric_key(key_id_2)
+            .expect("Key 2 should exist in context");
+        if key_1 != key_2 {
+            panic!(
+                "Symmetric keys with ids {:?} and {:?} are not equal",
+                key_id_1, key_id_2,
+            );
+        }
     }
 }
 
