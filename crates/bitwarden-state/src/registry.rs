@@ -8,7 +8,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{
-    repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
+    repository::{Repository, RepositoryItem, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
     settings::{Key, Setting, SettingItem},
 };
