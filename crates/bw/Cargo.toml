@@ -16,7 +16,6 @@ license-file.workspace = true
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
-chrono = { workspace = true }
 bat = { version = "0.26.0", features = [
     "regex-fancy",
 ], default-features = false }
@@ -28,6 +27,7 @@ bitwarden-generators = { workspace = true }
 bitwarden-pm = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-vault = { workspace = true }
+chrono = { workspace = true }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 clap_complete = "4.5.55"
 color-eyre = "0.6.3"
