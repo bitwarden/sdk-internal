@@ -1,4 +1,5 @@
 use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
+use chrono::{DateTime, Utc};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
@@ -59,6 +60,7 @@ pub struct CipherCreateRequest {
     pub reprompt: CipherRepromptType,
     pub r#type: CipherViewType,
     pub fields: Vec<FieldView>,
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 /// Internal helper to convert a [`CipherCreateRequest`] into a [`CipherView`]
@@ -102,7 +104,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
         creation_date: now,
         deleted_date: None,
         revision_date: now,
-        archived_date: None,
+        archived_date: r.archived_date,
     }
 }
 
@@ -224,6 +226,7 @@ mod tests {
             reprompt: Default::default(),
             fields: Default::default(),
             collection_ids: vec![],
+            archived_date: None,
         }
     }
 
@@ -411,6 +414,7 @@ mod tests {
                 fido2_credentials: None,
             }),
             fields: vec![],
+            archived_date: None,
         };
 
         let response = create_cipher(
