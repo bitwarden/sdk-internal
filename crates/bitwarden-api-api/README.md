@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`c7c0ab2f1ac9ec8afdeb3eb026fde50613a38b75`](https://github.com/bitwarden/server/commit/c7c0ab2f1ac9ec8afdeb3eb026fde50613a38b75)
+  [`25e78ceba3dc13d85e61ac526cf59fc8053e7336`](https://github.com/bitwarden/server/commit/25e78ceba3dc13d85e61ac526cf59fc8053e7336)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -137,7 +137,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _CiphersApi_                              | [**put_admin**](docs/CiphersApi.md#ciphers_put_admin)                                                                                                            | **PUT** /ciphers/{id}/admin                                                                              |
 | _CiphersApi_                              | [**put_archive**](docs/CiphersApi.md#ciphers_put_archive)                                                                                                        | **PUT** /ciphers/{id}/archive                                                                            |
 | _CiphersApi_                              | [**put_archive_many**](docs/CiphersApi.md#ciphers_put_archive_many)                                                                                              | **PUT** /ciphers/archive                                                                                 |
-| _CiphersApi_                              | [**put_collections**](docs/CiphersApi.md#ciphers_put_collections)                                                                                                | **PUT** /ciphers/{id}/collections                                                                        |
 | _CiphersApi_                              | [**put_collections_admin**](docs/CiphersApi.md#ciphers_put_collections_admin)                                                                                    | **PUT** /ciphers/{id}/collections-admin                                                                  |
 | _CiphersApi_                              | [**put_collections_v_next**](docs/CiphersApi.md#ciphers_put_collections_v_next)                                                                                  | **PUT** /ciphers/{id}/collections_v2                                                                     |
 | _CiphersApi_                              | [**put_delete**](docs/CiphersApi.md#ciphers_put_delete)                                                                                                          | **PUT** /ciphers/{id}/delete                                                                             |
@@ -572,6 +571,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [BulkDeleteResponseModel](docs/BulkDeleteResponseModel.md)
 - [BulkDeleteResponseModelListResponseModel](docs/BulkDeleteResponseModelListResponseModel.md)
 - [BulkDenyAdminAuthRequestRequestModel](docs/BulkDenyAdminAuthRequestRequestModel.md)
+- [ChangeKdfRequestModel](docs/ChangeKdfRequestModel.md)
 - [ChangePlanFrequencyRequest](docs/ChangePlanFrequencyRequest.md)
 - [CheckoutBillingAddressRequest](docs/CheckoutBillingAddressRequest.md)
 - [CipherAttachmentModel](docs/CipherAttachmentModel.md)
@@ -936,6 +936,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SelectionReadOnlyResponseModel](docs/SelectionReadOnlyResponseModel.md)
 - [SelfHostedOrganizationLicenseRequestModel](docs/SelfHostedOrganizationLicenseRequestModel.md)
 - [SendAccessRequestModel](docs/SendAccessRequestModel.md)
+- [SendAccessResponseModel](docs/SendAccessResponseModel.md)
+- [SendFileDownloadDataResponseModel](docs/SendFileDownloadDataResponseModel.md)
 - [SendFileModel](docs/SendFileModel.md)
 - [SendFileUploadDataResponseModel](docs/SendFileUploadDataResponseModel.md)
 - [SendRequestModel](docs/SendRequestModel.md)

@@ -1,7 +1,7 @@
 use std::{sync::LazyLock, time::Duration};
 
+use bitwarden_threading::time::timeout;
 use serde::{Deserialize, Serialize};
-use tokio::time::timeout;
 use tracing::{error, info, warn};
 
 use crate::{

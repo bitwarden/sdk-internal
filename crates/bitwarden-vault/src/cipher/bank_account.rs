@@ -104,18 +104,27 @@ impl CipherKind for BankAccount {
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [
+            self.name_on_account
+                .as_ref()
+                .map(|_| CopyableCipherFields::BankAccountNameOnAccount),
             self.account_number
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountAccountNumber),
             self.routing_number
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountRoutingNumber),
+            self.branch_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::BankAccountBranchNumber),
             self.pin
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountPin),
             self.iban
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountIban),
+            self.swift_code
+                .as_ref()
+                .map(|_| CopyableCipherFields::BankAccountSwift),
         ]
         .into_iter()
         .flatten()
@@ -271,10 +280,13 @@ mod tests {
         assert_eq!(
             copyable_fields,
             vec![
+                CopyableCipherFields::BankAccountNameOnAccount,
                 CopyableCipherFields::BankAccountAccountNumber,
                 CopyableCipherFields::BankAccountRoutingNumber,
+                CopyableCipherFields::BankAccountBranchNumber,
                 CopyableCipherFields::BankAccountPin,
                 CopyableCipherFields::BankAccountIban,
+                CopyableCipherFields::BankAccountSwift,
             ]
         );
     }
