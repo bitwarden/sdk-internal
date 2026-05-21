@@ -1,5 +1,5 @@
 use bitwarden_exporters::ExportError;
-use bitwarden_generators::{PassphraseError, PasswordError, UsernameError};
+use bitwarden_generators::{PassphraseError, PasswordError, PasswordRulesError, UsernameError};
 
 pub type Result<T, E = BitwardenError> = std::result::Result<T, E>;
 pub type Error = BitwardenError;
@@ -49,6 +49,8 @@ pub enum BitwardenError {
     Passphrase(#[from] PassphraseError),
     #[error(transparent)]
     Password(#[from] PasswordError),
+    #[error(transparent)]
+    PasswordRules(#[from] PasswordRulesError),
 
     // Vault
     #[error(transparent)]
