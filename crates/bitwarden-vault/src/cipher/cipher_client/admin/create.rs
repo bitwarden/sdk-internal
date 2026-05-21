@@ -200,6 +200,7 @@ mod tests {
                 fido2_credentials: None,
             }),
             fields: vec![],
+            archived_date: None,
         });
 
         let response = create_cipher(
