@@ -18,8 +18,6 @@ use crate::{
 pub struct StateRegistry {
     database: SystemDatabase,
     client_managed: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
-    #[allow(dead_code, reason = "Used only during construction")]
-    sdk_managed: RwLock<Vec<RepositoryItemData>>,
 }
 
 impl std::fmt::Debug for StateRegistry {
@@ -43,9 +41,8 @@ impl StateRegistry {
     /// Creates a new `StateRegistry` backed by an in-memory database.
     pub fn new_with_memory_db() -> Self {
         StateRegistry {
-            client_managed: RwLock::new(HashMap::new()),
             database: SystemDatabase::Memory(MemoryDatabase::new()),
-            sdk_managed: RwLock::new(Vec::new()),
+            client_managed: RwLock::new(HashMap::new()),
         }
     }
 
@@ -56,9 +53,8 @@ impl StateRegistry {
     ) -> Result<Self, DatabaseError> {
         let database = SystemDatabase::initialize(configuration, migrations.clone()).await?;
         Ok(StateRegistry {
-            client_managed: RwLock::new(HashMap::new()),
             database,
-            sdk_managed: RwLock::new(migrations.into_repository_items()),
+            client_managed: RwLock::new(HashMap::new()),
         })
     }
 
