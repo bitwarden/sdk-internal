@@ -344,12 +344,10 @@ export interface SharedUnlockPair {
   };
 }
 
-export async function setupSharedUnlockPair(
-  options: {
-    leader: MockSharedUnlockDriverOptions;
-    follower: MockSharedUnlockDriverOptions;
-  }
-): Promise<SharedUnlockPair> {
+export async function setupSharedUnlockPair(options: {
+  leader: MockSharedUnlockDriverOptions;
+  follower: MockSharedUnlockDriverOptions;
+}): Promise<SharedUnlockPair> {
   init_sdk();
 
   // First peer = follower (sends to DesktopRenderer = leader's endpoint).
@@ -415,12 +413,7 @@ export async function reloadFollower(
   const newFollowerSender: IpcCommunicationBackendSender = {
     send: async (outgoing: OutgoingMessage) => {
       leaderBackend.receive(
-        new IncomingMessage(
-          outgoing.payload,
-          outgoing.destination,
-          followerSource,
-          outgoing.topic,
-        ),
+        new IncomingMessage(outgoing.payload, outgoing.destination, followerSource, outgoing.topic),
       );
     },
   };
@@ -467,12 +460,7 @@ export async function reloadLeader(
   const newLeaderSender: IpcCommunicationBackendSender = {
     send: async (outgoing: OutgoingMessage) => {
       followerBackend.receive(
-        new IncomingMessage(
-          outgoing.payload,
-          outgoing.destination,
-          leaderSource,
-          outgoing.topic,
-        ),
+        new IncomingMessage(outgoing.payload, outgoing.destination, leaderSource, outgoing.topic),
       );
     },
   };
