@@ -1,5 +1,4 @@
 use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
-use chrono::{DateTime, Utc};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
@@ -8,6 +7,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
