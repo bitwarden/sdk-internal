@@ -15,7 +15,7 @@ fn rfc3339_millis_serialize<S: Serializer>(date: &DateTime<Utc>, s: S) -> Result
 }
 
 /// Serialize an optional `DateTime<Utc>` with millisecond precision when present.
-fn serialize_opt_date_millis_rfc3339_millis<S: Serializer>(
+fn rfc3339_millis_serialize_opt<S: Serializer>(
     date: &Option<DateTime<Utc>>,
     s: S,
 ) -> Result<S::Ok, S::Error> {
@@ -113,7 +113,7 @@ struct JsonCipher {
     revision_date: DateTime<Utc>,
     #[serde(serialize_with = "rfc3339_millis_serialize")]
     creation_date: DateTime<Utc>,
-    #[serde(serialize_with = "serialize_opt_date_millis_rfc3339_millis")]
+    #[serde(serialize_with = "rfc3339_millis_serialize_opt")]
     deleted_date: Option<DateTime<Utc>>,
 }
 
