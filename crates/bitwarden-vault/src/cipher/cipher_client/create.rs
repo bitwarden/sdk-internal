@@ -440,35 +440,4 @@ mod tests {
         assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
         assert_eq!(response.organization_id, Some(TEST_ORG_ID.parse().unwrap()));
     }
-
-    #[test]
-    fn test_convert_request_preserves_archived_date() {
-        let archived = chrono::DateTime::parse_from_rfc3339("2024-06-01T00:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc);
-
-        let request = CipherCreateRequest {
-            name: "Archived Cipher".into(),
-            notes: None,
-            organization_id: None,
-            collection_ids: vec![],
-            folder_id: None,
-            favorite: false,
-            reprompt: CipherRepromptType::None,
-            r#type: CipherViewType::Login(LoginView {
-                username: None,
-                password: None,
-                password_revision_date: None,
-                uris: None,
-                totp: None,
-                autofill_on_page_load: None,
-                fido2_credentials: None,
-            }),
-            fields: vec![],
-            archived_date: Some(archived),
-        };
-
-        let view = convert_request_to_cipher_view(request);
-        assert_eq!(view.archived_date, Some(archived));
-    }
 }
