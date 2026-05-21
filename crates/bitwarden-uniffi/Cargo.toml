@@ -40,6 +40,7 @@ bitwarden-server-communication-config = { workspace = true, features = ["uniffi"
 bitwarden-ssh = { workspace = true, features = ["uniffi"] }
 bitwarden-state = { workspace = true, features = ["uniffi"] }
 bitwarden-uniffi-error = { workspace = true }
+bitwarden-user-crypto-management = { workspace = true, features = ["uniffi"] }
 bitwarden-vault = { workspace = true, features = ["uniffi"] }
 chrono = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
