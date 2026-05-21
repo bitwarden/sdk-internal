@@ -1,7 +1,7 @@
 //! Trait definitions and basic implementations for handling authentication tokens in the SDK. The
 //! complete implementations are located in the `bitwarden-auth` crate.
 
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
@@ -10,9 +10,27 @@ use bitwarden_state::registry::StateRegistry;
 use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::key_management::KeySlotIds;
 
+/// Supertrait that exposes a [`TokenHandler`] as [`&dyn Any`](std::any::Any), enabling
+/// downcast to the concrete handler type from a `&dyn TokenHandler`. Subsystems that need
+/// handler-specific operations (e.g. setting a caller-provided send access token) can do so
+/// without weakening the dispatch contract or risking corruption of the active session token.
+///
+/// Blanket-implemented for every `'static` type, so individual handler impls don't have to
+/// repeat the boilerplate.
+pub trait AsAnyTokenHandler: 'static {
+    /// Returns this handler as a [`&dyn Any`](std::any::Any) for runtime downcast.
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: 'static> AsAnyTokenHandler for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 /// Trait for handling token usage and renewal.
 #[async_trait::async_trait]
-pub trait TokenHandler: 'static + Send + Sync {
+pub trait TokenHandler: AsAnyTokenHandler + Send + Sync {
     /// Initialize middleware that handles token attachment and renewal.
     /// This middleware should look for the presence of the [bitwarden_api_base::AuthRequired]
     /// extension to decide when to attach tokens. It's then free to attach tokens as it sees fit,

@@ -1,4 +1,4 @@
-use bitwarden_api_api::models;
+use bitwarden_api_api::{apis::ApiClient, models};
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -9,37 +9,6 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
 use crate::send_client::SendClient;
-
-// ===== Raw API response types (fields may be encrypted) =====
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SendAccessApiResponse {
-    id: Option<String>,
-    #[serde(rename = "type")]
-    type_: Option<i32>,
-    name: Option<String>,
-    text: Option<models::SendTextModel>,
-    file: Option<SendAccessFileApiResponse>,
-    expiration_date: Option<String>,
-    creator_identifier: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SendAccessFileApiResponse {
-    id: Option<String>,
-    file_name: Option<String>,
-    size: Option<String>,
-    size_name: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SendFileDownloadDataApiResponse {
-    id: Option<String>,
-    url: Option<String>,
-}
 
 // ===== Public output types (returned to callers) =====
 
@@ -113,6 +82,14 @@ pub enum AccessSendError {
     /// An API or network error occurred.
     #[error(transparent)]
     Api(#[from] ApiError),
+    /// The [`Client`](bitwarden_core::Client) was not constructed with a
+    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler), so the provided
+    /// access token cannot be applied to the outgoing request.
+    #[error(
+        "Client was not constructed with a SendAccessTokenHandler; \
+         use Client::new_with_token_handler with SendAccessTokenHandler::new()"
+    )]
+    SendAccessTokenHandlerMissing,
 }
 
 /// Error returned when getting send file download data fails.
@@ -122,137 +99,77 @@ pub enum GetFileDownloadDataError {
     /// An API or network error occurred.
     #[error(transparent)]
     Api(#[from] ApiError),
+    /// The [`Client`](bitwarden_core::Client) was not constructed with a
+    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler), so the provided
+    /// access token cannot be applied to the outgoing request.
+    #[error(
+        "Client was not constructed with a SendAccessTokenHandler; \
+         use Client::new_with_token_handler with SendAccessTokenHandler::new()"
+    )]
+    SendAccessTokenHandlerMissing,
 }
 
 // ===== HTTP request functions =====
 
-/// POST /sends/access/{id} — V1 (legacy) send access, using Send-Id header.
-/// The `password` is the SHA256 hash of the user-entered password, if the send is
-/// password-protected.
 async fn access_send_v1(
-    api_config: &bitwarden_api_api::Configuration,
+    api_client: &ApiClient,
     send_id: &str,
     password: Option<String>,
 ) -> Result<SendAccessView, AccessSendError> {
-    let url = format!("{}/sends/access/{}", api_config.base_path, send_id);
-    let body = models::SendAccessRequestModel { password };
-
-    let response = api_config
-        .client
-        .post(&url)
-        .header("Send-Id", send_id)
-        .json(&body)
-        .send()
+    let resp = api_client
+        .sends_api()
+        .access(send_id, Some(models::SendAccessRequestModel { password }))
         .await
         .map_err(ApiError::from)?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let message = response.text().await.unwrap_or_default();
-        return Err(ApiError::ResponseContent { status, message }.into());
-    }
-
-    let raw: SendAccessApiResponse = response.json().await.map_err(ApiError::from)?;
-    Ok(raw.into())
+    Ok(resp.into())
 }
 
-/// POST /sends/access — V2 send access, using Authorization Bearer token.
-async fn access_send(
-    api_config: &bitwarden_api_api::Configuration,
-    access_token: &str,
-) -> Result<SendAccessView, AccessSendError> {
-    let url = format!("{}/sends/access", api_config.base_path);
-
-    let response = api_config
-        .client
-        .post(&url)
-        .header(
-            reqwest::header::AUTHORIZATION,
-            format!("Bearer {}", access_token),
-        )
-        .send()
+async fn access_send(api_client: &ApiClient) -> Result<SendAccessView, AccessSendError> {
+    let resp = api_client
+        .sends_api()
+        .access_using_auth()
         .await
         .map_err(ApiError::from)?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let message = response.text().await.unwrap_or_default();
-        return Err(ApiError::ResponseContent { status, message }.into());
-    }
-
-    let raw: SendAccessApiResponse = response.json().await.map_err(ApiError::from)?;
-    Ok(raw.into())
+    Ok(resp.into())
 }
 
-/// POST /sends/{sendId}/access/file/{fileId} — V1 (legacy) file download data, using Send-Id
-/// header.
 async fn get_file_download_data_v1(
-    api_config: &bitwarden_api_api::Configuration,
+    api_client: &ApiClient,
     send_id: &str,
     file_id: &str,
     password: Option<String>,
 ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
-    let url = format!(
-        "{}/sends/{}/access/file/{}",
-        api_config.base_path, send_id, file_id
-    );
-    let body = models::SendAccessRequestModel { password };
-
-    let response = api_config
-        .client
-        .post(&url)
-        .header("Send-Id", send_id)
-        .json(&body)
-        .send()
+    let resp = api_client
+        .sends_api()
+        .get_send_file_download_data(
+            send_id,
+            file_id,
+            Some(models::SendAccessRequestModel { password }),
+        )
         .await
         .map_err(ApiError::from)?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let message = response.text().await.unwrap_or_default();
-        return Err(ApiError::ResponseContent { status, message }.into());
-    }
-
-    let raw: SendFileDownloadDataApiResponse = response.json().await.map_err(ApiError::from)?;
-    Ok(raw.into())
+    Ok(resp.into())
 }
 
-/// POST /sends/access/file/{fileId} — V2 file download data, using Authorization Bearer token.
 async fn get_file_download_data(
-    api_config: &bitwarden_api_api::Configuration,
-    access_token: &str,
+    api_client: &ApiClient,
     file_id: &str,
 ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
-    let url = format!("{}/sends/access/file/{}", api_config.base_path, file_id);
-
-    let response = api_config
-        .client
-        .post(&url)
-        .header(
-            reqwest::header::AUTHORIZATION,
-            format!("Bearer {}", access_token),
-        )
-        .send()
+    let resp = api_client
+        .sends_api()
+        .get_send_file_download_data_using_auth(file_id)
         .await
         .map_err(ApiError::from)?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let message = response.text().await.unwrap_or_default();
-        return Err(ApiError::ResponseContent { status, message }.into());
-    }
-
-    let raw: SendFileDownloadDataApiResponse = response.json().await.map_err(ApiError::from)?;
-    Ok(raw.into())
+    Ok(resp.into())
 }
 
-// ===== Conversions from raw API responses =====
+// ===== Conversions from API response models =====
 
-impl From<SendAccessApiResponse> for SendAccessView {
-    fn from(r: SendAccessApiResponse) -> Self {
+impl From<models::SendAccessResponseModel> for SendAccessView {
+    fn from(r: models::SendAccessResponseModel) -> Self {
         SendAccessView {
             id: r.id,
-            type_: r.type_,
+            type_: r.r#type.map(|t| t.as_i64() as i32),
             name: r.name,
             text: r.text.map(|t| SendAccessTextView {
                 text: t.text,
@@ -270,8 +187,8 @@ impl From<SendAccessApiResponse> for SendAccessView {
     }
 }
 
-impl From<SendFileDownloadDataApiResponse> for SendFileDownloadData {
-    fn from(r: SendFileDownloadDataApiResponse) -> Self {
+impl From<models::SendFileDownloadDataResponseModel> for SendFileDownloadData {
+    fn from(r: models::SendFileDownloadDataResponseModel) -> Self {
         SendFileDownloadData {
             id: r.id,
             url: r.url,
@@ -292,19 +209,32 @@ impl SendClient {
         send_id: String,
         password: Option<String>,
     ) -> Result<SendAccessView, AccessSendError> {
-        let configurations = self.client.internal.get_api_configurations();
-        access_send_v1(&configurations.api_config, &send_id, password).await
+        let config = self.client.internal.get_api_configurations();
+        access_send_v1(&config.api_client, &send_id, password).await
     }
 
     /// Accesses a send using the V2 API endpoint, authenticated with a send access token.
     /// The returned [SendAccessView] contains encrypted fields that must be decrypted
     /// client-side using the key derived from the URL fragment.
+    ///
+    /// The underlying [`Client`](bitwarden_core::Client) must have been constructed with a
+    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler) via
+    /// [`Client::new_with_token_handler`](bitwarden_core::Client::new_with_token_handler);
+    /// otherwise this returns [`AccessSendError::SendAccessTokenHandlerMissing`].
     pub async fn access_send(
         &self,
         access_token: String,
     ) -> Result<SendAccessView, AccessSendError> {
-        let configurations = self.client.internal.get_api_configurations();
-        access_send(&configurations.api_config, &access_token).await
+        let handler = self
+            .client
+            .internal
+            .token_handler()
+            .as_any()
+            .downcast_ref::<crate::SendAccessTokenHandler>()
+            .ok_or(AccessSendError::SendAccessTokenHandlerMissing)?;
+        handler.set_token(access_token);
+        let config = self.client.internal.get_api_configurations();
+        access_send(&config.api_client).await
     }
 
     /// Gets file download data for a file send using the V1 (legacy) API endpoint.
@@ -316,18 +246,277 @@ impl SendClient {
         file_id: String,
         password: Option<String>,
     ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
-        let configurations = self.client.internal.get_api_configurations();
-        get_file_download_data_v1(&configurations.api_config, &send_id, &file_id, password).await
+        let config = self.client.internal.get_api_configurations();
+        get_file_download_data_v1(&config.api_client, &send_id, &file_id, password).await
     }
 
     /// Gets file download data for a file send using the V2 API endpoint, authenticated
     /// with a send access token.
+    ///
+    /// The underlying [`Client`](bitwarden_core::Client) must have been constructed with a
+    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler) via
+    /// [`Client::new_with_token_handler`](bitwarden_core::Client::new_with_token_handler);
+    /// otherwise this returns
+    /// [`GetFileDownloadDataError::SendAccessTokenHandlerMissing`].
     pub async fn get_file_download_data(
         &self,
         access_token: String,
         file_id: String,
     ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
-        let configurations = self.client.internal.get_api_configurations();
-        get_file_download_data(&configurations.api_config, &access_token, &file_id).await
+        let handler = self
+            .client
+            .internal
+            .token_handler()
+            .as_any()
+            .downcast_ref::<crate::SendAccessTokenHandler>()
+            .ok_or(GetFileDownloadDataError::SendAccessTokenHandlerMissing)?;
+        handler.set_token(access_token);
+        let config = self.client.internal.get_api_configurations();
+        get_file_download_data(&config.api_client, &file_id).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_api_api::{
+        apis::ApiClient,
+        models::{
+            SendAccessResponseModel, SendFileDownloadDataResponseModel, SendFileModel,
+            SendTextModel, SendType,
+        },
+    };
+
+    use super::*;
+
+    const SEND_ID: &str = "25afb11c-9c95-4db5-8bac-c21cb204a3f1";
+    const FILE_ID: &str = "file-id-abc";
+
+    // ===== access_send_v1 =====
+
+    #[tokio::test]
+    async fn test_access_send_v1_text() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access()
+                .returning(|id, request| {
+                    assert_eq!(id, SEND_ID);
+                    let request = request.expect("request body should be present");
+                    assert_eq!(request.password, Some("hashed-password".to_string()));
+                    Ok(SendAccessResponseModel {
+                        object: Some("send-access".to_string()),
+                        id: Some(SEND_ID.to_string()),
+                        r#type: Some(SendType::Text),
+                        auth_type: None,
+                        name: Some("encrypted-name".to_string()),
+                        file: None,
+                        text: Some(Box::new(SendTextModel {
+                            text: Some("encrypted-text".to_string()),
+                            hidden: Some(true),
+                        })),
+                        expiration_date: Some("2025-01-10T00:00:00Z".to_string()),
+                        creator_identifier: Some("user@example.com".to_string()),
+                    })
+                })
+                .once();
+        });
+
+        let result = access_send_v1(&api_client, SEND_ID, Some("hashed-password".to_string()))
+            .await
+            .unwrap();
+
+        assert_eq!(result.id, Some(SEND_ID.to_string()));
+        assert_eq!(result.type_, Some(0));
+        assert_eq!(result.name, Some("encrypted-name".to_string()));
+        let text = result.text.expect("text variant should be populated");
+        assert_eq!(text.text, Some("encrypted-text".to_string()));
+        assert!(text.hidden);
+        assert!(result.file.is_none());
+        assert_eq!(
+            result.expiration_date,
+            Some("2025-01-10T00:00:00Z".to_string())
+        );
+        assert_eq!(
+            result.creator_identifier,
+            Some("user@example.com".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_access_send_v1_http_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access()
+                .returning(|_id, _request| {
+                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                        "Simulated error",
+                    )))
+                })
+                .once();
+        });
+
+        let result = access_send_v1(&api_client, SEND_ID, None).await;
+
+        assert!(matches!(result.unwrap_err(), AccessSendError::Api(_)));
+    }
+
+    // ===== access_send =====
+
+    #[tokio::test]
+    async fn test_access_send_file() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access_using_auth()
+                .returning(|| {
+                    Ok(SendAccessResponseModel {
+                        object: Some("send-access".to_string()),
+                        id: Some(SEND_ID.to_string()),
+                        r#type: Some(SendType::File),
+                        auth_type: None,
+                        name: Some("encrypted-name".to_string()),
+                        file: Some(Box::new(SendFileModel {
+                            id: Some(FILE_ID.to_string()),
+                            file_name: Some("encrypted-file-name".to_string()),
+                            size: Some("4200".to_string()),
+                            size_name: Some("4.2 KB".to_string()),
+                        })),
+                        text: None,
+                        expiration_date: None,
+                        creator_identifier: None,
+                    })
+                })
+                .once();
+        });
+
+        let result = access_send(&api_client).await.unwrap();
+
+        assert_eq!(result.id, Some(SEND_ID.to_string()));
+        assert_eq!(result.type_, Some(1));
+        assert_eq!(result.name, Some("encrypted-name".to_string()));
+        assert!(result.text.is_none());
+        let file = result.file.expect("file variant should be populated");
+        assert_eq!(file.id, Some(FILE_ID.to_string()));
+        assert_eq!(file.file_name, Some("encrypted-file-name".to_string()));
+        assert_eq!(file.size, Some("4200".to_string()));
+        assert_eq!(file.size_name, Some("4.2 KB".to_string()));
+        assert_eq!(result.expiration_date, None);
+        assert_eq!(result.creator_identifier, None);
+    }
+
+    #[tokio::test]
+    async fn test_access_send_http_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_access_using_auth()
+                .returning(|| {
+                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                        "Simulated error",
+                    )))
+                })
+                .once();
+        });
+
+        let result = access_send(&api_client).await;
+
+        assert!(matches!(result.unwrap_err(), AccessSendError::Api(_)));
+    }
+
+    // ===== get_file_download_data_v1 =====
+
+    #[tokio::test]
+    async fn test_get_file_download_data_v1() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_get_send_file_download_data()
+                .returning(|send_id, file_id, request| {
+                    assert_eq!(send_id, SEND_ID);
+                    assert_eq!(file_id, FILE_ID);
+                    let request = request.expect("request body should be present");
+                    assert_eq!(request.password, Some("hashed-password".to_string()));
+                    Ok(SendFileDownloadDataResponseModel {
+                        object: Some("send-fileDownload".to_string()),
+                        id: Some(FILE_ID.to_string()),
+                        url: Some("https://example.com/download".to_string()),
+                    })
+                })
+                .once();
+        });
+
+        let result = get_file_download_data_v1(
+            &api_client,
+            SEND_ID,
+            FILE_ID,
+            Some("hashed-password".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.id, Some(FILE_ID.to_string()));
+        assert_eq!(result.url, Some("https://example.com/download".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_file_download_data_v1_http_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_get_send_file_download_data()
+                .returning(|_send_id, _file_id, _request| {
+                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                        "Simulated error",
+                    )))
+                })
+                .once();
+        });
+
+        let result = get_file_download_data_v1(&api_client, SEND_ID, FILE_ID, None).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            GetFileDownloadDataError::Api(_)
+        ));
+    }
+
+    // ===== get_file_download_data =====
+
+    #[tokio::test]
+    async fn test_get_file_download_data() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_get_send_file_download_data_using_auth()
+                .returning(|file_id| {
+                    assert_eq!(file_id, FILE_ID);
+                    Ok(SendFileDownloadDataResponseModel {
+                        object: Some("send-fileDownload".to_string()),
+                        id: Some(FILE_ID.to_string()),
+                        url: Some("https://example.com/download".to_string()),
+                    })
+                })
+                .once();
+        });
+
+        let result = get_file_download_data(&api_client, FILE_ID).await.unwrap();
+
+        assert_eq!(result.id, Some(FILE_ID.to_string()));
+        assert_eq!(result.url, Some("https://example.com/download".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_get_file_download_data_http_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.sends_api
+                .expect_get_send_file_download_data_using_auth()
+                .returning(|_file_id| {
+                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                        "Simulated error",
+                    )))
+                })
+                .once();
+        });
+
+        let result = get_file_download_data(&api_client, FILE_ID).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            GetFileDownloadDataError::Api(_)
+        ));
     }
 }
