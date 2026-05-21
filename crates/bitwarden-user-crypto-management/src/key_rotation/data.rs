@@ -9,8 +9,8 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStoreContext};
 use bitwarden_send::SendView;
-use bitwarden_vault::{CipherView, EncryptionContext, FolderView};
-use tracing::{debug, debug_span};
+use bitwarden_vault::{CipherView, EncryptMode, EncryptionContext, FolderView};
+use tracing::{debug, debug_span, instrument};
 use uuid::Uuid;
 
 use super::RotateUserKeysError;
@@ -142,13 +142,14 @@ fn reencrypt_ciphers(
                 Ok(cipher)
 
             // If the cipher has no cipher-key, the entire cipher is decrypted and re-encrypted
-            // and has to be re-uploaded.
+            // and has to be re-uploaded. Upgrade these to blob format on the way out so that
+            // post-rotation users land on the modern shape.
             } else {
-                debug!("Cipher has no cipher key, decrypting and re-encrypting entire cipher");
+                debug!("Cipher has no cipher key, decrypting and re-encrypting as blob");
                 let cipher_view: CipherView = cipher
                     .decrypt(ctx, current_key)
                     .map_err(|_| DataReencryptionError::Decryption)?;
-                cipher_view
+                EncryptMode::Blob(cipher_view)
                     .encrypt_composite(ctx, new_key)
                     .map_err(|_| DataReencryptionError::Encryption)
             }
