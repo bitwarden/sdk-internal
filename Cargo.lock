@@ -1430,6 +1430,7 @@ dependencies = [
  "bitwarden-sync",
  "bitwarden-test",
  "bitwarden-vault",
+ "chrono",
  "clap",
  "clap_complete",
  "color-eyre",

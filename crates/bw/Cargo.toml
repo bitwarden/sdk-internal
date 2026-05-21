@@ -16,6 +16,7 @@ license-file.workspace = true
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
+chrono = { workspace = true }
 bat = { version = "0.26.0", features = [
     "regex-fancy",
 ], default-features = false }
