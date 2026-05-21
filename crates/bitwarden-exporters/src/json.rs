@@ -10,10 +10,7 @@ use crate::{
 
 /// Serialize a `DateTime<Utc>` with millisecond precision to match the web exporter, which uses
 /// JavaScript's `Date.toISOString()` format.
-fn serialize_date_millis_rfc3339_millis<S: Serializer>(
-    date: &DateTime<Utc>,
-    s: S,
-) -> Result<S::Ok, S::Error> {
+fn rfc3339_millis_serialize<S: Serializer>(date: &DateTime<Utc>, s: S) -> Result<S::Ok, S::Error> {
     s.serialize_str(&date.to_rfc3339_opts(SecondsFormat::Millis, true))
 }
 
@@ -112,9 +109,9 @@ struct JsonCipher {
     fields: Vec<JsonField>,
     password_history: Option<Vec<JsonPasswordHistory>>,
 
-    #[serde(serialize_with = "serialize_date_millis_rfc3339_millis")]
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
     revision_date: DateTime<Utc>,
-    #[serde(serialize_with = "serialize_date_millis_rfc3339_millis")]
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
     creation_date: DateTime<Utc>,
     #[serde(serialize_with = "serialize_opt_date_millis_rfc3339_millis")]
     deleted_date: Option<DateTime<Utc>>,
@@ -164,7 +161,7 @@ struct JsonFido2Credential {
     user_display_name: Option<String>,
     // Serialized as a string for parity with the web exporter.
     discoverable: String,
-    #[serde(serialize_with = "serialize_date_millis_rfc3339_millis")]
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
     creation_date: DateTime<Utc>,
 }
 
@@ -192,7 +189,7 @@ impl From<Fido2Credential> for JsonFido2Credential {
 #[serde(rename_all = "camelCase")]
 struct JsonPasswordHistory {
     password: String,
-    #[serde(serialize_with = "serialize_date_millis_rfc3339_millis")]
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
     last_used_date: DateTime<Utc>,
 }
 
