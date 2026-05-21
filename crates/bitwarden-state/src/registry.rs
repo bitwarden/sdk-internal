@@ -1,7 +1,7 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    sync::{Arc, OnceLock, RwLock},
+    sync::{Arc, RwLock},
 };
 
 use bitwarden_error::bitwarden_error;
@@ -9,17 +9,17 @@ use thiserror::Error;
 
 use crate::{
     repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
-    sdk_managed::{Database, DatabaseConfiguration, MemoryDatabase, SystemDatabase},
+    sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
     settings::{Key, Setting, SettingItem},
 };
 
 /// A registry that contains repositories for different types of items.
 /// These repositories can be either managed by the client or by the SDK itself.
 pub struct StateRegistry {
-    sdk_managed: RwLock<Vec<RepositoryItemData>>,
+    database: SystemDatabase,
     client_managed: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
-
-    database: OnceLock<SystemDatabase>,
+    #[allow(dead_code, reason = "Used only during construction")]
+    sdk_managed: RwLock<Vec<RepositoryItemData>>,
 }
 
 impl std::fmt::Debug for StateRegistry {
@@ -32,67 +32,34 @@ impl std::fmt::Debug for StateRegistry {
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum StateRegistryError {
-    #[error("Database is already initialized")]
-    DatabaseAlreadyInitialized,
     #[error("Database is not initialized")]
     DatabaseNotInitialized,
 
     #[error(transparent)]
-    Database(#[from] crate::sdk_managed::DatabaseError),
+    Database(#[from] DatabaseError),
 }
 
 impl StateRegistry {
-    /// Creates a new empty `StateRegistry`.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    /// Creates a new `StateRegistry` backed by an in-memory database.
+    pub fn new_with_memory_db() -> Self {
         StateRegistry {
             client_managed: RwLock::new(HashMap::new()),
-            database: OnceLock::new(),
+            database: SystemDatabase::Memory(MemoryDatabase::new()),
             sdk_managed: RwLock::new(Vec::new()),
         }
     }
 
-    /// Creates a new `StateRegistry` backed by an in-memory database.
-    pub fn new_with_memory_db() -> Self {
-        let registry = Self::new();
-        // OnceLock::set returns Err only if already set.
-        // new() guarantees the OnceLock is unset. We ignore the result
-        // because there is no failure scenario here.
-        let _ = registry
-            .database
-            .set(SystemDatabase::Memory(MemoryDatabase::new()));
-        registry
-    }
-
-    // TODO: Ideally we'd do this in new, but that would mean making the client initialization
-    // async.
-    // TODO: This function needs to be provided some configuration to know where to open the
-    // database. For Sqlite:
-    // - A folder path where the files will be stored.
-    // - A user ID to create a unique database file per user?
-    //
-    // For WASM indexedDB:
-    // - A database name to use for the indexedDB (Some prefix to avoid conflicts + user ID?)
-
-    /// Initializes the database used for sdk-managed repositories.
-    pub async fn initialize_database(
-        &self,
+    /// Creates a new `StateRegistry` backed by a database.
+    pub async fn new_with_db(
         configuration: DatabaseConfiguration,
         migrations: RepositoryMigrations,
-    ) -> Result<(), StateRegistryError> {
-        if self.database.get().is_some() {
-            return Err(StateRegistryError::DatabaseAlreadyInitialized);
-        }
-        let _ = self
-            .database
-            .set(SystemDatabase::initialize(configuration, migrations.clone()).await?);
-
-        *self
-            .sdk_managed
-            .write()
-            .expect("RwLock should not be poisoned") = migrations.into_repository_items();
-
-        Ok(())
+    ) -> Result<Self, DatabaseError> {
+        let database = SystemDatabase::initialize(configuration, migrations.clone()).await?;
+        Ok(StateRegistry {
+            client_managed: RwLock::new(HashMap::new()),
+            database,
+            sdk_managed: RwLock::new(migrations.into_repository_items()),
+        })
     }
 
     /// Get a handle to a setting by its type-safe key.
@@ -123,10 +90,7 @@ impl StateRegistry {
     fn get_sdk_managed<T: RepositoryItem>(
         &self,
     ) -> Result<Arc<dyn Repository<T>>, StateRegistryError> {
-        self.database
-            .get()
-            .map(|db| db.get_repository::<T>())
-            .ok_or(StateRegistryError::DatabaseNotInitialized)
+        Ok(self.database.get_repository::<T>())
     }
 
     /// Get a repository with fallback: prefer client-managed, fall back to SDK-managed.
@@ -218,7 +182,7 @@ mod tests {
         let b = Arc::new(TestB("test".to_string()));
         let c = Arc::new(TestC(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]));
 
-        let map = StateRegistry::new();
+        let map = StateRegistry::new_with_memory_db();
 
         async fn get<T: RepositoryItem>(map: &StateRegistry) -> Option<T>
         where
@@ -253,7 +217,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fallback_client_managed_found() {
-        let registry = StateRegistry::new();
+        let registry = StateRegistry::new_with_memory_db();
         let test_repo = Arc::new(TestA(12345));
 
         registry.register_client_managed(test_repo.clone());
@@ -262,18 +226,6 @@ mod tests {
         let result = repo.get(String::new()).await.unwrap();
 
         assert_eq!(result, Some(TestItem(12345)));
-    }
-
-    #[tokio::test]
-    async fn test_fallback_neither_available() {
-        let registry = StateRegistry::new();
-        // Don't register client-managed or initialize database
-
-        let result = registry.get::<TestItem<usize>>();
-        assert!(matches!(
-            result,
-            Err(StateRegistryError::DatabaseNotInitialized)
-        ));
     }
 
     #[tokio::test]
