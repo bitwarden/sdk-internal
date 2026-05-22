@@ -291,9 +291,7 @@ where
                         continue;
                     };
 
-                    let payload = state
-                        .state
-                        .receive(&transport_frame);
+                    let payload = state.state.receive(&transport_frame);
                     let Ok(payload) = payload else {
                         info!("Failed to decrypt message from {:?}", message.source);
                         continue;
