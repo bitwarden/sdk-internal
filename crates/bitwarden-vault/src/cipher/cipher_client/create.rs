@@ -60,6 +60,7 @@ pub struct CipherCreateRequest {
     pub reprompt: CipherRepromptType,
     pub r#type: CipherViewType,
     pub fields: Vec<FieldView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub archived_date: Option<DateTime<Utc>>,
 }
 
