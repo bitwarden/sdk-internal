@@ -204,7 +204,6 @@ where
 
         if let Err(ref error) = result {
             tracing::error!(?error, "Error sending message");
-            stop_inner(&self.inner);
         }
 
         result.map_err(|e| SendError(format!("{e:?}")))
@@ -642,7 +641,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ipc_client_stops_if_crypto_returns_send_error() {
+    async fn ipc_client_keeps_running_if_crypto_returns_send_error() {
         let message = OutgoingMessage {
             payload: vec![],
             destination: Endpoint::BrowserBackground { id: HostId::Own },
@@ -661,7 +660,7 @@ mod tests {
         let is_running = client.is_running();
 
         assert!(error.to_string().contains("Crypto error"));
-        assert!(!is_running);
+        assert!(is_running);
     }
 
     #[tokio::test]

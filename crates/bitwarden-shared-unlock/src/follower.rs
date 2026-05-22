@@ -1,4 +1,4 @@
-use std::{ops::Add, sync::Arc};
+use std::{ops::Add, sync::Arc, time::Duration};
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
@@ -74,6 +74,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
         let cancellation_token_clone = cancellation_token.clone();
         let future = async move {
             loop {
+                sleep(Duration::from_millis(100)).await;
                 let result = subscription
                     .receive(Some(cancellation_token_clone.clone()))
                     .await;
@@ -115,6 +116,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
         let follower = self.clone();
         let timer_future = async move {
             loop {
+                sleep(Duration::from_millis(100)).await;
                 tokio::select! {
                     _ = cancellation_token.cancelled() => {
                         tracing::debug!("Shared unlock follower timer cancelled");

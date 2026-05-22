@@ -127,6 +127,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
         let cancellation_token_clone = cancellation_token.clone();
         let future = async move {
             loop {
+                sleep(Duration::from_millis(100)).await;
                 let result = subscription
                     .receive(Some(cancellation_token_clone.clone()))
                     .await;
@@ -167,6 +168,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
         let leader = self.clone();
         let timer_future = async move {
             loop {
+                sleep(Duration::from_millis(100)).await;
                 tokio::select! {
                     _ = cancellation_token.cancelled() => {
                         tracing::debug!("Shared unlock leader timer cancelled");
