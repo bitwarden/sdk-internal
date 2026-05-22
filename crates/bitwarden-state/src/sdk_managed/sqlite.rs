@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use serde::{de::DeserializeOwned, ser::Serialize};
 use tokio::sync::Mutex;
@@ -13,7 +13,8 @@ use crate::{
 // TODO: Use connection pooling with r2d2 and r2d2_sqlite?
 #[derive(Clone)]
 pub struct SqliteDatabase {
-    conn: Arc<Mutex<rusqlite::Connection>>,
+    conn: Arc<Mutex<Option<rusqlite::Connection>>>,
+    path: PathBuf,
 }
 
 fn validate_identifier(name: &'static str) -> Result<&'static str, DatabaseError> {
@@ -32,15 +33,18 @@ impl SqliteDatabase {
         f: impl FnOnce(&rusqlite::Connection) -> Result<R, DatabaseError>,
     ) -> Result<R, DatabaseError> {
         let guard = self.conn.lock().await;
-        f(&guard)
+        let conn = guard.as_ref().ok_or(DatabaseError::Closed)?;
+        f(conn)
     }
 
+    /// Acquire the connection, open a transaction, run `f`, commit. Used by every write op.
     async fn with_tx<R>(
         &self,
         f: impl FnOnce(&rusqlite::Transaction) -> Result<R, DatabaseError>,
     ) -> Result<R, DatabaseError> {
         let mut guard = self.conn.lock().await;
-        let tx = guard.transaction()?;
+        let conn = guard.as_mut().ok_or(DatabaseError::Closed)?;
+        let tx = conn.transaction()?;
         let result = f(&tx)?;
         tx.commit()?;
         Ok(result)
@@ -48,6 +52,7 @@ impl SqliteDatabase {
 
     fn initialize_internal(
         mut db: rusqlite::Connection,
+        path: PathBuf,
         migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         // Set WAL mode for better concurrency
@@ -86,7 +91,8 @@ impl SqliteDatabase {
 
         transaction.commit()?;
         Ok(SqliteDatabase {
-            conn: Arc::new(Mutex::new(db)),
+            conn: Arc::new(Mutex::new(Some(db))),
+            path,
         })
     }
 }
@@ -106,7 +112,7 @@ impl Database for SqliteDatabase {
         path.push(format!("{db_name}.sqlite"));
 
         let db = rusqlite::Connection::open(&path)?;
-        Self::initialize_internal(db, migrations)
+        Self::initialize_internal(db, path, migrations)
     }
 
     async fn get<T: Serialize + DeserializeOwned + RepositoryItem>(
@@ -247,6 +253,34 @@ impl Database for SqliteDatabase {
         })
         .await
     }
+
+    async fn wipe(&self) -> Result<(), DatabaseError> {
+        // Take and drop the connection under the lock so OS file handles close
+        // before we attempt to remove the file (matters on Windows).
+        drop(self.conn.lock().await.take());
+
+        // Attempt to remove every file before returning, so one failure doesn't
+        // skip the rest. `NotFound` is ignored and considered success.
+        let mut result = Ok(());
+        for p in [
+            self.path.clone(),
+            self.path.with_extension("sqlite-wal"),
+            self.path.with_extension("sqlite-shm"),
+        ] {
+            match std::fs::remove_file(&p) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    tracing::warn!("Failed to delete {p:?} during wipe: {e}");
+                    result = Err(DatabaseError::Internal(format!(
+                        "Failed to delete {}: {e}",
+                        p.display()
+                    )));
+                }
+            }
+        }
+        result
+    }
 }
 
 #[cfg(test)]
@@ -257,6 +291,7 @@ mod tests {
     fn open_in_memory(steps: Vec<RepositoryMigrationStep>) -> SqliteDatabase {
         SqliteDatabase::initialize_internal(
             rusqlite::Connection::open_in_memory().unwrap(),
+            PathBuf::new(),
             RepositoryMigrations::new(steps),
         )
         .unwrap()
@@ -307,6 +342,78 @@ mod tests {
 
         assert!(temp_dir.join("test_db.sqlite").exists());
 
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_wipe_deletes_files_and_closes_handles() {
+        #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        struct WipeItem(usize);
+        register_repository_item!(String => WipeItem, "WipeItem_sqlite_wipe");
+
+        let temp_dir = std::env::temp_dir().join("bitwarden_state_wipe_test");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let config = DatabaseConfiguration::Sqlite {
+            db_name: "wipe_db".to_string(),
+            folder_path: temp_dir.clone(),
+        };
+
+        let db = SqliteDatabase::initialize(
+            config,
+            RepositoryMigrations::new(vec![RepositoryMigrationStep::Add(WipeItem::data())]),
+        )
+        .await
+        .unwrap();
+        let clone = db.clone();
+        db.set("key1", WipeItem(7)).await.unwrap();
+        let sqlite_path = temp_dir.join("wipe_db.sqlite");
+        assert!(sqlite_path.exists());
+
+        db.wipe().await.unwrap();
+
+        assert!(!sqlite_path.exists());
+        assert!(!temp_dir.join("wipe_db.sqlite-wal").exists());
+        assert!(!temp_dir.join("wipe_db.sqlite-shm").exists());
+        assert!(matches!(
+            clone.get::<WipeItem>("key1").await,
+            Err(DatabaseError::Closed)
+        ));
+
+        std::fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_persistence_across_reopens() {
+        #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        struct PersistedItem(String);
+        register_repository_item!(String => PersistedItem, "PersistedItem_reopen");
+
+        let temp_dir = std::env::temp_dir().join("bitwarden_state_persistence_test");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let config = || DatabaseConfiguration::Sqlite {
+            db_name: "persist_db".to_string(),
+            folder_path: temp_dir.clone(),
+        };
+        let migrations =
+            || RepositoryMigrations::new(vec![RepositoryMigrationStep::Add(PersistedItem::data())]);
+
+        let db = SqliteDatabase::initialize(config(), migrations())
+            .await
+            .unwrap();
+        db.set("k", PersistedItem("hello".to_string()))
+            .await
+            .unwrap();
+        drop(db);
+
+        let db = SqliteDatabase::initialize(config(), migrations())
+            .await
+            .unwrap();
+        assert_eq!(
+            db.get::<PersistedItem>("k").await.unwrap(),
+            Some(PersistedItem("hello".to_string()))
+        );
+
+        db.wipe().await.unwrap();
         std::fs::remove_dir_all(&temp_dir).ok();
     }
 
@@ -387,5 +494,25 @@ mod tests {
             Some(OverwriteItem(2))
         );
         assert_eq!(db.list::<OverwriteItem>().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_wipe_with_missing_files_is_ok() {
+        let temp_dir = std::env::temp_dir().join("bitwarden_state_wipe_missing_test");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let config = DatabaseConfiguration::Sqlite {
+            db_name: "missing_db".to_string(),
+            folder_path: temp_dir.clone(),
+        };
+
+        let db = SqliteDatabase::initialize(config, RepositoryMigrations::new(vec![]))
+            .await
+            .unwrap();
+
+        // Wiping twice exercises the missing-file path on the second call.
+        db.wipe().await.unwrap();
+        db.wipe().await.unwrap();
+
+        std::fs::remove_dir_all(&temp_dir).ok();
     }
 }

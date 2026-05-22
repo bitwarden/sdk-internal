@@ -19,14 +19,14 @@ use crate::{
 ///
 /// All data is lost when the instance is dropped.
 #[derive(Clone)]
-pub struct MemoryDatabase(Arc<Mutex<Store>>);
+pub struct MemoryDatabase(Arc<Mutex<Option<Store>>>);
 
 type Store = HashMap<TypeId, HashMap<String, String>>;
 
 impl MemoryDatabase {
     /// Create a new, empty in-memory database.
     pub fn new() -> Self {
-        MemoryDatabase(Arc::new(Mutex::new(HashMap::new())))
+        MemoryDatabase(Arc::new(Mutex::new(Some(HashMap::new()))))
     }
 
     fn with_store<R>(
@@ -34,7 +34,8 @@ impl MemoryDatabase {
         f: impl FnOnce(&Store) -> Result<R, DatabaseError>,
     ) -> Result<R, DatabaseError> {
         let guard = self.0.lock().expect("Mutex is not poisoned");
-        f(&guard)
+        let store = guard.as_ref().ok_or(DatabaseError::Closed)?;
+        f(store)
     }
 
     fn with_store_mut<R>(
@@ -42,7 +43,8 @@ impl MemoryDatabase {
         f: impl FnOnce(&mut Store) -> Result<R, DatabaseError>,
     ) -> Result<R, DatabaseError> {
         let mut guard = self.0.lock().expect("Mutex is not poisoned");
-        f(&mut guard)
+        let store = guard.as_mut().ok_or(DatabaseError::Closed)?;
+        f(store)
     }
 }
 
@@ -146,6 +148,11 @@ impl Database for MemoryDatabase {
             store.remove(&TypeId::of::<T>());
             Ok(())
         })
+    }
+
+    async fn wipe(&self) -> Result<(), DatabaseError> {
+        *self.0.lock().expect("Mutex is not poisoned") = None;
+        Ok(())
     }
 }
 
@@ -273,6 +280,28 @@ mod tests {
             db.get::<TypeA>("k").await.unwrap(),
             Some(TypeA("v".to_string()))
         );
+    }
+
+    #[tokio::test]
+    async fn test_memory_database_wipe_disconnects_clones() {
+        let db = MemoryDatabase::new();
+        let clone = db.clone();
+        db.set("k", TypeA("v".to_string())).await.unwrap();
+
+        db.wipe().await.unwrap();
+
+        assert!(matches!(
+            db.get::<TypeA>("k").await,
+            Err(DatabaseError::Closed)
+        ));
+        assert!(matches!(
+            clone.get::<TypeA>("k").await,
+            Err(DatabaseError::Closed)
+        ));
+        assert!(matches!(
+            clone.set("k", TypeA("v".to_string())).await,
+            Err(DatabaseError::Closed)
+        ));
     }
 
     #[tokio::test]

@@ -1,4 +1,7 @@
-use std::future::Future;
+use std::{
+    future::Future,
+    sync::{Arc, Mutex},
+};
 
 use indexed_db::{Error, ObjectStore};
 use js_sys::JsString;
@@ -29,7 +32,8 @@ impl Drop for DatabaseHandle {
 
 #[derive(Clone)]
 pub struct IndexedDbDatabase {
-    runner: bitwarden_threading::ThreadBoundRunner<DatabaseHandle>,
+    runner: Arc<Mutex<Option<bitwarden_threading::ThreadBoundRunner<DatabaseHandle>>>>,
+    db_name: String,
 }
 
 impl IndexedDbDatabase {
@@ -42,8 +46,15 @@ impl IndexedDbDatabase {
         F: 'static + Send + Sync + FnOnce(ObjectStore<IndexedDbInternalError>) -> Fut,
         Fut: 'static + Future<Output = ::indexed_db::Result<R, IndexedDbInternalError>>,
     {
-        let result = self
+        let runner = self
             .runner
+            .lock()
+            .expect("Mutex is not poisoned")
+            .as_ref()
+            .cloned()
+            .ok_or(DatabaseError::Closed)?;
+
+        let result = runner
             .run_in_thread(move |db| async move {
                 let tx = db.0.transaction(&[T::NAME]);
                 let tx = if write { tx.rw() } else { tx };
@@ -57,6 +68,7 @@ impl IndexedDbDatabase {
         Ok(result)
     }
 }
+
 impl Database for IndexedDbDatabase {
     async fn initialize(
         configuration: DatabaseConfiguration,
@@ -93,7 +105,10 @@ impl Database for IndexedDbDatabase {
             .await?;
 
         let runner = bitwarden_threading::ThreadBoundRunner::new(DatabaseHandle(db));
-        Ok(IndexedDbDatabase { runner })
+        Ok(IndexedDbDatabase {
+            runner: Arc::new(Mutex::new(Some(runner))),
+            db_name,
+        })
     }
 
     async fn get<T: Serialize + DeserializeOwned + RepositoryItem>(
@@ -193,5 +208,13 @@ impl Database for IndexedDbDatabase {
             Ok(())
         })
         .await
+    }
+
+    async fn wipe(&self) -> Result<(), DatabaseError> {
+        drop(self.runner.lock().expect("Mutex is not poisoned").take());
+        indexed_db::Factory::get()?
+            .delete_database(&self.db_name)
+            .await?;
+        Ok(())
     }
 }

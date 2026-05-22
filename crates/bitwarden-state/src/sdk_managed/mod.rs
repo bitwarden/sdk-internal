@@ -34,6 +34,9 @@ pub enum DatabaseError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    #[error("Database is closed")]
+    Closed,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -74,6 +77,8 @@ pub trait Database {
     async fn remove_bulk<T: RepositoryItem>(&self, keys: Vec<String>) -> Result<(), DatabaseError>;
 
     async fn remove_all<T: RepositoryItem>(&self) -> Result<(), DatabaseError>;
+
+    async fn wipe(&self) -> Result<(), DatabaseError>;
 }
 
 #[derive(Clone)]
@@ -175,6 +180,16 @@ impl Database for SystemDatabase {
             #[cfg(target_arch = "wasm32")]
             SystemDatabase::IndexedDb(db) => db.remove_all::<T>().await,
             SystemDatabase::Memory(db) => db.remove_all::<T>().await,
+        }
+    }
+
+    async fn wipe(&self) -> Result<(), DatabaseError> {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            SystemDatabase::Sqlite(db) => db.wipe().await,
+            #[cfg(target_arch = "wasm32")]
+            SystemDatabase::IndexedDb(db) => db.wipe().await,
+            SystemDatabase::Memory(db) => db.wipe().await,
         }
     }
 }
