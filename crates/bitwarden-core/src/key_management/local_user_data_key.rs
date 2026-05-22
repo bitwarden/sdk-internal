@@ -26,6 +26,28 @@ impl WrappedLocalUserDataKey {
         Ok(WrappedLocalUserDataKey(wrapped_local_user_data_key))
     }
 
+    /// Re-wrap an existing wrapped local user data key, preserving the inner key plaintext but
+    /// changing the wrapping key from `old_wrapping_key_id` to the current
+    /// [`SymmetricKeySlotId::User`].
+    ///
+    /// Used during V1→V2 user-key upgrades: the wrapped key was previously sealed with the V1
+    /// user key and must be re-sealed with the V2 user key so that local data encrypted under
+    /// the local user data key remains decryptable after rotation.
+    #[instrument(skip(self, ctx), err)]
+    pub(crate) fn rewrap_with_user_key(
+        &self,
+        old_wrapping_key_id: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<Self, LocalUserDataKeyError> {
+        let local_id = ctx
+            .unwrap_symmetric_key(old_wrapping_key_id, &self.0)
+            .map_err(|_| LocalUserDataKeyError::DecryptionFailed)?;
+        let new_wrapped = ctx
+            .wrap_symmetric_key(SymmetricKeySlotId::User, local_id)
+            .map_err(|_| LocalUserDataKeyError::EncryptionFailed)?;
+        Ok(WrappedLocalUserDataKey(new_wrapped))
+    }
+
     /// Unwrap the local user data key and set it in the context under the
     /// [`SymmetricKeySlotId::LocalUserData`] key id.
     #[instrument(skip(self, ctx), err)]
@@ -58,6 +80,12 @@ impl From<WrappedLocalUserDataKey> for LocalUserDataKeyState {
         Self {
             wrapped_key: wrapped_key.0,
         }
+    }
+}
+
+impl From<&LocalUserDataKeyState> for WrappedLocalUserDataKey {
+    fn from(state: &LocalUserDataKeyState) -> Self {
+        Self(state.wrapped_key.clone())
     }
 }
 
@@ -99,6 +127,55 @@ mod tests {
         let decrypted: String = ciphertext
             .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
             .expect("decryption with local user data key should succeed");
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_rewrap_with_user_key_preserves_inner_plaintext() {
+        use bitwarden_crypto::SymmetricKeyAlgorithm;
+
+        let key_store = KeyStore::<KeySlotIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        // Create an initial wrapped local user data key using a V1 user key.
+        let v1_local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(v1_local_key_id, SymmetricKeySlotId::User)
+            .expect("persisting old user key should succeed");
+
+        let wrapped_v1_local_key = WrappedLocalUserDataKey::from_context_user_key(&mut ctx)
+            .expect("initial wrap should succeed");
+
+        wrapped_v1_local_key
+            .unwrap_to_context(&mut ctx)
+            .expect("unwrap with old user key should succeed");
+        let plaintext = "rewrap round-trip data";
+        let ciphertext = plaintext
+            .encrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
+            .expect("encryption with LocalUserData slot should succeed");
+
+        // Save v1 to a fresh local id before overwriting the User slot with v2.
+        // Mirrors the production path where the V1→V2 upgrade token re-materializes
+        // v1 into a local slot at rewrap time.
+        let v1_old_wrapping_id = ctx
+            .unwrap_symmetric_key(SymmetricKeySlotId::User, &wrapped_v1_local_key.0)
+            .expect("unwrap with v1 user key should succeed");
+
+        // Rewrap
+        let new_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        ctx.persist_symmetric_key(new_local, SymmetricKeySlotId::User)
+            .expect("persisting new user key should succeed");
+        let wrapped_new = wrapped_v1_local_key
+            .rewrap_with_user_key(v1_old_wrapping_id, &mut ctx)
+            .expect("rewrap should succeed");
+
+        // Validate that the new wrapped version can still decrypt the data
+        wrapped_new
+            .unwrap_to_context(&mut ctx)
+            .expect("unwrap with new user key should succeed");
+
+        let decrypted: String = ciphertext
+            .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
+            .expect("decryption after rewrap should succeed");
         assert_eq!(decrypted, plaintext);
     }
 

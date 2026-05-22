@@ -5,11 +5,7 @@ use bitwarden_organizations::ProfileOrganization;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{
-    filter::{PolicyType, PolicyView},
-    policy_overrides::*,
-    registry::PolicyRegistry,
-};
+use crate::{PolicyType, filter::PolicyView, policy_overrides::*, registry::PolicyRegistry};
 
 fn build_policy_registry() -> PolicyRegistry {
     PolicyRegistry::builder()
@@ -93,6 +89,7 @@ mod tests {
             r#type: policy_type,
             data: None,
             enabled,
+            revision_date: Default::default(),
         }
     }
 
@@ -111,26 +108,26 @@ mod tests {
     fn filter_by_type_delegates_to_registry() {
         let org_id = Uuid::new_v4();
         let policies = vec![
-            policy_view(org_id, PolicyType(1), true),
-            policy_view(org_id, PolicyType(2), true),
+            policy_view(org_id, PolicyType::MasterPassword, true),
+            policy_view(org_id, PolicyType::PasswordGenerator, true),
         ];
         let orgs = vec![organization(org_id)];
 
         let client = PolicyClient::new();
-        let result = client.filter_by_type(policies, orgs, PolicyType(1));
+        let result = client.filter_by_type(policies, orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].r#type, PolicyType(1));
+        assert_eq!(result[0].r#type, PolicyType::MasterPassword);
     }
 
     #[test]
     fn filter_by_type_returns_empty_for_no_match() {
         let org_id = Uuid::new_v4();
-        let policies = vec![policy_view(org_id, PolicyType(1), true)];
+        let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = vec![organization(org_id)];
 
         let client = PolicyClient::new();
-        let result = client.filter_by_type(policies, orgs, PolicyType(99));
+        let result = client.filter_by_type(policies, orgs, PolicyType::TwoFactorAuthentication);
 
         assert!(result.is_empty());
     }
@@ -140,7 +137,7 @@ mod tests {
         struct NoExemptionPolicy;
         impl Policy for NoExemptionPolicy {
             fn policy_type(&self) -> PolicyType {
-                PolicyType(1)
+                PolicyType::MasterPassword
             }
             fn exempt_roles(&self) -> &[OrganizationUserType] {
                 &[]
@@ -149,7 +146,7 @@ mod tests {
 
         let org_id = Uuid::new_v4();
         // Owner — normally exempt, but NoExemptionPolicy removes the exemption
-        let policies = vec![policy_view(org_id, PolicyType(1), true)];
+        let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = vec![ProfileOrganization {
             id: org_id,
             r#type: OrganizationUserType::Owner,
@@ -163,7 +160,7 @@ mod tests {
             .register(NoExemptionPolicy)
             .build();
         let client = PolicyClient { registry };
-        let result = client.filter_by_type(policies, orgs, PolicyType(1));
+        let result = client.filter_by_type(policies, orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
     }
