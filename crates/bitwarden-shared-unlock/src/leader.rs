@@ -15,7 +15,7 @@ use tracing::{info, warn};
 #[cfg(feature = "wasm")]
 use web_time::Instant;
 
-use crate::{DeviceEvent, FollowerMessage, LeaderMessage, LockState, drivers::SharedUnlockDriver};
+use crate::{DeviceEvent, FollowerMessage, LOOP_COOLDOWN_DURATION, LeaderMessage, LockState, drivers::SharedUnlockDriver};
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(30);
 
