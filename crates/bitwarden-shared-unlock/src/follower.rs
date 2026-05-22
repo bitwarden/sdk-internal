@@ -1,4 +1,4 @@
-use std::{ops::Add, sync::Arc, time::Duration};
+use std::{ops::Add, sync::Arc};
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};

@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, time::Duration};
 
-use bitwarden_threading::cancellation_token::CancellationToken;
+use bitwarden_threading::{cancellation_token::CancellationToken, time::sleep};
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::select;
+use tracing::info;
 
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
@@ -139,6 +140,8 @@ where
         let inner = self.inner.clone();
         let future = async move {
             loop {
+                sleep(Duration::from_millis(100)).await;
+                info!("IPC client waiting for messages");
                 let rpc_topic = RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned();
                 select! {
                     _ = cancellation_token.cancelled() => {
@@ -330,6 +333,8 @@ impl IpcClientSubscription {
         let cancellation_token = cancellation_token.unwrap_or_default();
 
         loop {
+            sleep(Duration::from_millis(100)).await;
+            info!("IPC client waiting for messages2");
             select! {
                 _ = cancellation_token.cancelled() => {
                     return Err(ReceiveError::Cancelled)

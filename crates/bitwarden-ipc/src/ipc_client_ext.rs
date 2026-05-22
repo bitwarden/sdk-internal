@@ -1,5 +1,8 @@
-use bitwarden_threading::cancellation_token::CancellationToken;
+use std::time::Duration;
+
+use bitwarden_threading::{cancellation_token::CancellationToken, time::sleep};
 use serde::{Serialize, de::DeserializeOwned};
+use tracing::info;
 
 use crate::{
     RpcHandler,
@@ -116,6 +119,8 @@ pub trait IpcClientExt: IpcClient {
                 .map_err(|e| RequestError::Send(format!("{e:?}")))?;
 
             let response = loop {
+                sleep(Duration::from_millis(100)).await;
+                info!("IPC client waiting for response to request {request_id}");
                 let received = response_subscription
                     .receive(cancellation_token.clone())
                     .await

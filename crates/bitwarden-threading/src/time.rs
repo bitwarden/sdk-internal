@@ -7,9 +7,12 @@ pub async fn sleep(duration: Duration) {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn sleep(duration: Duration) {
-    use gloo_timers::future::sleep;
-
-    sleep(duration).await;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    wasm_bindgen_futures::spawn_local(async move {
+        gloo_timers::future::sleep(duration).await;
+        let _ = tx.send(());
+    });
+    let _ = rx.await;
 }
 
 /// Returned by [`timeout`] when the wrapped future did not complete in time.

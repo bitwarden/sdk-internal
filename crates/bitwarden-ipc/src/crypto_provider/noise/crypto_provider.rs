@@ -1,6 +1,6 @@
 use std::{sync::LazyLock, time::Duration};
 
-use bitwarden_threading::time::timeout;
+use bitwarden_threading::time::{sleep, timeout};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 
@@ -70,6 +70,7 @@ impl NoiseCryptoProvider {
         // Wait for the handshake response (with timeout)
         timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
             loop {
+                sleep(Duration::from_millis(100)).await;
                 let incoming = receiver
                     .receive()
                     .await
@@ -230,6 +231,7 @@ where
         sessions: &Ses,
     ) -> Result<IncomingMessage, Self::ReceiveError> {
         loop {
+            sleep(Duration::from_millis(100)).await;
             let message = receiver
                 .receive()
                 .await
