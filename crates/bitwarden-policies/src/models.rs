@@ -15,6 +15,7 @@ use crate::policy_type::PolicyType;
 /// An organization policy.
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PolicyView {
@@ -31,6 +32,7 @@ pub struct PolicyView {
 /// user.
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PolicyOrganizationContext {
