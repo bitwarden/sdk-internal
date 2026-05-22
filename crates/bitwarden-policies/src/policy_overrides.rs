@@ -56,7 +56,7 @@ pub struct FreeFamiliesSponsorshipPolicy;
 
 impl Policy for FreeFamiliesSponsorshipPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType::FreeFamiliesSponsorshipPolicy
+        PolicyType::FreeFamiliesSponsorship
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -86,7 +86,7 @@ pub struct RestrictedItemTypesPolicy;
 
 impl Policy for RestrictedItemTypesPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType::RestrictedItemTypesPolicy
+        PolicyType::RestrictedItemTypes
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -111,13 +111,11 @@ impl Policy for AutomaticUserConfirmationPolicy {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_organizations::{
-        OrganizationUserStatusType, OrganizationUserType, ProfileOrganization,
-    };
+    use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
     use uuid::Uuid;
 
     use super::*;
-    use crate::filter::{PolicyFilter, PolicyView};
+    use crate::{OrganizationUserPolicyContext, PolicyView, filter::PolicyFilter};
 
     fn policy_view(organization_id: Uuid, policy_type: PolicyType) -> PolicyView {
         PolicyView {
@@ -130,14 +128,14 @@ mod tests {
         }
     }
 
-    fn org(id: Uuid, user_type: OrganizationUserType) -> ProfileOrganization {
-        ProfileOrganization {
+    fn org(id: Uuid, user_type: OrganizationUserType) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
-            r#type: user_type,
+            role: user_type,
             status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
             use_policies: true,
             is_provider_user: false,
-            ..Default::default()
         }
     }
 
@@ -212,10 +210,7 @@ mod tests {
     #[test]
     fn free_families_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(
-            org_id,
-            PolicyType::FreeFamiliesSponsorshipPolicy,
-        )];
+        let policies = [policy_view(org_id, PolicyType::FreeFamiliesSponsorship)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(
             FreeFamiliesSponsorshipPolicy.filter(&policies, &orgs).len(),
@@ -238,7 +233,7 @@ mod tests {
     #[test]
     fn restricted_item_types_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, PolicyType::RestrictedItemTypesPolicy)];
+        let policies = [policy_view(org_id, PolicyType::RestrictedItemTypes)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(RestrictedItemTypesPolicy.filter(&policies, &orgs).len(), 1);
     }
