@@ -293,8 +293,12 @@ where
 
                     let payload = state
                         .state
-                        .receive(&transport_frame)
-                        .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
+                        .receive(&transport_frame);
+                    let Ok(payload) = payload else {
+                        info!("Failed to decrypt message from {:?}", message.source);
+                        continue;
+                    };
+
                     sessions
                         .save(source_endpoint, state)
                         .await
