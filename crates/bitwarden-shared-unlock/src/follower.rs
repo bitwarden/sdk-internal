@@ -5,7 +5,7 @@ use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedInco
 use bitwarden_threading::{cancellation_token, time::sleep};
 use thiserror::Error;
 
-use crate::{DeviceEvent, FollowerMessage, LeaderMessage, LockState, drivers::SharedUnlockDriver};
+use crate::{DeviceEvent, FollowerMessage, LOOP_COOLDOWN_DURATION, LeaderMessage, LockState, drivers::SharedUnlockDriver};
 
 /// Error type for failure to start the shared unlock follower.
 #[bitwarden_error(basic)]
@@ -74,7 +74,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
         let cancellation_token_clone = cancellation_token.clone();
         let future = async move {
             loop {
-                sleep(Duration::from_millis(100)).await;
+                sleep(LOOP_COOLDOWN_DURATION).await;
                 let result = subscription
                     .receive(Some(cancellation_token_clone.clone()))
                     .await;
@@ -116,7 +116,7 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
         let follower = self.clone();
         let timer_future = async move {
             loop {
-                sleep(Duration::from_millis(100)).await;
+                sleep(LOOP_COOLDOWN_DURATION).await;
                 tokio::select! {
                     _ = cancellation_token.cancelled() => {
                         tracing::debug!("Shared unlock follower timer cancelled");

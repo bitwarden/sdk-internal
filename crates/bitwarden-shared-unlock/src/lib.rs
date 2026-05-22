@@ -135,6 +135,8 @@ pub mod wasm;
 pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
 /// Additional grace period added to the vault timeout when suppressing it on heartbeat
 pub const VAULT_TIMEOUT_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(1);
+/// Cooldown duration used in follower and leader loops to prevent busy looping in case of errors
+pub const LOOP_COOLDOWN_DURATION: std::time::Duration = std::time::Duration::from_millis(100);
 
 #[cfg(test)]
 mod tests;
