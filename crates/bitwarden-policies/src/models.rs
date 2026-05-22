@@ -39,7 +39,7 @@ pub struct PolicyView {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct PolicyOrganizationContext {
+pub struct OrganizationUserPolicyContext {
     /// The organization's unique ID.
     pub id: Uuid,
     /// The user's membership status in the organization.

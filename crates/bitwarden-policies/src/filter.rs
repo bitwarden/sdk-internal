@@ -11,7 +11,7 @@ use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
 use uuid::Uuid;
 
 use crate::{
-    models::{PolicyOrganizationContext, PolicyView},
+    models::{OrganizationUserPolicyContext, PolicyView},
     policy_type::PolicyType,
 };
 
@@ -62,12 +62,13 @@ pub trait PolicyFilter: Policy {
     fn filter<'a>(
         &self,
         policies: &'a [PolicyView],
-        organization_user_policy_contexts: &[PolicyOrganizationContext],
+        organization_user_policy_contexts: &[OrganizationUserPolicyContext],
     ) -> Vec<&'a PolicyView> {
-        let org_map: HashMap<&Uuid, &PolicyOrganizationContext> = organization_user_policy_contexts
-            .iter()
-            .map(|o| (&o.id, o))
-            .collect();
+        let org_map: HashMap<&Uuid, &OrganizationUserPolicyContext> =
+            organization_user_policy_contexts
+                .iter()
+                .map(|o| (&o.id, o))
+                .collect();
 
         policies
             .iter()
@@ -111,8 +112,8 @@ mod tests {
         user_type: OrganizationUserType,
         status: OrganizationUserStatusType,
         provider: bool,
-    ) -> PolicyOrganizationContext {
-        PolicyOrganizationContext {
+    ) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
             role: user_type,
             status,
@@ -164,7 +165,7 @@ mod tests {
     #[test]
     fn disabled_organization_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let orgs = [PolicyOrganizationContext {
+        let orgs = [OrganizationUserPolicyContext {
             enabled: false,
             id: org_id,
             role: OrganizationUserType::User,
@@ -211,7 +212,7 @@ mod tests {
     #[test]
     fn use_policies_false_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let orgs = [PolicyOrganizationContext {
+        let orgs = [OrganizationUserPolicyContext {
             id: org_id,
             role: OrganizationUserType::User,
             status: OrganizationUserStatusType::Confirmed,

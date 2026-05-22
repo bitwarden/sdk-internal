@@ -115,7 +115,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{PolicyOrganizationContext, PolicyView, filter::PolicyFilter};
+    use crate::{OrganizationUserPolicyContext, PolicyView, filter::PolicyFilter};
 
     fn policy_view(organization_id: Uuid, policy_type: PolicyType) -> PolicyView {
         PolicyView {
@@ -128,8 +128,8 @@ mod tests {
         }
     }
 
-    fn org(id: Uuid, user_type: OrganizationUserType) -> PolicyOrganizationContext {
-        PolicyOrganizationContext {
+    fn org(id: Uuid, user_type: OrganizationUserType) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
             role: user_type,
             status: OrganizationUserStatusType::Confirmed,

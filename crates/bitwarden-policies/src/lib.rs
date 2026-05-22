@@ -15,7 +15,7 @@ mod registry;
 
 pub use filter::Policy;
 pub use master_password_policy_response::MasterPasswordPolicyResponse;
-pub use models::{PolicyOrganizationContext, PolicyView};
+pub use models::{OrganizationUserPolicyContext, PolicyView};
 pub use policy_client::{PoliciesClientExt, PolicyClient};
 pub use policy_overrides::*;
 pub use policy_type::PolicyType;

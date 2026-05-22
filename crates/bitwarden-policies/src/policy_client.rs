@@ -5,7 +5,7 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    PolicyOrganizationContext, PolicyType, PolicyView, policy_overrides::*,
+    OrganizationUserPolicyContext, PolicyType, PolicyView, policy_overrides::*,
     registry::PolicyRegistry,
 };
 
@@ -53,7 +53,7 @@ impl PolicyClient {
     pub fn filter_by_type(
         &self,
         policies: Vec<PolicyView>,
-        organization_user_policy_contexts: Vec<PolicyOrganizationContext>,
+        organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
         policy_type: PolicyType,
     ) -> Vec<PolicyView> {
         self.registry
@@ -95,8 +95,8 @@ mod tests {
         }
     }
 
-    fn organization(id: Uuid) -> PolicyOrganizationContext {
-        PolicyOrganizationContext {
+    fn organization(id: Uuid) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
             role: OrganizationUserType::User,
             status: OrganizationUserStatusType::Confirmed,
@@ -149,7 +149,7 @@ mod tests {
         let org_id = Uuid::new_v4();
         // Owner — normally exempt, but NoExemptionPolicy removes the exemption
         let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
-        let orgs = vec![PolicyOrganizationContext {
+        let orgs = vec![OrganizationUserPolicyContext {
             id: org_id,
             role: OrganizationUserType::Owner,
             status: OrganizationUserStatusType::Confirmed,

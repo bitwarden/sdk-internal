@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    PolicyOrganizationContext, PolicyType, PolicyView,
+    OrganizationUserPolicyContext, PolicyType, PolicyView,
     filter::{Policy, PolicyFilter},
 };
 
@@ -48,7 +48,7 @@ impl PolicyRegistry {
     pub(crate) fn filter_by_type<'a>(
         &self,
         policies: &'a [PolicyView],
-        organization_user_policy_contexts: &[PolicyOrganizationContext],
+        organization_user_policy_contexts: &[OrganizationUserPolicyContext],
         policy_type: PolicyType,
     ) -> Vec<&'a PolicyView> {
         match self.policies.get(&policy_type) {
@@ -109,8 +109,8 @@ mod tests {
         user_type: OrganizationUserType,
         status: OrganizationUserStatusType,
         provider: bool,
-    ) -> PolicyOrganizationContext {
-        PolicyOrganizationContext {
+    ) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
             role: user_type,
             status,
