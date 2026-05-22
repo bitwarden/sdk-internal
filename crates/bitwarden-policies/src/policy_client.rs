@@ -53,11 +53,11 @@ impl PolicyClient {
     pub fn filter_by_type(
         &self,
         policies: Vec<PolicyView>,
-        organizations: Vec<PolicyOrganizationContext>,
+        organization_user_policy_contexts: Vec<PolicyOrganizationContext>,
         policy_type: PolicyType,
     ) -> Vec<PolicyView> {
         self.registry
-            .filter_by_type(&policies, &organizations, policy_type)
+            .filter_by_type(&policies, &organization_user_policy_contexts, policy_type)
             .into_iter()
             .cloned()
             .collect()

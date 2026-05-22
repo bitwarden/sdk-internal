@@ -57,15 +57,17 @@ pub trait PolicyFilter: Policy {
     /// This evaluates common business rules (e.g. the policy is enabled),
     /// as well as policy-specific rules according to its [`Policy`].
     ///
-    /// If a policy's organization is not present in `organizations`, the policy is enforced by
-    /// default.
+    /// If a policy's organization is not present in `organization_user_policy_contexts`, the policy
+    /// is enforced by default.
     fn filter<'a>(
         &self,
         policies: &'a [PolicyView],
-        organizations: &[PolicyOrganizationContext],
+        organization_user_policy_contexts: &[PolicyOrganizationContext],
     ) -> Vec<&'a PolicyView> {
-        let org_map: HashMap<&Uuid, &PolicyOrganizationContext> =
-            organizations.iter().map(|o| (&o.id, o)).collect();
+        let org_map: HashMap<&Uuid, &PolicyOrganizationContext> = organization_user_policy_contexts
+            .iter()
+            .map(|o| (&o.id, o))
+            .collect();
 
         policies
             .iter()

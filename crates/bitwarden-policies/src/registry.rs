@@ -48,12 +48,12 @@ impl PolicyRegistry {
     pub(crate) fn filter_by_type<'a>(
         &self,
         policies: &'a [PolicyView],
-        organizations: &[PolicyOrganizationContext],
+        organization_user_policy_contexts: &[PolicyOrganizationContext],
         policy_type: PolicyType,
     ) -> Vec<&'a PolicyView> {
         match self.policies.get(&policy_type) {
-            Some(p) => p.filter(policies, organizations),
-            None => DefaultPolicy(policy_type).filter(policies, organizations),
+            Some(p) => p.filter(policies, organization_user_policy_contexts),
+            None => DefaultPolicy(policy_type).filter(policies, organization_user_policy_contexts),
         }
     }
 }
