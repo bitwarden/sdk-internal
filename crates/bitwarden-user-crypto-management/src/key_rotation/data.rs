@@ -197,7 +197,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_ENC_STRING.parse().unwrap(),
+            name: Some(TEST_ENC_STRING.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
