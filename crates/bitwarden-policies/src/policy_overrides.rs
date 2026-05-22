@@ -56,7 +56,7 @@ pub struct FreeFamiliesSponsorshipPolicy;
 
 impl Policy for FreeFamiliesSponsorshipPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType::FreeFamiliesSponsorshipPolicy
+        PolicyType::FreeFamiliesSponsorship
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -210,10 +210,7 @@ mod tests {
     #[test]
     fn free_families_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(
-            org_id,
-            PolicyType::FreeFamiliesSponsorshipPolicy,
-        )];
+        let policies = [policy_view(org_id, PolicyType::FreeFamiliesSponsorship)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(
             FreeFamiliesSponsorshipPolicy.filter(&policies, &orgs).len(),
