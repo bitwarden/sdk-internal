@@ -147,7 +147,6 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     Err(bitwarden_ipc::TypedReceiveError::Channel(tokio::sync::broadcast::error::RecvError::Closed)) => {
                         tracing::info!("Transport channel closed. Waiting for it to open");
                         sleep(std::time::Duration::from_secs(1)).await;
-                        break;
                     }
                     Err(error) => {
                         tracing::error!(?error, "Failed to receive shared unlock IPC message");
