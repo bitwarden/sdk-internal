@@ -1,17 +1,24 @@
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext, PrimitiveEncryptable,
+};
 
 use super::v1::*;
+#[cfg(feature = "wasm")]
+use crate::cipher::field::FieldListView;
 use crate::{
-    CipherView, PasswordHistoryView,
+    CipherListView, CipherView, PasswordHistoryView,
     cipher::{
         bank_account::BankAccountView,
-        card::CardView,
-        cipher::CipherType,
+        card::{CardListView, CardView, build_subtitle_card},
+        cipher::{CipherListViewType, CipherType, CopyableCipherFields},
         drivers_license::DriversLicenseView,
         field::FieldView,
-        identity::IdentityView,
-        login::{Fido2CredentialFullView, LoginUriView, LoginView},
+        identity::{IdentityView, build_subtitle_identity},
+        login::{
+            Fido2CredentialFullView, Fido2CredentialListView, LoginListView, LoginUriView,
+            LoginView,
+        },
         passport::PassportView,
         secure_note::SecureNoteView,
         ssh_key::SshKeyView,
@@ -237,6 +244,211 @@ impl CipherBlobV1 {
             CipherTypeDataV1::Passport(passport_data) => {
                 view.r#type = CipherType::Passport;
                 view.passport = Some(PassportView::from(passport_data));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Populates a [`CipherListView`] from this blob: name/notes/fields plus the type-specific
+    /// list-view payload, subtitle, and copyable_fields. Mirrors `apply_to_cipher_view`.
+    ///
+    /// `LoginListView::totp` is re-encrypted with `cipher_key` to honor the contract that the
+    /// TOTP value stays encrypted for lazy decryption via `generate_totp_cipher_view`.
+    pub(crate) fn apply_to_cipher_list_view(
+        &self,
+        view: &mut CipherListView,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        cipher_key: SymmetricKeySlotId,
+    ) -> Result<(), CryptoError> {
+        view.name = self.name.clone();
+        #[cfg(feature = "wasm")]
+        {
+            view.notes = self.notes.clone();
+            view.fields = none_if_empty(
+                self.fields
+                    .iter()
+                    .map(|f| FieldListView::from(FieldView::from(f)))
+                    .collect(),
+            );
+        }
+
+        match &self.type_data {
+            CipherTypeDataV1::Login(login_data) => {
+                let totp_enc = login_data
+                    .totp
+                    .as_deref()
+                    .filter(|s| !s.is_empty())
+                    .map(|t| t.encrypt(ctx, cipher_key))
+                    .transpose()?;
+                let fido2_credentials = if login_data.fido2_credentials.is_empty() {
+                    None
+                } else {
+                    Some(
+                        login_data
+                            .fido2_credentials
+                            .iter()
+                            .map(|c| Fido2CredentialListView {
+                                credential_id: c.credential_id.clone(),
+                                rp_id: c.rp_id.clone(),
+                                user_handle: c.user_handle.clone(),
+                                user_name: c.user_name.clone(),
+                                user_display_name: c.user_display_name.clone(),
+                                counter: c.counter.to_string(),
+                            })
+                            .collect(),
+                    )
+                };
+                let has_fido2 = !login_data.fido2_credentials.is_empty();
+                let uris = none_if_empty(login_data.uris.iter().map(LoginUriView::from).collect());
+                view.subtitle = login_data.username.clone().unwrap_or_default();
+                view.copyable_fields = [
+                    login_data
+                        .username
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::LoginUsername),
+                    login_data
+                        .password
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::LoginPassword),
+                    login_data
+                        .totp
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::LoginTotp),
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
+                view.r#type = CipherListViewType::Login(LoginListView {
+                    fido2_credentials,
+                    has_fido2,
+                    username: login_data.username.clone(),
+                    totp: totp_enc,
+                    uris,
+                });
+            }
+            CipherTypeDataV1::Card(card_data) => {
+                view.subtitle =
+                    build_subtitle_card(card_data.brand.clone(), card_data.number.clone());
+                view.copyable_fields = [
+                    card_data
+                        .number
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::CardNumber),
+                    card_data
+                        .code
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::CardSecurityCode),
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
+                view.r#type = CipherListViewType::Card(CardListView {
+                    brand: card_data.brand.clone(),
+                });
+            }
+            CipherTypeDataV1::Identity(identity_data) => {
+                view.subtitle = build_subtitle_identity(
+                    identity_data.first_name.clone(),
+                    identity_data.last_name.clone(),
+                );
+                view.copyable_fields = [
+                    identity_data
+                        .username
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::IdentityUsername),
+                    identity_data
+                        .email
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::IdentityEmail),
+                    identity_data
+                        .phone
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::IdentityPhone),
+                    identity_data
+                        .address1
+                        .as_ref()
+                        .or(identity_data.address2.as_ref())
+                        .or(identity_data.address3.as_ref())
+                        .or(identity_data.city.as_ref())
+                        .or(identity_data.state.as_ref())
+                        .or(identity_data.postal_code.as_ref())
+                        .map(|_| CopyableCipherFields::IdentityAddress),
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
+                view.r#type = CipherListViewType::Identity;
+            }
+            CipherTypeDataV1::SecureNote(_) => {
+                view.subtitle = String::new();
+                view.copyable_fields = if self.notes.is_some() {
+                    vec![CopyableCipherFields::SecureNotes]
+                } else {
+                    Vec::new()
+                };
+                view.r#type = CipherListViewType::SecureNote;
+            }
+            CipherTypeDataV1::SshKey(ssh_data) => {
+                view.subtitle = ssh_data.fingerprint.clone();
+                view.copyable_fields = vec![CopyableCipherFields::SshKey];
+                view.r#type = CipherListViewType::SshKey;
+            }
+            CipherTypeDataV1::BankAccount(bank_data) => {
+                view.subtitle = bank_data.bank_name.clone().unwrap_or_default();
+                view.copyable_fields = [
+                    bank_data
+                        .account_number
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::BankAccountAccountNumber),
+                    bank_data
+                        .routing_number
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::BankAccountRoutingNumber),
+                    bank_data
+                        .pin
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::BankAccountPin),
+                    bank_data
+                        .iban
+                        .as_ref()
+                        .map(|_| CopyableCipherFields::BankAccountIban),
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
+                view.r#type = CipherListViewType::BankAccount;
+            }
+            CipherTypeDataV1::Passport(passport_data) => {
+                let parts: Vec<String> = [
+                    passport_data.given_name.clone(),
+                    passport_data.surname.clone(),
+                ]
+                .into_iter()
+                .flatten()
+                .filter(|s| !s.is_empty())
+                .collect();
+                view.subtitle = parts.join(" ");
+                view.copyable_fields = if passport_data.passport_number.is_some() {
+                    vec![CopyableCipherFields::PassportPassportNumber]
+                } else {
+                    Vec::new()
+                };
+                view.r#type = CipherListViewType::Passport;
+            }
+            CipherTypeDataV1::DriversLicense(dl_data) => {
+                let parts: Vec<String> = [dl_data.first_name.clone(), dl_data.last_name.clone()]
+                    .into_iter()
+                    .flatten()
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                view.subtitle = parts.join(" ");
+                view.copyable_fields = if dl_data.license_number.is_some() {
+                    vec![CopyableCipherFields::DriversLicenseLicenseNumber]
+                } else {
+                    Vec::new()
+                };
+                view.r#type = CipherListViewType::DriversLicense;
             }
         }
 

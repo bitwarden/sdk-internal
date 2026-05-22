@@ -205,7 +205,7 @@ impl CipherKind for Card {
 }
 
 /// Builds the subtitle for a card cipher
-fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String {
+pub(crate) fn build_subtitle_card(brand: Option<String>, number: Option<String>) -> String {
     // Attempt to pre-allocate the string with the expected max-size
     let mut subtitle =
         String::with_capacity(brand.as_ref().map(|b| b.len()).unwrap_or_default() + 8);

@@ -145,7 +145,11 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher.name.to_string(),
+            name: cipher
+                .name
+                .as_ref()
+                .map(|n| n.to_string())
+                .unwrap_or_default(),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -218,7 +222,11 @@ impl From<EncryptionContext> for CipherRequestModel {
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher.name.to_string(),
+            name: cipher
+                .name
+                .as_ref()
+                .map(|n| n.to_string())
+                .unwrap_or_default(),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -290,7 +298,7 @@ pub struct Cipher {
     /// Cipher.
     pub key: Option<EncString>,
 
-    pub name: EncString,
+    pub name: Option<EncString>,
     pub notes: Option<EncString>,
 
     pub r#type: CipherType,
@@ -390,7 +398,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
             favorite: Some(c.favorite),
             reprompt: Some(c.reprompt.into()),
             key: c.key.map(|k| k.to_string()),
-            name: c.name.to_string(),
+            name: c.name.as_ref().map(|n| n.to_string()).unwrap_or_default(),
             notes: c.notes.map(|n| n.to_string()),
             login: c.login.map(|v| Box::new(v.into())),
             card: c.card.map(|v| Box::new(v.into())),
@@ -638,7 +646,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
             key: cipher_view.key,
-            name: cipher_view.name.encrypt(ctx, ciphers_key)?,
+            name: Some(cipher_view.name.encrypt(ctx, ciphers_key)?),
             notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
             r#type: cipher_view.r#type,
             login: cipher_view.login.encrypt_composite(ctx, ciphers_key)?,
@@ -685,6 +693,10 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
+        if crate::blob::is_blob_encrypted(self) {
+            return Ok(crate::blob::decrypt_blob_cipher(self, ctx)?);
+        }
+
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         // Separate successful and failed attachment decryptions
@@ -701,7 +713,12 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            name: self
+                .name
+                .decrypt(ctx, ciphers_key)
+                .ok()
+                .flatten()
+                .unwrap_or_default(),
             notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
             r#type: self.r#type,
             login: self.login.decrypt(ctx, ciphers_key).ok().flatten(),
@@ -1029,6 +1046,10 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
+        if crate::blob::is_blob_encrypted(self) {
+            return Ok(crate::blob::decrypt_blob_cipher_list_view(self, ctx)?);
+        }
+
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         Ok(CipherListView {
@@ -1037,7 +1058,12 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            name: self
+                .name
+                .decrypt(ctx, ciphers_key)
+                .ok()
+                .flatten()
+                .unwrap_or_default(),
             subtitle: self
                 .decrypt_subtitle(ctx, ciphers_key)
                 .ok()
@@ -1160,6 +1186,10 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
+        if crate::blob::is_blob_encrypted(&self.0) {
+            return Ok(crate::blob::decrypt_blob_cipher(&self.0, ctx)?);
+        }
+
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
 
         // Separate successful and failed attachment decryptions
@@ -1176,7 +1206,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
             folder_id: self.0.folder_id,
             collection_ids: self.0.collection_ids.clone(),
             key: self.0.key.clone(),
-            name: self.0.name.decrypt(ctx, ciphers_key)?,
+            name: self.0.name.decrypt(ctx, ciphers_key)?.unwrap_or_default(),
             notes: self.0.notes.decrypt(ctx, ciphers_key)?,
             r#type: self.0.r#type,
             login: self
@@ -1247,6 +1277,10 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
+        if crate::blob::is_blob_encrypted(&self.0) {
+            return Ok(crate::blob::decrypt_blob_cipher_list_view(&self.0, ctx)?);
+        }
+
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
 
         Ok(CipherListView {
@@ -1255,7 +1289,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
             folder_id: self.0.folder_id,
             collection_ids: self.0.collection_ids.clone(),
             key: self.0.key.clone(),
-            name: self.0.name.decrypt(ctx, ciphers_key)?,
+            name: self.0.name.decrypt(ctx, ciphers_key)?.unwrap_or_default(),
             subtitle: self.0.decrypt_subtitle(ctx, ciphers_key)?,
             r#type: match self.0.r#type {
                 CipherType::Login => {
@@ -1354,7 +1388,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .into_iter()
                 .map(CollectionId::new)
                 .collect(),
-            name: require!(EncString::try_from_optional(cipher.name)?),
+            name: EncString::try_from_optional(cipher.name)?,
             notes: EncString::try_from_optional(cipher.notes)?,
             r#type: require!(cipher.r#type).try_into()?,
             login: cipher.login.map(|l| (*l).try_into()).transpose()?,
@@ -1486,7 +1520,7 @@ impl PartialCipher for CipherResponseModel {
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             folder_id: self.folder_id.map(FolderId::new),
-            name: require!(self.name).parse()?,
+            name: self.name.map(|n| n.parse()).transpose()?,
             notes: EncString::try_from_optional(self.notes)?,
             r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
@@ -1536,7 +1570,7 @@ impl PartialCipher for CipherMiniResponseModel {
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
-            name: require!(EncString::try_from_optional(self.name)?),
+            name: EncString::try_from_optional(self.name)?,
             notes: EncString::try_from_optional(self.notes)?,
             r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
@@ -1596,7 +1630,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
-            name: require!(EncString::try_from_optional(self.name)?),
+            name: EncString::try_from_optional(self.name)?,
             notes: EncString::try_from_optional(self.notes)?,
             r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
@@ -1752,7 +1786,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: Some(Login {
@@ -1853,7 +1887,7 @@ mod tests {
         // Encrypt a valid cipher, then swap name with an EncString from a different key
         let cipher = key_store.encrypt(generate_cipher()).unwrap();
         let cipher = Cipher {
-            name: TEST_CIPHER_NAME.parse().unwrap(), // encrypted with a different key
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()), // encrypted with a different key
             ..cipher
         };
 
@@ -2374,7 +2408,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
@@ -2423,7 +2457,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::SecureNote,
             login: None,
@@ -2466,7 +2500,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Card,
             login: None,
@@ -2533,7 +2567,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Identity,
             login: None,
@@ -2693,7 +2727,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::SshKey,
             login: None,
@@ -2743,7 +2777,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
@@ -2786,7 +2820,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
@@ -2847,7 +2881,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
