@@ -1,11 +1,13 @@
 //! [`PolicyClient`] and its associated extension trait.
 
 use bitwarden_core::Client;
-use bitwarden_organizations::ProfileOrganization;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{PolicyType, filter::PolicyView, policy_overrides::*, registry::PolicyRegistry};
+use crate::{
+    PolicyOrganizationContext, PolicyType, PolicyView, policy_overrides::*,
+    registry::PolicyRegistry,
+};
 
 fn build_policy_registry() -> PolicyRegistry {
     PolicyRegistry::builder()
@@ -51,7 +53,7 @@ impl PolicyClient {
     pub fn filter_by_type(
         &self,
         policies: Vec<PolicyView>,
-        organizations: Vec<ProfileOrganization>,
+        organizations: Vec<PolicyOrganizationContext>,
         policy_type: PolicyType,
     ) -> Vec<PolicyView> {
         self.registry
@@ -93,14 +95,14 @@ mod tests {
         }
     }
 
-    fn organization(id: Uuid) -> ProfileOrganization {
-        ProfileOrganization {
+    fn organization(id: Uuid) -> PolicyOrganizationContext {
+        PolicyOrganizationContext {
             id,
-            r#type: OrganizationUserType::User,
+            role: OrganizationUserType::User,
             status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
             use_policies: true,
             is_provider_user: false,
-            ..Default::default()
         }
     }
 
@@ -147,13 +149,13 @@ mod tests {
         let org_id = Uuid::new_v4();
         // Owner — normally exempt, but NoExemptionPolicy removes the exemption
         let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
-        let orgs = vec![ProfileOrganization {
+        let orgs = vec![PolicyOrganizationContext {
             id: org_id,
-            r#type: OrganizationUserType::Owner,
+            role: OrganizationUserType::Owner,
             status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
             use_policies: true,
             is_provider_user: false,
-            ..Default::default()
         }];
 
         let registry = PolicyRegistry::builder()

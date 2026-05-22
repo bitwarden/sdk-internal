@@ -1,5 +1,4 @@
-use bitwarden_organizations::ProfileOrganization;
-use bitwarden_policies::{PolicyClient, PolicyType, PolicyView};
+use bitwarden_policies::{PolicyClient, PolicyOrganizationContext, PolicyType, PolicyView};
 
 /// Client for policy domain operations.
 #[derive(uniffi::Object)]
@@ -14,7 +13,7 @@ impl PoliciesClient {
     pub fn filter_by_type(
         &self,
         policies: Vec<PolicyView>,
-        organizations: Vec<ProfileOrganization>,
+        organizations: Vec<PolicyOrganizationContext>,
         policy_type: PolicyType,
     ) -> Vec<PolicyView> {
         self.0.filter_by_type(policies, organizations, policy_type)

@@ -50,7 +50,7 @@ pub enum PolicyType {
     /// Prevents members from unlocking the app with a PIN.
     RemoveUnlockWithPin = 14,
     /// Restricts the item types that members can create.
-    RestrictedItemTypesPolicy = 15,
+    RestrictedItemTypes = 15,
     /// Sets the default URI match detection strategy for autofill.
     UriMatchDefaults = 16,
     /// Sets the default behavior for the autotype feature.
