@@ -940,6 +940,7 @@ dependencies = [
  "bitwarden-organizations",
  "chrono",
  "serde",
+ "serde_repr",
  "tsify",
  "uniffi",
  "uuid",
