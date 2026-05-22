@@ -210,17 +210,6 @@ impl InternalClient {
             .await;
     }
 
-    /// Returns a reference to the installed [`TokenHandler`].
-    ///
-    /// Subsystems that need handler-specific operations can downcast via
-    /// `client.internal.token_handler().as_any().downcast_ref::<ConcreteHandler>()`.
-    /// Used by `bitwarden-send` to verify that a caller-provided send access token is
-    /// being applied to a `SendAccessTokenHandler`, rather than corrupting the active
-    /// session token on a PM/SM/ClientManaged handler.
-    pub fn token_handler(&self) -> &dyn TokenHandler {
-        self.token_handler.as_ref()
-    }
-
     #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub async fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {

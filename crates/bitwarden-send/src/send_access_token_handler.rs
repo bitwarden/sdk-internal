@@ -1,54 +1,21 @@
-use std::sync::{Arc, RwLock};
-
 use bitwarden_api_base::AuthRequired;
-use bitwarden_core::{auth::auth_tokens::TokenHandler, key_management::KeySlotIds};
-use bitwarden_crypto::KeyStore;
-use bitwarden_state::registry::StateRegistry;
 
-/// Token handler for recipient-driven send access flows.
+/// One-shot middleware that attaches a specific send access token to outgoing
+/// requests opting into bearer auth via [`AuthRequired::Bearer`].
 ///
-/// Send access tokens are short-lived bearer tokens that a recipient obtains from the
-/// identity service (`SendAccessClient::request_send_access_token`) and uses to access
-/// a Send via `POST /sends/access` and `POST /sends/access/file/{fileId}`. Unlike PM/SM
-/// tokens, they are not renewed by the SDK — when the token expires the recipient must
-/// obtain a fresh one through the identity flow.
-///
-/// Install on a [`bitwarden_core::Client`] via
-/// [`Client::new_with_token_handler`](bitwarden_core::Client::new_with_token_handler).
-#[derive(Clone, Default)]
-pub struct SendAccessTokenHandler {
-    token: Arc<RwLock<Option<String>>>,
+/// Constructed fresh per send-access call by [`SendClient::access_send`](crate::SendClient)
+/// and [`SendClient::get_file_download_data`](crate::SendClient). Because the token lives
+/// on this instance (not in shared state), concurrent send-access calls cannot observe
+/// each other's tokens — eliminating the race where two callers' bearer tokens could be
+/// swapped mid-flight.
+#[derive(Clone)]
+pub(crate) struct SendAccessTokenHandler {
+    token: String,
 }
 
 impl SendAccessTokenHandler {
-    /// Create a new handler with no token set.
-    pub fn new() -> Arc<Self> {
-        Arc::new(Self::default())
-    }
-
-    /// Update the bearer token used for subsequent requests.
-    pub fn set_token(&self, token: String) {
-        if let Ok(mut guard) = self.token.write() {
-            *guard = Some(token);
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl TokenHandler for SendAccessTokenHandler {
-    fn initialize_middleware(
-        &self,
-        _state_registry: &StateRegistry,
-        _identity_config: bitwarden_api_base::Configuration,
-        _key_store: KeyStore<KeySlotIds>,
-    ) -> Arc<dyn reqwest_middleware::Middleware> {
-        Arc::new(self.clone())
-    }
-
-    async fn set_tokens(&self, token: String, _refresh_token: Option<String>, _expires_in: u64) {
-        if let Ok(mut guard) = self.token.write() {
-            *guard = Some(token);
-        }
+    pub(crate) fn new(token: String) -> Self {
+        Self { token }
     }
 }
 
@@ -62,16 +29,13 @@ impl reqwest_middleware::Middleware for SendAccessTokenHandler {
         next: reqwest_middleware::Next<'_>,
     ) -> Result<reqwest::Response, reqwest_middleware::Error> {
         if ext.get::<AuthRequired>().is_some() {
-            let token = self.token.read().ok().and_then(|g| g.clone());
-            if let Some(token) = token {
-                match format!("Bearer {token}").parse() {
-                    Ok(header_value) => {
-                        req.headers_mut()
-                            .insert(http::header::AUTHORIZATION, header_value);
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to parse send access token for header: {e}");
-                    }
+            match format!("Bearer {}", self.token).parse() {
+                Ok(header_value) => {
+                    req.headers_mut()
+                        .insert(http::header::AUTHORIZATION, header_value);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to parse send access token for header: {e}");
                 }
             }
         }
@@ -81,25 +45,13 @@ impl reqwest_middleware::Middleware for SendAccessTokenHandler {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_base::AuthRequired;
     use wiremock::MockServer;
 
     use super::*;
 
-    async fn test_setup(
-        token: Option<String>,
-    ) -> (
-        Arc<SendAccessTokenHandler>,
-        reqwest_middleware::ClientWithMiddleware,
-        MockServer,
-    ) {
-        let handler = SendAccessTokenHandler::new();
-        if let Some(t) = token {
-            handler.set_tokens(t, None, 0).await;
-        }
-
+    async fn test_setup(token: &str) -> (reqwest_middleware::ClientWithMiddleware, MockServer) {
         let client = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
-            .with((*handler).clone())
+            .with(SendAccessTokenHandler::new(token.to_string()))
             .build();
 
         let server = MockServer::start().await;
@@ -108,12 +60,12 @@ mod tests {
             .mount(&server)
             .await;
 
-        (handler, client, server)
+        (client, server)
     }
 
     #[tokio::test]
     async fn attaches_bearer_token_when_auth_required() {
-        let (_handler, client, server) = test_setup(Some("send-access-token".to_string())).await;
+        let (client, server) = test_setup("send-access-token").await;
 
         client
             .get(format!("{}/sends/access", server.uri()))
@@ -135,26 +87,10 @@ mod tests {
 
     #[tokio::test]
     async fn does_not_attach_token_without_auth_required() {
-        let (_handler, client, server) = test_setup(Some("send-access-token".to_string())).await;
+        let (client, server) = test_setup("send-access-token").await;
 
         client
             .get(format!("{}/test", server.uri()))
-            .send()
-            .await
-            .unwrap();
-
-        let requests = server.received_requests().await.unwrap();
-        assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0].headers.get("Authorization"), None);
-    }
-
-    #[tokio::test]
-    async fn does_not_attach_token_when_unset() {
-        let (_handler, client, server) = test_setup(None).await;
-
-        client
-            .get(format!("{}/sends/access", server.uri()))
-            .with_extension(AuthRequired::Bearer)
             .send()
             .await
             .unwrap();

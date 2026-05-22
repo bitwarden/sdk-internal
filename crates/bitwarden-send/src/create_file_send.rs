@@ -4,6 +4,7 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -15,19 +16,45 @@ use crate::{
     send_client::SendClient,
 };
 
+/// Where the client should upload the encrypted file bytes after [`SendClient::create_file_send`].
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[repr(u8)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum FileUploadType {
+    /// Upload directly to the Bitwarden server via `POST /sends/{id}/file/{file_id}`.
+    Direct = 0,
+    /// Upload to an Azure Blob Storage pre-signed URL.
+    Azure = 1,
+}
+
+impl TryFrom<bitwarden_api_api::models::FileUploadType> for FileUploadType {
+    type Error = MissingFieldError;
+
+    fn try_from(t: bitwarden_api_api::models::FileUploadType) -> Result<Self, Self::Error> {
+        Ok(match t {
+            bitwarden_api_api::models::FileUploadType::Direct => FileUploadType::Direct,
+            bitwarden_api_api::models::FileUploadType::Azure => FileUploadType::Azure,
+            bitwarden_api_api::models::FileUploadType::__Unknown(_) => {
+                return Err(MissingFieldError("file_upload_type"));
+            }
+        })
+    }
+}
+
 /// View returned after creating a file send.
 ///
 /// Contains the created send and information needed to upload the file data.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
-pub struct CreateFileSendView {
+pub struct CreateFileSendResponse {
     /// The created send.
     pub send: SendView,
     /// The upload URL for the file data.
     pub url: String,
-    /// The file upload type (0 = Direct to Bitwarden server, 1 = Azure Blob Storage).
-    pub file_upload_type: i32,
+    /// Which upload backend the client should target with the encrypted bytes.
+    pub file_upload_type: FileUploadType,
     /// The file ID assigned by the server.
     pub file_id: String,
     /// The encrypted file name string (e.g. `"2.ABCD..."`).
@@ -91,7 +118,7 @@ impl SendClient {
     pub async fn create_file_send(
         &self,
         request: SendAddRequest,
-    ) -> Result<CreateFileSendView, CreateFileSendError> {
+    ) -> Result<CreateFileSendResponse, CreateFileSendError> {
         request.auth.validate()?;
 
         let key_store = self.client.internal.get_key_store();
@@ -108,10 +135,7 @@ impl SendClient {
             .map_err(ApiError::from)?;
 
         let url = require!(resp.url);
-        let file_upload_type = resp
-            .file_upload_type
-            .map(|t| t.as_i64() as i32)
-            .unwrap_or(0);
+        let file_upload_type: FileUploadType = require!(resp.file_upload_type).try_into()?;
         let send_response = *require!(resp.send_response);
 
         let send: Send = send_response.try_into()?;
@@ -128,12 +152,12 @@ impl SendClient {
             .map(|f| f.file_name.to_string())
             .ok_or(MissingFieldError("file.file_name"))?;
 
+        let send_view = key_store.decrypt(&send)?;
+
         let send_id = require!(send.id);
         repository.set(send_id, send.clone()).await?;
 
-        let send_view = key_store.decrypt(&send)?;
-
-        Ok(CreateFileSendView {
+        Ok(CreateFileSendResponse {
             send: send_view,
             url,
             file_upload_type,
@@ -145,7 +169,7 @@ impl SendClient {
     /// Upload the encrypted file data for a file [Send].
     ///
     /// `data` must be the encrypted file content (encrypted with the send key).
-    /// `encrypted_file_name` is the encrypted file name string from [`CreateFileSendView`].
+    /// `encrypted_file_name` is the encrypted file name string from [`CreateFileSendResponse`].
     pub async fn upload_send_file(
         &self,
         send_id: SendId,
@@ -350,7 +374,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(result.url, upload_url);
-        assert_eq!(result.file_upload_type, 1); // Azure
+        assert_eq!(result.file_upload_type, crate::FileUploadType::Azure);
         assert_eq!(result.file_id, FILE_ID);
         assert!(!result.encrypted_file_name.is_empty());
         assert_eq!(result.send.id, Some(SendId::new(SEND_ID.parse().unwrap())));
@@ -367,7 +391,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_file_send_defaults_file_upload_type_to_zero_when_absent() {
+    async fn test_create_file_send_errors_when_file_upload_type_missing() {
         let mock = Mock::given(method("POST"))
             .and(path("/sends/file/v2"))
             .respond_with(move |req: &wiremock::Request| {
@@ -377,7 +401,8 @@ mod tests {
                 let response = SendFileUploadDataResponseModel {
                     object: Some("send-fileUpload".to_string()),
                     url: Some("https://upload.example.com/abc".to_string()),
-                    // Omit file_upload_type to exercise the `.unwrap_or(0)` branch.
+                    // Omit file_upload_type — the SDK must not silently default to a
+                    // backend that could route bytes to the wrong place.
                     file_upload_type: None,
                     send_response: Some(Box::new(send_response)),
                 };
@@ -387,13 +412,13 @@ mod tests {
         let (server, _config) = start_api_mock(vec![mock]).await;
         let (client, _repository) = make_test_client(&server);
 
-        let result = client
+        let err = client
             .sends()
             .create_file_send(sample_request())
             .await
-            .unwrap();
+            .unwrap_err();
 
-        assert_eq!(result.file_upload_type, 0);
+        assert!(matches!(err, CreateFileSendError::MissingField(_)));
     }
 
     #[tokio::test]

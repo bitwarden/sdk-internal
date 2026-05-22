@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use bitwarden_api_api::{apis::ApiClient, models};
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -8,7 +11,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::send_client::SendClient;
+use crate::{SendParseError, SendType, send_client::SendClient};
 
 // ===== Public output types (returned to callers) =====
 
@@ -18,20 +21,20 @@ use crate::send_client::SendClient;
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
-pub struct SendAccessView {
+pub struct SendAccessResponse {
     /// The send access ID
     pub id: Option<String>,
-    /// The send type (0 = Text, 1 = File)
+    /// The send type.
     #[serde(rename = "type")]
-    pub type_: Option<i32>,
+    pub type_: Option<SendType>,
     /// Encrypted send name
     pub name: Option<String>,
     /// Text content (if type is Text)
-    pub text: Option<SendAccessTextView>,
+    pub text: Option<SendAccessTextResponse>,
     /// File metadata (if type is File)
-    pub file: Option<SendAccessFileView>,
-    /// When the send expires
-    pub expiration_date: Option<String>,
+    pub file: Option<SendAccessFileResponse>,
+    /// When the send expires.
+    pub expiration_date: Option<DateTime<Utc>>,
     /// The creator's identifier (email), if not hidden
     pub creator_identifier: Option<String>,
 }
@@ -40,7 +43,7 @@ pub struct SendAccessView {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
-pub struct SendAccessTextView {
+pub struct SendAccessTextResponse {
     /// Encrypted text content
     pub text: Option<String>,
     /// Whether to hide the text by default
@@ -51,7 +54,7 @@ pub struct SendAccessTextView {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
-pub struct SendAccessFileView {
+pub struct SendAccessFileResponse {
     /// The file ID
     pub id: Option<String>,
     /// Encrypted file name
@@ -82,14 +85,11 @@ pub enum AccessSendError {
     /// An API or network error occurred.
     #[error(transparent)]
     Api(#[from] ApiError),
-    /// The [`Client`](bitwarden_core::Client) was not constructed with a
-    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler), so the provided
-    /// access token cannot be applied to the outgoing request.
-    #[error(
-        "Client was not constructed with a SendAccessTokenHandler; \
-         use Client::new_with_token_handler with SendAccessTokenHandler::new()"
-    )]
-    SendAccessTokenHandlerMissing,
+    /// The response body could not be parsed into a [`SendAccessResponse`] — either a
+    /// required field was missing, the send type was an unrecognized value, or a date
+    /// field was malformed.
+    #[error(transparent)]
+    Parse(#[from] SendParseError),
 }
 
 /// Error returned when getting send file download data fails.
@@ -99,14 +99,6 @@ pub enum GetFileDownloadDataError {
     /// An API or network error occurred.
     #[error(transparent)]
     Api(#[from] ApiError),
-    /// The [`Client`](bitwarden_core::Client) was not constructed with a
-    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler), so the provided
-    /// access token cannot be applied to the outgoing request.
-    #[error(
-        "Client was not constructed with a SendAccessTokenHandler; \
-         use Client::new_with_token_handler with SendAccessTokenHandler::new()"
-    )]
-    SendAccessTokenHandlerMissing,
 }
 
 // ===== HTTP request functions =====
@@ -115,22 +107,22 @@ async fn access_send_v1(
     api_client: &ApiClient,
     send_id: &str,
     password: Option<String>,
-) -> Result<SendAccessView, AccessSendError> {
+) -> Result<SendAccessResponse, AccessSendError> {
     let resp = api_client
         .sends_api()
         .access(send_id, Some(models::SendAccessRequestModel { password }))
         .await
         .map_err(ApiError::from)?;
-    Ok(resp.into())
+    Ok(resp.try_into()?)
 }
 
-async fn access_send(api_client: &ApiClient) -> Result<SendAccessView, AccessSendError> {
+async fn access_send(api_client: &ApiClient) -> Result<SendAccessResponse, AccessSendError> {
     let resp = api_client
         .sends_api()
         .access_using_auth()
         .await
         .map_err(ApiError::from)?;
-    Ok(resp.into())
+    Ok(resp.try_into()?)
 }
 
 async fn get_file_download_data_v1(
@@ -165,25 +157,27 @@ async fn get_file_download_data(
 
 // ===== Conversions from API response models =====
 
-impl From<models::SendAccessResponseModel> for SendAccessView {
-    fn from(r: models::SendAccessResponseModel) -> Self {
-        SendAccessView {
+impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
+    type Error = SendParseError;
+
+    fn try_from(r: models::SendAccessResponseModel) -> Result<Self, Self::Error> {
+        Ok(SendAccessResponse {
             id: r.id,
-            type_: r.r#type.map(|t| t.as_i64() as i32),
+            type_: r.r#type.map(SendType::try_from).transpose()?,
             name: r.name,
-            text: r.text.map(|t| SendAccessTextView {
+            text: r.text.map(|t| SendAccessTextResponse {
                 text: t.text,
                 hidden: t.hidden.unwrap_or(false),
             }),
-            file: r.file.map(|f| SendAccessFileView {
+            file: r.file.map(|f| SendAccessFileResponse {
                 id: f.id,
                 file_name: f.file_name,
                 size: f.size,
                 size_name: f.size_name,
             }),
-            expiration_date: r.expiration_date,
+            expiration_date: r.expiration_date.map(|s| s.parse()).transpose()?,
             creator_identifier: r.creator_identifier,
-        }
+        })
     }
 }
 
@@ -202,39 +196,30 @@ impl From<models::SendFileDownloadDataResponseModel> for SendFileDownloadData {
 impl SendClient {
     /// Accesses a send using the V1 (legacy) API endpoint.
     /// The `password` is the SHA256 hash of the user-entered password, if the send is
-    /// password-protected. The returned [SendAccessView] contains encrypted fields that must
+    /// password-protected. The returned [SendAccessResponse] contains encrypted fields that must
     /// be decrypted client-side using the key derived from the URL fragment.
     pub async fn access_send_v1(
         &self,
         send_id: String,
         password: Option<String>,
-    ) -> Result<SendAccessView, AccessSendError> {
+    ) -> Result<SendAccessResponse, AccessSendError> {
         let config = self.client.internal.get_api_configurations();
         access_send_v1(&config.api_client, &send_id, password).await
     }
 
     /// Accesses a send using the V2 API endpoint, authenticated with a send access token.
-    /// The returned [SendAccessView] contains encrypted fields that must be decrypted
+    /// The returned [SendAccessResponse] contains encrypted fields that must be decrypted
     /// client-side using the key derived from the URL fragment.
     ///
-    /// The underlying [`Client`](bitwarden_core::Client) must have been constructed with a
-    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler) via
-    /// [`Client::new_with_token_handler`](bitwarden_core::Client::new_with_token_handler);
-    /// otherwise this returns [`AccessSendError::SendAccessTokenHandlerMissing`].
+    /// The provided `access_token` is attached as a bearer header to this single request
+    /// via a per-call middleware; concurrent calls on the same [`Client`](bitwarden_core::Client)
+    /// do not share token state.
     pub async fn access_send(
         &self,
         access_token: String,
-    ) -> Result<SendAccessView, AccessSendError> {
-        let handler = self
-            .client
-            .internal
-            .token_handler()
-            .as_any()
-            .downcast_ref::<crate::SendAccessTokenHandler>()
-            .ok_or(AccessSendError::SendAccessTokenHandlerMissing)?;
-        handler.set_token(access_token);
-        let config = self.client.internal.get_api_configurations();
-        access_send(&config.api_client).await
+    ) -> Result<SendAccessResponse, AccessSendError> {
+        let api = self.build_send_access_api(access_token);
+        access_send(&api).await
     }
 
     /// Gets file download data for a file send using the V1 (legacy) API endpoint.
@@ -253,26 +238,35 @@ impl SendClient {
     /// Gets file download data for a file send using the V2 API endpoint, authenticated
     /// with a send access token.
     ///
-    /// The underlying [`Client`](bitwarden_core::Client) must have been constructed with a
-    /// [`SendAccessTokenHandler`](crate::SendAccessTokenHandler) via
-    /// [`Client::new_with_token_handler`](bitwarden_core::Client::new_with_token_handler);
-    /// otherwise this returns
-    /// [`GetFileDownloadDataError::SendAccessTokenHandlerMissing`].
+    /// The provided `access_token` is attached as a bearer header to this single request
+    /// via a per-call middleware; concurrent calls on the same [`Client`](bitwarden_core::Client)
+    /// do not share token state.
     pub async fn get_file_download_data(
         &self,
         access_token: String,
         file_id: String,
     ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
-        let handler = self
-            .client
-            .internal
-            .token_handler()
-            .as_any()
-            .downcast_ref::<crate::SendAccessTokenHandler>()
-            .ok_or(GetFileDownloadDataError::SendAccessTokenHandlerMissing)?;
-        handler.set_token(access_token);
+        let api = self.build_send_access_api(access_token);
+        get_file_download_data(&api, &file_id).await
+    }
+
+    /// Build a one-off [`ApiClient`] whose middleware stack injects the supplied bearer
+    /// token on requests opting into
+    /// [`AuthRequired::Bearer`](bitwarden_api_base::AuthRequired::Bearer). Send-access calls
+    /// don't share an `ApiClient` with the rest of the SDK so that the caller-provided token
+    /// can't leak into other requests on the same Client.
+    fn build_send_access_api(&self, access_token: String) -> ApiClient {
         let config = self.client.internal.get_api_configurations();
-        get_file_download_data(&config.api_client, &file_id).await
+        let mw_client =
+            reqwest_middleware::ClientBuilder::new(self.client.internal.get_http_client().clone())
+                .with(crate::send_access_token_handler::SendAccessTokenHandler::new(access_token))
+                .build();
+
+        let send_config = bitwarden_api_base::Configuration {
+            base_path: config.api_config.base_path.clone(),
+            client: mw_client,
+        };
+        ApiClient::new(&Arc::new(send_config))
     }
 }
 
@@ -325,7 +319,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(result.id, Some(SEND_ID.to_string()));
-        assert_eq!(result.type_, Some(0));
+        assert_eq!(result.type_, Some(crate::SendType::Text));
         assert_eq!(result.name, Some("encrypted-name".to_string()));
         let text = result.text.expect("text variant should be populated");
         assert_eq!(text.text, Some("encrypted-text".to_string()));
@@ -333,7 +327,7 @@ mod tests {
         assert!(result.file.is_none());
         assert_eq!(
             result.expiration_date,
-            Some("2025-01-10T00:00:00Z".to_string())
+            Some("2025-01-10T00:00:00Z".parse::<DateTime<Utc>>().unwrap())
         );
         assert_eq!(
             result.creator_identifier,
@@ -390,7 +384,7 @@ mod tests {
         let result = access_send(&api_client).await.unwrap();
 
         assert_eq!(result.id, Some(SEND_ID.to_string()));
-        assert_eq!(result.type_, Some(1));
+        assert_eq!(result.type_, Some(crate::SendType::File));
         assert_eq!(result.name, Some("encrypted-name".to_string()));
         assert!(result.text.is_none());
         let file = result.file.expect("file variant should be populated");

@@ -7,11 +7,10 @@ mod uniffi_support;
 
 mod access;
 pub use access::{
-    AccessSendError, GetFileDownloadDataError, SendAccessFileView, SendAccessTextView,
-    SendAccessView, SendFileDownloadData,
+    AccessSendError, GetFileDownloadDataError, SendAccessFileResponse, SendAccessResponse,
+    SendAccessTextResponse, SendFileDownloadData,
 };
 mod send_access_token_handler;
-pub use send_access_token_handler::SendAccessTokenHandler;
 mod send_client;
 pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,
@@ -21,7 +20,8 @@ mod create;
 pub use create::{CreateSendError, SendAddRequest};
 mod create_file_send;
 pub use create_file_send::{
-    CreateFileSendError, CreateFileSendView, RenewFileUploadUrlError, UploadSendFileError,
+    CreateFileSendError, CreateFileSendResponse, FileUploadType, RenewFileUploadUrlError,
+    UploadSendFileError,
 };
 mod delete;
 pub use delete::DeleteSendError;
