@@ -34,7 +34,7 @@ impl PlatformClient {
 
     /// Load feature flags into the client
     pub async fn load_flags(&self, flags: FeatureFlags) -> Result<(), JsValue> {
-        self.0.internal.load_flags(flags.flags).await;
+        self.0.flags().load(flags.flags).await;
         Ok(())
     }
 }

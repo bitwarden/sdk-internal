@@ -110,6 +110,14 @@ impl Client {
             .await
             .expect("user ID cannot already be set on a freshly built client");
 
+        // Refresh feature flags from /config if the cached set is missing or stale (TTL 1h).
+        // Failure is non-fatal — an offline client continues with the previously persisted flags.
+        if let Err(e) = client.flags().fetch(false).await {
+            tracing::warn!(
+                "Failed to refresh feature flags on startup; using previously stored flags: {e}"
+            );
+        }
+
         Ok(client)
     }
 }
@@ -153,9 +161,10 @@ mod tests {
     }
 
     fn test_base_urls() -> BaseUrls {
+        // Use an invalid port so flag loading fails fast
         BaseUrls {
-            identity_url: "https://identity.example.com".to_string(),
-            api_url: "https://api.example.com".to_string(),
+            identity_url: "http://127.0.0.1:1".to_string(),
+            api_url: "http://127.0.0.1:1".to_string(),
         }
     }
 
