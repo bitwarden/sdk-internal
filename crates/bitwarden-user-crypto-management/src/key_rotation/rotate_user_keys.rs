@@ -1,9 +1,9 @@
 //! Client implementation for rotating user keys without a password change.
 use bitwarden_api_api::models::RotateUserKeysRequestModel;
 use bitwarden_core::key_management::{
-    KeySlotIds, account_cryptographic_state::WrappedAccountCryptographicState,
+    KeySlotIds, V2UpgradeToken, account_cryptographic_state::WrappedAccountCryptographicState,
 };
-use bitwarden_crypto::{KeyConnectorKey, KeyStore, PublicKey};
+use bitwarden_crypto::{KeyConnectorKey, KeyStore, PublicKey, SymmetricCryptoKey};
 use serde::{Deserialize, Serialize};
 use tracing::{info, instrument};
 #[cfg(feature = "wasm")]
@@ -15,7 +15,9 @@ use crate::{
     UserCryptoManagementClient,
     key_rotation::{
         RotateUserKeysError,
-        crypto::rotate_account_cryptographic_state_to_wrapped_model,
+        crypto::{
+            account_cryptographic_state_to_wrapped_model, rotate_account_cryptographic_state,
+        },
         data::{check_for_old_attachments, reencrypt_data},
         rotation_context::make_rotation_context,
         sync::{SyncedAccountData, sync_current_account_data},
@@ -38,7 +40,7 @@ pub enum KeyRotationMethod {
     Tde,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum UpgradeTokenAction {
@@ -98,6 +100,7 @@ impl UserCryptoManagementClient {
         internal_rotate_user_keys(
             key_store,
             api_client,
+            &self.client.km_state_bridge(),
             key_connector_api_client.as_ref(),
             request,
             wrapped_account_cryptographic_state,
@@ -107,10 +110,19 @@ impl UserCryptoManagementClient {
     }
 }
 
+/// Data that needs to be written to local state after the key rotation
+/// was successfully posted to the server
+struct StateUpdate {
+    user_key: SymmetricCryptoKey,
+    account_cryptographic_state: WrappedAccountCryptographicState,
+    upgrade_token: Option<V2UpgradeToken>,
+}
+
 #[instrument(name = "rotate_user_keys", level = "info", skip_all, err)]
 async fn internal_rotate_user_keys(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
+    state_bridge: &bitwarden_core::key_management::state_bridge::StateBridgeClient,
     key_connector_api_client: Option<&bitwarden_api_key_connector::apis::ApiClient>,
     request: RotateUserKeysRequest,
     wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
@@ -145,7 +157,7 @@ async fn internal_rotate_user_keys(
     };
 
     // Create a separate scope so that the mutable context is not held across the await point
-    let post_request = {
+    let (post_request, state_bridge_update) = {
         let mut ctx = key_store.context_mut();
 
         let rotation_context = make_rotation_context(
@@ -156,10 +168,16 @@ async fn internal_rotate_user_keys(
         )?;
 
         info!("Rotating account cryptographic state for user key rotation");
+        let wrapped_account_cryptographic_state = rotate_account_cryptographic_state(
+            &wrapped_account_cryptographic_state,
+            &rotation_context.current_user_key_id,
+            &rotation_context.new_user_key_id,
+            &mut ctx,
+        )
+        .map_err(|_| RotateUserKeysError::Crypto)?;
         let wrapped_account_cryptographic_state_request_model =
-            rotate_account_cryptographic_state_to_wrapped_model(
+            account_cryptographic_state_to_wrapped_model(
                 &wrapped_account_cryptographic_state,
-                &rotation_context.current_user_key_id,
                 &rotation_context.new_user_key_id,
                 &mut ctx,
             )
@@ -201,19 +219,36 @@ async fn internal_rotate_user_keys(
             rotation_context.new_user_key_id,
             request
                 .upgrade_token_action
+                .clone()
                 .unwrap_or(UpgradeTokenAction::Skip),
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;
 
-        RotateUserKeysRequestModel {
-            wrapped_account_cryptographic_state: Box::new(
-                wrapped_account_cryptographic_state_request_model,
-            ),
-            account_data: Box::new(account_data_model),
-            unlock_data: Box::new(common_unlock_data),
-            unlock_method_data: Box::new(unlock_method_data),
-        }
+        (
+            RotateUserKeysRequestModel {
+                wrapped_account_cryptographic_state: Box::new(
+                    wrapped_account_cryptographic_state_request_model,
+                ),
+                account_data: Box::new(account_data_model),
+                unlock_data: Box::new(common_unlock_data.clone()),
+                unlock_method_data: Box::new(unlock_method_data),
+            },
+            StateUpdate {
+                #[allow(deprecated)]
+                user_key: ctx
+                    .dangerous_get_symmetric_key(rotation_context.new_user_key_id)
+                    .map_err(|_| RotateUserKeysError::Crypto)?
+                    .to_owned(),
+                account_cryptographic_state: wrapped_account_cryptographic_state,
+                upgrade_token: common_unlock_data
+                    .v2_upgrade_token
+                    .clone()
+                    .map(|t| (*t).try_into())
+                    .transpose()
+                    .map_err(|_| RotateUserKeysError::Crypto)?,
+            },
+        )
     };
 
     info!("Posting rotated user account keys and data to server");
@@ -223,6 +258,20 @@ async fn internal_rotate_user_keys(
         .await
         .map_err(|_| RotateUserKeysError::Api)?;
     info!("Successfully rotated user account keys and data");
+
+    if let Some(upgrade_token) = state_bridge_update.upgrade_token.as_ref() {
+        info!("Writing new cryptographic data to state");
+        state_bridge
+            .set_account_cryptographic_state(&state_bridge_update.account_cryptographic_state)
+            .await;
+        state_bridge.set_v2_upgrade_token(upgrade_token).await;
+        state_bridge
+            .set_user_key(&state_bridge_update.user_key)
+            .await;
+        // Important: A full sync MUST be triggered after the key rotation to make sure all unlock
+        // methods are accurate
+    }
+
     Ok(())
 }
 
@@ -231,15 +280,26 @@ mod tests {
     use std::str::FromStr;
 
     use bitwarden_api_api::apis::ApiClient;
-    use bitwarden_core::key_management::{
-        KeySlotIds, SymmetricKeySlotId,
-        account_cryptographic_state::WrappedAccountCryptographicState,
+    use bitwarden_core::{
+        Client,
+        key_management::{
+            KeySlotIds, SymmetricKeySlotId,
+            account_cryptographic_state::WrappedAccountCryptographicState,
+            state_bridge::{StateBridgeClient, test_support::InMemoryStateBridge},
+        },
     };
     use bitwarden_crypto::{Kdf, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
     use bitwarden_vault::{Attachment, Cipher, CipherType};
     use chrono::DateTime;
 
     use super::*;
+
+    fn make_state_bridge() -> StateBridgeClient {
+        let client = Client::new(None);
+        let bridge = client.km_state_bridge();
+        bridge.register_bridge(Box::new(InMemoryStateBridge::default()));
+        bridge
+    }
 
     fn make_test_key_store_and_synced_data() -> (KeyStore<KeySlotIds>, SyncedAccountData) {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -283,9 +343,11 @@ mod tests {
                 .never();
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Tde,
@@ -317,9 +379,11 @@ mod tests {
                 .returning(|_| Ok(()));
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
@@ -352,9 +416,11 @@ mod tests {
                 });
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
@@ -392,9 +458,11 @@ mod tests {
                 });
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
@@ -432,9 +500,11 @@ mod tests {
                 });
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
@@ -472,9 +542,11 @@ mod tests {
                 });
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
@@ -549,9 +621,11 @@ mod tests {
                 .never();
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
@@ -615,9 +689,11 @@ mod tests {
                 });
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             Some(&key_connector_api_client),
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::KeyConnector {
@@ -668,9 +744,11 @@ mod tests {
                 .never();
         });
 
+        let state_bridge = make_state_bridge();
         let result = internal_rotate_user_keys(
             &key_store,
             &api_client,
+            &state_bridge,
             Some(&key_connector_api_client),
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::KeyConnector {
