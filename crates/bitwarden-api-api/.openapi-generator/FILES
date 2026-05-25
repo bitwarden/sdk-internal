@@ -216,6 +216,7 @@ src/models/folder_response_model.rs
 src/models/folder_response_model_list_response_model.rs
 src/models/folder_with_id_request_model.rs
 src/models/gateway_type.rs
+src/models/get_organization_invite_link_status_request_model.rs
 src/models/get_secrets_request_model.rs
 src/models/global_domains.rs
 src/models/global_equivalent_domains_type.rs
@@ -336,6 +337,7 @@ src/models/organization_user_reset_password_enrollment_request_model.rs
 src/models/organization_user_reset_password_request_model.rs
 src/models/organization_user_restore_request.rs
 src/models/organization_user_status_type.rs
+src/models/organization_user_status_type_new.rs
 src/models/organization_user_type.rs
 src/models/organization_user_update_request_model.rs
 src/models/organization_user_user_details_response_model.rs
