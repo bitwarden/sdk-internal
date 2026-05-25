@@ -6,7 +6,10 @@
 //! currently, and it is not sufficiently clear what is required / how it should be structured, as
 //! it should capture the needs of all platforms (mobile and web).
 
+use std::str::FromStr;
+
 use bitwarden_core::UserId;
+use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest};
 use bitwarden_threading::{
     ThreadBoundRunner,
@@ -23,9 +26,14 @@ export interface BiometricsUnlock {
      */
     get_biometrics_status(user_id: UserId): Promise<BiometricsStatus>;
     /**
-     * Triggers a biometric unlock flow for the given user.
+     * Triggers a biometric unlock flow for the given user. Resolves with the
+     * user's symmetric key on success, or `undefined` if the unlock was
+     * canceled or otherwise failed.
+     * 
+     * Please note, the user-key is only returned temporarily until
+     * shared unlock is rolled out and will be removed afterwards.
      */
-    unlock_biometrics(user_id: UserId): Promise<void>;
+    unlock_biometrics(user_id: UserId): Promise<SymmetricKey | undefined>;
     /**
       * Triggers a biometrics UV check. Retruns true if the check succeeded.
       */
@@ -46,16 +54,17 @@ extern "C" {
         user_id: UserId,
     ) -> Result<JsValue, JsValue>;
 
-    /// Triggers a biometric unlock flow for the given user.
+    /// Triggers a biometric unlock flow for the given user. Returns the user's
+    /// symmetric key on success, or `None` if the unlock was canceled/failed.
     #[wasm_bindgen(method, catch)]
     async fn unlock_biometrics(
         this: &RawJsBiometricsDriver,
         user_id: UserId,
-    ) -> Result<(), JsValue>;
+    ) -> Result<JsValue, JsValue>;
 
     /// Triggers a biometrics UV check. Returns true if the check succeeded.
     #[wasm_bindgen(method, catch)]
-    async fn authenticate_biometrics(this: &RawJsBiometricsDriver) -> Result<bool, JsValue>;
+    async fn authenticate_biometrics(this: &RawJsBiometricsDriver) -> Result<JsValue, JsValue>;
 }
 
 pub(super) struct JsBiometricsUnlock {
@@ -80,19 +89,32 @@ impl JsBiometricsUnlock {
             .unwrap_or(BiometricsStatus::NotEnabled)
     }
 
-    pub(super) async fn unlock_biometrics(&self, user_id: UserId) {
+    pub(super) async fn unlock_biometrics(&self, user_id: UserId) -> Option<SymmetricCryptoKey> {
         self.runner
             .run_in_thread(move |driver| async move {
-                driver.unlock_biometrics(user_id).await.unwrap_or(())
+                driver
+                    .unlock_biometrics(user_id)
+                    .await
+                    .map(|js_value| {
+                        SymmetricCryptoKey::from_str(js_value.as_string()?.as_str()).ok()
+                    })
+                    .ok()
+                    .flatten()
             })
             .await
-            .unwrap_or(())
+            .ok()
+            .flatten()
     }
 
     pub(super) async fn authenticate_biometrics(&self) -> bool {
         self.runner
             .run_in_thread(move |driver| async move {
-                driver.authenticate_biometrics().await.unwrap_or(false)
+                driver
+                    .authenticate_biometrics()
+                    .await
+                    .ok()
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
             })
             .await
             .unwrap_or(false)
@@ -148,8 +170,22 @@ pub struct UnlockBiometricsRequest {
     pub user_id: UserId,
 }
 
+/// RPC response for [`UnlockBiometricsRequest`]. `user_key` is `None` if the
+/// biometric prompt was canceled or otherwise failed on the responding device.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+pub struct UnlockBiometricsResponse {
+    /// The unlocked user's symmetric key, if the unlock succeeded.
+    #[tsify(optional, type = "SymmetricKey")]
+    pub user_key: Option<SymmetricCryptoKey>,
+}
+
 impl RpcRequest for UnlockBiometricsRequest {
-    type Response = ();
+    type Response = UnlockBiometricsResponse;
 
     const NAME: &str = "UnlockBiometrics";
 }
@@ -201,10 +237,12 @@ impl UnlockBiometricsHandler {
 impl RpcHandler for UnlockBiometricsHandler {
     type Request = UnlockBiometricsRequest;
 
-    async fn handle(&self, request: Self::Request) {
-        self.biometrics_unlock
+    async fn handle(&self, request: Self::Request) -> UnlockBiometricsResponse {
+        let user_key = self
+            .biometrics_unlock
             .unlock_biometrics(request.user_id)
-            .await
+            .await;
+        UnlockBiometricsResponse { user_key }
     }
 }
 
@@ -272,13 +310,13 @@ pub async fn ipc_request_get_biometrics_status(
         .await
 }
 
-/// Sends an `UnlockBiometrics` RPC request to the desktop renderer
+/// Sends an `UnlockBiometrics` RPC request to the desktop renderer.
 #[wasm_bindgen(js_name = ipcRequestUnlockBiometrics)]
 pub async fn ipc_request_unlock_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     user_id: UserId,
     abort_signal: Option<AbortSignal>,
-) -> Result<(), RequestError> {
+) -> Result<UnlockBiometricsResponse, RequestError> {
     ipc_client
         .client
         .request(

@@ -117,10 +117,20 @@ impl CipherKind for DriversLicense {
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
-        [self
-            .license_number
-            .as_ref()
-            .map(|_| CopyableCipherFields::DriversLicenseLicenseNumber)]
+        [
+            self.first_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseFirstName),
+            self.middle_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseMiddleName),
+            self.last_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseLastName),
+            self.license_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseLicenseNumber),
+        ]
         .into_iter()
         .flatten()
         .collect()
@@ -279,7 +289,12 @@ mod tests {
         let copyable_fields = dl.get_copyable_fields(None);
         assert_eq!(
             copyable_fields,
-            vec![CopyableCipherFields::DriversLicenseLicenseNumber,]
+            vec![
+                CopyableCipherFields::DriversLicenseFirstName,
+                CopyableCipherFields::DriversLicenseMiddleName,
+                CopyableCipherFields::DriversLicenseLastName,
+                CopyableCipherFields::DriversLicenseLicenseNumber,
+            ]
         );
     }
 }
