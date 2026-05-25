@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`25e78ceba3dc13d85e61ac526cf59fc8053e7336`](https://github.com/bitwarden/server/commit/25e78ceba3dc13d85e61ac526cf59fc8053e7336)
+  [`8bd4af7a382c6a242dbae002110bcab0773c6066`](https://github.com/bitwarden/server/commit/8bd4af7a382c6a242dbae002110bcab0773c6066)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -278,6 +278,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationInviteLinksApi_              | [**create**](docs/OrganizationInviteLinksApi.md#organization_invite_links_create)                                                                                | **POST** /organizations/{orgId}/invite-link                                                              |
 | _OrganizationInviteLinksApi_              | [**delete**](docs/OrganizationInviteLinksApi.md#organization_invite_links_delete)                                                                                | **DELETE** /organizations/{orgId}/invite-link                                                            |
 | _OrganizationInviteLinksApi_              | [**get**](docs/OrganizationInviteLinksApi.md#organization_invite_links_get)                                                                                      | **GET** /organizations/{orgId}/invite-link                                                               |
+| _OrganizationInviteLinksApi_              | [**get_status**](docs/OrganizationInviteLinksApi.md#organization_invite_links_get_status)                                                                        | **POST** /organizations/invite-link/status                                                               |
 | _OrganizationInviteLinksApi_              | [**refresh**](docs/OrganizationInviteLinksApi.md#organization_invite_links_refresh)                                                                              | **POST** /organizations/{orgId}/invite-link/refresh                                                      |
 | _OrganizationInviteLinksApi_              | [**update**](docs/OrganizationInviteLinksApi.md#organization_invite_links_update)                                                                                | **PUT** /organizations/{orgId}/invite-link                                                               |
 | _OrganizationReportsApi_                  | [**azure_validate_file**](docs/OrganizationReportsApi.md#organization_reports_azure_validate_file)                                                               | **POST** /reports/organizations/file/validate/azure                                                      | Handles Azure Event Grid webhook notifications for blob storage events. When a `Microsoft.Storage.BlobCreated` event is received, validates the uploaded report file against the corresponding organization report. Orphaned blobs (with no matching report) are deleted. Requires the Access Intelligence V2 feature flag. This endpoint is anonymous to allow Azure Event Grid to call it directly.                                                                                                                           |
@@ -671,6 +672,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [FolderResponseModelListResponseModel](docs/FolderResponseModelListResponseModel.md)
 - [FolderWithIdRequestModel](docs/FolderWithIdRequestModel.md)
 - [GatewayType](docs/GatewayType.md)
+- [GetOrganizationInviteLinkStatusRequestModel](docs/GetOrganizationInviteLinkStatusRequestModel.md)
 - [GetSecretsRequestModel](docs/GetSecretsRequestModel.md)
 - [GlobalDomains](docs/GlobalDomains.md)
 - [GlobalEquivalentDomainsType](docs/GlobalEquivalentDomainsType.md)
@@ -790,6 +792,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserResetPasswordRequestModel](docs/OrganizationUserResetPasswordRequestModel.md)
 - [OrganizationUserRestoreRequest](docs/OrganizationUserRestoreRequest.md)
 - [OrganizationUserStatusType](docs/OrganizationUserStatusType.md)
+- [OrganizationUserStatusTypeNew](docs/OrganizationUserStatusTypeNew.md)
 - [OrganizationUserType](docs/OrganizationUserType.md)
 - [OrganizationUserUpdateRequestModel](docs/OrganizationUserUpdateRequestModel.md)
 - [OrganizationUserUserDetailsResponseModel](docs/OrganizationUserUserDetailsResponseModel.md)
