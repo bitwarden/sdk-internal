@@ -164,7 +164,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.local_private_keys.retain(f);
     }
 
-    fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
+    /// Drop a symmetric key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
         if key_id.is_local() {
             self.local_symmetric_keys.remove(key_id);
         } else {
@@ -173,7 +176,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    fn drop_private_key(&mut self, key_id: Ids::Private) -> Result<()> {
+    /// Drop a private key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_private_key(&mut self, key_id: Ids::Private) -> Result<()> {
         if key_id.is_local() {
             self.local_private_keys.remove(key_id);
         } else {
@@ -182,7 +188,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    fn drop_signing_key(&mut self, key_id: Ids::Signing) -> Result<()> {
+    /// Drop a signing key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_signing_key(&mut self, key_id: Ids::Signing) -> Result<()> {
         if key_id.is_local() {
             self.local_signing_keys.remove(key_id);
         } else {
@@ -668,6 +677,13 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305)
             }
         }
+    }
+
+    /// Returns `true` if the given symmetric key uses V1 (Aes256CbcHmac) encryption.
+    #[instrument(skip(self), err)]
+    pub fn is_v1_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<bool> {
+        let algorithm = self.get_symmetric_key_algorithm(key_id)?;
+        Ok(algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac)
     }
 
     /// Set a private key in the context.

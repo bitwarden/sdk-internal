@@ -35,8 +35,28 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
         >,
     ) -> Result<(), Error>;
 
+    /// DELETE /organizations/{orgId}/invite-link
+    async fn delete<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
+
     /// GET /organizations/{orgId}/invite-link
     async fn get<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
+
+    /// POST /organizations/invite-link/status
+    async fn get_status<'a>(
+        &self,
+        get_organization_invite_link_status_request_model: Option<
+            models::GetOrganizationInviteLinkStatusRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
+    /// POST /organizations/{orgId}/invite-link/refresh
+    async fn refresh<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        refresh_organization_invite_link_request_model: Option<
+            models::RefreshOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/invite-link
     async fn update<'a>(
@@ -87,6 +107,24 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
+    async fn delete<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/invite-link",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn get<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -101,6 +139,56 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn get_status<'a>(
+        &self,
+        get_organization_invite_link_status_request_model: Option<
+            models::GetOrganizationInviteLinkStatusRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/invite-link/status",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&get_organization_invite_link_status_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn refresh<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        refresh_organization_invite_link_request_model: Option<
+            models::RefreshOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/invite-link/refresh",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&refresh_organization_invite_link_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

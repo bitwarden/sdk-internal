@@ -43,6 +43,7 @@ bitwarden-fido = { path = "crates/bitwarden-fido", version = "=3.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=3.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=3.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=3.0.0" }
+bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
@@ -68,7 +69,7 @@ chrono = { version = ">=0.4.26, <0.5", features = [
 ], default-features = false }
 ciborium = ">=0.2.2, <0.3"
 data-encoding = ">=2.0, <3"
-ed25519-dalek = { version = "3.0.0-pre.6" }
+ed25519-dalek = { version = "3.0.0-pre.7" }
 futures = ">=0.3.31, <0.4"
 hmac = "0.13.0"
 http = ">=1.4.0, <2.0"

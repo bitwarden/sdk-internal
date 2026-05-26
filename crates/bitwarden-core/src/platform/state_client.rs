@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
-    DatabaseConfiguration, Key, Setting, SettingItem, SettingsError,
+    Key, Setting, SettingItem, SettingsError,
     registry::StateRegistryError,
-    repository::{Repository, RepositoryItem, RepositoryMigrations},
+    repository::{Repository, RepositoryItem},
 };
 
 use crate::Client;
@@ -23,19 +23,6 @@ impl StateClient {
             .internal
             .state_registry
             .register_client_managed(store)
-    }
-
-    /// Initialize the database for SDK managed repositories.
-    pub async fn initialize_database(
-        &self,
-        configuration: DatabaseConfiguration,
-        migrations: RepositoryMigrations,
-    ) -> Result<(), StateRegistryError> {
-        self.client
-            .internal
-            .state_registry
-            .initialize_database(configuration, migrations)
-            .await
     }
 
     /// Get a repository with fallback: prefer client-managed, fall back to SDK-managed.
