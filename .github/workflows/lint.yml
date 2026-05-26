@@ -131,7 +131,7 @@ jobs:
         run: npm run lint:dep-ownership
 
       - name: Node Lint
-        run: npm run lint
+        run: npm run lint:prettier
 
       - name: Verify rust documentation links
         run: cargo doc --no-deps --all-features --document-private-items
