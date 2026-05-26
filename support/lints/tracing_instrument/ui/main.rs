@@ -1,3 +1,7 @@
+// The lint defaults to `allow` so existing workspace call sites have time to migrate.
+// Opt in here so the test fixture actually exercises the lint logic.
+#![warn(tracing_instrument)]
+
 // Each case lives in its own `#[cfg(any())]` module so it is parsed by the
 // pre-expansion lint pass but never compiled. This lets us reference
 // `#[tracing::instrument]` without pulling `tracing` in as a dev-dependency.

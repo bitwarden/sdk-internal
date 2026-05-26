@@ -27,5 +27,9 @@ indistinguishable from `use tracing::instrument;` at the call site — which is 
 foot-gun this crate exists to eliminate. The `tracing_instrument` dylint enforces this by
 warning on both `#[tracing::instrument]` and bare `#[instrument]`.
 
+The lint currently defaults to `allow` so existing workspace call sites have time to migrate.
+Crates that have been swept can opt in with `#![warn(tracing_instrument)]` (or `deny`) at the
+crate root. The default will flip to `warn` once the workspace is clean.
+
 User-supplied `skip(...)` and `skip_all` are rejected at compile time, since `skip_all` is
 already enforced and `fields(...)` is the way to opt in.

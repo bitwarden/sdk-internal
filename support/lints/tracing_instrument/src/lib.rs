@@ -15,6 +15,13 @@ dylint_linting::declare_pre_expansion_lint! {
     /// `skip_all` so function arguments are excluded from span fields unless explicitly
     /// opted in via `fields(...)`.
     ///
+    /// ### Default level
+    ///
+    /// Currently defaults to `Allow` to give existing call sites time to migrate without
+    /// breaking CI (the workspace runs `cargo dylint` with `-D warnings`). Crates that have
+    /// already been swept can opt in via `#![warn(tracing_instrument)]` (or `deny`) at the
+    /// crate root. The default will flip to `Warn` once the workspace is clean.
+    ///
     /// ### Why is this bad?
     ///
     /// `tracing::instrument` records every argument that implements `Display`/`Debug` by
@@ -44,7 +51,7 @@ dylint_linting::declare_pre_expansion_lint! {
     /// fn derive_master_key(password: &str) {}
     /// ```
     pub TRACING_INSTRUMENT,
-    Warn,
+    Allow,
     "use the fully-qualified `#[bitwarden_logging::instrument]` instead of `#[tracing::instrument]` or bare `#[instrument]`"
 }
 
