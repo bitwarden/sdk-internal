@@ -8,9 +8,10 @@
 
 use std::collections::HashMap;
 
-use bitwarden_organizations::ProfileOrganization;
-
-use crate::filter::{Policy, PolicyFilter, PolicyType, PolicyView};
+use crate::{
+    OrganizationUserPolicyContext, PolicyType, PolicyView,
+    filter::{Policy, PolicyFilter},
+};
 
 /// A [`Policy`] that uses the default filtering behavior for any policy type.
 struct DefaultPolicy(PolicyType);
@@ -47,12 +48,12 @@ impl PolicyRegistry {
     pub(crate) fn filter_by_type<'a>(
         &self,
         policies: &'a [PolicyView],
-        organizations: &[ProfileOrganization],
+        organization_user_policy_contexts: &[OrganizationUserPolicyContext],
         policy_type: PolicyType,
     ) -> Vec<&'a PolicyView> {
         match self.policies.get(&policy_type) {
-            Some(p) => p.filter(policies, organizations),
-            None => DefaultPolicy(policy_type).filter(policies, organizations),
+            Some(p) => p.filter(policies, organization_user_policy_contexts),
+            None => DefaultPolicy(policy_type).filter(policies, organization_user_policy_contexts),
         }
     }
 }
@@ -92,11 +93,11 @@ mod tests {
 
     use super::*;
 
-    fn policy_view(organization_id: Uuid, policy_type: u8, enabled: bool) -> PolicyView {
+    fn policy_view(organization_id: Uuid, policy_type: PolicyType, enabled: bool) -> PolicyView {
         PolicyView {
             id: Uuid::new_v4(),
             organization_id,
-            r#type: PolicyType(policy_type),
+            r#type: policy_type,
             data: None,
             enabled,
             revision_date: Default::default(),
@@ -108,14 +109,14 @@ mod tests {
         user_type: OrganizationUserType,
         status: OrganizationUserStatusType,
         provider: bool,
-    ) -> ProfileOrganization {
-        ProfileOrganization {
+    ) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
-            r#type: user_type,
+            role: user_type,
             status,
+            enabled: true,
             use_policies: true,
             is_provider_user: provider,
-            ..Default::default()
         }
     }
 
@@ -125,7 +126,7 @@ mod tests {
         struct AnyPolicy;
         impl Policy for AnyPolicy {
             fn policy_type(&self) -> PolicyType {
-                PolicyType(1)
+                PolicyType::MasterPassword
             }
         }
 
@@ -138,7 +139,7 @@ mod tests {
     #[test]
     fn registry_uses_registered_definition() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
         // Owner — exempt under default rules, not exempt under NoExemptionPolicy
         let orgs = [organization(
             org_id,
@@ -150,7 +151,7 @@ mod tests {
         struct NoExemptionPolicy;
         impl Policy for NoExemptionPolicy {
             fn policy_type(&self) -> PolicyType {
-                PolicyType(1)
+                PolicyType::MasterPassword
             }
             fn exempt_roles(&self) -> &[OrganizationUserType] {
                 &[]
@@ -161,7 +162,7 @@ mod tests {
             .register(NoExemptionPolicy)
             .build();
 
-        let result = registry.filter_by_type(&policies, &orgs, PolicyType(1));
+        let result = registry.filter_by_type(&policies, &orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
     }
@@ -169,7 +170,7 @@ mod tests {
     #[test]
     fn registry_uses_default_policy_definition() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = [organization(
             org_id,
             OrganizationUserType::User,
@@ -180,7 +181,7 @@ mod tests {
         // empty registry
         let registry = PolicyRegistry::builder().build();
 
-        let result = registry.filter_by_type(&policies, &orgs, PolicyType(1));
+        let result = registry.filter_by_type(&policies, &orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
     }
