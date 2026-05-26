@@ -34,17 +34,14 @@ fn migrations(steps: Vec<RepositoryMigrationStep>) -> RepositoryMigrations {
 }
 
 async fn registry(db_name: &str, steps: Vec<RepositoryMigrationStep>) -> StateRegistry {
-    let registry = StateRegistry::new();
-    registry
-        .initialize_database(
-            DatabaseConfiguration::IndexedDb {
-                db_name: db_name.to_string(),
-            },
-            migrations(steps),
-        )
-        .await
-        .expect("registry init");
-    registry
+    StateRegistry::new_with_db(
+        DatabaseConfiguration::IndexedDb {
+            db_name: db_name.to_string(),
+        },
+        migrations(steps),
+    )
+    .await
+    .expect("registry init")
 }
 
 #[wasm_bindgen_test]

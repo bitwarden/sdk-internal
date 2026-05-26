@@ -123,9 +123,7 @@ impl StateRegistry {
             .write()
             .expect("RwLock should not be poisoned")
             .clear();
-        if let Some(db) = self.database.get() {
-            db.wipe().await?;
-        }
+        self.database.wipe().await?;
         Ok(())
     }
 }
