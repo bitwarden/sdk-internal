@@ -23,22 +23,24 @@ dylint_linting::declare_late_lint! {
     /// ### Matching
     ///
     /// The lint inspects the post-expansion macro backtrace and matches by the macro's
-    /// definition (the `tracing_attributes` crate), not by attribute path. This means every
-    /// way to reach `tracing::instrument` is caught: the fully-qualified `#[tracing::instrument]`,
-    /// the bare `#[instrument]` after `use tracing::instrument`, and aliased imports like
-    /// `use tracing::instrument as foo; #[foo]`. Expansions emitted by our own
-    /// `bitwarden_logging::instrument` wrapper (which internally re-emits `tracing::instrument`)
-    /// are filtered out via a check against the wrapper crate (`bitwarden_logging_macro`) in
-    /// the same backtrace.
+    /// definition (the `tracing_attributes` crate), not by attribute path. Every way to reach
+    /// `tracing::instrument` is caught: the fully-qualified `#[tracing::instrument]`, the
+    /// bare `#[instrument]` after `use tracing::instrument`, and aliased imports like
+    /// `use tracing::instrument as foo; #[foo]`.
+    ///
+    /// The `bitwarden_logging::instrument` wrapper internally re-emits `tracing::instrument`.
+    /// It opts out of this lint at its emission site by including
+    /// `#[allow(unknown_lints, tracing_instrument)]`, so wrappers don't need a special case
+    /// here.
     ///
     /// ### Suggestions
     ///
     /// When the attribute does not use `skip(...)`, the lint emits a machine-applicable
     /// suggestion that swaps the path to `bitwarden_logging::instrument` and drops a
     /// redundant `skip_all` if present. When `skip(...)` is present the lint emits a
-    /// help-only diagnostic, because translating a skip list into the wrapper's
-    /// opt-in `fields(...)` model needs human judgment (the original may have been
-    /// implicitly logging the non-skipped args).
+    /// help-only diagnostic, because translating a skip list into the wrapper's opt-in
+    /// `fields(...)` model needs human judgment (the original may have been implicitly
+    /// logging the non-skipped args).
     ///
     /// ### Default level
     ///
@@ -74,7 +76,6 @@ dylint_linting::declare_late_lint! {
 }
 
 const TRACING_ATTRIBUTES_CRATE: &str = "tracing_attributes";
-const WRAPPER_CRATE: &str = "bitwarden_logging_macro";
 const LINT_MESSAGE: &str = "use `bitwarden_logging::instrument` instead of `tracing::instrument`";
 
 impl<'tcx> LateLintPass<'tcx> for TracingInstrument {
@@ -92,36 +93,16 @@ impl<'tcx> LateLintPass<'tcx> for TracingInstrument {
 }
 
 fn check_span(cx: &LateContext<'_>, span: Span) {
-    let mut tracing_call_site: Option<Span> = None;
-    let mut emitted_by_wrapper = false;
-
-    for expn in span.macro_backtrace() {
+    let call_site = span.macro_backtrace().find_map(|expn| {
         let ExpnKind::Macro(MacroKind::Attr, _) = expn.kind else {
-            continue;
+            return None;
         };
-        let Some(def_id) = expn.macro_def_id else {
-            continue;
-        };
-        let crate_name = cx.tcx.crate_name(def_id.krate);
-        match crate_name.as_str() {
-            TRACING_ATTRIBUTES_CRATE => {
-                // Only record the innermost `tracing::instrument` call site so the diagnostic
-                // points at the attribute the user actually wrote.
-                if tracing_call_site.is_none() {
-                    tracing_call_site = Some(expn.call_site);
-                }
-            }
-            WRAPPER_CRATE => {
-                emitted_by_wrapper = true;
-            }
-            _ => {}
-        }
-    }
+        let def_id = expn.macro_def_id?;
+        (cx.tcx.crate_name(def_id.krate).as_str() == TRACING_ATTRIBUTES_CRATE)
+            .then_some(expn.call_site)
+    });
 
-    if emitted_by_wrapper {
-        return;
-    }
-    let Some(call_site) = tracing_call_site else {
+    let Some(call_site) = call_site else {
         return;
     };
 

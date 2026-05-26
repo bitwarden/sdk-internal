@@ -34,8 +34,9 @@ crate, so all of these are caught:
 - `use tracing::instrument; #[instrument]`
 - `use tracing::instrument as foo; #[foo]`
 
-Expansions emitted by `bitwarden_logging::instrument` itself (which internally re-emits
-`tracing::instrument`) are filtered out.
+The wrapper opts out of the lint at its own emission site by including
+`#[allow(unknown_lints, tracing_instrument)]` next to the `#[tracing::instrument]` it
+generates, so the lint can stay general.
 
 The lint currently defaults to `allow` so existing workspace call sites have time to migrate.
 Crates that have been swept can opt in with `#![warn(tracing_instrument)]` (or `deny`) at the

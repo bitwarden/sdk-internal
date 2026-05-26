@@ -49,6 +49,10 @@ pub fn instrument(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let args_iter = args.iter();
     quote! {
+        // Silence the `tracing_instrument` dylint on the wrapper's own emission.
+        // `unknown_lints` is paired with it so plain `cargo check` (which doesn't load
+        // dylint) doesn't warn that `tracing_instrument` is an unknown lint name.
+        #[allow(unknown_lints, tracing_instrument)]
         #[::tracing::instrument(skip_all #(, #args_iter)*)]
         #item2
     }
