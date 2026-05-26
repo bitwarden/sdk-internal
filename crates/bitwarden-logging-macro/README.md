@@ -10,26 +10,33 @@ The `#[bitwarden_logging::instrument]` attribute re-emits as `#[tracing::instrum
 making field logging opt-in via `fields(...)`.
 
 ```rust,ignore
+use bitwarden_logging::instrument;
+
 // All args skipped by default.
-#[bitwarden_logging::instrument]
+#[instrument]
 fn sensitive(password: &str) { /* ... */ }
 
 // Explicit opt-in.
-#[bitwarden_logging::instrument(fields(user_id = ?id))]
+#[instrument(fields(user_id = ?id))]
 fn less_sensitive(id: Uuid, password: &str) { /* ... */ }
 ```
 
-## Convention: always fully qualify
+User-supplied `skip(...)` and `skip_all` are rejected at compile time, since `skip_all` is
+already enforced and `fields(...)` is the way to opt in.
 
-Always write `#[bitwarden_logging::instrument]` in full. Do **not** write `use
-bitwarden_logging::instrument;` followed by a bare `#[instrument]`, because that form is
-indistinguishable from `use tracing::instrument;` at the call site — which is exactly the
-foot-gun this crate exists to eliminate. The `tracing_instrument` dylint enforces this by
-warning on both `#[tracing::instrument]` and bare `#[instrument]`.
+## Lint backstop
+
+A companion dylint rule (`tracing_instrument`) catches any use of `tracing::instrument` that
+slips past the convention. It identifies the macro by its definition in the `tracing_attributes`
+crate, so all of these are caught:
+
+- `#[tracing::instrument]`
+- `use tracing::instrument; #[instrument]`
+- `use tracing::instrument as foo; #[foo]`
+
+Expansions emitted by `bitwarden_logging::instrument` itself (which internally re-emits
+`tracing::instrument`) are filtered out.
 
 The lint currently defaults to `allow` so existing workspace call sites have time to migrate.
 Crates that have been swept can opt in with `#![warn(tracing_instrument)]` (or `deny`) at the
 crate root. The default will flip to `warn` once the workspace is clean.
-
-User-supplied `skip(...)` and `skip_all` are rejected at compile time, since `skip_all` is
-already enforced and `fields(...)` is the way to opt in.

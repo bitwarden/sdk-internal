@@ -21,7 +21,9 @@ clippy_utils = { workspace = true }
 dylint_linting = { workspace = true }
 
 [dev-dependencies]
+bitwarden-logging-macro = { path = "../../../crates/bitwarden-logging-macro" }
 dylint_testing = { workspace = true }
+tracing = "0.1"
 
 [package.metadata.rust-analyzer]
 rustc_private = true

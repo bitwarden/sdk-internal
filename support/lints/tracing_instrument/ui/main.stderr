@@ -1,31 +1,31 @@
-warning: use the fully-qualified `#[bitwarden_logging::instrument]` instead
-  --> $DIR/main.rs:12:5
+warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
+  --> $DIR/main.rs:9:5
    |
 LL |     #[tracing::instrument]
    |     ^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in. Always write the path fully so the safety property is visible at the call site.
+   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in.
 note: the lint level is defined here
-  --> $DIR/main.rs:3:9
+  --> $DIR/main.rs:4:9
    |
 LL | #![warn(tracing_instrument)]
    |         ^^^^^^^^^^^^^^^^^^
 
-warning: use the fully-qualified `#[bitwarden_logging::instrument]` instead
-  --> $DIR/main.rs:19:5
-   |
-LL |     #[tracing::instrument(skip(self), err)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in. Always write the path fully so the safety property is visible at the call site.
-
-warning: use the fully-qualified `#[bitwarden_logging::instrument]` instead
-  --> $DIR/main.rs:34:5
+warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
+  --> $DIR/main.rs:17:5
    |
 LL |     #[instrument]
    |     ^^^^^^^^^^^^^
    |
-   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in. Always write the path fully so the safety property is visible at the call site.
+   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in.
+
+warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
+  --> $DIR/main.rs:25:5
+   |
+LL |     #[renamed]
+   |     ^^^^^^^^^^
+   |
+   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in.
 
 warning: 3 warnings emitted
 

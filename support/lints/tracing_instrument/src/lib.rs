@@ -1,19 +1,31 @@
 #![feature(rustc_private)]
 #![warn(unused_extern_crates)]
 
-extern crate rustc_ast;
+extern crate rustc_hir;
+extern crate rustc_span;
 
 use clippy_utils::diagnostics::span_lint_and_help;
-use rustc_ast::ast::{AttrKind, Attribute};
-use rustc_lint::{EarlyContext, EarlyLintPass};
+use rustc_hir::{ImplItem, Item, TraitItem};
+use rustc_lint::{LateContext, LateLintPass};
+use rustc_span::{ExpnKind, MacroKind, Span};
 
-dylint_linting::declare_pre_expansion_lint! {
+dylint_linting::declare_late_lint! {
     /// ### What it does
     ///
-    /// Warns when `#[tracing::instrument]` or a bare `#[instrument]` is used. Bitwarden code
-    /// must use the fully-qualified `#[bitwarden_logging::instrument]`, which defaults to
-    /// `skip_all` so function arguments are excluded from span fields unless explicitly
-    /// opted in via `fields(...)`.
+    /// Warns when `tracing::instrument` is used as an attribute macro. Bitwarden code must
+    /// use `bitwarden_logging::instrument` instead, which defaults to `skip_all` so function
+    /// arguments are excluded from span fields unless explicitly opted in via `fields(...)`.
+    ///
+    /// ### Matching
+    ///
+    /// The lint inspects the post-expansion macro backtrace and matches by the macro's
+    /// definition (the `tracing_attributes` crate), not by attribute path. This means every
+    /// way to reach `tracing::instrument` is caught: the fully-qualified `#[tracing::instrument]`,
+    /// the bare `#[instrument]` after `use tracing::instrument`, and aliased imports like
+    /// `use tracing::instrument as foo; #[foo]`. Expansions emitted by our own
+    /// `bitwarden_logging::instrument` wrapper (which internally re-emits `tracing::instrument`)
+    /// are filtered out via a check against the wrapper crate (`bitwarden_logging_macro`) in
+    /// the same backtrace.
     ///
     /// ### Default level
     ///
@@ -28,73 +40,83 @@ dylint_linting::declare_pre_expansion_lint! {
     /// default. In a vault-handling SDK this is a foot-gun: forgetting `skip_all` on a
     /// function like `derive_master_key(password, ...)` would log the user's password.
     ///
-    /// Bare `#[instrument]` is also flagged because `use tracing::instrument;` is the
-    /// classic way to re-introduce the foot-gun without any visible `tracing::` prefix
-    /// at the call site. Always write the fully-qualified path so the safety property
-    /// is visible.
-    ///
     /// ### Example
     ///
     /// ```rust,ignore
     /// #[tracing::instrument]
     /// fn derive_master_key(password: &str) {}
-    ///
-    /// use tracing::instrument;
-    /// #[instrument]
-    /// fn derive_master_key_2(password: &str) {}
     /// ```
     ///
     /// Use instead:
     ///
     /// ```rust,ignore
-    /// #[bitwarden_logging::instrument]
+    /// use bitwarden_logging::instrument;
+    ///
+    /// #[instrument]
     /// fn derive_master_key(password: &str) {}
     /// ```
     pub TRACING_INSTRUMENT,
     Allow,
-    "use the fully-qualified `#[bitwarden_logging::instrument]` instead of `#[tracing::instrument]` or bare `#[instrument]`"
+    "use `bitwarden_logging::instrument` instead of `tracing::instrument`"
 }
 
-impl EarlyLintPass for TracingInstrument {
-    fn check_attribute(&mut self, cx: &EarlyContext<'_>, attr: &Attribute) {
-        if !is_tracing_instrument(attr) {
-            return;
-        }
+const TRACING_ATTRIBUTES_CRATE: &str = "tracing_attributes";
+const WRAPPER_CRATE: &str = "bitwarden_logging_macro";
 
-        span_lint_and_help(
-            cx,
-            TRACING_INSTRUMENT,
-            attr.span,
-            "use the fully-qualified `#[bitwarden_logging::instrument]` instead",
-            None,
-            "`bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental \
-             logging of function arguments. Use `fields(name = expr)` to opt in. \
-             Always write the path fully so the safety property is visible at the call site.",
-        );
+impl<'tcx> LateLintPass<'tcx> for TracingInstrument {
+    fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
+        check_span(cx, item.span);
+    }
+
+    fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx ImplItem<'tcx>) {
+        check_span(cx, item.span);
+    }
+
+    fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx TraitItem<'tcx>) {
+        check_span(cx, item.span);
     }
 }
 
-/// Matches `#[tracing::instrument]` (qualified) and `#[instrument]` (bare).
-///
-/// Bare `#[instrument]` is flagged because the most common way to re-introduce the
-/// `tracing::instrument` foot-gun is `use tracing::instrument;` followed by an unqualified
-/// `#[instrument]` attribute. Forcing the fully-qualified `#[bitwarden_logging::instrument]`
-/// at every call site makes the safety property visible and the deviation lintable.
-///
-/// Renamed imports (`use tracing::instrument as foo;`) are not caught — those are explicit
-/// enough that we treat them as opt-out.
-fn is_tracing_instrument(attr: &Attribute) -> bool {
-    let AttrKind::Normal(normal) = &attr.kind else {
-        return false;
-    };
-    let segments = &normal.item.path.segments;
-    match segments.len() {
-        1 => segments[0].ident.name.as_str() == "instrument",
-        2 => {
-            segments[0].ident.name.as_str() == "tracing"
-                && segments[1].ident.name.as_str() == "instrument"
+fn check_span(cx: &LateContext<'_>, span: Span) {
+    let mut tracing_call_site: Option<Span> = None;
+    let mut emitted_by_wrapper = false;
+
+    for expn in span.macro_backtrace() {
+        let ExpnKind::Macro(MacroKind::Attr, _) = expn.kind else {
+            continue;
+        };
+        let Some(def_id) = expn.macro_def_id else {
+            continue;
+        };
+        let crate_name = cx.tcx.crate_name(def_id.krate);
+        match crate_name.as_str() {
+            TRACING_ATTRIBUTES_CRATE => {
+                // Only record the innermost `tracing::instrument` call site so the diagnostic
+                // points at the attribute the user actually wrote.
+                if tracing_call_site.is_none() {
+                    tracing_call_site = Some(expn.call_site);
+                }
+            }
+            WRAPPER_CRATE => {
+                emitted_by_wrapper = true;
+            }
+            _ => {}
         }
-        _ => false,
+    }
+
+    if emitted_by_wrapper {
+        return;
+    }
+    if let Some(call_site) = tracing_call_site {
+        span_lint_and_help(
+            cx,
+            TRACING_INSTRUMENT,
+            call_site,
+            "use `bitwarden_logging::instrument` instead of `tracing::instrument`",
+            None,
+            "`bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental \
+             logging of function arguments. Use `fields(name = expr)` to opt in.",
+        );
     }
 }
 
