@@ -1,0 +1,27 @@
+warning: use the fully-qualified `#[bitwarden_logging::instrument]` instead
+  --> $DIR/main.rs:8:5
+   |
+LL |     #[tracing::instrument]
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in. Always write the path fully so the safety property is visible at the call site.
+   = note: `#[warn(tracing_instrument)]` on by default
+
+warning: use the fully-qualified `#[bitwarden_logging::instrument]` instead
+  --> $DIR/main.rs:15:5
+   |
+LL |     #[tracing::instrument(skip(self), err)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in. Always write the path fully so the safety property is visible at the call site.
+
+warning: use the fully-qualified `#[bitwarden_logging::instrument]` instead
+  --> $DIR/main.rs:30:5
+   |
+LL |     #[instrument]
+   |     ^^^^^^^^^^^^^
+   |
+   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in. Always write the path fully so the safety property is visible at the call site.
+
+warning: 3 warnings emitted
+
