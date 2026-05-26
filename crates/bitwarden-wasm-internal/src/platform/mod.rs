@@ -52,20 +52,6 @@ bitwarden_pm::create_client_managed_repositories!(Repositories, create_wasm_repo
 
 #[wasm_bindgen]
 impl StateClient {
-    #[allow(deprecated)]
-    #[deprecated(note = "Use `register_client_managed_repositories` instead")]
-    pub fn register_cipher_repository(&self, cipher_repository: CipherRepository) {
-        let cipher = cipher_repository.into_channel_impl();
-        self.0.platform().state().register_client_managed(cipher);
-    }
-
-    #[allow(deprecated)]
-    #[deprecated(note = "Use `register_client_managed_repositories` instead")]
-    pub fn register_folder_repository(&self, store: FolderRepository) {
-        let store = store.into_channel_impl();
-        self.0.platform().state().register_client_managed(store)
-    }
-
     pub fn register_client_managed_repositories(&self, repositories: Repositories) {
         repositories.register_all(&self.0.platform().state());
     }

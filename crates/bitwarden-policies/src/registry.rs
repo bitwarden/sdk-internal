@@ -8,11 +8,9 @@
 
 use std::collections::HashMap;
 
-use bitwarden_organizations::ProfileOrganization;
-
 use crate::{
-    PolicyType,
-    filter::{Policy, PolicyFilter, PolicyView},
+    OrganizationUserPolicyContext, PolicyType, PolicyView,
+    filter::{Policy, PolicyFilter},
 };
 
 /// A [`Policy`] that uses the default filtering behavior for any policy type.
@@ -50,12 +48,12 @@ impl PolicyRegistry {
     pub(crate) fn filter_by_type<'a>(
         &self,
         policies: &'a [PolicyView],
-        organizations: &[ProfileOrganization],
+        organization_user_policy_contexts: &[OrganizationUserPolicyContext],
         policy_type: PolicyType,
     ) -> Vec<&'a PolicyView> {
         match self.policies.get(&policy_type) {
-            Some(p) => p.filter(policies, organizations),
-            None => DefaultPolicy(policy_type).filter(policies, organizations),
+            Some(p) => p.filter(policies, organization_user_policy_contexts),
+            None => DefaultPolicy(policy_type).filter(policies, organization_user_policy_contexts),
         }
     }
 }
@@ -111,14 +109,14 @@ mod tests {
         user_type: OrganizationUserType,
         status: OrganizationUserStatusType,
         provider: bool,
-    ) -> ProfileOrganization {
-        ProfileOrganization {
+    ) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
-            r#type: user_type,
+            role: user_type,
             status,
+            enabled: true,
             use_policies: true,
             is_provider_user: provider,
-            ..Default::default()
         }
     }
 
