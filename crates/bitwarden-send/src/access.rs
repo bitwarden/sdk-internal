@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bitwarden_api_api::{apis::ApiClient, models};
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
@@ -116,10 +114,13 @@ async fn access_send_v1(
     Ok(resp.try_into()?)
 }
 
-async fn access_send(api_client: &ApiClient) -> Result<SendAccessResponse, AccessSendError> {
+async fn access_send(
+    api_client: &ApiClient,
+    access_token: &str,
+) -> Result<SendAccessResponse, AccessSendError> {
     let resp = api_client
         .sends_api()
-        .access_using_auth()
+        .access_using_auth(access_token)
         .await
         .map_err(ApiError::from)?;
     Ok(resp.try_into()?)
@@ -146,10 +147,11 @@ async fn get_file_download_data_v1(
 async fn get_file_download_data(
     api_client: &ApiClient,
     file_id: &str,
+    access_token: &str,
 ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
     let resp = api_client
         .sends_api()
-        .get_send_file_download_data_using_auth(file_id)
+        .get_send_file_download_data_using_auth(file_id, access_token)
         .await
         .map_err(ApiError::from)?;
     Ok(resp.into())
@@ -210,16 +212,12 @@ impl SendClient {
     /// Accesses a send using the V2 API endpoint, authenticated with a send access token.
     /// The returned [SendAccessResponse] contains encrypted fields that must be decrypted
     /// client-side using the key derived from the URL fragment.
-    ///
-    /// The provided `access_token` is attached as a bearer header to this single request
-    /// via a per-call middleware; concurrent calls on the same [`Client`](bitwarden_core::Client)
-    /// do not share token state.
     pub async fn access_send(
         &self,
         access_token: String,
     ) -> Result<SendAccessResponse, AccessSendError> {
-        let api = self.build_send_access_api(access_token);
-        access_send(&api).await
+        let config = self.client.internal.get_api_configurations();
+        access_send(&config.api_client, &access_token).await
     }
 
     /// Gets file download data for a file send using the V1 (legacy) API endpoint.
@@ -237,36 +235,13 @@ impl SendClient {
 
     /// Gets file download data for a file send using the V2 API endpoint, authenticated
     /// with a send access token.
-    ///
-    /// The provided `access_token` is attached as a bearer header to this single request
-    /// via a per-call middleware; concurrent calls on the same [`Client`](bitwarden_core::Client)
-    /// do not share token state.
     pub async fn get_file_download_data(
         &self,
         access_token: String,
         file_id: String,
     ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
-        let api = self.build_send_access_api(access_token);
-        get_file_download_data(&api, &file_id).await
-    }
-
-    /// Build a one-off [`ApiClient`] whose middleware stack injects the supplied bearer
-    /// token on requests opting into
-    /// [`AuthRequired::Bearer`](bitwarden_api_base::AuthRequired::Bearer). Send-access calls
-    /// don't share an `ApiClient` with the rest of the SDK so that the caller-provided token
-    /// can't leak into other requests on the same Client.
-    fn build_send_access_api(&self, access_token: String) -> ApiClient {
         let config = self.client.internal.get_api_configurations();
-        let mw_client =
-            reqwest_middleware::ClientBuilder::new(self.client.internal.get_http_client().clone())
-                .with(crate::send_access_token_handler::SendAccessTokenHandler::new(access_token))
-                .build();
-
-        let send_config = bitwarden_api_base::Configuration {
-            base_path: config.api_config.base_path.clone(),
-            client: mw_client,
-        };
-        ApiClient::new(&Arc::new(send_config))
+        get_file_download_data(&config.api_client, &file_id, &access_token).await
     }
 }
 
@@ -284,6 +259,7 @@ mod tests {
 
     const SEND_ID: &str = "25afb11c-9c95-4db5-8bac-c21cb204a3f1";
     const FILE_ID: &str = "file-id-abc";
+    const ACCESS_TOKEN: &str = "send-access-token";
 
     // ===== access_send_v1 =====
 
@@ -360,7 +336,8 @@ mod tests {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.sends_api
                 .expect_access_using_auth()
-                .returning(|| {
+                .returning(|token| {
+                    assert_eq!(token, ACCESS_TOKEN);
                     Ok(SendAccessResponseModel {
                         object: Some("send-access".to_string()),
                         id: Some(SEND_ID.to_string()),
@@ -381,7 +358,7 @@ mod tests {
                 .once();
         });
 
-        let result = access_send(&api_client).await.unwrap();
+        let result = access_send(&api_client, ACCESS_TOKEN).await.unwrap();
 
         assert_eq!(result.id, Some(SEND_ID.to_string()));
         assert_eq!(result.type_, Some(crate::SendType::File));
@@ -401,7 +378,7 @@ mod tests {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.sends_api
                 .expect_access_using_auth()
-                .returning(|| {
+                .returning(|_token| {
                     Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
                         "Simulated error",
                     )))
@@ -409,7 +386,7 @@ mod tests {
                 .once();
         });
 
-        let result = access_send(&api_client).await;
+        let result = access_send(&api_client, ACCESS_TOKEN).await;
 
         assert!(matches!(result.unwrap_err(), AccessSendError::Api(_)));
     }
@@ -476,8 +453,9 @@ mod tests {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.sends_api
                 .expect_get_send_file_download_data_using_auth()
-                .returning(|file_id| {
+                .returning(|file_id, token| {
                     assert_eq!(file_id, FILE_ID);
+                    assert_eq!(token, ACCESS_TOKEN);
                     Ok(SendFileDownloadDataResponseModel {
                         object: Some("send-fileDownload".to_string()),
                         id: Some(FILE_ID.to_string()),
@@ -487,7 +465,9 @@ mod tests {
                 .once();
         });
 
-        let result = get_file_download_data(&api_client, FILE_ID).await.unwrap();
+        let result = get_file_download_data(&api_client, FILE_ID, ACCESS_TOKEN)
+            .await
+            .unwrap();
 
         assert_eq!(result.id, Some(FILE_ID.to_string()));
         assert_eq!(result.url, Some("https://example.com/download".to_string()));
@@ -498,7 +478,7 @@ mod tests {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.sends_api
                 .expect_get_send_file_download_data_using_auth()
-                .returning(|_file_id| {
+                .returning(|_file_id, _token| {
                     Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
                         "Simulated error",
                     )))
@@ -506,7 +486,7 @@ mod tests {
                 .once();
         });
 
-        let result = get_file_download_data(&api_client, FILE_ID).await;
+        let result = get_file_download_data(&api_client, FILE_ID, ACCESS_TOKEN).await;
 
         assert!(matches!(
             result.unwrap_err(),

@@ -10,7 +10,6 @@ pub use access::{
     AccessSendError, GetFileDownloadDataError, SendAccessFileResponse, SendAccessResponse,
     SendAccessTextResponse, SendFileDownloadData,
 };
-mod send_access_token_handler;
 mod send_client;
 pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,
