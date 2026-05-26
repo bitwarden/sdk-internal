@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::{
     OrganizationUserPolicyContext, PolicyType, PolicyView,
-    filter::{Policy, PolicyFilter},
+    enforcement::{Policy, PolicyFilter},
 };
 
 /// A [`Policy`] that uses the default filtering behavior for any policy type.

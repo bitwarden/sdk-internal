@@ -4,9 +4,32 @@ use uuid::Uuid;
 
 use super::{NoData, Policy, PolicyFilter};
 use crate::{
-    enforced_policy::EnforcedPolicy,
     models::{OrganizationUserPolicyContext, PolicyView},
+    policy_type::PolicyType,
 };
+
+/// How a single organization's policy of a given type applies to the current
+/// user.
+///
+/// Similar to [`PolicyView`], but with two differences:
+/// - `enabled` is replaced by `enforced`, which reflects user-specific evaluation rather than just
+///   the policy's on/off state.
+/// - `data` is strongly typed via the policy's [`PolicyData::Data`].
+///
+/// When no matching policy is found for the requested organization, `enforced`
+/// is `false` and `data` is `None`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnforcedPolicy<D> {
+    /// The organization this enforcement decision is for.
+    pub organization_id: Uuid,
+    /// The policy type.
+    pub r#type: PolicyType,
+    /// Whether the policy is being enforced against the current user for this
+    /// organization.
+    pub enforced: bool,
+    /// Strongly-typed policy data, if the policy carries any and is enforced.
+    pub data: Option<D>,
+}
 
 /// Opt-in extension for policies that carry strongly-typed data.
 ///
@@ -82,7 +105,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{filter::test_helpers::*, policy_type::PolicyType};
+    use crate::enforcement::test_helpers::*;
 
     #[test]
     fn enforced_policy_is_enforced_when_matching() {

@@ -4,7 +4,7 @@ use bitwarden_organizations::OrganizationUserType;
 
 use crate::{
     PolicyType,
-    filter::{NoData, Policy},
+    enforcement::{NoData, Policy},
 };
 
 /// Master Password policy (type 1).
@@ -140,7 +140,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{OrganizationUserPolicyContext, PolicyView, filter::PolicyFilter};
+    use crate::{OrganizationUserPolicyContext, PolicyView, enforcement::PolicyFilter};
 
     fn policy_view(organization_id: Uuid, policy_type: PolicyType) -> PolicyView {
         PolicyView {

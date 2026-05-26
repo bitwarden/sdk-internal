@@ -23,8 +23,8 @@ use crate::{
 mod aggregate;
 mod data;
 
-pub use aggregate::{PolicyAggregate, PolicyAggregateFilter};
-pub use data::{PolicyData, PolicyDataFilter};
+pub use aggregate::{EnforcedCombinedPolicy, PolicyAggregate, PolicyAggregateFilter};
+pub use data::{EnforcedPolicy, PolicyData, PolicyDataFilter};
 
 /// Defines the filtering behavior for a specific policy type.
 ///
@@ -121,9 +121,10 @@ impl<T: Policy> PolicyFilter for T {}
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
+    use serde::{Deserialize, Serialize};
     use uuid::Uuid;
 
-    use super::{NoData, Policy};
+    use super::{NoData, Policy, PolicyAggregate, PolicyData};
     use crate::{
         models::{OrganizationUserPolicyContext, PolicyView},
         policy_type::PolicyType,
@@ -160,6 +161,7 @@ pub(crate) mod test_helpers {
         }
     }
 
+    /// A [`NoData`] policy used by tests that don't care about typed data.
     pub struct TestPolicy;
     impl Policy for TestPolicy {
         fn policy_type(&self) -> PolicyType {
@@ -184,6 +186,63 @@ pub(crate) mod test_helpers {
         }
     }
     impl NoData for TestPolicy {}
+
+    /// A policy with strongly-typed data, used by tests that exercise the
+    /// [`PolicyData`] and [`PolicyAggregate`] layers.
+    pub struct DemoPolicy;
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    pub struct DemoData {
+        pub min: i32,
+    }
+
+    impl Policy for DemoPolicy {
+        fn policy_type(&self) -> PolicyType {
+            PolicyType::MasterPassword
+        }
+
+        fn exempt_roles(&self) -> &[OrganizationUserType] {
+            &[]
+        }
+    }
+
+    impl PolicyData for DemoPolicy {
+        type Data = DemoData;
+
+        fn parse_data(&self, raw: Option<&str>) -> Option<Self::Data> {
+            raw.and_then(|s| serde_json::from_str(s).ok())
+        }
+    }
+
+    impl PolicyAggregate for DemoPolicy {
+        fn aggregate(&self, items: Vec<Self::Data>) -> Self::Data {
+            DemoData {
+                min: items.iter().map(|d| d.min).max().unwrap_or(0),
+            }
+        }
+    }
+
+    pub fn demo_policy_view(organization_id: Uuid, data: Option<&str>) -> PolicyView {
+        PolicyView {
+            id: Uuid::new_v4(),
+            organization_id,
+            r#type: PolicyType::MasterPassword,
+            data: data.map(str::to_string),
+            enabled: true,
+            revision_date: Default::default(),
+        }
+    }
+
+    pub fn org(id: Uuid) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
+            id,
+            role: OrganizationUserType::User,
+            status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
+            use_policies: true,
+            is_provider_user: false,
+        }
+    }
 }
 
 #[cfg(test)]
