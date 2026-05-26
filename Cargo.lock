@@ -1031,6 +1031,7 @@ dependencies = [
  "bitwarden-organizations",
  "chrono",
  "serde",
+ "serde_json",
  "serde_repr",
  "tsify",
  "uniffi",
