@@ -1,13 +1,17 @@
 #![feature(rustc_private)]
 #![warn(unused_extern_crates)]
 
+extern crate rustc_errors;
 extern crate rustc_hir;
 extern crate rustc_span;
 
-use clippy_utils::diagnostics::span_lint_and_help;
+use clippy_utils::diagnostics::{span_lint_and_help, span_lint_and_sugg};
+use quote::ToTokens;
+use rustc_errors::Applicability;
 use rustc_hir::{ImplItem, Item, TraitItem};
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_span::{ExpnKind, MacroKind, Span};
+use syn::{Meta, Token, parse::Parser, punctuated::Punctuated};
 
 dylint_linting::declare_late_lint! {
     /// ### What it does
@@ -26,6 +30,15 @@ dylint_linting::declare_late_lint! {
     /// `bitwarden_logging::instrument` wrapper (which internally re-emits `tracing::instrument`)
     /// are filtered out via a check against the wrapper crate (`bitwarden_logging_macro`) in
     /// the same backtrace.
+    ///
+    /// ### Suggestions
+    ///
+    /// When the attribute does not use `skip(...)`, the lint emits a machine-applicable
+    /// suggestion that swaps the path to `bitwarden_logging::instrument` and drops a
+    /// redundant `skip_all` if present. When `skip(...)` is present the lint emits a
+    /// help-only diagnostic, because translating a skip list into the wrapper's
+    /// opt-in `fields(...)` model needs human judgment (the original may have been
+    /// implicitly logging the non-skipped args).
     ///
     /// ### Default level
     ///
@@ -62,6 +75,7 @@ dylint_linting::declare_late_lint! {
 
 const TRACING_ATTRIBUTES_CRATE: &str = "tracing_attributes";
 const WRAPPER_CRATE: &str = "bitwarden_logging_macro";
+const LINT_MESSAGE: &str = "use `bitwarden_logging::instrument` instead of `tracing::instrument`";
 
 impl<'tcx> LateLintPass<'tcx> for TracingInstrument {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
@@ -107,17 +121,72 @@ fn check_span(cx: &LateContext<'_>, span: Span) {
     if emitted_by_wrapper {
         return;
     }
-    if let Some(call_site) = tracing_call_site {
-        span_lint_and_help(
-            cx,
-            TRACING_INSTRUMENT,
-            call_site,
-            "use `bitwarden_logging::instrument` instead of `tracing::instrument`",
-            None,
-            "`bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental \
-             logging of function arguments. Use `fields(name = expr)` to opt in.",
-        );
+    let Some(call_site) = tracing_call_site else {
+        return;
+    };
+
+    match build_suggestion(cx, call_site) {
+        Some(replacement) => {
+            span_lint_and_sugg(
+                cx,
+                TRACING_INSTRUMENT,
+                call_site,
+                LINT_MESSAGE,
+                "replace with",
+                replacement,
+                Applicability::MachineApplicable,
+            );
+        }
+        None => {
+            span_lint_and_help(
+                cx,
+                TRACING_INSTRUMENT,
+                call_site,
+                LINT_MESSAGE,
+                None,
+                "`bitwarden_logging::instrument` defaults to `skip_all`, so the existing \
+                 `skip(...)` list may need translation into `fields(name = expr)` opt-ins \
+                 for arguments that should still be logged.",
+            );
+        }
     }
+}
+
+/// Builds a machine-applicable replacement for the `#[tracing::instrument(...)]` attribute.
+///
+/// Returns `None` when the existing args contain `skip(...)`, since that case needs human
+/// judgment to decide which (if any) of the skipped/non-skipped args become `fields(...)`
+/// opt-ins under the wrapper's `skip_all` default.
+fn build_suggestion(cx: &LateContext<'_>, call_site: Span) -> Option<String> {
+    let snippet = cx.sess().source_map().span_to_snippet(call_site).ok()?;
+    let inner = snippet.strip_prefix("#[")?.strip_suffix(']')?.trim();
+
+    let args_text = match inner.find('(') {
+        None => return Some("#[bitwarden_logging::instrument]".to_string()),
+        Some(open) => inner[open + 1..].strip_suffix(')')?,
+    };
+
+    let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
+    let args = Parser::parse_str(parser, args_text).ok()?;
+
+    if args
+        .iter()
+        .any(|m| matches!(m, Meta::List(l) if l.path.is_ident("skip")))
+    {
+        return None;
+    }
+
+    let kept: Vec<String> = args
+        .iter()
+        .filter(|m| !matches!(m, Meta::Path(p) if p.is_ident("skip_all")))
+        .map(|m| m.to_token_stream().to_string())
+        .collect();
+
+    Some(if kept.is_empty() {
+        "#[bitwarden_logging::instrument]".to_string()
+    } else {
+        format!("#[bitwarden_logging::instrument({})]", kept.join(", "))
+    })
 }
 
 #[test]

@@ -127,6 +127,9 @@ dependencies = [
  "clippy_utils",
  "dylint_linting",
  "dylint_testing",
+ "proc-macro2",
+ "quote",
+ "syn",
  "tracing",
 ]
 

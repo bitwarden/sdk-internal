@@ -2,9 +2,8 @@ warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
   --> $DIR/main.rs:9:5
    |
 LL |     #[tracing::instrument]
-   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |     ^^^^^^^^^^^^^^^^^^^^^^ help: replace with: `#[bitwarden_logging::instrument]`
    |
-   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in.
 note: the lint level is defined here
   --> $DIR/main.rs:4:9
    |
@@ -12,20 +11,36 @@ LL | #![warn(tracing_instrument)]
    |         ^^^^^^^^^^^^^^^^^^
 
 warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
-  --> $DIR/main.rs:17:5
+  --> $DIR/main.rs:15:5
    |
-LL |     #[instrument]
-   |     ^^^^^^^^^^^^^
-   |
-   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in.
+LL |     #[tracing::instrument(err, level = "debug")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with: `#[bitwarden_logging::instrument(err, level = "debug")]`
 
 warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
-  --> $DIR/main.rs:25:5
+  --> $DIR/main.rs:24:5
+   |
+LL |     #[tracing::instrument(skip_all, err)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with: `#[bitwarden_logging::instrument(err)]`
+
+warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
+  --> $DIR/main.rs:34:5
+   |
+LL |     #[tracing::instrument(skip(secret), err)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: `bitwarden_logging::instrument` defaults to `skip_all`, so the existing `skip(...)` list may need translation into `fields(name = expr)` opt-ins for arguments that should still be logged.
+
+warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
+  --> $DIR/main.rs:47:5
+   |
+LL |     #[instrument]
+   |     ^^^^^^^^^^^^^ help: replace with: `#[bitwarden_logging::instrument]`
+
+warning: use `bitwarden_logging::instrument` instead of `tracing::instrument`
+  --> $DIR/main.rs:55:5
    |
 LL |     #[renamed]
-   |     ^^^^^^^^^^
-   |
-   = help: `bitwarden_logging::instrument` defaults to `skip_all`, preventing accidental logging of function arguments. Use `fields(name = expr)` to opt in.
+   |     ^^^^^^^^^^ help: replace with: `#[bitwarden_logging::instrument]`
 
-warning: 3 warnings emitted
+warning: 6 warnings emitted
 
