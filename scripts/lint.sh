@@ -124,10 +124,9 @@ run_cargo_lock() {
   if (( FIX )); then
     return 0
   fi
-  if ! git diff --exit-code Cargo.lock; then
-    echo "Error: Cargo.lock has been modified. Run \`cargo check\` and commit the change." >&2
-    return 1
-  fi
+  # `--locked` makes cargo fail if Cargo.lock is out of sync with Cargo.toml.
+  # Works in isolation (no prior cargo run needed), unlike `git diff Cargo.lock`.
+  cargo metadata --locked --format-version 1 >/dev/null
 }
 
 for check in "${CHECKS[@]}"; do
