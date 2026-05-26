@@ -258,9 +258,9 @@ cargo test -p bitwarden-state --all-features
 ### IndexedDB browser tests
 
 The IndexedDB backend is only reachable on `wasm32-unknown-unknown` and requires a real browser
-because IndexedDB is a browser API. These tests live under [tests/indexed_db.rs](./tests/indexed_db.rs)
-and are gated behind the `browser-tests` feature so they don't break the default WASM build for
-contributors without a webdriver installed.
+because IndexedDB is a browser API. These tests live under
+[tests/indexed_db.rs](./tests/indexed_db.rs) and are gated behind the `browser-tests` feature so
+they don't break the default WASM build for contributors without a webdriver installed.
 
 To run them locally:
 
@@ -280,9 +280,8 @@ Alternatives:
 
 - **Chrome**: `brew install --cask chromedriver` (and `google-chrome`). Chromedriver and Chrome
   versions must match.
-- **Safari**: ships with macOS. Enable with `sudo safaridriver --enable` and then in Safari:
-  Develop → Allow Remote Automation. wasm-bindgen-test's Safari support is the least reliable of
-  the three — start with geckodriver if you're indifferent.
+- **Safari**: ships with macOS. Enable with `sudo safaridriver --enable` and then in Safari: Develop
+  → Allow Remote Automation.
 
 To force a specific driver regardless of what else is on `PATH`:
 
