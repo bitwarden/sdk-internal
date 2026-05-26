@@ -37,8 +37,6 @@ pub struct IndexedDbDatabase {
 }
 
 impl IndexedDbDatabase {
-    /// Run `work` inside a transaction over `T`'s object store. Opens a read-only transaction
-    /// unless `write` is true.
     async fn with_store<T, R, F, Fut>(&self, write: bool, work: F) -> Result<R, DatabaseError>
     where
         T: RepositoryItem,

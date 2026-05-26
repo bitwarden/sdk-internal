@@ -37,7 +37,6 @@ impl SqliteDatabase {
         f(conn)
     }
 
-    /// Acquire the connection, open a transaction, run `f`, commit. Used by every write op.
     async fn with_tx<R>(
         &self,
         f: impl FnOnce(&rusqlite::Transaction) -> Result<R, DatabaseError>,
