@@ -60,6 +60,7 @@ async fn example(client: Client) -> Result<(), Box<dyn std::error::Error>> {
     sync_client.register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client)));
 
     let request = SyncRequest {
+        force: false,
         exclude_subdomains: Some(false),
     };
 
