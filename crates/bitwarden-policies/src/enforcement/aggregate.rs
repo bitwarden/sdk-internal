@@ -84,13 +84,11 @@ impl<P: PolicyAggregate> PolicyAggregateFilter for P {}
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
     use uuid::Uuid;
 
     use super::*;
-    use crate::enforcement::{
-        PolicyDataFilter,
-        test_helpers::{DemoData, DemoPolicy, demo_policy_view, org},
-    };
+    use crate::enforcement::{PolicyDataFilter, test_helpers::*};
 
     #[test]
     fn enforced_policy_returns_typed_data() {
@@ -126,6 +124,113 @@ mod tests {
         let result = DemoPolicy.enforced_combined_policy(&[], &[]);
 
         assert!(!result.enforced);
+        assert_eq!(result.data, None);
+    }
+
+    #[test]
+    fn enforced_combined_policy_not_enforced_when_all_orgs_exempt() {
+        let org1 = Uuid::new_v4();
+        let org2 = Uuid::new_v4();
+        let policies = [
+            policy_view(org1, PolicyType::MasterPassword, true),
+            policy_view(org2, PolicyType::MasterPassword, true),
+        ];
+        let orgs = [
+            organization(
+                org1,
+                OrganizationUserType::Owner,
+                OrganizationUserStatusType::Confirmed,
+                false,
+            ),
+            organization(
+                org2,
+                OrganizationUserType::Owner,
+                OrganizationUserStatusType::Confirmed,
+                false,
+            ),
+        ];
+
+        let result = TestPolicy.enforced_combined_policy(&policies, &orgs);
+
+        assert!(!result.enforced);
+        assert_eq!(result.data, None);
+    }
+
+    #[test]
+    fn enforced_combined_policy_aggregates_only_enforced_orgs() {
+        let org1 = Uuid::new_v4();
+        let org2 = Uuid::new_v4();
+        let policies = [
+            demo_policy_view(org1, Some(r#"{"min":8}"#)),
+            // Disabled — should be skipped by the filter.
+            demo_policy_view_with_enabled(org2, Some(r#"{"min":14}"#), false),
+        ];
+        let orgs = [org(org1), org(org2)];
+
+        let result = DemoPolicy.enforced_combined_policy(&policies, &orgs);
+
+        assert!(result.enforced);
+        assert_eq!(result.data, Some(DemoData { min: 8 }));
+    }
+
+    #[test]
+    fn enforced_combined_policy_data_none_when_no_parseable_data() {
+        let org1 = Uuid::new_v4();
+        let org2 = Uuid::new_v4();
+        let policies = [
+            demo_policy_view(org1, None),
+            demo_policy_view(org2, Some("not json")),
+        ];
+        let orgs = [org(org1), org(org2)];
+
+        let result = DemoPolicy.enforced_combined_policy(&policies, &orgs);
+
+        assert!(result.enforced);
+        assert_eq!(result.data, None);
+    }
+
+    #[test]
+    fn enforced_combined_policy_aggregates_only_parseable_data() {
+        let org1 = Uuid::new_v4();
+        let org2 = Uuid::new_v4();
+        let policies = [
+            demo_policy_view(org1, Some(r#"{"min":8}"#)),
+            demo_policy_view(org2, Some("not json")),
+        ];
+        let orgs = [org(org1), org(org2)];
+
+        let result = DemoPolicy.enforced_combined_policy(&policies, &orgs);
+
+        assert!(result.enforced);
+        assert_eq!(result.data, Some(DemoData { min: 8 }));
+    }
+
+    #[test]
+    fn enforced_combined_policy_nodata_returns_enforced_with_no_data() {
+        let org1 = Uuid::new_v4();
+        let org2 = Uuid::new_v4();
+        let policies = [
+            policy_view(org1, PolicyType::MasterPassword, true),
+            policy_view(org2, PolicyType::MasterPassword, true),
+        ];
+        let orgs = [
+            organization(
+                org1,
+                OrganizationUserType::User,
+                OrganizationUserStatusType::Confirmed,
+                false,
+            ),
+            organization(
+                org2,
+                OrganizationUserType::User,
+                OrganizationUserStatusType::Confirmed,
+                false,
+            ),
+        ];
+
+        let result = TestPolicy.enforced_combined_policy(&policies, &orgs);
+
+        assert!(result.enforced);
         assert_eq!(result.data, None);
     }
 }

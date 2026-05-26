@@ -177,4 +177,30 @@ mod tests {
 
         assert!(result.enforced);
     }
+
+    // --- typed data parsing ---
+
+    #[test]
+    fn enforced_policy_data_is_none_when_view_data_absent() {
+        let org_id = Uuid::new_v4();
+        let policies = [demo_policy_view(org_id, None)];
+        let orgs = [org(org_id)];
+
+        let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
+
+        assert!(result.enforced);
+        assert_eq!(result.data, None);
+    }
+
+    #[test]
+    fn enforced_policy_data_is_none_when_view_data_unparseable() {
+        let org_id = Uuid::new_v4();
+        let policies = [demo_policy_view(org_id, Some("not json"))];
+        let orgs = [org(org_id)];
+
+        let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
+
+        assert!(result.enforced);
+        assert_eq!(result.data, None);
+    }
 }

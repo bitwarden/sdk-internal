@@ -223,12 +223,20 @@ pub(crate) mod test_helpers {
     }
 
     pub fn demo_policy_view(organization_id: Uuid, data: Option<&str>) -> PolicyView {
+        demo_policy_view_with_enabled(organization_id, data, true)
+    }
+
+    pub fn demo_policy_view_with_enabled(
+        organization_id: Uuid,
+        data: Option<&str>,
+        enabled: bool,
+    ) -> PolicyView {
         PolicyView {
             id: Uuid::new_v4(),
             organization_id,
             r#type: PolicyType::MasterPassword,
             data: data.map(str::to_string),
-            enabled: true,
+            enabled,
             revision_date: Default::default(),
         }
     }
