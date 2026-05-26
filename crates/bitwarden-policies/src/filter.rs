@@ -100,31 +100,29 @@ impl<P: Policy + NoData> PolicyAggregate for P {
     fn aggregate(&self, _: Vec<Self::Data>) -> Self::Data {}
 }
 
-/// Evaluates whether a single [`PolicyView`] applies to a user based on this
-/// policy's rules.
-fn applies_to_user<P: Policy + ?Sized>(
-    policy: &P,
-    view: &PolicyView,
-    context: Option<&OrganizationUserPolicyContext>,
-) -> bool {
-    if view.r#type != policy.policy_type() || !view.enabled {
-        return false;
-    }
-    match context {
-        Some(org) => {
-            org.enabled
-                && org.use_policies
-                && policy.applicable_statuses().contains(&org.status)
-                && !policy.exempt_roles().contains(&org.role)
-                && !(org.is_provider_user && policy.exempt_providers())
-        }
-        None => true, // Unknown org: enforce by default
-    }
-}
-
-/// Extension trait that adds a [`filter`](PolicyFilter::filter) method to every
-/// [`Policy`]. Implemented automatically for all `T: Policy`.
+/// Extension trait that adds [`enforced`](PolicyFilter::enforced) and
+/// [`filter`](PolicyFilter::filter) methods to every [`Policy`]. Implemented
+/// automatically for all `T: Policy`.
 pub trait PolicyFilter: Policy {
+    /// Evaluates whether a single [`PolicyView`] is enforced against the user
+    /// based on this policy's rules. If the policy's organization is not
+    /// present in `context`, the policy is enforced by default.
+    fn enforced(&self, view: &PolicyView, context: Option<&OrganizationUserPolicyContext>) -> bool {
+        if view.r#type != self.policy_type() || !view.enabled {
+            return false;
+        }
+        match context {
+            Some(org) => {
+                org.enabled
+                    && org.use_policies
+                    && self.applicable_statuses().contains(&org.status)
+                    && !self.exempt_roles().contains(&org.role)
+                    && !(org.is_provider_user && self.exempt_providers())
+            }
+            None => true, // Unknown org: enforce by default
+        }
+    }
+
     /// Filters `policies` to those that should be enforced against the user.
     /// This evaluates common business rules (e.g. the policy is enabled),
     /// as well as policy-specific rules according to its [`Policy`].
@@ -144,7 +142,7 @@ pub trait PolicyFilter: Policy {
 
         policies
             .iter()
-            .filter(|p| applies_to_user(self, p, org_map.get(&p.organization_id).copied()))
+            .filter(|p| self.enforced(p, org_map.get(&p.organization_id).copied()))
             .collect()
     }
 }
@@ -178,7 +176,7 @@ pub trait PolicyDataFilter: PolicyData {
             .find(|c| c.id == organization_id);
 
         match view {
-            Some(v) if applies_to_user(self, v, context) => EnforcedPolicy {
+            Some(v) if self.enforced(v, context) => EnforcedPolicy {
                 organization_id,
                 r#type: self.policy_type(),
                 enforced: true,
