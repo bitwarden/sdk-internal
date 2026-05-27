@@ -1,26 +1,24 @@
-//! Parser for the HTML `passwordrules` attribute.
+//! Translation layer that adapts [`password_rules_parser`] output to the SDK's
+//! [`PasswordGeneratorRequest`] shape.
 //!
 //! Reference: Apple's [password-manager-resources spec][apple-spec] (also a WHATWG proposal).
-//! The grammar is:
+//! The parsing itself is delegated to the third-party `password-rules-parser` crate
+//! (maintained by 1Password). This module handles SDK-specific concerns:
 //!
-//! ```text
-//! rules    = rule *( ";" rule )           ; whitespace around rules is allowed
-//! rule     = property ":" value
-//! property = "minlength" | "maxlength" | "required" | "allowed" | "max-consecutive"
-//! value    = digits  (for minlength / maxlength / max-consecutive)
-//!          | classlist  (for required / allowed; comma-separated)
-//! classname = "upper" | "lower" | "digit" | "special" | "ascii-printable" | "unicode" | custom
-//! custom    = "[" literal-chars "]"
-//! ```
-//!
-//! The parser converts the rule string into a [`PasswordGeneratorRequest`] that the SDK's
-//! password generator can satisfy.
+//!   - clamping length into [`MINIMUM_PASSWORD_LENGTH`, `MAXIMUM_PASSWORD_LENGTH`];
+//!   - applying the spec's defaults for `allowed` when `required` is present;
+//!   - flattening the parser's `Vec<Vec<CharacterClass>>` required model into the SDK's flat
+//!     AND-of-classes model with `min_*` counts;
+//!   - shaping errors for WASM/UniFFI via [`bitwarden_error(flat)`].
 //!
 //! [apple-spec]: https://github.com/apple/password-manager-resources
 
 use std::collections::BTreeSet;
 
 use bitwarden_error::bitwarden_error;
+use password_rules_parser::{
+    CharacterClass, PasswordRules, parse_password_rules as parse_external,
+};
 use thiserror::Error;
 
 use crate::password::{MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH, PasswordGeneratorRequest};
@@ -30,34 +28,20 @@ use crate::password::{MAXIMUM_PASSWORD_LENGTH, MINIMUM_PASSWORD_LENGTH, Password
 #[bitwarden_error(flat)]
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum PasswordRulesError {
-    /// A rule referenced a property name not listed in the spec.
-    #[error("Unknown property: {0}")]
-    UnknownProperty(String),
-    /// A rule's value did not match the expected form for its property
-    /// (e.g. non-numeric digits, unknown class name).
-    #[error("Invalid value for property '{property}': {value}")]
-    InvalidValue {
-        /// The property whose value was rejected.
-        property: String,
-        /// The offending value (truncated/redacted where appropriate).
-        value: String,
-    },
-    /// A custom class (`[...]`) was malformed (unterminated, illegally placed `-` or `]`).
-    #[error("Malformed custom character class: {0}")]
-    MalformedCustomClass(String),
-    /// `minlength` exceeds `maxlength`, or a length value is out of range for a `u32`.
+    /// The input was syntactically invalid (unknown property, malformed rule, bad
+    /// custom class, etc.). The wrapped string is a human-readable description of the
+    /// failure from the underlying parser.
+    #[error("Failed to parse password rules: {0}")]
+    Parse(String),
+    /// `minlength` exceeds `maxlength`, or `max_consecutive` does not fit in a `u8`.
     #[error("Invalid length constraint")]
     InvalidLength,
-    /// A rule did not contain a `:` separator.
-    #[error("Malformed rule: missing ':' separator")]
-    MalformedRule,
 }
 
 /// Default password length used when no `minlength`/`maxlength` constrains the choice.
-/// Matches the SDK's default in [`PasswordGeneratorRequest::default`].
 const DEFAULT_LENGTH: u32 = 16;
 
-/// Maximum length (in characters) of any user-supplied substring echoed back in error variants.
+/// Maximum length (in characters) of any user-supplied substring echoed back in errors.
 /// Keeps error payloads bounded as they cross the WASM/UniFFI boundary.
 const MAX_ECHOED_VALUE_LEN: usize = 64;
 
@@ -73,103 +57,48 @@ fn truncate_for_error(s: &str) -> String {
     }
 }
 
-/// The set of standard character classes that may appear in `required` / `allowed` rules.
+/// The standard character classes from a single `required` or `allowed` rule, flattened
+/// into the SDK's "this class is enabled" boolean model. The parser exposes `required`
+/// as `Vec<Vec<CharacterClass>>` (AND of ORs), but the SDK's [`PasswordGeneratorRequest`]
+/// only models a flat AND of classes — so any nested OR groups are flattened by taking
+/// the union of their classes.
 #[derive(Default, Debug, Clone)]
-struct ParsedClasses {
+struct AccumulatedClasses {
     upper: bool,
     lower: bool,
     digit: bool,
     special: bool,
-    /// Literal ASCII-printable characters from one or more custom `[...]` classes.
     custom: BTreeSet<char>,
 }
 
-impl ParsedClasses {
+impl AccumulatedClasses {
     fn is_empty(&self) -> bool {
         !self.upper && !self.lower && !self.digit && !self.special && self.custom.is_empty()
     }
 
-    fn merge(&mut self, other: &ParsedClasses) {
-        self.upper |= other.upper;
-        self.lower |= other.lower;
-        self.digit |= other.digit;
-        self.special |= other.special;
-        self.custom.extend(other.custom.iter().copied());
-    }
-}
-
-/// Accumulator for the per-rule parse loop in [`parse_password_rules`]. Holds the
-/// raw, un-clamped values parsed so far so the post-loop logic can apply spec defaults,
-/// validate bounds, and assemble the final [`PasswordGeneratorRequest`].
-#[derive(Default)]
-struct ParseState {
-    minlength: Option<u32>,
-    maxlength: Option<u32>,
-    max_consecutive: Option<u32>,
-    required: ParsedClasses,
-    allowed: ParsedClasses,
-    /// Tracks whether an `allowed:` rule was encountered, since the spec defaults for
-    /// `allowed` depend on its presence rather than on whether the resulting set is empty.
-    allowed_seen: bool,
-}
-
-/// Dispatches a single `property: value` pair into `state`.
-///
-/// Apple's reference parser lowercases property names before matching, so any mixed-case
-/// spelling (`MinLength`, `REQUIRED`, etc.) is accepted. Class keywords are lowercased
-/// separately in `apply_keyword`; custom-class contents inside `[...]` are NOT lowercased.
-fn apply_property(
-    state: &mut ParseState,
-    property: &str,
-    value: &str,
-) -> Result<(), PasswordRulesError> {
-    match property.to_ascii_lowercase().as_str() {
-        "minlength" => state.minlength = Some(parse_u32(property, value)?),
-        "maxlength" => state.maxlength = Some(parse_u32(property, value)?),
-        "max-consecutive" => state.max_consecutive = Some(parse_u32(property, value)?),
-        "required" => state.required.merge(&parse_classlist(property, value)?),
-        "allowed" => {
-            state.allowed.merge(&parse_classlist(property, value)?);
-            state.allowed_seen = true;
-        }
-        _ => {
-            return Err(PasswordRulesError::UnknownProperty(truncate_for_error(
-                property,
-            )));
+    fn apply(&mut self, class: &CharacterClass) {
+        match class {
+            CharacterClass::Upper => self.upper = true,
+            CharacterClass::Lower => self.lower = true,
+            CharacterClass::Digit => self.digit = true,
+            CharacterClass::Special => self.special = true,
+            // `ascii-printable` and `unicode` keywords are treated as enabling all four
+            // standard classes. The SDK doesn't generate beyond ASCII-printable, so the
+            // two are equivalent for our purposes.
+            CharacterClass::AsciiPrintable | CharacterClass::Unicode => {
+                self.upper = true;
+                self.lower = true;
+                self.digit = true;
+                self.special = true;
+            }
+            CharacterClass::Custom(chars) => {
+                // Restrict to ASCII-graphic characters so the generated pool stays inside
+                // the SDK's expected character range.
+                self.custom
+                    .extend(chars.iter().copied().filter(|c| c.is_ascii_graphic()));
+            }
         }
     }
-    Ok(())
-}
-
-/// Resolves the final password length from the (un-clamped) `minlength`/`maxlength` parsed
-/// out of the input, applying the SDK's `[MINIMUM_PASSWORD_LENGTH, MAXIMUM_PASSWORD_LENGTH]`
-/// clamp and validating that `minlength <= maxlength`.
-///
-/// Returns the resolved length as a `u8` (the generator's wire type).
-fn resolve_length(
-    minlength: Option<u32>,
-    maxlength: Option<u32>,
-) -> Result<u8, PasswordRulesError> {
-    // Validate length bounds against the raw user-supplied values BEFORE clamping, so an
-    // inverted `minlength > maxlength` still surfaces as an error even when both values would
-    // be clamped to the same SDK-supported bound.
-    if let (Some(min), Some(max)) = (minlength, maxlength)
-        && min > max
-    {
-        return Err(PasswordRulesError::InvalidLength);
-    }
-
-    // Length: start from the SDK default and clamp into the parsed bounds. Both bounds are
-    // additionally clamped into [`MINIMUM_PASSWORD_LENGTH`, `MAXIMUM_PASSWORD_LENGTH`] — the
-    // entropy floor enforced by every Bitwarden client (`MINIMUM_PASSWORD_LENGTH`) and the
-    // SDK's hard upper bound. This guarantees `min <= max` before `clamp` (which panics on
-    // an inverted range) and matches the behavior of `bw`'s password subcommand.
-    let min_u32 = MINIMUM_PASSWORD_LENGTH as u32;
-    let max_u32 = MAXIMUM_PASSWORD_LENGTH as u32;
-    let lower_bound = minlength.unwrap_or(0).clamp(min_u32, max_u32);
-    let upper_bound = maxlength.unwrap_or(max_u32).clamp(min_u32, max_u32);
-    let clamped = DEFAULT_LENGTH.clamp(lower_bound, upper_bound);
-    u8::try_from(clamped).map_err(|_| PasswordRulesError::InvalidLength)
 }
 
 /// Parses an HTML `passwordrules` attribute string into a [`PasswordGeneratorRequest`].
@@ -177,27 +106,61 @@ fn resolve_length(
 /// Empty or whitespace-only input is accepted and resolves to the spec default
 /// (`allowed: ascii-printable`).
 pub fn parse_password_rules(rules: &str) -> Result<PasswordGeneratorRequest, PasswordRulesError> {
-    let mut state = ParseState::default();
-
-    for raw_rule in rules.split(';') {
-        let rule = raw_rule.trim();
-        if rule.is_empty() {
-            continue;
-        }
-
-        let (property, value) = split_rule(rule)?;
-        apply_property(&mut state, property.trim(), value.trim())?;
+    // Short-circuit empty/whitespace input rather than relying on the external parser's
+    // behavior for it; matches the spec default and keeps the empty-input path simple.
+    if rules.trim().is_empty() {
+        return assemble_request(
+            None,
+            None,
+            None,
+            AccumulatedClasses::default(),
+            AccumulatedClasses::default(),
+            false,
+        );
     }
 
-    let ParseState {
-        minlength,
-        maxlength,
-        max_consecutive,
-        required,
-        mut allowed,
-        allowed_seen,
-    } = state;
+    let parsed = parse_external(rules, false).map_err(parse_error_to_sdk)?;
 
+    let PasswordRules {
+        min_length,
+        max_length,
+        max_consecutive,
+        allowed,
+        required,
+    } = parsed;
+
+    let mut required_classes = AccumulatedClasses::default();
+    for group in &required {
+        for cls in group {
+            required_classes.apply(cls);
+        }
+    }
+
+    let mut allowed_classes = AccumulatedClasses::default();
+    let allowed_seen = !allowed.is_empty();
+    for cls in &allowed {
+        allowed_classes.apply(cls);
+    }
+
+    assemble_request(
+        min_length,
+        max_length,
+        max_consecutive,
+        required_classes,
+        allowed_classes,
+        allowed_seen,
+    )
+}
+
+/// Build the final [`PasswordGeneratorRequest`] from the accumulated rule state.
+fn assemble_request(
+    min_length: Option<u32>,
+    max_length: Option<u32>,
+    max_consecutive: Option<u32>,
+    required: AccumulatedClasses,
+    mut allowed: AccumulatedClasses,
+    allowed_seen: bool,
+) -> Result<PasswordGeneratorRequest, PasswordRulesError> {
     // Spec defaults:
     //  - If `required` is given but `allowed` is not, `allowed` defaults to the required set.
     //  - If neither is given, `allowed` defaults to `ascii-printable` (all four standard classes).
@@ -212,18 +175,13 @@ pub fn parse_password_rules(rules: &str) -> Result<PasswordGeneratorRequest, Pas
         }
     }
 
-    let length = resolve_length(minlength, maxlength)?;
+    let length = resolve_length(min_length, max_length)?;
 
-    // The union of allowed + required determines which standard classes are enabled in the
-    // generator. Required classes also drive the min-count fields.
     let lowercase = allowed.lower || required.lower;
     let uppercase = allowed.upper || required.upper;
     let numbers = allowed.digit || required.digit;
     let special = allowed.special || required.special;
 
-    // Custom char pools: required chars from required rules; allowed pool unions everything
-    // custom we've seen. The generator treats `custom_allowed_chars` as additions to the
-    // overall pool, and `custom_required_chars` as a "force one of these" set.
     let custom_required_chars: Option<String> = if required.custom.is_empty() {
         None
     } else {
@@ -263,187 +221,30 @@ pub fn parse_password_rules(rules: &str) -> Result<PasswordGeneratorRequest, Pas
     })
 }
 
-/// Splits a single rule on the first `:` into (property, value).
-fn split_rule(rule: &str) -> Result<(&str, &str), PasswordRulesError> {
-    rule.split_once(':')
-        .ok_or(PasswordRulesError::MalformedRule)
-}
-
-/// Parses a `u32` value, returning a [`PasswordRulesError::InvalidValue`] error on failure.
-fn parse_u32(property: &str, value: &str) -> Result<u32, PasswordRulesError> {
-    value
-        .parse::<u32>()
-        .map_err(|_| PasswordRulesError::InvalidValue {
-            property: truncate_for_error(property),
-            value: truncate_for_error(value),
-        })
-}
-
-/// Scans a `[...]` custom class starting at byte offset `start_bracket` in `value`.
-///
-/// Returns the parsed literal chars and the byte index of the position immediately past
-/// the closing `]` (where the outer scanner should resume).
-///
-/// The grammar permits `]` as the final literal char when written as `[abc]]`: the inner
-/// `]` is the literal and the outer one closes the class. To implement the "`]` is literal
-/// only when it is the last char before the closing `]`" rule, the scanner looks ahead: if
-/// the char *after* the first `]` is also `]`, the inner `]` is treated as a literal.
-///
-/// `start_bracket` MUST point at a `[` byte in `value`.
-fn parse_custom_class_at(
-    property: &str,
-    value: &str,
-    start_bracket: usize,
-) -> Result<(Vec<char>, usize), PasswordRulesError> {
-    let bytes = value.as_bytes();
-    debug_assert_eq!(bytes[start_bracket], b'[');
-
-    let start = start_bracket + 1;
-    let end = bytes[start..]
-        .iter()
-        .position(|&b| b == b']')
-        .map(|p| start + p)
-        .ok_or_else(|| {
-            PasswordRulesError::MalformedCustomClass(format!("unterminated '[' in {property}"))
-        })?;
-
-    let (literal_end, close_idx) = if end + 1 < bytes.len() && bytes[end + 1] == b']' {
-        // The first `]` is a literal at the end of the literal-chars region.
-        (end + 1, end + 1)
-    } else {
-        (end, end)
-    };
-
-    // Safety: `start` and `literal_end` are byte offsets derived from positions of ASCII
-    // bytes (`[` / `]`) inside `value`; any multi-byte UTF-8 sequence lives entirely
-    // between such boundaries, so this byte-slice is valid UTF-8.
-    #[allow(clippy::string_slice)]
-    let literal_slice = &value[start..literal_end];
-    let parsed = parse_custom_literal(literal_slice)?;
-    Ok((parsed, close_idx + 1))
-}
-
-/// Parses a comma-separated class list, handling the spec-defined keywords and
-/// bracketed custom character classes.
-fn parse_classlist(property: &str, value: &str) -> Result<ParsedClasses, PasswordRulesError> {
-    let mut classes = ParsedClasses::default();
-
-    // The value is logically a comma-separated list, but custom classes (`[...]`) contain
-    // literal characters that may themselves include commas. We therefore tokenize manually
-    // rather than calling `split(',')`.
-    let bytes = value.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        // Skip whitespace and commas between tokens.
-        while i < bytes.len() && (bytes[i] == b',' || bytes[i].is_ascii_whitespace()) {
-            i += 1;
-        }
-        if i >= bytes.len() {
-            break;
-        }
-
-        if bytes[i] == b'[' {
-            let (parsed, next) = parse_custom_class_at(property, value, i)?;
-            classes.custom.extend(parsed);
-            i = next;
-            continue;
-        }
-
-        // Otherwise, scan until next `,` to extract a keyword.
-        let token_end = bytes[i..]
-            .iter()
-            .position(|&b| b == b',')
-            .map(|p| i + p)
-            .unwrap_or(bytes.len());
-        // Safety: `i` and `token_end` are byte offsets derived from positions of ASCII bytes
-        // (`,` / current scan position past ASCII whitespace); any multi-byte UTF-8 sequence
-        // lives entirely between such boundaries, so this byte-slice is valid UTF-8.
-        #[allow(clippy::string_slice)]
-        let token = value[i..token_end].trim();
-        if !token.is_empty() {
-            apply_keyword(property, token, &mut classes)?;
-        }
-        i = token_end;
+/// Resolves the final password length from the (un-clamped) `min_length`/`max_length`
+/// parsed from the input, applying the SDK's `[MINIMUM_PASSWORD_LENGTH, MAXIMUM_PASSWORD_LENGTH]`
+/// clamp and validating that `min_length <= max_length`.
+fn resolve_length(
+    min_length: Option<u32>,
+    max_length: Option<u32>,
+) -> Result<u8, PasswordRulesError> {
+    if let (Some(min), Some(max)) = (min_length, max_length)
+        && min > max
+    {
+        return Err(PasswordRulesError::InvalidLength);
     }
-
-    Ok(classes)
+    let min_u32 = MINIMUM_PASSWORD_LENGTH as u32;
+    let max_u32 = MAXIMUM_PASSWORD_LENGTH as u32;
+    let lower_bound = min_length.unwrap_or(0).clamp(min_u32, max_u32);
+    let upper_bound = max_length.unwrap_or(max_u32).clamp(min_u32, max_u32);
+    let clamped = DEFAULT_LENGTH.clamp(lower_bound, upper_bound);
+    u8::try_from(clamped).map_err(|_| PasswordRulesError::InvalidLength)
 }
 
-/// Applies a single class keyword (`upper`, `lower`, `digit`, `special`, `ascii-printable`,
-/// `unicode`) to the given [`ParsedClasses`]. Matching is case-insensitive to mirror Apple's
-/// reference parser.
-fn apply_keyword(
-    property: &str,
-    keyword: &str,
-    classes: &mut ParsedClasses,
-) -> Result<(), PasswordRulesError> {
-    match keyword.to_ascii_lowercase().as_str() {
-        "upper" => classes.upper = true,
-        "lower" => classes.lower = true,
-        "digit" => classes.digit = true,
-        "special" => classes.special = true,
-        // The spec defines `ascii-printable` and `unicode` as broad classes; per the agreed
-        // design, both enable all four standard classes.
-        "ascii-printable" | "unicode" => {
-            classes.upper = true;
-            classes.lower = true;
-            classes.digit = true;
-            classes.special = true;
-        }
-        _ => {
-            return Err(PasswordRulesError::InvalidValue {
-                property: truncate_for_error(property),
-                value: truncate_for_error(keyword),
-            });
-        }
-    }
-    Ok(())
-}
-
-/// Parses the literal-chars region of a custom class. Applies the spec's positional rules:
-///   - `-` is a literal **only** when it is the first char after `[`.
-///   - `]` is a literal **only** when it is the last char before the closing `]`.
-///   - Otherwise, `-` or `]` are reserved and produce a parse error.
-///   - Non-ASCII-printable characters are silently dropped.
-fn parse_custom_literal(s: &str) -> Result<Vec<char>, PasswordRulesError> {
-    let chars: Vec<char> = s.chars().collect();
-    let mut out: Vec<char> = Vec::with_capacity(chars.len());
-
-    let last_idx = chars.len().saturating_sub(1);
-    for (idx, &c) in chars.iter().enumerate() {
-        match c {
-            '-' => {
-                if idx == 0 {
-                    out.push('-');
-                } else {
-                    return Err(PasswordRulesError::MalformedCustomClass(
-                        "'-' is only valid as the first character of a custom class".to_string(),
-                    ));
-                }
-            }
-            ']' => {
-                if idx == last_idx {
-                    out.push(']');
-                } else {
-                    return Err(PasswordRulesError::MalformedCustomClass(
-                        "']' is only valid as the last character of a custom class".to_string(),
-                    ));
-                }
-            }
-            '[' => {
-                // `[` inside a custom class is not addressed explicitly by the spec; treat it
-                // as a malformed class to avoid silently accepting nested-bracket input.
-                return Err(PasswordRulesError::MalformedCustomClass(
-                    "'[' is not allowed inside a custom class".to_string(),
-                ));
-            }
-            other if other.is_ascii_graphic() => out.push(other),
-            // Silently drop non-ASCII-printable / whitespace chars per the spec.
-            _ => {}
-        }
-    }
-
-    Ok(out)
+/// Map the external parser's error into the SDK's `PasswordRulesError::Parse(String)`,
+/// truncating the message so the payload stays bounded across FFI.
+fn parse_error_to_sdk<E: std::fmt::Display>(e: E) -> PasswordRulesError {
+    PasswordRulesError::Parse(truncate_for_error(&e.to_string()))
 }
 
 #[cfg(test)]
@@ -521,7 +322,6 @@ mod tests {
         assert!(req.numbers);
         assert!(!req.uppercase);
         assert!(!req.special);
-        // No `required`, so no min-counts.
         assert_eq!(req.min_lowercase, None);
         assert_eq!(req.min_number, None);
     }
@@ -578,19 +378,23 @@ mod tests {
     #[test]
     fn custom_class_dash_in_middle_is_error() {
         let err = parse_password_rules("required: [a-b]").unwrap_err();
-        assert!(matches!(err, PasswordRulesError::MalformedCustomClass(_)));
+        assert!(matches!(err, PasswordRulesError::Parse(_)));
     }
 
     #[test]
-    fn custom_class_nested_open_bracket_is_error() {
-        let err = parse_password_rules("required: [abc[]").unwrap_err();
-        assert!(matches!(err, PasswordRulesError::MalformedCustomClass(_)));
+    fn custom_class_open_bracket_is_treated_as_literal() {
+        // The external `password-rules-parser` crate accepts `[` as a literal char inside
+        // a custom class, so `[abc[]` parses to the set `{'[', 'a', 'b', 'c'}` rather than
+        // erroring. Documented behavior change vs. the previous in-tree parser.
+        let req = parse_password_rules("required: [abc[]").unwrap();
+        let chars = req.custom_required_chars.unwrap();
+        let set: BTreeSet<char> = chars.chars().collect();
+        assert_eq!(set, BTreeSet::from(['[', 'a', 'b', 'c']));
     }
 
     #[test]
     fn custom_class_drops_non_ascii_printable() {
-        // The 'é' and the space are both non-printable-ASCII-graphic and should be dropped.
-        // Note: space is not ascii_graphic so it gets dropped too.
+        // 'é' and space are not ascii_graphic so the translation layer drops them.
         let req = parse_password_rules("required: [aéb c]").unwrap();
         let chars = req.custom_required_chars.unwrap();
         let set: BTreeSet<char> = chars.chars().collect();
@@ -615,19 +419,19 @@ mod tests {
     #[test]
     fn unknown_property_errors() {
         let err = parse_password_rules("zzz: 1").unwrap_err();
-        assert_eq!(err, PasswordRulesError::UnknownProperty("zzz".to_string()));
+        assert!(matches!(err, PasswordRulesError::Parse(_)));
     }
 
     #[test]
     fn malformed_rule_missing_colon() {
         let err = parse_password_rules("minlength 8").unwrap_err();
-        assert_eq!(err, PasswordRulesError::MalformedRule);
+        assert!(matches!(err, PasswordRulesError::Parse(_)));
     }
 
     #[test]
     fn invalid_numeric_value_errors() {
         let err = parse_password_rules("minlength: abc").unwrap_err();
-        assert!(matches!(err, PasswordRulesError::InvalidValue { .. }));
+        assert!(matches!(err, PasswordRulesError::Parse(_)));
     }
 
     #[test]
@@ -657,8 +461,6 @@ mod tests {
 
     #[test]
     fn custom_class_contents_are_not_lowercased() {
-        // The literal `A`/`B`/`C` inside `[...]` must be preserved verbatim, not folded to
-        // lowercase by the property/keyword case-folding.
         let req = parse_password_rules("required: [ABC]").unwrap();
         let chars = req.custom_required_chars.unwrap();
         let set: BTreeSet<char> = chars.chars().collect();
@@ -667,8 +469,6 @@ mod tests {
 
     #[test]
     fn maxlength_below_minimum_clamps_up_to_floor() {
-        // `maxlength: 4` is below MINIMUM_PASSWORD_LENGTH (5), so the resolved length must
-        // be clamped up to the floor rather than producing a sub-floor password.
         let req = parse_password_rules("maxlength: 4").unwrap();
         assert_eq!(req.length, MINIMUM_PASSWORD_LENGTH);
     }
@@ -681,25 +481,20 @@ mod tests {
 
     #[test]
     fn error_payloads_are_truncated() {
-        // Build a property name far longer than MAX_ECHOED_VALUE_LEN and assert that the
-        // resulting error's payload is truncated with the ellipsis marker. Truncation must
-        // operate on char boundaries — the trailing ellipsis itself is multi-byte.
         let long = "a".repeat(MAX_ECHOED_VALUE_LEN + 50);
         let input = format!("{long}: 1");
         let err = parse_password_rules(&input).unwrap_err();
         match err {
-            PasswordRulesError::UnknownProperty(s) => {
+            PasswordRulesError::Parse(s) => {
                 assert!(s.chars().count() <= MAX_ECHOED_VALUE_LEN + 1);
                 assert!(s.ends_with('…'));
             }
-            other => panic!("expected UnknownProperty, got {other:?}"),
+            other => panic!("expected Parse, got {other:?}"),
         }
     }
 
     #[test]
     fn generator_honors_custom_required_chars() {
-        // Parse a rule containing a custom required class, then assert at least one of the
-        // custom chars appears in the generated output. Uses a fixed seed for determinism.
         let req = parse_password_rules("required: [!@#]; minlength: 16").unwrap();
         assert_eq!(req.length, 16);
         let custom: BTreeSet<char> = req
