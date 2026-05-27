@@ -298,7 +298,6 @@ mod tests {
             Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
         ));
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
