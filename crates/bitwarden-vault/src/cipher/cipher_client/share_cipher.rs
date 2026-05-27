@@ -817,8 +817,8 @@ mod tests {
         let client = Client::new_test(Some(settings));
 
         client
-            .internal
-            .load_flags(std::collections::HashMap::from([(
+            .flags()
+            .load(std::collections::HashMap::from([(
                 "enableCipherKeyEncryption".to_owned(),
                 true,
             )]))

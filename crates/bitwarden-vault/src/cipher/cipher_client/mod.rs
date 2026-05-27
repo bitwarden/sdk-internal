@@ -97,13 +97,7 @@ impl CiphersClient {
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
-        if cipher_view.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
+        if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
@@ -139,12 +133,8 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let enable_cipher_key_encryption = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key_encryption =
+            self.client.flags().get().await.enable_cipher_key_encryption;
 
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -181,12 +171,7 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let enable_cipher_key = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key = self.client.flags().get().await.enable_cipher_key_encryption;
 
         let mut ctx = key_store.context();
 
@@ -350,11 +335,7 @@ impl CiphersClient {
     }
 
     async fn is_strict_decrypt(&self) -> bool {
-        self.client
-            .internal
-            .get_flags()
-            .await
-            .strict_cipher_decryption
+        self.client.flags().get().await.strict_cipher_decryption
     }
 }
 

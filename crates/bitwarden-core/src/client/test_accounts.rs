@@ -43,8 +43,8 @@ impl Client {
         let client = Client::new_test(None);
 
         client
-            .internal
-            .load_flags(HashMap::from([(
+            .flags()
+            .load(HashMap::from([(
                 "enableCipherKeyEncryption".to_owned(),
                 true,
             )]))

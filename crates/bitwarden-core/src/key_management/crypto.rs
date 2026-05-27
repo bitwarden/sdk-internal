@@ -1663,10 +1663,12 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: make_key_pair(user_key.try_into().unwrap())
+                account_cryptographic_state: {
+                    let store: KeyStore<KeySlotIds> = KeyStore::default();
+                    let mut ctx = store.context_mut();
+                    WrappedAccountCryptographicState::make_v1(&mut ctx)
                         .unwrap()
-                        .user_key_encrypted_private_key,
+                        .1
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: user_key.to_string(),
@@ -1690,10 +1692,12 @@ mod tests {
                     iterations: 600_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: make_key_pair(user_key.try_into().unwrap())
+                account_cryptographic_state: {
+                    let store: KeyStore<KeySlotIds> = KeyStore::default();
+                    let mut ctx = store.context_mut();
+                    WrappedAccountCryptographicState::make_v1(&mut ctx)
                         .unwrap()
-                        .user_key_encrypted_private_key,
+                        .1
                 },
                 method: InitUserCryptoMethod::PinEnvelope {
                     pin: test_pin.to_string(),

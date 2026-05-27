@@ -192,8 +192,8 @@ These npm packages are referenced as
 See [Licensing](#licensing) for details on why we have multiple packages.
 
 Every commit to `main` in `sdk-internal` will trigger a
-[publish](https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/publish-wasm-internal.yml)
-of these packages, with versions structured as follows:
+[publish](https://github.com/bitwarden/deploy/blob/main/.github/workflows/publish-wasm-internal.yml)
+(internal access only) of these packages, with versions structured as follows:
 
 ```
 {SemanticVersion}-main.{actionRunNumber}
@@ -208,7 +208,9 @@ For example:
 > [!TIP]
 >
 > To see what version is published to `npm` for a given publish action, you can check the Summary of
-> the publish action in Github.
+> the
+> [publish workflow run](https://github.com/bitwarden/deploy/actions/workflows/publish-wasm-internal.yml)
+> in Github (internal access only).
 
 When you have completed development of changes in `sdk-internal` and need to consume them in the
 client application, you will need to update the npm dependency in your feature branch to reference
