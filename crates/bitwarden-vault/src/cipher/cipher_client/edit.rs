@@ -1,4 +1,6 @@
-use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestModel};
+use bitwarden_api_api::models::{
+    CipherCollectionsRequestModel, CipherPartialRequestModel, CipherRequestModel,
+};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
@@ -105,6 +107,21 @@ impl TryFrom<CipherView> for CipherEditRequest {
     }
 }
 
+/// Request to update the subset of cipher fields that a user without edit
+/// permissions is still allowed to change (`folder_id` and `favorite`).
+///
+/// Backed by the `PUT /ciphers/{id}/partial` server endpoint, which authorizes
+/// based on view (not edit) access.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct CipherPartialEditRequest {
+    pub id: CipherId,
+    pub folder_id: Option<FolderId>,
+    pub favorite: bool,
+}
+
 /// Internal helper to convert a [`CipherEditRequest`] into a [`CipherView`]
 /// so the existing `CipherView` encryption pipeline can be reused.
 ///
@@ -196,6 +213,40 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     }
 }
 
+/// Update only the cipher fields available to users without edit permissions
+/// (`folder_id` and `favorite`) via the server's partial-update endpoint.
+async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
+    key_store: &KeyStore<KeySlotIds>,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    repository: &R,
+    request: CipherPartialEditRequest,
+    use_strict_decryption: bool,
+) -> Result<CipherView, EditCipherError> {
+    let cipher_id = request.id;
+
+    let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
+
+    let partial_request = CipherPartialRequestModel {
+        folder_id: request.folder_id.map(|id| id.to_string()),
+        favorite: Some(request.favorite),
+    };
+
+    let cipher: Cipher = api_client
+        .ciphers_api()
+        .put_partial(cipher_id.into(), Some(partial_request))
+        .await
+        .map_err(ApiError::from)?
+        .merge_with_cipher(Some(original_cipher))?;
+    debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
+    repository.set(cipher_id, cipher.clone()).await?;
+
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
+}
+
 #[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
@@ -230,6 +281,28 @@ impl CiphersClient {
         .await
     }
 
+    /// Update only `folder_id` and `favorite` on an existing [Cipher].
+    ///
+    /// Intended for users who do not have edit permissions on the cipher, but
+    /// are still allowed to change these personal organization fields.
+    pub async fn edit_partial(
+        &self,
+        request: CipherPartialEditRequest,
+    ) -> Result<CipherView, EditCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+
+        partial_edit_cipher(
+            key_store,
+            &config.api_client,
+            repository.as_ref(),
+            request,
+            self.is_strict_decrypt().await,
+        )
+        .await
+    }
+
     /// Adds the cipher matched by [CipherId] to any number of collections on the server.
     pub async fn update_collection(
         &self,
@@ -253,10 +326,13 @@ impl CiphersClient {
                 .await?
                 .merge_with_cipher(orig_cipher)?
         } else {
-            let response: Cipher = api
-                .put_collections(cipher_id.into(), Some(req))
+            let cipher_response = api
+                .put_collections_v_next(cipher_id.into(), Some(req))
                 .await?
-                .merge_with_cipher(orig_cipher)?;
+                .cipher
+                .map(|c| *c)
+                .ok_or(MissingFieldError("cipher"))?;
+            let response: Cipher = cipher_response.merge_with_cipher(orig_cipher)?;
             repository.set(cipher_id, response.clone()).await?;
             response
         };
@@ -486,6 +562,116 @@ mod tests {
         assert_eq!(result.name, "Test Login");
         // collection_ids must be preserved even though CipherResponseModel omits them.
         assert_eq!(result.collection_ids, vec![collection_id]);
+    }
+
+    #[tokio::test]
+    async fn test_edit_partial_cipher() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+                .unwrap();
+        }
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let new_folder_id: FolderId = "9b1e7c8f-3a04-4d2e-9d1e-b18100abcdef".parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put_partial()
+                .returning(move |id, body| {
+                    let body = body.unwrap();
+                    let expected_id: uuid::Uuid = cipher_id.into();
+                    assert_eq!(id, expected_id);
+                    assert_eq!(body.favorite, Some(true));
+                    assert_eq!(
+                        body.folder_id.as_deref(),
+                        Some(new_folder_id.to_string().as_str())
+                    );
+                    Ok(CipherResponseModel {
+                        object: Some("cipher".to_string()),
+                        id: Some(cipher_id.into()),
+                        name: Some(
+                            "2.+oPT8B4xJhyhQRe1VkIx0A==|PBtC/bZkggXR+fSnL/pG7g==|UkjRD0VpnUYkjRC/05ZLdEBAmRbr3qWRyJey2bUvR9w=".to_string(),
+                        ),
+                        r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                        organization_id: None,
+                        folder_id: Some(new_folder_id.into()),
+                        favorite: Some(true),
+                        reprompt: Some(bitwarden_api_api::models::CipherRepromptType::None),
+                        key: None,
+                        notes: None,
+                        view_password: Some(true),
+                        edit: Some(false),
+                        organization_use_totp: Some(true),
+                        revision_date: Some("2025-01-02T00:00:00Z".to_string()),
+                        creation_date: Some("2024-01-01T00:00:00Z".to_string()),
+                        deleted_date: None,
+                        login: None,
+                        card: None,
+                        identity: None,
+                        secure_note: None,
+                        ssh_key: None,
+                        bank_account: None,
+                        drivers_license: None,
+                        passport: None,
+                        fields: None,
+                        password_history: None,
+                        attachments: None,
+                        permissions: None,
+                        data: None,
+                        archived_date: None,
+                    })
+                })
+                .once();
+        });
+
+        let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+
+        let repository = MemoryRepository::<Cipher>::default();
+        repository_add_cipher(&repository, &store, cipher_id, "stored_name").await;
+        // Stamp a collection id to verify it is preserved across partial edit.
+        let mut stored = repository.get(cipher_id).await.unwrap().unwrap();
+        stored.collection_ids = vec![collection_id];
+        repository.set(cipher_id, stored).await.unwrap();
+
+        let request = CipherPartialEditRequest {
+            id: cipher_id,
+            folder_id: Some(new_folder_id),
+            favorite: true,
+        };
+
+        let result = partial_edit_cipher(&store, &api_client, &repository, request, false)
+            .await
+            .unwrap();
+
+        assert_eq!(result.id, Some(cipher_id));
+        assert_eq!(result.folder_id, Some(new_folder_id));
+        assert!(result.favorite);
+        // Partial endpoint omits collection_ids; they must be preserved from the original.
+        assert_eq!(result.collection_ids, vec![collection_id]);
+    }
+
+    #[tokio::test]
+    async fn test_edit_partial_cipher_does_not_exist() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+
+        let repository = MemoryRepository::<Cipher>::default();
+        let api_client = ApiClient::new_mocked(|_| {});
+
+        let request = CipherPartialEditRequest {
+            id: TEST_CIPHER_ID.parse().unwrap(),
+            folder_id: None,
+            favorite: false,
+        };
+
+        let result = partial_edit_cipher(&store, &api_client, &repository, request, false).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            EditCipherError::ItemNotFound(_)
+        ));
     }
 
     #[tokio::test]

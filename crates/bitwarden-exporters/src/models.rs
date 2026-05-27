@@ -2,7 +2,8 @@ use bitwarden_core::{MissingFieldError, key_management::KeySlotIds, require};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
     CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,
-    FolderView, IdentityView, LoginUriView, SecureNoteType, SecureNoteView, SshKeyView,
+    FolderView, IdentityView, LoginUriView, PasswordHistoryView, SecureNoteType, SecureNoteView,
+    SshKeyView,
 };
 
 impl TryFrom<FolderView> for crate::Folder {
@@ -72,10 +73,22 @@ impl crate::Cipher {
                 .into_iter()
                 .map(|f| f.into())
                 .collect(),
+            password_history: view
+                .password_history
+                .map(|h| h.into_iter().map(|p| p.into()).collect()),
             revision_date: view.revision_date,
             creation_date: view.creation_date,
             deleted_date: view.deleted_date,
         })
+    }
+}
+
+impl From<PasswordHistoryView> for crate::PasswordHistory {
+    fn from(value: PasswordHistoryView) -> Self {
+        Self {
+            password: value.password,
+            last_used_date: value.last_used_date,
+        }
     }
 }
 

@@ -1,6 +1,8 @@
 //! Client implementation for rotating user keys without a password change.
 use bitwarden_api_api::models::RotateUserKeysRequestModel;
-use bitwarden_core::key_management::KeySlotIds;
+use bitwarden_core::key_management::{
+    KeySlotIds, account_cryptographic_state::WrappedAccountCryptographicState,
+};
 use bitwarden_crypto::{KeyConnectorKey, KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
 use tracing::{info, instrument};
@@ -16,7 +18,7 @@ use crate::{
         crypto::rotate_account_cryptographic_state_to_wrapped_model,
         data::{check_for_old_attachments, reencrypt_data},
         rotation_context::make_rotation_context,
-        sync::sync_current_account_data,
+        sync::{SyncedAccountData, sync_current_account_data},
         unlock::{ReencryptCommonUnlockDataInput, reencrypt_common_unlock_data},
         unlock_method::{PrimaryUnlockMethod, reencrypt_unlock_method_data},
     },
@@ -31,8 +33,6 @@ pub enum KeyRotationMethod {
     /// Key Connector user, key rotation without a password change.
     KeyConnector { key_connector_url: String },
     /// TDE user, key rotation without a password change.
-    /// NOTE: This is not yet implemented and will return a
-    /// RotateUserKeysError::UnimplementedKeyRotationMethod error if used.
     Tde,
 }
 
@@ -70,6 +70,16 @@ impl UserCryptoManagementClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
+        let sync = sync_current_account_data(api_client)
+            .await
+            .map_err(|_| RotateUserKeysError::Api)?;
+
+        let wrapped_account_cryptographic_state = self
+            .regenerate_public_key_encryption_key_pair_if_needed_with_ciphers(&sync.ciphers)
+            .await
+            .map_err(|_| RotateUserKeysError::Crypto)?
+            .unwrap_or_else(|| sync.wrapped_account_cryptographic_state.clone());
+
         let key_connector_api_client =
             if let KeyRotationMethod::KeyConnector { key_connector_url } =
                 &request.key_rotation_method
@@ -88,6 +98,8 @@ impl UserCryptoManagementClient {
             api_client,
             key_connector_api_client.as_ref(),
             request,
+            wrapped_account_cryptographic_state,
+            sync,
         )
         .await
     }
@@ -99,15 +111,9 @@ async fn internal_rotate_user_keys(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_connector_api_client: Option<&bitwarden_api_key_connector::apis::ApiClient>,
     request: RotateUserKeysRequest,
+    wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
+    sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
-    if matches!(request.key_rotation_method, KeyRotationMethod::Tde) {
-        return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
-    }
-
-    let sync = sync_current_account_data(api_client)
-        .await
-        .map_err(|_| RotateUserKeysError::Api)?;
-
     // Fail early if any cipher has old attachments that would become irrecoverable
     check_for_old_attachments(&sync.ciphers)?;
 
@@ -146,7 +152,7 @@ async fn internal_rotate_user_keys(
         info!("Rotating account cryptographic state for user key rotation");
         let wrapped_account_cryptographic_state_request_model =
             rotate_account_cryptographic_state_to_wrapped_model(
-                &sync.wrapped_account_cryptographic_state,
+                &wrapped_account_cryptographic_state,
                 &rotation_context.current_user_key_id,
                 &rotation_context.new_user_key_id,
                 &mut ctx,
@@ -216,23 +222,24 @@ async fn internal_rotate_user_keys(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::{
-        apis::ApiClient,
-        models::{
-            DeviceAuthRequestResponseModelListResponseModel,
-            EmergencyAccessGranteeDetailsResponseModelListResponseModel, KdfType,
-            MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
-            PrivateKeysResponseModel, ProfileOrganizationResponseModelListResponseModel,
-            ProfileResponseModel, PublicKeyEncryptionKeyPairResponseModel, SyncResponseModel,
-            UserDecryptionResponseModel, WebAuthnCredentialResponseModelListResponseModel,
-        },
+    use std::str::FromStr;
+
+    use bitwarden_api_api::{apis::ApiClient, models::UnlockMethod};
+    use bitwarden_core::key_management::{
+        KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId,
+        account_cryptographic_state::WrappedAccountCryptographicState,
     };
-    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{
+        Decryptable, EncString, Kdf, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
+        UnsignedSharedKey,
+    };
+    use bitwarden_vault::{Attachment, Cipher, CipherType};
+    use chrono::DateTime;
 
     use super::*;
+    use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 
-    fn make_test_key_store_and_sync_response() -> (KeyStore<KeySlotIds>, SyncResponseModel) {
+    fn make_test_key_store_and_synced_data() -> (KeyStore<KeySlotIds>, SyncedAccountData) {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let wrapped_private_key = {
             let mut ctx = store.context_mut();
@@ -243,95 +250,123 @@ mod tests {
                 .unwrap()
         };
 
-        let sync_response = SyncResponseModel {
-            object: Some("sync".to_string()),
-            profile: Some(Box::new(ProfileResponseModel {
-                id: Some(uuid::Uuid::new_v4()),
-                account_keys: Some(Box::new(PrivateKeysResponseModel {
-                    object: None,
-                    signature_key_pair: None,
-                    public_key_encryption_key_pair: Box::new(
-                        PublicKeyEncryptionKeyPairResponseModel {
-                            object: None,
-                            wrapped_private_key: Some(wrapped_private_key.to_string()),
-                            public_key: None,
-                            signed_public_key: None,
-                        },
-                    ),
-                    security_state: None,
-                })),
-                ..ProfileResponseModel::default()
-            })),
-            folders: Some(vec![]),
-            ciphers: Some(vec![]),
-            sends: Some(vec![]),
-            user_decryption: Some(Box::new(UserDecryptionResponseModel {
-                master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
-                    kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
-                        kdf_type: KdfType::PBKDF2_SHA256,
-                        iterations: 600000,
-                        memory: None,
-                        parallelism: None,
-                    }),
-                    master_key_encrypted_user_key: None,
-                    salt: Some("test_salt".to_string()),
-                })),
-                web_authn_prf_options: None,
-                v2_upgrade_token: None,
-            })),
-            ..Default::default()
+        let sync = SyncedAccountData {
+            wrapped_account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                private_key: wrapped_private_key,
+            },
+            folders: vec![],
+            ciphers: vec![],
+            sends: vec![],
+            emergency_access_memberships: vec![],
+            organization_memberships: vec![],
+            trusted_devices: vec![],
+            passkeys: vec![],
+            kdf_and_salt: Some((
+                Kdf::PBKDF2 {
+                    iterations: std::num::NonZeroU32::new(600000).unwrap(),
+                },
+                "test_salt".to_string(),
+            )),
         };
 
-        (store, sync_response)
+        (store, sync)
     }
 
-    fn mock_empty_sync_calls(mock: &mut bitwarden_api_api::apis::ApiClientMock) {
-        mock.organizations_api
-            .expect_get_user()
-            .once()
-            .returning(|| {
-                Ok(ProfileOrganizationResponseModelListResponseModel {
-                    object: None,
-                    data: Some(vec![]),
-                    continuation_token: None,
-                })
-            });
-        mock.emergency_access_api
-            .expect_get_contacts()
-            .once()
-            .returning(|| {
-                Ok(
-                    EmergencyAccessGranteeDetailsResponseModelListResponseModel {
-                        object: None,
-                        data: Some(vec![]),
-                        continuation_token: None,
-                    },
-                )
-            });
-        mock.devices_api.expect_get_all().once().returning(|| {
-            Ok(DeviceAuthRequestResponseModelListResponseModel {
-                object: None,
-                data: Some(vec![]),
-                continuation_token: None,
-            })
-        });
-        mock.web_authn_api.expect_get().once().returning(|| {
-            Ok(WebAuthnCredentialResponseModelListResponseModel {
-                object: None,
-                data: Some(vec![]),
-                continuation_token: None,
-            })
-        });
+    fn make_test_key_store_and_synced_data_with_trusted_devices()
+    -> (KeyStore<KeySlotIds>, SyncedAccountData, Vec<u8>) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let (trusted_device_keyset, wrapped_private_key, public_key) = {
+            let mut ctx = store.context_mut();
+            let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            let _ = ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User);
+            let (trusted_device_keyset, device_private_key) =
+                PartialRotateableKeyset::make_test_keyset(SymmetricKeySlotId::User, &mut ctx);
+            let _ = ctx.persist_private_key(device_private_key, PrivateKeySlotId::UserPrivateKey);
+            let wrapped_private_key = ctx
+                .wrap_private_key(SymmetricKeySlotId::User, PrivateKeySlotId::UserPrivateKey)
+                .unwrap();
+            (
+                trusted_device_keyset,
+                wrapped_private_key,
+                ctx.get_public_key(PrivateKeySlotId::UserPrivateKey)
+                    .expect("Retrieving the public key should work."),
+            )
+        };
+
+        let sync = SyncedAccountData {
+            wrapped_account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                private_key: wrapped_private_key,
+            },
+            folders: vec![],
+            ciphers: vec![],
+            sends: vec![],
+            emergency_access_memberships: vec![],
+            organization_memberships: vec![],
+            trusted_devices: vec![trusted_device_keyset],
+            passkeys: vec![],
+            kdf_and_salt: Some((
+                Kdf::PBKDF2 {
+                    iterations: std::num::NonZeroU32::new(600000).unwrap(),
+                },
+                "test_salt".to_string(),
+            )),
+        };
+
+        (
+            store,
+            sync,
+            public_key
+                .to_der()
+                .expect("Generating DER serialization should work")
+                .to_vec(),
+        )
     }
 
     #[tokio::test]
-    async fn test_rotate_user_keys_tde_returns_unimplemented() {
-        let key_store: KeyStore<KeySlotIds> = KeyStore::default();
+    async fn test_rotate_user_keys_tde_success_rotates_common_unlock_data() {
+        let (key_store, sync, public_key_der) =
+            make_test_key_store_and_synced_data_with_trusted_devices();
+        let key_store_clone = key_store.clone();
+
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api.expect_get().never();
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
-                .never();
+                .once()
+                .returning(move |req| {
+                    let req = req.expect("request body should be present");
+                    assert_eq!(req.unlock_method_data.unlock_method, UnlockMethod::Tde);
+                    assert!(req.unlock_method_data.master_password_unlock_data.is_none());
+                    assert!(
+                        req.unlock_method_data
+                            .key_connector_key_wrapped_user_key
+                            .is_none()
+                    );
+
+                    let device_unlock_data = req
+                        .unlock_data
+                        .device_key_unlock_data
+                        .expect("device unlock data should be present");
+                    assert_eq!(device_unlock_data.len(), 1);
+                    let rotated_device = &device_unlock_data[0];
+
+                    let encrypted_user_key: UnsignedSharedKey = rotated_device
+                        .encrypted_user_key
+                        .parse()
+                        .expect("encrypted user key should parse");
+                    let encrypted_public_key: EncString = rotated_device
+                        .encrypted_public_key
+                        .parse()
+                        .expect("encrypted public key should parse");
+                    let mut ctx = key_store_clone.context_mut();
+                    let rotated_user_key_id = encrypted_user_key
+                        .decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx)
+                        .expect("rotated device user key should decapsulate");
+                    let decrypted_public_key: Vec<u8> = encrypted_public_key
+                        .decrypt(&mut ctx, rotated_user_key_id)
+                        .expect("rotated device public key should decrypt");
+                    assert_eq!(decrypted_public_key, public_key_der);
+                    Ok(())
+                });
         });
 
         let result = internal_rotate_user_keys(
@@ -344,62 +379,21 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: None,
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
-        ));
+        assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.accounts_key_management_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_rotate_user_keys_api_failure_returns_api_error() {
-        let key_store: KeyStore<KeySlotIds> = KeyStore::default();
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api.expect_get().once().returning(|_| {
-                Err(serde_json::Error::io(std::io::Error::other("network error")).into())
-            });
-            mock.accounts_key_management_api
-                .expect_rotate_user_keys()
-                .never();
-        });
-
-        let result = internal_rotate_user_keys(
-            &key_store,
-            &api_client,
-            None,
-            RotateUserKeysRequest {
-                key_rotation_method: KeyRotationMethod::Password {
-                    password: "test".to_string(),
-                },
-                trusted_organization_public_keys: vec![],
-                trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
-            },
-        )
-        .await;
-
-        assert!(matches!(result, Err(RotateUserKeysError::Api)));
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_rotate_user_keys_master_password_success() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
                 .once()
@@ -418,29 +412,21 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: None,
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_rotate_user_keys_post_api_failure_returns_api_error() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
                 .once()
@@ -461,29 +447,21 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: None,
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_rotate_user_keys_upgrade_token_action_none_omits_token() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
                 .once()
@@ -509,29 +487,21 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: None,
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_rotate_user_keys_upgrade_token_action_skip_omits_token() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
                 .once()
@@ -557,29 +527,21 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: Some(UpgradeTokenAction::Skip),
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_rotate_user_keys_upgrade_token_action_create_if_needed_includes_token() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
                 .once()
@@ -605,52 +567,65 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: Some(UpgradeTokenAction::CreateIfNeeded),
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_rotate_user_keys_old_attachments_returns_error() {
-        use bitwarden_api_api::models::{
-            AttachmentResponseModel, CipherDetailsResponseModel, CipherType,
-        };
-
-        let (key_store, mut sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, mut sync) = make_test_key_store_and_synced_data();
         let enc_string = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
 
         // Add a cipher with an old attachment (key is None)
-        sync_response.ciphers = Some(vec![CipherDetailsResponseModel {
-            id: Some(uuid::Uuid::new_v4()),
+        sync.ciphers = vec![Cipher {
+            id: None,
             organization_id: None,
-            r#type: Some(CipherType::Login),
-            name: Some(enc_string.to_string()),
-            revision_date: Some("2024-01-01T00:00:00Z".to_string()),
-            creation_date: Some("2024-01-01T00:00:00Z".to_string()),
-            attachments: Some(vec![AttachmentResponseModel {
-                id: Some("att1".to_string()),
-                file_name: Some(enc_string.to_string()),
+            folder_id: None,
+            collection_ids: vec![],
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: Default::default(),
+            organization_use_totp: false,
+            edit: false,
+            permissions: None,
+            view_password: false,
+            name: enc_string.parse().unwrap(),
+            revision_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
+            archived_date: None,
+            creation_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
+            attachments: Some(vec![Attachment {
+                id: None,
+                url: None,
+                size: None,
+                size_name: None,
+                file_name: None,
                 key: None, // Old attachment - no per-attachment key
-                ..AttachmentResponseModel::new()
             }]),
-            ..CipherDetailsResponseModel::new()
-        }]);
+            fields: None,
+            key: None,
+            notes: None,
+            local_data: None,
+            password_history: None,
+            deleted_date: None,
+            data: None,
+        }];
 
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             // Rotation API should never be called
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
@@ -669,23 +644,20 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: None,
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(matches!(result, Err(RotateUserKeysError::OldAttachments)));
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_rotate_user_keys_key_connector_success() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
 
         let key_connector_key = KeyConnectorKey::make();
         let key_connector_api_client = bitwarden_api_key_connector::apis::ApiClient::new_mocked(
@@ -707,11 +679,6 @@ mod tests {
         );
 
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
                 .once()
@@ -743,16 +710,13 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: None,
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
         if let bitwarden_api_key_connector::apis::ApiClient::Mock(mut mock) =
@@ -764,7 +728,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rotate_user_keys_key_connector_api_failure() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
 
         let key_connector_api_client =
             bitwarden_api_key_connector::apis::ApiClient::new_mocked(|mock| {
@@ -782,11 +746,6 @@ mod tests {
             });
 
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
                 .never();
@@ -804,16 +763,13 @@ mod tests {
                 trusted_emergency_access_public_keys: vec![],
                 upgrade_token_action: None,
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(matches!(result, Err(RotateUserKeysError::KeyConnectorApi)));
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
         if let bitwarden_api_key_connector::apis::ApiClient::Mock(mut mock) =
