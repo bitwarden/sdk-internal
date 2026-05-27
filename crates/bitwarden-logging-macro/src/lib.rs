@@ -1,4 +1,4 @@
-//! Proc-macro wrapper around [`tracing::instrument`] that enforces `skip_all` by default.
+//! Proc-macro wrapper around `tracing::instrument` that enforces `skip_all` by default.
 //!
 //! Use via the [`bitwarden_logging::instrument`](../bitwarden_logging/attr.instrument.html)
 //! re-export rather than depending on this crate directly.
