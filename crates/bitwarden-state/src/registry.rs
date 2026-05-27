@@ -116,15 +116,14 @@ impl StateRegistry {
     /// IndexedDB database). Outstanding [`Repository`] handles will return
     /// [`DatabaseError::Closed`] on subsequent operations. Client-managed repositories are also
     /// cleared.
-    pub async fn wipe(&self) -> Result<(), StateRegistryError> {
+    pub async fn wipe(&self) -> Result<(), DatabaseError> {
         // Clear client-managed first so a failure in the persistent-store wipe
         // still releases the in-memory Arc references.
         self.client_managed
             .write()
             .expect("RwLock should not be poisoned")
             .clear();
-        self.database.wipe().await?;
-        Ok(())
+        self.database.wipe().await
     }
 }
 

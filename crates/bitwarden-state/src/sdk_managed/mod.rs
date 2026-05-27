@@ -17,24 +17,32 @@ mod sqlite;
 mod memory;
 pub(super) use memory::MemoryDatabase;
 
+/// Errors that can occur when interacting with the SDK-managed database.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DatabaseError {
+    /// The requested database configuration is not supported on the current platform.
     #[error("Database not supported on this platform: {0:?}")]
     UnsupportedConfiguration(DatabaseConfiguration),
 
+    /// A call dispatched through the thread-bound runner failed.
     #[error(transparent)]
     ThreadBoundRunner(#[from] bitwarden_threading::CallError),
 
+    /// Failed to serialize or deserialize a stored value.
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
+    /// A JavaScript error was raised by the IndexedDB backend.
     #[error("JS error: {0}")]
     JS(String),
 
+    /// An unexpected internal error occurred in the database backend.
     #[error("Internal error: {0}")]
     Internal(String),
 
+    /// The database has been closed (e.g. by [`crate::registry::StateRegistry::wipe`]) and
+    /// can no longer service operations.
     #[error("Database is closed")]
     Closed,
 }
