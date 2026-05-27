@@ -3,6 +3,7 @@
 mod client;
 mod custom_types;
 mod flight_recorder;
+mod global_client;
 mod init;
 mod platform;
 mod pure_crypto;
@@ -13,4 +14,5 @@ pub use bitwarden_server_communication_config::wasm::*;
 pub use bitwarden_shared_unlock::wasm::*;
 pub use client::PasswordManagerClient;
 pub use flight_recorder::FlightRecorderClient;
+pub use global_client::GlobalPasswordManagerClient;
 pub use init::init_sdk;
