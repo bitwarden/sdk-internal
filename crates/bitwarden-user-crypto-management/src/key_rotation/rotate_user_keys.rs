@@ -40,8 +40,7 @@ pub enum KeyRotationMethod {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum UpgradeTokenAction {
-    /// Skip creating and sending an upgrade token to the server. This will be the default behavior
-    /// if the field is omitted.
+    /// Skip creating and sending an upgrade token to the server.
     Skip,
     /// Creates an upgrade token for V1 -> V2 key rotations.
     /// For V2 -> V2 rotations, no upgrade token is needed.
@@ -55,9 +54,7 @@ pub struct RotateUserKeysRequest {
     pub key_rotation_method: KeyRotationMethod,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
     pub trusted_organization_public_keys: Vec<PublicKey>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "wasm", tsify(optional))]
-    pub upgrade_token_action: Option<UpgradeTokenAction>,
+    pub upgrade_token_action: UpgradeTokenAction,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -193,9 +190,7 @@ async fn internal_rotate_user_keys(
             },
             rotation_context.current_user_key_id,
             rotation_context.new_user_key_id,
-            request
-                .upgrade_token_action
-                .unwrap_or(UpgradeTokenAction::Skip),
+            request.upgrade_token_action,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;
@@ -377,7 +372,7 @@ mod tests {
                 key_rotation_method: KeyRotationMethod::Tde,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -410,7 +405,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -445,7 +440,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -453,46 +448,6 @@ mod tests {
         .await;
 
         assert!(matches!(result, Err(RotateUserKeysError::Api)));
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.accounts_key_management_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_rotate_user_keys_upgrade_token_action_none_omits_token() {
-        let (key_store, sync) = make_test_key_store_and_synced_data();
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.accounts_key_management_api
-                .expect_rotate_user_keys()
-                .once()
-                .returning(|req| {
-                    let req = req.expect("request body should be present");
-                    assert!(
-                        req.unlock_data.v2_upgrade_token.is_none(),
-                        "upgrade_token_action None, should omit the v2_upgrade_token"
-                    );
-                    Ok(())
-                });
-        });
-
-        let result = internal_rotate_user_keys(
-            &key_store,
-            &api_client,
-            None,
-            RotateUserKeysRequest {
-                key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
-                },
-                trusted_organization_public_keys: vec![],
-                trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
-            },
-            sync.wrapped_account_cryptographic_state.clone(),
-            sync,
-        )
-        .await;
-
-        assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }
@@ -525,7 +480,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: Some(UpgradeTokenAction::Skip),
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -565,7 +520,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: Some(UpgradeTokenAction::CreateIfNeeded),
+                upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -642,7 +597,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -708,7 +663,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -761,7 +716,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
