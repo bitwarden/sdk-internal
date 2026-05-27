@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod attachment;
 mod client;
 mod custom_types;
 mod flight_recorder;
@@ -8,6 +9,7 @@ mod platform;
 mod pure_crypto;
 mod ssh;
 
+pub use attachment::{WasmAttachmentDecryptor, WasmAttachmentEncryptor};
 pub use bitwarden_ipc::wasm::*;
 pub use bitwarden_server_communication_config::wasm::*;
 pub use bitwarden_shared_unlock::wasm::*;
