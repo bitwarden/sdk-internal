@@ -9,7 +9,7 @@
 //!   - applying the spec's defaults for `allowed` when `required` is present;
 //!   - flattening the parser's `Vec<Vec<CharacterClass>>` required model into the SDK's flat
 //!     AND-of-classes model with `min_*` counts;
-//!   - shaping errors for WASM/UniFFI via [`bitwarden_error(flat)`].
+//!   - shaping errors for WASM/UniFFI via `bitwarden_error(flat)`.
 //!
 //! [apple-spec]: https://github.com/apple/password-manager-resources
 
