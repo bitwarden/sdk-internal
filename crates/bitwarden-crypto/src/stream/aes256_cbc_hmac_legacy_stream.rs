@@ -7,7 +7,7 @@
 //!
 //! ## Format
 //! The stream looks as follows:
-//! ```
+//! ```text
 //! (KEY_E, KEY_A) = KEY
 //! IV | HMAC[KEY_A] (over IV + ciphertext) | AES-CBC[KEY_E]() ciphertext
 //! ```
