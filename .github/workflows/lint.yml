@@ -27,7 +27,7 @@ jobs:
         include:
           - check: fmt
             needs_rust: true
-            needs_nightly: true
+            needs_rust_nightly: true
           - check: clippy
             needs_rust: true
           - check: sort
@@ -35,7 +35,7 @@ jobs:
             install: cargo install cargo-sort --version 2.0.2 --locked
           - check: udeps
             needs_rust: true
-            needs_nightly: true
+            needs_rust_nightly: true
             install: cargo install cargo-udeps --version 0.1.57 --locked
           - check: dylint
             needs_rust: true
@@ -64,7 +64,7 @@ jobs:
           echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Set Rust nightly toolchain version
-        if: matrix.needs_nightly
+        if: matrix.needs_rust_nightly
         id: nightly-toolchain
         shell: bash
         run: |
@@ -79,7 +79,7 @@ jobs:
           components: clippy, rustfmt
 
       - name: Install Rust nightly
-        if: matrix.needs_nightly
+        if: matrix.needs_rust_nightly
         env:
           RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
         run: |
