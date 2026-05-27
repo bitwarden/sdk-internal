@@ -218,7 +218,7 @@ enum DecryptorState {
         key: Aes256CbcHmacKey,
     },
     Streaming {
-        decryptor: CbcDecryptor,
+        decryptor: Box<CbcDecryptor>,
         integrity_validator: HmacStreamValidator,
         expected_mac: Mac,
     },
@@ -241,7 +241,7 @@ impl DecryptorState {
         match self {
             Self::Uninitialized { key } => {
                 *self = Self::Streaming {
-                    decryptor: CbcDecryptor::new(&key.enc_key.0, &header.iv),
+                    decryptor: Box::new(CbcDecryptor::new(&key.enc_key.0, &header.iv)),
                     integrity_validator: HmacStreamValidator::new(&key.mac_key.0, &header.iv),
                     expected_mac: header.mac,
                 };
@@ -508,25 +508,28 @@ impl StreamingAes256CbcHmacEncryptor {
 
 impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
     fn update(&mut self, plaintext_chunk: &[u8], last_block: bool) -> ChunkEncryptionResult {
-        let (encryptor, stream_validator, iv): (&mut Box<CbcEncryptor>, &mut HmacStreamValidator, &Iv) =
-            match &mut self.encryptor_state {
-                EncryptorState::Error | EncryptorState::Done => {
-                    return ChunkEncryptionResult::Error;
+        let (encryptor, stream_validator, iv): (
+            &mut Box<CbcEncryptor>,
+            &mut HmacStreamValidator,
+            &Iv,
+        ) = match &mut self.encryptor_state {
+            EncryptorState::Error | EncryptorState::Done => {
+                return ChunkEncryptionResult::Error;
+            }
+            EncryptorState::Emitting => {
+                if let Some(chunk) = self.ciphertext_buffer.emit_chunk() {
+                    return ChunkEncryptionResult::EncryptedChunk(chunk);
+                } else {
+                    self.encryptor_state = EncryptorState::Done;
+                    return ChunkEncryptionResult::FinalEncryptedChunk(Vec::new());
                 }
-                EncryptorState::Emitting => {
-                    if let Some(chunk) = self.ciphertext_buffer.emit_chunk() {
-                        return ChunkEncryptionResult::EncryptedChunk(chunk);
-                    } else {
-                        self.encryptor_state = EncryptorState::Done;
-                        return ChunkEncryptionResult::FinalEncryptedChunk(Vec::new());
-                    }
-                }
-                EncryptorState::Streaming {
-                    encryptor,
-                    integrity_validator,
-                    iv,
-                } => (encryptor, integrity_validator, iv),
-            };
+            }
+            EncryptorState::Streaming {
+                encryptor,
+                integrity_validator,
+                iv,
+            } => (encryptor, integrity_validator, iv),
+        };
 
         self.plaintext_buffer.extend_from_slice(plaintext_chunk);
 

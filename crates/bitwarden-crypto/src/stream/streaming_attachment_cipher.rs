@@ -44,7 +44,7 @@ impl TryFrom<u8> for HeaderDiscriminator {
     type Error = UnknownDiscriminator;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-         match value {
+        match value {
             0x02 => Ok(HeaderDiscriminator::Aes256CbcHmacLegacyStream),
             _ => Err(UnknownDiscriminator),
         }

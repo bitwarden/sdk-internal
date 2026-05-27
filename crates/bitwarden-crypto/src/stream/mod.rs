@@ -84,7 +84,11 @@ pub(crate) trait RandomAccessDecryptor<R> {
     type Error;
 
     /// Decrypt the plaintext bytes covering `range` from the encrypted `ciphertext` byte stream.
-    async fn decrypt_range(&self, data_source: R, range: Range<usize>) -> Result<Vec<u8>, Self::Error>;
+    async fn decrypt_range(
+        &self,
+        data_source: R,
+        range: Range<usize>,
+    ) -> Result<Vec<u8>, Self::Error>;
 }
 
 /// A data source that supports random-access reads

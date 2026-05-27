@@ -125,7 +125,9 @@ mod tests {
     #[test]
     fn test_buffer() {
         let mut buffer = Buffer::new();
-        buffer.copy_from_slice(0..5, &[1, 2, 3, 4, 5]).expect("range must be valid");
+        buffer
+            .copy_from_slice(0..5, &[1, 2, 3, 4, 5])
+            .expect("range must be valid");
         assert_eq!(&buffer.index(0..5).unwrap(), &[1, 2, 3, 4, 5]);
     }
 
@@ -138,10 +140,14 @@ mod tests {
     #[test]
     fn test_write_past_capacity_grows_in_blocks() {
         let mut buffer = Buffer::new();
-        buffer.copy_from_slice(0..5, &[1, 2, 3, 4, 5]).expect("range must be valid");
+        buffer
+            .copy_from_slice(0..5, &[1, 2, 3, 4, 5])
+            .expect("range must be valid");
 
         let position = BLOCK_SIZE;
-        buffer.copy_from_slice(position..position + 4, &[6, 7, 8, 9]).expect("range must be valid");
+        buffer
+            .copy_from_slice(position..position + 4, &[6, 7, 8, 9])
+            .expect("range must be valid");
 
         assert_eq!(buffer.size, 2 * BLOCK_SIZE);
         assert_eq!(&buffer.index(0..5).unwrap(), &[1, 2, 3, 4, 5]);
@@ -155,7 +161,9 @@ mod tests {
     fn test_grow_spanning_multiple_blocks() {
         let mut buffer = Buffer::new();
         let position = 3 * BLOCK_SIZE + 100;
-        buffer.copy_from_slice(position..position + 3, &[1, 2, 3]).expect("range must be valid");
+        buffer
+            .copy_from_slice(position..position + 3, &[1, 2, 3])
+            .expect("range must be valid");
         assert_eq!(buffer.size, 4 * BLOCK_SIZE);
         assert_eq!(&buffer.index(position..position + 3).unwrap(), &[1, 2, 3]);
     }
