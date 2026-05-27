@@ -38,6 +38,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aead-stream"
+version = "0.6.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cc2d8c7d80cce546b635811cc9371c1db8794d36fcc160a08cb1e6824a5eab2"
+dependencies = [
+ "aead 0.6.0-rc.10",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -659,7 +668,9 @@ dependencies = [
 name = "bitwarden-crypto"
 version = "3.0.0"
 dependencies = [
+ "aead-stream",
  "aes 0.9.0",
+ "aes-gcm 0.11.0-rc.3",
  "argon2",
  "bitwarden-api-key-connector",
  "bitwarden-encoding",
@@ -675,6 +686,7 @@ dependencies = [
  "hkdf",
  "hmac 0.13.0",
  "hybrid-array",
+ "js-sys",
  "ml-dsa",
  "num-bigint",
  "num-traits",
@@ -692,6 +704,7 @@ dependencies = [
  "sha2 0.11.0",
  "subtle",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "tsify",
  "typenum",
@@ -886,7 +899,7 @@ dependencies = [
  "bitwarden-encoding",
  "serde",
  "subtle",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tsify",
  "uuid",
  "wasm-bindgen",
@@ -5807,7 +5820,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.2",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
