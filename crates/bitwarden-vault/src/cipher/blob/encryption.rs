@@ -12,10 +12,13 @@ use crate::cipher::{
     cipher::{Cipher, CipherView},
 };
 
+/// Errors produced while sealing or unsealing a blob-format cipher.
 #[derive(Debug, Error)]
-pub(crate) enum BlobEncryptionError {
+pub enum BlobEncryptionError {
+    /// A cryptographic primitive (wrap, unwrap, encrypt, decrypt) failed.
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    /// The sealed blob container could not be encoded or decoded.
     #[error(transparent)]
     SealedBlob(#[from] SealedCipherBlobError),
 }

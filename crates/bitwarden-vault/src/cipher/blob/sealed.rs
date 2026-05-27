@@ -14,15 +14,20 @@ const FORMAT_VERSION: u8 = 1;
 
 /// Error type for `SealedCipherBlob` operations.
 #[derive(Debug, Error)]
-pub(crate) enum SealedCipherBlobError {
+pub enum SealedCipherBlobError {
+    /// The format version is newer or older than this client supports.
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
+    /// Encoding the sealed container to CBOR failed.
     #[error("CBOR encoding error")]
     CborEncoding,
+    /// The bytes did not parse as a valid CBOR-encoded sealed container.
     #[error("CBOR decoding error")]
     CborDecoding,
+    /// The container's base64 wrapper did not decode.
     #[error("Base64 decoding error")]
     Base64Decoding,
+    /// The inner `DataEnvelope` could not be sealed or opened.
     #[error(transparent)]
     DataEnvelope(#[from] DataEnvelopeError),
 }

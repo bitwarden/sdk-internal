@@ -24,6 +24,7 @@ pub use attachment::{
 };
 pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
 pub use bank_account::BankAccountView;
+pub use blob::{BlobEncryptionError, SealedCipherBlobError};
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,

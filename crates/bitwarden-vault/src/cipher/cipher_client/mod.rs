@@ -19,7 +19,7 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
     cipher::{
         blob::encrypt_blob_cipher_with_wrapping_key,
-        cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt, blob_err_to_crypto},
+        cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt},
     },
     cipher_client::admin::CipherAdminClient,
 };
@@ -166,8 +166,12 @@ impl CiphersClient {
             // Rotation installs the new key under a `Local` slot id (`new_key_id`),
             // not under the view's natural `User`/`Organization` slot — so we must
             // pass it explicitly as the outer wrapping key.
-            encrypt_blob_cipher_with_wrapping_key(&mut cipher_view, &mut ctx, new_key_id)
-                .map_err(blob_err_to_crypto)?
+            encrypt_blob_cipher_with_wrapping_key(&mut cipher_view, &mut ctx, new_key_id).map_err(
+                |err| {
+                    tracing::warn!(%err, "blob rotation encryption failed");
+                    EncryptError::from(err)
+                },
+            )?
         } else {
             cipher_view.encrypt_composite(&mut ctx, new_key_id)?
         };
