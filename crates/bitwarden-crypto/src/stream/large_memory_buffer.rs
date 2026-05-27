@@ -104,7 +104,7 @@ impl Buffer {
         #[cfg(target_arch = "wasm32")]
         {
             let new_array = js_sys::Uint8Array::new_with_length(new_size as u32);
-            let old_array = self.inner;
+            let old_array = self.inner.clone();
             new_array.set(&old_array, 0);
             self.inner = new_array;
         }
