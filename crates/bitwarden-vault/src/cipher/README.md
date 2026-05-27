@@ -1,12 +1,12 @@
 # Cipher Module
 
-Data model, encryption, and decryption for vault items (logins, cards, identities, secure notes,
-SSH keys).
+Data model, encryption, and decryption for vault items (logins, cards, identities, secure notes, SSH
+keys).
 
 ## Type layers
 
 | Type                                        | Role                           | Notes                                                                                                                                                                                                                             |
-|---------------------------------------------|--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Cipher`                                    | Server / storage model         | Encrypted payload + metadata. Sensitive data is either per-field `EncString`s (legacy) or a single sealed `data` string (blob — see below).                                                                                       |
 | `CipherView`                                | Fully decrypted DTO            | Returned to clients for display and editing.                                                                                                                                                                                      |
 | `CipherListView`                            | Summary projection for list UI | Plaintext `name` + `subtitle` + type-specific preview + copyable hints. Smaller memory footprint than `CipherView` and omits highly sensitive fields (e.g. password, SSH private key) — one row per cipher times the whole vault. |
@@ -19,11 +19,11 @@ A `Cipher` can be stored in one of two formats at rest, detected per-cipher:
 
 - **Legacy (field-level)** — individual sensitive fields (`name`, `notes`, `login.username`, etc.)
   are each encrypted as separate `EncString`s.
-- **Blob** — sensitive item content (name, notes, type-data, custom fields, password history)
-  sealed into a single `Cipher.data` opaque string via a data envelope (CEK + wrapped key, see
-  [`blob/`](./blob/)). Everything else — non-sensitive metadata (`favorite`, `folder_id`, dates)
-  and separately-encrypted data (`attachments`, `local_data`) — stays alongside the blob on the
-  `Cipher` struct.
+- **Blob** — sensitive item content (name, notes, type-data, custom fields, password history) sealed
+  into a single `Cipher.data` opaque string via a data envelope (CEK + wrapped key, see
+  [`blob/`](./blob/)). Everything else — non-sensitive metadata (`favorite`, `folder_id`, dates) and
+  separately-encrypted data (`attachments`, `local_data`) — stays alongside the blob on the `Cipher`
+  struct.
 
 Detection happens via `blob::is_blob_encrypted(&Cipher)`. Blob and legacy ciphers coexist during
 rollout — a single `Vec<Cipher>` from the API routinely contains both.
@@ -39,10 +39,10 @@ likewise accepts a homogeneous `Vec<Cipher>` and routes per-cipher.
 
 `StrictDecrypt<Cipher>` is a `pub(crate)` wrapper that implements the same `Decryptable` traits, but
 its legacy branch propagates field decryption errors instead of silently nulling them out. It also
-dispatches blob ciphers through the blob path (the strict/lenient distinction does not apply to
-blob unseal — it is all-or-nothing). `CiphersClient` constructs `StrictDecrypt(cipher)` only when
-the `PM-34500-strict_cipher_decryption` feature flag is on, and falls back to bare `Cipher`
-otherwise. The flag and `StrictDecrypt` are both scheduled for removal in PM-34531.
+dispatches blob ciphers through the blob path (the strict/lenient distinction does not apply to blob
+unseal — it is all-or-nothing). `CiphersClient` constructs `StrictDecrypt(cipher)` only when the
+`PM-34500-strict_cipher_decryption` feature flag is on, and falls back to bare `Cipher` otherwise.
+The flag and `StrictDecrypt` are both scheduled for removal in PM-34531.
 
 ```mermaid
 flowchart LR
@@ -63,20 +63,21 @@ flowchart LR
 
 ### Dispatch matrix
 
-| Cipher format | Wrapper                      | `CipherView` path              | `CipherListView` path                              |
-|---------------|------------------------------|--------------------------------|----------------------------------------------------|
-| Blob          | `Cipher` or `StrictDecrypt`  | `decrypt_blob_cipher`          | `decrypt_blob_cipher` → `CipherView::to_list_view` |
-| Legacy        | `Cipher` (default)           | `lenient_decrypt_cipher_view`  | `lenient_decrypt_cipher_list_view`                 |
-| Legacy        | `StrictDecrypt<Cipher>`      | `strict_decrypt_cipher_view`   | `strict_decrypt_cipher_list_view`                  |
+| Cipher format | Wrapper                     | `CipherView` path             | `CipherListView` path                              |
+| ------------- | --------------------------- | ----------------------------- | -------------------------------------------------- |
+| Blob          | `Cipher` or `StrictDecrypt` | `decrypt_blob_cipher`         | `decrypt_blob_cipher` → `CipherView::to_list_view` |
+| Legacy        | `Cipher` (default)          | `lenient_decrypt_cipher_view` | `lenient_decrypt_cipher_list_view`                 |
+| Legacy        | `StrictDecrypt<Cipher>`     | `strict_decrypt_cipher_view`  | `strict_decrypt_cipher_list_view`                  |
 
 ## Encryption flow
 
 Today, all encryption entry points (`CiphersClient::encrypt`, `encrypt_list`,
 `encrypt_cipher_for_rotation`, and the `create` / `edit` request paths) go through the **legacy
-field-level path** via the `CompositeEncryptable` impls on `CipherView`, `CipherCreateRequestInternal`,
-and `CipherEditRequestInternal`.
+field-level path** via the `CompositeEncryptable` impls on `CipherView`,
+`CipherCreateRequestInternal`, and `CipherEditRequestInternal`.
 
-Blob-path encryption dispatch is tracked in [PM-32695](https://bitwarden.atlassian.net/browse/PM-32695).
+Blob-path encryption dispatch is tracked in
+[PM-32695](https://bitwarden.atlassian.net/browse/PM-32695).
 
 ## Wrapper types
 
