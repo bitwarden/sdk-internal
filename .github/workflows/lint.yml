@@ -42,14 +42,11 @@ jobs:
             needs_rust: true
           - check: sort
             needs_rust: true
-            install: cargo install cargo-sort --version 2.0.2 --locked
           - check: udeps
             needs_rust: true
             needs_rust_nightly: true
-            install: cargo install cargo-udeps --version 0.1.57 --locked
           - check: dylint
             needs_rust: true
-            install: cargo install cargo-dylint dylint-link --version 5.0.0 --locked
           - check: doc
             needs_rust: true
           - check: prettier
@@ -100,20 +97,16 @@ jobs:
         if: matrix.needs_rust
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      - name: Install per-check cargo tool
-        if: matrix.install
-        run: ${{ matrix.install }}
-
-      - name: Install clippy-sarif and sarif-fmt
-        if: matrix.check == 'clippy'
-        run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
+      - name: Install cargo-run-bin
+        if: matrix.needs_rust
+        run: cargo install cargo-run-bin --locked --version 1.7.4
 
       - name: Run clippy with SARIF output
         if: matrix.check == 'clippy'
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo clippy --all-features --all-targets --message-format=json |
-          clippy-sarif | tee clippy_result.sarif | sarif-fmt
+          cargo bin clippy-sarif | tee clippy_result.sarif | cargo bin sarif-fmt
 
       - name: Upload clippy results to GitHub
         if: matrix.check == 'clippy'

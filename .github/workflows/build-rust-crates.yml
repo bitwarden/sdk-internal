@@ -73,8 +73,8 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      - name: Install cargo-release
-        run: cargo install cargo-release --version 0.25.20 --locked
+      - name: Install cargo-run-bin
+        run: cargo install cargo-run-bin --locked --version 1.7.4
 
       - name: Cargo release dry run
-        run: cargo-release release publish --no-publish -p bitwarden-api-api -p bitwarden-api-identity -p bitwarden
+        run: cargo bin cargo-release release publish --no-publish -p bitwarden-api-api -p bitwarden-api-identity -p bitwarden

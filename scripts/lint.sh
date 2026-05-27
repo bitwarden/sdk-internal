@@ -59,11 +59,11 @@ should_run() {
   [[ -z "$ONLY" || "$ONLY" == "$1" ]]
 }
 
-require_tool() {
-  local tool="$1" install_hint="$2"
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "Required tool not found on PATH: $tool" >&2
-    echo "Install with: $install_hint" >&2
+require_cargo_bin() {
+  if ! command -v cargo-bin >/dev/null 2>&1; then
+    echo "Required tool not found on PATH: cargo-bin" >&2
+    echo "Install with: cargo install cargo-run-bin --locked" >&2
+    echo "(Binary tool versions are pinned in Cargo.toml under [workspace.metadata.bin].)" >&2
     exit 1
   fi
 }
@@ -85,22 +85,22 @@ run_clippy() {
 }
 
 run_sort() {
-  require_tool cargo-sort "cargo install cargo-sort --locked"
+  require_cargo_bin
   if (( FIX )); then
-    cargo sort --workspace --grouped
+    cargo bin cargo-sort --workspace --grouped
   else
-    cargo sort --workspace --grouped --check
+    cargo bin cargo-sort --workspace --grouped --check
   fi
 }
 
 run_udeps() {
-  require_tool cargo-udeps "cargo install cargo-udeps --locked"
-  cargo "+$RUST_NIGHTLY_TOOLCHAIN" udeps --workspace --all-features
+  require_cargo_bin
+  cargo "+$RUST_NIGHTLY_TOOLCHAIN" bin cargo-udeps --workspace --all-features
 }
 
 run_dylint() {
-  require_tool cargo-dylint "cargo install cargo-dylint dylint-link --locked"
-  cargo dylint --all -- --all-features --all-targets
+  require_cargo_bin
+  cargo bin cargo-dylint --all -- --all-features --all-targets
 }
 
 run_doc() {
