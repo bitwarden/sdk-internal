@@ -519,48 +519,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_rotate_user_keys_upgrade_token_action_none_omits_token() {
-        let (key_store, sync) = make_test_key_store_and_synced_data();
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.accounts_key_management_api
-                .expect_rotate_user_keys()
-                .once()
-                .returning(|req| {
-                    let req = req.expect("request body should be present");
-                    assert!(
-                        req.unlock_data.v2_upgrade_token.is_none(),
-                        "upgrade_token_action None, should omit the v2_upgrade_token"
-                    );
-                    Ok(())
-                });
-        });
-
-        let state_bridge = make_state_bridge();
-        let result = internal_rotate_user_keys(
-            &key_store,
-            &api_client,
-            &state_bridge,
-            None,
-            RotateUserKeysRequest {
-                key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
-                },
-                trusted_organization_public_keys: vec![],
-                trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: UpgradeTokenAction::Skip,
-            },
-            sync.wrapped_account_cryptographic_state.clone(),
-            sync,
-        )
-        .await;
-
-        assert!(result.is_ok());
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.accounts_key_management_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
     async fn test_rotate_user_keys_upgrade_token_action_skip_omits_token() {
         let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
