@@ -210,9 +210,6 @@ impl CbcPlaintextBlock {
     }
 }
 
-/// Streaming AES-256-CBC + HMAC-SHA256 decryptor. The HMAC is verified only at
-/// [`Self::finalize`]; bytes returned from [`Self::update`] are decrypted but **not yet**
-/// authenticated** and must be treated as untrusted until `finalize` returns `Ok`.
 enum DecryptorState {
     Uninitialized {
         key: Aes256CbcHmacKey,
@@ -290,6 +287,11 @@ fn read_header(buffer: &mut Vec<u8>) -> Option<StreamHeader> {
     }
 }
 
+/// Streaming AES-256-CBC + HMAC-SHA256 decryptor. The HMAC is verified only when
+/// [`StreamingDecryptor::update`] is called with `last_block = true`; bytes returned from
+/// earlier `update` calls as [`ChunkDecryptionResult::DecryptedChunk`] are decrypted but **not
+/// yet authenticated** and must be treated as untrusted until the terminal
+/// [`ChunkDecryptionResult::FinalDecryptedChunk`] is observed.
 pub struct StreamingAes256CbcHmacDecryptor {
     // Bytes that have been passed in but not yet processed by the crypto implementation.
     // When passing in external data, they are first concatenated to the buffer, then the
@@ -474,7 +476,7 @@ enum EncryptorState {
 /// and the HMAC is computed over IV || ciphertext, matching the wire format consumed by
 /// [`StreamingAes256CbcHmacDecryptor`]. Because the MAC depends on the entire ciphertext,
 /// the complete wire stream (`IV, ciphertext`) is only emitted once `update` is
-/// called with `last_block = true`, as a single [`ChunkEncryptionResult::FinalEncrypted`].
+/// called with `last_block = true`, as a single [`ChunkEncryptionResult::FinalEncryptedChunk`].
 pub struct StreamingAes256CbcHmacEncryptor {
     // Ciphertext bytes that have been encrypted but not yet emitted. The backing store is a
     // pre-allocated large buffer (released-by-drop on WASM).

@@ -19,7 +19,7 @@ use std::{
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use crate::{
-    CryptoError, SymmetricCryptoKey,
+    CryptoError, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     stream::{
         ChunkDecryptionResult, ChunkEncryptionResult, StreamingDecryptor, StreamingEncryptor,
         aes256_cbc_hmac_legacy_stream::{
@@ -83,11 +83,18 @@ pub struct StreamingAttachmentDecryptor<R> {
 impl<R> StreamingAttachmentDecryptor<R> {
     /// Construct a decryptor. The key variant determines which cipher's wire format is
     /// expected; the discriminator on the wire is validated against it on the first byte.
-    pub fn new(key: SymmetricCryptoKey, inner: R) -> Result<Self, CryptoError> {
+    pub fn new<Ids: KeySlotIds>(
+        key_slot: Ids::Symmetric,
+        ctx: KeyStoreContext<Ids>,
+        inner: R,
+    ) -> Result<Self, CryptoError> {
+        let key = ctx.get_symmetric_key(key_slot)?;
         match &key {
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => Ok(Self {
                 inner,
-                state: StreamDecryptorState::NeedDiscriminator { key },
+                state: StreamDecryptorState::NeedDiscriminator {
+                    key: key.to_owned(),
+                },
                 plaintext_buf: Vec::new(),
                 inner_eof: false,
             }),
@@ -494,7 +501,7 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use super::*;
-    use crate::Aes256CbcHmacKey;
+    use crate::{Aes256CbcHmacKey, KeyStore, traits::tests::TestIds};
 
     /// In-memory `AsyncWrite` sink that records all writes into a shared buffer so a test can
     /// inspect the on-wire bytes after the encryptor is dropped.
@@ -539,7 +546,11 @@ mod tests {
     }
 
     async fn decrypt_wire(key: SymmetricCryptoKey, wire: &[u8]) -> io::Result<Vec<u8>> {
-        let mut dec = StreamingAttachmentDecryptor::new(key, wire).expect("decryptor construction");
+        let key_store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = key_store.context_mut();
+        let key = ctx.add_local_symmetric_key(key);
+        let mut dec =
+            StreamingAttachmentDecryptor::new(key, ctx, wire).expect("decryptor construction");
         let mut out = Vec::new();
         dec.read_to_end(&mut out).await?;
         Ok(out)
@@ -609,8 +620,11 @@ mod tests {
         let wire = shared.lock().expect("mutex poisoned").clone();
 
         // Read it back in small chunks too.
-        let mut dec = StreamingAttachmentDecryptor::new(aes_key(), &wire[..])
-            .expect("decryptor construction");
+        let key_store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = key_store.context_mut();
+        let key = ctx.add_local_symmetric_key(aes_key());
+        let mut dec =
+            StreamingAttachmentDecryptor::new(key, ctx, &wire[..]).expect("decryptor construction");
         let mut out = Vec::new();
         let mut tmp = [0u8; 7];
         loop {
