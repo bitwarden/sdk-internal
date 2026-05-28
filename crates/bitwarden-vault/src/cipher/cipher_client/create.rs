@@ -7,6 +7,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -59,6 +60,8 @@ pub struct CipherCreateRequest {
     pub reprompt: CipherRepromptType,
     pub r#type: CipherViewType,
     pub fields: Vec<FieldView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 /// Internal helper to convert a [`CipherCreateRequest`] into a [`CipherView`]
@@ -102,7 +105,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
         creation_date: now,
         deleted_date: None,
         revision_date: now,
-        archived_date: None,
+        archived_date: r.archived_date,
     }
 }
 
@@ -218,6 +221,7 @@ mod tests {
             reprompt: Default::default(),
             fields: Default::default(),
             collection_ids: vec![],
+            archived_date: None,
         }
     }
 
@@ -405,6 +409,7 @@ mod tests {
                 fido2_credentials: None,
             }),
             fields: vec![],
+            archived_date: None,
         };
 
         let response = create_cipher(
