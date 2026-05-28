@@ -53,10 +53,6 @@ pub enum AccountCryptographyInitializationError {
     /// The decrypted data is corrupt.
     #[error("Signature or mac verification failed, the data may have been tampered with")]
     TamperedData,
-    /// The key store is already initialized with account keys. Currently, updating keys is not a
-    /// supported operation
-    #[error("Key store is already initialized")]
-    KeyStoreAlreadyInitialized,
     /// A generic cryptographic error occurred.
     #[error("A generic cryptographic error occurred: {0}")]
     GenericCrypto(CryptoError),
@@ -467,13 +463,6 @@ impl WrappedAccountCryptographicState {
         store: &KeyStore<KeySlotIds>,
         mut ctx: KeyStoreContext<KeySlotIds>,
     ) -> Result<(), AccountCryptographyInitializationError> {
-        if ctx.has_symmetric_key(SymmetricKeySlotId::User)
-            || ctx.has_private_key(PrivateKeySlotId::UserPrivateKey)
-            || ctx.has_signing_key(SigningKeySlotId::UserSigningKey)
-        {
-            return Err(AccountCryptographyInitializationError::KeyStoreAlreadyInitialized);
-        }
-
         match self {
             WrappedAccountCryptographicState::V1 { private_key } => {
                 info!(state = ?self, "Initializing V1 account cryptographic state");

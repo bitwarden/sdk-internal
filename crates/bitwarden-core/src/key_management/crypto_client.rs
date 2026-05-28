@@ -19,6 +19,10 @@ use super::crypto::{
     make_user_password_registration, verify_asymmetric_keys,
 };
 use crate::key_management::V2UpgradeToken;
+#[cfg(feature = "uniffi")]
+use crate::key_management::crypto::{
+    ReinitUserCryptoError, ReinitUserCryptoRequest, reinit_user_crypto,
+};
 #[cfg(feature = "internal")]
 use crate::key_management::{
     SymmetricKeySlotId,
@@ -340,6 +344,20 @@ impl CryptoClient {
                 Err(CryptoClientError::UpgradeTokenRequired)
             }
         }
+    }
+}
+
+#[cfg(feature = "uniffi")]
+impl CryptoClient {
+    /// Re-initialize the user's cryptographic state during an unlock session.
+    ///
+    /// Requires the SDK to be unlocked. Replaces the in-memory account
+    /// cryptographic state with the provided one, and upgrades the active user key from V1 to V2.
+    pub async fn reinit_user_crypto(
+        &self,
+        req: ReinitUserCryptoRequest,
+    ) -> Result<(), ReinitUserCryptoError> {
+        reinit_user_crypto(&self.client, req).await
     }
 }
 
