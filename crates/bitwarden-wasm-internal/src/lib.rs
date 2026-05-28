@@ -7,6 +7,7 @@ mod init;
 mod platform;
 mod pure_crypto;
 mod ssh;
+mod streaming_attachment;
 
 pub use bitwarden_ipc::wasm::*;
 pub use bitwarden_server_communication_config::wasm::*;
