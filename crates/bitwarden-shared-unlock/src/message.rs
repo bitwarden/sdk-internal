@@ -46,6 +46,11 @@ pub enum LeaderMessage {
         /// User whose session liveness is being reported.
         user_id: UserId,
     },
+    /// The leader requests a lock state from a follower
+    RequestSessionStart {
+        /// User whose lock state is being requested.
+        user_id: UserId,
+    },
 }
 
 impl FollowerMessage {
@@ -68,6 +73,7 @@ impl LeaderMessage {
     pub fn user_id(&self) -> UserId {
         match self {
             LeaderMessage::LockStateUpdate { user_id, .. }
+            | LeaderMessage::RequestSessionStart { user_id }
             | LeaderMessage::HeartBeat { user_id } => *user_id,
         }
     }
