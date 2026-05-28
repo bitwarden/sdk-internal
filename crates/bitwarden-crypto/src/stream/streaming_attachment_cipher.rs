@@ -545,7 +545,7 @@ mod tests {
         let shared = Arc::new(Mutex::new(Vec::<u8>::new()));
         let sink = SharedSink(shared.clone());
         let mut enc = {
-                let key_store: KeyStore<TestIds> = KeyStore::default();
+            let key_store: KeyStore<TestIds> = KeyStore::default();
             let mut ctx = key_store.context_mut();
             let key_slot = ctx.add_local_symmetric_key(key);
             StreamingAttachmentEncryptor::new(key_slot, ctx, sink).expect("encryptor construction")
@@ -624,7 +624,7 @@ mod tests {
             let key_store: KeyStore<TestIds> = KeyStore::default();
             let mut ctx = key_store.context_mut();
             let key_slot = ctx.add_local_symmetric_key(aes_key());
-                StreamingAttachmentEncryptor::new(key_slot, ctx, sink).expect("encryptor construction")
+            StreamingAttachmentEncryptor::new(key_slot, ctx, sink).expect("encryptor construction")
         };
         for byte in plaintext {
             enc.write_all(std::slice::from_ref(byte))
