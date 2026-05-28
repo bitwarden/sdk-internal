@@ -1,12 +1,12 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use reqwest::StatusCode;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{AttachmentsClient, Cipher, CipherId};
+use crate::{AttachmentsClient, CipherId};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -30,77 +30,6 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherGetAttachmentDownloadU
     }
 }
 
-/// Fetches the download URL for an attachment from the API. When the server returns 404,
-/// falls back to the URL stored on the cipher's attachment metadata in the local repository.
-pub async fn get_attachment_download_url<R: Repository<Cipher> + ?Sized>(
-    cipher_id: CipherId,
-    attachment_id: &str,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &R,
-) -> Result<String, CipherGetAttachmentDownloadUrlError> {
-    let api = api_client.ciphers_api();
-
-    match api
-        .get_attachment_data(cipher_id.into(), attachment_id)
-        .await
-    {
-        Ok(response) => response.url.ok_or_else(|| MissingFieldError("url").into()),
-        Err(bitwarden_api_api::apis::Error::ResponseError(content))
-            if content.status == StatusCode::NOT_FOUND =>
-        {
-            fallback_url_from_repository(cipher_id, attachment_id, repository).await
-        }
-        Err(e) => Err(e.into()),
-    }
-}
-
-async fn fallback_url_from_repository<R: Repository<Cipher> + ?Sized>(
-    cipher_id: CipherId,
-    attachment_id: &str,
-    repository: &R,
-) -> Result<String, CipherGetAttachmentDownloadUrlError> {
-    let cipher = repository
-        .get(cipher_id)
-        .await?
-        .ok_or(CipherGetAttachmentDownloadUrlError::NotFound)?;
-
-    cipher
-        .attachments
-        .and_then(|attachments| {
-            attachments
-                .into_iter()
-                .find(|a| a.id.as_deref() == Some(attachment_id))
-        })
-        .and_then(|attachment| attachment.url)
-        .ok_or(CipherGetAttachmentDownloadUrlError::NotFound)
-}
-
-/// Fetches the download URL for an attachment via the emergency-access endpoint, used when
-/// the grantee is viewing the grantor's cipher. The SDK has no local repository for the
-/// grantor's ciphers, so a server-side 404 is surfaced as
-/// [`CipherGetAttachmentDownloadUrlError::NotFound`] for the caller to handle.
-pub async fn get_emergency_access_attachment_download_url(
-    emergency_access_id: uuid::Uuid,
-    cipher_id: CipherId,
-    attachment_id: &str,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<String, CipherGetAttachmentDownloadUrlError> {
-    let response = api_client
-        .emergency_access_api()
-        .get_attachment_data(emergency_access_id, cipher_id.into(), attachment_id)
-        .await
-        .map_err(|e| match e {
-            bitwarden_api_api::apis::Error::ResponseError(content)
-                if content.status == StatusCode::NOT_FOUND =>
-            {
-                CipherGetAttachmentDownloadUrlError::NotFound
-            }
-            other => other.into(),
-        })?;
-
-    response.url.ok_or_else(|| MissingFieldError("url").into())
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
     /// Returns a download URL for the given attachment.
@@ -115,37 +44,71 @@ impl AttachmentsClient {
         attachment_id: String,
         emergency_access_id: Option<String>,
     ) -> Result<String, CipherGetAttachmentDownloadUrlError> {
+        let api_client = &self.api_configurations.api_client;
+
         if let Some(ea_id) = emergency_access_id {
             let ea_id = ea_id
                 .parse::<uuid::Uuid>()
                 .map_err(|_| CipherGetAttachmentDownloadUrlError::InvalidEmergencyAccessId)?;
-            return get_emergency_access_attachment_download_url(
-                ea_id,
-                cipher_id,
-                &attachment_id,
-                &self.api_configurations.api_client,
-            )
-            .await;
+
+            let response = api_client
+                .emergency_access_api()
+                .get_attachment_data(ea_id, cipher_id.into(), &attachment_id)
+                .await
+                .map_err(|e| match e {
+                    bitwarden_api_api::apis::Error::ResponseError(content)
+                        if content.status == StatusCode::NOT_FOUND =>
+                    {
+                        CipherGetAttachmentDownloadUrlError::NotFound
+                    }
+                    other => other.into(),
+                })?;
+
+            return response.url.ok_or_else(|| MissingFieldError("url").into());
         }
 
-        get_attachment_download_url(
-            cipher_id,
-            &attachment_id,
-            &self.api_configurations.api_client,
-            self.repository.require()?.as_ref(),
-        )
-        .await
+        match api_client
+            .ciphers_api()
+            .get_attachment_data(cipher_id.into(), &attachment_id)
+            .await
+        {
+            Ok(response) => response.url.ok_or_else(|| MissingFieldError("url").into()),
+            Err(bitwarden_api_api::apis::Error::ResponseError(content))
+                if content.status == StatusCode::NOT_FOUND =>
+            {
+                let repository = self.repository.require()?;
+                let cipher = repository
+                    .get(cipher_id)
+                    .await?
+                    .ok_or(CipherGetAttachmentDownloadUrlError::NotFound)?;
+
+                cipher
+                    .attachments
+                    .and_then(|attachments| {
+                        attachments
+                            .into_iter()
+                            .find(|a| a.id.as_deref() == Some(&attachment_id))
+                    })
+                    .and_then(|attachment| attachment.url)
+                    .ok_or(CipherGetAttachmentDownloadUrlError::NotFound)
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::{apis::ApiClient, models::AttachmentResponseModel};
+    use bitwarden_core::{client::ApiConfigurations, key_management::KeySlotIds};
+    use bitwarden_crypto::KeyStore;
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType};
+    use crate::{Attachment, Cipher, CipherRepromptType, CipherType};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_ATTACHMENT_ID: &str = "uf7bkexzag04d3cw04jsbqqkbpbwhxs0";
@@ -153,6 +116,18 @@ mod tests {
     const TEST_FILE_NAME: &str = "2.mV50WiLq6duhwGbhM1TO0A==|dTufWNH8YTPP0EMlNLIpFA==|QHp+7OM8xHtEmCfc9QPXJ0Ro2BeakzvLgxJZ7NdLuDc=";
     const TEST_API_URL: &str = "http://localhost:4000/attachments/test/api";
     const TEST_FALLBACK_URL: &str = "http://localhost:4000/attachments/test/fallback";
+    const TEST_EMERGENCY_ACCESS_ID: &str = "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
+
+    fn client_with_api_and_repo(
+        api_client: ApiClient,
+        repository: MemoryRepository<Cipher>,
+    ) -> AttachmentsClient {
+        AttachmentsClient {
+            key_store: KeyStore::<KeySlotIds>::default(),
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+            repository: Some(Arc::new(repository)),
+        }
+    }
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -221,13 +196,13 @@ mod tests {
                 });
         });
 
-        let repository = MemoryRepository::<Cipher>::default();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
-        let url =
-            get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
-                .await
-                .unwrap();
+        let url = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string(), None)
+            .await
+            .unwrap();
 
         assert_eq!(url, TEST_API_URL);
     }
@@ -246,13 +221,13 @@ mod tests {
                 });
         });
 
-        let repository = MemoryRepository::<Cipher>::default();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
-        let err =
-            get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
-                .await
-                .unwrap_err();
+        let err = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string(), None)
+            .await
+            .unwrap_err();
 
         assert!(matches!(
             err,
@@ -272,10 +247,12 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         repository.set(cipher_id, test_cipher()).await.unwrap();
 
-        let url =
-            get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
-                .await
-                .unwrap();
+        let client = client_with_api_and_repo(api_client, repository);
+
+        let url = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string(), None)
+            .await
+            .unwrap();
 
         assert_eq!(url, TEST_FALLBACK_URL);
     }
@@ -288,13 +265,13 @@ mod tests {
                 .returning(|_id, _attachment_id| Err(not_found_response()));
         });
 
-        let repository = MemoryRepository::<Cipher>::default();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
-        let err =
-            get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
-                .await
-                .unwrap_err();
+        let err = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string(), None)
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, CipherGetAttachmentDownloadUrlError::NotFound));
     }
@@ -317,10 +294,12 @@ mod tests {
         }
         repository.set(cipher_id, cipher).await.unwrap();
 
-        let err =
-            get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
-                .await
-                .unwrap_err();
+        let client = client_with_api_and_repo(api_client, repository);
+
+        let err = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string(), None)
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, CipherGetAttachmentDownloadUrlError::NotFound));
     }
@@ -341,18 +320,16 @@ mod tests {
                 });
         });
 
-        let repository = MemoryRepository::<Cipher>::default();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
-        let err =
-            get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
-                .await
-                .unwrap_err();
+        let err = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string(), None)
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, CipherGetAttachmentDownloadUrlError::Api(_)));
     }
-
-    const TEST_EMERGENCY_ACCESS_ID: &str = "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
 
     #[tokio::test]
     async fn emergency_access_returns_url_from_api_response() {
@@ -371,16 +348,17 @@ mod tests {
                 });
         });
 
-        let emergency_access_id: uuid::Uuid = TEST_EMERGENCY_ACCESS_ID.parse().unwrap();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let url = get_emergency_access_attachment_download_url(
-            emergency_access_id,
-            cipher_id,
-            TEST_ATTACHMENT_ID,
-            &api_client,
-        )
-        .await
-        .unwrap();
+
+        let url = client
+            .get_attachment_download_url(
+                cipher_id,
+                TEST_ATTACHMENT_ID.to_string(),
+                Some(TEST_EMERGENCY_ACCESS_ID.to_string()),
+            )
+            .await
+            .unwrap();
 
         assert_eq!(url, TEST_API_URL);
     }
@@ -399,16 +377,17 @@ mod tests {
                 });
         });
 
-        let emergency_access_id: uuid::Uuid = TEST_EMERGENCY_ACCESS_ID.parse().unwrap();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = get_emergency_access_attachment_download_url(
-            emergency_access_id,
-            cipher_id,
-            TEST_ATTACHMENT_ID,
-            &api_client,
-        )
-        .await
-        .unwrap_err();
+
+        let err = client
+            .get_attachment_download_url(
+                cipher_id,
+                TEST_ATTACHMENT_ID.to_string(),
+                Some(TEST_EMERGENCY_ACCESS_ID.to_string()),
+            )
+            .await
+            .unwrap_err();
 
         assert!(matches!(
             err,
@@ -424,16 +403,17 @@ mod tests {
                 .returning(|_ea_id, _cipher_id, _attachment_id| Err(not_found_response()));
         });
 
-        let emergency_access_id: uuid::Uuid = TEST_EMERGENCY_ACCESS_ID.parse().unwrap();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = get_emergency_access_attachment_download_url(
-            emergency_access_id,
-            cipher_id,
-            TEST_ATTACHMENT_ID,
-            &api_client,
-        )
-        .await
-        .unwrap_err();
+
+        let err = client
+            .get_attachment_download_url(
+                cipher_id,
+                TEST_ATTACHMENT_ID.to_string(),
+                Some(TEST_EMERGENCY_ACCESS_ID.to_string()),
+            )
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, CipherGetAttachmentDownloadUrlError::NotFound));
     }
@@ -454,17 +434,39 @@ mod tests {
                 });
         });
 
-        let emergency_access_id: uuid::Uuid = TEST_EMERGENCY_ACCESS_ID.parse().unwrap();
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = get_emergency_access_attachment_download_url(
-            emergency_access_id,
-            cipher_id,
-            TEST_ATTACHMENT_ID,
-            &api_client,
-        )
-        .await
-        .unwrap_err();
+
+        let err = client
+            .get_attachment_download_url(
+                cipher_id,
+                TEST_ATTACHMENT_ID.to_string(),
+                Some(TEST_EMERGENCY_ACCESS_ID.to_string()),
+            )
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, CipherGetAttachmentDownloadUrlError::Api(_)));
+    }
+
+    #[tokio::test]
+    async fn returns_invalid_emergency_access_id_when_parse_fails() {
+        let api_client = ApiClient::new_mocked(|_mock| {});
+        let client = client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+
+        let err = client
+            .get_attachment_download_url(
+                cipher_id,
+                TEST_ATTACHMENT_ID.to_string(),
+                Some("not-a-uuid".to_string()),
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            CipherGetAttachmentDownloadUrlError::InvalidEmergencyAccessId
+        ));
     }
 }

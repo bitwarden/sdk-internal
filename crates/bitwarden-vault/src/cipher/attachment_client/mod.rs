@@ -18,11 +18,16 @@ mod create;
 mod delete;
 mod download_url;
 mod renew;
-mod upgrade;
 
-pub use admin::AttachmentAdminClient;
-pub use create::{CreatedAttachment, FileUploadType};
-pub use upgrade::AttachmentUpgrade;
+pub use admin::{
+    AttachmentAdminClient, CipherAdminGetAttachmentDownloadUrlError, DeleteAttachmentAdminError,
+};
+pub use create::{
+    CipherCreateAttachmentError, CreateAttachmentRequest, CreatedAttachment, FileUploadType,
+};
+pub use delete::CipherDeleteAttachmentError;
+pub use download_url::CipherGetAttachmentDownloadUrlError;
+pub use renew::CipherRenewFileUploadUrlError;
 
 /// Generic error type for vault encryption errors.
 #[allow(missing_docs)]
@@ -53,7 +58,6 @@ pub struct AttachmentsClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
     pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
-    pub(crate) http_client: reqwest::Client,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

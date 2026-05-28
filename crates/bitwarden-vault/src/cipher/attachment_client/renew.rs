@@ -22,42 +22,34 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherRenewFileUploadUrlErro
     }
 }
 
-/// Fetches a refreshed upload URL for an attachment whose initial upload URL has expired.
-/// The attachment slot itself is not modified — only the URL the caller should push bytes
-/// to is renewed.
-pub async fn renew_file_upload_url(
-    cipher_id: CipherId,
-    attachment_id: &str,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<String, CipherRenewFileUploadUrlError> {
-    let response = api_client
-        .ciphers_api()
-        .renew_file_upload_url(cipher_id.into(), attachment_id)
-        .await?;
-
-    response.url.ok_or_else(|| MissingFieldError("url").into())
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Returns a refreshed upload URL for the given attachment.
+    /// Fetches a refreshed upload URL for an attachment whose initial upload URL has
+    /// expired. The attachment slot itself is not modified — only the URL the caller should
+    /// push bytes to is renewed.
     pub async fn renew_file_upload_url(
         &self,
         cipher_id: CipherId,
         attachment_id: String,
     ) -> Result<String, CipherRenewFileUploadUrlError> {
-        renew_file_upload_url(
-            cipher_id,
-            &attachment_id,
-            &self.api_configurations.api_client,
-        )
-        .await
+        let response = self
+            .api_configurations
+            .api_client
+            .ciphers_api()
+            .renew_file_upload_url(cipher_id.into(), &attachment_id)
+            .await?;
+
+        response.url.ok_or_else(|| MissingFieldError("url").into())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::{apis::ApiClient, models::AttachmentUploadDataResponseModel};
+    use bitwarden_core::{client::ApiConfigurations, key_management::KeySlotIds};
+    use bitwarden_crypto::KeyStore;
     use reqwest::StatusCode;
 
     use super::*;
@@ -65,6 +57,14 @@ mod tests {
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_ATTACHMENT_ID: &str = "uf7bkexzag04d3cw04jsbqqkbpbwhxs0";
     const TEST_RENEW_URL: &str = "http://localhost:4000/attachments/test/renewed";
+
+    fn client_with_api(api_client: ApiClient) -> AttachmentsClient {
+        AttachmentsClient {
+            key_store: KeyStore::<KeySlotIds>::default(),
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+            repository: None,
+        }
+    }
 
     #[tokio::test]
     async fn returns_url_from_api_response() {
@@ -81,8 +81,10 @@ mod tests {
                 });
         });
 
+        let client = client_with_api(api_client);
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let url = renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+        let url = client
+            .renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap();
 
@@ -102,8 +104,10 @@ mod tests {
                 });
         });
 
+        let client = client_with_api(api_client);
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+        let err = client
+            .renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap_err();
 
@@ -129,8 +133,10 @@ mod tests {
                 });
         });
 
+        let client = client_with_api(api_client);
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+        let err = client
+            .renew_file_upload_url(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap_err();
 

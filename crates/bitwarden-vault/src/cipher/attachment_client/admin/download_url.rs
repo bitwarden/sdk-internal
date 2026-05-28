@@ -25,51 +25,41 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherAdminGetAttachmentDown
     }
 }
 
-/// Fetches the download URL for an attachment from the admin API. The admin client has no
-/// local repository to fall back to on 404, so a server-side 404 is surfaced as
-/// [`CipherAdminGetAttachmentDownloadUrlError::NotFound`] for the caller to handle.
-pub async fn get_attachment_download_url(
-    cipher_id: CipherId,
-    attachment_id: &str,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-) -> Result<String, CipherAdminGetAttachmentDownloadUrlError> {
-    let response = api_client
-        .ciphers_api()
-        .get_attachment_data_admin(cipher_id.into(), attachment_id)
-        .await
-        .map_err(|e| match e {
-            bitwarden_api_api::apis::Error::ResponseError(content)
-                if content.status == StatusCode::NOT_FOUND =>
-            {
-                CipherAdminGetAttachmentDownloadUrlError::NotFound
-            }
-            other => other.into(),
-        })?;
-
-    response.url.ok_or_else(|| MissingFieldError("url").into())
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentAdminClient {
-    /// Returns a download URL for the given attachment via the admin server endpoint.
-    /// Does not fall back to local repository state on 404.
+    /// Fetches the download URL for an attachment from the admin API. The admin client has
+    /// no local repository to fall back to on 404, so a server-side 404 is surfaced as
+    /// [`CipherAdminGetAttachmentDownloadUrlError::NotFound`] for the caller to handle.
     pub async fn get_attachment_download_url(
         &self,
         cipher_id: CipherId,
         attachment_id: String,
     ) -> Result<String, CipherAdminGetAttachmentDownloadUrlError> {
-        get_attachment_download_url(
-            cipher_id,
-            &attachment_id,
-            &self.api_configurations.api_client,
-        )
-        .await
+        let response = self
+            .api_configurations
+            .api_client
+            .ciphers_api()
+            .get_attachment_data_admin(cipher_id.into(), &attachment_id)
+            .await
+            .map_err(|e| match e {
+                bitwarden_api_api::apis::Error::ResponseError(content)
+                    if content.status == StatusCode::NOT_FOUND =>
+                {
+                    CipherAdminGetAttachmentDownloadUrlError::NotFound
+                }
+                other => other.into(),
+            })?;
+
+        response.url.ok_or_else(|| MissingFieldError("url").into())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::{apis::ApiClient, models::AttachmentResponseModel};
+    use bitwarden_core::client::ApiConfigurations;
     use reqwest::StatusCode;
 
     use super::*;
@@ -77,6 +67,12 @@ mod tests {
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_ATTACHMENT_ID: &str = "uf7bkexzag04d3cw04jsbqqkbpbwhxs0";
     const TEST_API_URL: &str = "http://localhost:4000/attachments/test/api";
+
+    fn client_with_api(api_client: ApiClient) -> AttachmentAdminClient {
+        AttachmentAdminClient {
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+        }
+    }
 
     #[tokio::test]
     async fn returns_url_from_api_response() {
@@ -94,8 +90,10 @@ mod tests {
                 });
         });
 
+        let client = client_with_api(api_client);
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let url = get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+        let url = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap();
 
@@ -116,8 +114,10 @@ mod tests {
                 });
         });
 
+        let client = client_with_api(api_client);
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+        let err = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap_err();
 
@@ -143,8 +143,10 @@ mod tests {
                 });
         });
 
+        let client = client_with_api(api_client);
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+        let err = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap_err();
 
@@ -170,8 +172,10 @@ mod tests {
                 });
         });
 
+        let client = client_with_api(api_client);
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let err = get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID, &api_client)
+        let err = client
+            .get_attachment_download_url(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap_err();
 

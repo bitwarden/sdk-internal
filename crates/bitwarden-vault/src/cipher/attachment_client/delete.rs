@@ -1,6 +1,6 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -27,57 +27,47 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherDeleteAttachmentError 
     }
 }
 
-/// Deletes an attachment from a cipher, and updates the local repository with the new cipher data
-/// returned from the API.
-pub async fn delete_attachment<R: Repository<Cipher> + ?Sized>(
-    cipher_id: CipherId,
-    attachment_id: &str,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &R,
-) -> Result<Cipher, CipherDeleteAttachmentError> {
-    let api = api_client.ciphers_api();
-
-    let response = api
-        .delete_attachment(cipher_id.into(), attachment_id)
-        .await?;
-
-    let existing_cipher = repository.get(cipher_id).await?;
-    let cipher_response = response
-        .cipher
-        .map(|c| *c)
-        .ok_or(MissingFieldError("cipher"))?;
-    let cipher = cipher_response.merge_with_cipher(existing_cipher)?;
-
-    repository.set(cipher_id, cipher.clone()).await?;
-
-    Ok(cipher)
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Deletes an attachment from a cipher, and updates the local repository with the new cipher
-    /// data returned from the API.
+    /// Deletes an attachment from a cipher, and updates the local repository with the new
+    /// cipher data returned from the API.
     pub async fn delete_attachment(
         &self,
         cipher_id: CipherId,
         attachment_id: String,
     ) -> Result<Cipher, CipherDeleteAttachmentError> {
-        delete_attachment(
-            cipher_id,
-            &attachment_id,
-            &self.api_configurations.api_client,
-            self.repository.require()?.as_ref(),
-        )
-        .await
+        let repository = self.repository.require()?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .ciphers_api()
+            .delete_attachment(cipher_id.into(), &attachment_id)
+            .await?;
+
+        let existing_cipher = repository.get(cipher_id).await?;
+        let cipher_response = response
+            .cipher
+            .map(|c| *c)
+            .ok_or(MissingFieldError("cipher"))?;
+        let cipher = cipher_response.merge_with_cipher(existing_cipher)?;
+
+        repository.set(cipher_id, cipher.clone()).await?;
+
+        Ok(cipher)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{CipherMiniResponseModel, DeleteAttachmentResponseModel},
     };
+    use bitwarden_core::{client::ApiConfigurations, key_management::KeySlotIds};
+    use bitwarden_crypto::KeyStore;
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
 
@@ -88,6 +78,17 @@ mod tests {
     const TEST_ATTACHMENT_ID: &str = "uf7bkexzag04d3cw04jsbqqkbpbwhxs0";
     const TEST_CIPHER_NAME: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
     const TEST_FILE_NAME: &str = "2.mV50WiLq6duhwGbhM1TO0A==|dTufWNH8YTPP0EMlNLIpFA==|QHp+7OM8xHtEmCfc9QPXJ0Ro2BeakzvLgxJZ7NdLuDc=";
+
+    fn client_with_api_and_repo(
+        api_client: ApiClient,
+        repository: MemoryRepository<Cipher>,
+    ) -> AttachmentsClient {
+        AttachmentsClient {
+            key_store: KeyStore::<KeySlotIds>::default(),
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+            repository: Some(Arc::new(repository)),
+        }
+    }
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -158,14 +159,23 @@ mod tests {
 
         let repository = MemoryRepository::<Cipher>::default();
         repository.set(cipher_id, test_cipher()).await.unwrap();
+        let client = client_with_api_and_repo(api_client, repository);
 
-        let result = delete_attachment(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository)
+        let result = client
+            .delete_attachment(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap();
 
         assert!(result.attachments.is_none());
 
-        let repo_cipher = repository.get(cipher_id).await.unwrap().unwrap();
+        let repo_cipher = client
+            .repository
+            .as_ref()
+            .unwrap()
+            .get(cipher_id)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(repo_cipher.attachments.is_none());
     }
 
@@ -185,9 +195,11 @@ mod tests {
 
         let repository = MemoryRepository::<Cipher>::default();
         repository.set(cipher_id, test_cipher()).await.unwrap();
+        let client = client_with_api_and_repo(api_client, repository);
 
-        let result =
-            delete_attachment(cipher_id, TEST_ATTACHMENT_ID, &api_client, &repository).await;
+        let result = client
+            .delete_attachment(cipher_id, TEST_ATTACHMENT_ID.to_string())
+            .await;
 
         assert!(result.is_err());
     }

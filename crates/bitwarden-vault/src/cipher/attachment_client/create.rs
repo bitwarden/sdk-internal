@@ -1,13 +1,14 @@
 use bitwarden_api_api::models::AttachmentRequestModel;
 use bitwarden_core::{ApiError, MissingFieldError};
+use bitwarden_crypto::EncString;
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError, RepositoryOption};
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use super::delete::delete_attachment;
 use crate::{AttachmentsClient, Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher};
 
 #[allow(missing_docs)]
@@ -57,19 +58,24 @@ impl TryFrom<bitwarden_api_api::models::FileUploadType> for FileUploadType {
 }
 
 /// Metadata for opening a new attachment slot on the server.
+// TODO(PM-XXXXX / #1093): Once streaming crypto lands, switch to a plaintext boundary
+// (caller passes plaintext file_name + a streaming reader; SDK does encryption +
+// upload internally). Today's shape forces the caller to pre-encrypt because doing
+// the encryption inside the SDK would still buffer the full file in WASM linear
+// memory.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateAttachmentRequest {
-    /// Encrypted attachment key in `EncString` format.
-    pub key: String,
-    /// Encrypted file name in `EncString` format.
-    pub file_name: String,
+    /// Encrypted attachment key.
+    pub key: EncString,
+    /// Encrypted file name.
+    pub file_name: EncString,
     /// Size of the encrypted file in bytes.
-    pub file_size: i64,
+    pub file_size: u64,
     /// Revision date of the cipher when the request was prepared, used by the server
     /// to detect concurrent modifications.
-    pub last_known_revision_date: String,
+    pub last_known_revision_date: DateTime<Utc>,
     /// When true, the slot is opened via the admin authorization scope. The server returns
     /// a [`bitwarden_api_api::models::CipherMiniResponseModel`] and local repository state
     /// is not modified.
@@ -79,11 +85,15 @@ pub struct CreateAttachmentRequest {
 impl From<CreateAttachmentRequest> for AttachmentRequestModel {
     fn from(value: CreateAttachmentRequest) -> Self {
         Self {
-            key: Some(value.key),
-            file_name: Some(value.file_name),
-            file_size: Some(value.file_size),
+            key: Some(value.key.to_string()),
+            file_name: Some(value.file_name.to_string()),
+            file_size: Some(value.file_size as i64),
             admin_request: Some(value.as_admin),
-            last_known_revision_date: Some(value.last_known_revision_date),
+            last_known_revision_date: Some(
+                value
+                    .last_known_revision_date
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            ),
         }
     }
 }
@@ -100,130 +110,126 @@ pub struct CreatedAttachment {
     pub upload_url: String,
     /// Direct (local Bitwarden server) or Azure Blob storage.
     pub file_upload_type: FileUploadType,
-    /// Merged cipher returned by the server. Populated only when the slot was opened via
-    /// the admin scope (`as_admin: true`) — admin operations do not modify the local
-    /// repository, so the caller receives the cipher inline.
-    pub cipher: Option<Cipher>,
-}
-
-/// Opens a new attachment slot on the server (POST `/ciphers/{id}/attachment/v2`) and
-/// updates the local repository with the merged cipher state returned by the server.
-///
-/// If anything fails after the server has accepted the slot (e.g., the response is
-/// malformed or the local repository write fails), the SDK makes a best-effort attempt
-/// to delete the orphaned slot before returning the original error.
-pub async fn create_attachment<R: Repository<Cipher> + ?Sized>(
-    cipher_id: CipherId,
-    request: CreateAttachmentRequest,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &R,
-) -> Result<CreatedAttachment, CipherCreateAttachmentError> {
-    let as_admin = request.as_admin;
-    let existing_cipher = if as_admin {
-        None
-    } else {
-        repository.get(cipher_id).await?
-    };
-
-    let response = api_client
-        .ciphers_api()
-        .post_attachment(cipher_id.into(), Some(request.into()))
-        .await?;
-
-    // Extract the attachment id up front so a best-effort rollback is possible if
-    // anything in the rest of the function fails.
-    let new_attachment_id = response
-        .attachment_id
-        .clone()
-        .ok_or(MissingFieldError("attachment_id"))?;
-
-    let result = finalize_create(response, existing_cipher, cipher_id, repository, as_admin).await;
-
-    if result.is_err() {
-        let rollback = if as_admin {
-            api_client
-                .ciphers_api()
-                .delete_attachment_admin(cipher_id.into(), &new_attachment_id)
-                .await
-                .map(|_| ())
-                .map_err(|e| format!("{e:?}"))
-        } else {
-            delete_attachment(cipher_id, &new_attachment_id, api_client, repository)
-                .await
-                .map(|_| ())
-                .map_err(|e| format!("{e:?}"))
-        };
-
-        if let Err(rollback_err) = rollback {
-            tracing::warn!(
-                "failed to roll back orphaned attachment slot {new_attachment_id} on cipher {cipher_id}: {rollback_err}",
-            );
-        }
-    }
-
-    result
-}
-
-async fn finalize_create<R: Repository<Cipher> + ?Sized>(
-    response: bitwarden_api_api::models::AttachmentUploadDataResponseModel,
-    existing_cipher: Option<Cipher>,
-    cipher_id: CipherId,
-    repository: &R,
-    as_admin: bool,
-) -> Result<CreatedAttachment, CipherCreateAttachmentError> {
-    let cipher = if as_admin {
-        let cipher_mini = response
-            .cipher_mini_response
-            .ok_or(MissingFieldError("cipher_mini_response"))?;
-        Some((*cipher_mini).merge_with_cipher(None)?)
-    } else {
-        let cipher_response = response
-            .cipher_response
-            .ok_or(MissingFieldError("cipher_response"))?;
-        let merged = (*cipher_response).merge_with_cipher(existing_cipher)?;
-        repository.set(cipher_id, merged).await?;
-        None
-    };
-
-    let attachment_id = response
-        .attachment_id
-        .ok_or(MissingFieldError("attachment_id"))?;
-    let upload_url = response.url.ok_or(MissingFieldError("url"))?;
-    let file_upload_type: FileUploadType = response
-        .file_upload_type
-        .ok_or(MissingFieldError("file_upload_type"))?
-        .try_into()?;
-
-    Ok(CreatedAttachment {
-        attachment_id,
-        upload_url,
-        file_upload_type,
-        cipher,
-    })
+    /// Merged cipher returned by the server. For non-admin operations this is also
+    /// persisted to the local repository; it's returned inline so the caller doesn't
+    /// need a follow-up repo read.
+    pub cipher: Cipher,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Opens a new attachment slot on the server. The caller is responsible for pushing
-    /// the encrypted bytes to [`CreatedAttachment::upload_url`] using the appropriate
-    /// transport for [`CreatedAttachment::file_upload_type`].
+    /// Opens a new attachment slot on the server (POST `/ciphers/{id}/attachment/v2`) and
+    /// updates the local repository with the merged cipher state returned by the server.
+    /// The caller is responsible for pushing the encrypted bytes to
+    /// [`CreatedAttachment::upload_url`] using the appropriate transport for
+    /// [`CreatedAttachment::file_upload_type`].
+    ///
+    /// If anything fails after the server has accepted the slot (e.g., the response is
+    /// malformed or the local repository write fails), the SDK makes a best-effort attempt
+    /// to delete the orphaned slot before returning the original error.
     pub async fn create_attachment(
         &self,
         cipher_id: CipherId,
         request: CreateAttachmentRequest,
     ) -> Result<CreatedAttachment, CipherCreateAttachmentError> {
-        create_attachment(
-            cipher_id,
-            request,
-            &self.api_configurations.api_client,
-            self.repository.require()?.as_ref(),
-        )
-        .await
+        let as_admin = request.as_admin;
+        let repository = self.repository.require()?;
+        let existing_cipher = if as_admin {
+            None
+        } else {
+            repository.get(cipher_id).await?
+        };
+
+        let api_client = &self.api_configurations.api_client;
+        let response = api_client
+            .ciphers_api()
+            .post_attachment(cipher_id.into(), Some(request.into()))
+            .await?;
+
+        // Extract the attachment id up front so a best-effort rollback is possible if
+        // anything in the rest of the function fails.
+        let new_attachment_id = response
+            .attachment_id
+            .clone()
+            .ok_or(MissingFieldError("attachment_id"))?;
+
+        let result = self
+            .finalize_create(response, existing_cipher, cipher_id, as_admin)
+            .await;
+
+        if result.is_err() {
+            let rollback = if as_admin {
+                api_client
+                    .ciphers_api()
+                    .delete_attachment_admin(cipher_id.into(), &new_attachment_id)
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| format!("{e:?}"))
+            } else {
+                api_client
+                    .ciphers_api()
+                    .delete_attachment(cipher_id.into(), &new_attachment_id)
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| format!("{e:?}"))
+            };
+
+            if let Err(rollback_err) = rollback {
+                tracing::warn!(
+                    "failed to roll back orphaned attachment slot {new_attachment_id} on cipher {cipher_id}: {rollback_err}",
+                );
+            }
+        }
+
+        result
+    }
+
+    async fn finalize_create(
+        &self,
+        response: bitwarden_api_api::models::AttachmentUploadDataResponseModel,
+        existing_cipher: Option<Cipher>,
+        cipher_id: CipherId,
+        as_admin: bool,
+    ) -> Result<CreatedAttachment, CipherCreateAttachmentError> {
+        let cipher = if as_admin {
+            let cipher_mini = response
+                .cipher_mini_response
+                .ok_or(MissingFieldError("cipher_mini_response"))?;
+            (*cipher_mini).merge_with_cipher(None)?
+        } else {
+            let cipher_response = response
+                .cipher_response
+                .ok_or(MissingFieldError("cipher_response"))?;
+            let merged = (*cipher_response).merge_with_cipher(existing_cipher)?;
+            self.repository
+                .require()?
+                .set(cipher_id, merged.clone())
+                .await?;
+            merged
+        };
+
+        let attachment_id = response
+            .attachment_id
+            .ok_or(MissingFieldError("attachment_id"))?;
+        let upload_url = response.url.ok_or(MissingFieldError("url"))?;
+        let file_upload_type: FileUploadType = response
+            .file_upload_type
+            .ok_or(MissingFieldError("file_upload_type"))?
+            .try_into()?;
+
+        Ok(CreatedAttachment {
+            attachment_id,
+            upload_url,
+            file_upload_type,
+            cipher,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{
@@ -231,6 +237,8 @@ mod tests {
             DeleteAttachmentResponseModel,
         },
     };
+    use bitwarden_core::{client::ApiConfigurations, key_management::KeySlotIds};
+    use bitwarden_crypto::KeyStore;
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
 
@@ -243,12 +251,25 @@ mod tests {
     const TEST_FILE_NAME: &str = "2.mV50WiLq6duhwGbhM1TO0A==|dTufWNH8YTPP0EMlNLIpFA==|QHp+7OM8xHtEmCfc9QPXJ0Ro2BeakzvLgxJZ7NdLuDc=";
     const TEST_KEY: &str = "2.6TPEiYULFg/4+3CpDRwCqw==|6swweBHCJcd5CHdwBBWuRN33XRV22VoroDFDUmiM4OzjPEAhgZK57IZS1KkBlCcFvT+t+YbsmDcdv+Lqr+iJ3MmzfJ40MCB5TfYy+22HVRA=|rkgFDh2IWTfPC1Y66h68Diiab/deyi1p/X0Fwkva0NQ=";
 
+    fn client_with_api_and_repo(
+        api_client: ApiClient,
+        repository: MemoryRepository<Cipher>,
+    ) -> (AttachmentsClient, Arc<MemoryRepository<Cipher>>) {
+        let repo_arc = Arc::new(repository);
+        let client = AttachmentsClient {
+            key_store: KeyStore::<KeySlotIds>::default(),
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+            repository: Some(repo_arc.clone()),
+        };
+        (client, repo_arc)
+    }
+
     fn test_request() -> CreateAttachmentRequest {
         CreateAttachmentRequest {
-            key: TEST_KEY.to_string(),
-            file_name: TEST_FILE_NAME.to_string(),
+            key: TEST_KEY.parse().unwrap(),
+            file_name: TEST_FILE_NAME.parse().unwrap(),
             file_size: 65,
-            last_known_revision_date: "2024-05-31T11:20:58.4566667Z".to_string(),
+            last_known_revision_date: "2024-05-31T11:20:58.456Z".parse().unwrap(),
             as_admin: false,
         }
     }
@@ -328,17 +349,21 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let repository = MemoryRepository::<Cipher>::default();
         repository.set(cipher_id, test_cipher()).await.unwrap();
+        let (client, repo) = client_with_api_and_repo(api_client, repository);
 
-        let result = create_attachment(cipher_id, test_request(), &api_client, &repository)
+        let result = client
+            .create_attachment(cipher_id, test_request())
             .await
             .unwrap();
 
         assert_eq!(result.attachment_id, NEW_ATTACHMENT_ID);
         assert_eq!(result.upload_url, "http://example.com/upload");
         assert_eq!(result.file_upload_type, FileUploadType::Direct);
+        // Merged cipher is now returned inline for both paths (Comment 5).
+        assert_eq!(result.cipher.id, Some(cipher_id));
 
         // Repository should have the merged cipher state from the response.
-        let stored = repository.get(cipher_id).await.unwrap().unwrap();
+        let stored = repo.get(cipher_id).await.unwrap().unwrap();
         assert_eq!(stored.id, Some(cipher_id));
     }
 
@@ -371,19 +396,20 @@ mod tests {
         });
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let repository = MemoryRepository::<Cipher>::default();
+        let (client, repo) =
+            client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
 
-        let result = create_attachment(cipher_id, admin_request(), &api_client, &repository)
+        let result = client
+            .create_attachment(cipher_id, admin_request())
             .await
             .unwrap();
 
         assert_eq!(result.attachment_id, NEW_ATTACHMENT_ID);
         assert_eq!(result.upload_url, "http://example.com/upload");
-        assert!(result.cipher.is_some());
-        assert_eq!(result.cipher.unwrap().id, Some(cipher_id));
+        assert_eq!(result.cipher.id, Some(cipher_id));
 
         // Admin path must not write to the local repository.
-        assert!(repository.get(cipher_id).await.unwrap().is_none());
+        assert!(repo.get(cipher_id).await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -416,9 +442,11 @@ mod tests {
         });
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let repository = MemoryRepository::<Cipher>::default();
+        let (client, _repo) =
+            client_with_api_and_repo(api_client, MemoryRepository::<Cipher>::default());
 
-        let err = create_attachment(cipher_id, admin_request(), &api_client, &repository)
+        let err = client
+            .create_attachment(cipher_id, admin_request())
             .await
             .unwrap_err();
 
@@ -455,8 +483,10 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let repository = MemoryRepository::<Cipher>::default();
         repository.set(cipher_id, test_cipher()).await.unwrap();
+        let (client, _repo) = client_with_api_and_repo(api_client, repository);
 
-        let err = create_attachment(cipher_id, test_request(), &api_client, &repository)
+        let err = client
+            .create_attachment(cipher_id, test_request())
             .await
             .unwrap_err();
 
@@ -484,8 +514,10 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let repository = MemoryRepository::<Cipher>::default();
         repository.set(cipher_id, test_cipher()).await.unwrap();
+        let (client, _repo) = client_with_api_and_repo(api_client, repository);
 
-        let err = create_attachment(cipher_id, test_request(), &api_client, &repository)
+        let err = client
+            .create_attachment(cipher_id, test_request())
             .await
             .unwrap_err();
 
