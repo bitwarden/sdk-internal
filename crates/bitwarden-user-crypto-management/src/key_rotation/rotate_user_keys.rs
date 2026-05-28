@@ -35,8 +35,6 @@ pub enum KeyRotationMethod {
     /// Key Connector user, key rotation without a password change.
     KeyConnector { key_connector_url: String },
     /// TDE user, key rotation without a password change.
-    /// NOTE: This is not yet implemented and will return a
-    /// RotateUserKeysError::UnimplementedKeyRotationMethod error if used.
     Tde,
 }
 
@@ -44,8 +42,7 @@ pub enum KeyRotationMethod {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum UpgradeTokenAction {
-    /// Skip creating and sending an upgrade token to the server. This will be the default behavior
-    /// if the field is omitted.
+    /// Skip creating and sending an upgrade token to the server.
     Skip,
     /// Creates an upgrade token for V1 -> V2 key rotations.
     /// For V2 -> V2 rotations, no upgrade token is needed.
@@ -59,9 +56,7 @@ pub struct RotateUserKeysRequest {
     pub key_rotation_method: KeyRotationMethod,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
     pub trusted_organization_public_keys: Vec<PublicKey>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "wasm", tsify(optional))]
-    pub upgrade_token_action: Option<UpgradeTokenAction>,
+    pub upgrade_token_action: UpgradeTokenAction,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -128,10 +123,6 @@ async fn internal_rotate_user_keys(
     wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
-    if matches!(request.key_rotation_method, KeyRotationMethod::Tde) {
-        return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
-    }
-
     // Fail early if any cipher has old attachments that would become irrecoverable
     check_for_old_attachments(&sync.ciphers)?;
 
@@ -217,10 +208,7 @@ async fn internal_rotate_user_keys(
             },
             rotation_context.current_user_key_id,
             rotation_context.new_user_key_id,
-            request
-                .upgrade_token_action
-                .clone()
-                .unwrap_or(UpgradeTokenAction::Skip),
+            request.upgrade_token_action,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;
@@ -279,20 +267,22 @@ async fn internal_rotate_user_keys(
 mod tests {
     use std::str::FromStr;
 
-    use bitwarden_api_api::apis::ApiClient;
+    use bitwarden_api_api::{apis::ApiClient, models::UnlockMethod};
     use bitwarden_core::{
         Client,
         key_management::{
-            KeySlotIds, SymmetricKeySlotId,
-            account_cryptographic_state::WrappedAccountCryptographicState,
-            state_bridge::{StateBridgeClient, test_support::InMemoryStateBridge},
+            KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId, account_cryptographic_state::WrappedAccountCryptographicState, state_bridge::{StateBridgeClient, test_support::InMemoryStateBridge}
         },
     };
-    use bitwarden_crypto::{Kdf, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{
+        Decryptable, EncString, Kdf, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
+        UnsignedSharedKey,
+    };
     use bitwarden_vault::{Attachment, Cipher, CipherType};
     use chrono::DateTime;
 
     use super::*;
+    use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 
     fn make_state_bridge() -> StateBridgeClient {
         let client = Client::new(None);
@@ -334,13 +324,101 @@ mod tests {
         (store, sync)
     }
 
+    fn make_test_key_store_and_synced_data_with_trusted_devices()
+    -> (KeyStore<KeySlotIds>, SyncedAccountData, Vec<u8>) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let (trusted_device_keyset, wrapped_private_key, public_key) = {
+            let mut ctx = store.context_mut();
+            let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            let _ = ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User);
+            let (trusted_device_keyset, device_private_key) =
+                PartialRotateableKeyset::make_test_keyset(SymmetricKeySlotId::User, &mut ctx);
+            let _ = ctx.persist_private_key(device_private_key, PrivateKeySlotId::UserPrivateKey);
+            let wrapped_private_key = ctx
+                .wrap_private_key(SymmetricKeySlotId::User, PrivateKeySlotId::UserPrivateKey)
+                .unwrap();
+            (
+                trusted_device_keyset,
+                wrapped_private_key,
+                ctx.get_public_key(PrivateKeySlotId::UserPrivateKey)
+                    .expect("Retrieving the public key should work."),
+            )
+        };
+
+        let sync = SyncedAccountData {
+            wrapped_account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                private_key: wrapped_private_key,
+            },
+            folders: vec![],
+            ciphers: vec![],
+            sends: vec![],
+            emergency_access_memberships: vec![],
+            organization_memberships: vec![],
+            trusted_devices: vec![trusted_device_keyset],
+            passkeys: vec![],
+            kdf_and_salt: Some((
+                Kdf::PBKDF2 {
+                    iterations: std::num::NonZeroU32::new(600000).unwrap(),
+                },
+                "test_salt".to_string(),
+            )),
+        };
+
+        (
+            store,
+            sync,
+            public_key
+                .to_der()
+                .expect("Generating DER serialization should work")
+                .to_vec(),
+        )
+    }
+
     #[tokio::test]
-    async fn test_rotate_user_keys_tde_returns_unimplemented() {
-        let (key_store, sync) = make_test_key_store_and_synced_data();
+    async fn test_rotate_user_keys_tde_success_rotates_common_unlock_data() {
+        let (key_store, sync, public_key_der) =
+            make_test_key_store_and_synced_data_with_trusted_devices();
+        let key_store_clone = key_store.clone();
+
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
                 .expect_rotate_user_keys()
-                .never();
+                .once()
+                .returning(move |req| {
+                    let req = req.expect("request body should be present");
+                    assert_eq!(req.unlock_method_data.unlock_method, UnlockMethod::Tde);
+                    assert!(req.unlock_method_data.master_password_unlock_data.is_none());
+                    assert!(
+                        req.unlock_method_data
+                            .key_connector_key_wrapped_user_key
+                            .is_none()
+                    );
+
+                    let device_unlock_data = req
+                        .unlock_data
+                        .device_key_unlock_data
+                        .expect("device unlock data should be present");
+                    assert_eq!(device_unlock_data.len(), 1);
+                    let rotated_device = &device_unlock_data[0];
+
+                    let encrypted_user_key: UnsignedSharedKey = rotated_device
+                        .encrypted_user_key
+                        .parse()
+                        .expect("encrypted user key should parse");
+                    let encrypted_public_key: EncString = rotated_device
+                        .encrypted_public_key
+                        .parse()
+                        .expect("encrypted public key should parse");
+                    let mut ctx = key_store_clone.context_mut();
+                    let rotated_user_key_id = encrypted_user_key
+                        .decapsulate(PrivateKeySlotId::UserPrivateKey, &mut ctx)
+                        .expect("rotated device user key should decapsulate");
+                    let decrypted_public_key: Vec<u8> = encrypted_public_key
+                        .decrypt(&mut ctx, rotated_user_key_id)
+                        .expect("rotated device public key should decrypt");
+                    assert_eq!(decrypted_public_key, public_key_der);
+                    Ok(())
+                });
         });
 
         let state_bridge = make_state_bridge();
@@ -353,17 +431,14 @@ mod tests {
                 key_rotation_method: KeyRotationMethod::Tde,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
         )
         .await;
 
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
-        ));
+        assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }
@@ -391,7 +466,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -428,7 +503,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -470,7 +545,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -512,7 +587,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: Some(UpgradeTokenAction::Skip),
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -554,7 +629,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: Some(UpgradeTokenAction::CreateIfNeeded),
+                upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -633,7 +708,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -701,7 +776,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,
@@ -756,7 +831,7 @@ mod tests {
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
-                upgrade_token_action: None,
+                upgrade_token_action: UpgradeTokenAction::Skip,
             },
             sync.wrapped_account_cryptographic_state.clone(),
             sync,

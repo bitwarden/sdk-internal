@@ -23,12 +23,18 @@ pub enum SyncError {
 
     #[error("Sync event handler failed: {0}")]
     HandlerFailed(#[source] SyncHandlerError),
+
+    #[error("Account has been deleted on the server.")]
+    AccountDeleted,
 }
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncRequest {
+    /// Skip the revision-date check and always sync.
+    #[serde(default)]
+    pub force: bool,
     /// Exclude the subdomains from the response, defaults to false
     pub exclude_subdomains: Option<bool>,
 }
@@ -320,6 +326,7 @@ mod tests {
 
         let result = client
             .sync(SyncRequest {
+                force: false,
                 exclude_subdomains: None,
             })
             .await;
@@ -357,6 +364,7 @@ mod tests {
         // sync() will fail due to the mocked error, which should trigger all error handlers
         let result = client
             .sync(SyncRequest {
+                force: false,
                 exclude_subdomains: None,
             })
             .await;

@@ -22,6 +22,10 @@ pub(crate) use login_method::UserLoginMethod;
 #[cfg(feature = "internal")]
 mod flags;
 #[cfg(feature = "internal")]
+mod flags_client;
+#[cfg(feature = "internal")]
+pub use flags_client::{FetchFlagsError, FlagsClient};
+#[cfg(feature = "internal")]
 pub mod persisted_state;
 #[cfg(feature = "internal")]
 mod rehydration;
