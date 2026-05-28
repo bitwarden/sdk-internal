@@ -6,8 +6,8 @@
 use std::env::temp_dir;
 
 use bitwarden_crypto::{
-    StreamingAttachmentDecryptor, StreamingAttachmentEncryptor, SymmetricCryptoKey,
-    SymmetricKeyAlgorithm,
+    KeyStore, StreamingAttachmentDecryptor, StreamingAttachmentEncryptor, SymmetricCryptoKey,
+    SymmetricKeyAlgorithm, key_slot_ids,
 };
 use tokio::{
     fs::File,
@@ -26,8 +26,13 @@ async fn main() {
         let file = File::create(&path)
             .await
             .expect("create attachment ciphertext file");
-        let mut enc = StreamingAttachmentEncryptor::new(key.clone(), file)
-            .expect("AES-CBC-HMAC key is a supported variant");
+        let mut enc = {
+            let key_store: KeyStore<ExampleIds> = KeyStore::default();
+            let mut ctx = key_store.context_mut();
+            let key_slot = ctx.add_local_symmetric_key(key.clone());
+            StreamingAttachmentEncryptor::new(key_slot, ctx, file)
+                .expect("AES-CBC-HMAC key is a supported variant")
+        };
         enc.write_all(&plaintext).await.expect("write_all");
         enc.shutdown().await.expect("shutdown");
     }
@@ -35,8 +40,13 @@ async fn main() {
     // Decrypt: stream the wire bytes back from the file through the decryptor.
     let roundtripped = {
         let file = File::open(&path).await.expect("open ciphertext file");
-        let mut dec = StreamingAttachmentDecryptor::new(key, file)
-            .expect("AES-CBC-HMAC key is a supported variant");
+        let mut dec = {
+            let key_store: KeyStore<ExampleIds> = KeyStore::default();
+            let mut ctx = key_store.context_mut();
+            let key_slot = ctx.add_local_symmetric_key(key.clone());
+            StreamingAttachmentDecryptor::new(key_slot, ctx, file)
+                .expect("AES-CBC-HMAC key is a supported variant")
+        };
         let mut out = Vec::new();
         dec.read_to_end(&mut out).await.expect("read_to_end");
         out
@@ -46,4 +56,27 @@ async fn main() {
     tokio::fs::remove_file(&path)
         .await
         .expect("remove ciphertext file");
+}
+
+key_slot_ids! {
+    #[symmetric]
+    pub enum ExampleSymmetricKey {
+        #[local]
+        ItemKey(LocalId)
+    }
+
+    #[private]
+    pub enum ExamplePrivateKey {
+        Key(u8),
+        #[local]
+        Local(LocalId),
+    }
+
+    #[signing]
+    pub enum ExampleSigningKey {
+        Key(u8),
+        #[local]
+        Local(LocalId),
+    }
+    pub ExampleIds => ExampleSymmetricKey, ExamplePrivateKey, ExampleSigningKey;
 }

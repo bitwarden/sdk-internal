@@ -286,10 +286,15 @@ pub struct StreamingAttachmentEncryptor<W> {
 impl<W> StreamingAttachmentEncryptor<W> {
     /// Construct an encryptor. The corresponding discriminator byte is queued as the first
     /// wire byte.
-    pub fn new(key: SymmetricCryptoKey, inner: W) -> Result<Self, CryptoError> {
+    pub fn new<Ids: KeySlotIds>(
+        key_slot: Ids::Symmetric,
+        ctx: KeyStoreContext<Ids>,
+        inner: W,
+    ) -> Result<Self, CryptoError> {
+        let key = ctx.get_symmetric_key(key_slot)?;
         let (state, discriminator): (StreamEncryptorState, HeaderDiscriminator) = match &key {
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
-                let encryptor = StreamingAes256CbcHmacEncryptor::try_new(&key).map_err(|_| {
+                let encryptor = StreamingAes256CbcHmacEncryptor::try_new(key).map_err(|_| {
                     CryptoError::OperationNotSupported(
                         crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey,
                     )
@@ -539,7 +544,11 @@ mod tests {
     async fn encrypt_via_shared(key: SymmetricCryptoKey, plaintext: &[u8]) -> Vec<u8> {
         let shared = Arc::new(Mutex::new(Vec::<u8>::new()));
         let sink = SharedSink(shared.clone());
-        let mut enc = StreamingAttachmentEncryptor::new(key, sink).expect("encryptor construction");
+        let key_store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = key_store.context_mut();
+        let key_slot = ctx.add_local_symmetric_key(key);
+        let mut enc =
+            StreamingAttachmentEncryptor::new(key_slot, ctx, sink).expect("encryptor construction");
         enc.write_all(plaintext).await.expect("write_all");
         enc.shutdown().await.expect("shutdown");
         shared.lock().expect("mutex poisoned").clone()
@@ -548,9 +557,9 @@ mod tests {
     async fn decrypt_wire(key: SymmetricCryptoKey, wire: &[u8]) -> io::Result<Vec<u8>> {
         let key_store: KeyStore<TestIds> = KeyStore::default();
         let mut ctx = key_store.context_mut();
-        let key = ctx.add_local_symmetric_key(key);
+        let key_slot = ctx.add_local_symmetric_key(key);
         let mut dec =
-            StreamingAttachmentDecryptor::new(key, ctx, wire).expect("decryptor construction");
+            StreamingAttachmentDecryptor::new(key_slot, ctx, wire).expect("decryptor construction");
         let mut out = Vec::new();
         dec.read_to_end(&mut out).await?;
         Ok(out)
@@ -609,8 +618,11 @@ mod tests {
 
         let shared = Arc::new(Mutex::new(Vec::<u8>::new()));
         let sink = SharedSink(shared.clone());
+        let key_store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = key_store.context_mut();
+        let key_slot = ctx.add_local_symmetric_key(aes_key());
         let mut enc =
-            StreamingAttachmentEncryptor::new(aes_key(), sink).expect("encryptor construction");
+            StreamingAttachmentEncryptor::new(key_slot, ctx, sink).expect("encryptor construction");
         for byte in plaintext {
             enc.write_all(std::slice::from_ref(byte))
                 .await
@@ -622,9 +634,9 @@ mod tests {
         // Read it back in small chunks too.
         let key_store: KeyStore<TestIds> = KeyStore::default();
         let mut ctx = key_store.context_mut();
-        let key = ctx.add_local_symmetric_key(aes_key());
-        let mut dec =
-            StreamingAttachmentDecryptor::new(key, ctx, &wire[..]).expect("decryptor construction");
+        let key_slot = ctx.add_local_symmetric_key(aes_key());
+        let mut dec = StreamingAttachmentDecryptor::new(key_slot, ctx, &wire[..])
+            .expect("decryptor construction");
         let mut out = Vec::new();
         let mut tmp = [0u8; 7];
         loop {
