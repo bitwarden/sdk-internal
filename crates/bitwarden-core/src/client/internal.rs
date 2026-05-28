@@ -14,10 +14,8 @@ use bitwarden_state::registry::StateRegistry;
 use tracing::{debug, info, instrument};
 
 use crate::{
-    DeviceType, UserId,
-    auth::auth_tokens::TokenHandler,
-    error::UserIdAlreadySetError,
-    key_management::{KeySlotIds, PrivateKeySlotId, SigningKeySlotId, SymmetricKeySlotId},
+    DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
+    key_management::KeySlotIds,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::{
@@ -34,7 +32,8 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, SecurityState, V2UpgradeToken,
+        MasterPasswordUnlockData, PrivateKeySlotId, SecurityState, SigningKeySlotId,
+        SymmetricKeySlotId, V2UpgradeToken,
         account_cryptographic_state::WrappedAccountCryptographicState, state_bridge::StateBridge,
     },
 };
