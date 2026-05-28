@@ -271,7 +271,9 @@ mod tests {
     use bitwarden_core::{
         Client,
         key_management::{
-            KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId, account_cryptographic_state::WrappedAccountCryptographicState, state_bridge::{StateBridgeClient, test_support::InMemoryStateBridge}
+            KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId,
+            account_cryptographic_state::WrappedAccountCryptographicState,
+            state_bridge::{StateBridgeClient, test_support::InMemoryStateBridge},
         },
     };
     use bitwarden_crypto::{
@@ -637,6 +639,111 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_writes_state_when_upgrade_token_present() {
+        let (key_store, sync) = make_test_key_store_and_synced_data();
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .once()
+                .returning(|_| Ok(()));
+        });
+
+        let state_bridge = make_state_bridge();
+        assert!(state_bridge.get_v2_upgrade_token().await.is_none());
+        assert!(
+            state_bridge
+                .get_account_cryptographic_state()
+                .await
+                .is_none()
+        );
+        assert!(state_bridge.get_user_key().await.is_none());
+
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            &state_bridge,
+            None,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(
+            state_bridge.get_v2_upgrade_token().await.is_some(),
+            "state bridge should hold the v2 upgrade token after V1 -> V2 rotation"
+        );
+        assert!(
+            state_bridge
+                .get_account_cryptographic_state()
+                .await
+                .is_some(),
+            "state bridge should hold the rotated account cryptographic state"
+        );
+        assert!(
+            state_bridge.get_user_key().await.is_some(),
+            "state bridge should hold the rotated user key"
+        );
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_skips_state_writes_when_no_upgrade_token() {
+        let (key_store, sync) = make_test_key_store_and_synced_data();
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .once()
+                .returning(|_| Ok(()));
+        });
+
+        let state_bridge = make_state_bridge();
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            &state_bridge,
+            None,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: UpgradeTokenAction::Skip,
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        assert!(
+            state_bridge.get_v2_upgrade_token().await.is_none(),
+            "without an upgrade token, the state bridge must not be written"
+        );
+        assert!(
+            state_bridge
+                .get_account_cryptographic_state()
+                .await
+                .is_none()
+        );
+        assert!(state_bridge.get_user_key().await.is_none());
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }
