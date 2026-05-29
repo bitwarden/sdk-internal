@@ -26,9 +26,8 @@ use crate::{
 use crate::{
     client::{
         encryption_settings::EncryptionSettingsError,
-        flags::Flags,
         login_method::UserLoginMethod,
-        persisted_state::{FLAGS, USER_ID, USER_LOGIN_METHOD},
+        persisted_state::{USER_ID, USER_LOGIN_METHOD},
     },
     error::NotAuthenticatedError,
     key_management::{
@@ -137,41 +136,6 @@ pub struct InternalClient {
 }
 
 impl InternalClient {
-    /// Load feature flags. This is intentionally a collection and not the internal `Flag` enum as
-    /// we want to avoid changes in feature flags from being a breaking change.
-    #[cfg(feature = "internal")]
-    pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
-        let flags = Flags::load_from_map(flags);
-        match self.state_registry.setting(FLAGS) {
-            Ok(setting) => {
-                if let Err(e) = setting.update(flags).await {
-                    tracing::warn!("Failed to persist flags: {e}");
-                }
-            }
-            Err(e) => tracing::warn!("Flags setting unavailable: {e}"),
-        }
-    }
-
-    /// Retrieve the active feature flags.
-    #[cfg(feature = "internal")]
-    pub async fn get_flags(&self) -> Flags {
-        let setting = match self.state_registry.setting(FLAGS) {
-            Ok(setting) => setting,
-            Err(e) => {
-                tracing::warn!("Flags setting unavailable, using defaults: {e}");
-                return Flags::default();
-            }
-        };
-        match setting.get().await {
-            Ok(Some(flags)) => flags,
-            Ok(None) => Flags::default(),
-            Err(e) => {
-                tracing::warn!("Failed to read flags, using defaults: {e}");
-                Flags::default()
-            }
-        }
-    }
-
     #[cfg(feature = "internal")]
     pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
         self.state_registry
@@ -527,44 +491,6 @@ mod tests {
                 .await
                 .is_err()
         );
-    }
-
-    #[tokio::test]
-    async fn load_flags_round_trips_through_setting() {
-        use std::collections::HashMap;
-
-        use super::*;
-
-        let client = Client::new(None);
-
-        // With no flags loaded yet, get_flags should return defaults.
-        let initial = client.internal.get_flags().await;
-        assert!(!initial.enable_cipher_key_encryption);
-        assert!(!initial.strict_cipher_decryption);
-
-        // Loading flags should persist them via the FLAGS setting.
-        let mut map = HashMap::new();
-        map.insert("enableCipherKeyEncryption".to_string(), true);
-        map.insert("pm-34500-strict-cipher-decryption".to_string(), true);
-        client.internal.load_flags(map).await;
-
-        // get_flags should now return the loaded values.
-        let loaded = client.internal.get_flags().await;
-        assert!(loaded.enable_cipher_key_encryption);
-        assert!(loaded.strict_cipher_decryption);
-
-        // The values should be readable directly from the setting too.
-        let persisted = client
-            .internal
-            .state_registry
-            .setting(FLAGS)
-            .unwrap()
-            .get()
-            .await
-            .unwrap()
-            .expect("flags should be persisted after load_flags");
-        assert!(persisted.enable_cipher_key_encryption);
-        assert!(persisted.strict_cipher_decryption);
     }
 
     #[tokio::test]

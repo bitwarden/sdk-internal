@@ -44,10 +44,6 @@ impl FromClient for CipherAdminClient {
 #[allow(deprecated)]
 impl CipherAdminClient {
     async fn is_strict_decrypt(&self) -> bool {
-        self.client
-            .internal
-            .get_flags()
-            .await
-            .strict_cipher_decryption
+        self.client.flags().get().await.strict_cipher_decryption
     }
 }
