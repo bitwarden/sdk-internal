@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod generator_client;
+mod managed_overrides;
 mod username_forwarders;
 pub use generator_client::{GeneratorClient, GeneratorClientsExt};
 pub(crate) mod passphrase;

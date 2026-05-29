@@ -825,6 +825,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-managed-settings",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
  "reqwest",
