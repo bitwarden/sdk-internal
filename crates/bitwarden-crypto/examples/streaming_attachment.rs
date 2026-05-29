@@ -1,10 +1,7 @@
-#![allow(clippy::print_stdout)]
 //! This example demonstrates the streaming attachment cipher end-to-end against a
 //! real file on disk: stream plaintext through [`StreamingAttachmentEncryptor`] into
 //! `tokio::fs::File`, then stream the resulting wire bytes back through
-//! [`StreamingAttachmentDecryptor`] reading from the same file. AES-256-CBC +
-//! HMAC-SHA256 is used because it is the attachment format reachable through the
-//! crate's currently re-exported public API.
+//! [`StreamingAttachmentDecryptor`] reading from the same file.
 
 use std::env::temp_dir;
 
@@ -25,31 +22,15 @@ async fn main() {
     let path = temp_dir().join("bitwarden-streaming-attachment-example.bin");
 
     // Encrypt: pipe plaintext through the encryptor into a file on disk.
-    //
-    // AES-CBC-HMAC has to buffer the full plaintext to compute the trailing HMAC, so the
-    // wire payload (0x02 || IV || MAC || ciphertext) is only written to the file during
-    // `.shutdown()`.
     {
         let file = File::create(&path)
             .await
             .expect("create attachment ciphertext file");
-        let mut enc = StreamingAttachmentEncryptor::new(key.clone(), None)
+        let mut enc = StreamingAttachmentEncryptor::new(key.clone(), file)
             .expect("AES-CBC-HMAC key is a supported variant");
         enc.write_all(&plaintext).await.expect("write_all");
         enc.shutdown().await.expect("shutdown");
     }
-
-    let wire_len = tokio::fs::metadata(&path)
-        .await
-        .expect("stat ciphertext file")
-        .len();
-    println!(
-        "Wrote {} bytes of plaintext as {} bytes of wire to {} \
-         (discriminator + IV + MAC + ciphertext).",
-        plaintext.len(),
-        wire_len,
-        path.display(),
-    );
 
     // Decrypt: stream the wire bytes back from the file through the decryptor.
     let roundtripped = {
@@ -62,11 +43,6 @@ async fn main() {
     };
 
     assert_eq!(roundtripped, plaintext, "plaintext must roundtrip exactly");
-    println!(
-        "Roundtrip succeeded — recovered {} bytes of plaintext.",
-        roundtripped.len(),
-    );
-
     tokio::fs::remove_file(&path)
         .await
         .expect("remove ciphertext file");

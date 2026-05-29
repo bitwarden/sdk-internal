@@ -15,6 +15,11 @@
 //! Each chunk is authenticated independently and the encryption is dependent only on the counter and the key, but not
 //! the previous block. Thus, we support secure random access decryption. Partial stream decryption is also fully authenticated,
 //! so plaintext is usable before the entire stream is decrypted.
+//! 
+//! ## Algorithm Choices
+//! There are two supported ciphers, chacha20-poly1305, aes-gcm. Please note that in contrast to
+//! the rest of the password manager product, we do not use the extended noise constructions respectively,
+//! since the key is used exactly once, and the nonce construction and security is handled by the STREAM construction.
 
 use std::ops::Range;
 
@@ -64,22 +69,22 @@ enum DecryptorInitializeWithHeaderError {
 // avoids large-stack-copies between state transitions. `ChaCha20Poly1305`'s state is small
 // enough to leave inline.
 enum InnerDecryptor {
-    Aes(Box<DecryptorBE32<Aes256Gcm>>),
-    Cha(DecryptorBE32<ChaCha20Poly1305>),
+    Aes256Gcm(Box<DecryptorBE32<Aes256Gcm>>),
+    ChaCha20Poly1305(Box<DecryptorBE32<ChaCha20Poly1305>>),
 }
 
 impl InnerDecryptor {
     fn decrypt_next(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, ()> {
         match self {
-            Self::Aes(dec) => dec.decrypt_next(ciphertext).map_err(|_| ()),
-            Self::Cha(dec) => dec.decrypt_next(ciphertext).map_err(|_| ()),
+            Self::Aes256Gcm(dec) => dec.decrypt_next(ciphertext).map_err(|_| ()),
+            Self::ChaCha20Poly1305(dec) => dec.decrypt_next(ciphertext).map_err(|_| ()),
         }
     }
 
     fn decrypt_last(self, ciphertext: &[u8]) -> Result<Vec<u8>, ()> {
         match self {
-            Self::Aes(dec) => dec.decrypt_last(ciphertext).map_err(|_| ()),
-            Self::Cha(dec) => dec.decrypt_last(ciphertext).map_err(|_| ()),
+            Self::Aes256Gcm(dec) => dec.decrypt_last(ciphertext).map_err(|_| ()),
+            Self::ChaCha20Poly1305(dec) => dec.decrypt_last(ciphertext).map_err(|_| ()),
         }
     }
 }
@@ -107,11 +112,11 @@ impl DecryptorState {
                 let decryptor = match algorithm {
                     AeadAlgorithm::Aes256Gcm => {
                         let cipher = Aes256Gcm::new(&key.enc_key);
-                        InnerDecryptor::Aes(Box::new(DecryptorBE32::from_aead(cipher, &nonce)))
+                        InnerDecryptor::Aes256Gcm(Box::new(DecryptorBE32::from_aead(cipher, &nonce)))
                     }
                     AeadAlgorithm::ChaCha20Poly1305 => {
                         let cipher = ChaCha20Poly1305::new(&key.enc_key);
-                        InnerDecryptor::Cha(DecryptorBE32::from_aead(cipher, &nonce))
+                        InnerDecryptor::ChaCha20Poly1305(Box::new(DecryptorBE32::from_aead(cipher, &nonce)))
                     }
                 };
                 *self = Self::Streaming { decryptor };
@@ -245,22 +250,22 @@ impl super::StreamingDecryptor for StreamingChunkedAeadDecryptor {
 // See the comment on `InnerDecryptor` re: why this is not `ZeroizeOnDrop` and why `Aes` is
 // boxed but `Cha` is not.
 enum InnerEncryptor {
-    Aes(Box<EncryptorBE32<Aes256Gcm>>),
-    Cha(EncryptorBE32<ChaCha20Poly1305>),
+    Aes256Gcm(Box<EncryptorBE32<Aes256Gcm>>),
+    ChaCha20Poly1305(EncryptorBE32<ChaCha20Poly1305>),
 }
 
 impl InnerEncryptor {
     fn encrypt_next(&mut self, plaintext: &[u8]) -> Result<Vec<u8>, ()> {
         match self {
-            Self::Aes(enc) => enc.encrypt_next(plaintext).map_err(|_| ()),
-            Self::Cha(enc) => enc.encrypt_next(plaintext).map_err(|_| ()),
+            Self::Aes256Gcm(enc) => enc.encrypt_next(plaintext).map_err(|_| ()),
+            Self::ChaCha20Poly1305(enc) => enc.encrypt_next(plaintext).map_err(|_| ()),
         }
     }
 
     fn encrypt_last(self, plaintext: &[u8]) -> Result<Vec<u8>, ()> {
         match self {
-            Self::Aes(enc) => enc.encrypt_last(plaintext).map_err(|_| ()),
-            Self::Cha(enc) => enc.encrypt_last(plaintext).map_err(|_| ()),
+            Self::Aes256Gcm(enc) => enc.encrypt_last(plaintext).map_err(|_| ()),
+            Self::ChaCha20Poly1305(enc) => enc.encrypt_last(plaintext).map_err(|_| ()),
         }
     }
 }
@@ -305,11 +310,11 @@ impl StreamingChunkedAeadEncryptor {
         let encryptor = match algorithm {
             AeadAlgorithm::Aes256Gcm => {
                 let cipher = Aes256Gcm::new(&key.enc_key);
-                InnerEncryptor::Aes(Box::new(EncryptorBE32::from_aead(cipher, &nonce)))
+                InnerEncryptor::Aes256Gcm(Box::new(EncryptorBE32::from_aead(cipher, &nonce)))
             }
             AeadAlgorithm::ChaCha20Poly1305 => {
                 let cipher = ChaCha20Poly1305::new(&key.enc_key);
-                InnerEncryptor::Cha(EncryptorBE32::from_aead(cipher, &nonce))
+                InnerEncryptor::ChaCha20Poly1305(EncryptorBE32::from_aead(cipher, &nonce))
             }
         };
 

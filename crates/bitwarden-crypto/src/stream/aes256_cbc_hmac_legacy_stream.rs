@@ -1,13 +1,13 @@
 //! # AES-256-CBC-HMAC-Legacy-Stream
 //!
-//! Aes256CBC-HMAC-Legacy-Stream is a format for streaming encryption of attachments. It consists of a
-//! header, an AES-CBC stream, and a hmac over IV + CBC ciphertext. Because there is just one HMAC
+//! Aes256CBC-HMAC-Legacy-Stream is a format for streaming encryption of attachments. It consists of
+//! a header, an AES-CBC stream, and a hmac over IV + CBC ciphertext. Because there is just one HMAC
 //! over the entire stream, it is not permissible to decrypt a partial portion of this stream, as
 //! the integrity of that portion cannot be guaranteed.
 //!
 //! ## Format
 //! The stream looks as follows:
-//! ```
+//! ```text
 //! (KEY_E, KEY_A) = KEY
 //! IV | HMAC[KEY_A] (over IV + ciphertext) | AES-CBC[KEY_E]() ciphertext
 //! ```
@@ -74,7 +74,12 @@ impl CbcDecryptor {
     fn decrypt_block(&mut self, block: &CbcCiphertextBlock) -> CbcPlaintextBlock {
         let mut block: Array<u8, _> = (*block).into();
         self.decryptor.decrypt_block(&mut block);
-        CbcPlaintextBlock(block.as_slice().try_into().expect("block size checked by type"))
+        CbcPlaintextBlock(
+            block
+                .as_slice()
+                .try_into()
+                .expect("block size checked by type"),
+        )
     }
 }
 
@@ -92,7 +97,10 @@ impl CbcEncryptor {
     fn encrypt_block(&mut self, block: &mut CbcPlaintextBlock) -> CbcCiphertextBlock {
         let mut block_array: Array<u8, _> = block.0.into();
         self.encryptor.encrypt_block(&mut block_array);
-        block_array.as_slice().try_into().expect("block size checked by type")
+        block_array
+            .as_slice()
+            .try_into()
+            .expect("block size checked by type")
     }
 }
 
@@ -102,10 +110,7 @@ struct HmacStreamValidator {
 }
 
 impl HmacStreamValidator {
-    fn new(
-        mac_key: &[u8; 32],
-        iv: &Iv,
-    ) -> Self {
+    fn new(mac_key: &[u8; 32], iv: &Iv) -> Self {
         let mut hmac = PbkdfSha256Hmac::new_from_slice(mac_key);
         hmac.update(iv);
         Self { hmac }
@@ -205,15 +210,12 @@ impl CbcPlaintextBlock {
     }
 }
 
-/// Streaming AES-256-CBC + HMAC-SHA256 decryptor. The HMAC is verified only at
-/// [`Self::finalize`]; bytes returned from [`Self::update`] are decrypted but **not yet**
-/// authenticated** and must be treated as untrusted until `finalize` returns `Ok`.
 enum DecryptorState {
     Uninitialized {
         key: Aes256CbcHmacKey,
     },
     Streaming {
-        decryptor: CbcDecryptor,
+        decryptor: Box<CbcDecryptor>,
         integrity_validator: HmacStreamValidator,
         expected_mac: Mac,
     },
@@ -227,7 +229,8 @@ enum DecryptorInitializeWithHeaderError {
 
 impl DecryptorState {
     /// Initializes the decryptor with the stream header. This
-    /// changes the state from `Uninitialized` to `Streaming`, and must be called before any decryption can occur.
+    /// changes the state from `Uninitialized` to `Streaming`, and must be called before any
+    /// decryption can occur.
     fn initialize(
         &mut self,
         header: StreamHeader,
@@ -235,11 +238,8 @@ impl DecryptorState {
         match self {
             Self::Uninitialized { key } => {
                 *self = Self::Streaming {
-                    decryptor: CbcDecryptor::new(&key.enc_key.0, &header.iv),
-                    integrity_validator: HmacStreamValidator::new(
-                        &key.mac_key.0,
-                        &header.iv,
-                    ),
+                    decryptor: Box::new(CbcDecryptor::new(&key.enc_key.0, &header.iv)),
+                    integrity_validator: HmacStreamValidator::new(&key.mac_key.0, &header.iv),
                     expected_mac: header.mac,
                 };
                 Ok(())
@@ -287,6 +287,11 @@ fn read_header(buffer: &mut Vec<u8>) -> Option<StreamHeader> {
     }
 }
 
+/// Streaming AES-256-CBC + HMAC-SHA256 decryptor. The HMAC is verified only when
+/// [`StreamingDecryptor::update`] is called with `last_block = true`; bytes returned from
+/// earlier `update` calls as [`ChunkDecryptionResult::DecryptedChunk`] are decrypted but **not
+/// yet authenticated** and must be treated as untrusted until the terminal
+/// [`ChunkDecryptionResult::FinalDecryptedChunk`] is observed.
 pub struct StreamingAes256CbcHmacDecryptor {
     // Bytes that have been passed in but not yet processed by the crypto implementation.
     // When passing in external data, they are first concatenated to the buffer, then the
@@ -309,8 +314,8 @@ impl StreamingAes256CbcHmacDecryptor {
 }
 
 impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
-    /// Updates the decryptor with a chunk of ciphertext. If `last_block` is false, the chunk must not contain the end of the stream,
-    /// if it is true, it must contain the end of the stream.
+    /// Updates the decryptor with a chunk of ciphertext. If `last_block` is false, the chunk must
+    /// not contain the end of the stream, if it is true, it must contain the end of the stream.
     fn update(&mut self, ciphertext_chunk: &[u8], last_block: bool) -> ChunkDecryptionResult {
         self.buffer.extend_from_slice(ciphertext_chunk);
 
@@ -414,9 +419,12 @@ impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
 }
 
 struct CiphertextBuffer {
-    // Backing store for ciphertext bytes that have been encrypted but not yet emitted. On WASM, this is a JS Uint8Array to avoid copying between Rust and JS memory; on native, this is a Vec<u8>.
+    // Backing store for ciphertext bytes that have been encrypted but not yet emitted. On WASM,
+    // this is a JS Uint8Array to avoid copying between Rust and JS memory; on native, this is a
+    // Vec<u8>.
     inner: Buffer,
-    // The current size of the buffer. This may be larger than the length of the ciphertext currently stored in the buffer, since the buffer grows in blocks.
+    // The current size of the buffer. This may be larger than the length of the ciphertext
+    // currently stored in the buffer, since the buffer grows in blocks.
     size: usize,
     emitted_bytes: usize,
 }
@@ -426,12 +434,14 @@ impl CiphertextBuffer {
         Self {
             inner: Buffer::new(),
             size: 0,
-            emitted_bytes: 0,   
+            emitted_bytes: 0,
         }
     }
 
     fn append(&mut self, data: &CbcCiphertextBlock) {
-        self.inner.copy_from_slice(self.size..self.size + data.len(), data).expect("buffer should grow to fit");
+        self.inner
+            .copy_from_slice(self.size..self.size + data.len(), data)
+            .expect("buffer should grow to fit");
         self.size += data.len();
     }
 
@@ -448,13 +458,12 @@ impl CiphertextBuffer {
             .expect("chunk size is always within bounds of the buffer");
         self.emitted_bytes += chunk_size;
         Some(chunk)
-        
     }
 }
 
 enum EncryptorState {
     Streaming {
-        encryptor: CbcEncryptor, 
+        encryptor: Box<CbcEncryptor>,
         integrity_validator: HmacStreamValidator,
         iv: Iv,
     },
@@ -467,7 +476,7 @@ enum EncryptorState {
 /// and the HMAC is computed over IV || ciphertext, matching the wire format consumed by
 /// [`StreamingAes256CbcHmacDecryptor`]. Because the MAC depends on the entire ciphertext,
 /// the complete wire stream (`IV, ciphertext`) is only emitted once `update` is
-/// called with `last_block = true`, as a single [`ChunkEncryptionResult::FinalEncrypted`].
+/// called with `last_block = true`, as a single [`ChunkEncryptionResult::FinalEncryptedChunk`].
 pub struct StreamingAes256CbcHmacEncryptor {
     // Ciphertext bytes that have been encrypted but not yet emitted. The backing store is a
     // pre-allocated large buffer (released-by-drop on WASM).
@@ -484,27 +493,31 @@ impl StreamingAes256CbcHmacEncryptor {
             _ => return Err(StreamCreationError::WrongKeyType),
         };
 
-        let mut iv: Iv = [0u8; AES256_CBC_IV_SIZE].into();
+        let mut iv: Iv = [0u8; AES256_CBC_IV_SIZE];
         rand::rng().fill_bytes(&mut iv);
 
         Ok(Self {
             ciphertext_buffer: CiphertextBuffer::new(),
             plaintext_buffer: Vec::new(),
             encryptor_state: EncryptorState::Streaming {
-                encryptor: CbcEncryptor::new(&key.enc_key.0, &iv),
+                encryptor: Box::new(CbcEncryptor::new(&key.enc_key.0, &iv)),
                 integrity_validator: HmacStreamValidator::new(&key.mac_key.0, &iv),
                 iv,
-            }
+            },
         })
     }
 }
 
 impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
     fn update(&mut self, plaintext_chunk: &[u8], last_block: bool) -> ChunkEncryptionResult {
-        let (encryptor, stream_validator, iv): (&mut CbcEncryptor, &mut HmacStreamValidator, &Iv) = match &mut self.encryptor_state {
+        let (encryptor, stream_validator, iv): (
+            &mut Box<CbcEncryptor>,
+            &mut HmacStreamValidator,
+            &Iv,
+        ) = match &mut self.encryptor_state {
             EncryptorState::Error | EncryptorState::Done => {
-            return ChunkEncryptionResult::Error;
-            },
+                return ChunkEncryptionResult::Error;
+            }
             EncryptorState::Emitting => {
                 if let Some(chunk) = self.ciphertext_buffer.emit_chunk() {
                     return ChunkEncryptionResult::EncryptedChunk(chunk);
@@ -512,10 +525,14 @@ impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
                     self.encryptor_state = EncryptorState::Done;
                     return ChunkEncryptionResult::FinalEncryptedChunk(Vec::new());
                 }
-            },
-            EncryptorState::Streaming { encryptor, integrity_validator, iv } => (encryptor, integrity_validator, iv),
+            }
+            EncryptorState::Streaming {
+                encryptor,
+                integrity_validator,
+                iv,
+            } => (encryptor, integrity_validator, iv),
         };
-        
+
         self.plaintext_buffer.extend_from_slice(plaintext_chunk);
 
         // Encrypt all full blocks currently in the buffer plaintext buffer.
@@ -536,7 +553,8 @@ impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
         self.plaintext_buffer.append(&mut padding);
 
         let Some(mut block) = read_plaintext_block(&mut self.plaintext_buffer) else {
-            // This should be unreachable, since the padding guarantees exactly one block should be available.
+            // This should be unreachable, since the padding guarantees exactly one block should be
+            // available.
             self.encryptor_state = EncryptorState::Error;
             return ChunkEncryptionResult::Error;
         };
@@ -549,7 +567,7 @@ impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
 
         let header: StreamHeaderBytes = (&StreamHeader { iv: *iv, mac }).into();
         self.encryptor_state = EncryptorState::Emitting;
-        return ChunkEncryptionResult::EncryptedChunk(header.to_vec());
+        ChunkEncryptionResult::EncryptedChunk(header.to_vec())
     }
 }
 
@@ -600,8 +618,7 @@ mod tests {
                 .drain(..chunk_size.min(plaintext_buffer.len()))
                 .collect::<Vec<u8>>();
             match encryptor.update(&chunk, plaintext_buffer.is_empty()) {
-                ChunkEncryptionResult::NeedMoreData => {
-                }
+                ChunkEncryptionResult::NeedMoreData => {}
                 ChunkEncryptionResult::EncryptedChunk(bytes) => {
                     ciphertext_buffer.extend_from_slice(&bytes);
                 }
@@ -623,14 +640,12 @@ mod tests {
 
         let mut ciphertext_buffer = ciphertext.to_vec();
         let mut plaintext_buffer = Vec::new();
-    
         loop {
             let chunk = ciphertext_buffer
                 .drain(..chunk_size.min(ciphertext_buffer.len()))
                 .collect::<Vec<u8>>();
             match decryptor.update(&chunk, ciphertext_buffer.is_empty()) {
-                ChunkDecryptionResult::NeedMoreData => {
-                }
+                ChunkDecryptionResult::NeedMoreData => {}
                 ChunkDecryptionResult::DecryptedChunk(bytes) => {
                     plaintext_buffer.extend_from_slice(&bytes);
                 }
@@ -649,7 +664,7 @@ mod tests {
     fn streaming_encrypt_decrypt_roundtrip() {
         let key = test_key();
         let plaintext = PLAINTEXT;
-        let ciphertext = encrypt_all(&key, &plaintext, 11);
+        let ciphertext = encrypt_all(&key, plaintext, 11);
         let roundtripped = decrypt_all(&key, &ciphertext, 9);
 
         assert_eq!(roundtripped, plaintext);
