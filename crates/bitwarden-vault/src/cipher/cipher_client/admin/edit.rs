@@ -144,12 +144,8 @@ impl CipherAdminClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let enable_cipher_key_encryption = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key_encryption =
+            self.client.flags().get().await.enable_cipher_key_encryption;
 
         edit_cipher(
             key_store,

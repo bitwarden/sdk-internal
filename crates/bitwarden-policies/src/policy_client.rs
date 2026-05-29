@@ -1,13 +1,11 @@
 //! [`PolicyClient`] and its associated extension trait.
 
 use bitwarden_core::Client;
-use bitwarden_organizations::ProfileOrganization;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    filter::{PolicyType, PolicyView},
-    policy_overrides::*,
+    OrganizationUserPolicyContext, PolicyType, PolicyView, policy_overrides::*,
     registry::PolicyRegistry,
 };
 
@@ -55,11 +53,11 @@ impl PolicyClient {
     pub fn filter_by_type(
         &self,
         policies: Vec<PolicyView>,
-        organizations: Vec<ProfileOrganization>,
+        organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
         policy_type: PolicyType,
     ) -> Vec<PolicyView> {
         self.registry
-            .filter_by_type(&policies, &organizations, policy_type)
+            .filter_by_type(&policies, &organization_user_policy_contexts, policy_type)
             .into_iter()
             .cloned()
             .collect()
@@ -97,14 +95,14 @@ mod tests {
         }
     }
 
-    fn organization(id: Uuid) -> ProfileOrganization {
-        ProfileOrganization {
+    fn organization(id: Uuid) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
-            r#type: OrganizationUserType::User,
+            role: OrganizationUserType::User,
             status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
             use_policies: true,
             is_provider_user: false,
-            ..Default::default()
         }
     }
 
@@ -112,26 +110,26 @@ mod tests {
     fn filter_by_type_delegates_to_registry() {
         let org_id = Uuid::new_v4();
         let policies = vec![
-            policy_view(org_id, PolicyType(1), true),
-            policy_view(org_id, PolicyType(2), true),
+            policy_view(org_id, PolicyType::MasterPassword, true),
+            policy_view(org_id, PolicyType::PasswordGenerator, true),
         ];
         let orgs = vec![organization(org_id)];
 
         let client = PolicyClient::new();
-        let result = client.filter_by_type(policies, orgs, PolicyType(1));
+        let result = client.filter_by_type(policies, orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].r#type, PolicyType(1));
+        assert_eq!(result[0].r#type, PolicyType::MasterPassword);
     }
 
     #[test]
     fn filter_by_type_returns_empty_for_no_match() {
         let org_id = Uuid::new_v4();
-        let policies = vec![policy_view(org_id, PolicyType(1), true)];
+        let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = vec![organization(org_id)];
 
         let client = PolicyClient::new();
-        let result = client.filter_by_type(policies, orgs, PolicyType(99));
+        let result = client.filter_by_type(policies, orgs, PolicyType::TwoFactorAuthentication);
 
         assert!(result.is_empty());
     }
@@ -141,7 +139,7 @@ mod tests {
         struct NoExemptionPolicy;
         impl Policy for NoExemptionPolicy {
             fn policy_type(&self) -> PolicyType {
-                PolicyType(1)
+                PolicyType::MasterPassword
             }
             fn exempt_roles(&self) -> &[OrganizationUserType] {
                 &[]
@@ -150,21 +148,21 @@ mod tests {
 
         let org_id = Uuid::new_v4();
         // Owner — normally exempt, but NoExemptionPolicy removes the exemption
-        let policies = vec![policy_view(org_id, PolicyType(1), true)];
-        let orgs = vec![ProfileOrganization {
+        let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
+        let orgs = vec![OrganizationUserPolicyContext {
             id: org_id,
-            r#type: OrganizationUserType::Owner,
+            role: OrganizationUserType::Owner,
             status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
             use_policies: true,
             is_provider_user: false,
-            ..Default::default()
         }];
 
         let registry = PolicyRegistry::builder()
             .register(NoExemptionPolicy)
             .build();
         let client = PolicyClient { registry };
-        let result = client.filter_by_type(policies, orgs, PolicyType(1));
+        let result = client.filter_by_type(policies, orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
     }

@@ -18,6 +18,8 @@ Monorepo crates organized in **four architectural layers**:
 
 - **bitwarden-crypto**: Cryptographic primitives and protocols, key store for securely working with
   keys held in memory.
+- **bitwarden-organization-crypto**: Cryptographic primitives and protocols related to organizations
+  and sharing.
 - **bitwarden-state**: Type-safe Repository pattern for SDK state (client-managed vs SDK-managed)
 - **bitwarden-threading**: ThreadBoundRunner for !Send types in WASM/GUI contexts (uses PhantomData
   marker)
@@ -59,7 +61,7 @@ Monorepo crates organized in **four architectural layers**:
 
 ## Critical Patterns & Rules
 
-### Cryptography (bitwarden-crypto)
+### Cryptography (bitwarden-crypto, bitwarden-organization-crypto)
 
 - **DO NOT modify** without careful consideration - backward compatibility is critical
 - **KeyStoreContext**: Never hold across await points
@@ -69,6 +71,8 @@ Monorepo crates organized in **four architectural layers**:
 - IMPORTANT: Use constant time equality checks
 - Do not expose low-level / hazmat functions from the crypto crate.
 - Do not expose key material from the crypto crate, use key references in the key store instead
+- These are foundational crates, **not** client crates, and _shall not_ depend on `bitwarden-core`
+  or any `bitwarden-core` dependendents.
 
 ### State Management (bitwarden-state)
 
