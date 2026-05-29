@@ -21,10 +21,8 @@ use crate::{
 /// State used to re-initialize an unlocked user's cryptographic state after
 /// `accountCryptographicState` and `V2UpgradeToken` are received in a sync.
 ///
-/// Unlike `InitUserCryptoRequest`, this presumes the SDK is already unlocked
-/// (the user key is already in the key store).
+/// This presumes the SDK is already unlocked (has user key in memory).
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ReinitUserCryptoRequest {
     /// The user's account cryptographic state, encrypted under the user key
@@ -74,6 +72,9 @@ pub enum ReinitUserCryptoError {
 /// Requires the SDK to be unlocked. Replaces the in-memory account
 /// cryptographic state with the provided one, and upgrades the active user key from V1 to V2.
 ///
+/// When mobile implements the state bridge, this expects the v2_upgrade_token to be written to
+/// state and performs local user data key migration.
+///
 /// Intended for mobile clients with `accountCryptographicState` and `V2UpgradeToken` received in
 /// a sync for a V1 -> V2 encryption upgrade. This allows the client to apply the received account
 /// cryptographic state and update to reinitialize the SDK without tearing down and recreating the
@@ -100,10 +101,10 @@ pub(in crate::key_management) async fn reinit_user_crypto(
             .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
             .map_err(|_| ReinitUserCryptoError::CryptoInitialization)?;
 
-        let local_v2_user_key_id = match (current_algorithm, &req.upgrade_token) {
-            (SymmetricKeyAlgorithm::Aes256CbcHmac, token) => {
+        let local_v2_user_key_id = match current_algorithm {
+            SymmetricKeyAlgorithm::Aes256CbcHmac => {
                 info!("V1 user key detected with upgrade token, extracting V2 key");
-                token
+                req.upgrade_token
                     .unwrap_v2(SymmetricKeySlotId::User, &mut ctx)
                     .map_err(|_| ReinitUserCryptoError::InvalidUpgradeToken)?
             }
@@ -127,8 +128,7 @@ pub(in crate::key_management) async fn reinit_user_crypto(
     }
 
     // Re-wrap the local user data key under the new user key (no-op
-    // when not applicable). This reuses the helper that
-    // `initialize_user_local_data_key` already calls.
+    // when not applicable).
     let user_id = client
         .internal
         .get_user_id()
@@ -161,9 +161,6 @@ mod tests {
     const TEST_VECTOR_SIGNING_KEY_V2: &str = "7.g1gcowE6AAERbwMYZQRQAh1FKMmzQLiaGc6jTMc9m6EFWBhYePc2qkCruHAPXgbzXsIP1WVk11ArbLNYUBpifToURlwHKs1je2BwZ1C/5thz4nyNbL0wDaYkRWI9ex1wvB7KhdzC7ltStEd5QttboTSCaXQROSZaGBPNO5+Bu3sTY8F5qK1pBUo6AHNN";
     const TEST_VECTOR_SECURITY_STATE_V2: &str = "hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8CoFgkomhlbnRpdHlJZFBHOOw2BI9OQoNq+Vl1xZZKZ3ZlcnNpb24CWEAlchbJR0vmRfShG8On7Q2gknjkw4Dd6MYBLiH4u+/CmfQdmjNZdf6kozgW/6NXyKVNu8dAsKsin+xxXkDyVZoG";
 
-    /// Build a structurally valid but unrelated `V2UpgradeToken`, suitable for
-    /// tests that need a token to satisfy the request type but expect the
-    /// function to return before the token is unwrapped.
     fn make_mock_upgrade_token() -> V2UpgradeToken {
         let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
