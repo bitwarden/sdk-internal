@@ -5,7 +5,10 @@ use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedInco
 use bitwarden_threading::{cancellation_token, time::sleep};
 use thiserror::Error;
 
-use crate::{DeviceEvent, FollowerMessage, LOOP_COOLDOWN_DURATION, LeaderMessage, LockState, drivers::SharedUnlockDriver};
+use crate::{
+    DeviceEvent, FollowerMessage, LOOP_COOLDOWN_DURATION, LeaderMessage, LockState,
+    drivers::SharedUnlockDriver,
+};
 
 /// Error type for failure to start the shared unlock follower.
 #[bitwarden_error(basic)]
