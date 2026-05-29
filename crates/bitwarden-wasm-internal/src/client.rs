@@ -113,6 +113,11 @@ impl PasswordManagerClient {
         self.0.policies()
     }
 
+    /// IT-administrator-forced (managed) settings operations.
+    pub fn managed_settings(&self) -> ManagedSettingsClient {
+        self.0.managed_settings()
+    }
+
     /// Send related operations.
     pub fn sends(&self) -> SendClient {
         self.0.sends()

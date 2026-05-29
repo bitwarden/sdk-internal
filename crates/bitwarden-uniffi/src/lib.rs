@@ -15,6 +15,8 @@ pub mod crypto;
 pub mod error;
 mod log_callback;
 #[allow(missing_docs)]
+pub mod managed_settings;
+#[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
 pub mod policies;
@@ -121,6 +123,12 @@ impl Client {
     pub fn policies(&self) -> policies::PoliciesClient {
         use bitwarden_policies::PoliciesClientExt;
         policies::PoliciesClient(self.0.0.policies())
+    }
+
+    /// IT-administrator-forced (managed) settings operations.
+    pub fn managed_settings(&self) -> managed_settings::ManagedSettingsBindingClient {
+        use bitwarden_managed_settings::ManagedSettingsClientExt;
+        managed_settings::ManagedSettingsBindingClient(self.0.0.managed_settings())
     }
 
     /// Test method, echoes back the input
