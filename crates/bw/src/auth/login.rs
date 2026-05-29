@@ -80,6 +80,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
     let res = client
         .sync()
         .sync(SyncRequest {
+            force: false,
             exclude_subdomains: None,
         })
         .await?;

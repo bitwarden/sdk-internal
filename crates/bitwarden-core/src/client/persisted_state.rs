@@ -66,6 +66,10 @@ register_setting_key!(
     pub const FLAGS: Flags = "flags"
 );
 register_setting_key!(
+    /// Setting key for the timestamp at which feature flags were last fetched from `/config`.
+    pub const FLAGS_FETCHED_AT: chrono::DateTime<chrono::Utc> = "flags_fetched_at"
+);
+register_setting_key!(
     /// Setting key for authentication tokens.
     pub const AUTHENTICATION_TOKENS: AuthenticationTokens = "authentication_tokens"
 );

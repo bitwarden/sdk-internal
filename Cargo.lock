@@ -879,6 +879,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organization-crypto"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "serde",
+ "subtle",
+ "thiserror 1.0.69",
+ "tsify",
+ "uuid",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-organizations"
 version = "3.0.0"
 dependencies = [
@@ -926,6 +940,7 @@ dependencies = [
  "bitwarden-organizations",
  "chrono",
  "serde",
+ "serde_repr",
  "tsify",
  "uniffi",
  "uuid",
@@ -1290,6 +1305,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-logging",
+ "bitwarden-organization-crypto",
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-server-communication-config",
@@ -1430,6 +1446,7 @@ dependencies = [
  "bitwarden-sync",
  "bitwarden-test",
  "bitwarden-vault",
+ "chrono",
  "clap",
  "clap_complete",
  "color-eyre",
