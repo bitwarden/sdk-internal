@@ -44,6 +44,8 @@ pub struct ServiceAccountAccessPolicyResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub service_account_name: Option<String>,
+    #[serde(rename = "manage", alias = "Manage", default)]
+    pub manage: Option<bool>,
 }
 
 impl ServiceAccountAccessPolicyResponseModel {
@@ -54,6 +56,7 @@ impl ServiceAccountAccessPolicyResponseModel {
             write: None,
             service_account_id: None,
             service_account_name: None,
+            manage: None,
         }
     }
 }

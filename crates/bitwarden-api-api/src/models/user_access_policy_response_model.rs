@@ -50,6 +50,8 @@ pub struct UserAccessPolicyResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub current_user: Option<bool>,
+    #[serde(rename = "manage", alias = "Manage", default)]
+    pub manage: Option<bool>,
 }
 
 impl UserAccessPolicyResponseModel {
@@ -61,6 +63,7 @@ impl UserAccessPolicyResponseModel {
             organization_user_id: None,
             organization_user_name: None,
             current_user: None,
+            manage: None,
         }
     }
 }

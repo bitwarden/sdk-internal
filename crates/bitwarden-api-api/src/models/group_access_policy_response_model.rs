@@ -50,6 +50,8 @@ pub struct GroupAccessPolicyResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub current_user_in_group: Option<bool>,
+    #[serde(rename = "manage", alias = "Manage", default)]
+    pub manage: Option<bool>,
 }
 
 impl GroupAccessPolicyResponseModel {
@@ -61,6 +63,7 @@ impl GroupAccessPolicyResponseModel {
             group_id: None,
             group_name: None,
             current_user_in_group: None,
+            manage: None,
         }
     }
 }
