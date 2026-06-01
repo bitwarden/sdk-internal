@@ -955,6 +955,7 @@ name = "bitwarden-send"
 version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
@@ -963,7 +964,9 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
+ "reqwest",
  "serde",
+ "serde_json",
  "serde_repr",
  "sha2 0.11.0",
  "thiserror 2.0.18",
@@ -973,6 +976,7 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
  "zeroize",
 ]
 
