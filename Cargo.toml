@@ -89,6 +89,8 @@ reqwest-middleware = { version = "0.4.2", features = [
     "multipart",
 ] }
 rsa = "0.10.0-rc.17"
+rustls = { version = "0.23.19", default-features = false }
+rustls-platform-verifier = "0.6.0"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"
