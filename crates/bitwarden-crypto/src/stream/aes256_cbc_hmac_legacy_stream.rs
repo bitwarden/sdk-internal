@@ -37,8 +37,8 @@ use rand::Rng;
 use subtle::ConstantTimeEq;
 
 use super::{
-    ChunkDecryptionResult, ChunkEncryptionResult, StreamCreationError, StreamingDecryptor,
-    StreamingEncryptor,
+    ChunkDecryptionResult, ChunkEncryptionResult, StreamCreationError, StreamDecryptionError,
+    StreamEncryptionError, StreamingDecryptor, StreamingEncryptor,
 };
 use crate::{
     Aes256CbcHmacKey, SymmetricCryptoKey, stream::large_memory_buffer::Buffer,
@@ -324,7 +324,7 @@ impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
             self.decryptor_state,
             DecryptorState::Error | DecryptorState::Done
         ) {
-            return ChunkDecryptionResult::Error;
+            return ChunkDecryptionResult::Error(StreamDecryptionError);
         }
 
         // If the decryptor is uninitialized, it must be initialized before proceeding. The
@@ -334,7 +334,7 @@ impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
             if self.buffer.len() < HEADER_LENGTH {
                 if last_block {
                     self.decryptor_state = DecryptorState::Error;
-                    return ChunkDecryptionResult::Error;
+                    return ChunkDecryptionResult::Error(StreamDecryptionError);
                 }
                 return ChunkDecryptionResult::NeedMoreData;
             }
@@ -342,7 +342,7 @@ impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
                 read_header(&mut self.buffer).expect("header length checked by condition above");
             if self.decryptor_state.initialize(header).is_err() {
                 self.decryptor_state = DecryptorState::Error;
-                return ChunkDecryptionResult::Error;
+                return ChunkDecryptionResult::Error(StreamDecryptionError);
             }
         }
 
@@ -376,13 +376,13 @@ impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
                 // and return an error.
                 if !integrity_validator.validate_stream_end(expected_mac) {
                     self.decryptor_state = DecryptorState::Error;
-                    return ChunkDecryptionResult::Error;
+                    return ChunkDecryptionResult::Error(StreamDecryptionError);
                 }
 
                 // Strip and validate PKCS7 padding from the trailing decrypted block.
                 if decrypted_data.len() < AES256_CBC_BLOCK_SIZE {
                     self.decryptor_state = DecryptorState::Error;
-                    return ChunkDecryptionResult::Error;
+                    return ChunkDecryptionResult::Error(StreamDecryptionError);
                 }
 
                 // The end of the stream is guaranteed to be a PKCS7 padding block. This padding
@@ -401,7 +401,7 @@ impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
                     }
                     Pkcs7ValidationResult::Invalid => {
                         self.decryptor_state = DecryptorState::Error;
-                        return ChunkDecryptionResult::Error;
+                        return ChunkDecryptionResult::Error(StreamDecryptionError);
                     }
                 }
 
@@ -413,7 +413,7 @@ impl StreamingDecryptor for StreamingAes256CbcHmacDecryptor {
         }
 
         // This should be unreachable
-        ChunkDecryptionResult::Error
+        ChunkDecryptionResult::Error(StreamDecryptionError)
     }
 }
 
@@ -438,9 +438,7 @@ impl CiphertextBuffer {
     }
 
     fn append(&mut self, data: &CbcCiphertextBlock) {
-        self.inner
-            .append(data)
-            .expect("buffer should grow to fit");
+        self.inner.append(data).expect("buffer should grow to fit");
         self.size += data.len();
     }
 
@@ -515,7 +513,7 @@ impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
             &Iv,
         ) = match &mut self.encryptor_state {
             EncryptorState::Error | EncryptorState::Done => {
-                return ChunkEncryptionResult::Error;
+                return ChunkEncryptionResult::Error(StreamEncryptionError);
             }
             EncryptorState::Emitting => {
                 if let Some(chunk) = self.ciphertext_buffer.emit_chunk() {
@@ -555,7 +553,7 @@ impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
             // This should be unreachable, since the padding guarantees exactly one block should be
             // available.
             self.encryptor_state = EncryptorState::Error;
-            return ChunkEncryptionResult::Error;
+            return ChunkEncryptionResult::Error(StreamEncryptionError);
         };
 
         let cipher_block = encryptor.encrypt_block(&mut block);
@@ -625,7 +623,7 @@ mod tests {
                     ciphertext_buffer.extend_from_slice(&bytes);
                     break;
                 }
-                ChunkEncryptionResult::Error => panic!("encryption error"),
+                ChunkEncryptionResult::Error(_) => panic!("encryption error"),
             };
         }
 
@@ -653,7 +651,7 @@ mod tests {
                     plaintext_buffer.extend_from_slice(&bytes);
                     break;
                 }
-                ChunkDecryptionResult::Error => panic!("decryption error"),
+                ChunkDecryptionResult::Error(_) => panic!("decryption error"),
             };
         }
 
@@ -679,7 +677,7 @@ mod tests {
             .ok()
             .expect("decryptor construction");
         let result = dec.update(truncated, true);
-        assert!(matches!(result, ChunkDecryptionResult::Error));
+        assert!(matches!(result, ChunkDecryptionResult::Error(_)));
     }
 
     #[test]
@@ -692,7 +690,7 @@ mod tests {
             .ok()
             .expect("decryptor construction");
         let result = dec.update(&modified, true);
-        assert!(matches!(result, ChunkDecryptionResult::Error));
+        assert!(matches!(result, ChunkDecryptionResult::Error(_)));
     }
 
     #[test]
@@ -705,6 +703,6 @@ mod tests {
             .ok()
             .expect("decryptor construction");
         let result = dec.update(&modified, true);
-        assert!(matches!(result, ChunkDecryptionResult::Error));
+        assert!(matches!(result, ChunkDecryptionResult::Error(_)));
     }
 }

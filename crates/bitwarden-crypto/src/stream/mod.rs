@@ -10,6 +10,7 @@ mod large_memory_buffer;
 mod streaming_attachment_cipher;
 
 pub use streaming_attachment_cipher::{StreamingAttachmentDecryptor, StreamingAttachmentEncryptor};
+use thiserror::Error;
 
 /// Error returned by streaming-cipher constructors when the supplied key cannot be used with
 /// that streaming cipher.
@@ -17,6 +18,17 @@ pub(crate) enum StreamCreationError {
     /// The supplied [`crate::SymmetricCryptoKey`] is not the variant this cipher expects.
     WrongKeyType,
 }
+
+/// Opaque error returned when a streaming decryptor fails. The reason (HMAC mismatch, invalid
+/// padding, truncation) is intentionally not distinguished, to avoid leaking which check failed.
+#[derive(Debug, Error)]
+#[error("streaming decryption failed")]
+pub(crate) struct StreamDecryptionError;
+
+/// Opaque error returned when a streaming encryptor fails.
+#[derive(Debug, Error)]
+#[error("streaming encryption failed")]
+pub(crate) struct StreamEncryptionError;
 
 /// Outcome of feeding one chunk of plaintext to a [`StreamingEncryptor::update`].
 pub(crate) enum ChunkEncryptionResult {
@@ -28,7 +40,7 @@ pub(crate) enum ChunkEncryptionResult {
     /// made after this.
     FinalEncryptedChunk(Vec<u8>),
     /// Encryption failed. Discard the entire stream.
-    Error,
+    Error(StreamEncryptionError),
 }
 
 /// Outcome of feeding one chunk of wire bytes to a [`StreamingDecryptor::update`].
@@ -43,7 +55,7 @@ pub(crate) enum ChunkDecryptionResult {
     /// The final chunk of decrypted, authenticated plaintext.
     FinalDecryptedChunk(Vec<u8>),
     /// Decryption failed. Discard the entire stream.
-    Error,
+    Error(StreamDecryptionError),
 }
 
 /// A symmetric streaming encryptor.

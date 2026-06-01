@@ -72,10 +72,7 @@ impl Buffer {
         }
     }
 
-    pub fn append(
-        &mut self,
-        data: &[u8],
-    ) -> Result<(), InvalidIndexError> {
+    pub fn append(&mut self, data: &[u8]) -> Result<(), InvalidIndexError> {
         if self.size + data.len() > self.size {
             self.grow_to_fit(self.size + data.len());
         }
@@ -136,9 +133,7 @@ mod tests {
             .expect("range must be valid");
 
         let position = INITIAL_SIZE;
-        buffer
-            .append(&[6, 7, 8, 9])
-            .expect("range must be valid");
+        buffer.append(&[6, 7, 8, 9]).expect("range must be valid");
 
         assert_eq!(buffer.size, 2 * INITIAL_SIZE);
         assert_eq!(&buffer.index(0..5).unwrap(), &[1, 2, 3, 4, 5]);

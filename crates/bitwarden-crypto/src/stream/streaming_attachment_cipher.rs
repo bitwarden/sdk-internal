@@ -21,7 +21,8 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use crate::{
     CryptoError, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     stream::{
-        ChunkDecryptionResult, ChunkEncryptionResult, StreamingDecryptor, StreamingEncryptor,
+        ChunkDecryptionResult, ChunkEncryptionResult, StreamDecryptionError, StreamEncryptionError,
+        StreamingDecryptor, StreamingEncryptor,
         aes256_cbc_hmac_legacy_stream::{
             StreamingAes256CbcHmacDecryptor, StreamingAes256CbcHmacEncryptor,
         },
@@ -161,11 +162,9 @@ impl<R> StreamingAttachmentDecryptor<R> {
                         self.state = StreamDecryptorState::Done;
                         Ok(())
                     }
-                    ChunkDecryptionResult::Error => {
+                    ChunkDecryptionResult::Error(e) => {
                         self.state = StreamDecryptorState::Error;
-                        Err(io::Error::other(
-                            "streaming attachment: AES-CBC-HMAC decryption error",
-                        ))
+                        Err(io::Error::other(e))
                     }
                 }
             }
@@ -186,9 +185,12 @@ impl<R> StreamingAttachmentDecryptor<R> {
                         self.state = StreamDecryptorState::Done;
                         Ok(())
                     }
-                    _ => Err(io::Error::other(
-                        "streaming attachment: AES-CBC-HMAC finalize failed (truncated or tampered)",
-                    )),
+                    ChunkDecryptionResult::Error(e) => Err(io::Error::other(e)),
+                    // Anything other than the final chunk at finalize means the wire was truncated.
+                    ChunkDecryptionResult::NeedMoreData
+                    | ChunkDecryptionResult::DecryptedChunk(_) => {
+                        Err(io::Error::other(StreamDecryptionError))
+                    }
                 }
             }
             StreamDecryptorState::Done => {
@@ -258,6 +260,12 @@ impl<R: AsyncRead + Unpin> AsyncRead for StreamingAttachmentDecryptor<R> {
     }
 }
 
+/// `io::Error` is neither `Clone` nor `Copy`, so a stored error cannot be returned by value on a
+/// subsequent poll. Reconstruct an equivalent error (kind + message) to re-report it.
+fn clone_io_error(e: &io::Error) -> io::Error {
+    io::Error::new(e.kind(), e.to_string())
+}
+
 enum StreamEncryptorState {
     Aes256CbcHmacLegacyStream {
         encryptor: Box<StreamingAes256CbcHmacEncryptor>,
@@ -267,7 +275,8 @@ enum StreamEncryptorState {
     Finalized,
     /// All bytes flushed to the inner writer and `inner.poll_shutdown` completed.
     Done,
-    Error,
+    /// An error occurred during encryption.
+    Error(io::Error),
 }
 
 /// AsyncWrite adapter that takes plaintext and writes a streaming-attachment-encrypted
@@ -330,15 +339,16 @@ impl<W: AsyncWrite + Unpin> StreamingAttachmentEncryptor<W> {
             match Pin::new(&mut self.inner).poll_write(cx, to_write) {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(Err(e)) => {
-                    self.state = StreamEncryptorState::Error;
+                    self.state = StreamEncryptorState::Error(clone_io_error(&e));
                     return Poll::Ready(Err(e));
                 }
                 Poll::Ready(Ok(0)) => {
-                    self.state = StreamEncryptorState::Error;
-                    return Poll::Ready(Err(io::Error::new(
+                    let e = io::Error::new(
                         io::ErrorKind::WriteZero,
                         "streaming attachment: inner writer accepted 0 bytes",
-                    )));
+                    );
+                    self.state = StreamEncryptorState::Error(clone_io_error(&e));
+                    return Poll::Ready(Err(e));
                 }
                 Poll::Ready(Ok(n)) => {
                     self.pending_head += n;
@@ -359,11 +369,10 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
     ) -> Poll<io::Result<usize>> {
         let this = self.get_mut();
 
-        if matches!(this.state, StreamEncryptorState::Error) {
-            return Poll::Ready(Err(io::Error::other(
-                "streaming attachment: encryptor in error state",
-            )));
+        if let StreamEncryptorState::Error(e) = &this.state {
+            return Poll::Ready(Err(clone_io_error(e)));
         }
+
         if matches!(
             this.state,
             StreamEncryptorState::Finalized | StreamEncryptorState::Done
@@ -377,10 +386,8 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
         if this.poll_drain_pending(cx).is_pending() {
             return Poll::Pending;
         }
-        if matches!(this.state, StreamEncryptorState::Error) {
-            return Poll::Ready(Err(io::Error::other(
-                "streaming attachment: encryptor in error state",
-            )));
+        if let StreamEncryptorState::Error(e) = &this.state {
+            return Poll::Ready(Err(clone_io_error(e)));
         }
 
         if buf.is_empty() {
@@ -407,11 +414,10 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
                 this.state = StreamEncryptorState::Finalized;
                 Poll::Ready(Ok(buf.len()))
             }
-            ChunkEncryptionResult::Error => {
-                this.state = StreamEncryptorState::Error;
-                Poll::Ready(Err(io::Error::other(
-                    "streaming attachment: encryption error",
-                )))
+            ChunkEncryptionResult::Error(e) => {
+                let err = io::Error::other(e);
+                this.state = StreamEncryptorState::Error(clone_io_error(&err));
+                Poll::Ready(Err(err))
             }
         }
     }
@@ -424,6 +430,11 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
         if this.poll_drain_pending(cx).is_pending() {
             return Poll::Pending;
         }
+
+        if let StreamEncryptorState::Error(e) = &this.state {
+            return Poll::Ready(Err(clone_io_error(e)));
+        }
+
         Pin::new(&mut this.inner).poll_flush(cx)
     }
 
@@ -434,10 +445,8 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
         if this.poll_drain_pending(cx).is_pending() {
             return Poll::Pending;
         }
-        if matches!(this.state, StreamEncryptorState::Error) {
-            return Poll::Ready(Err(io::Error::other(
-                "streaming attachment: encryptor in error state",
-            )));
+        if let StreamEncryptorState::Error(e) = &this.state {
+            return Poll::Ready(Err(clone_io_error(e)));
         }
 
         // If we haven't finalized yet, drain all output from the encryptor.
@@ -445,7 +454,12 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
             this.state,
             StreamEncryptorState::Aes256CbcHmacLegacyStream { .. }
         ) {
-            let old = std::mem::replace(&mut this.state, StreamEncryptorState::Error);
+            let old = std::mem::replace(
+                &mut this.state,
+                StreamEncryptorState::Error(io::Error::other(
+                    "streaming attachment: encryptor finalizing",
+                )),
+            );
             let StreamEncryptorState::Aes256CbcHmacLegacyStream { encryptor: mut enc } = old else {
                 unreachable!("matched above");
             };
@@ -458,10 +472,15 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
                         wire.extend_from_slice(&bytes);
                         break;
                     }
-                    ChunkEncryptionResult::NeedMoreData | ChunkEncryptionResult::Error => {
-                        return Poll::Ready(Err(io::Error::other(
-                            "streaming attachment: AES-CBC-HMAC finalize failed",
-                        )));
+                    ChunkEncryptionResult::Error(e) => {
+                        let err = io::Error::other(e);
+                        this.state = StreamEncryptorState::Error(clone_io_error(&err));
+                        return Poll::Ready(Err(err));
+                    }
+                    ChunkEncryptionResult::NeedMoreData => {
+                        let err = io::Error::other(StreamEncryptionError);
+                        this.state = StreamEncryptorState::Error(clone_io_error(&err));
+                        return Poll::Ready(Err(err));
                     }
                 }
             }
@@ -475,10 +494,8 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
         if this.poll_drain_pending(cx).is_pending() {
             return Poll::Pending;
         }
-        if matches!(this.state, StreamEncryptorState::Error) {
-            return Poll::Ready(Err(io::Error::other(
-                "streaming attachment: encryptor in error state",
-            )));
+        if let StreamEncryptorState::Error(e) = &this.state {
+            return Poll::Ready(Err(clone_io_error(e)));
         }
 
         // Shut down the inner writer.
@@ -489,7 +506,7 @@ impl<W: AsyncWrite + Unpin> AsyncWrite for StreamingAttachmentEncryptor<W> {
                 Poll::Ready(Ok(()))
             }
             Poll::Ready(Err(e)) => {
-                this.state = StreamEncryptorState::Error;
+                this.state = StreamEncryptorState::Error(clone_io_error(&e));
                 Poll::Ready(Err(e))
             }
         }
