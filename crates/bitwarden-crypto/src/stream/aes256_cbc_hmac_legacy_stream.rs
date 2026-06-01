@@ -35,7 +35,6 @@ use hkdf::HmacImpl;
 use hybrid_array::Array;
 use rand::Rng;
 use subtle::ConstantTimeEq;
-use zeroize::ZeroizeOnDrop;
 
 use super::{
     ChunkDecryptionResult, ChunkEncryptionResult, StreamCreationError, StreamingDecryptor,
@@ -145,7 +144,7 @@ impl HmacStreamValidator {
     }
 }
 
-#[derive(ZeroizeOnDrop, Clone)]
+#[derive(Clone)]
 struct StreamHeader {
     iv: Iv,
     mac: Mac,
