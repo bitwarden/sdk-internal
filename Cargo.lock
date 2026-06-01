@@ -895,6 +895,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organization-invite-link"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-crypto",
+ "bitwarden-error",
+ "bitwarden-organization-crypto",
+ "serde",
+ "thiserror 1.0.69",
+ "tsify",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-organizations"
 version = "3.0.0"
 dependencies = [
@@ -1312,6 +1325,7 @@ dependencies = [
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-organization-crypto",
+ "bitwarden-organization-invite-link",
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-server-communication-config",

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, EncString, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
 };
-use bitwarden_encoding::{B64, B64Url, FromStrVisitor};
+use bitwarden_encoding::{B64Url, FromStrVisitor};
 use serde::{Deserialize, Serialize};
 use subtle::{Choice, ConstantTimeEq};
 use thiserror::Error;
@@ -95,15 +95,11 @@ impl Serialize for InviteKeyData {
 /// but the inner type must remain private as it may be extended in the future.
 pub struct InviteKeyEnvelope(EncString);
 
+/// Serializes to the Bitwarden EncString text format (e.g. `"2.iv|data|mac"`), which is the
+/// format expected by the server's `EncryptedInviteKey` field validator.
 impl From<&InviteKeyEnvelope> for String {
     fn from(key_data: &InviteKeyEnvelope) -> Self {
-        B64::from(
-            key_data
-                .0
-                .to_buffer()
-                .expect("`to_buffer` never fails for `EncString`"),
-        )
-        .to_string()
+        key_data.0.to_string()
     }
 }
 
@@ -111,11 +107,9 @@ impl FromStr for InviteKeyEnvelope {
     type Err = InviteKeyBundleError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let data = B64::try_from(s).map_err(|_| InviteKeyBundleError::DecodingFailed)?;
-        Ok(InviteKeyEnvelope(
-            EncString::from_buffer(data.as_bytes())
-                .map_err(|_| InviteKeyBundleError::DecodingFailed)?,
-        ))
+        s.parse::<EncString>()
+            .map(InviteKeyEnvelope)
+            .map_err(|_| InviteKeyBundleError::DecodingFailed)
     }
 }
 
