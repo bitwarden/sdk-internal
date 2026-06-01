@@ -299,15 +299,19 @@ impl<W> StreamingAttachmentEncryptor<W> {
         key_slot: Ids::Symmetric,
         ctx: KeyStoreContext<Ids>,
         inner: W,
+        // Total plaintext byte length. Needed only by the AES-256-CBC-HMAC legacy scheme, which
+        // must buffer the entire ciphertext in memory and pre-allocates it from this size.
+        plaintext_size: usize,
     ) -> Result<Self, CryptoError> {
         let key = ctx.get_symmetric_key(key_slot)?;
         let (state, discriminator): (StreamEncryptorState, HeaderDiscriminator) = match &key {
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
-                let encryptor = StreamingAes256CbcHmacEncryptor::try_new(key).map_err(|_| {
-                    CryptoError::OperationNotSupported(
-                        crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey,
-                    )
-                })?;
+                let encryptor = StreamingAes256CbcHmacEncryptor::try_new(key, plaintext_size)
+                    .map_err(|_| {
+                        CryptoError::OperationNotSupported(
+                            crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey,
+                        )
+                    })?;
                 (
                     StreamEncryptorState::Aes256CbcHmacLegacyStream {
                         encryptor: Box::new(encryptor),
@@ -565,7 +569,8 @@ mod tests {
             let key_store: KeyStore<TestIds> = KeyStore::default();
             let mut ctx = key_store.context_mut();
             let key_slot = ctx.add_local_symmetric_key(key);
-            StreamingAttachmentEncryptor::new(key_slot, ctx, sink).expect("encryptor construction")
+            StreamingAttachmentEncryptor::new(key_slot, ctx, sink, plaintext.len())
+                .expect("encryptor construction")
         };
         enc.write_all(plaintext).await.expect("write_all");
         enc.shutdown().await.expect("shutdown");
@@ -641,7 +646,8 @@ mod tests {
             let key_store: KeyStore<TestIds> = KeyStore::default();
             let mut ctx = key_store.context_mut();
             let key_slot = ctx.add_local_symmetric_key(aes_key());
-            StreamingAttachmentEncryptor::new(key_slot, ctx, sink).expect("encryptor construction")
+            StreamingAttachmentEncryptor::new(key_slot, ctx, sink, plaintext.len())
+                .expect("encryptor construction")
         };
         for byte in plaintext {
             enc.write_all(std::slice::from_ref(byte))

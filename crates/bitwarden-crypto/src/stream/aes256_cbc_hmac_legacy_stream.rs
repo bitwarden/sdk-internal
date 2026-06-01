@@ -41,7 +41,8 @@ use super::{
     StreamEncryptionError, StreamingDecryptor, StreamingEncryptor,
 };
 use crate::{
-    Aes256CbcHmacKey, SymmetricCryptoKey, stream::large_memory_buffer::Buffer,
+    Aes256CbcHmacKey, SymmetricCryptoKey,
+    stream::large_memory_buffer::{Buffer, InvalidIndexError},
     util::PbkdfSha256Hmac,
 };
 
@@ -429,17 +430,18 @@ struct CiphertextBuffer {
 }
 
 impl CiphertextBuffer {
-    fn new() -> Self {
+    fn new(capacity: usize) -> Self {
         Self {
-            inner: Buffer::new(),
+            inner: Buffer::new(capacity),
             size: 0,
             emitted_bytes: 0,
         }
     }
 
-    fn append(&mut self, data: &CbcCiphertextBlock) {
-        self.inner.append(data).expect("buffer should grow to fit");
+    fn append(&mut self, data: &CbcCiphertextBlock) -> Result<(), InvalidIndexError> {
+        self.inner.append(data)?;
         self.size += data.len();
+        Ok(())
     }
 
     fn emit_chunk(&mut self) -> Option<Vec<u8>> {
@@ -483,8 +485,13 @@ pub struct StreamingAes256CbcHmacEncryptor {
 }
 
 impl StreamingAes256CbcHmacEncryptor {
-    /// Creates a new encryptor with a fresh random IV.
-    pub(crate) fn try_new(key: &SymmetricCryptoKey) -> Result<Self, StreamCreationError> {
+    /// Creates a new encryptor with a fresh random IV. `plaintext_size` is the total number of
+    /// plaintext bytes that will be fed to the encryptor; it is used to pre-allocate the ciphertext
+    /// buffer to its exact final size so it never has to be resized.
+    pub(crate) fn try_new(
+        key: &SymmetricCryptoKey,
+        plaintext_size: usize,
+    ) -> Result<Self, StreamCreationError> {
         let key = match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => key,
             _ => return Err(StreamCreationError::WrongKeyType),
@@ -493,8 +500,13 @@ impl StreamingAes256CbcHmacEncryptor {
         let mut iv: Iv = [0u8; AES256_CBC_IV_SIZE];
         rand::rng().fill_bytes(&mut iv);
 
+        // The CBC ciphertext is the PKCS7-padded plaintext, which is always rounded up to the next
+        // full block (a full padding block is added when already block-aligned).
+        let ciphertext_capacity =
+            (plaintext_size / AES256_CBC_BLOCK_SIZE + 1) * AES256_CBC_BLOCK_SIZE;
+
         Ok(Self {
-            ciphertext_buffer: CiphertextBuffer::new(),
+            ciphertext_buffer: CiphertextBuffer::new(ciphertext_capacity),
             plaintext_buffer: Vec::new(),
             encryptor_state: EncryptorState::Streaming {
                 encryptor: Box::new(CbcEncryptor::new(&key.enc_key.0, &iv)),
@@ -536,7 +548,10 @@ impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
         while let Some(mut block) = read_plaintext_block(&mut self.plaintext_buffer) {
             let cipher_block = encryptor.encrypt_block(&mut block);
             stream_validator.read_block(&cipher_block);
-            self.ciphertext_buffer.append(&cipher_block);
+            if self.ciphertext_buffer.append(&cipher_block).is_err() {
+                self.encryptor_state = EncryptorState::Error;
+                return ChunkEncryptionResult::Error(StreamEncryptionError);
+            }
         }
 
         if !last_block {
@@ -557,7 +572,10 @@ impl StreamingEncryptor for StreamingAes256CbcHmacEncryptor {
         };
 
         let cipher_block = encryptor.encrypt_block(&mut block);
-        self.ciphertext_buffer.append(&cipher_block);
+        if self.ciphertext_buffer.append(&cipher_block).is_err() {
+            self.encryptor_state = EncryptorState::Error;
+            return ChunkEncryptionResult::Error(StreamEncryptionError);
+        }
 
         stream_validator.read_block(&cipher_block);
         let mac = stream_validator.end_stream();
@@ -603,7 +621,7 @@ mod tests {
     }
 
     fn encrypt_all(key: &SymmetricCryptoKey, plaintext: &[u8], chunk_size: usize) -> Vec<u8> {
-        let mut encryptor = StreamingAes256CbcHmacEncryptor::try_new(key)
+        let mut encryptor = StreamingAes256CbcHmacEncryptor::try_new(key, plaintext.len())
             .ok()
             .expect("encryptor construction");
 

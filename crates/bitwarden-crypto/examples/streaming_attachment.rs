@@ -30,7 +30,7 @@ async fn main() {
             let key_store: KeyStore<ExampleIds> = KeyStore::default();
             let mut ctx = key_store.context_mut();
             let key_slot = ctx.add_local_symmetric_key(key.clone());
-            StreamingAttachmentEncryptor::new(key_slot, ctx, file)
+            StreamingAttachmentEncryptor::new(key_slot, ctx, file, plaintext.len())
                 .expect("AES-CBC-HMAC key is a supported variant")
         };
         enc.write_all(&plaintext).await.expect("write_all");

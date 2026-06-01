@@ -2,17 +2,10 @@
 //! resizing the heap after it has been allocated, so we need to allocate a buffer that can be
 //! released again.
 //!
-//! Allocations are made exponentially to minimize over-allocation while keeping re-allocations low.
+//! The buffer is allocated once to an exact size at construction and is never resized, since
+//! resizing a `Uint8Array` on WASM is slow (it requires allocating a new array and copying).
 //!
 //! This is used for streaming encryption in the legacy format.
-
-/// Buffers are allocated and grown in multiples of this value.
-const INITIAL_SIZE: usize = 8 * 1024 * 1024;
-
-// Gives the size as a multiple of blocks that fits the requested size.
-fn next_size(current: usize, required: usize) -> usize {
-    current.saturating_mul(2).max(required).max(INITIAL_SIZE)
-}
 
 pub struct Buffer {
     // The Uint8Array lives in JS memory, and wasm merely keeps a reference to it in the
@@ -34,27 +27,32 @@ pub struct Buffer {
     #[cfg(not(target_arch = "wasm32"))]
     inner: Vec<u8>,
 
-    size: usize,
+    // Total allocated capacity in bytes. Fixed at construction; the buffer never grows.
+    capacity: usize,
+
+    // Write cursor: the number of bytes appended so far.
+    position: usize,
 }
 
 #[derive(Debug)]
 pub(crate) struct InvalidIndexError;
 
 impl Buffer {
-    pub fn new() -> Self {
+    pub fn new(capacity: usize) -> Self {
         Self {
             #[cfg(target_arch = "wasm32")]
-            inner: js_sys::Uint8Array::new_with_length(INITIAL_SIZE as u32).into(),
+            inner: js_sys::Uint8Array::new_with_length(capacity as u32).into(),
 
             #[cfg(not(target_arch = "wasm32"))]
-            inner: vec![0; INITIAL_SIZE],
+            inner: vec![0; capacity],
 
-            size: INITIAL_SIZE,
+            capacity,
+            position: 0,
         }
     }
 
     pub fn index(&self, index: std::ops::Range<usize>) -> Result<Vec<u8>, InvalidIndexError> {
-        if index.end > self.size || index.start > index.end {
+        if index.end > self.capacity || index.start > index.end {
             return Err(InvalidIndexError);
         }
 
@@ -73,42 +71,24 @@ impl Buffer {
     }
 
     pub fn append(&mut self, data: &[u8]) -> Result<(), InvalidIndexError> {
-        if self.size + data.len() > self.size {
-            self.grow_to_fit(self.size + data.len());
+        if self.position + data.len() > self.capacity {
+            return Err(InvalidIndexError);
         }
 
         #[cfg(target_arch = "wasm32")]
         {
             self.inner
-                .subarray(self.size as u32, (self.size + data.len()) as u32)
+                .subarray(self.position as u32, (self.position + data.len()) as u32)
                 .copy_from(data);
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.inner[self.size..self.size + data.len()].copy_from_slice(data);
+            self.inner[self.position..self.position + data.len()].copy_from_slice(data);
         }
 
+        self.position += data.len();
         Ok(())
-    }
-
-    fn grow_to_fit(&mut self, required: usize) {
-        let new_size = next_size(self.size, required);
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            let new_array = js_sys::Uint8Array::new_with_length(new_size as u32);
-            let old_array = &self.inner;
-            new_array.set(&old_array, 0);
-            self.inner = new_array;
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.inner.resize(new_size, 0);
-        }
-
-        self.size = new_size;
     }
 }
 
@@ -118,7 +98,7 @@ mod tests {
 
     #[test]
     fn test_buffer() {
-        let mut buffer = Buffer::new();
+        let mut buffer = Buffer::new(5);
         buffer
             .append(&[1, 2, 3, 4, 5])
             .expect("range must be valid");
@@ -126,20 +106,18 @@ mod tests {
     }
 
     #[test]
-    fn test_write_past_capacity_grows() {
-        let mut buffer = Buffer::new();
+    fn test_append_advances_write_cursor() {
+        let mut buffer = Buffer::new(9);
         buffer
             .append(&[1, 2, 3, 4, 5])
             .expect("range must be valid");
-
-        let position = INITIAL_SIZE;
         buffer.append(&[6, 7, 8, 9]).expect("range must be valid");
+        assert_eq!(&buffer.index(0..9).unwrap(), &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    }
 
-        assert_eq!(buffer.size, 2 * INITIAL_SIZE);
-        assert_eq!(&buffer.index(0..5).unwrap(), &[1, 2, 3, 4, 5]);
-        assert_eq!(
-            &buffer.index(position..position + 4).unwrap(),
-            &[6, 7, 8, 9]
-        );
+    #[test]
+    fn test_append_past_capacity_errors() {
+        let mut buffer = Buffer::new(4);
+        assert!(buffer.append(&[1, 2, 3, 4, 5]).is_err());
     }
 }
