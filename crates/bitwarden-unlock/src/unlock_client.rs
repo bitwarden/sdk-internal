@@ -1,4 +1,4 @@
-//! Client for locking and unlocking a rehydrated Bitwarden SDK client.
+//! Client for unlocking a rehydrated Bitwarden SDK client.
 
 use bitwarden_core::Client;
 #[cfg(feature = "cli")]
@@ -14,18 +14,18 @@ use crate::SessionKey;
 /// biometric, and device-key unlock are explicitly out of scope.
 pub enum UnlockMethod {
     /// Unlock using a session key previously obtained from
-    /// [`LockingClient::generate_session_key`].
+    /// [`UnlockClient::generate_session_key`].
     SessionKey(SessionKey),
 }
 
-/// Errors returned by [`LockingClient::generate_session_key`] and
-/// [`LockingClient::unlock`].
+/// Errors returned by [`UnlockClient::generate_session_key`] and
+/// [`UnlockClient::unlock`].
 ///
 /// Detailed causes are emitted via `tracing::error!` rather than carried in the
 /// error type, so callers see a uniform failure shape while operators retain
 /// diagnostic visibility through logs.
 #[derive(Debug, thiserror::Error)]
-pub enum LockingError {
+pub enum UnlockError {
     /// An unknown error occurred. See logs for details.
     #[error("An unknown error occurred while unlocking the client")]
     Unknown,
@@ -33,12 +33,12 @@ pub enum LockingError {
 
 /// Client for minting session keys and unlocking the vault with one.
 #[derive(Clone)]
-pub struct LockingClient {
+pub struct UnlockClient {
     #[cfg_attr(not(feature = "cli"), allow(dead_code))]
     pub(crate) client: Client,
 }
 
-impl LockingClient {
+impl UnlockClient {
     pub(crate) fn new(client: Client) -> Self {
         Self { client }
     }
@@ -47,10 +47,10 @@ impl LockingClient {
     ///
     /// Requires the client to be unlocked (the user key must be present in the
     /// key store). The returned [`SessionKey`] should be stored outside the SDK
-    /// by the caller and provided back to [`LockingClient::unlock`] on the next
+    /// by the caller and provided back to [`UnlockClient::unlock`] on the next
     /// rehydrated client.
     #[cfg(feature = "cli")]
-    pub async fn generate_session_key(&self) -> Result<SessionKey, LockingError> {
+    pub async fn generate_session_key(&self) -> Result<SessionKey, UnlockError> {
         use bitwarden_core::key_management::SymmetricKeySlotId;
 
         let (envelope, session_key) = {
@@ -58,7 +58,7 @@ impl LockingClient {
             let mut ctx = key_store.context_mut();
             SessionKey::from_context(SymmetricKeySlotId::User, &mut ctx).map_err(|e| {
                 tracing::error!("Failed to encrypt user key with session key: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?
         };
 
@@ -68,13 +68,13 @@ impl LockingClient {
             .setting(SESSION_PROTECTED_USER_KEY)
             .map_err(|e| {
                 tracing::error!("Failed to read session_protected_user_key setting handle: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?
             .update(envelope)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to save session_protected_user_key: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?;
 
         Ok(session_key)
@@ -86,7 +86,7 @@ impl LockingClient {
     /// the state registry, unwraps the user key, initializes the user's crypto
     /// state, and restores any persisted organization keys.
     #[cfg(feature = "cli")]
-    pub async fn unlock(&self, unlock: UnlockMethod) -> Result<(), LockingError> {
+    pub async fn unlock(&self, unlock: UnlockMethod) -> Result<(), UnlockError> {
         let UnlockMethod::SessionKey(session_key) = unlock;
 
         let state = self.client.platform().state();
@@ -95,34 +95,34 @@ impl LockingClient {
             .setting(SESSION_PROTECTED_USER_KEY)
             .map_err(|e| {
                 tracing::error!("Failed to read session_protected_user_key setting handle: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?
             .get()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to read session_protected_user_key: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?
             .ok_or_else(|| {
                 tracing::error!("Missing session_protected_user_key in database");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?;
 
         let account_crypto_state = state
             .setting(ACCOUNT_CRYPTO_STATE)
             .map_err(|e| {
                 tracing::error!("Failed to read account_crypto_state setting handle: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?
             .get()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to read account_crypto_state: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?
             .ok_or_else(|| {
                 tracing::error!("Missing account_crypto_state in database");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?;
 
         let decrypted_key = {
@@ -132,13 +132,13 @@ impl LockingClient {
                 .unwrap_to_context(&session_protected_user_key, &mut ctx)
                 .map_err(|e| {
                     tracing::error!("Failed to unseal user key with session key: {e}");
-                    LockingError::Unknown
+                    UnlockError::Unknown
                 })?;
             #[allow(deprecated)]
             ctx.dangerous_get_symmetric_key(decrypted_key_id)
                 .map_err(|e| {
                     tracing::error!("Failed to read decrypted user key from key store: {e}");
-                    LockingError::Unknown
+                    UnlockError::Unknown
                 })?
                 .clone()
         };
@@ -148,20 +148,20 @@ impl LockingClient {
             .initialize_user_crypto_decrypted_key(decrypted_key, account_crypto_state, &None)
             .map_err(|e| {
                 tracing::error!("Failed to initialize user crypto with decrypted key: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?;
 
         let org_keys = state
             .get::<OrganizationSharedKey>()
             .map_err(|e| {
                 tracing::error!("Failed to read organization keys repository: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?
             .list()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to list organization keys: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?;
 
         self.client
@@ -169,7 +169,7 @@ impl LockingClient {
             .initialize_org_crypto(org_keys.into_iter().map(|k| (k.org_id, k.key)).collect())
             .map_err(|e| {
                 tracing::error!("Failed to decrypt organization keys: {e}");
-                LockingError::Unknown
+                UnlockError::Unknown
             })?;
 
         Ok(())
@@ -192,15 +192,15 @@ impl LockingClient {
     }
 }
 
-/// Extension trait to add the locking client to the main Bitwarden SDK client.
-pub trait LockingClientExt {
-    /// Get the locking client, exposing lock/unlock operations on the vault.
-    fn locking(&self) -> LockingClient;
+/// Extension trait to add the unlock client to the main Bitwarden SDK client.
+pub trait UnlockClientExt {
+    /// Get the unlock client.
+    fn unlock(&self) -> UnlockClient;
 }
 
-impl LockingClientExt for Client {
-    fn locking(&self) -> LockingClient {
-        LockingClient::new(self.clone())
+impl UnlockClientExt for Client {
+    fn unlock(&self) -> UnlockClient {
+        UnlockClient::new(self.clone())
     }
 }
 
@@ -375,7 +375,7 @@ mod tests {
             .initialize_user_crypto_decrypted_key(user_key, crypto_state, &None)
             .unwrap();
 
-        let _session_key = client.locking().generate_session_key().await.unwrap();
+        let _session_key = client.unlock().generate_session_key().await.unwrap();
 
         let envelope: Option<SymmetricKeyEnvelope> = client
             .platform()
@@ -407,7 +407,7 @@ mod tests {
         );
 
         client
-            .locking()
+            .unlock()
             .unlock(UnlockMethod::SessionKey(session_key))
             .await
             .unwrap();
@@ -441,10 +441,10 @@ mod tests {
         let client = Client::load_from_state(token_handler, reg).await.unwrap();
 
         let result = client
-            .locking()
+            .unlock()
             .unlock(UnlockMethod::SessionKey(session_key))
             .await;
-        assert!(matches!(result, Err(LockingError::Unknown)));
+        assert!(matches!(result, Err(UnlockError::Unknown)));
     }
 
     #[tokio::test]
@@ -473,10 +473,10 @@ mod tests {
         let client = Client::load_from_state(token_handler, reg).await.unwrap();
 
         let result = client
-            .locking()
+            .unlock()
             .unlock(UnlockMethod::SessionKey(session_key))
             .await;
-        assert!(matches!(result, Err(LockingError::Unknown)));
+        assert!(matches!(result, Err(UnlockError::Unknown)));
     }
 
     #[tokio::test]
@@ -491,9 +491,9 @@ mod tests {
 
         let wrong_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let result = client
-            .locking()
+            .unlock()
             .unlock(UnlockMethod::SessionKey(SessionKey(wrong_key)))
             .await;
-        assert!(matches!(result, Err(LockingError::Unknown)));
+        assert!(matches!(result, Err(UnlockError::Unknown)));
     }
 }

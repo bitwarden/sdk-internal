@@ -42,7 +42,6 @@ bitwarden-ffi-macro = { path = "crates/bitwarden-ffi-macro", version = "=3.0.0" 
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=3.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=3.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=3.0.0" }
-bitwarden-locking = { path = "crates/bitwarden-locking", version = "=3.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
@@ -58,6 +57,7 @@ bitwarden-test = { path = "crates/bitwarden-test", version = "=3.0.0" }
 bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=3.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=3.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=3.0.0" }
+bitwarden-unlock = { path = "crates/bitwarden-unlock", version = "=3.0.0" }
 bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-management", version = "=3.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=3.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=3.0.0" }

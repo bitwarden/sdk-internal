@@ -43,9 +43,9 @@ crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platfor
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
 crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bitwarden-locking/** @bitwarden/team-key-management-dev
 crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
+crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
 

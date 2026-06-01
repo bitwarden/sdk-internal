@@ -880,22 +880,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitwarden-locking"
-version = "3.0.0"
-dependencies = [
- "bitwarden-core",
- "bitwarden-crypto",
- "bitwarden-state",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "tsify",
- "uniffi",
- "wasm-bindgen",
- "wasm-bindgen-futures",
-]
-
-[[package]]
 name = "bitwarden-logging"
 version = "3.0.0"
 dependencies = [
@@ -935,12 +919,12 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
- "bitwarden-locking",
  "bitwarden-policies",
  "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-sync",
+ "bitwarden-unlock",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "reqwest-middleware",
@@ -1220,6 +1204,22 @@ name = "bitwarden-uniffi-error"
 version = "3.0.0"
 dependencies = [
  "anyhow",
+]
+
+[[package]]
+name = "bitwarden-unlock"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-state",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

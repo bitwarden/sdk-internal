@@ -9,7 +9,7 @@ use bitwarden_crypto::{
 ///
 /// Callers are responsible for storing this key in a secure location outside
 /// the SDK (e.g. the OS keychain) and providing it back to
-/// [`LockingClient::unlock`](crate::LockingClient::unlock) when reconstructing
+/// [`UnlockClient::unlock`](crate::UnlockClient::unlock) when reconstructing
 /// the client.
 #[derive(PartialEq)] // This is ok because SymmetricCryptoKey implements PartialEq with constant-time equality checks.
 pub struct SessionKey(pub(crate) SymmetricCryptoKey);

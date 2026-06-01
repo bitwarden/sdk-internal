@@ -12,10 +12,10 @@ use bitwarden_core::{
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
-use bitwarden_locking::LockingClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
+use bitwarden_unlock::UnlockClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};
 
@@ -28,10 +28,10 @@ pub mod clients {
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
-    pub use bitwarden_locking::LockingClient;
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::SendClient;
     pub use bitwarden_sync::SyncClient;
+    pub use bitwarden_unlock::UnlockClient;
     pub use bitwarden_vault::VaultClient;
 }
 #[cfg(feature = "bitwarden-license")]
@@ -40,7 +40,7 @@ pub use commercial::CommercialPasswordManagerClient;
 mod builder;
 pub mod migrations;
 pub use bitwarden_core::{RehydrationError, SaveStateData};
-pub use bitwarden_locking::{LockingError, SessionKey, UnlockMethod};
+pub use bitwarden_unlock::{SessionKey, UnlockError, UnlockMethod};
 pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
@@ -156,9 +156,9 @@ impl PasswordManagerClient {
             .has_symmetric_key(SymmetricKeySlotId::User)
     }
 
-    /// Lock and unlock operations
-    pub fn locking(&self) -> bitwarden_locking::LockingClient {
-        self.0.locking()
+    /// Unlock operations
+    pub fn unlock(&self) -> bitwarden_unlock::UnlockClient {
+        self.0.unlock()
     }
 
     /// Write rehydration state to a StateRegistry.

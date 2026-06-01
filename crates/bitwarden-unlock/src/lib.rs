@@ -4,8 +4,8 @@
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 
-mod locking_client;
 mod session_key;
+mod unlock_client;
 
-pub use locking_client::{LockingClient, LockingClientExt, LockingError, UnlockMethod};
 pub use session_key::SessionKey;
+pub use unlock_client::{UnlockClient, UnlockClientExt, UnlockError, UnlockMethod};
