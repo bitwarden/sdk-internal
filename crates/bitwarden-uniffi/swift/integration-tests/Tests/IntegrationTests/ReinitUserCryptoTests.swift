@@ -17,7 +17,7 @@ final class ReinitUserCryptoTests: XCTestCase {
 
         let req = ReinitUserCryptoRequest(
             accountCryptographicState: makeV2AccountCryptographicState(),
-            upgradeToken: makeDummyUpgradeToken()
+            upgradeToken: makeMockUpgradeToken()
         )
 
         do {
@@ -36,7 +36,7 @@ final class ReinitUserCryptoTests: XCTestCase {
 
         let req = ReinitUserCryptoRequest(
             accountCryptographicState: makeV2AccountCryptographicState(),
-            upgradeToken: makeDummyUpgradeToken()
+            upgradeToken: makeMockUpgradeToken()
         )
 
         do {
@@ -51,11 +51,14 @@ final class ReinitUserCryptoTests: XCTestCase {
     }
 
     func testUpgradesV1ToV2WithValidToken() async throws {
-        let client = try await makeV1AlignedClient(stateBridge: stateBridge)
+        let client = try await makeV1InitializedClient(stateBridge: stateBridge)
+
+        let upgradeToken = makeValidUpgradeToken()
+        await stateBridge.setV2UpgradeToken(value: upgradeToken)
 
         let req = ReinitUserCryptoRequest(
             accountCryptographicState: makeV2AccountCryptographicState(),
-            upgradeToken: makeValidUpgradeToken()
+            upgradeToken: upgradeToken
         )
 
         try await client.crypto().reinitUserCrypto(req: req)
@@ -68,11 +71,11 @@ final class ReinitUserCryptoTests: XCTestCase {
     }
 
     func testInvalidUpgradeTokenReturnsError() async throws {
-        let client = try await makeV1AlignedClient(stateBridge: stateBridge)
+        let client = try await makeV1InitializedClient(stateBridge: stateBridge)
 
         let req = ReinitUserCryptoRequest(
             accountCryptographicState: makeV2AccountCryptographicState(),
-            upgradeToken: makeDummyUpgradeToken()
+            upgradeToken: makeMockUpgradeToken()
         )
 
         do {

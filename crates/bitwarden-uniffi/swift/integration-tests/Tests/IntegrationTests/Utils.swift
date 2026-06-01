@@ -14,13 +14,13 @@ let MASTER_KEY_WRAPPED_USER_KEY =
 // PBKDF2 600k, V1 wrapped account state.
 // Used by reinit tests that need a V1 client whose user key matches
 // the V1 user key used to mint the captured upgrade-token vectors below.
-let V1_ALIGNED_USER_ID = "060000fb-0922-4dd3-b170-6e15cb5df8c8"
-let V1_ALIGNED_KDF_ITERATIONS: UInt32 = 600_000
+let TEST_VECTOR_USER_ID_V1 = "060000fb-0922-4dd3-b170-6e15cb5df8c8"
+let TEST_VECTOR_KDF_ITERATIONS_V1: UInt32 = 600_000
 
-let V1_ALIGNED_PRIVATE_KEY =
+let TEST_VECTOR_PRIVATE_KEY_V1 =
     "2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4="
 
-let V1_ALIGNED_MASTER_KEY_WRAPPED_USER_KEY =
+let TEST_VECTOR_MASTER_KEY_WRAPPED_USER_KEY_V1 =
     "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE="
 
 // V2 wrapped account state and as the expected user key after V1→V2 reinit.
@@ -126,20 +126,20 @@ func makeInitializedClient(stateBridge: InMemoryStateBridge) async throws -> Cli
 /// Builds a V1 `Client` matching the `test_bitwarden_com_account` Rust fixture
 /// (PBKDF2 600k, V1 wrapped account state). The resulting in-memory V1 user key
 /// is the one used to mint `VALID_UPGRADE_TOKEN_WRAPPED_UK*`.
-func makeV1AlignedClient(stateBridge: InMemoryStateBridge) async throws -> Client {
+func makeV1InitializedClient(stateBridge: InMemoryStateBridge) async throws -> Client {
     let client = Client(tokenProvider: MockTokenProvider(), settings: nil)
     client.kmStateBridge().registerBridgeImpl(bridgeImpl: stateBridge)
 
     let req = InitUserCryptoRequest(
-        userId: V1_ALIGNED_USER_ID,
-        kdfParams: .pbkdf2(iterations: V1_ALIGNED_KDF_ITERATIONS),
+        userId: TEST_VECTOR_USER_ID_V1,
+        kdfParams: .pbkdf2(iterations: TEST_VECTOR_KDF_ITERATIONS_V1),
         email: TEST_EMAIL,
-        accountCryptographicState: .v1(privateKey: V1_ALIGNED_PRIVATE_KEY),
+        accountCryptographicState: .v1(privateKey: TEST_VECTOR_PRIVATE_KEY_V1),
         method: .masterPasswordUnlock(
             password: TEST_PASSWORD,
             masterPasswordUnlock: MasterPasswordUnlockData(
-                kdf: .pbkdf2(iterations: V1_ALIGNED_KDF_ITERATIONS),
-                masterKeyWrappedUserKey: V1_ALIGNED_MASTER_KEY_WRAPPED_USER_KEY,
+                kdf: .pbkdf2(iterations: TEST_VECTOR_KDF_ITERATIONS_V1),
+                masterKeyWrappedUserKey: TEST_VECTOR_MASTER_KEY_WRAPPED_USER_KEY_V1,
                 salt: TEST_EMAIL
             )
         ),
@@ -157,7 +157,7 @@ func makeV2InitializedClient(stateBridge: InMemoryStateBridge) async throws -> C
     client.kmStateBridge().registerBridgeImpl(bridgeImpl: stateBridge)
 
     let req = InitUserCryptoRequest(
-        userId: V1_ALIGNED_USER_ID,
+        userId: TEST_VECTOR_USER_ID_V1,
         kdfParams: .argon2id(iterations: 6, memory: 32, parallelism: 4),
         email: TEST_EMAIL,
         accountCryptographicState: makeV2AccountCryptographicState(),
@@ -169,7 +169,7 @@ func makeV2InitializedClient(stateBridge: InMemoryStateBridge) async throws -> C
     return client
 }
 
-/// V2 wrapped account state from the test vectors. Decrypts cleanly only when
+/// V2 wrapped account state from the test vectors. Decrypts only when
 /// paired with the V2 user key (`TEST_VECTOR_USER_KEY_V2_B64`).
 func makeV2AccountCryptographicState() -> WrappedAccountCryptographicState {
     .v2(
@@ -181,7 +181,7 @@ func makeV2AccountCryptographicState() -> WrappedAccountCryptographicState {
 }
 
 /// Builds a `V2UpgradeToken` from the captured valid wrapped strings. Pairs
-/// with the V1 user key derived from `makeV1AlignedClient`.
+/// with the V1 user key derived from `makeV1InitializedClient`.
 func makeValidUpgradeToken() -> V2UpgradeToken {
     V2UpgradeToken(
         wrappedUserKey1: VALID_UPGRADE_TOKEN_WRAPPED_UK1,
@@ -190,10 +190,10 @@ func makeValidUpgradeToken() -> V2UpgradeToken {
 }
 
 /// Structurally valid `V2UpgradeToken` whose wrapped keys are bound to unrelated
-/// V1/V2 keys, so unwrapping with the V1-aligned client's user key fails.
+/// V1/V2 keys, so unwrapping with the V1 client's user key fails.
 /// Useful both for the `InvalidUpgradeToken` test and as a placeholder where
 /// reinit is expected to error out before unwrapping.
-func makeDummyUpgradeToken() -> V2UpgradeToken {
+func makeMockUpgradeToken() -> V2UpgradeToken {
     V2UpgradeToken(
         wrappedUserKey1: MISMATCHED_UPGRADE_TOKEN_WRAPPED_UK1,
         wrappedUserKey2: MISMATCHED_UPGRADE_TOKEN_WRAPPED_UK2
