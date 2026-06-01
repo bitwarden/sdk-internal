@@ -38,7 +38,7 @@ pub struct Buffer {
 }
 
 #[derive(Debug)]
-pub(crate) struct OutOfBoundsError;
+pub(crate) struct InvalidIndexError;
 
 impl Buffer {
     pub fn new() -> Self {
@@ -53,9 +53,9 @@ impl Buffer {
         }
     }
 
-    pub fn index(&self, index: std::ops::Range<usize>) -> Result<Vec<u8>, OutOfBoundsError> {
-        if index.end > self.size {
-            return Err(OutOfBoundsError);
+    pub fn index(&self, index: std::ops::Range<usize>) -> Result<Vec<u8>, InvalidIndexError> {
+        if index.end > self.size || index.start > index.end {
+            return Err(InvalidIndexError);
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -72,25 +72,24 @@ impl Buffer {
         }
     }
 
-    pub fn copy_from_slice(
+    pub fn append(
         &mut self,
-        index: std::ops::Range<usize>,
         data: &[u8],
-    ) -> Result<(), OutOfBoundsError> {
-        if index.end > self.size {
-            self.grow_to_fit(index.end);
+    ) -> Result<(), InvalidIndexError> {
+        if self.size + data.len() > self.size {
+            self.grow_to_fit(self.size + data.len());
         }
 
         #[cfg(target_arch = "wasm32")]
         {
             self.inner
-                .subarray(index.start as u32, index.end as u32)
+                .subarray(self.size as u32, (self.size + data.len()) as u32)
                 .copy_from(data);
         }
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.inner[index].copy_from_slice(data);
+            self.inner[self.size..self.size + data.len()].copy_from_slice(data);
         }
 
         Ok(())
@@ -124,7 +123,7 @@ mod tests {
     fn test_buffer() {
         let mut buffer = Buffer::new();
         buffer
-            .copy_from_slice(0..5, &[1, 2, 3, 4, 5])
+            .append(&[1, 2, 3, 4, 5])
             .expect("range must be valid");
         assert_eq!(&buffer.index(0..5).unwrap(), &[1, 2, 3, 4, 5]);
     }
@@ -133,12 +132,12 @@ mod tests {
     fn test_write_past_capacity_grows() {
         let mut buffer = Buffer::new();
         buffer
-            .copy_from_slice(0..5, &[1, 2, 3, 4, 5])
+            .append(&[1, 2, 3, 4, 5])
             .expect("range must be valid");
 
         let position = INITIAL_SIZE;
         buffer
-            .copy_from_slice(position..position + 4, &[6, 7, 8, 9])
+            .append(&[6, 7, 8, 9])
             .expect("range must be valid");
 
         assert_eq!(buffer.size, 2 * INITIAL_SIZE);

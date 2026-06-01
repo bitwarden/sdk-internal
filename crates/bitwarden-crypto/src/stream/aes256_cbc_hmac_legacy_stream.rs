@@ -439,7 +439,7 @@ impl CiphertextBuffer {
 
     fn append(&mut self, data: &CbcCiphertextBlock) {
         self.inner
-            .copy_from_slice(self.size..self.size + data.len(), data)
+            .append(data)
             .expect("buffer should grow to fit");
         self.size += data.len();
     }
