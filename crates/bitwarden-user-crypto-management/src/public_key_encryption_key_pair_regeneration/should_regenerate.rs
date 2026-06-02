@@ -86,7 +86,7 @@ async fn check_key_pair(
     // Step 3: Fetch key pair from server. A 404 means the user has no keys at all.
     let keys_response = match api_client.accounts_api().get_keys().await {
         Ok(response) => response,
-        Err(bitwarden_api_api::apis::Error::ResponseError(e))
+        Err(bitwarden_api_api::apis::Error::Response(e))
             if e.status == reqwest::StatusCode::NOT_FOUND =>
         {
             info!("User has no public key encryption key pair (404), regeneration needed");
@@ -348,11 +348,10 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_api.expect_get_keys().once().returning(|| {
-                Err(bitwarden_api_api::apis::Error::ResponseError(
+                Err(bitwarden_api_api::apis::Error::Response(
                     bitwarden_api_api::apis::ResponseContent {
                         status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                        content: "Internal Server Error".to_string(),
-                        entity: None,
+                        message: "Internal Server Error".to_string(),
                     },
                 ))
             });
@@ -374,11 +373,10 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_api.expect_get_keys().once().returning(|| {
-                Err(bitwarden_api_api::apis::Error::ResponseError(
+                Err(bitwarden_api_api::apis::Error::Response(
                     bitwarden_api_api::apis::ResponseContent {
                         status: reqwest::StatusCode::NOT_FOUND,
-                        content: "Not Found".to_string(),
-                        entity: None,
+                        message: "Not Found".to_string(),
                     },
                 ))
             });
