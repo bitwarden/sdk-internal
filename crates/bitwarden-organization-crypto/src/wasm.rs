@@ -1,9 +1,10 @@
 //! The wasm module holds serialization/encoding needed wasm bindings for
 //! any types related to InviteKeyEnvelope. This means base64url for the
-//! InviteKeyData type, and  base64 for the InviteKey type. In order to minimize
-//! complexity, the actual  B64/B64Url encoding/decoding are limited to the
-//! `From<String>` and `FromStr`  implementations. All other serialization
-//! goes through String to simplify maintenance.
+//! InviteKeyData type, and Bitwarden EncString text format (`"2.iv|data|mac"`)
+//! for the InviteKeyEnvelope type. In order to minimize complexity, the actual
+//! encoding/decoding is limited to the `From<String>` and `FromStr`
+//! implementations. All other serialization goes through String to simplify
+//! maintenance.
 use std::str::FromStr;
 
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
