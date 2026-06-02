@@ -69,9 +69,20 @@ pub struct Cipher {
 
     pub fields: Vec<Field>,
 
+    pub password_history: Option<Vec<PasswordHistory>>,
+
     pub revision_date: DateTime<Utc>,
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
+}
+
+/// Export representation of a single password history entry.
+#[allow(missing_docs)]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+pub struct PasswordHistory {
+    pub password: String,
+    pub last_used_date: DateTime<Utc>,
 }
 
 /// Import representation of a Bitwarden cipher.

@@ -31,10 +31,13 @@ pub trait SendsApi: Send + Sync {
         &self,
         id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error>;
+    ) -> Result<models::SendAccessResponseModel, Error>;
 
     /// POST /sends/access
-    async fn access_using_auth(&self) -> Result<(), Error>;
+    async fn access_using_auth<'a>(
+        &self,
+        access_token: &'a str,
+    ) -> Result<models::SendAccessResponseModel, Error>;
 
     /// POST /sends/file/validate/azure
     async fn azure_validate_file(&self) -> Result<(), Error>;
@@ -54,13 +57,14 @@ pub trait SendsApi: Send + Sync {
         encoded_send_id: &'a str,
         file_id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error>;
+    ) -> Result<models::SendFileDownloadDataResponseModel, Error>;
 
     /// POST /sends/access/file/{fileId}
     async fn get_send_file_download_data_using_auth<'a>(
         &self,
         file_id: &'a str,
-    ) -> Result<(), Error>;
+        access_token: &'a str,
+    ) -> Result<models::SendFileDownloadDataResponseModel, Error>;
 
     /// POST /sends
     async fn post<'a>(
@@ -122,7 +126,7 @@ impl SendsApi for SendsApiClient {
         &self,
         id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error> {
+    ) -> Result<models::SendAccessResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -135,13 +139,15 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&send_access_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn access_using_auth(&self) -> Result<(), Error> {
+    async fn access_using_auth<'a>(
+        &self,
+        access_token: &'a str,
+    ) -> Result<models::SendAccessResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -150,9 +156,12 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.header(
+            reqwest::header::AUTHORIZATION,
+            format!("Bearer {}", access_token),
+        );
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn azure_validate_file(&self) -> Result<(), Error> {
@@ -166,8 +175,6 @@ impl SendsApi for SendsApiClient {
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
@@ -227,7 +234,7 @@ impl SendsApi for SendsApiClient {
         encoded_send_id: &'a str,
         file_id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<(), Error> {
+    ) -> Result<models::SendFileDownloadDataResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -241,16 +248,16 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&send_access_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_send_file_download_data_using_auth<'a>(
         &self,
         file_id: &'a str,
-    ) -> Result<(), Error> {
+        access_token: &'a str,
+    ) -> Result<models::SendFileDownloadDataResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -263,9 +270,12 @@ impl SendsApi for SendsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.header(
+            reqwest::header::AUTHORIZATION,
+            format!("Bearer {}", access_token),
+        );
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post<'a>(

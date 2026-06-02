@@ -27,6 +27,7 @@ bitwarden-generators = { workspace = true }
 bitwarden-pm = { workspace = true, features = ["cli"] }
 bitwarden-sync = { workspace = true }
 bitwarden-vault = { workspace = true }
+chrono = { workspace = true }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 clap_complete = "4.5.55"
 color-eyre = "0.6.3"

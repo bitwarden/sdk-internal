@@ -63,6 +63,12 @@ pub struct OrganizationUser {
     )]
     pub status: Option<models::OrganizationUserStatusType>,
     #[serde(
+        rename = "statusNew",
+        alias = "StatusNew",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub status_new: Option<models::OrganizationUserStatusTypeNew>,
+    #[serde(
         rename = "type",
         alias = "R#type",
         skip_serializing_if = "Option::is_none"
@@ -129,6 +135,7 @@ impl OrganizationUser {
             key: None,
             reset_password_key: None,
             status: None,
+            status_new: None,
             r#type: None,
             external_id: None,
             creation_date: None,

@@ -159,6 +159,26 @@ impl From<V2UpgradeToken> for V2UpgradeTokenRequestModel {
     }
 }
 
+impl TryFrom<V2UpgradeTokenRequestModel> for V2UpgradeToken {
+    type Error = V2UpgradeTokenError;
+
+    fn try_from(request: V2UpgradeTokenRequestModel) -> Result<Self, Self::Error> {
+        let wrapped_user_key_1 = request
+            .wrapped_user_key1
+            .parse()
+            .map_err(|_| V2UpgradeTokenError::RequestMalformed)?;
+        let wrapped_user_key_2 = request
+            .wrapped_user_key2
+            .parse()
+            .map_err(|_| V2UpgradeTokenError::RequestMalformed)?;
+
+        Ok(V2UpgradeToken {
+            wrapped_user_key_1,
+            wrapped_user_key_2,
+        })
+    }
+}
+
 /// Errors that can occur when working with V2UpgradeToken
 #[derive(Debug, Error)]
 pub enum V2UpgradeTokenError {
@@ -183,6 +203,9 @@ pub enum V2UpgradeTokenError {
     /// Response model is malformed (missing or unparseable fields)
     #[error("Response model malformed")]
     ResponseModelMalformed,
+    /// Request model is malformed (missing or unparseable fields)
+    #[error("Request model malformed")]
+    RequestMalformed,
 }
 
 #[cfg(test)]

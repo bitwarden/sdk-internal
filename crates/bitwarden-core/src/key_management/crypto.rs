@@ -299,6 +299,13 @@ pub(super) async fn initialize_user_crypto(
                 .context()
                 .dangerous_get_symmetric_key(SymmetricKeySlotId::User)?
                 .to_owned();
+            // Otherwise the initialize will fail with a double init error.
+            client
+                .internal
+                .get_key_store()
+                .context_mut()
+                .drop_symmetric_key(SymmetricKeySlotId::User)?;
+
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
@@ -1656,10 +1663,12 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: make_key_pair(user_key.try_into().unwrap())
+                account_cryptographic_state: {
+                    let store: KeyStore<KeySlotIds> = KeyStore::default();
+                    let mut ctx = store.context_mut();
+                    WrappedAccountCryptographicState::make_v1(&mut ctx)
                         .unwrap()
-                        .user_key_encrypted_private_key,
+                        .1
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: user_key.to_string(),
@@ -1683,10 +1692,12 @@ mod tests {
                     iterations: 600_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: make_key_pair(user_key.try_into().unwrap())
+                account_cryptographic_state: {
+                    let store: KeyStore<KeySlotIds> = KeyStore::default();
+                    let mut ctx = store.context_mut();
+                    WrappedAccountCryptographicState::make_v1(&mut ctx)
                         .unwrap()
-                        .user_key_encrypted_private_key,
+                        .1
                 },
                 method: InitUserCryptoMethod::PinEnvelope {
                     pin: test_pin.to_string(),
@@ -1698,6 +1709,66 @@ mod tests {
         )
         .await
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_pin_state() {
+        use crate::key_management::pin_lock_system::PinLockType;
+
+        let client1 = Client::init_test_account(test_bitwarden_com_account()).await;
+        client1
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+
+        PinLockSystem::with_client(&client1)
+            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .await
+            .expect("set_pin succeeds");
+
+        let persistent_envelope = client1
+            .km_state_bridge()
+            .get_persistent_pin_envelope()
+            .await
+            .expect("persistent pin envelope present after BFU set_pin");
+        let encrypted_pin = client1
+            .km_state_bridge()
+            .get_encrypted_pin()
+            .await
+            .expect("encrypted pin present after set_pin");
+
+        // Fresh client simulating an app restart with the same persisted PIN state.
+        let client2 = Client::init_test_account(test_bitwarden_com_account()).await;
+        client2
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+        client2
+            .km_state_bridge()
+            .set_persistent_pin_envelope(&persistent_envelope)
+            .await;
+        client2
+            .km_state_bridge()
+            .set_encrypted_pin(&encrypted_pin)
+            .await;
+
+        let client1_key = {
+            let key_store = client1.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+                .unwrap()
+                .to_owned()
+        };
+
+        let client2_key = {
+            let key_store = client2.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+                .unwrap()
+                .to_owned()
+        };
+
+        assert_eq!(client1_key, client2_key);
     }
 
     #[test]
