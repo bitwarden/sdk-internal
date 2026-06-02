@@ -824,6 +824,7 @@ dependencies = [
 name = "bitwarden-generators"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-api-base",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
