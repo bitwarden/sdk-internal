@@ -12,6 +12,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  check:
+    name: Check Style
+    runs-on: ubuntu-24.04
+    needs: style
+    if: always()
+    steps:
+      - name: Verify all style checks passed
+        if: ${{ needs.style.result != 'success' }}
+        run: exit 1
+
   style:
     name: ${{ matrix.check }}
 
