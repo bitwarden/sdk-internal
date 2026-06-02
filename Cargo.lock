@@ -870,14 +870,25 @@ dependencies = [
 name = "bitwarden-logging"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-logging-macro",
  "chrono",
  "criterion",
  "serde",
  "serde_json",
  "tracing",
  "tracing-subscriber",
+ "trybuild",
  "tsify",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "bitwarden-logging-macro"
+version = "3.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
