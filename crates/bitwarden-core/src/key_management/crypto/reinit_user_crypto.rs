@@ -65,15 +65,17 @@ pub enum ReinitUserCryptoError {
     /// An error occurred during the cryptographic operations to re-initialize user crypto.
     #[error("Cryptography Initialization error")]
     CryptoInitialization,
+    /// The SDK does not have a state bridge registered, which is required to perform V1->V2 local
+    /// data migrations.
+    #[error("No state bridge registered, re-initialization is not supported")]
+    StateBridgeNotRegistered,
 }
 
 /// Re-initialize the user's cryptographic state during an unlock session.
 ///
-/// Requires the SDK to be unlocked. Replaces the in-memory account
-/// cryptographic state with the provided one, and upgrades the active user key from V1 to V2.
-///
-/// When mobile implements the state bridge, this expects the v2_upgrade_token to be written to
-/// state and performs local user data key and pin key migrations.
+/// Requires the SDK to be unlocked and the client to have registered a state bridge. Replaces the
+/// in-memory account cryptographic state with the provided one, and upgrades the active user key
+/// from V1 to V2. Performs local data migrations for the local user data key and pin key.
 ///
 /// Intended for mobile clients with `accountCryptographicState` and `V2UpgradeToken` received in
 /// a sync for a V1 -> V2 encryption upgrade. This allows the client to apply the received account
@@ -88,6 +90,11 @@ pub(crate) async fn reinit_user_crypto(
         WrappedAccountCryptographicState::V2 { .. }
     ) {
         return Err(ReinitUserCryptoError::InvalidAccountCryptographicState);
+    }
+
+    if !client.internal.state_bridge.is_registered() {
+        warn!("No state bridge registered, re-initialization is not supported.");
+        return Err(ReinitUserCryptoError::StateBridgeNotRegistered);
     }
 
     {
@@ -126,6 +133,12 @@ pub(crate) async fn reinit_user_crypto(
                 ReinitUserCryptoError::CryptoInitialization
             })?;
     }
+
+    client
+        .internal
+        .state_bridge
+        .set_v2_upgrade_token(&req.upgrade_token)
+        .await;
 
     super::on_unlock_handler(client).await.map_err(|e| {
         error!(error = ?e, "Failure in on_unlock_handler during reinit_user_crypto.");
@@ -168,6 +181,12 @@ mod tests {
         V2UpgradeToken::create(v1_id, v2_id, &ctx).unwrap()
     }
 
+    fn register_in_memory_bridge(client: &Client) {
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+    }
+
     /// Assert that the client's active user key is V2 and matches `expected_v2_key`.
     fn assert_active_user_key_is_v2(client: &Client, expected_v2_key: &SymmetricCryptoKey) {
         let key_store = client.internal.get_key_store();
@@ -208,6 +227,7 @@ mod tests {
     #[tokio::test]
     async fn reinit_user_crypto_returns_not_unlocked_when_locked() {
         let client = Client::new_test(None);
+        register_in_memory_bridge(&client);
 
         let result = reinit_user_crypto(
             &client,
@@ -227,6 +247,7 @@ mod tests {
     #[tokio::test]
     async fn reinit_user_crypto_returns_already_v2_when_active_user_is_v2() {
         let client = Client::init_test_account(test_bitwarden_com_account_v2()).await;
+        register_in_memory_bridge(&client);
 
         let result = reinit_user_crypto(
             &client,
@@ -246,6 +267,7 @@ mod tests {
     #[tokio::test]
     async fn reinit_user_crypto_upgrades_v1_to_v2_with_token() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        register_in_memory_bridge(&client);
 
         // Build a V2 user key, install it into a temporary local slot, and
         // create an upgrade token linking the active V1 user key to it.
@@ -257,19 +279,11 @@ mod tests {
             V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap()
         };
 
-        client
-            .km_state_bridge()
-            .register_bridge(Box::new(InMemoryStateBridge::default()));
-        client
-            .km_state_bridge()
-            .set_v2_upgrade_token(&upgrade_token.clone())
-            .await;
-
         reinit_user_crypto(
             &client,
             ReinitUserCryptoRequest {
                 account_cryptographic_state: test_vector_v2_account_state(),
-                upgrade_token,
+                upgrade_token: upgrade_token.clone(),
             },
         )
         .await
@@ -295,11 +309,27 @@ mod tests {
                 "user private key must be set after V1→V2 upgrade"
             );
         }
+
+        let stored_token = client
+            .internal
+            .state_bridge
+            .get_v2_upgrade_token()
+            .await
+            .expect("the upgrade token must be set on the state bridge after reinit");
+        assert_eq!(
+            stored_token.wrapped_user_key_1,
+            upgrade_token.wrapped_user_key_1
+        );
+        assert_eq!(
+            stored_token.wrapped_user_key_2,
+            upgrade_token.wrapped_user_key_2
+        );
     }
 
     #[tokio::test]
     async fn reinit_user_crypto_invalid_upgrade_token_returns_error() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        register_in_memory_bridge(&client);
 
         // Token built with a different V1 key — unwrapping with the client's
         // V1 key will fail.
@@ -323,6 +353,7 @@ mod tests {
     #[tokio::test]
     async fn reinit_user_crypto_returns_crypto_initialization_on_key_mismatch() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        register_in_memory_bridge(&client);
 
         // Build an upgrade token whose V2 target is a fresh random key (not the
         // test-vector key). `unwrap_v2` only checks internal token consistency,
@@ -388,12 +419,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reinit_user_crypto_returns_state_bridge_not_registered_when_no_bridge() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = reinit_user_crypto(
+            &client,
+            ReinitUserCryptoRequest {
+                account_cryptographic_state: test_vector_v2_account_state(),
+                upgrade_token: make_mock_upgrade_token(),
+            },
+        )
+        .await;
+
+        assert!(
+            matches!(result, Err(ReinitUserCryptoError::StateBridgeNotRegistered)),
+            "reinit without a registered state bridge must return StateBridgeNotRegistered, got {result:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn reinit_user_crypto_v1_v2_upgrade_rewraps_local_user_data_key() {
         use crate::key_management::LocalUserDataKeyState;
 
         // Bootstrap a V1 client to materialize a V1-wrapped LocalUserDataKey state.
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
         let user_id = UserId::new(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8"));
+        register_in_memory_bridge(&client);
 
         // The V1 init plants a V1-wrapped local user data key in state.
         let v1_user_data_key = client
@@ -419,16 +470,6 @@ mod tests {
             let v2_key_id = ctx.add_local_symmetric_key(v2_key.clone());
             V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap()
         };
-
-        // The migration helper requires the state bridge to be registered with the
-        // matching upgrade token.
-        client
-            .km_state_bridge()
-            .register_bridge(Box::new(InMemoryStateBridge::default()));
-        client
-            .km_state_bridge()
-            .set_v2_upgrade_token(&upgrade_token.clone())
-            .await;
 
         reinit_user_crypto(
             &client,
