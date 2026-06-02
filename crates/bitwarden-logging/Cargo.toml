@@ -19,6 +19,7 @@ keywords.workspace = true
 wasm = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
+bitwarden-logging-macro = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -29,6 +30,7 @@ wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = "0.8.0"
+trybuild = "1.0.101"
 
 [[bench]]
 name = "flight_recorder_performance"

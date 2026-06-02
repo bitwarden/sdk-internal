@@ -43,6 +43,7 @@ bitwarden-fido = { path = "crates/bitwarden-fido", version = "=3.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=3.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=3.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=3.0.0" }
+bitwarden-logging-macro = { path = "crates/bitwarden-logging-macro", version = "=3.0.0" }
 bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
@@ -89,6 +90,8 @@ reqwest-middleware = { version = "0.4.2", features = [
     "multipart",
 ] }
 rsa = "0.10.0-rc.17"
+rustls = { version = "0.23.19", default-features = false }
+rustls-platform-verifier = "0.6.0"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"

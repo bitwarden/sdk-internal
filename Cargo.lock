@@ -483,6 +483,8 @@ dependencies = [
  "http",
  "reqwest",
  "reqwest-middleware",
+ "rustls",
+ "rustls-platform-verifier",
  "serde",
  "serde_json",
  "uniffi",
@@ -626,8 +628,6 @@ dependencies = [
  "rand_chacha 0.10.0",
  "reqwest",
  "reqwest-middleware",
- "rustls",
- "rustls-platform-verifier",
  "schemars 1.2.1",
  "serde",
  "serde-wasm-bindgen",
@@ -677,6 +677,7 @@ dependencies = [
  "hkdf",
  "hmac 0.13.0",
  "hybrid-array",
+ "js-sys",
  "ml-dsa",
  "num-bigint",
  "num-traits",
@@ -694,6 +695,7 @@ dependencies = [
  "sha2 0.11.0",
  "subtle",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "tsify",
  "typenum",
@@ -870,14 +872,25 @@ dependencies = [
 name = "bitwarden-logging"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-logging-macro",
  "chrono",
  "criterion",
  "serde",
  "serde_json",
  "tracing",
  "tracing-subscriber",
+ "trybuild",
  "tsify",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "bitwarden-logging-macro"
+version = "3.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -888,7 +901,7 @@ dependencies = [
  "bitwarden-encoding",
  "serde",
  "subtle",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tsify",
  "uuid",
  "wasm-bindgen",
@@ -955,6 +968,7 @@ name = "bitwarden-send"
 version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
@@ -963,7 +977,9 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
+ "reqwest",
  "serde",
+ "serde_json",
  "serde_repr",
  "sha2 0.11.0",
  "thiserror 2.0.18",
@@ -973,6 +989,7 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
  "zeroize",
 ]
 
@@ -1448,6 +1465,7 @@ dependencies = [
  "bitwarden-sync",
  "bitwarden-test",
  "bitwarden-vault",
+ "chrono",
  "clap",
  "clap_complete",
  "color-eyre",

@@ -27,5 +27,12 @@ serde_json = { workspace = true }
 uniffi = { workspace = true, optional = true }
 url = ">=2.5, <3"
 
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+# By default, we use rustls as the TLS stack and rustls-platform-verifier to support user-installed root certificates
+# The only exception is WASM, as it just uses the browsers/node fetch
+reqwest = { workspace = true, features = ["rustls-tls-manual-roots"] }
+rustls = { workspace = true }
+rustls-platform-verifier = { workspace = true }
+
 [lints]
 workspace = true

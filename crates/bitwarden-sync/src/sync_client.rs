@@ -23,12 +23,18 @@ pub enum SyncError {
 
     #[error("Sync event handler failed: {0}")]
     HandlerFailed(#[source] SyncHandlerError),
+
+    #[error("Account has been deleted on the server.")]
+    AccountDeleted,
 }
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncRequest {
+    /// Skip the revision-date check and always sync.
+    #[serde(default)]
+    pub force: bool,
     /// Exclude the subdomains from the response, defaults to false
     pub exclude_subdomains: Option<bool>,
 }
@@ -216,10 +222,7 @@ mod tests {
 
     /// Helper to create a SyncClient with a mocked API client.
     fn test_client(api_client: bitwarden_api_api::apis::ApiClient) -> SyncClient {
-        let dummy_config = bitwarden_api_api::Configuration {
-            base_path: String::new(),
-            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
-        };
+        let dummy_config = bitwarden_api_api::Configuration::new(String::new());
         SyncClient {
             api_configurations: Arc::new(ApiConfigurations {
                 api_client,
@@ -320,6 +323,7 @@ mod tests {
 
         let result = client
             .sync(SyncRequest {
+                force: false,
                 exclude_subdomains: None,
             })
             .await;
@@ -357,6 +361,7 @@ mod tests {
         // sync() will fail due to the mocked error, which should trigger all error handlers
         let result = client
             .sync(SyncRequest {
+                force: false,
                 exclude_subdomains: None,
             })
             .await;
