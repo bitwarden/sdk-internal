@@ -104,7 +104,7 @@ impl MasterPasswordUnlockData {
     }
 
     /// Derive master password unlock data from a password and user key in the key store.
-    #[tracing::instrument(skip(password, salt, ctx))]
+    #[bitwarden_logging::instrument(fields(kdf = ?kdf, user_key_id = ?user_key_id))]
     pub fn derive<Ids: KeySlotIds>(
         password: &str,
         kdf: &Kdf,
@@ -197,7 +197,7 @@ pub struct MasterPasswordAuthenticationData {
 
 impl MasterPasswordAuthenticationData {
     /// Derive master password authentication data from a password, KDF, and salt.
-    #[tracing::instrument(skip(password, kdf, salt))]
+    #[bitwarden_logging::instrument]
     pub fn derive(password: &str, kdf: &Kdf, salt: &str) -> Result<Self, MasterPasswordError> {
         tracing::event!(Level::INFO, "deriving master password authentication data");
         let master_key = MasterKey::derive(password, salt, kdf)
