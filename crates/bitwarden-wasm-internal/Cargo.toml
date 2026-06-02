@@ -15,7 +15,6 @@ keywords.workspace = true
 [package.metadata.cargo-udeps.ignore]
 normal = [
     "bitwarden-organization-crypto",
-    "bitwarden-organization-invite-link",
 ] # Only used to enable wasm-bindgen, not imported directly
 
 [lib]

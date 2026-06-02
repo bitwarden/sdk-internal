@@ -17,6 +17,10 @@ pub enum OrganizationInviteCryptoBundleError {
     InvalidOrganizationKey,
     #[error("Key bundle generation failed: {0}")]
     BundleGenerationFailed(#[from] InviteKeyBundleError),
+    #[error("Invalid sealed invite key envelope: {0}")]
+    InvalidSealedEnvelope(InviteKeyBundleError),
+    #[error("Failed to unseal invite key: {0}")]
+    UnsealingFailed(InviteKeyBundleError),
 }
 
 /// The cryptographic bundle for an organization member invite.
@@ -24,7 +28,7 @@ pub enum OrganizationInviteCryptoBundleError {
 /// - `invite_key`: raw invite key encoded as base64Url. **MUST NOT be sent to the server.**
 /// - `sealed_invite_key_envelope`: invite key sealed with the org key, serialized as a Bitwarden
 ///   EncString (`"2.iv|data|mac"`). Safe to send to the server.
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteCryptoBundle {
@@ -32,6 +36,18 @@ pub struct OrganizationInviteCryptoBundle {
     pub invite_key: String,
     /// Invite key sealed with the organization key, as a Bitwarden EncString (`"2.iv|data|mac"`).
     pub sealed_invite_key_envelope: String,
+}
+
+impl std::fmt::Debug for OrganizationInviteCryptoBundle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OrganizationInviteCryptoBundle")
+            .field("invite_key", &"<REDACTED>")
+            .field(
+                "sealed_invite_key_envelope",
+                &self.sealed_invite_key_envelope,
+            )
+            .finish()
+    }
 }
 
 /// Generates a new [`OrganizationInviteCryptoBundle`] sealed with the provided organization key.
@@ -76,10 +92,10 @@ pub fn unseal_organization_invite_key(
     let org_key_slot = context.add_local_symmetric_key(org_key);
 
     let envelope = InviteKeyEnvelope::from_str(&sealed_invite_key_envelope)
-        .map_err(OrganizationInviteCryptoBundleError::BundleGenerationFailed)?;
+        .map_err(OrganizationInviteCryptoBundleError::InvalidSealedEnvelope)?;
     let invite_key_data = envelope
         .unseal(org_key_slot, &mut context)
-        .map_err(OrganizationInviteCryptoBundleError::BundleGenerationFailed)?;
+        .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)?;
 
     Ok(String::from(&invite_key_data))
 }
@@ -166,5 +182,20 @@ mod tests {
             result,
             Err(OrganizationInviteCryptoBundleError::InvalidOrganizationKey)
         ));
+    }
+
+    #[test]
+    fn test_unseal_with_wrong_org_key_fails() {
+        let org_key_1 = make_org_key();
+        let org_key_2 = make_org_key();
+
+        let bundle = generate_organization_invite_crypto_bundle(org_key_1).unwrap();
+
+        let result = unseal_organization_invite_key(org_key_2, bundle.sealed_invite_key_envelope);
+
+        assert!(
+            result.is_err(),
+            "Unsealing with the wrong org key must fail"
+        );
     }
 }
