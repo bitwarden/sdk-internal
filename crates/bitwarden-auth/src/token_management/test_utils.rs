@@ -106,10 +106,7 @@ pub fn build_client<H: TokenHandler>(
 ) -> reqwest_middleware::ClientWithMiddleware {
     let middleware = handler.initialize_middleware(
         registry,
-        bitwarden_api_api::Configuration {
-            base_path: identity_server.uri(),
-            client: reqwest::Client::new().into(),
-        },
+        bitwarden_api_api::Configuration::new(identity_server.uri()),
         KeyStore::<KeySlotIds>::default(),
     );
     reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
