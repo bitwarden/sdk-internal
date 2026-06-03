@@ -93,9 +93,10 @@ impl Serialize for InviteKeyData {
 
 /// Struct for holding the wrapped invite key data. Currently supports encstring
 /// but the inner type must remain private as it may be extended in the future.
+#[derive(Clone)]
 pub struct InviteKeyEnvelope(EncString);
 
-/// Serializes to the Bitwarden EncString text format (e.g. `"2.iv|data|mac"`), which is the
+/// Serializes to the Bitwarden EncString text format, which is the
 /// format expected by the server's `EncryptedInviteKey` field validator.
 impl From<&InviteKeyEnvelope> for String {
     fn from(key_data: &InviteKeyEnvelope) -> Self {
@@ -268,7 +269,14 @@ mod tests {
             .unwrap_symmetric_key(TestSymmKey::Organization, &key.sealed_key_envelope.0)
             .unwrap();
 
-        ctx.assert_symmetric_keys_equal(raw_key_id, unsealed_key);
+        #[allow(deprecated)]
+        let raw_key = ctx.dangerous_get_symmetric_key(raw_key_id).unwrap().clone();
+        #[allow(deprecated)]
+        let unsealed = ctx
+            .dangerous_get_symmetric_key(unsealed_key)
+            .unwrap()
+            .clone();
+        assert_eq!(raw_key, unsealed);
     }
 
     #[test]

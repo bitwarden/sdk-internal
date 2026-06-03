@@ -12,9 +12,17 @@ use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use crate::{InviteKeyBundleError, InviteKeyData, InviteKeyEnvelope};
 
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
+const TS_INVITE_KEY_DATA: &'static str = r#"
 export type InviteKeyData = Tagged<string, "InviteKeyData">;
 "#;
+
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
+export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
+"#;
+
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub struct OrganizationCryptoWasm;
 
 impl wasm_bindgen::describe::WasmDescribe for InviteKeyData {
     fn describe() {
@@ -56,11 +64,6 @@ impl TryFrom<wasm_bindgen::JsValue> for InviteKeyData {
         Self::from_str(&string)
     }
 }
-
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
-"#;
 
 impl wasm_bindgen::describe::WasmDescribe for InviteKeyEnvelope {
     fn describe() {

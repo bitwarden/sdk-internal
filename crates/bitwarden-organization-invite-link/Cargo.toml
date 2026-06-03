@@ -16,7 +16,13 @@ keywords.workspace = true
 
 [features]
 default = []
-wasm = ["bitwarden-error/wasm", "dep:tsify", "dep:wasm-bindgen"]
+wasm = [
+    "bitwarden-error/wasm",
+    "bitwarden-crypto/wasm",
+    "bitwarden-organization-crypto/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+]
 
 [dependencies]
 bitwarden-crypto = { workspace = true }
