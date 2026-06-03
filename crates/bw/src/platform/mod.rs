@@ -1,5 +1,6 @@
 use clap::Args;
 
+pub(crate) mod appdata;
 mod completion;
 mod config;
 mod encode;
