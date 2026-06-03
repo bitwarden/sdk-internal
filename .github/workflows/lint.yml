@@ -97,6 +97,20 @@ jobs:
         if: matrix.needs_rust
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
+      # Cache cargo-run-bin's built tools (.bin) separately from rust-cache. The
+      # tools depend only on their pinned versions (Cargo.toml) and the toolchain,
+      # not on Cargo.lock, so this key avoids rust-cache's lockfile rotation. Keyed
+      # per check so each one caches only the tools it builds, with no contention
+      # (rust-cache keys all matrix checks under one shared job-based key).
+      - name: Cache cargo-run-bin tools
+        if: matrix.needs_rust
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .bin
+          key: cargo-bin-${{ runner.os }}-${{ matrix.check }}-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+          restore-keys: |
+            cargo-bin-${{ runner.os }}-${{ matrix.check }}-
+
       - name: Install cargo-run-bin
         if: matrix.needs_rust
         run: cargo install cargo-run-bin --locked --version 1.7.4
