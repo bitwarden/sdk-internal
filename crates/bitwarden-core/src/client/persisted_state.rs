@@ -62,6 +62,10 @@ register_setting_key!(
     pub const USER_ID: UserId = "user_id"
 );
 register_setting_key!(
+    /// Setting key for the active user's email.
+    pub const USER_EMAIL: String = "user_email"
+);
+register_setting_key!(
     /// Setting key for feature flags.
     pub const FLAGS: Flags = "flags"
 );
