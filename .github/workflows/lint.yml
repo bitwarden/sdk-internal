@@ -42,11 +42,14 @@ jobs:
             needs_rust: true
           - check: sort
             needs_rust: true
+            install: cargo install cargo-sort --version 2.0.2 --locked
           - check: udeps
             needs_rust: true
             needs_rust_nightly: true
+            install: cargo install cargo-udeps --version 0.1.57 --locked
           - check: dylint
             needs_rust: true
+            install: cargo install cargo-dylint dylint-link --version 5.0.0 --locked
           - check: doc
             needs_rust: true
           - check: prettier
@@ -97,32 +100,20 @@ jobs:
         if: matrix.needs_rust
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      # Cache cargo-run-bin's built tools (.bin) separately from rust-cache. The
-      # tools depend only on their pinned versions (Cargo.toml) and the toolchain,
-      # not on Cargo.lock, so this key avoids rust-cache's lockfile rotation. Keyed
-      # per check so each one caches only the tools it builds, with no contention
-      # (rust-cache keys all matrix checks under one shared job-based key).
-      - name: Cache cargo-run-bin tools
-        if: matrix.needs_rust
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: .bin
-          key: cargo-bin-${{ runner.os }}-${{ matrix.check }}-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
-          restore-keys: |
-            cargo-bin-${{ runner.os }}-${{ matrix.check }}-
+      - name: Install per-check cargo tool
+        if: matrix.install
+        run: ${{ matrix.install }}
 
-      - name: Install cargo-run-bin
-        if: matrix.needs_rust
-        run: cargo install cargo-run-bin --locked --version 1.7.4
+      - name: Install clippy-sarif and sarif-fmt
+        if: matrix.check == 'clippy'
+        run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
 
       - name: Run clippy with SARIF output
         if: matrix.check == 'clippy'
-        # Pass `-D warnings` to clippy directly rather than via RUSTFLAGS so the
-        # deny level applies only to the linted crates, not to the from-source
-        # builds of clippy-sarif/sarif-fmt that `cargo bin` triggers in this step
-        # (some of their transitive deps emit warnings we don't control).
-        run: cargo clippy --all-features --all-targets --message-format=json -- -D warnings |
-          cargo bin clippy-sarif | tee clippy_result.sarif | cargo bin sarif-fmt
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo clippy --all-features --all-targets --message-format=json |
+          clippy-sarif | tee clippy_result.sarif | sarif-fmt
 
       - name: Upload clippy results to GitHub
         if: matrix.check == 'clippy'
