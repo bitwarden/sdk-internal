@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 [dependencies]
 bitwarden_error_enum = { path = "error_enum", features = ["rlib"] }
 bitwarden_error_suffix = { path = "error_suffix", features = ["rlib"] }
+bitwarden_tracing_instrument = { path = "tracing_instrument", features = ["rlib"] }
 bitwarden_uniffi_async_export = { path = "uniffi_async_export", features = ["rlib"] }
 dylint_linting = { workspace = true }
 

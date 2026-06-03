@@ -2,6 +2,7 @@
 use std::sync::RwLock;
 use std::sync::{Arc, OnceLock};
 
+use bitwarden_api_base::new_http_client_builder;
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
@@ -152,28 +153,6 @@ impl Default for ClientBuilder {
     fn default() -> Self {
         Self::new()
     }
-}
-
-pub(crate) fn new_http_client_builder() -> reqwest::ClientBuilder {
-    #[allow(unused_mut)]
-    let mut client_builder = reqwest::Client::builder();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        use rustls::ClientConfig;
-        use rustls_platform_verifier::ConfigVerifierExt;
-        client_builder = client_builder.use_preconfigured_tls(
-            ClientConfig::with_platform_verifier().expect("Failed to create platform verifier"),
-        );
-
-        // Enforce HTTPS for all requests in non-debug builds
-        #[cfg(not(debug_assertions))]
-        {
-            client_builder = client_builder.https_only(true);
-        }
-    }
-
-    client_builder
 }
 
 /// Build default headers for Bitwarden HttpClient

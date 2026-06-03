@@ -9,6 +9,8 @@
       matchStrings: [
         "cargo install (?<depName>cargo-dylint) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
         "cargo install (?<depName>dylint-link) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
+        "cargo install (?<depName>cargo-sort) --version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
+        "cargo install (?<depName>cargo-udeps) --version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
       ],
       datasourceTemplate: "cargo",
       versioningTemplate: "cargo",
@@ -68,6 +70,8 @@
       matchPackageNames: [
         "async-trait",
         "cargo-dylint",
+        "cargo-sort",
+        "cargo-udeps",
         "ciborium",
         "chrono",
         "data-encoding",
