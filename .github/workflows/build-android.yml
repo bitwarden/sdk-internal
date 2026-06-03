@@ -47,13 +47,13 @@ jobs:
         with:
           key: ${{ matrix.settings.target }}-cargo
 
-      - name: Install cargo-run-bin
-        run: cargo install cargo-run-bin --locked --version 1.7.4
+      - name: Install Cross
+        run: cargo install cross --locked --git https://github.com/cross-rs/cross.git --rev 185398b1b885820515a212de720a306b08e2c8c9
 
       - name: Build
         env:
           TARGET: ${{ matrix.settings.target }}
-        run: cargo bin cross build -p bitwarden-uniffi --release --target=${{ matrix.settings.target }}
+        run: cross build -p bitwarden-uniffi --release --target=${{ matrix.settings.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

@@ -1,6 +1,4 @@
 /target
-# cargo-run-bin per-tool build cache
-/.bin
 .DS_Store
 .pytest_cache
 .vscode/c_cpp_properties.json

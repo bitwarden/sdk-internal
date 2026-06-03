@@ -37,10 +37,10 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      - name: Install cargo-run-bin
-        run: cargo install cargo-run-bin --locked --version 1.7.4
+      - name: Install cargo-hack
+        run: cargo install cargo-hack --version 0.6.33 --locked
 
       - name: Build
-        run: cargo bin cargo-hack check --workspace --feature-powerset --no-dev-deps
+        run: cargo hack check --workspace --feature-powerset --no-dev-deps
         env:
           RUSTFLAGS: "-D warnings"
