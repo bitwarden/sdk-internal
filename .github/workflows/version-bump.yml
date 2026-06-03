@@ -35,8 +35,8 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      - name: Install cargo-release
-        run: cargo install cargo-edit --locked
+      - name: Install cargo-run-bin
+        run: cargo install cargo-run-bin --locked --version 1.7.4
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -95,14 +95,14 @@ jobs:
         if: ${{ inputs.project == 'bitwarden-core' }}
         env:
           VERSION_NUMBER: ${{ inputs.version_number }}
-        run: cargo set-version -p bitwarden-core "$VERSION_NUMBER"
+        run: cargo bin cargo-set-version -p bitwarden-core "$VERSION_NUMBER"
 
       ### bitwarden-sm
       - name: Bump bitwarden-sm crate Version
         if: ${{ inputs.project == 'bitwarden-sm' }}
         env:
           VERSION_NUMBER: ${{ inputs.version_number }}
-        run: cargo set-version -p bitwarden-sm "$VERSION_NUMBER"
+        run: cargo bin cargo-set-version -p bitwarden-sm "$VERSION_NUMBER"
 
       ############################
       # VERSION BUMP SECTION END #

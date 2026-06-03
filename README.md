@@ -454,8 +454,17 @@ The command is implemented in [scripts/lint.sh](./scripts/lint.sh) and mirrors
 
 ### Installation
 
-The tools each check needs (and pinned versions) are installed in the lint workflow above. The
-underlying tools are:
+Binary cargo tools (cargo-sort, cargo-udeps, cargo-dylint, etc.) are pinned in the root `Cargo.toml`
+under `[workspace.metadata.bin]` and installed lazily by
+[`cargo-run-bin`](https://crates.io/crates/cargo-run-bin), so dev and CI versions stay in sync.
+Bootstrap once:
+
+```bash
+cargo install cargo-run-bin --locked
+```
+
+After that, `npm run lint` (or `scripts/lint.sh` directly) handles installation of any missing tool
+on first invocation. The underlying tools are:
 
 - Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
   [cargo udeps](https://github.com/est31/cargo-udeps)
@@ -464,7 +473,7 @@ underlying tools are:
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
 - [prettier](https://github.com/prettier/prettier)
 
-If a tool is missing locally, `npm run lint` will tell you which one and how to install it.
+If `cargo-run-bin` itself is missing locally, `npm run lint` will tell you how to install it.
 
 ## Documentation
 
