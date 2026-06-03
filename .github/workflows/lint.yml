@@ -103,9 +103,11 @@ jobs:
 
       - name: Run clippy with SARIF output
         if: matrix.check == 'clippy'
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo clippy --all-features --all-targets --message-format=json |
+        # Pass `-D warnings` to clippy directly rather than via RUSTFLAGS so the
+        # deny level applies only to the linted crates, not to the from-source
+        # builds of clippy-sarif/sarif-fmt that `cargo bin` triggers in this step
+        # (some of their transitive deps emit warnings we don't control).
+        run: cargo clippy --all-features --all-targets --message-format=json -- -D warnings |
           cargo bin clippy-sarif | tee clippy_result.sarif | cargo bin sarif-fmt
 
       - name: Upload clippy results to GitHub
