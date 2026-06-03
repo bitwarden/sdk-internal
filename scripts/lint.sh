@@ -100,7 +100,32 @@ run_udeps() {
 
 run_dylint() {
   require_cargo_bin
-  cargo bin cargo-dylint --all -- --all-features --all-targets
+  # cargo-dylint invokes `dylint-link` as rustc's linker, found by name on PATH.
+  # Running cargo-dylint through `cargo bin` doesn't work: cargo-run-bin prepends
+  # a shim directory to PATH whose dylint-link shim re-runs `cargo bin
+  # dylint-link`, which fails from the directories rustc links in (support/lints
+  # and each dependency's source dir, none of which declare
+  # [workspace.metadata.bin]). So build the tools and invoke cargo-dylint
+  # directly with the real dylint-link binary on PATH, using an absolute path so
+  # it resolves no matter which directory cargo-dylint links from.
+  #
+  # Build only the two tools dylint needs rather than `cargo bin --install`,
+  # which builds every pinned tool (including some that don't compile on this
+  # toolchain, e.g. cross). `cargo bin` builds a tool on first use; the throwaway
+  # invocations below just trigger those builds (dylint-link has no safe no-op
+  # invocation, so its run is allowed to fail; the builds are verified by the
+  # `find`s that follow).
+  cargo bin cargo-dylint --help >/dev/null
+  cargo bin dylint-link --help >/dev/null 2>&1 || true
+
+  local cargo_dylint dylint_link
+  cargo_dylint="$(find "$REPO_ROOT/.bin" -type f -name cargo-dylint -not -path '*/.shims/*' -print -quit)"
+  dylint_link="$(find "$REPO_ROOT/.bin" -type f -name dylint-link -not -path '*/.shims/*' -print -quit)"
+  if [[ -z "$cargo_dylint" || -z "$dylint_link" ]]; then
+    echo "Could not find cargo-dylint/dylint-link under .bin (build failed?)" >&2
+    exit 1
+  fi
+  PATH="$(dirname "$dylint_link"):$PATH" "$cargo_dylint" dylint --all -- --all-features --all-targets
 }
 
 run_doc() {
