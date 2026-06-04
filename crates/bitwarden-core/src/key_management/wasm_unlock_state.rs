@@ -15,7 +15,7 @@ use crate::{Client, key_management::SymmetricKeySlotId};
 pub(crate) struct UnableToSetError;
 /// Sets the decrypted user key into the KM state bridge, so that it survives re-creation of
 /// the SDK
-pub(crate) async fn copy_user_key_to_client_managed_state(
+pub(crate) async fn copy_user_key_to_state(
     client: &Client,
 ) -> Result<(), UnableToSetError> {
     // Read the user-key from key-store. There should be no other reason to do this in other parts
@@ -54,7 +54,7 @@ pub(crate) async fn copy_user_key_to_client_managed_state(
 }
 
 pub(crate) struct UnableToGetError;
-pub(crate) async fn get_user_key_from_client_managed_state(
+pub(crate) async fn get_user_key_from_state(
     client: &Client,
 ) -> Result<SymmetricCryptoKey, UnableToGetError> {
     info!("Getting the user-key from the state bridge in SDK");
