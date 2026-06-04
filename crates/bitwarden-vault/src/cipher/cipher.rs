@@ -1265,16 +1265,25 @@ impl CipherView {
                 .as_ref()
                 .map(|b| {
                     [
+                        b.name_on_account
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::BankAccountNameOnAccount),
                         b.account_number
                             .as_ref()
                             .map(|_| CopyableCipherFields::BankAccountAccountNumber),
                         b.routing_number
                             .as_ref()
                             .map(|_| CopyableCipherFields::BankAccountRoutingNumber),
+                        b.branch_number
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::BankAccountBranchNumber),
                         b.pin.as_ref().map(|_| CopyableCipherFields::BankAccountPin),
                         b.iban
                             .as_ref()
                             .map(|_| CopyableCipherFields::BankAccountIban),
+                        b.swift_code
+                            .as_ref()
+                            .map(|_| CopyableCipherFields::BankAccountSwift),
                     ]
                     .into_iter()
                     .flatten()
@@ -3707,17 +3716,30 @@ mod tests {
                 view.name = "My Bank Account".to_string();
                 view.bank_account = Some(BankAccountView {
                     bank_name: Some("Some Bank".to_string()),
+                    name_on_account: Some("Jane Doe".to_string()),
                     account_number: Some("123456".to_string()),
+                    routing_number: Some("111000025".to_string()),
+                    branch_number: Some("001".to_string()),
+                    pin: Some("4321".to_string()),
+                    swift_code: Some("ABCDEF12".to_string()),
+                    iban: Some("DE89370400440532013000".to_string()),
                     ..Default::default()
                 });
                 let list_view = decrypt_blob_list_view(&key_store, view);
                 assert_eq!(list_view.name, "My Bank Account");
                 assert_eq!(list_view.subtitle, "Some Bank");
                 assert!(matches!(list_view.r#type, CipherListViewType::BankAccount));
-                assert!(
-                    list_view
-                        .copyable_fields
-                        .contains(&CopyableCipherFields::BankAccountAccountNumber)
+                assert_eq!(
+                    list_view.copyable_fields,
+                    vec![
+                        CopyableCipherFields::BankAccountNameOnAccount,
+                        CopyableCipherFields::BankAccountAccountNumber,
+                        CopyableCipherFields::BankAccountRoutingNumber,
+                        CopyableCipherFields::BankAccountBranchNumber,
+                        CopyableCipherFields::BankAccountPin,
+                        CopyableCipherFields::BankAccountIban,
+                        CopyableCipherFields::BankAccountSwift,
+                    ]
                 );
             }
         }
