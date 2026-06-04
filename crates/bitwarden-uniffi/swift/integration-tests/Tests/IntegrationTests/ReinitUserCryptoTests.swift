@@ -31,23 +31,27 @@ final class ReinitUserCryptoTests: XCTestCase {
         }
     }
 
-    func testReturnsAlreadyV2WhenActiveUserIsV2() async throws {
-        let client = try await makeV2InitializedClient(stateBridge: stateBridge)
+    func testSecondReinitWithSamePayloadIsNoop() async throws {
+        let client = try await makeV1InitializedClient(stateBridge: stateBridge)
+
+        let upgradeToken = makeValidUpgradeToken()
+        await stateBridge.setV2UpgradeToken(value: upgradeToken)
 
         let req = ReinitUserCryptoRequest(
             accountCryptographicState: makeV2AccountCryptographicState(),
-            upgradeToken: makeMockUpgradeToken()
+            upgradeToken: upgradeToken
         )
 
-        do {
-            try await client.crypto().reinitUserCrypto(req: req)
-            XCTFail("expected ReinitUserCryptoError.AlreadyV2Encryption")
-        } catch BitwardenError.ReinitUserCrypto(let inner) {
-            guard case .AlreadyV2Encryption = inner else {
-                XCTFail("expected .AlreadyV2Encryption, got \(inner)")
-                return
-            }
-        }
+        // First call performs the V1→V2 upgrade.
+        try await client.crypto().reinitUserCrypto(req: req)
+        let keyAfterUpgrade = try await client.crypto().getUserEncryptionKey()
+        XCTAssertEqual(keyAfterUpgrade, TEST_VECTOR_USER_KEY_V2_B64)
+
+        // Second call with the same payload is a no-op: the active user key is
+        // already V2, so reinit short-circuits and the key is unchanged.
+        try await client.crypto().reinitUserCrypto(req: req)
+        let keyAfterNoop = try await client.crypto().getUserEncryptionKey()
+        XCTAssertEqual(keyAfterNoop, TEST_VECTOR_USER_KEY_V2_B64)
     }
 
     func testUpgradesV1ToV2WithValidToken() async throws {

@@ -7,7 +7,7 @@ use bitwarden_crypto::SymmetricKeyAlgorithm;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     Client,
@@ -40,12 +40,6 @@ pub enum ReinitUserCryptoError {
     /// The SDK is not in an unlocked state, so it cannot re-initialize user crypto.
     #[error("The SDK must be unlocked to re-initialize user crypto")]
     NotUnlocked,
-    /// Re-initialization is only supported for upgrading from V1 to V2 encryption. The active user
-    /// key is not a V1 key.
-    #[error(
-        "Re-initialization is only supported for upgrading from V1 to V2 encryption. The active user key is not a V1 key."
-    )]
-    AlreadyV2Encryption,
     /// The provided account cryptographic state is not V2. Re-initialization is only supported for
     /// upgrading to V2 encryption.
     #[error(
@@ -71,7 +65,8 @@ pub enum ReinitUserCryptoError {
     StateBridgeNotRegistered,
 }
 
-/// Re-initialize the user's cryptographic state during an unlock session.
+/// Re-initialize the user's cryptographic state during an unlock session for a V1 -> V2 upgrade.
+/// If the user is already V2 this function is a no-op.
 ///
 /// Requires the SDK to be unlocked and the client to have registered a state bridge. Replaces the
 /// in-memory account cryptographic state with the provided one, and upgrades the active user key
@@ -115,9 +110,12 @@ pub(crate) async fn reinit_user_crypto(
                     .unwrap_v2(SymmetricKeySlotId::User, &mut ctx)
                     .map_err(|_| ReinitUserCryptoError::InvalidUpgradeToken)?
             }
-            _ => {
-                warn!("Active user key is not V1 algorithm, refusing to reinit user crypto.");
-                return Err(ReinitUserCryptoError::AlreadyV2Encryption);
+            SymmetricKeyAlgorithm::XChaCha20Poly1305 => {
+                // If the active user key is already V2, then the upgrade token should not be
+                // applied. We return here so calling reinit_user_crypto with the
+                // same sync payload after a successful V2 upgrade is a no-op.
+                debug!("Active user key is already V2, skipping re-initialization.");
+                return Ok(());
             }
         };
 
@@ -245,7 +243,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reinit_user_crypto_returns_already_v2_when_active_user_is_v2() {
+    async fn reinit_user_crypto_is_noop_when_active_user_is_already_v2() {
         let client = Client::init_test_account(test_bitwarden_com_account_v2()).await;
         register_in_memory_bridge(&client);
 
@@ -259,8 +257,18 @@ mod tests {
         .await;
 
         assert!(
-            matches!(result, Err(ReinitUserCryptoError::AlreadyV2Encryption)),
-            "reinit on a V2 user must return AlreadyV2Encryption, got {result:?}"
+            result.is_ok(),
+            "reinit on an already-V2 user must be a no-op and return Ok, got {result:?}"
+        );
+
+        let expected_v2_key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
+        assert_active_user_key_is_v2(&client, &expected_v2_key);
+
+        let upgrade_token = client.internal.state_bridge.get_v2_upgrade_token().await;
+        assert!(
+            upgrade_token.is_none(),
+            "reinit on an already-V2 user must not set the upgrade token"
         );
     }
 
@@ -324,6 +332,38 @@ mod tests {
             stored_token.wrapped_user_key_2,
             upgrade_token.wrapped_user_key_2
         );
+    }
+
+    #[tokio::test]
+    async fn reinit_user_crypto_called_twice_with_same_payload_is_noop() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        register_in_memory_bridge(&client);
+
+        let expected_v2_key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
+        let upgrade_token = {
+            let mut ctx = client.internal.get_key_store().context_mut();
+            let v2_key_id = ctx.add_local_symmetric_key(expected_v2_key.clone());
+            V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap()
+        };
+
+        let request = || ReinitUserCryptoRequest {
+            account_cryptographic_state: test_vector_v2_account_state(),
+            upgrade_token: upgrade_token.clone(),
+        };
+
+        // First call performs the V1→V2 upgrade.
+        reinit_user_crypto(&client, request())
+            .await
+            .expect("V1→V2 reinit with a valid upgrade token should succeed");
+        assert_active_user_key_is_v2(&client, &expected_v2_key);
+
+        // Second call with the same payload is a no-op: the active user key is
+        // already V2, so the token is never re-applied.
+        reinit_user_crypto(&client, request())
+            .await
+            .expect("re-applying the same upgrade after success should be a no-op");
+        assert_active_user_key_is_v2(&client, &expected_v2_key);
     }
 
     #[tokio::test]
