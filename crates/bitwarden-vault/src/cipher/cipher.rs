@@ -3482,8 +3482,8 @@ mod tests {
 
         use super::*;
         use crate::{
-            BankAccountView, CardView, IdentityView, SecureNoteType, SecureNoteView, SshKeyView,
-            cipher::blob::encrypt_blob_cipher,
+            BankAccountView, CardView, DriversLicenseView, IdentityView, PassportView,
+            SecureNoteType, SecureNoteView, SshKeyView, cipher::blob::encrypt_blob_cipher,
         };
 
         fn make_key_store() -> KeyStore<KeySlotIds> {
@@ -3740,6 +3740,161 @@ mod tests {
                         CopyableCipherFields::BankAccountIban,
                         CopyableCipherFields::BankAccountSwift,
                     ]
+                );
+            }
+        }
+
+        /// A fully-populated `CipherView` for every [`CipherType`], so that every
+        /// presence-gated `copyable_fields` branch fires.
+        ///
+        /// Every optional field that influences `copyable_fields` is set; a new copyable
+        /// field added to one decryption path but not the other will change one path's
+        /// output and trip [`copyable_fields_parity_between_legacy_and_blob`].
+        fn fully_populated_views() -> Vec<(&'static str, CipherView)> {
+            let with_type = |r#type: CipherType, f: &dyn Fn(&mut CipherView)| {
+                let mut view = generate_cipher();
+                view.r#type = r#type;
+                view.login = None;
+                f(&mut view);
+                view
+            };
+
+            vec![
+                ("Login", base_login_view()),
+                (
+                    "Card",
+                    with_type(CipherType::Card, &|v| {
+                        v.card = Some(CardView {
+                            cardholder_name: Some("Jane Doe".to_string()),
+                            exp_month: Some("12".to_string()),
+                            exp_year: Some("2030".to_string()),
+                            code: Some("123".to_string()),
+                            brand: Some("Visa".to_string()),
+                            number: Some("4111111111111111".to_string()),
+                        });
+                    }),
+                ),
+                (
+                    "Identity",
+                    with_type(CipherType::Identity, &|v| {
+                        v.identity = Some(IdentityView {
+                            title: Some("Mx".to_string()),
+                            first_name: Some("Jane".to_string()),
+                            middle_name: Some("Q".to_string()),
+                            last_name: Some("Doe".to_string()),
+                            address1: Some("1 Main St".to_string()),
+                            address2: Some("Apt 2".to_string()),
+                            address3: Some("Floor 3".to_string()),
+                            city: Some("Anytown".to_string()),
+                            state: Some("CA".to_string()),
+                            postal_code: Some("90210".to_string()),
+                            country: Some("US".to_string()),
+                            company: Some("Acme".to_string()),
+                            email: Some("jane@example.com".to_string()),
+                            phone: Some("555-0100".to_string()),
+                            ssn: Some("000-00-0000".to_string()),
+                            username: Some("jane".to_string()),
+                            passport_number: Some("X1234567".to_string()),
+                            license_number: Some("D1234567".to_string()),
+                        });
+                    }),
+                ),
+                (
+                    "SecureNote",
+                    with_type(CipherType::SecureNote, &|v| {
+                        v.notes = Some("a secret note".to_string());
+                        v.secure_note = Some(SecureNoteView {
+                            r#type: SecureNoteType::Generic,
+                        });
+                    }),
+                ),
+                (
+                    "SshKey",
+                    with_type(CipherType::SshKey, &|v| {
+                        v.ssh_key = Some(SshKeyView {
+                            private_key: "private".to_string(),
+                            public_key: "public".to_string(),
+                            fingerprint: "SHA256:abc".to_string(),
+                        });
+                    }),
+                ),
+                (
+                    "BankAccount",
+                    with_type(CipherType::BankAccount, &|v| {
+                        v.bank_account = Some(BankAccountView {
+                            bank_name: Some("Some Bank".to_string()),
+                            name_on_account: Some("Jane Doe".to_string()),
+                            account_type: Some("Checking".to_string()),
+                            account_number: Some("123456".to_string()),
+                            routing_number: Some("111000025".to_string()),
+                            branch_number: Some("001".to_string()),
+                            pin: Some("4321".to_string()),
+                            swift_code: Some("ABCDEF12".to_string()),
+                            iban: Some("DE89370400440532013000".to_string()),
+                            bank_contact_phone: Some("555-0199".to_string()),
+                        });
+                    }),
+                ),
+                (
+                    "DriversLicense",
+                    with_type(CipherType::DriversLicense, &|v| {
+                        v.drivers_license = Some(DriversLicenseView {
+                            first_name: Some("Jane".to_string()),
+                            middle_name: Some("Q".to_string()),
+                            last_name: Some("Doe".to_string()),
+                            date_of_birth: Some("1990-01-01".to_string()),
+                            license_number: Some("D1234567".to_string()),
+                            issuing_country: Some("US".to_string()),
+                            issuing_state: Some("CA".to_string()),
+                            issue_date: Some("2020-01-01".to_string()),
+                            expiration_date: Some("2030-01-01".to_string()),
+                            issuing_authority: Some("DMV".to_string()),
+                            license_class: Some("C".to_string()),
+                        });
+                    }),
+                ),
+                (
+                    "Passport",
+                    with_type(CipherType::Passport, &|v| {
+                        v.passport = Some(PassportView {
+                            surname: Some("Doe".to_string()),
+                            given_name: Some("Jane".to_string()),
+                            date_of_birth: Some("1990-01-01".to_string()),
+                            sex: Some("F".to_string()),
+                            birth_place: Some("Anytown".to_string()),
+                            nationality: Some("US".to_string()),
+                            issuing_country: Some("US".to_string()),
+                            passport_number: Some("X1234567".to_string()),
+                            passport_type: Some("P".to_string()),
+                            national_identification_number: Some("000-00-0000".to_string()),
+                            issuing_authority: Some("State Dept".to_string()),
+                            issue_date: Some("2020-01-01".to_string()),
+                            expiration_date: Some("2030-01-01".to_string()),
+                        });
+                    }),
+                ),
+            ]
+        }
+
+        /// The legacy field-level path and the blob path independently derive
+        /// `copyable_fields` — legacy from `Option<EncString>` presence on the encrypted
+        /// kind, blob from `Option<String>` presence on the decrypted view. They must
+        /// agree for identical input, or the same cipher renders differently depending on
+        /// its storage format. This guards every type against drift without hardcoding the
+        /// expected set per type.
+        #[test]
+        fn copyable_fields_parity_between_legacy_and_blob() {
+            let key_store = make_key_store();
+
+            for (label, view) in fully_populated_views() {
+                let legacy: CipherListView = key_store
+                    .decrypt(&encrypt_legacy(view.clone(), &key_store))
+                    .unwrap();
+                let blob = decrypt_blob_list_view(&key_store, view);
+
+                assert_eq!(
+                    legacy.copyable_fields, blob.copyable_fields,
+                    "copyable_fields diverged between legacy and blob paths for {label}",
                 );
             }
         }
