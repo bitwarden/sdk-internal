@@ -24,9 +24,8 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherRenewFileUploadUrlErro
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Fetches a refreshed upload URL for an attachment whose initial upload URL has
-    /// expired. The attachment slot itself is not modified — only the URL the caller should
-    /// push bytes to is renewed.
+    /// Returns a renewed upload URL for an attachment.
+    /// Does not modify the attachment slot.
     pub async fn renew_file_upload_url(
         &self,
         cipher_id: CipherId,
@@ -63,6 +62,7 @@ mod tests {
             key_store: KeyStore::<KeySlotIds>::default(),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             repository: None,
+            http_client: reqwest::Client::new(),
         }
     }
 
@@ -123,11 +123,10 @@ mod tests {
             mock.ciphers_api
                 .expect_renew_file_upload_url()
                 .returning(|_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::ResponseError(
+                    Err(bitwarden_api_api::apis::Error::Response(
                         bitwarden_api_api::apis::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
-                            content: "boom".to_string(),
-                            entity: None,
+                            message: "boom".to_string(),
                         },
                     ))
                 });

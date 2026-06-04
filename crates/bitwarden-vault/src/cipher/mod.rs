@@ -23,10 +23,11 @@ pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
 pub use attachment_client::{
-    AttachmentAdminClient, AttachmentsClient, CipherAdminGetAttachmentDownloadUrlError,
-    CipherCreateAttachmentError, CipherDeleteAttachmentError, CipherGetAttachmentDownloadUrlError,
-    CipherRenewFileUploadUrlError, CreateAttachmentRequest, CreatedAttachment, DecryptFileError,
-    DeleteAttachmentAdminError, EncryptFileError, FileUploadType,
+    AttachmentAdminClient, AttachmentFileUploadType, AttachmentsClient,
+    CipherAdminGetAttachmentDownloadUrlError, CipherCreateAttachmentError,
+    CipherDeleteAttachmentError, CipherGetAttachmentDownloadUrlError,
+    CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentRequest,
+    CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError, EncryptFileError,
 };
 pub use bank_account::BankAccountView;
 pub use card::{CardBrand, CardListView, CardView};

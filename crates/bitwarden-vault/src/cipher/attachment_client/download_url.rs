@@ -32,12 +32,10 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherGetAttachmentDownloadU
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Returns a download URL for the given attachment.
+    /// Returns the attachment download URL.
     ///
-    /// When `emergency_access_id` is provided, hits the emergency-access endpoint and does
-    /// not fall back to local repository state on 404. Otherwise hits the regular cipher
-    /// endpoint and falls back to the URL stored on the cipher's attachment metadata in the
-    /// local repository on 404.
+    /// With `emergency_access_id`, uses the emergency-access endpoint and never falls back.
+    /// Otherwise uses the cipher endpoint and falls back to the local repository on 404.
     pub async fn get_attachment_download_url(
         &self,
         cipher_id: CipherId,
@@ -56,7 +54,7 @@ impl AttachmentsClient {
                 .get_attachment_data(ea_id, cipher_id.into(), &attachment_id)
                 .await
                 .map_err(|e| match e {
-                    bitwarden_api_api::apis::Error::ResponseError(content)
+                    bitwarden_api_api::apis::Error::Response(content)
                         if content.status == StatusCode::NOT_FOUND =>
                     {
                         CipherGetAttachmentDownloadUrlError::NotFound
@@ -73,7 +71,7 @@ impl AttachmentsClient {
             .await
         {
             Ok(response) => response.url.ok_or_else(|| MissingFieldError("url").into()),
-            Err(bitwarden_api_api::apis::Error::ResponseError(content))
+            Err(bitwarden_api_api::apis::Error::Response(content))
                 if content.status == StatusCode::NOT_FOUND =>
             {
                 let repository = self.repository.require()?;
@@ -126,6 +124,7 @@ mod tests {
             key_store: KeyStore::<KeySlotIds>::default(),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             repository: Some(Arc::new(repository)),
+            http_client: reqwest::Client::new(),
         }
     }
 
@@ -173,10 +172,9 @@ mod tests {
     }
 
     fn not_found_response() -> bitwarden_api_api::apis::Error<()> {
-        bitwarden_api_api::apis::Error::ResponseError(bitwarden_api_api::apis::ResponseContent {
+        bitwarden_api_api::apis::Error::Response(bitwarden_api_api::apis::ResponseContent {
             status: StatusCode::NOT_FOUND,
-            content: String::new(),
-            entity: None,
+            message: String::new(),
         })
     }
 
@@ -310,11 +308,10 @@ mod tests {
             mock.ciphers_api
                 .expect_get_attachment_data()
                 .returning(|_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::ResponseError(
+                    Err(bitwarden_api_api::apis::Error::Response(
                         bitwarden_api_api::apis::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
-                            content: "bitwarden".to_string(),
-                            entity: None,
+                            message: "bitwarden".to_string(),
                         },
                     ))
                 });
@@ -424,11 +421,10 @@ mod tests {
             mock.emergency_access_api
                 .expect_get_attachment_data()
                 .returning(|_ea_id, _cipher_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::ResponseError(
+                    Err(bitwarden_api_api::apis::Error::Response(
                         bitwarden_api_api::apis::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
-                            content: "bitwarden".to_string(),
-                            entity: None,
+                            message: "bitwarden".to_string(),
                         },
                     ))
                 });

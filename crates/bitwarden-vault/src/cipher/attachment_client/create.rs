@@ -33,17 +33,17 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherCreateAttachmentError 
     }
 }
 
-/// Where the encrypted attachment bytes should be pushed.
+/// Where attachment bytes should be uploaded.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub enum FileUploadType {
+pub enum AttachmentFileUploadType {
     /// Upload directly to the Bitwarden server.
     Direct,
     /// Upload to Azure Blob storage via the returned presigned URL.
     Azure,
 }
 
-impl TryFrom<bitwarden_api_api::models::FileUploadType> for FileUploadType {
+impl TryFrom<bitwarden_api_api::models::FileUploadType> for AttachmentFileUploadType {
     type Error = CipherCreateAttachmentError;
 
     fn try_from(value: bitwarden_api_api::models::FileUploadType) -> Result<Self, Self::Error> {
@@ -58,11 +58,10 @@ impl TryFrom<bitwarden_api_api::models::FileUploadType> for FileUploadType {
 }
 
 /// Metadata for opening a new attachment slot on the server.
-// TODO(PM-XXXXX / #1093): Once streaming crypto lands, switch to a plaintext boundary
-// (caller passes plaintext file_name + a streaming reader; SDK does encryption +
-// upload internally). Today's shape forces the caller to pre-encrypt because doing
-// the encryption inside the SDK would still buffer the full file in WASM linear
-// memory.
+///
+/// The caller pre-encrypts the key, file name, and contents; the SDK only opens the slot and
+/// the caller uploads. See `upgrade_attachment` for the alternative where the SDK owns the
+/// encryption and upload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -71,14 +70,12 @@ pub struct CreateAttachmentRequest {
     pub key: EncString,
     /// Encrypted file name.
     pub file_name: EncString,
-    /// Size of the encrypted file in bytes.
+    /// Encrypted file size in byte
     pub file_size: u64,
-    /// Revision date of the cipher when the request was prepared, used by the server
-    /// to detect concurrent modifications.
+    /// Cipher revision date
     pub last_known_revision_date: DateTime<Utc>,
-    /// When true, the slot is opened via the admin authorization scope. The server returns
-    /// a [`bitwarden_api_api::models::CipherMiniResponseModel`] and local repository state
-    /// is not modified.
+    /// Uses the admin auth scope. The server returns a
+    /// `CipherMiniResponseModel`, and the local repository is not updated.
     pub as_admin: bool,
 }
 
@@ -98,35 +95,33 @@ impl From<CreateAttachmentRequest> for AttachmentRequestModel {
     }
 }
 
-/// Server-assigned data for a freshly-created attachment slot. The caller pushes the
-/// encrypted bytes to [`Self::upload_url`] using the indicated [`Self::file_upload_type`].
+/// Server data for a newly created attachment slot. The caller uploads the
+/// encrypted bytes to [`Self::upload_url`] using [`Self::file_upload_type`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct CreatedAttachment {
-    /// Server-assigned ID of the new attachment.
+    /// Server-assigned attachment ID.
     pub attachment_id: String,
-    /// Where the encrypted bytes should be pushed.
+    /// Upload target for the encrypted bytes
     pub upload_url: String,
-    /// Direct (local Bitwarden server) or Azure Blob storage.
-    pub file_upload_type: FileUploadType,
-    /// Merged cipher returned by the server. For non-admin operations this is also
-    /// persisted to the local repository; it's returned inline so the caller doesn't
-    /// need a follow-up repo read.
+    /// Bitwarden server or Azure Blob Storage.
+    pub file_upload_type: AttachmentFileUploadType,
+    /// Cipher returned by the server. For non-admin requests, this is also
+    /// written to the local repository
     pub cipher: Cipher,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Opens a new attachment slot on the server (POST `/ciphers/{id}/attachment/v2`) and
-    /// updates the local repository with the merged cipher state returned by the server.
-    /// The caller is responsible for pushing the encrypted bytes to
-    /// [`CreatedAttachment::upload_url`] using the appropriate transport for
-    /// [`CreatedAttachment::file_upload_type`].
+    /// Creates a new attachment slot on the server and updates local repository
+    /// state with the merged cipher returned by the server.
     ///
-    /// If anything fails after the server has accepted the slot (e.g., the response is
-    /// malformed or the local repository write fails), the SDK makes a best-effort attempt
-    /// to delete the orphaned slot before returning the original error.
+    /// The caller must upload the encrypted bytes to [`CreatedAttachment::upload_url`]
+    /// using the transport in [`CreatedAttachment::file_upload_type`].
+    ///
+    /// If a later step fails after slot creation, the SDK best-effort deletes the
+    /// orphaned slot and returns the original error.
     pub async fn create_attachment(
         &self,
         cipher_id: CipherId,
@@ -146,8 +141,8 @@ impl AttachmentsClient {
             .post_attachment(cipher_id.into(), Some(request.into()))
             .await?;
 
-        // Extract the attachment id up front so a best-effort rollback is possible if
-        // anything in the rest of the function fails.
+        // Read the attachment ID first so we can best-effort roll back
+        // if anything else fails.
         let new_attachment_id = response
             .attachment_id
             .clone()
@@ -212,7 +207,7 @@ impl AttachmentsClient {
             .attachment_id
             .ok_or(MissingFieldError("attachment_id"))?;
         let upload_url = response.url.ok_or(MissingFieldError("url"))?;
-        let file_upload_type: FileUploadType = response
+        let file_upload_type: AttachmentFileUploadType = response
             .file_upload_type
             .ok_or(MissingFieldError("file_upload_type"))?
             .try_into()?;
@@ -260,6 +255,7 @@ mod tests {
             key_store: KeyStore::<KeySlotIds>::default(),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             repository: Some(repo_arc.clone()),
+            http_client: reqwest::Client::new(),
         };
         (client, repo_arc)
     }
@@ -358,7 +354,7 @@ mod tests {
 
         assert_eq!(result.attachment_id, NEW_ATTACHMENT_ID);
         assert_eq!(result.upload_url, "http://example.com/upload");
-        assert_eq!(result.file_upload_type, FileUploadType::Direct);
+        assert_eq!(result.file_upload_type, AttachmentFileUploadType::Direct);
         // Merged cipher is now returned inline for both paths (Comment 5).
         assert_eq!(result.cipher.id, Some(cipher_id));
 
@@ -499,11 +495,10 @@ mod tests {
             mock.ciphers_api
                 .expect_post_attachment()
                 .returning(|_id, _req| {
-                    Err(bitwarden_api_api::apis::Error::ResponseError(
+                    Err(bitwarden_api_api::apis::Error::Response(
                         bitwarden_api_api::apis::ResponseContent {
                             status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                            content: "boom".to_string(),
-                            entity: None,
+                            message: "boom".to_string(),
                         },
                     ))
                 });
@@ -526,7 +521,7 @@ mod tests {
 
     #[test]
     fn file_upload_type_unknown_variant_returns_error() {
-        let result: Result<FileUploadType, _> =
+        let result: Result<AttachmentFileUploadType, _> =
             bitwarden_api_api::models::FileUploadType::__Unknown(42).try_into();
         assert!(matches!(
             result,
