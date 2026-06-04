@@ -116,7 +116,7 @@ mod tests {
     use bitwarden_core::{
         client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
     };
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use chrono::Utc;
 
     use super::*;
@@ -129,9 +129,9 @@ mod tests {
     fn create_test_client(api_client: ApiClient) -> CipherAdminClient {
         #[allow(deprecated)]
         CipherAdminClient {
-            key_store: create_test_crypto_with_user_key(
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            ),
+            key_store: create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            )),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             client: bitwarden_core::Client::new_test(None),
         }

@@ -178,7 +178,7 @@ impl From<DriversLicense> for CipherDriversLicenseModel {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::cipher::cipher::CopyableCipherFields;
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     #[ignore]
     fn generate_test_vector() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_b64 = key.to_base64();
         let key_store = create_test_crypto_with_user_key(key);
         let key_slot = SymmetricKeySlotId::User;

@@ -1670,7 +1670,7 @@ mod tests {
     use bitwarden_core::key_management::{
         create_test_crypto_with_user_and_org_key, create_test_crypto_with_user_key,
     };
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::{Fido2Credential, PasswordHistoryView, login::Fido2CredentialListView};
@@ -1856,8 +1856,9 @@ mod tests {
 
     #[test]
     fn test_decrypt_cipher_fails_with_invalid_name() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         // Encrypt a valid cipher, then swap name with an EncString from a different key
         let cipher = key_store.encrypt(generate_cipher()).unwrap();
@@ -1888,8 +1889,9 @@ mod tests {
 
     #[test]
     fn test_decrypt_cipher_fails_with_invalid_login() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         // Encrypt a valid cipher, then corrupt the login username
         let cipher = key_store.encrypt(generate_cipher()).unwrap();
@@ -1927,7 +1929,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
         let original_cipher = generate_cipher();
@@ -1953,7 +1955,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_when_a_cipher_key_already_exists() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut original_cipher = generate_cipher();
@@ -1981,7 +1983,7 @@ mod tests {
 
     #[test]
     fn test_generate_cipher_key_ignores_attachments_without_key() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut cipher = generate_cipher();
@@ -2005,8 +2007,8 @@ mod tests {
 
     #[test]
     fn test_reencrypt_cipher_key() {
-        let old_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let old_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(old_key);
         let mut ctx = key_store.context_mut();
 
@@ -2030,7 +2032,7 @@ mod tests {
 
     #[test]
     fn test_reencrypt_cipher_key_ignores_missing_key() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
         let mut ctx = key_store.context_mut();
         let mut cipher = generate_cipher();
@@ -2048,8 +2050,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org() {
         let org = OrganizationId::new_v4();
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -2073,8 +2075,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_to_org_manually() {
         let org = OrganizationId::new_v4();
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         // Create a cipher with a user key
@@ -2093,8 +2095,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_without_key_to_org() {
         let org = OrganizationId::new_v4();
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         let mut cipher = generate_cipher();
@@ -2121,8 +2123,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_attachment_with_key_to_org() {
         let org = OrganizationId::new_v4();
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeySlotId::Organization(org);
 
@@ -2193,8 +2195,8 @@ mod tests {
     #[test]
     fn test_move_user_cipher_with_key_with_attachment_with_key_to_org() {
         let org = OrganizationId::new_v4();
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeySlotId::Organization(org);
 
@@ -2268,8 +2270,9 @@ mod tests {
 
     #[test]
     fn test_decrypt_fido2_private_key() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
         let mut ctx = key_store.context();
 
         let mut cipher_view = generate_cipher();
@@ -2931,8 +2934,9 @@ mod tests {
 
     #[test]
     fn test_decrypt_cipher_list_view_passport() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         let cipher_view = CipherView {
             r#type: CipherType::Passport,
@@ -2963,8 +2967,9 @@ mod tests {
 
     #[test]
     fn test_decrypt_cipher_list_view_drivers_license() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         let cipher_view = CipherView {
             r#type: CipherType::DriversLicense,
@@ -2995,8 +3000,9 @@ mod tests {
 
     #[test]
     fn test_cipher_view_encrypt_decrypt_passport() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         let passport = passport::PassportView {
             given_name: Some("Jane".to_string()),
@@ -3031,8 +3037,9 @@ mod tests {
 
     #[test]
     fn test_cipher_view_encrypt_decrypt_drivers_license() {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         let dl = drivers_license::DriversLicenseView {
             first_name: Some("John".to_string()),

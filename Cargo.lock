@@ -944,7 +944,6 @@ dependencies = [
  "bitwarden-vault",
  "reqwest-middleware",
  "thiserror 1.0.69",
- "tokio",
  "tracing",
  "tsify",
  "uniffi",
