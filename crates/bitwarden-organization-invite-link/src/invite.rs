@@ -19,7 +19,7 @@ export function generate_organization_invite_crypto_bundle(org_key: SymmetricKey
 
 /**
  * Unseals a sealed invite key envelope using the organization key,
- * returning the raw invite key as a base64Url string.
+ * returning the raw invite key as an InviteKeyData.
  */
 export function unseal_organization_invite_key(org_key: SymmetricKey, sealed_invite_key_envelope: InviteKeyEnvelope): InviteKeyData;
 "#;
@@ -89,7 +89,7 @@ pub fn generate_organization_invite_crypto_bundle(
 }
 
 /// Unseals a `sealedInviteKeyEnvelope` (produced by [`generate_organization_invite_crypto_bundle`])
-/// using the organization key, returning the raw invite key as a base64Url string.
+/// using the organization key, returning the raw invite key as [`InviteKeyData`].
 ///
 /// The returned invite key is safe to embed in a URL fragment for distribution to invitees.
 #[cfg_attr(feature = "wasm", wasm_bindgen::prelude::wasm_bindgen(skip_typescript))]
