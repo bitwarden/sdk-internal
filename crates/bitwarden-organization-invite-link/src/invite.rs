@@ -24,6 +24,10 @@ export function generate_organization_invite_crypto_bundle(org_key: SymmetricKey
 export function unseal_organization_invite_key(org_key: SymmetricKey, sealed_invite_key_envelope: InviteKeyEnvelope): string;
 "#;
 
+/// WASM bindings for organization invite link cryptographic operations.
+///
+/// Exposes [`generate_organization_invite_crypto_bundle`] and
+/// [`unseal_organization_invite_key`] to JavaScript/TypeScript consumers.
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub struct OrganizationInviteLinkWasm;
