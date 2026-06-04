@@ -26,9 +26,7 @@ use tracing::info;
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "wasm")]
-use crate::key_management::wasm_unlock_state::{
-    copy_user_key_to_state, get_user_key_from_state,
-};
+use crate::key_management::wasm_unlock_state::{copy_user_key_to_state, get_user_key_from_state};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{
