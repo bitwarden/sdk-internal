@@ -29,17 +29,17 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
 block-padding = { version = "=0.4.2" }
-ed25519 = { version = "3.0.0-rc.4", features = ["pkcs8"] }
+ed25519 = { version = "3.0.0", features = ["pkcs8"] }
 ed25519-dalek = { workspace = true, features = ["alloc", "pkcs8"] }
-p256 = { version = "0.14.0-rc.9", features = ["alloc", "pkcs8"], default-features = false }
-p384 = { version = "0.14.0-rc.9", features = ["alloc", "pkcs8"], default-features = false }
-p521 = { version = "0.14.0-rc.9", features = ["alloc", "pkcs8"], default-features = false }
+p256 = { version = "0.14.0-rc.10", features = ["alloc", "pkcs8"], default-features = false }
+p384 = { version = "0.14.0-rc.10", features = ["alloc", "pkcs8"], default-features = false }
+p521 = { version = "0.14.0-rc.10", features = ["alloc", "pkcs8"], default-features = false }
 pem-rfc7468 = "1.0.0"
 pkcs8 = { version = "0.11.0", features = ["encryption"] }
 rand = { workspace = true }
 rsa = { workspace = true }
 serde.workspace = true
-ssh-cipher = "0.3.0-rc.8"
+ssh-cipher = "0.3.0-rc.9"
 ssh-key = { version = "0.7.0-rc.10", features = [
     "ed25519",
     "encryption",

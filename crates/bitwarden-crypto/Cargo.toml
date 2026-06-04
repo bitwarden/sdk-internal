@@ -31,7 +31,7 @@ dangerous-crypto-debug = []
 test-utils = []
 
 [dependencies]
-aes = { version = "0.9.0", features = ["zeroize"] }
+aes = { version = "0.9.1", features = ["zeroize"] }
 argon2 = { version = "=0.6.0-rc.8", features = [
     "kdf",
     "zeroize",
@@ -50,10 +50,10 @@ hkdf = "0.13.0"
 hmac = { workspace = true, features = ["zeroize"] }
 hybrid-array = { version = "0.4.10", features = ["alloc", "serde", "zeroize"] }
 js-sys = { workspace = true, optional = true }
-ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
+ml-dsa = { version = "0.1.0", features = ["zeroize"] }
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
-pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
+pbkdf2 = { version = "0.13.0", default-features = false }
 rand = { workspace = true }
 rayon = ">=1.8.1, <2.0"
 rsa = { workspace = true }

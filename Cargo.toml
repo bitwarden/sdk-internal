@@ -71,7 +71,7 @@ chrono = { version = ">=0.4.26, <0.5", features = [
 ], default-features = false }
 ciborium = ">=0.2.2, <0.3"
 data-encoding = ">=2.0, <3"
-ed25519-dalek = { version = "3.0.0-pre.7" }
+ed25519-dalek = { version = "3.0.0-rc.0" }
 futures = ">=0.3.31, <0.4"
 hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
@@ -90,7 +90,7 @@ reqwest-middleware = { version = "0.4.2", features = [
     "json",
     "multipart",
 ] }
-rsa = "0.10.0-rc.17"
+rsa = "0.10.0-rc.18"
 rustls = { version = "0.23.19", default-features = false }
 rustls-platform-verifier = "0.6.0"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
