@@ -104,10 +104,7 @@ fn config_server_set_normalizes_url() {
 fn config_server_set_with_default_alias_collapses_to_default() {
     let app = TempAppdata::new();
 
-    stdout_of(
-        app.bw()
-            .args(["config", "server", "https://bitwarden.com"]),
-    );
+    stdout_of(app.bw().args(["config", "server", "https://bitwarden.com"]));
 
     let get = stdout_of(app.bw().args(["config", "server"]));
     assert_eq!(get.trim(), "https://bitwarden.com");
