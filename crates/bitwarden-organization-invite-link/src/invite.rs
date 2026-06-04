@@ -21,7 +21,7 @@ export function generate_organization_invite_crypto_bundle(org_key: SymmetricKey
  * Unseals a sealed invite key envelope using the organization key,
  * returning the raw invite key as a base64Url string.
  */
-export function unseal_organization_invite_key(org_key: SymmetricKey, sealed_invite_key_envelope: InviteKeyEnvelope): string;
+export function unseal_organization_invite_key(org_key: SymmetricKey, sealed_invite_key_envelope: InviteKeyEnvelope): InviteKeyData;
 "#;
 
 /// WASM bindings for organization invite link cryptographic operations.
@@ -39,9 +39,6 @@ pub enum OrganizationInviteCryptoBundleError {
     #[error("Key bundle generation failed: {0}")]
     /// Bundle Generation failed
     BundleGenerationFailed(#[from] InviteKeyBundleError),
-    #[error("Invalid sealed invite key envelope: {0}")]
-    /// Invalid Envelope
-    InvalidSealedEnvelope(InviteKeyBundleError),
     #[error("Failed to unseal invite key: {0}")]
     /// Unsealing Envelope failed
     UnsealingFailed(InviteKeyBundleError),
@@ -99,17 +96,15 @@ pub fn generate_organization_invite_crypto_bundle(
 pub fn unseal_organization_invite_key(
     org_key: SymmetricCryptoKey,
     sealed_invite_key_envelope: InviteKeyEnvelope,
-) -> Result<String, OrganizationInviteCryptoBundleError> {
+) -> Result<InviteKeyData, OrganizationInviteCryptoBundleError> {
     let tmp_store: KeyStore<LocalKeySlotIds> = KeyStore::default();
     let mut context = tmp_store.context();
 
     let org_key_slot = context.add_local_symmetric_key(org_key);
 
-    let invite_key_data = sealed_invite_key_envelope
+    sealed_invite_key_envelope
         .unseal(org_key_slot, &mut context)
-        .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)?;
-
-    Ok(String::from(&invite_key_data))
+        .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)
 }
 
 key_slot_ids! {
@@ -173,7 +168,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(String::from(&bundle.invite_key), unsealed);
+        assert_eq!(bundle.invite_key, unsealed);
     }
 
     #[test]
