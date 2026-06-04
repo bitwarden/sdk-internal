@@ -1056,16 +1056,14 @@ impl CipherView {
     ) -> Result<CipherListView, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
-        let attachments_count = self
-            .attachments
-            .as_ref()
-            .map(|a| a.len() as u32)
-            .unwrap_or(0);
-        let has_old_attachments = self
-            .attachments
-            .as_ref()
-            .map(|a| a.iter().any(|att| att.key.is_none()))
-            .unwrap_or(false);
+        let all_attachments = || {
+            self.attachments
+                .iter()
+                .flatten()
+                .chain(self.attachment_decryption_failures.iter().flatten())
+        };
+        let attachments_count = all_attachments().count() as u32;
+        let has_old_attachments = all_attachments().any(|att| att.key.is_none());
 
         let list_type = match self.r#type {
             CipherType::Login => {
@@ -3938,6 +3936,69 @@ mod tests {
         ) -> CipherListView {
             let cipher = encrypt_blob(view, key_store);
             key_store.decrypt(&cipher).unwrap()
+        }
+
+        /// Three attachments whose `EncString`s are sealed under an unrelated
+        /// key, so they fail to decrypt under any cipher key. The middle one has
+        /// no wrapped key, marking it an "old" (v1) attachment.
+        fn failing_attachments() -> Vec<attachment::Attachment> {
+            let wrong =
+                create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+            let mut ctx = wrong.context();
+            let mut enc = |s: &str| s.encrypt(&mut ctx, SymmetricKeySlotId::User).unwrap();
+            vec![
+                attachment::Attachment {
+                    id: Some("a1".to_string()),
+                    url: None,
+                    size: None,
+                    size_name: None,
+                    file_name: Some(enc("a1.txt")),
+                    key: Some(enc("k1")),
+                },
+                attachment::Attachment {
+                    id: Some("a2-old".to_string()),
+                    url: None,
+                    size: None,
+                    size_name: None,
+                    file_name: Some(enc("a2.txt")),
+                    key: None,
+                },
+                attachment::Attachment {
+                    id: Some("a3".to_string()),
+                    url: None,
+                    size: None,
+                    size_name: None,
+                    file_name: Some(enc("a3.txt")),
+                    key: Some(enc("k3")),
+                },
+            ]
+        }
+
+        /// Attachment metrics must agree across paths even when attachments fail
+        /// to decrypt. The legacy path counts the encrypted server model directly;
+        /// the blob path routes failures into `attachment_decryption_failures`, so
+        /// the projection must count those too — otherwise a corrupt attachment
+        /// makes the same cipher report a different `attachments` count and
+        /// `has_old_attachments` flag depending on its storage format.
+        #[test]
+        fn attachment_metrics_parity_with_failing_attachments() {
+            let key_store = make_key_store();
+
+            let mut legacy = encrypt_legacy(base_login_view(), &key_store);
+            legacy.attachments = Some(failing_attachments());
+            let legacy_list: CipherListView = key_store.decrypt(&legacy).unwrap();
+
+            let mut blob = encrypt_blob(base_login_view(), &key_store);
+            blob.attachments = Some(failing_attachments());
+            let blob_list: CipherListView = key_store.decrypt(&blob).unwrap();
+
+            assert_eq!(legacy_list.attachments, 3);
+            assert!(legacy_list.has_old_attachments);
+            assert_eq!(blob_list.attachments, legacy_list.attachments);
+            assert_eq!(
+                blob_list.has_old_attachments,
+                legacy_list.has_old_attachments,
+            );
         }
     }
 }
