@@ -91,11 +91,11 @@ async fn edit_cipher(
     cipher.folder_id = folder_id;
     cipher.favorite = favorite;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 /// Adds the cipher matched by [CipherId] to any number of collections on the server.
@@ -119,11 +119,11 @@ pub async fn add_to_collections(
         .await?
         .merge_with_cipher(None)?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
