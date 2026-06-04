@@ -137,7 +137,7 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use bitwarden_api_api::apis::AuthRequired;
+    use bitwarden_api_api::{apis::AuthRequired, new_http_client};
     use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
     use wiremock::MockServer;
 
@@ -190,7 +190,8 @@ mod tests {
         let ext = MockMiddleware {
             state: state.clone(),
         };
-        let client = ClientBuilder::new(reqwest::Client::new())
+
+        let client = ClientBuilder::new(new_http_client())
             .with_arc(Arc::new(MiddlewareWrapper::new(ext)))
             .build();
         (client, state)

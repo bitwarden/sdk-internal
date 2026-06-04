@@ -1,6 +1,6 @@
 //! Persisted state types and setting keys for the Bitwarden SDK.
 
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_crypto::{UnsignedSharedKey, safe::SymmetricKeyEnvelope};
 use bitwarden_state::{register_repository_item, register_setting_key};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -79,5 +79,5 @@ register_setting_key!(
 );
 register_setting_key!(
     /// Setting key for the session-protected user key.
-    pub const SESSION_PROTECTED_USER_KEY: EncString = "session_protected_user_key"
+    pub const SESSION_PROTECTED_USER_KEY: SymmetricKeyEnvelope = "session_protected_user_key"
 );

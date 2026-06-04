@@ -7,6 +7,7 @@ mod global;
 mod layer;
 mod visitor;
 
+pub use bitwarden_logging_macro::instrument;
 pub use circular_buffer::CircularBuffer;
 pub use config::FlightRecorderConfig;
 pub use event::FlightRecorderEvent;
