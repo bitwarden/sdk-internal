@@ -337,7 +337,7 @@ mod tests {
             edit: false,
             permissions: None,
             view_password: false,
-            name: enc_string.parse().unwrap(),
+            name: Some(enc_string.parse().unwrap()),
             revision_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
             archived_date: None,
             creation_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
