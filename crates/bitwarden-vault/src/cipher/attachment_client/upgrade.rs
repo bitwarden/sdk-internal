@@ -84,11 +84,12 @@ struct ReencryptionMaterial {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Upgrades one legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
+    /// Upgrades a legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
     ///
-    /// Downloads and re-encrypts the legacy payload, opens a new slot sized to the re-encrypted
-    /// bytes, uploads it, then deletes the old attachment. If upload fails, it best-effort deletes
-    /// the new slot. Returns the decrypted cipher view.
+    /// Downloads and re-encrypts the attachment, creates a new slot, uploads the
+    /// new bytes, then deletes the old attachment. If the upload fails, it tries
+    /// to delete the new slot before returning the error. Returns the decrypted
+    /// cipher view.
     pub async fn upgrade_attachment(
         &self,
         cipher_id: CipherId,
@@ -113,8 +114,8 @@ impl AttachmentsClient {
             return Err(CipherUpgradeAttachmentError::AlreadyUpgraded);
         }
 
-        // Capacity hint only: the legacy encrypted size is a safe upper bound for pre-sizing the
-        // streaming encryptor's buffer.
+        // Used only to pre-size the encryptor buffer. The legacy encrypted size is
+        // a safe upper bound here.
         let plaintext_size_hint: u64 = attachment
             .size
             .as_ref()
@@ -138,9 +139,8 @@ impl AttachmentsClient {
 
         let material = self.prepare_reencryption_material(&cipher, &file_name_plain)?;
 
-        // Re-encrypt up front so the new slot is sized from the actual ciphertext length instead
-        // of assuming it matches the legacy size. This also avoids creating an orphan slot when
-        // the download/decrypt fails.
+        // Re-encrypt first so we can size the new slot from the actual output.
+        // This also avoids creating a new slot if download or decrypt fails.
         let reencrypted = self
             .download_and_reencrypt(
                 cipher.key_identifier(),
@@ -163,7 +163,7 @@ impl AttachmentsClient {
             .upload_reencrypted(cipher_id, &created, reencrypted)
             .await
         {
-            // Upload failed after slot creation; best-effort delete the orphaned new slot.
+            // Upload failed after we created the new slot, so try to clean it up.
             if let Err(rollback_err) = self
                 .delete_attachment(cipher_id, created.attachment_id.clone())
                 .await
@@ -188,9 +188,9 @@ impl AttachmentsClient {
 impl AttachmentsClient {
     /// Prepares the metadata needed to re-encrypt the attachment.
     ///
-    /// Keeps `KeyStoreContext` local so it is not held across `.await`.
-    /// The new key is generated here and added to a fresh context during upload.
-    /// The legacy key is referenced by slot ID and resolved by the decryptor.
+    /// Keeps `KeyStoreContext` scoped here so it does not live across `.await`.
+    /// The new key is generated here and added again during upload.
+    /// The legacy key is looked up by slot ID in the decryptor.
     fn prepare_reencryption_material(
         &self,
         cipher: &Cipher,
@@ -214,13 +214,11 @@ impl AttachmentsClient {
         })
     }
 
-    /// Downloads the legacy ciphertext and re-encrypts it into an in-memory buffer, returning the
-    /// re-encrypted wire bytes.
+    /// Downloads the legacy ciphertext and re-encrypts it into memory.
     ///
-    /// Download and decrypt stream; the re-encrypted output is buffered because:
-    /// 1. `StreamingAttachmentEncryptor` (AES-256-CBC-HMAC) must buffer the full payload before it
-    ///    can emit — the HMAC prefixes the wire.
-    /// 2. wasm `reqwest` only supports buffered request bodies.
+    /// Download and decrypt still stream, but the encrypted output is buffered
+    /// because `StreamingAttachmentEncryptor` needs the full payload before it
+    /// can write, and wasm `reqwest` only supports buffered request bodies.
     async fn download_and_reencrypt(
         &self,
         legacy_key_slot: SymmetricKeySlotId,
@@ -246,14 +244,14 @@ impl AttachmentsClient {
             StreamingAttachmentDecryptor::new(legacy_key_slot, ctx, download_reader)?
         };
 
-        // The block ends the `&mut reencrypted` borrow before the buffer is returned.
+        // Scope the encryptor so the borrow of `reencrypted` ends before return.
         let mut reencrypted = Vec::<u8>::with_capacity(plaintext_size_hint as usize + 64);
         {
             let mut encryptor = {
                 let mut ctx = self.key_store.context();
                 let slot = ctx.add_local_symmetric_key(new_attachment_key);
-                // `plaintext_size_hint` only pre-sizes the encryptor buffer; the legacy encrypted
-                // size is a safe over-estimate.
+                // This only pre-sizes the buffer. The legacy encrypted size is a safe
+                // over-estimate.
                 StreamingAttachmentEncryptor::new(
                     slot,
                     ctx,
