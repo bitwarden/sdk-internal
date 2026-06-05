@@ -178,7 +178,10 @@ impl AttachmentsClient {
 
         let upgraded_cipher = self.delete_attachment(cipher_id, attachment_id).await?;
 
-        Ok(upgraded_cipher)
+        Ok(self
+            .key_store
+            .decrypt(&upgraded_cipher)
+            .map_err(DecryptError::from)?)
     }
 }
 
