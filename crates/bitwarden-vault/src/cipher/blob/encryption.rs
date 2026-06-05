@@ -23,6 +23,19 @@ pub enum BlobEncryptionError {
     SealedBlob(#[from] SealedCipherBlobError),
 }
 
+/// Maps the blob module's error type onto [`CryptoError`]. Format and envelope
+/// errors collapse to [`CryptoError::Decrypt`]; the specific cause is preserved
+/// in the log.
+impl From<BlobEncryptionError> for CryptoError {
+    fn from(err: BlobEncryptionError) -> Self {
+        tracing::warn!(error = %err, error_debug = ?err, "blob operation failed");
+        match err {
+            BlobEncryptionError::Crypto(c) => c,
+            BlobEncryptionError::SealedBlob(_) => CryptoError::Decrypt,
+        }
+    }
+}
+
 /// Seals a `CipherView` into an opaque blob string, using `wrapping_key` as
 /// the outer key that protects the cipher's wrapped CEK.
 fn seal_cipher(

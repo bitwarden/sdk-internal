@@ -27,7 +27,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
-    blob::{BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
+    blob::{decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -1456,7 +1456,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx).map_err(blob_err_to_crypto),
+            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx).map_err(CryptoError::from),
             None => lenient_decrypt_cipher_view(self, ctx, key),
         }
     }
@@ -1469,9 +1469,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx)
-                .map_err(blob_err_to_crypto)?
-                .to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx)?.to_list_view(ctx, key),
             None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
@@ -1519,7 +1517,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx).map_err(blob_err_to_crypto),
+            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx).map_err(CryptoError::from),
             None => strict_decrypt_cipher_view(&self.0, ctx, key),
         }
     }
@@ -1619,9 +1617,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx)
-                .map_err(blob_err_to_crypto)?
-                .to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx)?.to_list_view(ctx, key),
             None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }
@@ -1752,17 +1748,6 @@ where
     }
 }
 
-/// Maps the blob module's error type onto [`CryptoError`]. Format and envelope
-/// errors collapse to [`CryptoError::Decrypt`] since callers only need to know
-/// "blob operation failed".
-pub(crate) fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
-    tracing::warn!(error = %err, error_debug = ?err, "blob decryption failed");
-    match err {
-        BlobEncryptionError::Crypto(c) => c,
-        BlobEncryptionError::SealedBlob(_) => CryptoError::Decrypt,
-    }
-}
-
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMode<CipherView> {
     fn encrypt_composite(
         &self,
@@ -1774,7 +1759,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMod
                 // `encrypt_blob_cipher` takes `&mut CipherView` because it may
                 // generate a cipher key; so we operate on a local clone.
                 let mut owned = view.clone();
-                encrypt_blob_cipher(&mut owned, ctx).map_err(blob_err_to_crypto)
+                encrypt_blob_cipher(&mut owned, ctx).map_err(CryptoError::from)
             }
             Self::Legacy(view) => view.encrypt_composite(ctx, key),
         }
