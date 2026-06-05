@@ -165,6 +165,10 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
     }
 }
 
+// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
+// short-lived feature-rollout flags that will be removed once their migrations
+// complete, at which point the argument count drops back under the limit.
+#[allow(clippy::too_many_arguments)]
 async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
