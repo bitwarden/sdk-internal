@@ -66,11 +66,11 @@ async fn create_cipher(
     cipher.edit = true;
     cipher.view_password = true;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
