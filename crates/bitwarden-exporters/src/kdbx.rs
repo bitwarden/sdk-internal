@@ -62,7 +62,13 @@ pub(crate) fn parse_kdbx(
 
     let db = Database::open(&mut Cursor::new(data), key).map_err(map_open_error)?;
 
-    let recycle_bin = db.meta.recyclebin_uuid;
+    // Only treat the UUID as the recycle bin when the feature is enabled; KeePass retains the last
+    // recycle-bin UUID after the feature is turned off, and it may still point at a real group.
+    let recycle_bin = if db.meta.recyclebin_enabled == Some(true) {
+        db.meta.recyclebin_uuid
+    } else {
+        None
+    };
     let mut result = ParsedKdbx {
         ciphers: Vec::new(),
         folders: Vec::new(),
@@ -292,17 +298,22 @@ mod tests {
 
     const PASSWORD: &str = "test-password";
 
-    /// Builds a KDBX4 database via the `save_kdbx4` test feature and returns its encrypted bytes.
+    /// Encrypts a database to KDBX4 bytes via the `save_kdbx4` test feature.
+    fn save(db: &Database) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        db.save(&mut bytes, DatabaseKey::new().with_password(PASSWORD))
+            .unwrap();
+        bytes
+    }
+
+    /// Builds a KDBX4 database and returns its encrypted bytes.
     fn build_db(build: impl FnOnce(&mut GroupMut<'_>)) -> Vec<u8> {
         let mut db = Database::new();
         {
             let mut root = db.root_mut();
             build(&mut root);
         }
-        let mut bytes = Vec::new();
-        db.save(&mut bytes, DatabaseKey::new().with_password(PASSWORD))
-            .unwrap();
-        bytes
+        save(&db)
     }
 
     fn parse(bytes: &[u8]) -> ParsedKdbx {
@@ -471,5 +482,36 @@ mod tests {
     fn non_kdbx_input_is_invalid_format() {
         let err = parse_kdbx(b"not a kdbx file", Some(PASSWORD), None).unwrap_err();
         assert!(matches!(err, ExportError::KdbxInvalidFormat));
+    }
+
+    /// Builds a db whose only group is referenced by `recyclebin_uuid`, with the feature toggled.
+    fn db_with_recycle_bin(enabled: bool) -> Vec<u8> {
+        let mut db = Database::new();
+        {
+            let mut root = db.root_mut();
+            let mut group = root.add_group();
+            group.name = "Trash".into();
+            group.add_entry().set_unprotected(fields::TITLE, "in trash");
+        }
+        let group_id = db.root().groups().next().unwrap().id().uuid();
+        db.meta.recyclebin_enabled = Some(enabled);
+        db.meta.recyclebin_uuid = Some(group_id);
+        save(&db)
+    }
+
+    #[test]
+    fn recycle_bin_group_is_skipped_when_enabled() {
+        let result = parse(&db_with_recycle_bin(true));
+        assert!(result.ciphers.is_empty());
+        assert!(result.folders.is_empty());
+    }
+
+    #[test]
+    fn recycle_bin_uuid_is_ignored_when_disabled() {
+        // The feature is off, so the still-present UUID must not cause the group to be dropped.
+        let result = parse(&db_with_recycle_bin(false));
+        assert_eq!(result.folders, vec!["Trash".to_string()]);
+        assert_eq!(result.ciphers.len(), 1);
+        assert_eq!(result.ciphers[0].name, "in trash");
     }
 }
