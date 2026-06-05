@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherDecryptionFailure, CipherKind, try_decrypt_field};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -103,6 +103,48 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, PassportView> for Passport {
             issue_date: self.issue_date.decrypt(ctx, key).ok().flatten(),
             expiration_date: self.expiration_date.decrypt(ctx, key).ok().flatten(),
         })
+    }
+}
+
+impl Passport {
+    /// Graceful decrypt into a [`PassportView`], collecting per-field failures into `failures`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> PassportView {
+        macro_rules! tf {
+            ($field:ident, $camel:literal) => {
+                try_decrypt_field(
+                    &self.$field,
+                    ctx,
+                    key,
+                    &format!("{path_prefix}.{}", $camel),
+                    failures,
+                )
+                .flatten()
+            };
+        }
+        PassportView {
+            surname: tf!(surname, "surname"),
+            given_name: tf!(given_name, "givenName"),
+            date_of_birth: tf!(date_of_birth, "dateOfBirth"),
+            sex: tf!(sex, "sex"),
+            birth_place: tf!(birth_place, "birthPlace"),
+            nationality: tf!(nationality, "nationality"),
+            issuing_country: tf!(issuing_country, "issuingCountry"),
+            passport_number: tf!(passport_number, "passportNumber"),
+            passport_type: tf!(passport_type, "passportType"),
+            national_identification_number: tf!(
+                national_identification_number,
+                "nationalIdentificationNumber"
+            ),
+            issuing_authority: tf!(issuing_authority, "issuingAuthority"),
+            issue_date: tf!(issue_date, "issueDate"),
+            expiration_date: tf!(expiration_date, "expirationDate"),
+        }
     }
 }
 

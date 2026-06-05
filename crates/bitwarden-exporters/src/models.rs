@@ -313,6 +313,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
+            decryption_failures: None,
         };
 
         let login = from_login(&view, &key_store).unwrap();
@@ -369,6 +370,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
+            decryption_failures: None,
         };
         let encrypted = key_store.encrypt(cipher_view).unwrap();
 

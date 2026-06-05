@@ -39,6 +39,23 @@ impl CiphersClient {
         Ok(self.0.decrypt_list_with_failures(ciphers).await)
     }
 
+    /// Decrypt a single cipher gracefully — per-field decryption errors are collected
+    /// into `CipherView::decryption_failures` instead of being silently nulled or
+    /// propagated.
+    pub async fn decrypt_graceful(&self, cipher: Cipher) -> Result<CipherView> {
+        Ok(self.0.decrypt_graceful(cipher).await?)
+    }
+
+    /// List-view variant of `decrypt_graceful`. Each successful entry carries its own
+    /// `decryption_failures`; ciphers whose `key` failed to decrypt are returned in
+    /// `failures`.
+    pub async fn decrypt_list_graceful(
+        &self,
+        ciphers: Vec<Cipher>,
+    ) -> Result<DecryptCipherListResult> {
+        Ok(self.0.decrypt_list_graceful(ciphers).await)
+    }
+
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,

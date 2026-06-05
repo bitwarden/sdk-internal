@@ -332,6 +332,7 @@ mod tests {
             archived_date: None,
             edit: false,
             password_history: None,
+            decryption_failures: None,
         };
         let encrypted_cipher = cipher.encrypt_composite(&mut ctx, user_key_old).unwrap();
 

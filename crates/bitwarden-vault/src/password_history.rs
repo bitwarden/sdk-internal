@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::VaultParseError;
+use crate::{
+    VaultParseError,
+    cipher::cipher::{CipherDecryptionFailure, try_decrypt_field},
+};
 
 /// Maximum number of password history entries to retain
 pub(crate) const MAX_PASSWORD_HISTORY_ENTRIES: usize = 5;
@@ -68,6 +71,30 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, PasswordHistoryView> for Passwo
             password: self.password.decrypt(ctx, key).ok().unwrap_or_default(),
             last_used_date: self.last_used_date,
         })
+    }
+}
+
+impl PasswordHistory {
+    /// Graceful decrypt into a [`PasswordHistoryView`]. On failure the password becomes an
+    /// empty string and a failure entry is added at `{path_prefix}.password`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> PasswordHistoryView {
+        PasswordHistoryView {
+            password: try_decrypt_field(
+                &self.password,
+                ctx,
+                key,
+                &format!("{path_prefix}.password"),
+                failures,
+            )
+            .unwrap_or_default(),
+            last_used_date: self.last_used_date,
+        }
     }
 }
 

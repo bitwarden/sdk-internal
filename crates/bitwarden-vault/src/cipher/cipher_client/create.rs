@@ -106,6 +106,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
         deleted_date: None,
         revision_date: now,
         archived_date: r.archived_date,
+        decryption_failures: None,
     }
 }
 

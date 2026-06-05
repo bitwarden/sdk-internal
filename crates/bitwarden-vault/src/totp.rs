@@ -765,6 +765,7 @@ mod tests {
             fields: None,
             #[cfg(feature = "wasm")]
             attachment_names: None,
+            decryption_failures: None,
         };
 
         let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();

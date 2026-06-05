@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherDecryptionFailure, CipherKind, try_decrypt_field};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -89,6 +89,44 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, DriversLicenseView> for Drivers
             issuing_authority: self.issuing_authority.decrypt(ctx, key).ok().flatten(),
             license_class: self.license_class.decrypt(ctx, key).ok().flatten(),
         })
+    }
+}
+
+impl DriversLicense {
+    /// Graceful decrypt into a [`DriversLicenseView`], collecting per-field failures into
+    /// `failures`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> DriversLicenseView {
+        macro_rules! tf {
+            ($field:ident, $camel:literal) => {
+                try_decrypt_field(
+                    &self.$field,
+                    ctx,
+                    key,
+                    &format!("{path_prefix}.{}", $camel),
+                    failures,
+                )
+                .flatten()
+            };
+        }
+        DriversLicenseView {
+            first_name: tf!(first_name, "firstName"),
+            middle_name: tf!(middle_name, "middleName"),
+            last_name: tf!(last_name, "lastName"),
+            date_of_birth: tf!(date_of_birth, "dateOfBirth"),
+            license_number: tf!(license_number, "licenseNumber"),
+            issuing_country: tf!(issuing_country, "issuingCountry"),
+            issuing_state: tf!(issuing_state, "issuingState"),
+            issue_date: tf!(issue_date, "issueDate"),
+            expiration_date: tf!(expiration_date, "expirationDate"),
+            issuing_authority: tf!(issuing_authority, "issuingAuthority"),
+            license_class: tf!(license_class, "licenseClass"),
+        }
     }
 }
 

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use super::Cipher;
-use crate::VaultParseError;
+use crate::{VaultParseError, cipher::cipher::CipherDecryptionFailure};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -290,6 +290,48 @@ pub(crate) fn decrypt_attachments_with_failures(
             Ok(decrypted) => successes.push(decrypted),
             Err(e) => {
                 tracing::warn!(attachment_id = ?attachment.id, error = %e, "Failed to decrypt attachment");
+                failures.push(AttachmentView {
+                    id: attachment.id.clone(),
+                    url: attachment.url.clone(),
+                    size: attachment.size.clone(),
+                    size_name: attachment.size_name.clone(),
+                    file_name: None,
+                    key: attachment.key.clone(),
+                    #[cfg(feature = "wasm")]
+                    decrypted_key: None,
+                });
+            }
+        }
+    }
+
+    (successes, failures)
+}
+
+/// Graceful variant of [`decrypt_attachments_with_failures`]. Behaves identically for
+/// successes and the legacy `attachment_decryption_failures` field, but also appends a
+/// [`CipherDecryptionFailure`] entry (with `path = "attachments[i].fileName"`) into
+/// `decryption_failures` for every attachment whose decrypt fails — so clients reading the
+/// unified `CipherView::decryption_failures` see attachment failures alongside everything
+/// else.
+pub(crate) fn decrypt_attachments_with_failures_graceful(
+    attachments: &[Attachment],
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+    path_prefix: &str,
+    decryption_failures: &mut Vec<CipherDecryptionFailure>,
+) -> (Vec<AttachmentView>, Vec<AttachmentView>) {
+    let mut successes = Vec::new();
+    let mut failures = Vec::new();
+
+    for (idx, attachment) in attachments.iter().enumerate() {
+        match attachment.decrypt(ctx, key) {
+            Ok(decrypted) => successes.push(decrypted),
+            Err(e) => {
+                tracing::warn!(attachment_id = ?attachment.id, error = %e, "Failed to decrypt attachment");
+                decryption_failures.push(CipherDecryptionFailure::new(
+                    format!("{path_prefix}[{idx}].fileName"),
+                    &e,
+                ));
                 failures.push(AttachmentView {
                     id: attachment.id.clone(),
                     url: attachment.url.clone(),

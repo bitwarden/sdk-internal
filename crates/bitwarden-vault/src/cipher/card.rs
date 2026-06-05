@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::{CipherKind, StrictDecrypt};
+use super::cipher::{CipherDecryptionFailure, CipherKind, StrictDecrypt, try_decrypt_field};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -138,6 +138,88 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CardView> for StrictDecrypt<&Ca
             brand: self.0.brand.decrypt(ctx, key)?,
             number: self.0.number.decrypt(ctx, key)?,
         })
+    }
+}
+
+impl Card {
+    /// Graceful decrypt into a [`CardView`], collecting per-field failures into `failures`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> CardView {
+        CardView {
+            cardholder_name: try_decrypt_field(
+                &self.cardholder_name,
+                ctx,
+                key,
+                &format!("{path_prefix}.cardholderName"),
+                failures,
+            )
+            .flatten(),
+            exp_month: try_decrypt_field(
+                &self.exp_month,
+                ctx,
+                key,
+                &format!("{path_prefix}.expMonth"),
+                failures,
+            )
+            .flatten(),
+            exp_year: try_decrypt_field(
+                &self.exp_year,
+                ctx,
+                key,
+                &format!("{path_prefix}.expYear"),
+                failures,
+            )
+            .flatten(),
+            code: try_decrypt_field(
+                &self.code,
+                ctx,
+                key,
+                &format!("{path_prefix}.code"),
+                failures,
+            )
+            .flatten(),
+            brand: try_decrypt_field(
+                &self.brand,
+                ctx,
+                key,
+                &format!("{path_prefix}.brand"),
+                failures,
+            )
+            .flatten(),
+            number: try_decrypt_field(
+                &self.number,
+                ctx,
+                key,
+                &format!("{path_prefix}.number"),
+                failures,
+            )
+            .flatten(),
+        }
+    }
+
+    /// Graceful decrypt into a [`CardListView`].
+    pub(crate) fn decrypt_graceful_list_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> CardListView {
+        CardListView {
+            brand: try_decrypt_field(
+                &self.brand,
+                ctx,
+                key,
+                &format!("{path_prefix}.brand"),
+                failures,
+            )
+            .flatten(),
+        }
     }
 }
 

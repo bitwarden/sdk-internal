@@ -191,6 +191,7 @@ pub(crate) fn decrypt_blob_cipher(
         passport: None,
         fields: None,
         password_history: None,
+        decryption_failures: None,
     };
 
     blob.apply_to_cipher_view(&mut view, ctx, cipher_key)?;

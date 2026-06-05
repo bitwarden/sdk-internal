@@ -299,6 +299,7 @@ pub(crate) mod test_support {
             deleted_date: None,
             revision_date: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
             archived_date: None,
+            decryption_failures: None,
         }
     }
 }

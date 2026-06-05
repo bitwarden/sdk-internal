@@ -17,7 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::cipher::{CipherKind, StrictDecrypt};
+use super::cipher::{CipherDecryptionFailure, CipherKind, StrictDecrypt, try_decrypt_field};
 use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[allow(missing_docs)]
@@ -486,6 +486,142 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for StrictDecrypt<&L
             autofill_on_page_load: self.0.autofill_on_page_load,
             fido2_credentials: self.0.fido2_credentials.clone(),
         })
+    }
+}
+
+impl Login {
+    /// Graceful decrypt into a [`LoginView`], collecting per-field failures into `failures`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> LoginView {
+        let uris = self.uris.as_ref().map(|uris| {
+            uris.iter()
+                .enumerate()
+                .map(|(idx, uri)| LoginUriView {
+                    uri: try_decrypt_field(
+                        &uri.uri,
+                        ctx,
+                        key,
+                        &format!("{path_prefix}.uris[{idx}].uri"),
+                        failures,
+                    )
+                    .flatten(),
+                    r#match: uri.r#match,
+                    uri_checksum: try_decrypt_field(
+                        &uri.uri_checksum,
+                        ctx,
+                        key,
+                        &format!("{path_prefix}.uris[{idx}].uriChecksum"),
+                        failures,
+                    )
+                    .flatten(),
+                })
+                .collect()
+        });
+
+        LoginView {
+            username: try_decrypt_field(
+                &self.username,
+                ctx,
+                key,
+                &format!("{path_prefix}.username"),
+                failures,
+            )
+            .flatten(),
+            password: try_decrypt_field(
+                &self.password,
+                ctx,
+                key,
+                &format!("{path_prefix}.password"),
+                failures,
+            )
+            .flatten(),
+            password_revision_date: self.password_revision_date,
+            uris,
+            totp: try_decrypt_field(
+                &self.totp,
+                ctx,
+                key,
+                &format!("{path_prefix}.totp"),
+                failures,
+            )
+            .flatten(),
+            autofill_on_page_load: self.autofill_on_page_load,
+            fido2_credentials: self.fido2_credentials.clone(),
+        }
+    }
+
+    /// Graceful decrypt into a [`LoginListView`]. Mirrors `StrictDecrypt<&Login>` for the
+    /// list-view variant; only the small subset of fields needed for the list is collected,
+    /// and any failures are added to `failures`.
+    pub(crate) fn decrypt_graceful_list_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> LoginListView {
+        let uris = self.uris.as_ref().map(|uris| {
+            uris.iter()
+                .enumerate()
+                .map(|(idx, uri)| LoginUriView {
+                    uri: try_decrypt_field(
+                        &uri.uri,
+                        ctx,
+                        key,
+                        &format!("{path_prefix}.uris[{idx}].uri"),
+                        failures,
+                    )
+                    .flatten(),
+                    r#match: uri.r#match,
+                    uri_checksum: try_decrypt_field(
+                        &uri.uri_checksum,
+                        ctx,
+                        key,
+                        &format!("{path_prefix}.uris[{idx}].uriChecksum"),
+                        failures,
+                    )
+                    .flatten(),
+                })
+                .collect()
+        });
+
+        let fido2_credentials = self.fido2_credentials.as_ref().map(|creds| {
+            // Fido2Credential decryption is all-or-nothing per credential; if any field
+            // fails we surface a single failure for the credential and drop it from the
+            // list rather than emitting per-sub-field paths (Fido2CredentialListView is
+            // already a tightly-coupled aggregate).
+            let mut out = Vec::with_capacity(creds.len());
+            for (idx, cred) in creds.iter().enumerate() {
+                match cred.decrypt(ctx, key) {
+                    Ok(decrypted) => out.push(decrypted),
+                    Err(e) => failures.push(CipherDecryptionFailure::new(
+                        format!("{path_prefix}.fido2Credentials[{idx}]"),
+                        &e,
+                    )),
+                }
+            }
+            out
+        });
+
+        LoginListView {
+            fido2_credentials,
+            has_fido2: self.fido2_credentials.is_some(),
+            username: try_decrypt_field(
+                &self.username,
+                ctx,
+                key,
+                &format!("{path_prefix}.username"),
+                failures,
+            )
+            .flatten(),
+            totp: self.totp.clone(),
+            uris,
+        }
     }
 }
 

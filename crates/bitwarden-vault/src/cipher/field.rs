@@ -17,7 +17,10 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::{cipher::StrictDecrypt, linked_id::LinkedIdType};
+use super::{
+    cipher::{CipherDecryptionFailure, StrictDecrypt, try_decrypt_field},
+    linked_id::LinkedIdType,
+};
 use crate::{PasswordHistoryView, VaultParseError};
 
 /// Represents the type of a [FieldView].
@@ -186,6 +189,39 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, FieldView> for StrictDecrypt<&F
             r#type: self.0.r#type,
             linked_id: self.0.linked_id,
         })
+    }
+}
+
+impl Field {
+    /// Graceful decrypt into a [`FieldView`], collecting per-field failures into `failures`.
+    /// `path_prefix` is typically `"fields[i]"` (the array index slot the caller is filling).
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> FieldView {
+        FieldView {
+            name: try_decrypt_field(
+                &self.name,
+                ctx,
+                key,
+                &format!("{path_prefix}.name"),
+                failures,
+            )
+            .flatten(),
+            value: try_decrypt_field(
+                &self.value,
+                ctx,
+                key,
+                &format!("{path_prefix}.value"),
+                failures,
+            )
+            .flatten(),
+            r#type: self.r#type,
+            linked_id: self.linked_id,
+        }
     }
 }
 

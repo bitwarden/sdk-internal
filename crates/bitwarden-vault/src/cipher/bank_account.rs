@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherDecryptionFailure, CipherKind, try_decrypt_field};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -85,6 +85,42 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, BankAccountView> for BankAccoun
             iban: self.iban.decrypt(ctx, key).ok().flatten(),
             bank_contact_phone: self.bank_contact_phone.decrypt(ctx, key).ok().flatten(),
         })
+    }
+}
+
+impl BankAccount {
+    /// Graceful decrypt into a [`BankAccountView`], collecting per-field failures into `failures`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> BankAccountView {
+        macro_rules! tf {
+            ($field:ident, $camel:literal) => {
+                try_decrypt_field(
+                    &self.$field,
+                    ctx,
+                    key,
+                    &format!("{path_prefix}.{}", $camel),
+                    failures,
+                )
+                .flatten()
+            };
+        }
+        BankAccountView {
+            bank_name: tf!(bank_name, "bankName"),
+            name_on_account: tf!(name_on_account, "nameOnAccount"),
+            account_type: tf!(account_type, "accountType"),
+            account_number: tf!(account_number, "accountNumber"),
+            routing_number: tf!(routing_number, "routingNumber"),
+            branch_number: tf!(branch_number, "branchNumber"),
+            pin: tf!(pin, "pin"),
+            swift_code: tf!(swift_code, "swiftCode"),
+            iban: tf!(iban, "iban"),
+            bank_contact_phone: tf!(bank_contact_phone, "bankContactPhone"),
+        }
     }
 }
 

@@ -162,6 +162,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
         deleted_date: None,
         revision_date: r.revision_date,
         archived_date: r.archived_date,
+        decryption_failures: None,
     }
 }
 
@@ -398,6 +399,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             archived_date: None,
+            decryption_failures: None,
         }
     }
 

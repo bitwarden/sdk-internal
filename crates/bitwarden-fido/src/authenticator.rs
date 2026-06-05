@@ -849,6 +849,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
+            decryption_failures: None,
         }
     }
 

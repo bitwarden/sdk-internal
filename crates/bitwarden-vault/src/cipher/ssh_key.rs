@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherDecryptionFailure, CipherKind, try_decrypt_field};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -66,6 +66,45 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SshKeyView> for SshKey {
             public_key: self.public_key.decrypt(ctx, key)?,
             fingerprint: self.fingerprint.decrypt(ctx, key)?,
         })
+    }
+}
+
+impl SshKey {
+    /// Graceful decrypt into an [`SshKeyView`]. Fields that fail to decrypt become empty
+    /// strings; failures are pushed into `failures`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> SshKeyView {
+        SshKeyView {
+            private_key: try_decrypt_field(
+                &self.private_key,
+                ctx,
+                key,
+                &format!("{path_prefix}.privateKey"),
+                failures,
+            )
+            .unwrap_or_default(),
+            public_key: try_decrypt_field(
+                &self.public_key,
+                ctx,
+                key,
+                &format!("{path_prefix}.publicKey"),
+                failures,
+            )
+            .unwrap_or_default(),
+            fingerprint: try_decrypt_field(
+                &self.fingerprint,
+                ctx,
+                key,
+                &format!("{path_prefix}.fingerprint"),
+                failures,
+            )
+            .unwrap_or_default(),
+        }
     }
 }
 

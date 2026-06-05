@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
+    cipher::cipher::{DecryptCipherListResult, GracefulDecrypt, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
 #[cfg(feature = "wasm")]
@@ -271,6 +271,54 @@ impl CiphersClient {
         }
     }
 
+    /// Decrypt a single cipher gracefully — fields that fail to decrypt do not abort the
+    /// operation, and their failures are collected in [`CipherView::decryption_failures`].
+    /// Returns `Err` only when the cipher's own key fails to decrypt (no field can be
+    /// recovered in that case).
+    ///
+    /// This is opt-in: existing `decrypt` / `decrypt_list` / `decrypt_list_with_failures`
+    /// are unchanged. Callers must be aware that re-encrypting and saving a `CipherView`
+    /// with non-empty `decryption_failures` will overwrite the original ciphertext of the
+    /// affected fields.
+    // `async` kept for API symmetry with `decrypt` / `decrypt_list` and to give us room
+    // to read client flags or state in the future without a breaking change.
+    #[allow(clippy::unused_async)]
+    pub async fn decrypt_graceful(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
+        let key_store = self.client.internal.get_key_store();
+        Ok(key_store.decrypt(&GracefulDecrypt(cipher))?)
+    }
+
+    /// List-view variant of [`Self::decrypt_graceful`]. Per-cipher catastrophic failures
+    /// (cipher-key decrypt errors) are partitioned via the existing
+    /// [`DecryptCipherListResult`] machinery; each successful entry carries its own
+    /// [`CipherListView::decryption_failures`] populated.
+    #[allow(clippy::unused_async)]
+    pub async fn decrypt_list_graceful(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
+        let key_store = self.client.internal.get_key_store();
+        let graceful: Vec<GracefulDecrypt<Cipher>> =
+            ciphers.into_iter().map(GracefulDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&graceful);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    }
+
+    /// Full-view variant of [`Self::decrypt_list_graceful`] — returns `CipherView`s
+    /// (each with its own `decryption_failures`) rather than the lighter `CipherListView`.
+    #[cfg(feature = "wasm")]
+    #[allow(clippy::unused_async)]
+    pub async fn decrypt_list_full_graceful(&self, ciphers: Vec<Cipher>) -> DecryptCipherResult {
+        let key_store = self.client.internal.get_key_store();
+        let graceful: Vec<GracefulDecrypt<Cipher>> =
+            ciphers.into_iter().map(GracefulDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&graceful);
+        DecryptCipherResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    }
+
     #[allow(missing_docs)]
     pub fn decrypt_fido2_credentials(
         &self,
@@ -436,6 +484,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
+            decryption_failures: None,
         }
     }
 

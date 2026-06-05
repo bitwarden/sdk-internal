@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::{CipherKind, StrictDecrypt};
+use super::cipher::{CipherDecryptionFailure, CipherKind, StrictDecrypt, try_decrypt_field};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -146,6 +146,52 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, IdentityView> for StrictDecrypt
             passport_number: self.0.passport_number.decrypt(ctx, key)?,
             license_number: self.0.license_number.decrypt(ctx, key)?,
         })
+    }
+}
+
+impl Identity {
+    /// Graceful decrypt into an [`IdentityView`], collecting per-field failures into `failures`.
+    pub(crate) fn decrypt_graceful_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+        path_prefix: &str,
+        failures: &mut Vec<CipherDecryptionFailure>,
+    ) -> IdentityView {
+        // Local macro to keep the 18-field expansion readable. `$camel` is the
+        // dotted-camelCase path component we publish to clients.
+        macro_rules! tf {
+            ($field:ident, $camel:literal) => {
+                try_decrypt_field(
+                    &self.$field,
+                    ctx,
+                    key,
+                    &format!("{path_prefix}.{}", $camel),
+                    failures,
+                )
+                .flatten()
+            };
+        }
+        IdentityView {
+            title: tf!(title, "title"),
+            first_name: tf!(first_name, "firstName"),
+            middle_name: tf!(middle_name, "middleName"),
+            last_name: tf!(last_name, "lastName"),
+            address1: tf!(address1, "address1"),
+            address2: tf!(address2, "address2"),
+            address3: tf!(address3, "address3"),
+            city: tf!(city, "city"),
+            state: tf!(state, "state"),
+            postal_code: tf!(postal_code, "postalCode"),
+            country: tf!(country, "country"),
+            company: tf!(company, "company"),
+            email: tf!(email, "email"),
+            phone: tf!(phone, "phone"),
+            ssn: tf!(ssn, "ssn"),
+            username: tf!(username, "username"),
+            passport_number: tf!(passport_number, "passportNumber"),
+            license_number: tf!(license_number, "licenseNumber"),
+        }
     }
 }
 

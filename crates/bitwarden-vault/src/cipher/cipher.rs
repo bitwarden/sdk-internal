@@ -460,6 +460,13 @@ pub struct CipherView {
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
+    /// Per-field decryption failures collected by the graceful decrypt path.
+    /// Only populated by `CiphersClient::decrypt_graceful` and friends; the lenient and
+    /// strict decrypt paths always leave this as `None`. Callers that re-encrypt and save
+    /// a `CipherView` with non-empty `decryption_failures` will overwrite the original
+    /// ciphertext of the affected fields — clients must handle this before mutating.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decryption_failures: Option<Vec<CipherDecryptionFailure>>,
 }
 
 #[allow(missing_docs)]
@@ -563,6 +570,43 @@ pub struct CipherListView {
     /// Decrypted attachment filenames for search indexing.
     #[cfg(feature = "wasm")]
     pub attachment_names: Option<Vec<String>>,
+    /// Per-field decryption failures collected by the graceful decrypt path.
+    /// Only populated by `CiphersClient::decrypt_list_graceful`; the lenient and strict
+    /// decrypt paths always leave this as `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decryption_failures: Option<Vec<CipherDecryptionFailure>>,
+}
+
+/// Identifies a single field that failed to decrypt within a cipher, along with the
+/// `CryptoError` (flattened to variant + message) returned by `Decryptable::decrypt`
+/// for that field. Populated by `GracefulDecrypt` via the `*_graceful` methods on
+/// `CiphersClient`; never populated by the lenient or strict decrypt paths.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct CipherDecryptionFailure {
+    /// Dotted path to the failed field, in camelCase to match the wire format. Examples:
+    /// `"name"`, `"login.password"`, `"login.uris[0].uri"`, `"fields[2].value"`,
+    /// `"attachments[0].fileName"`.
+    pub path: String,
+    /// The `CryptoError` variant name (e.g. `"Decrypt"`, `"KeyDecrypt"`, `"InvalidKey"`).
+    /// Sourced from `bitwarden_error::flat_error::FlatError::error_variant()`.
+    pub error_variant: String,
+    /// The error's `Display` rendering. `CryptoError` variants use fixed `#[error("...")]`
+    /// templates that never interpolate key material, ciphertext, or plaintext.
+    pub error_message: String,
+}
+
+impl CipherDecryptionFailure {
+    pub(crate) fn new(path: impl Into<String>, error: &CryptoError) -> Self {
+        use bitwarden_error::flat_error::FlatError;
+        CipherDecryptionFailure {
+            path: path.into(),
+            error_variant: error.error_variant().to_string(),
+            error_message: error.to_string(),
+        }
+    }
 }
 
 /// Represents the result of decrypting a list of ciphers.
@@ -744,6 +788,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
             archived_date: self.archived_date,
+            decryption_failures: None,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
@@ -1115,6 +1160,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
                     .filter_map(|a| a.file_name.decrypt(ctx, ciphers_key).ok().flatten())
                     .collect()
             }),
+            decryption_failures: None,
         })
     }
 }
@@ -1155,6 +1201,39 @@ impl IdentifyKey<SymmetricKeySlotId> for CipherListView {
 /// TODO [PM-34531]: Remove StrictDecrypt and `PM-34500-strict_cipher_decryption` feature flag
 /// after feature has fully rolled out.
 pub(crate) struct StrictDecrypt<T>(pub(crate) T);
+
+/// Generic wrapper that uses graceful decryption: field decryption errors are collected
+/// into [`CipherView::decryption_failures`] (or [`CipherListView::decryption_failures`])
+/// rather than nulled silently (lenient) or propagated (strict).
+///
+/// Selected at the call site by the `*_graceful` methods on [`crate::CiphersClient`]; not
+/// gated behind any feature flag.
+pub(crate) struct GracefulDecrypt<T>(pub(crate) T);
+
+/// Decrypt a single field, collecting any error into `failures` and returning `None`.
+///
+/// Used by the graceful decrypt path so that one corrupt field doesn't abort the whole
+/// cipher decrypt. The `path` argument identifies the field for the failure record using
+/// the dotted-camelCase convention documented on [`CipherDecryptionFailure::path`].
+pub(crate) fn try_decrypt_field<E, T>(
+    enc: &E,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    key: SymmetricKeySlotId,
+    path: &str,
+    failures: &mut Vec<CipherDecryptionFailure>,
+) -> Option<T>
+where
+    E: Decryptable<KeySlotIds, SymmetricKeySlotId, T>,
+{
+    match enc.decrypt(ctx, key) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            tracing::warn!(field_path = %path, error = %e, "graceful decrypt: field failed");
+            failures.push(CipherDecryptionFailure::new(path, &e));
+            None
+        }
+    }
+}
 
 impl IdentifyKey<SymmetricKeySlotId> for StrictDecrypt<Cipher> {
     fn key_identifier(&self) -> SymmetricKeySlotId {
@@ -1236,6 +1315,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
             deleted_date: self.0.deleted_date,
             revision_date: self.0.revision_date,
             archived_date: self.0.archived_date,
+            decryption_failures: None,
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
@@ -1345,6 +1425,283 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
                 })
                 .transpose()?
                 .map(|names| names.into_iter().flatten().collect()),
+            decryption_failures: None,
+        })
+    }
+}
+
+impl IdentifyKey<SymmetricKeySlotId> for GracefulDecrypt<Cipher> {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        self.0.key_identifier()
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for GracefulDecrypt<Cipher> {
+    #[instrument(err, skip_all, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherView, CryptoError> {
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
+
+        let mut failures: Vec<CipherDecryptionFailure> = Vec::new();
+
+        let (attachments, attachment_decryption_failures) =
+            attachment::decrypt_attachments_with_failures_graceful(
+                self.0.attachments.as_deref().unwrap_or_default(),
+                ctx,
+                ciphers_key,
+                "attachments",
+                &mut failures,
+            );
+
+        let login = self
+            .0
+            .login
+            .as_ref()
+            .map(|l| l.decrypt_graceful_view(ctx, ciphers_key, "login", &mut failures));
+        let identity = self
+            .0
+            .identity
+            .as_ref()
+            .map(|i| i.decrypt_graceful_view(ctx, ciphers_key, "identity", &mut failures));
+        let card = self
+            .0
+            .card
+            .as_ref()
+            .map(|c| c.decrypt_graceful_view(ctx, ciphers_key, "card", &mut failures));
+        let ssh_key = self
+            .0
+            .ssh_key
+            .as_ref()
+            .map(|s| s.decrypt_graceful_view(ctx, ciphers_key, "sshKey", &mut failures));
+        let bank_account = self
+            .0
+            .bank_account
+            .as_ref()
+            .map(|b| b.decrypt_graceful_view(ctx, ciphers_key, "bankAccount", &mut failures));
+        let drivers_license =
+            self.0.drivers_license.as_ref().map(|d| {
+                d.decrypt_graceful_view(ctx, ciphers_key, "driversLicense", &mut failures)
+            });
+        let passport = self
+            .0
+            .passport
+            .as_ref()
+            .map(|p| p.decrypt_graceful_view(ctx, ciphers_key, "passport", &mut failures));
+
+        let fields = self.0.fields.as_ref().map(|fields| {
+            fields
+                .iter()
+                .enumerate()
+                .map(|(idx, f)| {
+                    f.decrypt_graceful_view(
+                        ctx,
+                        ciphers_key,
+                        &format!("fields[{idx}]"),
+                        &mut failures,
+                    )
+                })
+                .collect()
+        });
+
+        let password_history = self.0.password_history.as_ref().map(|history| {
+            history
+                .iter()
+                .enumerate()
+                .map(|(idx, h)| {
+                    h.decrypt_graceful_view(
+                        ctx,
+                        ciphers_key,
+                        &format!("passwordHistory[{idx}]"),
+                        &mut failures,
+                    )
+                })
+                .collect()
+        });
+
+        let mut cipher = CipherView {
+            id: self.0.id,
+            organization_id: self.0.organization_id,
+            folder_id: self.0.folder_id,
+            collection_ids: self.0.collection_ids.clone(),
+            key: self.0.key.clone(),
+            name: try_decrypt_field(&self.0.name, ctx, ciphers_key, "name", &mut failures)
+                .unwrap_or_default(),
+            notes: try_decrypt_field(&self.0.notes, ctx, ciphers_key, "notes", &mut failures)
+                .flatten(),
+            r#type: self.0.r#type,
+            login,
+            identity,
+            card,
+            secure_note: self.0.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
+            ssh_key,
+            bank_account,
+            drivers_license,
+            passport,
+            favorite: self.0.favorite,
+            reprompt: self.0.reprompt,
+            organization_use_totp: self.0.organization_use_totp,
+            edit: self.0.edit,
+            permissions: self.0.permissions,
+            view_password: self.0.view_password,
+            local_data: self.0.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
+            attachments: Some(attachments),
+            attachment_decryption_failures: Some(attachment_decryption_failures),
+            fields,
+            password_history,
+            creation_date: self.0.creation_date,
+            deleted_date: self.0.deleted_date,
+            revision_date: self.0.revision_date,
+            archived_date: self.0.archived_date,
+            decryption_failures: if failures.is_empty() {
+                None
+            } else {
+                Some(failures)
+            },
+        };
+
+        // For compatibility we only remove URLs with invalid checksums if the cipher has a key
+        // or the user is on Crypto V2
+        if cipher.key.is_some()
+            || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
+        {
+            cipher.remove_invalid_checksums();
+        }
+
+        Ok(cipher)
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for GracefulDecrypt<Cipher> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<CipherListView, CryptoError> {
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
+
+        let mut failures: Vec<CipherDecryptionFailure> = Vec::new();
+
+        let name = try_decrypt_field(&self.0.name, ctx, ciphers_key, "name", &mut failures)
+            .unwrap_or_default();
+        let subtitle = match self.0.decrypt_subtitle(ctx, ciphers_key) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(error = %e, "graceful decrypt: subtitle failed");
+                failures.push(CipherDecryptionFailure::new("subtitle", &e));
+                String::new()
+            }
+        };
+
+        let r#type = match self.0.r#type {
+            CipherType::Login => match self.0.login.as_ref() {
+                Some(login) => CipherListViewType::Login(login.decrypt_graceful_list_view(
+                    ctx,
+                    ciphers_key,
+                    "login",
+                    &mut failures,
+                )),
+                None => return Err(CryptoError::MissingField("login")),
+            },
+            CipherType::SecureNote => CipherListViewType::SecureNote,
+            CipherType::Card => match self.0.card.as_ref() {
+                Some(card) => CipherListViewType::Card(card.decrypt_graceful_list_view(
+                    ctx,
+                    ciphers_key,
+                    "card",
+                    &mut failures,
+                )),
+                None => return Err(CryptoError::MissingField("card")),
+            },
+            CipherType::Identity => CipherListViewType::Identity,
+            CipherType::SshKey => CipherListViewType::SshKey,
+            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::Passport => CipherListViewType::Passport,
+            CipherType::DriversLicense => CipherListViewType::DriversLicense,
+        };
+
+        #[cfg(feature = "wasm")]
+        let notes_value =
+            try_decrypt_field(&self.0.notes, ctx, ciphers_key, "notes", &mut failures).flatten();
+        #[cfg(feature = "wasm")]
+        let fields_value = self.0.fields.as_ref().map(|fields| {
+            fields
+                .iter()
+                .enumerate()
+                .map(|(idx, f)| {
+                    field::FieldListView::from(f.decrypt_graceful_view(
+                        ctx,
+                        ciphers_key,
+                        &format!("fields[{idx}]"),
+                        &mut failures,
+                    ))
+                })
+                .collect()
+        });
+        #[cfg(feature = "wasm")]
+        let attachment_names_value = self.0.attachments.as_ref().map(|attachments| {
+            attachments
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, a)| {
+                    try_decrypt_field(
+                        &a.file_name,
+                        ctx,
+                        ciphers_key,
+                        &format!("attachments[{idx}].fileName"),
+                        &mut failures,
+                    )
+                    .flatten()
+                })
+                .collect()
+        });
+
+        Ok(CipherListView {
+            id: self.0.id,
+            organization_id: self.0.organization_id,
+            folder_id: self.0.folder_id,
+            collection_ids: self.0.collection_ids.clone(),
+            key: self.0.key.clone(),
+            name,
+            subtitle,
+            r#type,
+            favorite: self.0.favorite,
+            reprompt: self.0.reprompt,
+            organization_use_totp: self.0.organization_use_totp,
+            edit: self.0.edit,
+            permissions: self.0.permissions,
+            view_password: self.0.view_password,
+            attachments: self
+                .0
+                .attachments
+                .as_ref()
+                .map(|a| a.len() as u32)
+                .unwrap_or(0),
+            has_old_attachments: self
+                .0
+                .attachments
+                .as_ref()
+                .map(|a| a.iter().any(|att| att.key.is_none()))
+                .unwrap_or(false),
+            creation_date: self.0.creation_date,
+            deleted_date: self.0.deleted_date,
+            revision_date: self.0.revision_date,
+            copyable_fields: self.0.get_copyable_fields(),
+            local_data: self.0.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
+            archived_date: self.0.archived_date,
+            #[cfg(feature = "wasm")]
+            notes: notes_value,
+            #[cfg(feature = "wasm")]
+            fields: fields_value,
+            #[cfg(feature = "wasm")]
+            attachment_names: attachment_names_value,
+            decryption_failures: if failures.is_empty() {
+                None
+            } else {
+                Some(failures)
+            },
         })
     }
 }
@@ -1726,6 +2083,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
+            decryption_failures: None,
         }
     }
 
@@ -1850,6 +2208,7 @@ mod tests {
                 fields: None,
                 #[cfg(feature = "wasm")]
                 attachment_names: None,
+                decryption_failures: None,
             }
         )
     }
@@ -3099,5 +3458,217 @@ mod tests {
             cipher.view_password,
             "view_password should default to true for CipherMiniDetailsResponseModel"
         );
+    }
+
+    // ---- Graceful decrypt tests ----
+
+    #[test]
+    fn test_graceful_decrypt_single_field_failure() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        // Encrypt a valid cipher, then swap login.password with an EncString from a
+        // different key.
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = Cipher {
+            login: Some(Login {
+                password: Some(TEST_CIPHER_NAME.parse().unwrap()),
+                ..cipher.login.unwrap()
+            }),
+            ..cipher
+        };
+
+        let view: CipherView = key_store.decrypt(&GracefulDecrypt(cipher)).unwrap();
+
+        // The other fields decrypted successfully — name and login.username are intact.
+        assert_eq!(view.name, "My test login");
+        assert!(view.login.is_some());
+        let login = view.login.as_ref().unwrap();
+        assert_eq!(login.username.as_deref(), Some("test_username"));
+        // The corrupted field decrypted to None.
+        assert!(login.password.is_none());
+
+        // A single failure entry at the expected path.
+        let failures = view.decryption_failures.expect("expected failures");
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].path, "login.password");
+        assert!(!failures[0].error_variant.is_empty());
+        assert!(!failures[0].error_message.is_empty());
+    }
+
+    #[test]
+    fn test_graceful_decrypt_multi_field_failure() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        // Corrupt both top-level name and login.password.
+        let cipher = Cipher {
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            login: Some(Login {
+                password: Some(TEST_CIPHER_NAME.parse().unwrap()),
+                ..cipher.login.unwrap()
+            }),
+            ..cipher
+        };
+
+        let view: CipherView = key_store.decrypt(&GracefulDecrypt(cipher)).unwrap();
+
+        // Name failed → empty string; login.password failed → None.
+        assert_eq!(view.name, "");
+        assert!(view.login.as_ref().unwrap().password.is_none());
+
+        let failures = view.decryption_failures.expect("expected failures");
+        let paths: Vec<&str> = failures.iter().map(|f| f.path.as_str()).collect();
+        assert!(paths.contains(&"name"));
+        assert!(paths.contains(&"login.password"));
+    }
+
+    #[test]
+    fn test_graceful_decrypt_attachment_failure_populates_both_fields() {
+        let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        let mut ctx = key_store.context();
+        let valid = "valid_file.txt"
+            .encrypt(&mut ctx, SymmetricKeySlotId::User)
+            .unwrap();
+        let wrong_key: SymmetricCryptoKey = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==".to_string().try_into().unwrap();
+        let wrong_key_store = create_test_crypto_with_user_key(wrong_key);
+        let mut wrong_ctx = wrong_key_store.context();
+        let corrupted = "corrupted_file.txt"
+            .encrypt(&mut wrong_ctx, SymmetricKeySlotId::User)
+            .unwrap();
+        drop(ctx);
+
+        let mut cipher = key_store.encrypt(generate_cipher()).unwrap();
+        cipher.attachments = Some(vec![
+            attachment::Attachment {
+                id: Some("valid-attachment".to_string()),
+                url: Some("https://example.com/valid".to_string()),
+                size: Some("100".to_string()),
+                size_name: Some("100 Bytes".to_string()),
+                file_name: Some(valid),
+                key: None,
+            },
+            attachment::Attachment {
+                id: Some("corrupted-attachment".to_string()),
+                url: Some("https://example.com/corrupted".to_string()),
+                size: Some("200".to_string()),
+                size_name: Some("200 Bytes".to_string()),
+                file_name: Some(corrupted),
+                key: None,
+            },
+        ]);
+
+        let view: CipherView = key_store.decrypt(&GracefulDecrypt(cipher)).unwrap();
+
+        // Legacy attachment_decryption_failures contains the failed attachment.
+        let legacy_failures = view
+            .attachment_decryption_failures
+            .as_ref()
+            .expect("legacy attachment failures populated");
+        assert_eq!(legacy_failures.len(), 1);
+        assert_eq!(
+            legacy_failures[0].id.as_deref(),
+            Some("corrupted-attachment")
+        );
+
+        // New unified decryption_failures contains the same failure at the dotted path.
+        let failures = view.decryption_failures.expect("expected failures");
+        let paths: Vec<&str> = failures.iter().map(|f| f.path.as_str()).collect();
+        assert!(
+            paths.contains(&"attachments[1].fileName"),
+            "expected attachments[1].fileName in {paths:?}"
+        );
+    }
+
+    #[test]
+    fn test_graceful_decrypt_list_view_failure() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        // For a Login-type cipher, subtitle is derived from login.username — corrupt
+        // username so subtitle decryption also fails.
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = Cipher {
+            login: Some(Login {
+                username: Some(TEST_CIPHER_NAME.parse().unwrap()),
+                ..cipher.login.unwrap()
+            }),
+            ..cipher
+        };
+
+        let view: CipherListView = key_store.decrypt(&GracefulDecrypt(cipher)).unwrap();
+
+        // Name still decrypted; subtitle is empty because the source field failed.
+        assert_eq!(view.name, "My test login");
+        assert_eq!(view.subtitle, "");
+
+        let failures = view.decryption_failures.expect("expected failures");
+        let paths: Vec<&str> = failures.iter().map(|f| f.path.as_str()).collect();
+        assert!(
+            paths.contains(&"subtitle"),
+            "expected subtitle failure in {paths:?}"
+        );
+    }
+
+    #[test]
+    fn test_graceful_decrypt_cipher_key_failure_is_catastrophic() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        // Replace the cipher's own key with garbage encrypted under a different key —
+        // the cipher-key decrypt fails, no field can be recovered.
+        let cipher = Cipher {
+            key: Some(TEST_CIPHER_NAME.parse().unwrap()),
+            ..cipher
+        };
+
+        let result: Result<CipherView, _> = key_store.decrypt(&GracefulDecrypt(cipher));
+        assert!(
+            result.is_err(),
+            "Graceful decrypt should still propagate cipher-key failures"
+        );
+    }
+
+    #[test]
+    fn test_graceful_decrypt_no_failure_yields_none() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let view: CipherView = key_store.decrypt(&GracefulDecrypt(cipher)).unwrap();
+
+        assert!(
+            view.decryption_failures.is_none(),
+            "decryption_failures should be None when nothing failed (not Some(vec![]))"
+        );
+    }
+
+    #[test]
+    fn test_existing_lenient_and_strict_paths_leave_decryption_failures_none() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        // A cipher with a corrupted name — lenient swallows, strict aborts.
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = Cipher {
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            ..cipher
+        };
+
+        // Lenient path returns Ok but with empty name and decryption_failures None.
+        let lenient_view: CipherView = key_store.decrypt(&cipher).unwrap();
+        assert_eq!(lenient_view.name, "");
+        assert!(
+            lenient_view.decryption_failures.is_none(),
+            "lenient path must never populate decryption_failures"
+        );
+
+        // Strict path errors out as before — unchanged behavior.
+        let strict_result: Result<CipherView, _> = key_store.decrypt(&StrictDecrypt(cipher));
+        assert!(strict_result.is_err());
     }
 }

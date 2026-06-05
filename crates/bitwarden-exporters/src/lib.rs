@@ -295,6 +295,7 @@ impl From<ImportingCipher> for CipherView {
             deleted_date: None,
             revision_date: value.revision_date,
             archived_date: None,
+            decryption_failures: None,
         }
     }
 }
