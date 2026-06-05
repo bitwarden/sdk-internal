@@ -17,14 +17,14 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::{
-        blob::encrypt_blob_cipher_with_wrapping_key,
-        cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt},
-    },
+    cipher::cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
 #[cfg(feature = "wasm")]
-use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
+use crate::{
+    Fido2CredentialFullView,
+    cipher::{blob::encrypt_blob_cipher_with_wrapping_key, cipher::DecryptCipherResult},
+};
 
 mod admin;
 mod bulk_update_collections;

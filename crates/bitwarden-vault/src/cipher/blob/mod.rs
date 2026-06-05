@@ -8,9 +8,9 @@ use bitwarden_crypto::{
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
 pub use encryption::BlobEncryptionError;
-pub(crate) use encryption::{
-    decrypt_blob_cipher, encrypt_blob_cipher, encrypt_blob_cipher_with_wrapping_key, try_parse_blob,
-};
+#[cfg(feature = "wasm")]
+pub(crate) use encryption::encrypt_blob_cipher_with_wrapping_key;
+pub(crate) use encryption::{decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob};
 pub(crate) use sealed::SealedCipherBlob;
 pub use sealed::SealedCipherBlobError;
 use serde::{Deserialize, Serialize};
