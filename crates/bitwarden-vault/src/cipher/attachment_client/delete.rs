@@ -5,7 +5,10 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{AttachmentsClient, Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher};
+use crate::{
+    AttachmentsClient, CipherId, CipherView, DecryptError, VaultParseError,
+    cipher::cipher::PartialCipher,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -19,6 +22,8 @@ pub enum CipherDeleteAttachmentError {
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
+    Decrypt(#[from] DecryptError),
 }
 
 impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherDeleteAttachmentError {
@@ -29,13 +34,13 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherDeleteAttachmentError 
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
-    /// Deletes an attachment from a cipher, and updates the local repository with the new
-    /// cipher data returned from the API.
+    /// Deletes an attachment from a cipher, updates the local repository with the new
+    /// cipher data returned from the API, and returns the decrypted cipher.
     pub async fn delete_attachment(
         &self,
         cipher_id: CipherId,
         attachment_id: String,
-    ) -> Result<Cipher, CipherDeleteAttachmentError> {
+    ) -> Result<CipherView, CipherDeleteAttachmentError> {
         let repository = self.repository.require()?;
 
         let response = self
@@ -52,9 +57,14 @@ impl AttachmentsClient {
             .ok_or(MissingFieldError("cipher"))?;
         let cipher = cipher_response.merge_with_cipher(existing_cipher)?;
 
+        // The repository holds the encrypted cipher; return the decrypted view to the caller,
+        // matching the convention used by the other `CiphersClient` operations.
         repository.set(cipher_id, cipher.clone()).await?;
 
-        Ok(cipher)
+        Ok(self
+            .key_store
+            .decrypt(&cipher)
+            .map_err(DecryptError::from)?)
     }
 }
 
@@ -66,13 +76,16 @@ mod tests {
         apis::ApiClient,
         models::{CipherMiniResponseModel, DeleteAttachmentResponseModel},
     };
-    use bitwarden_core::{client::ApiConfigurations, key_management::KeySlotIds};
-    use bitwarden_crypto::KeyStore;
+    use bitwarden_core::{
+        client::ApiConfigurations,
+        key_management::{KeySlotIds, SymmetricKeySlotId, create_test_crypto_with_user_key},
+    };
+    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType};
+    use crate::{Attachment, Cipher, CipherRepromptType, CipherType};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_ATTACHMENT_ID: &str = "uf7bkexzag04d3cw04jsbqqkbpbwhxs0";
@@ -82,9 +95,10 @@ mod tests {
     fn client_with_api_and_repo(
         api_client: ApiClient,
         repository: MemoryRepository<Cipher>,
+        key_store: KeyStore<KeySlotIds>,
     ) -> AttachmentsClient {
         AttachmentsClient {
-            key_store: KeyStore::<KeySlotIds>::default(),
+            key_store,
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             repository: Some(Arc::new(repository)),
             http_client: reqwest::Client::new(),
@@ -137,17 +151,26 @@ mod tests {
     #[tokio::test]
     async fn returns_updated_cipher_on_success() {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
-        let api_client = ApiClient::new_mocked(|mock| {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        // The returned cipher is decrypted, so the response name must decrypt under the test key.
+        let encrypted_name = "Deleted cipher"
+            .encrypt(&mut key_store.context(), SymmetricKeySlotId::User)
+            .unwrap()
+            .to_string();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            let encrypted_name = encrypted_name.clone();
             mock.ciphers_api
                 .expect_delete_attachment()
-                .returning(|id, attachment_id| {
+                .returning(move |id, attachment_id| {
                     assert_eq!(&id.to_string(), TEST_CIPHER_ID);
                     assert_eq!(attachment_id, TEST_ATTACHMENT_ID);
                     Ok(DeleteAttachmentResponseModel {
                         object: None,
                         cipher: Some(Box::new(CipherMiniResponseModel {
                             id: Some(TEST_CIPHER_ID.try_into().unwrap()),
-                            name: Some(TEST_CIPHER_NAME.to_string()),
+                            name: Some(encrypted_name.clone()),
                             r#type: Some(bitwarden_api_api::models::CipherType::Login),
                             creation_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
                             revision_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
@@ -160,14 +183,16 @@ mod tests {
 
         let repository = MemoryRepository::<Cipher>::default();
         repository.set(cipher_id, test_cipher()).await.unwrap();
-        let client = client_with_api_and_repo(api_client, repository);
+        let client = client_with_api_and_repo(api_client, repository, key_store);
 
         let result = client
             .delete_attachment(cipher_id, TEST_ATTACHMENT_ID.to_string())
             .await
             .unwrap();
 
-        assert!(result.attachments.is_none());
+        // The decrypted view always carries `Some(attachments)`; after deleting the only
+        // attachment it should be empty.
+        assert!(result.attachments.unwrap_or_default().is_empty());
 
         let repo_cipher = client
             .repository
@@ -196,7 +221,11 @@ mod tests {
 
         let repository = MemoryRepository::<Cipher>::default();
         repository.set(cipher_id, test_cipher()).await.unwrap();
-        let client = client_with_api_and_repo(api_client, repository);
+        let client = client_with_api_and_repo(
+            api_client,
+            repository,
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key()),
+        );
 
         let result = client
             .delete_attachment(cipher_id, TEST_ATTACHMENT_ID.to_string())

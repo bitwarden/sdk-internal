@@ -3,8 +3,8 @@ use std::io;
 use bitwarden_api_base::AuthRequired;
 use bitwarden_core::{ApiError, MissingFieldError, key_management::SymmetricKeySlotId};
 use bitwarden_crypto::{
-    CryptoError, EncString, IdentifyKey, PrimitiveEncryptable, StreamingAttachmentDecryptor,
-    StreamingAttachmentEncryptor, SymmetricCryptoKey,
+    CryptoError, Decryptable, EncString, IdentifyKey, PrimitiveEncryptable,
+    StreamingAttachmentDecryptor, StreamingAttachmentEncryptor, SymmetricCryptoKey,
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
@@ -86,14 +86,14 @@ struct ReencryptionMaterial {
 impl AttachmentsClient {
     /// Upgrades one legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
     ///
-    /// Opens a new slot, downloads and re-encrypts the legacy payload, uploads it,
-    /// then deletes the old attachment. If upload fails, it best-effort deletes the
-    /// new slot.
+    /// Downloads and re-encrypts the legacy payload, opens a new slot sized to the re-encrypted
+    /// bytes, uploads it, then deletes the old attachment. If upload fails, it best-effort deletes
+    /// the new slot. Returns the decrypted cipher view.
     pub async fn upgrade_attachment(
         &self,
         cipher_id: CipherId,
         attachment_id: String,
-    ) -> Result<Cipher, CipherUpgradeAttachmentError> {
+    ) -> Result<CipherView, CipherUpgradeAttachmentError> {
         let repository = self.repository.require()?;
         let cipher = repository
             .get(cipher_id)
@@ -113,29 +113,24 @@ impl AttachmentsClient {
             return Err(CipherUpgradeAttachmentError::AlreadyUpgraded);
         }
 
-        // Encrypted size stays the same; both formats use the same AES-CBC-HMAC wire layout.
-        let new_file_size: u64 = attachment
+        // Capacity hint only: the legacy encrypted size is a safe upper bound for pre-sizing the
+        // streaming encryptor's buffer.
+        let plaintext_size_hint: u64 = attachment
             .size
             .as_ref()
             .and_then(|s| s.parse().ok())
             .ok_or(MissingFieldError("attachment.size"))?;
 
-        let cipher_view: CipherView = self
-            .key_store
-            .decrypt(&cipher)
-            .map_err(DecryptError::from)?;
-        let attachment_view = cipher_view
-            .attachments
-            .as_ref()
-            .and_then(|atts| {
-                atts.iter()
-                    .find(|a| a.id.as_deref() == Some(&attachment_id))
-            })
-            .cloned()
-            .ok_or(CipherUpgradeAttachmentError::NotFound)?;
-        let file_name_plain = attachment_view
-            .file_name
-            .ok_or(MissingFieldError("file_name"))?;
+        let file_name_plain = {
+            let mut ctx = self.key_store.context();
+            let cipher_key =
+                Cipher::decrypt_cipher_key(&mut ctx, cipher.key_identifier(), &cipher.key)?;
+            attachment
+                .decrypt(&mut ctx, cipher_key)
+                .map_err(DecryptError::from)?
+                .file_name
+                .ok_or(MissingFieldError("file_name"))?
+        };
 
         let download_url = self
             .get_attachment_download_url(cipher_id, attachment_id.clone(), None)
@@ -143,27 +138,32 @@ impl AttachmentsClient {
 
         let material = self.prepare_reencryption_material(&cipher, &file_name_plain)?;
 
+        // Re-encrypt up front so the new slot is sized from the actual ciphertext length instead
+        // of assuming it matches the legacy size. This also avoids creating an orphan slot when
+        // the download/decrypt fails.
+        let reencrypted = self
+            .download_and_reencrypt(
+                cipher.key_identifier(),
+                material.new_attachment_key,
+                plaintext_size_hint,
+                &download_url,
+            )
+            .await?;
+
         let request = CreateAttachmentRequest {
             key: material.wrapped_new_attachment_key,
             file_name: material.encrypted_file_name,
-            file_size: new_file_size,
+            file_size: reencrypted.len() as u64,
             last_known_revision_date: cipher.revision_date,
             as_admin: false,
         };
         let created = self.create_attachment(cipher_id, request).await?;
 
         if let Err(e) = self
-            .stream_reencrypt_and_upload(
-                cipher_id,
-                cipher.key_identifier(),
-                material.new_attachment_key,
-                new_file_size,
-                &download_url,
-                &created,
-            )
+            .upload_reencrypted(cipher_id, &created, reencrypted)
             .await
         {
-            // Upload failed after slot creation
+            // Upload failed after slot creation; best-effort delete the orphaned new slot.
             if let Err(rollback_err) = self
                 .delete_attachment(cipher_id, created.attachment_id.clone())
                 .await
@@ -211,28 +211,20 @@ impl AttachmentsClient {
         })
     }
 
-    /// Downloads the legacy ciphertext, re-encrypts it into memory, and uploads it.
+    /// Downloads the legacy ciphertext and re-encrypts it into an in-memory buffer, returning the
+    /// re-encrypted wire bytes.
     ///
-    /// The upload stays buffered because:
-    /// 1. `StreamingAttachmentEncryptor` buffers the full payload before writing.
-    /// 2. wasm `reqwest` only supports buffered bodies.
-    ///
-    /// Download and decrypt still stream; only the upload body is buffered.
-    ///
-    /// Upload transport depends on [`AttachmentFileUploadType`]: `Azure` PUTs to the presigned blob
-    /// URL on the unauthenticated client (the SAS token in the URL authorizes it; a Bearer
-    /// token must not be attached), while `Direct` POSTs to the authenticated Bitwarden API
-    /// endpoint (`POST /ciphers/{id}/attachment/{attachmentId}`) using the configured API
-    /// client.
-    async fn stream_reencrypt_and_upload(
+    /// Download and decrypt stream; the re-encrypted output is buffered because:
+    /// 1. `StreamingAttachmentEncryptor` (AES-256-CBC-HMAC) must buffer the full payload before it
+    ///    can emit — the HMAC prefixes the wire.
+    /// 2. wasm `reqwest` only supports buffered request bodies.
+    async fn download_and_reencrypt(
         &self,
-        cipher_id: CipherId,
         legacy_key_slot: SymmetricKeySlotId,
         new_attachment_key: SymmetricCryptoKey,
         plaintext_size_hint: u64,
         download_url: &str,
-        created: &CreatedAttachment,
-    ) -> Result<(), CipherUpgradeAttachmentError> {
+    ) -> Result<Vec<u8>, CipherUpgradeAttachmentError> {
         let response = self
             .http_client
             .get(download_url)
@@ -251,16 +243,14 @@ impl AttachmentsClient {
             StreamingAttachmentDecryptor::new(legacy_key_slot, ctx, download_reader)?
         };
 
-        // Re-encrypt into memory. The block ends the `&mut reencrypted` borrow
-        // before the buffer is moved into the upload body.
+        // The block ends the `&mut reencrypted` borrow before the buffer is returned.
         let mut reencrypted = Vec::<u8>::with_capacity(plaintext_size_hint as usize + 64);
         {
-            // Drop `KeyStoreContext` before awaiting
             let mut encryptor = {
                 let mut ctx = self.key_store.context();
                 let slot = ctx.add_local_symmetric_key(new_attachment_key);
-                // This only pre-sizes the encryptor buffer. The old encrypted size is a safe
-                // over-estimate of plaintext size, which is intentional here
+                // `plaintext_size_hint` only pre-sizes the encryptor buffer; the legacy encrypted
+                // size is a safe over-estimate.
                 StreamingAttachmentEncryptor::new(
                     slot,
                     ctx,
@@ -272,7 +262,21 @@ impl AttachmentsClient {
             encryptor.shutdown().await?;
         }
 
-        // Azure uploads to blob storage; Direct uploads to the Bitwarden API.
+        Ok(reencrypted)
+    }
+
+    /// Uploads the re-encrypted bytes to the newly created attachment slot.
+    ///
+    /// Transport depends on [`AttachmentFileUploadType`]: `Azure` PUTs to the presigned blob URL
+    /// on the unauthenticated client (the SAS token in the URL authorizes it; a Bearer token must
+    /// not be attached), while `Direct` POSTs to the authenticated Bitwarden API endpoint
+    /// (`POST /ciphers/{id}/attachment/{attachmentId}`) using the configured API client.
+    async fn upload_reencrypted(
+        &self,
+        cipher_id: CipherId,
+        created: &CreatedAttachment,
+        reencrypted: Vec<u8>,
+    ) -> Result<(), CipherUpgradeAttachmentError> {
         match created.file_upload_type {
             AttachmentFileUploadType::Azure => {
                 let response = self
@@ -420,16 +424,25 @@ mod tests {
         }
     }
 
-    fn server_cipher_mini_response() -> CipherMiniResponseModel {
+    // `upgrade_attachment` returns the decrypted delete result, so the delete response's name
+    // must decrypt under the test user key. Callers pass a name produced by `encrypted_name`.
+    fn server_cipher_mini_response(name: String) -> CipherMiniResponseModel {
         CipherMiniResponseModel {
             id: Some(TEST_CIPHER_ID.try_into().unwrap()),
-            name: Some(TEST_CIPHER_NAME.to_string()),
+            name: Some(name),
             r#type: Some(bitwarden_api_api::models::CipherType::Login),
             creation_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
             revision_date: Some("2024-05-31T11:20:58.4566667Z".to_string()),
             attachments: Some(vec![attachment_model(NEW_ATTACHMENT_ID)]),
             ..Default::default()
         }
+    }
+
+    fn encrypted_name(key_store: &KeyStore<KeySlotIds>) -> String {
+        "Upgraded cipher"
+            .encrypt(&mut key_store.context(), SymmetricKeySlotId::User)
+            .expect("encrypt name")
+            .to_string()
     }
 
     /// Builds legacy attachment bytes: `[0x02][IV][HMAC][ciphertext]`,
@@ -570,6 +583,7 @@ mod tests {
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let wire = make_legacy_wire(&key_store, b"Hello, attachment upgrade world!").await;
         let encrypted_size = wire.len();
+        let mini_name = encrypted_name(&key_store);
 
         // Direct uploads go to the authenticated API endpoint, not the returned `url`.
         let upload_path = format!("/ciphers/{TEST_CIPHER_ID}/attachment/{NEW_ATTACHMENT_ID}");
@@ -617,11 +631,14 @@ mod tests {
                 .expect_delete_attachment()
                 .withf(|_id, att_id| att_id == OLD_ATTACHMENT_ID)
                 .times(1)
-                .returning(|_id, _att| {
-                    Ok(DeleteAttachmentResponseModel {
-                        object: None,
-                        cipher: Some(Box::new(server_cipher_mini_response())),
-                    })
+                .returning({
+                    let mini_name = mini_name.clone();
+                    move |_id, _att| {
+                        Ok(DeleteAttachmentResponseModel {
+                            object: None,
+                            cipher: Some(Box::new(server_cipher_mini_response(mini_name.clone()))),
+                        })
+                    }
                 });
         });
 
@@ -687,6 +704,7 @@ mod tests {
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let wire = make_legacy_wire(&key_store, b"azure upload path plaintext").await;
         let encrypted_size = wire.len();
+        let mini_name = encrypted_name(&key_store);
 
         let server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -733,11 +751,14 @@ mod tests {
                 .expect_delete_attachment()
                 .withf(|_id, att_id| att_id == OLD_ATTACHMENT_ID)
                 .times(1)
-                .returning(|_id, _att| {
-                    Ok(DeleteAttachmentResponseModel {
-                        object: None,
-                        cipher: Some(Box::new(server_cipher_mini_response())),
-                    })
+                .returning({
+                    let mini_name = mini_name.clone();
+                    move |_id, _att| {
+                        Ok(DeleteAttachmentResponseModel {
+                            object: None,
+                            cipher: Some(Box::new(server_cipher_mini_response(mini_name.clone()))),
+                        })
+                    }
                 });
         });
 
@@ -779,6 +800,7 @@ mod tests {
             create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
         let wire = make_legacy_wire(&key_store, b"rollback path plaintext").await;
         let encrypted_size = wire.len();
+        let mini_name = encrypted_name(&key_store);
 
         let upload_path = format!("/ciphers/{TEST_CIPHER_ID}/attachment/{NEW_ATTACHMENT_ID}");
 
@@ -825,11 +847,14 @@ mod tests {
                 .expect_delete_attachment()
                 .withf(|_id, att_id| att_id == NEW_ATTACHMENT_ID)
                 .times(1)
-                .returning(|_id, _att| {
-                    Ok(DeleteAttachmentResponseModel {
-                        object: None,
-                        cipher: Some(Box::new(server_cipher_mini_response())),
-                    })
+                .returning({
+                    let mini_name = mini_name.clone();
+                    move |_id, _att| {
+                        Ok(DeleteAttachmentResponseModel {
+                            object: None,
+                            cipher: Some(Box::new(server_cipher_mini_response(mini_name.clone()))),
+                        })
+                    }
                 });
         });
 

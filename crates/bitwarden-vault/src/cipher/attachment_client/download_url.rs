@@ -42,30 +42,19 @@ impl AttachmentsClient {
         attachment_id: String,
         emergency_access_id: Option<String>,
     ) -> Result<String, CipherGetAttachmentDownloadUrlError> {
-        let api_client = &self.api_configurations.api_client;
-
-        if let Some(ea_id) = emergency_access_id {
-            let ea_id = ea_id
-                .parse::<uuid::Uuid>()
-                .map_err(|_| CipherGetAttachmentDownloadUrlError::InvalidEmergencyAccessId)?;
-
-            let response = api_client
-                .emergency_access_api()
-                .get_attachment_data(ea_id, cipher_id.into(), &attachment_id)
-                .await
-                .map_err(|e| match e {
-                    bitwarden_api_api::apis::Error::Response(content)
-                        if content.status == StatusCode::NOT_FOUND =>
-                    {
-                        CipherGetAttachmentDownloadUrlError::NotFound
-                    }
-                    other => other.into(),
-                })?;
-
-            return response.url.ok_or_else(|| MissingFieldError("url").into());
+        if let Some(emergency_access_id) = emergency_access_id {
+            return self
+                .get_emergency_access_attachment_download_url(
+                    &emergency_access_id,
+                    cipher_id,
+                    &attachment_id,
+                )
+                .await;
         }
 
-        match api_client
+        match self
+            .api_configurations
+            .api_client
             .ciphers_api()
             .get_attachment_data(cipher_id.into(), &attachment_id)
             .await
@@ -92,6 +81,37 @@ impl AttachmentsClient {
             }
             Err(e) => Err(e.into()),
         }
+    }
+}
+
+impl AttachmentsClient {
+    /// Fetches an attachment download URL via the emergency-access endpoint.
+    async fn get_emergency_access_attachment_download_url(
+        &self,
+        emergency_access_id: &str,
+        cipher_id: CipherId,
+        attachment_id: &str,
+    ) -> Result<String, CipherGetAttachmentDownloadUrlError> {
+        let emergency_access_id = emergency_access_id
+            .parse::<uuid::Uuid>()
+            .map_err(|_| CipherGetAttachmentDownloadUrlError::InvalidEmergencyAccessId)?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .emergency_access_api()
+            .get_attachment_data(emergency_access_id, cipher_id.into(), attachment_id)
+            .await
+            .map_err(|e| match e {
+                bitwarden_api_api::apis::Error::Response(content)
+                    if content.status == StatusCode::NOT_FOUND =>
+                {
+                    CipherGetAttachmentDownloadUrlError::NotFound
+                }
+                other => other.into(),
+            })?;
+
+        response.url.ok_or_else(|| MissingFieldError("url").into())
     }
 }
 
