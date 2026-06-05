@@ -19,6 +19,13 @@ pub enum ExportError {
     #[error("Encrypted JSON error: {0}")]
     EncryptedJson(#[from] crate::encrypted_json::EncryptedJsonError),
 
+    #[error("The file is not a valid KeePass database (.kdbx)")]
+    KdbxInvalidFormat,
+    #[error("Incorrect KeePass password or key file")]
+    KdbxWrongCredentials,
+    #[error("The KeePass database could not be read; it may be corrupted or unsupported")]
+    KdbxCorruptOrUnsupported,
+
     #[error(transparent)]
     BitwardenCrypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]

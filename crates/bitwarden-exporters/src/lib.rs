@@ -20,6 +20,7 @@ pub use cxf::Account;
 mod encrypted_json;
 mod exporter_client;
 mod json;
+mod kdbx;
 mod models;
 pub use exporter_client::{ExporterClient, ExporterClientExt};
 mod error;
@@ -37,6 +38,31 @@ pub enum ExportFormat {
     Csv,
     Json,
     EncryptedJson { password: String },
+}
+
+/// Result of a KeePass KDBX import: encrypted ciphers mapped to folders
+#[allow(missing_docs)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(into_wasm_abi)
+)]
+pub struct KdbxImportResult {
+    pub ciphers: Vec<bitwarden_vault::Cipher>,
+    pub folders: Vec<bitwarden_vault::Folder>,
+    pub folder_relationships: Vec<FolderRelationship>,
+}
+
+/// Associates a cipher with a folder by their indices in [`KdbxImportResult`].
+#[allow(missing_docs)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(into_wasm_abi)
+)]
+pub struct FolderRelationship {
+    pub cipher: u32,
+    pub folder: u32,
 }
 
 /// Export representation of a Bitwarden folder.

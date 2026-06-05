@@ -4,11 +4,12 @@ use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
 use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
 
 use crate::{
-    ExportError, ExportFormat, ImportingCipher,
+    ExportError, ExportFormat, FolderRelationship, ImportingCipher, KdbxImportResult,
     csv::export_csv,
     cxf::{Account, build_cxf, parse_cxf},
     encrypted_json::export_encrypted_json,
     json::export_json,
+    kdbx::parse_kdbx,
 };
 
 pub(crate) async fn export_vault(
@@ -104,4 +105,56 @@ pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>
         .collect();
 
     ciphers
+}
+
+/// See [crate::ExporterClient::import_kdbx] for more documentation.
+pub(crate) fn import_kdbx(
+    client: &Client,
+    file: Vec<u8>,
+    password: Option<String>,
+    key_file: Option<Vec<u8>>,
+) -> Result<KdbxImportResult, ExportError> {
+    let parsed = parse_kdbx(&file, password.as_deref(), key_file.as_deref())?;
+
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+
+    let ciphers = parsed
+        .ciphers
+        .into_iter()
+        .map(|c| encrypt_import(&mut ctx, c))
+        .collect::<Result<Vec<Cipher>, _>>()?;
+
+    let folders = parsed
+        .folders
+        .into_iter()
+        .map(|name| encrypt_folder(&mut ctx, name))
+        .collect::<Result<Vec<Folder>, _>>()?;
+
+    let folder_relationships = parsed
+        .folder_relationships
+        .into_iter()
+        .map(|(cipher, folder)| FolderRelationship {
+            cipher: cipher as u32,
+            folder: folder as u32,
+        })
+        .collect();
+
+    Ok(KdbxImportResult {
+        ciphers,
+        folders,
+        folder_relationships,
+    })
+}
+
+fn encrypt_folder(
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    name: String,
+) -> Result<Folder, ExportError> {
+    let view = FolderView {
+        id: None,
+        name,
+        revision_date: chrono::Utc::now(),
+    };
+    Ok(view.encrypt_composite(ctx, view.key_identifier())?)
 }
