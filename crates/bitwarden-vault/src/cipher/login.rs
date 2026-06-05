@@ -340,6 +340,38 @@ impl LoginView {
         Ok(())
     }
 
+    /// Projects this [`LoginView`] into a [`LoginListView`].
+    ///
+    /// `totp` is re-encrypted under `cipher_key` because [`LoginListView`] stores the
+    /// TOTP as an [`EncString`] that [`crate::CipherListView::get_totp_key`] decrypts
+    /// on demand. `fido2_credentials` are still encrypted on [`LoginView`], so they
+    /// decrypt directly to [`Fido2CredentialListView`] via the existing impl.
+    pub(crate) fn to_list_view(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        cipher_key: SymmetricKeySlotId,
+    ) -> Result<LoginListView, CryptoError> {
+        let totp = self
+            .totp
+            .as_ref()
+            .map(|t| t.encrypt(ctx, cipher_key))
+            .transpose()?;
+
+        let fido2_credentials = self
+            .fido2_credentials
+            .as_ref()
+            .map(|creds| creds.decrypt(ctx, cipher_key))
+            .transpose()?;
+
+        Ok(LoginListView {
+            has_fido2: self.fido2_credentials.is_some(),
+            fido2_credentials,
+            username: self.username.clone(),
+            totp,
+            uris: self.uris.clone(),
+        })
+    }
+
     /// Compares this LoginView to the original, and returns any new password history items.
     pub(crate) fn detect_password_change(
         &mut self,
