@@ -2,6 +2,7 @@ use bitwarden_collections::collection::Collection;
 use bitwarden_core::{Client, key_management::KeySlotIds};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
 use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
+use zeroize::Zeroizing;
 
 use crate::{
     ExportError, ExportFormat, FolderRelationship, ImportingCipher, KdbxImportResult,
@@ -114,7 +115,15 @@ pub(crate) fn import_kdbx(
     password: Option<String>,
     key_file: Option<Vec<u8>>,
 ) -> Result<KdbxImportResult, ExportError> {
-    let parsed = parse_kdbx(&file, password.as_deref(), key_file.as_deref())?;
+    let file = Zeroizing::new(file);
+    let password = password.map(Zeroizing::new);
+    let key_file = key_file.map(Zeroizing::new);
+
+    let parsed = parse_kdbx(
+        &file,
+        password.as_ref().map(|p| p.as_str()),
+        key_file.as_ref().map(|k| k.as_slice()),
+    )?;
 
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();

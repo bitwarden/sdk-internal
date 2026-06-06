@@ -13,8 +13,12 @@ use keepass::{
         fields::{NOTES, OTP, PASSWORD, TITLE, URL, USERNAME},
     },
 };
+use uuid::Uuid;
 
 use crate::{CipherType, ExportError, Field, ImportingCipher, Login, LoginUri};
+
+/// Maximum group nesting that will be traversed
+const MAX_GROUP_DEPTH: usize = 256;
 
 /// KeePass 2.x native TOTP fields and KeePassXC's `otp`
 const TOTP_FIELD_KEYS: &[&str] = &[
@@ -31,6 +35,16 @@ const TOTP_FIELD_KEYS: &[&str] = &[
 /// The first four bytes of every KDBX file: signature `0x9AA2D903`, little-endian.
 const KDBX_SIGNATURE: [u8; 4] = [0x03, 0xd9, 0xa2, 0x9a];
 
+/// Ceiling on the input file size
+const MAX_KDBX_SIZE: usize = 10 * 1024 * 1024;
+
+fn check_kdbx_size(len: usize) -> Result<(), ExportError> {
+    if len > MAX_KDBX_SIZE {
+        return Err(ExportError::KdbxFileTooLarge);
+    }
+    Ok(())
+}
+
 /// Intermediate result of parsing a KDBX database, before encryption.
 #[cfg_attr(test, derive(Debug))]
 pub(crate) struct ParsedKdbx {
@@ -46,6 +60,8 @@ pub(crate) fn parse_kdbx(
     password: Option<&str>,
     key_file: Option<&[u8]>,
 ) -> Result<ParsedKdbx, ExportError> {
+    check_kdbx_size(data.len())?;
+
     if data.len() < KDBX_SIGNATURE.len() || data[..KDBX_SIGNATURE.len()] != KDBX_SIGNATURE {
         return Err(ExportError::KdbxInvalidFormat);
     }
@@ -74,13 +90,16 @@ pub(crate) fn parse_kdbx(
         folders: Vec::new(),
         folder_relationships: Vec::new(),
     };
-    traverse(&db.root(), true, "", recycle_bin, &mut result);
+    traverse(&db.root(), true, "", recycle_bin, 0, &mut result)?;
     Ok(result)
 }
 
-/// Maps `keepass` open errors to the credential vs. corrupt distinction the UI surfaces. An
-/// incorrect password/key file fails key validation or decryption; everything else is treated as
-/// corrupt or an unsupported version.
+/// Maps `keepass` open errors to the credential-vs-corrupt distinction the UI surfaces.
+///
+/// A wrong password/key file surfaces as a key or decryption error (KDBX 3.1 has no key HMAC, so it
+/// fails as bad padding). keepass's `CryptographyError` isn't public, so we can't separate that
+/// from genuine corruption — bias both to wrong-credentials; everything else is
+/// corrupt/unsupported.
 fn map_open_error(error: DatabaseOpenError) -> ExportError {
     match error {
         DatabaseOpenError::Key(_) | DatabaseOpenError::Cryptography(_) => {
@@ -94,13 +113,18 @@ fn traverse(
     group: &keepass::db::GroupRef<'_>,
     is_root: bool,
     prefix: &str,
-    recycle_bin: Option<uuid::Uuid>,
+    recycle_bin: Option<Uuid>,
+    depth: usize,
     result: &mut ParsedKdbx,
-) {
+) -> Result<(), ExportError> {
+    if depth > MAX_GROUP_DEPTH {
+        return Err(ExportError::KdbxCorruptOrUnsupported);
+    }
+
     if let Some(recycle_bin) = recycle_bin
         && group.id().uuid() == recycle_bin
     {
-        return;
+        return Ok(());
     }
 
     let folder_index = result.folders.len();
@@ -128,8 +152,17 @@ fn traverse(
     }
 
     for subgroup in group.groups() {
-        traverse(&subgroup, false, &group_name, recycle_bin, result);
+        traverse(
+            &subgroup,
+            false,
+            &group_name,
+            recycle_bin,
+            depth + 1,
+            result,
+        )?;
     }
+
+    Ok(())
 }
 
 fn map_entry(entry: &keepass::db::EntryRef<'_>) -> ImportingCipher {
@@ -143,7 +176,7 @@ fn map_entry(entry: &keepass::db::EntryRef<'_>) -> ImportingCipher {
         None => vec![],
     };
 
-    let login = Login {
+    let mut login = Login {
         username: non_empty(entry.get_username()),
         password: non_empty(entry.get_password()),
         login_uris: uris,
@@ -151,7 +184,9 @@ fn map_entry(entry: &keepass::db::EntryRef<'_>) -> ImportingCipher {
         fido2_credentials: None,
     };
 
-    let mut notes = entry
+    login.sanitize_uris();
+
+    let notes = entry
         .get(NOTES)
         .filter(|n| !n.trim().is_empty())
         .map(str::to_string);
@@ -174,11 +209,6 @@ fn map_entry(entry: &keepass::db::EntryRef<'_>) -> ImportingCipher {
             r#type: if value.is_protected() { 1 } else { 0 },
             linked_id: None,
         });
-    }
-
-    // Empty notes become None
-    if notes.as_deref().is_some_and(|n| n.trim().is_empty()) {
-        notes = None;
     }
 
     let now = Utc::now();
@@ -204,7 +234,9 @@ fn map_entry(entry: &keepass::db::EntryRef<'_>) -> ImportingCipher {
 /// fields, returning a Base32 secret for default settings or an otpauth URI otherwise.
 fn build_totp(entry: &keepass::db::EntryRef<'_>) -> Option<String> {
     if let Some(otp) = entry.get(OTP).filter(|o| !o.trim().is_empty()) {
-        return Some(otp.replace("key=", ""));
+        // KeePassXC stores either an `otpauth://` URI or a leading `key=<base32>`. Strip only a
+        // leading `key=` so a `key=` occurring elsewhere in a URI isn't mangled.
+        return Some(otp.strip_prefix("key=").unwrap_or(otp).to_string());
     }
 
     let secret = time_otp_secret_as_base32(entry)?;
@@ -236,13 +268,17 @@ fn time_otp_secret_as_base32(entry: &keepass::db::EntryRef<'_>) -> Option<String
         .get("TimeOtp-Secret-Base32")
         .filter(|s| !s.trim().is_empty())
     {
-        return Some(
-            base32
-                .chars()
-                .filter(|c| !c.is_whitespace() && *c != '=')
-                .collect::<String>()
-                .to_uppercase(),
-        );
+        // Validate by decoding and re-encoding canonically, so malformed input becomes `None`
+        // rather than a string that merely looks like a secret (matches the other branches).
+        let normalized: String = base32
+            .chars()
+            .filter(|c| !c.is_whitespace() && *c != '=')
+            .collect::<String>()
+            .to_uppercase();
+        let bytes = data_encoding::BASE32_NOPAD
+            .decode(normalized.as_bytes())
+            .ok()?;
+        return Some(data_encoding::BASE32_NOPAD.encode(&bytes));
     }
     if let Some(base64) = entry
         .get("TimeOtp-Secret-Base64")
@@ -484,6 +520,16 @@ mod tests {
         assert!(matches!(err, ExportError::KdbxInvalidFormat));
     }
 
+    #[test]
+    fn input_over_size_limit_is_rejected() {
+        // Boundary-checked on length so the test doesn't allocate a multi-hundred-MB buffer.
+        assert!(check_kdbx_size(MAX_KDBX_SIZE).is_ok());
+        assert!(matches!(
+            check_kdbx_size(MAX_KDBX_SIZE + 1),
+            Err(ExportError::KdbxFileTooLarge)
+        ));
+    }
+
     /// Builds a db whose only group is referenced by `recyclebin_uuid`, with the feature toggled.
     fn db_with_recycle_bin(enabled: bool) -> Vec<u8> {
         let mut db = Database::new();
@@ -513,5 +559,37 @@ mod tests {
         assert_eq!(result.folders, vec!["Trash".to_string()]);
         assert_eq!(result.ciphers.len(), 1);
         assert_eq!(result.ciphers[0].name, "in trash");
+    }
+
+    /// End-to-end coverage of the encrypt boundary: parse -> encrypt ciphers + folders through a
+    /// real client key store, and confirm the folder relationships survive by index.
+    #[tokio::test]
+    async fn import_kdbx_encrypts_ciphers_and_folders() {
+        use bitwarden_core::{Client, client::test_accounts::test_bitwarden_com_account};
+
+        use crate::ExporterClientExt;
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let bytes = build_db(|root| {
+            let mut group = root.add_group();
+            group.name = "Social".into();
+            let mut entry = group.add_entry();
+            entry.set_unprotected(fields::TITLE, "GitHub");
+            entry.set_protected(fields::PASSWORD, "hunter2");
+        });
+
+        let result = client
+            .exporters()
+            .import_kdbx(bytes, Some(PASSWORD.to_string()), None)
+            .unwrap();
+
+        assert_eq!(result.ciphers.len(), 1);
+        assert_eq!(result.folders.len(), 1);
+        assert_eq!(result.folder_relationships.len(), 1);
+        assert_eq!(result.folder_relationships[0].cipher, 0);
+        assert_eq!(result.folder_relationships[0].folder, 0);
+        // The name is encrypted, not stored as the plaintext title.
+        assert_ne!(result.ciphers[0].name.to_string(), "GitHub");
     }
 }

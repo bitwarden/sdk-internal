@@ -69,9 +69,7 @@ impl ExporterClient {
     ///
     /// `file` is the raw `.kdbx` bytes; `password` and/or `key_file` unlock it. Returns the
     /// encrypted ciphers and folders plus their relationships, ready to send to the import
-    /// endpoint.
-    ///
-    /// *Warning:* Expect this API to be unstable, and it will change in the future.
+    /// endpoint. Inputs larger than 10 MiB are rejected with `KdbxFileTooLarge`
     pub fn import_kdbx(
         &self,
         file: Vec<u8>,

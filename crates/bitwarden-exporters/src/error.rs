@@ -21,6 +21,8 @@ pub enum ExportError {
 
     #[error("The file is not a valid KeePass database (.kdbx)")]
     KdbxInvalidFormat,
+    #[error("The KeePass database exceeds the maximum supported size")]
+    KdbxFileTooLarge,
     #[error("Incorrect KeePass password or key file")]
     KdbxWrongCredentials,
     #[error("The KeePass database could not be read; it may be corrupted or unsupported")]

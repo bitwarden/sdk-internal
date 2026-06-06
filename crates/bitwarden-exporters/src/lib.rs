@@ -42,6 +42,7 @@ pub enum ExportFormat {
 
 /// Result of a KeePass KDBX import: encrypted ciphers mapped to folders
 #[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
     feature = "wasm",
     derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
@@ -55,6 +56,7 @@ pub struct KdbxImportResult {
 
 /// Associates a cipher with a folder by their indices in [`KdbxImportResult`].
 #[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
     feature = "wasm",
     derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
