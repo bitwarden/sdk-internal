@@ -39,6 +39,7 @@ async fn generate_with_api_url(
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_api_base::new_http_client;
     use serde_json::json;
 
     use crate::username::UsernameError;
@@ -74,7 +75,7 @@ mod tests {
             .await;
 
         let address = super::generate_with_api_url(
-            &reqwest::Client::new(),
+            &new_http_client(),
             "MY_TOKEN".into(),
             format!("http://{}", server.address()),
         )
@@ -83,7 +84,7 @@ mod tests {
         assert_eq!(address, "bw7prt@duck.com");
 
         let fake_token_error = super::generate_with_api_url(
-            &reqwest::Client::new(),
+            &new_http_client(),
             "MY_FAKE_TOKEN".into(),
             format!("http://{}", server.address()),
         )

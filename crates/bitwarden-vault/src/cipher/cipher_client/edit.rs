@@ -206,11 +206,11 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 /// Update only the cipher fields available to users without edit permissions
@@ -240,11 +240,11 @@ async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
@@ -262,12 +262,8 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let enable_cipher_key_encryption = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key_encryption =
+            self.client.flags().get().await.enable_cipher_key_encryption;
 
         edit_cipher(
             key_store,
