@@ -97,13 +97,7 @@ impl CiphersClient {
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
-        if cipher_view.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
+        if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
@@ -139,12 +133,8 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let enable_cipher_key_encryption = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key_encryption =
+            self.client.flags().get().await.enable_cipher_key_encryption;
 
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -181,12 +171,7 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let enable_cipher_key = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key = self.client.flags().get().await.enable_cipher_key_encryption;
 
         let mut ctx = key_store.context();
 
@@ -215,11 +200,11 @@ impl CiphersClient {
     #[allow(missing_docs)]
     pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+        Ok(if self.is_strict_decrypt().await {
+            key_store.decrypt(&StrictDecrypt(cipher))?
         } else {
-            Ok(key_store.decrypt(&cipher)?)
-        }
+            key_store.decrypt(&cipher)?
+        })
     }
 
     #[allow(missing_docs)]
@@ -228,13 +213,13 @@ impl CiphersClient {
         ciphers: Vec<Cipher>,
     ) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+        Ok(if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            Ok(key_store.decrypt_list(&strict)?)
+            key_store.decrypt_list(&wrapped)?
         } else {
-            Ok(key_store.decrypt_list(&ciphers)?)
-        }
+            key_store.decrypt_list(&ciphers)?
+        })
     }
 
     /// Decrypt cipher list with failures
@@ -245,9 +230,9 @@ impl CiphersClient {
     ) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
             DecryptCipherListResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
@@ -270,19 +255,19 @@ impl CiphersClient {
     ) -> DecryptCipherResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
-            return DecryptCipherResult {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+            DecryptCipherResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-            };
-        }
-        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-
-        DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
@@ -350,11 +335,7 @@ impl CiphersClient {
     }
 
     async fn is_strict_decrypt(&self) -> bool {
-        self.client
-            .internal
-            .get_flags()
-            .await
-            .strict_cipher_decryption
+        self.client.flags().get().await.strict_cipher_decryption
     }
 }
 
@@ -363,7 +344,7 @@ mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
     #[cfg(feature = "wasm")]
-    use bitwarden_crypto::CryptoError;
+    use bitwarden_crypto::{CryptoError, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
@@ -815,7 +796,7 @@ mod tests {
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
-        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let new_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         let cipher_view = test_cipher_view();
         let new_key_b64 = new_key.to_base64();

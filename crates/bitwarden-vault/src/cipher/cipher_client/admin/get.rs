@@ -1,12 +1,14 @@
-use bitwarden_core::{ApiError, OrganizationId};
+use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
+use bitwarden_core::{ApiError, OrganizationId, key_management::KeySlotIds};
+use bitwarden_crypto::KeyStore;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    VaultParseError,
-    cipher::cipher::{ListOrganizationCiphersResult, PartialCipher},
+    Cipher, VaultParseError,
+    cipher::cipher::{ListOrganizationCiphersResult, PartialCipher, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
 
@@ -36,10 +38,39 @@ pub enum GetOrganizationCiphersAdminError {
     Api(#[from] ApiError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for GetOrganizationCiphersAdminError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
+/// Get all ciphers for an organization.
+pub async fn list_org_ciphers(
+    org_id: OrganizationId,
+    include_member_items: bool,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
+) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
+    let api = api_client.ciphers_api();
+    let response: CipherMiniDetailsResponseModelListResponseModel = api
+        .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
+        .await
+        .map_err(ApiError::from)?;
+    let ciphers = response
+        .data
+        .into_iter()
+        .flatten()
+        .map(|model| model.merge_with_cipher(None))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let list_views = if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> =
+            ciphers.iter().cloned().map(StrictDecrypt).collect();
+        let (list_views, _failures) = key_store.decrypt_list_with_failures(&wrapped);
+        list_views
+    } else {
+        let (list_views, _failures) = key_store.decrypt_list_with_failures(&ciphers);
+        list_views
+    };
+    Ok(ListOrganizationCiphersResult {
+        ciphers,
+        list_views,
+    })
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -65,7 +96,15 @@ impl CipherAdminClient {
             .map(|model| model.merge_with_cipher(None))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&ciphers);
+        let list_views = if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
+                ciphers.iter().cloned().map(StrictDecrypt).collect();
+            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&wrapped);
+            list_views
+        } else {
+            let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&ciphers);
+            list_views
+        };
         Ok(ListOrganizationCiphersResult {
             ciphers,
             list_views,
@@ -78,27 +117,14 @@ impl CipherAdminClient {
         org_id: OrganizationId,
         include_member_items: bool,
     ) -> Result<ListOrganizationCiphersResult, GetOrganizationCiphersAdminError> {
-        use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
-
-        let response: CipherMiniDetailsResponseModelListResponseModel = self
-            .api_configurations
-            .api_client
-            .ciphers_api()
-            .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
-            .await?;
-
-        let ciphers = response
-            .data
-            .into_iter()
-            .flatten()
-            .map(|model| model.merge_with_cipher(None))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let (list_views, _failures) = self.key_store.decrypt_list_with_failures(&ciphers);
-        Ok(ListOrganizationCiphersResult {
-            ciphers,
-            list_views,
-        })
+        list_org_ciphers(
+            org_id,
+            include_member_items,
+            &self.api_configurations.api_client,
+            &self.key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
 }
 
@@ -116,7 +142,7 @@ mod tests {
     use bitwarden_core::{
         client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
     };
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use chrono::Utc;
 
     use super::*;
@@ -129,9 +155,9 @@ mod tests {
     fn create_test_client(api_client: ApiClient) -> CipherAdminClient {
         #[allow(deprecated)]
         CipherAdminClient {
-            key_store: create_test_crypto_with_user_key(
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            ),
+            key_store: create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            )),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             client: bitwarden_core::Client::new_test(None),
         }

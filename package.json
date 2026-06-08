@@ -14,7 +14,9 @@
   "author": "Bitwarden Inc. <hello@bitwarden.com> (https://bitwarden.com)",
   "main": "index.js",
   "scripts": {
-    "lint": "prettier --check .",
+    "lint": "bash scripts/lint.sh",
+    "lint:fix": "bash scripts/lint.sh --fix",
+    "lint:prettier": "prettier --check .",
     "lint:dep-ownership": "tsx scripts/dep-ownership.ts",
     "prettier": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -22,7 +24,7 @@
   },
   "devDependencies": {
     "@openapitools/openapi-generator-cli": "2.31.0",
-    "@types/node": "25.6.0",
+    "@types/node": "25.9.1",
     "husky": "9.1.7",
     "json5": "2.2.3",
     "lint-staged": "16.4.0",

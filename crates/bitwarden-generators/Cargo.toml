@@ -34,6 +34,7 @@ uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-api-base = { workspace = true }
 rand_chacha = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }
