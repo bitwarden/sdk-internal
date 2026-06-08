@@ -14,5 +14,5 @@ pub mod settings;
 
 pub(crate) mod sdk_managed;
 
-pub use sdk_managed::DatabaseConfiguration;
+pub use sdk_managed::{DatabaseConfiguration, DatabaseError};
 pub use settings::{Key, Setting, SettingItem, SettingsError};
