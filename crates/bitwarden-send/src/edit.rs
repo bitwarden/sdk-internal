@@ -77,15 +77,37 @@ pub struct SendEditRequest {
     pub expiration_date: Option<DateTime<Utc>>,
 
     /// Authentication method for accessing this Send.
-    pub auth: SendAuthType,
+    ///
+    /// `Some(_)` overwrites the existing auth (including switching to `SendAuthType::None`
+    /// to remove all protection). `None` is a partial-update marker that tells the SDK to
+    /// preserve the existing Send's auth configuration as-is — the existing `password` hash,
+    /// email list, and `authType` discriminant are forwarded verbatim to the server. Use
+    /// `None` when the caller is editing unrelated fields and must not silently strip a
+    /// previously configured password or email-OTP gate.
+    pub auth: Option<SendAuthType>,
 }
 
 /// Internal helper struct that includes the send key for encryption.
 /// The key is retrieved from state during edit operations.
+///
+/// `preserved_auth` carries the encrypted-form auth fields (password hash, emails
+/// comma-string, discriminant) read off the existing repository row when the caller asked
+/// to preserve auth (`SendEditRequest.auth == None`). When `request.auth` is `Some(_)`,
+/// this field is `None` and `request.auth` is the source of truth.
 #[derive(Debug)]
 struct SendEditRequestWithKey {
     request: SendEditRequest,
     send_key: String,
+    preserved_auth: Option<PreservedAuth>,
+}
+
+/// Snapshot of an existing Send's wire-format auth fields, used to round-trip the auth
+/// configuration through a partial edit without requiring the plaintext password.
+#[derive(Debug)]
+struct PreservedAuth {
+    password: Option<String>,
+    emails: Option<String>,
+    auth_type: crate::AuthType,
 }
 
 impl
@@ -114,11 +136,32 @@ impl
             .clone()
             .encrypt_composite(ctx, send_key)?;
 
-        let (password, emails) = self.request.auth.auth_data(&k);
+        // Resolve auth from one of two sources, in order of precedence:
+        //   1. An explicit `SendAuthType` in the request, which authoritatively overwrites the
+        //      server-side auth (including switching to `None` to remove protection).
+        //   2. The preserved snapshot read off the existing repository row, used when the caller
+        //      passed `auth: None` to mean "do not touch". This branch forwards the stored password
+        //      hash and email list verbatim, so a partial edit never silently strips a previously
+        //      configured password or email-OTP gate.
+        let (auth_type, password, emails) = match (&self.request.auth, &self.preserved_auth) {
+            (Some(auth), _) => {
+                let (password, emails) = auth.auth_data(&k);
+                (auth.auth_type(), password, emails)
+            }
+            (None, Some(preserved)) => (
+                preserved.auth_type,
+                preserved.password.clone(),
+                preserved.emails.clone(),
+            ),
+            // Unreachable in practice: `edit_send` always populates `preserved_auth` when
+            // `request.auth` is `None`. Fall back to "no auth" defensively rather than
+            // panicking from inside an encryption path.
+            (None, None) => (crate::AuthType::None, None, None),
+        };
 
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(send_type),
-            auth_type: Some(self.request.auth.auth_type().into()),
+            auth_type: Some(auth_type.into()),
             file_length: None,
             name: Some(self.request.name.encrypt(ctx, send_key)?.to_string()),
             notes: self
@@ -156,19 +199,37 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
     send_id: SendId,
     request: SendEditRequest,
 ) -> Result<SendView, EditSendError> {
-    request.auth.validate()?;
+    // Only validate when the caller is asserting a new auth configuration; `None` means
+    // "preserve existing", and the existing row is already a server-validated value.
+    if let Some(auth) = &request.auth {
+        auth.validate()?;
+    }
 
     let id = send_id.to_string();
 
     // Retrieve the existing send to get its key (keys cannot be modified during edit)
     let existing_send = repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
 
+    // Snapshot the existing wire-format auth fields before we move out the key. These
+    // are read directly off the encrypted `Send` (no decryption needed for `password`,
+    // `emails`, or `auth_type`) so the SDK can round-trip auth on partial edits without
+    // requiring the plaintext password back from the caller.
+    let preserved_auth = request.auth.is_none().then(|| PreservedAuth {
+        password: existing_send.password.clone(),
+        emails: existing_send.emails.clone(),
+        auth_type: existing_send.auth_type,
+    });
+
     // Decrypt to get the key - we only need the key field
     let existing_send_view: SendView = key_store.decrypt(&existing_send)?;
     let send_key = existing_send_view.key.ok_or(MissingFieldError("key"))?;
 
     // Create the wrapper with the key from the existing send
-    let request_with_key = SendEditRequestWithKey { request, send_key };
+    let request_with_key = SendEditRequestWithKey {
+        request,
+        send_key,
+        preserved_auth,
+    };
 
     let send_request = key_store.encrypt(request_with_key)?;
 
@@ -320,7 +381,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: SendAuthType::None,
+                auth: Some(SendAuthType::None),
             },
         )
         .await
@@ -378,7 +439,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: SendAuthType::None,
+                auth: Some(SendAuthType::None),
             },
         )
         .await;
@@ -458,12 +519,300 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: SendAuthType::None,
+                auth: Some(SendAuthType::None),
             },
         )
         .await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), EditSendError::Api(_)));
+    }
+
+    /// Builds a key store / repository fixture pre-populated with a Send whose encrypted
+    /// row carries the provided `password_hash`, `emails`, and `auth_type`. We construct
+    /// the encrypted `Send` directly (rather than going through `encrypt(SendView)`)
+    /// because `SendView` deliberately doesn't surface the password hash — those fields
+    /// only live on the wire-format `Send` struct.
+    async fn make_fixture_with_existing_auth(
+        send_id: uuid::Uuid,
+        password_hash: Option<String>,
+        emails: Option<String>,
+        auth_type: AuthType,
+    ) -> (KeyStore<KeySlotIds>, MemoryRepository<Send>) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+                .unwrap();
+        }
+
+        // Encrypt a baseline view to get realistic name/text/key ciphertext, then patch the
+        // wire-format auth fields onto the encrypted row.
+        let baseline = SendView {
+            id: None,
+            access_id: None,
+            name: "original".to_string(),
+            notes: None,
+            key: None,
+            new_password: None,
+            has_password: false,
+            r#type: SendType::Text,
+            file: None,
+            text: Some(SendTextView {
+                text: Some("secret".to_string()),
+                hidden: false,
+            }),
+            max_access_count: None,
+            access_count: 0,
+            disabled: false,
+            hide_email: false,
+            revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
+            deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+            expiration_date: None,
+            emails: Vec::new(),
+            auth_type: AuthType::None,
+        };
+        let mut existing_send = store.encrypt(baseline).unwrap();
+        existing_send.id = Some(crate::send::SendId::new(send_id));
+        existing_send.password = password_hash;
+        existing_send.emails = emails;
+        existing_send.auth_type = auth_type;
+
+        let repository = MemoryRepository::<Send>::default();
+        repository
+            .set(SendId::new(send_id), existing_send)
+            .await
+            .unwrap();
+
+        (store, repository)
+    }
+
+    /// Drives `edit_send` against a fixture and captures the `SendRequestModel` that the
+    /// SDK would have sent to the server. We don't care about the round-trip response
+    /// content here — the assertion lives on the request body.
+    async fn capture_edit_put_model(
+        store: &KeyStore<KeySlotIds>,
+        repository: &MemoryRepository<Send>,
+        send_id: uuid::Uuid,
+        request: SendEditRequest,
+    ) -> bitwarden_api_api::models::SendRequestModel {
+        let captured: std::sync::Arc<
+            std::sync::Mutex<Option<bitwarden_api_api::models::SendRequestModel>>,
+        > = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let sink = captured.clone();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            let sink = sink.clone();
+            mock.sends_api
+                .expect_put()
+                .returning(move |_id, model| {
+                    let model = model.unwrap();
+                    *sink.lock().unwrap() = Some(model.clone());
+                    Ok(SendResponseModel {
+                        id: Some(send_id),
+                        name: model.name.clone(),
+                        revision_date: Some("2025-01-02T00:00:00Z".to_string()),
+                        object: Some("send".to_string()),
+                        access_id: None,
+                        r#type: model.r#type,
+                        auth_type: model.auth_type,
+                        notes: model.notes.clone(),
+                        file: model.file.clone(),
+                        text: model.text.clone(),
+                        key: Some(model.key.clone()),
+                        max_access_count: model.max_access_count,
+                        access_count: Some(0),
+                        password: model.password.clone(),
+                        emails: model.emails.clone(),
+                        disabled: Some(model.disabled),
+                        expiration_date: model.expiration_date.clone(),
+                        deletion_date: Some(model.deletion_date.clone()),
+                        hide_email: model.hide_email,
+                    })
+                })
+                .once();
+        });
+
+        edit_send(
+            store,
+            &api_client,
+            repository,
+            SendId::new(send_id),
+            request,
+        )
+        .await
+        .unwrap();
+
+        captured.lock().unwrap().take().expect("PUT was not called")
+    }
+
+    /// Regression test for the auth-strip bug. With the previous `auth: SendAuthType`
+    /// (non-optional) field, the CLI passed `SendAuthType::None` whenever the user ran
+    /// `bw send edit` without auth flags, and the server treated that as an overwrite
+    /// that cleared the password. With `auth: Option<SendAuthType>` and `None` meaning
+    /// "preserve", the SDK forwards the existing password hash verbatim.
+    #[tokio::test]
+    async fn test_edit_preserves_existing_password_when_auth_is_none() {
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let existing_hash = "abc123hashstub==".to_string();
+        let (store, repository) = make_fixture_with_existing_auth(
+            send_id,
+            Some(existing_hash.clone()),
+            None,
+            AuthType::Password,
+        )
+        .await;
+
+        let model = capture_edit_put_model(
+            &store,
+            &repository,
+            send_id,
+            SendEditRequest {
+                name: "updated".to_string(),
+                notes: None,
+                view_type: SendViewType::Text(SendTextView {
+                    text: Some("secret".to_string()),
+                    hidden: false,
+                }),
+                max_access_count: None,
+                disabled: false,
+                hide_email: false,
+                deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+                expiration_date: None,
+                auth: None,
+            },
+        )
+        .await;
+
+        assert_eq!(
+            model.password,
+            Some(existing_hash),
+            "preserve-mode edit must forward the existing password hash to the server",
+        );
+        assert_eq!(model.emails, None);
+        assert_eq!(
+            model.auth_type,
+            Some(bitwarden_api_api::models::AuthType::Password),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_edit_preserves_existing_emails_when_auth_is_none() {
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let existing_emails = "a@b.com,c@d.com".to_string();
+        let (store, repository) = make_fixture_with_existing_auth(
+            send_id,
+            None,
+            Some(existing_emails.clone()),
+            AuthType::Email,
+        )
+        .await;
+
+        let model = capture_edit_put_model(
+            &store,
+            &repository,
+            send_id,
+            SendEditRequest {
+                name: "updated".to_string(),
+                notes: None,
+                view_type: SendViewType::Text(SendTextView {
+                    text: Some("secret".to_string()),
+                    hidden: false,
+                }),
+                max_access_count: None,
+                disabled: false,
+                hide_email: false,
+                deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+                expiration_date: None,
+                auth: None,
+            },
+        )
+        .await;
+
+        assert_eq!(model.password, None);
+        assert_eq!(model.emails, Some(existing_emails));
+        assert_eq!(
+            model.auth_type,
+            Some(bitwarden_api_api::models::AuthType::Email),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_edit_preserves_no_auth_when_auth_is_none() {
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let (store, repository) =
+            make_fixture_with_existing_auth(send_id, None, None, AuthType::None).await;
+
+        let model = capture_edit_put_model(
+            &store,
+            &repository,
+            send_id,
+            SendEditRequest {
+                name: "updated".to_string(),
+                notes: None,
+                view_type: SendViewType::Text(SendTextView {
+                    text: Some("secret".to_string()),
+                    hidden: false,
+                }),
+                max_access_count: None,
+                disabled: false,
+                hide_email: false,
+                deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+                expiration_date: None,
+                auth: None,
+            },
+        )
+        .await;
+
+        assert_eq!(model.password, None);
+        assert_eq!(model.emails, None);
+        assert_eq!(
+            model.auth_type,
+            Some(bitwarden_api_api::models::AuthType::None),
+        );
+    }
+
+    /// An explicit `Some(SendAuthType::None)` still means "remove protection" — that's
+    /// the escape hatch a caller uses to deliberately strip auth (mirroring the legacy
+    /// `bw send remove-password` semantics for the auth slot generally).
+    #[tokio::test]
+    async fn test_edit_explicit_auth_none_overrides_existing_password() {
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let (store, repository) = make_fixture_with_existing_auth(
+            send_id,
+            Some("existing-hash".to_string()),
+            None,
+            AuthType::Password,
+        )
+        .await;
+
+        let model = capture_edit_put_model(
+            &store,
+            &repository,
+            send_id,
+            SendEditRequest {
+                name: "updated".to_string(),
+                notes: None,
+                view_type: SendViewType::Text(SendTextView {
+                    text: Some("secret".to_string()),
+                    hidden: false,
+                }),
+                max_access_count: None,
+                disabled: false,
+                hide_email: false,
+                deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+                expiration_date: None,
+                auth: Some(SendAuthType::None),
+            },
+        )
+        .await;
+
+        assert_eq!(model.password, None);
+        assert_eq!(model.emails, None);
+        assert_eq!(
+            model.auth_type,
+            Some(bitwarden_api_api::models::AuthType::None),
+        );
     }
 }

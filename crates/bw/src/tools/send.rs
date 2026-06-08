@@ -17,19 +17,26 @@ use color_eyre::eyre::{Context as _, eyre};
 use serde::Serialize;
 
 use super::{SendArgs, SendCommands};
-use crate::render::{CommandOutput, CommandResult};
+use crate::{
+    client_state::{AnyState, BwCommand},
+    render::{CommandOutput, CommandResult},
+};
 
-impl SendArgs {
-    pub async fn run(self, client: Option<PasswordManagerClient>) -> CommandResult {
+impl BwCommand for SendArgs {
+    // `AnyState` because `bw send template` runs without a session; the auth-required arms
+    // (everything else) check `state.user` via `require_login` below.
+    type Client = AnyState;
+
+    async fn run(self, state: AnyState) -> CommandResult {
         // If no subcommand is supplied, the legacy CLI treats `bw send <data>` as a Create
         // shortcut. Route that through the same builder path as `bw send create` so the two
         // entry points share their happy path.
         match self.command.clone() {
             None => {
-                let client = require_login(client)?;
+                let client = require_login(state.user)?;
                 create_shortcut(&client, self).await
             }
-            Some(cmd) => dispatch_subcommand(client, cmd).await,
+            Some(cmd) => dispatch_subcommand(state.user, cmd).await,
         }
     }
 }
@@ -54,7 +61,7 @@ async fn dispatch_subcommand(
         }
         SendCommands::Get { id, output, text } => {
             let client = require_login(client)?;
-            get_send(&client, &id, output, text).await
+            get_send(&client, id, output, text).await
         }
         // The `bw receive` command handles incoming sends; `bw send receive` is the legacy
         // alias and is out of scope for this ticket. See `Commands::Receive` in main.rs.
@@ -106,12 +113,9 @@ async fn dispatch_subcommand(
             // matching the legacy CLI's behavior.
             let _ = encoded_json;
 
-            let id = itemid.as_deref().ok_or_else(|| {
+            let send_id = itemid.ok_or_else(|| {
                 eyre!("--itemid is required (or provide it via encoded JSON, TODO PM-34719).")
             })?;
-            let send_id: SendId = id
-                .parse()
-                .wrap_err_with(|| format!("Invalid Send id: {id}"))?;
 
             let client = require_login(client)?;
 
@@ -136,19 +140,13 @@ async fn dispatch_subcommand(
             Ok(CommandOutput::Object(Box::new(view)))
         }
         SendCommands::RemovePassword { id } => {
-            let send_id: SendId = id
-                .parse()
-                .wrap_err_with(|| format!("Invalid Send id: {id}"))?;
             let client = require_login(client)?;
-            let view = client.sends().remove_password(send_id).await?;
+            let view = client.sends().remove_password(id).await?;
             Ok(CommandOutput::Object(Box::new(view)))
         }
         SendCommands::Delete { id } => {
-            let send_id: SendId = id
-                .parse()
-                .wrap_err_with(|| format!("Invalid Send id: {id}"))?;
             let client = require_login(client)?;
-            client.sends().delete(send_id).await?;
+            client.sends().delete(id).await?;
             Ok("Send deleted.".into())
         }
     }
@@ -161,14 +159,11 @@ async fn list_sends(client: &PasswordManagerClient) -> CommandResult {
 
 async fn get_send(
     client: &PasswordManagerClient,
-    id: &str,
+    id: SendId,
     output: Option<String>,
     text: bool,
 ) -> CommandResult {
-    let send_id: SendId = id
-        .parse()
-        .wrap_err_with(|| format!("Invalid Send id: {id}"))?;
-    let view = client.sends().get(send_id).await?;
+    let view = client.sends().get(id).await?;
 
     if text {
         // TODO(PM-34719): Building a shareable access URL requires the server's web vault URL
@@ -234,7 +229,7 @@ struct SendFileTemplateBody {
 struct CreateInputs {
     file: Option<String>,
     text: Option<String>,
-    delete_in_days: String,
+    delete_in_days: u64,
     max_access_count: Option<u32>,
     hidden: bool,
     name: Option<String>,
@@ -258,7 +253,7 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
 
     // TODO(PM-34719): Validate `delete_in_days` against the legacy CLI's allowed set (1, 2, 3,
     // 7, 14, 30) instead of accepting any positive integer.
-    let deletion_date = compute_deletion_date(&delete_in_days)?;
+    let deletion_date = compute_deletion_date(delete_in_days)?;
 
     let view_type = match (file.as_deref(), text.as_deref()) {
         (Some(path), None) => {
@@ -317,7 +312,7 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
 }
 
 struct EditOverrides {
-    delete_in_days: Option<String>,
+    delete_in_days: Option<u64>,
     max_access_count: Option<u32>,
     hidden: bool,
     password: Option<String>,
@@ -337,7 +332,7 @@ fn build_edit_request(
     } = overrides;
 
     let deletion_date = match delete_in_days {
-        Some(d) => compute_deletion_date(&d)?,
+        Some(d) => compute_deletion_date(d)?,
         None => existing.deletion_date,
     };
 
@@ -361,21 +356,7 @@ fn build_edit_request(
         }
     };
 
-    // If neither --password nor --emails was provided, preserve the existing auth type. The
-    // SDK doesn't expose the plaintext password back to us, so we cannot rebuild a Password
-    // auth from a previously-set send — that's a known limitation noted in the parity audit.
-    let auth = match (password, emails.as_deref()) {
-        (None, None) => SendAuthType::None,
-        (Some(p), None) => SendAuthType::Password { password: p },
-        (None, Some(e)) => SendAuthType::Emails {
-            emails: parse_emails(e)?,
-        },
-        (Some(_), Some(_)) => {
-            // TODO(PM-34719): The legacy CLI rejects this combination up front. clap-level
-            // mutual exclusivity is deferred; for now we surface the error here.
-            return Err(eyre!("--password and --emails are mutually exclusive."));
-        }
-    };
+    let auth = build_auth_for_edit(password, emails.as_deref())?;
 
     Ok(SendEditRequest {
         name: existing.name,
@@ -458,14 +439,13 @@ async fn run_create(
         .into())
 }
 
-fn compute_deletion_date(days_str: &str) -> color_eyre::eyre::Result<chrono::DateTime<Utc>> {
-    let days: i64 = days_str
-        .parse()
-        .wrap_err_with(|| format!("Invalid --deleteInDays value: {days_str}"))?;
-    if days <= 0 {
+fn compute_deletion_date(days: u64) -> color_eyre::eyre::Result<chrono::DateTime<Utc>> {
+    if days == 0 {
         return Err(eyre!("--deleteInDays must be a positive integer"));
     }
-    Ok(Utc::now() + Duration::days(days))
+    let signed =
+        i64::try_from(days).wrap_err_with(|| format!("--deleteInDays out of range: {days}"))?;
+    Ok(Utc::now() + Duration::days(signed))
 }
 
 fn build_auth(
@@ -478,6 +458,35 @@ fn build_auth(
         (None, Some(e)) => Ok(SendAuthType::Emails {
             emails: parse_emails(e)?,
         }),
+        (Some(_), Some(_)) => Err(eyre!("--password and --emails are mutually exclusive.")),
+    }
+}
+
+/// Build the `auth` field for a [`SendEditRequest`].
+///
+/// Edit semantics differ from create:
+///   - `(None, None)` returns `Ok(None)` to signal "preserve the existing auth". The SDK reads the
+///     existing wire-format `password` hash and `emails` string off the repository row and forwards
+///     them verbatim, so a partial edit (e.g. just changing `--deleteInDays`) never silently strips
+///     a previously configured password or email-OTP gate. This is the fix for the auth-strip bug —
+///     the previous code emitted `SendAuthType::None` here, which the server treats as an
+///     overwrite.
+///   - `(Some(p), None)` / `(None, Some(e))` overwrite to Password / Email auth.
+///   - `(Some(_), Some(_))` is rejected (mutually exclusive).
+///
+/// To explicitly remove auth from a Send on edit, supply `--password ""` is not the
+/// pattern — use `bw send remove-password` (the legacy CLI's dedicated subcommand) or
+/// pass an explicit `Some(SendAuthType::None)` at the SDK boundary.
+fn build_auth_for_edit(
+    password: Option<String>,
+    emails: Option<&str>,
+) -> color_eyre::eyre::Result<Option<SendAuthType>> {
+    match (password, emails) {
+        (None, None) => Ok(None),
+        (Some(p), None) => Ok(Some(SendAuthType::Password { password: p })),
+        (None, Some(e)) => Ok(Some(SendAuthType::Emails {
+            emails: parse_emails(e)?,
+        })),
         (Some(_), Some(_)) => Err(eyre!("--password and --emails are mutually exclusive.")),
     }
 }
@@ -602,21 +611,15 @@ mod tests {
 
     #[test]
     fn compute_deletion_date_positive() {
-        let d = compute_deletion_date("7").unwrap();
+        let d = compute_deletion_date(7).unwrap();
         let now = Utc::now();
         let diff = d - now;
         assert!(diff.num_days() >= 6 && diff.num_days() <= 7);
     }
 
     #[test]
-    fn compute_deletion_date_rejects_zero_and_negative() {
-        assert!(compute_deletion_date("0").is_err());
-        assert!(compute_deletion_date("-3").is_err());
-    }
-
-    #[test]
-    fn compute_deletion_date_rejects_garbage() {
-        assert!(compute_deletion_date("not-a-number").is_err());
+    fn compute_deletion_date_rejects_zero() {
+        assert!(compute_deletion_date(0).is_err());
     }
 
     // ---- build_auth ----
@@ -656,7 +659,7 @@ mod tests {
         let req = build_create_request(CreateInputs {
             file: None,
             text: Some("hello".into()),
-            delete_in_days: "7".into(),
+            delete_in_days: 7,
             max_access_count: Some(5),
             hidden: true,
             name: Some("My Send".into()),
@@ -684,7 +687,7 @@ mod tests {
         let err = build_create_request(CreateInputs {
             file: None,
             text: Some("hello".into()),
-            delete_in_days: "7".into(),
+            delete_in_days: 7,
             max_access_count: None,
             hidden: false,
             name: None,
@@ -701,7 +704,7 @@ mod tests {
         let req = build_create_request(CreateInputs {
             file: Some("/tmp/secrets.txt".into()),
             text: None,
-            delete_in_days: "7".into(),
+            delete_in_days: 7,
             max_access_count: None,
             hidden: false,
             name: None,
@@ -723,7 +726,7 @@ mod tests {
         let err = build_create_request(CreateInputs {
             file: Some("/tmp/x".into()),
             text: Some("hello".into()),
-            delete_in_days: "7".into(),
+            delete_in_days: 7,
             max_access_count: None,
             hidden: false,
             name: Some("name".into()),
@@ -740,7 +743,7 @@ mod tests {
         let err = build_create_request(CreateInputs {
             file: None,
             text: None,
-            delete_in_days: "7".into(),
+            delete_in_days: 7,
             max_access_count: None,
             hidden: false,
             name: Some("name".into()),
@@ -757,7 +760,7 @@ mod tests {
         let req = build_create_request(CreateInputs {
             file: None,
             text: Some("hello".into()),
-            delete_in_days: "7".into(),
+            delete_in_days: 7,
             max_access_count: None,
             hidden: false,
             name: Some("name".into()),
@@ -774,7 +777,7 @@ mod tests {
         let req = build_create_request(CreateInputs {
             file: None,
             text: Some("hello".into()),
-            delete_in_days: "7".into(),
+            delete_in_days: 7,
             max_access_count: None,
             hidden: false,
             name: Some("name".into()),
@@ -787,5 +790,196 @@ mod tests {
             SendAuthType::Emails { emails } => assert_eq!(emails.len(), 2),
             other => panic!("expected Emails, got {other:?}"),
         }
+    }
+
+    // ---- build_auth_for_edit ----
+
+    /// On edit, the `(None, None)` case must return `Ok(None)` (preserve), not
+    /// `Ok(Some(SendAuthType::None))` (overwrite to no-auth). This is the auth-strip
+    /// regression boundary at the CLI helper level.
+    #[test]
+    fn build_auth_for_edit_no_flags_preserves() {
+        let auth = build_auth_for_edit(None, None).unwrap();
+        assert!(
+            auth.is_none(),
+            "no flags must produce `None` (preserve), got {auth:?}"
+        );
+    }
+
+    #[test]
+    fn build_auth_for_edit_password_overwrites() {
+        let auth = build_auth_for_edit(Some("hunter2".into()), None).unwrap();
+        assert!(matches!(
+            auth,
+            Some(SendAuthType::Password { ref password }) if password == "hunter2"
+        ));
+    }
+
+    #[test]
+    fn build_auth_for_edit_emails_overwrites() {
+        let auth = build_auth_for_edit(None, Some("a@b.com,c@d.com")).unwrap();
+        match auth {
+            Some(SendAuthType::Emails { emails }) => assert_eq!(emails.len(), 2),
+            other => panic!("expected Some(Emails), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn build_auth_for_edit_rejects_both_flags() {
+        assert!(build_auth_for_edit(Some("p".into()), Some("a@b.com")).is_err());
+    }
+
+    // ---- build_edit_request ----
+
+    use bitwarden_send::{AuthType, SendType, SendView};
+
+    /// Helper producing a baseline `SendView` for edit fixtures. The relevant fields for
+    /// these tests are `auth_type`, `has_password`, `emails`, and the text content.
+    fn make_existing(auth_type: AuthType, has_password: bool, emails: Vec<String>) -> SendView {
+        SendView {
+            id: "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().ok(),
+            access_id: Some("access-id".to_string()),
+            name: "existing".to_string(),
+            notes: Some("notes".to_string()),
+            key: Some("Pgui0FK85cNhBGWHAlBHBw".to_string()),
+            new_password: None,
+            has_password,
+            r#type: SendType::Text,
+            file: None,
+            text: Some(SendTextView {
+                text: Some("existing text".to_string()),
+                hidden: false,
+            }),
+            max_access_count: Some(42),
+            access_count: 0,
+            disabled: false,
+            hide_email: false,
+            revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
+            deletion_date: "2030-01-01T00:00:00Z".parse().unwrap(),
+            expiration_date: None,
+            emails,
+            auth_type,
+        }
+    }
+
+    fn no_override_edit() -> EditOverrides {
+        EditOverrides {
+            delete_in_days: None,
+            max_access_count: None,
+            hidden: false,
+            password: None,
+            emails: None,
+        }
+    }
+
+    /// This is the regression test for the auth-strip bug. Before the fix,
+    /// `build_edit_request` for a Send with an existing Password gate (no auth flags
+    /// provided) produced `auth: SendAuthType::None`, which the server treats as an
+    /// overwrite that clears the password. After the fix, the request carries
+    /// `auth: None` (the partial-update marker), and the SDK's `edit_send` consumes
+    /// that to forward the existing password hash to the server verbatim.
+    #[test]
+    fn build_edit_request_preserves_existing_password_when_no_auth_flags() {
+        let existing = make_existing(AuthType::Password, true, Vec::new());
+        let req = build_edit_request(existing, no_override_edit()).unwrap();
+        assert!(
+            req.auth.is_none(),
+            "expected preserve-marker (`None`), got {:?} — the previous behavior was \
+             `Some(SendAuthType::None)`, which silently strips the existing password",
+            req.auth
+        );
+    }
+
+    #[test]
+    fn build_edit_request_preserves_existing_emails_when_no_auth_flags() {
+        let existing = make_existing(
+            AuthType::Email,
+            false,
+            vec!["a@b.com".to_string(), "c@d.com".to_string()],
+        );
+        let req = build_edit_request(existing, no_override_edit()).unwrap();
+        assert!(req.auth.is_none());
+    }
+
+    /// Existing `AuthType::None` × no new auth flags → still preserve (i.e. `None`).
+    /// The SDK will look at the existing repository row and emit `AuthType::None` on
+    /// the wire; this CLI layer doesn't need to know that detail.
+    #[test]
+    fn build_edit_request_preserves_existing_none_auth_when_no_auth_flags() {
+        let existing = make_existing(AuthType::None, false, Vec::new());
+        let req = build_edit_request(existing, no_override_edit()).unwrap();
+        assert!(req.auth.is_none());
+    }
+
+    /// 4x4 matrix: existing { None, Password, Email } × override { None, Password,
+    /// Emails }. The "preserve" cases all live above; the "overwrite" cases must
+    /// produce a concrete `Some(...)` regardless of the existing state.
+    #[test]
+    fn build_edit_request_password_flag_overwrites_regardless_of_existing() {
+        for existing_auth in [AuthType::None, AuthType::Password, AuthType::Email] {
+            let existing =
+                make_existing(existing_auth, existing_auth == AuthType::Password, vec![]);
+            let req = build_edit_request(
+                existing,
+                EditOverrides {
+                    delete_in_days: None,
+                    max_access_count: None,
+                    hidden: false,
+                    password: Some("hunter2".into()),
+                    emails: None,
+                },
+            )
+            .unwrap();
+            assert!(
+                matches!(
+                    req.auth,
+                    Some(SendAuthType::Password { ref password }) if password == "hunter2"
+                ),
+                "existing={existing_auth:?}, got auth={:?}",
+                req.auth
+            );
+        }
+    }
+
+    #[test]
+    fn build_edit_request_emails_flag_overwrites_regardless_of_existing() {
+        for existing_auth in [AuthType::None, AuthType::Password, AuthType::Email] {
+            let existing =
+                make_existing(existing_auth, existing_auth == AuthType::Password, vec![]);
+            let req = build_edit_request(
+                existing,
+                EditOverrides {
+                    delete_in_days: None,
+                    max_access_count: None,
+                    hidden: false,
+                    password: None,
+                    emails: Some("a@b.com".into()),
+                },
+            )
+            .unwrap();
+            match req.auth {
+                Some(SendAuthType::Emails { ref emails }) => assert_eq!(emails.len(), 1),
+                ref other => {
+                    panic!("existing={existing_auth:?}, expected Some(Emails), got {other:?}")
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn build_edit_request_rejects_both_auth_flags() {
+        let existing = make_existing(AuthType::None, false, vec![]);
+        let err = build_edit_request(
+            existing,
+            EditOverrides {
+                delete_in_days: None,
+                max_access_count: None,
+                hidden: false,
+                password: Some("p".into()),
+                emails: Some("a@b.com".into()),
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("mutually exclusive"));
     }
 }

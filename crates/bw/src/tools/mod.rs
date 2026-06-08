@@ -4,6 +4,7 @@ use bitwarden_generators::{
     PassphraseGeneratorRequest, PasswordGeneratorRequest,
 };
 use bitwarden_pm::PasswordManagerClient;
+use bitwarden_send::SendId;
 use clap::{Args, Subcommand};
 
 use crate::render::CommandResult;
@@ -215,9 +216,9 @@ pub struct SendArgs {
         short = 'd',
         long = "deleteInDays",
         help = "The number of days in the future to set deletion date.",
-        default_value = "7"
+        default_value_t = 7
     )]
-    pub delete_in_days: String,
+    pub delete_in_days: u64,
 
     #[arg(long, help = "Optional password to access this Send.")]
     pub password: Option<String>,
@@ -265,7 +266,7 @@ pub enum SendCommands {
 
     #[command(about = "Get Sends owned by you.")]
     Get {
-        id: String,
+        id: SendId,
 
         #[arg(long, help = "Specify a file path to save a File-type Send to.")]
         output: Option<String>,
@@ -299,9 +300,9 @@ pub enum SendCommands {
             short = 'd',
             long = "deleteInDays",
             help = "The number of days in the future to set deletion date.",
-            default_value = "7"
+            default_value_t = 7
         )]
-        delete_in_days: String,
+        delete_in_days: u64,
 
         #[arg(
             long = "maxAccessCount",
@@ -323,8 +324,8 @@ pub enum SendCommands {
 
         // TODO(PM-34719): Gate behind the SendEmailOTP feature flag once flag plumbing exists in
         // `bw`. TODO(PM-34719): The legacy CLI enforces `--password` and `--emails` as mutually
-        // exclusive. clap-level mutual exclusivity is deferred; for now both are accepted and the
-        // builder picks password-first to match server precedence in `Send::emails`.
+        // exclusive at parse time. clap-level enforcement is deferred; for now the builder
+        // (`build_auth` in `tools/send.rs`) returns an error when both are supplied.
         #[arg(
             long,
             help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
@@ -343,14 +344,14 @@ pub enum SendCommands {
         encoded_json: Option<String>,
 
         #[arg(long, help = "Overrides the itemId provided in encodedJson.")]
-        itemid: Option<String>,
+        itemid: Option<SendId>,
 
         #[arg(
             short = 'd',
             long = "deleteInDays",
             help = "The number of days in the future to set deletion date."
         )]
-        delete_in_days: Option<String>,
+        delete_in_days: Option<u64>,
 
         #[arg(
             long = "maxAccessCount",
@@ -366,7 +367,8 @@ pub enum SendCommands {
 
         // TODO(PM-34719): Gate behind the SendEmailOTP feature flag once flag plumbing exists in
         // `bw`. TODO(PM-34719): The legacy CLI enforces `--password` and `--emails` as mutually
-        // exclusive. clap-level mutual exclusivity is deferred; for now both are accepted.
+        // exclusive at parse time. clap-level enforcement is deferred; for now the builder
+        // (`build_auth_for_edit` in `tools/send.rs`) returns an error when both are supplied.
         #[arg(
             long,
             help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
@@ -375,10 +377,10 @@ pub enum SendCommands {
     },
 
     #[command(about = "Removes the saved password from a Send.")]
-    RemovePassword { id: String },
+    RemovePassword { id: SendId },
 
     #[command(about = "Delete a Send.")]
-    Delete { id: String },
+    Delete { id: SendId },
 }
 
 #[derive(Args, Clone)]
