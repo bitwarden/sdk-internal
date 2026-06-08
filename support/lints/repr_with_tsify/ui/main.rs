@@ -22,7 +22,8 @@ pub enum BadEnumQualified {
     A = 0,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Tsify)]
+#[derive(Serialize_repr, Deserialize_repr)]
+#[derive(Tsify)]
 #[repr(u8)]
 pub enum BadEnumSplit {
     A = 0,
