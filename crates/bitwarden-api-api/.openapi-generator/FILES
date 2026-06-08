@@ -77,7 +77,7 @@ src/models/access_token_response_model_list_response_model.rs
 src/models/account_data_request_model.rs
 src/models/account_keys_request_model.rs
 src/models/add_existing_organization_request_body.rs
-src/models/add_organization_report_request.rs
+src/models/add_organization_report_request_model.rs
 src/models/admin_auth_request_update_request_model.rs
 src/models/algorithm.rs
 src/models/api_key_response_model.rs
@@ -116,6 +116,7 @@ src/models/bulk_create_security_tasks_request_model.rs
 src/models/bulk_delete_response_model.rs
 src/models/bulk_delete_response_model_list_response_model.rs
 src/models/bulk_deny_admin_auth_request_request_model.rs
+src/models/change_kdf_request_model.rs
 src/models/change_plan_frequency_request.rs
 src/models/checkout_billing_address_request.rs
 src/models/cipher_attachment_model.rs
@@ -215,6 +216,7 @@ src/models/folder_response_model.rs
 src/models/folder_response_model_list_response_model.rs
 src/models/folder_with_id_request_model.rs
 src/models/gateway_type.rs
+src/models/get_organization_invite_link_status_request_model.rs
 src/models/get_secrets_request_model.rs
 src/models/global_domains.rs
 src/models/global_equivalent_domains_type.rs
@@ -292,7 +294,9 @@ src/models/organization_keys_response_model.rs
 src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_public_key_response_model.rs
-src/models/organization_report_metrics_request.rs
+src/models/organization_report_file_response_model.rs
+src/models/organization_report_metrics.rs
+src/models/organization_report_response_model.rs
 src/models/organization_report_summary_data_response.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
@@ -333,6 +337,7 @@ src/models/organization_user_reset_password_enrollment_request_model.rs
 src/models/organization_user_reset_password_request_model.rs
 src/models/organization_user_restore_request.rs
 src/models/organization_user_status_type.rs
+src/models/organization_user_status_type_new.rs
 src/models/organization_user_type.rs
 src/models/organization_user_update_request_model.rs
 src/models/organization_user_user_details_response_model.rs
@@ -434,6 +439,8 @@ src/models/push_settings.rs
 src/models/push_technology_type.rs
 src/models/push_type.rs
 src/models/push_update_request_model.rs
+src/models/refresh_organization_invite_link_request_model.rs
+src/models/report_file.rs
 src/models/request_sm_access_request_model.rs
 src/models/reset_password_with_org_id_request_model.rs
 src/models/response_data.rs
@@ -477,6 +484,8 @@ src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
 src/models/self_hosted_organization_license_request_model.rs
 src/models/send_access_request_model.rs
+src/models/send_access_response_model.rs
+src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs
 src/models/send_request_model.rs
@@ -541,10 +550,10 @@ src/models/update_client_organization_request_body.rs
 src/models/update_collection_request_model.rs
 src/models/update_devices_trust_request_model.rs
 src/models/update_domains_request_model.rs
-src/models/update_organization_report_application_data_request.rs
-src/models/update_organization_report_data_request.rs
-src/models/update_organization_report_request.rs
-src/models/update_organization_report_summary_request.rs
+src/models/update_organization_invite_link_request_model.rs
+src/models/update_organization_report_application_data_request_model.rs
+src/models/update_organization_report_summary_request_model.rs
+src/models/update_organization_report_v2_request_model.rs
 src/models/update_profile_request_model.rs
 src/models/update_tde_offboarding_password_request_model.rs
 src/models/update_temp_password_request_model.rs

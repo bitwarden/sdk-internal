@@ -13,19 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct UpdateOrganizationReportRequest {
-    #[serde(
-        rename = "reportId",
-        alias = "ReportId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub report_id: Option<uuid::Uuid>,
-    #[serde(
-        rename = "organizationId",
-        alias = "OrganizationId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub organization_id: Option<uuid::Uuid>,
+pub struct AddOrganizationReportRequestModel {
     #[serde(
         rename = "reportData",
         alias = "ReportData",
@@ -50,17 +38,29 @@ pub struct UpdateOrganizationReportRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub application_data: Option<String>,
+    #[serde(
+        rename = "metrics",
+        alias = "Metrics",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub metrics: Option<Box<models::OrganizationReportMetrics>>,
+    #[serde(
+        rename = "fileSize",
+        alias = "FileSize",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub file_size: Option<i64>,
 }
 
-impl UpdateOrganizationReportRequest {
-    pub fn new() -> UpdateOrganizationReportRequest {
-        UpdateOrganizationReportRequest {
-            report_id: None,
-            organization_id: None,
+impl AddOrganizationReportRequestModel {
+    pub fn new() -> AddOrganizationReportRequestModel {
+        AddOrganizationReportRequestModel {
             report_data: None,
             content_encryption_key: None,
             summary_data: None,
             application_data: None,
+            metrics: None,
+            file_size: None,
         }
     }
 }

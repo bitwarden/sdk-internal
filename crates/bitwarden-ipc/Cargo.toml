@@ -31,7 +31,11 @@ js-sys = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
-snow = { version = "0.9.6", features = ["risky-raw-split"] }
+snow = { version = "0.10.0", default-features = false, features = [
+    "default-resolver",
+    "default-resolver-crypto",
+    "risky-raw-split",
+] }
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tracing = { workspace = true }

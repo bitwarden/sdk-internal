@@ -2,7 +2,7 @@ use std::{ops::Add, sync::Arc};
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
-use bitwarden_threading::cancellation_token;
+use bitwarden_threading::{cancellation_token, time::sleep};
 use thiserror::Error;
 
 use crate::{DeviceEvent, FollowerMessage, LeaderMessage, LockState, drivers::SharedUnlockDriver};
@@ -48,6 +48,10 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
             .await
             .expect("leader discovery should return a leader");
 
+        if !users.is_empty() {
+            tracing::info!("Starting shared unlock sessions for users: {:?}", users);
+        }
+
         for user_id in users {
             let lock_state = self.0.driver.get_user_lock_state(user_id).await;
             let message = FollowerMessage::StartSession {
@@ -84,6 +88,14 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                     }
                     Err(bitwarden_ipc::TypedReceiveError::Cancelled) => {
                         tracing::info!("Shared unlock follower stopped by cancellation");
+                        break;
+                    }
+                    // This is required because otherwise the browser may freeze in this loop
+                    Err(bitwarden_ipc::TypedReceiveError::Channel(
+                        tokio::sync::broadcast::error::RecvError::Closed,
+                    )) => {
+                        tracing::info!("Transport channel closed. Waiting for it to open");
+                        sleep(std::time::Duration::from_secs(1)).await;
                         break;
                     }
                     Err(error) => {
@@ -176,6 +188,15 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                         user_id,
                         crate::HEARTBEAT_INTERVAL.add(crate::VAULT_TIMEOUT_GRACE_PERIOD),
                     )
+                    .await;
+            }
+            LeaderMessage::RequestSessionStart { user_id } => {
+                let lock_state = self.0.driver.get_user_lock_state(user_id).await;
+                let message = FollowerMessage::StartSession {
+                    user_id,
+                    lock_state,
+                };
+                self.send_message(message, self.0.driver.discover_leader().await.ok_or(())?)
                     .await;
             }
         }

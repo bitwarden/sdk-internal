@@ -1,3 +1,5 @@
+mod device_auth_key;
+
 use std::sync::Arc;
 
 use bitwarden_fido::{
@@ -8,6 +10,7 @@ use bitwarden_fido::{
     PublicKeyCredentialUserEntity,
 };
 use bitwarden_vault::{CipherListView, CipherView, EncryptionContext, Fido2CredentialNewView};
+use device_auth_key::{ClientDeviceAuthKeyAuthenticator, DeviceAuthKeyStore};
 
 use crate::error::{Error, Result};
 
@@ -26,6 +29,16 @@ impl ClientFido2 {
             user_interface,
             credential_store,
         ))
+    }
+
+    pub fn device_auth_key_authenticator(
+        &self,
+        credential_store: Arc<dyn DeviceAuthKeyStore>,
+    ) -> Arc<ClientDeviceAuthKeyAuthenticator> {
+        Arc::new(ClientDeviceAuthKeyAuthenticator {
+            client: self.0.clone(),
+            store: credential_store,
+        })
     }
 
     pub fn client(

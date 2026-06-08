@@ -2,10 +2,9 @@
 
 use std::fmt::Debug;
 
-use bitwarden_api_base::Error as BaseApiError;
+use bitwarden_api_base::{Error as BaseApiError, ResponseContent};
 #[cfg(feature = "internal")]
 use bitwarden_error::bitwarden_error;
-use reqwest::StatusCode;
 use thiserror::Error;
 
 /// Errors from performing network requests.
@@ -22,8 +21,8 @@ pub enum ApiError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("Received error message from server: [{}] {}", .status, .message)]
-    ResponseContent { status: StatusCode, message: String },
+    #[error("Received error message from server: [{}] {}", _0.status, _0.message)]
+    Response(ResponseContent),
 }
 
 impl<T> From<BaseApiError<T>> for ApiError {
@@ -31,13 +30,17 @@ impl<T> From<BaseApiError<T>> for ApiError {
         match e {
             BaseApiError::Reqwest(e) => Self::Reqwest(e),
             BaseApiError::ReqwestMiddleware(e) => Self::ReqwestMiddleware(e),
-            BaseApiError::ResponseError(e) => Self::ResponseContent {
-                status: e.status,
-                message: e.content,
-            },
+            BaseApiError::Response(e) => Self::Response(e),
             BaseApiError::Serde(e) => Self::Serde(e),
             BaseApiError::Io(e) => Self::Io(e),
+            BaseApiError::_Phantom(_, _) => unreachable!(),
         }
+    }
+}
+
+impl From<ResponseContent> for ApiError {
+    fn from(value: ResponseContent) -> Self {
+        Self::Response(value)
     }
 }
 

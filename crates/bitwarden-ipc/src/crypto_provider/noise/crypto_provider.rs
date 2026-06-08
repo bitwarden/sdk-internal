@@ -1,7 +1,7 @@
 use std::{sync::LazyLock, time::Duration};
 
+use bitwarden_threading::time::timeout;
 use serde::{Deserialize, Serialize};
-use tokio::time::timeout;
 use tracing::{error, info, warn};
 
 use crate::{
@@ -291,10 +291,12 @@ where
                         continue;
                     };
 
-                    let payload = state
-                        .state
-                        .receive(&transport_frame)
-                        .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
+                    let payload = state.state.receive(&transport_frame);
+                    let Ok(payload) = payload else {
+                        info!("Failed to decrypt message from {:?}", message.source);
+                        continue;
+                    };
+
                     sessions
                         .save(source_endpoint, state)
                         .await

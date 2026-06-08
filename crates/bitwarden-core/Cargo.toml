@@ -29,6 +29,7 @@ no-memory-hardening = [
 secrets = [] # Secrets manager API
 uniffi = [
     "internal",
+    "bitwarden-api-base/uniffi",
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
@@ -44,12 +45,14 @@ wasm = [
     "getrandom4/wasm_js",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
+    "dep:serde-wasm-bindgen",
     "dep:tsify",
 ] # WASM support
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
 dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
+internal-test-utils = []
 test-fixtures = ["bitwarden-test"]
 
 [dependencies]
@@ -81,6 +84,7 @@ reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true, optional = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 serde_qs = { workspace = true }
@@ -95,14 +99,8 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zxcvbn = { workspace = true, optional = true }
 
-[target.'cfg(not(target_arch="wasm32"))'.dependencies]
-# By default, we use rustls as the TLS stack and rust-platform-verifier to support user-installed root certificates
-# The only exception is WASM, as it just uses the browsers/node fetch
-reqwest = { workspace = true, features = ["rustls-tls-manual-roots"] }
-rustls = { version = "0.23.19", default-features = false }
-rustls-platform-verifier = "0.6.0"
-
 [dev-dependencies]
+bitwarden-crypto = { workspace = true, features = ["test-utils"] }
 rand_chacha = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }

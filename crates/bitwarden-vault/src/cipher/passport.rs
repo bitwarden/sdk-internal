@@ -122,23 +122,41 @@ impl CipherKind for Passport {
             .as_ref()
             .map(|s| s.decrypt(ctx, key))
             .transpose()?;
-        let parts: Vec<String> = [given_name, surname]
-            .into_iter()
-            .flatten()
-            .filter(|s| !s.is_empty())
-            .collect();
-        Ok(parts.join(" "))
+        Ok(build_subtitle_passport(given_name, surname))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
-        [self
-            .passport_number
-            .as_ref()
-            .map(|_| CopyableCipherFields::PassportPassportNumber)]
+        [
+            self.given_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportGivenName),
+            self.surname
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportSurname),
+            self.passport_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportPassportNumber),
+            self.national_identification_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportNationalIdentificationNumber),
+        ]
         .into_iter()
         .flatten()
         .collect()
     }
+}
+
+/// Builds the subtitle for a passport cipher
+pub(super) fn build_subtitle_passport(
+    given_name: Option<String>,
+    surname: Option<String>,
+) -> String {
+    [given_name, surname]
+        .into_iter()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 impl TryFrom<CipherPassportModel> for Passport {
@@ -307,7 +325,12 @@ mod tests {
         let copyable_fields = passport.get_copyable_fields(None);
         assert_eq!(
             copyable_fields,
-            vec![CopyableCipherFields::PassportPassportNumber,]
+            vec![
+                CopyableCipherFields::PassportGivenName,
+                CopyableCipherFields::PassportSurname,
+                CopyableCipherFields::PassportPassportNumber,
+                CopyableCipherFields::PassportNationalIdentificationNumber,
+            ]
         );
     }
 }

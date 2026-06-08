@@ -11,3 +11,5 @@ The following lints are currently available:
   `tsify::Tsify` on the same type, because the integer wire format produced by `serde_repr`
   disagrees with the string-based TypeScript declaration produced by `Tsify`. Use
   `#[cfg_attr(feature = "wasm", wasm_bindgen)]` for repr-encoded enums.
+- `uniffi_async_export`: Ensures `#[uniffi::export]` on `async fn`s (free or inside an impl)
+  specifies `async_runtime = "tokio"`.

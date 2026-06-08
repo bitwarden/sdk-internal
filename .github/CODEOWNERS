@@ -36,15 +36,17 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 # Team-owned crates
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev
-crates/bitwarden-collections/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
+crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
-crates/bitwarden-policies/** @bitwarden/team-admin-console-dev @bitwarden/team-platform-dev
+crates/bitwarden-organization-crypto/** @bitwarden/team-key-management-dev
+crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev
+crates/bitwarden-policies/** @bitwarden/team-admin-console-dev
 crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
+crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
 
@@ -56,6 +58,7 @@ crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-d
 # BW CLI
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev
 crates/bw/src/auth/** @bitwarden/team-auth-dev
+crates/bw/src/key_management/** @bitwarden/team-key-management-dev
 crates/bw/src/tools/** @bitwarden/team-platform-dev
 crates/bw/src/vault/** @bitwarden/team-vault-dev
 
@@ -73,6 +76,9 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev
 **/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
 **/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
+
+# UniFFI config files. Platform owns to avoid review bingo when they are all changed.
+**/uniffi.toml @bitwarden/team-platform-dev
 
 ## No ownership for root dependency management files to allow Renovate to manage updates
 /Cargo.lock

@@ -1,5 +1,9 @@
 use clap::Args;
 
+mod lock;
+
+pub(crate) use lock::LockArgs;
+
 #[derive(Args, Clone)]
 pub(crate) struct UnlockArgs {
     pub(crate) password: Option<String>,

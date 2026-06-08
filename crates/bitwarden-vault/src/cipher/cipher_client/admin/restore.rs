@@ -44,11 +44,11 @@ pub async fn restore_as_admin(
         .await?
         .merge_with_cipher(None)?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -57,6 +57,7 @@ pub async fn restore_many_as_admin(
     org_id: OrganizationId,
     api_client: &ApiClient,
     key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
 ) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
@@ -72,10 +73,19 @@ pub async fn restore_many_as_admin(
         .map(|c| c.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-    Ok(DecryptCipherListResult {
-        successes,
-        failures: failures.into_iter().cloned().collect(),
+    Ok(if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    } else {
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
     })
 }
 
@@ -86,8 +96,8 @@ impl CipherAdminClient {
         &self,
         cipher_id: CipherId,
     ) -> Result<CipherView, RestoreCipherAdminError> {
-        let api_client = &self.client.internal.get_api_configurations().api_client;
-        let key_store = self.client.internal.get_key_store();
+        let api_client = &self.api_configurations.api_client;
+        let key_store = &self.key_store;
 
         restore_as_admin(
             cipher_id,
@@ -103,10 +113,17 @@ impl CipherAdminClient {
         cipher_ids: Vec<CipherId>,
         org_id: OrganizationId,
     ) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
-        let api_client = &self.client.internal.get_api_configurations().api_client;
-        let key_store = self.client.internal.get_key_store();
+        let api_client = &self.api_configurations.api_client;
+        let key_store = &self.key_store;
 
-        restore_many_as_admin(cipher_ids, org_id, api_client, key_store).await
+        restore_many_as_admin(
+            cipher_ids,
+            org_id,
+            api_client,
+            key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
 }
 
@@ -270,6 +287,7 @@ mod tests {
             TEST_ORG_ID.parse().unwrap(),
             &api_client,
             &store,
+            false,
         )
         .await
         .unwrap();

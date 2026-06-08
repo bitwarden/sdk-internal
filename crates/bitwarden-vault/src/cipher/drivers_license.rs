@@ -108,23 +108,41 @@ impl CipherKind for DriversLicense {
             .as_ref()
             .map(|l| l.decrypt(ctx, key))
             .transpose()?;
-        let parts: Vec<String> = [first_name, last_name]
-            .into_iter()
-            .flatten()
-            .filter(|s| !s.is_empty())
-            .collect();
-        Ok(parts.join(" "))
+        Ok(build_subtitle_drivers_license(first_name, last_name))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
-        [self
-            .license_number
-            .as_ref()
-            .map(|_| CopyableCipherFields::DriversLicenseLicenseNumber)]
+        [
+            self.first_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseFirstName),
+            self.middle_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseMiddleName),
+            self.last_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseLastName),
+            self.license_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseLicenseNumber),
+        ]
         .into_iter()
         .flatten()
         .collect()
     }
+}
+
+/// Builds the subtitle for a driver's license cipher
+pub(super) fn build_subtitle_drivers_license(
+    first_name: Option<String>,
+    last_name: Option<String>,
+) -> String {
+    [first_name, last_name]
+        .into_iter()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 impl TryFrom<CipherDriversLicenseModel> for DriversLicense {
@@ -279,7 +297,12 @@ mod tests {
         let copyable_fields = dl.get_copyable_fields(None);
         assert_eq!(
             copyable_fields,
-            vec![CopyableCipherFields::DriversLicenseLicenseNumber,]
+            vec![
+                CopyableCipherFields::DriversLicenseFirstName,
+                CopyableCipherFields::DriversLicenseMiddleName,
+                CopyableCipherFields::DriversLicenseLastName,
+                CopyableCipherFields::DriversLicenseLicenseNumber,
+            ]
         );
     }
 }

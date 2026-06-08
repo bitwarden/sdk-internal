@@ -32,6 +32,18 @@ pub struct ImportOrganizationCiphersRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub collection_relationships: Option<Vec<models::Int32Int32KeyValuePair>>,
+    #[serde(
+        rename = "folders",
+        alias = "Folders",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub folders: Option<Vec<models::FolderWithIdRequestModel>>,
+    #[serde(
+        rename = "folderRelationships",
+        alias = "FolderRelationships",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub folder_relationships: Option<Vec<models::Int32Int32KeyValuePair>>,
 }
 
 impl ImportOrganizationCiphersRequestModel {
@@ -40,6 +52,8 @@ impl ImportOrganizationCiphersRequestModel {
             collections: None,
             ciphers: None,
             collection_relationships: None,
+            folders: None,
+            folder_relationships: None,
         }
     }
 }
