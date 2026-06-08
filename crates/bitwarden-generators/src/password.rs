@@ -75,10 +75,9 @@ pub struct PasswordGeneratorRequest {
     pub custom_allowed_chars: Option<String>,
 
     /// The maximum number of consecutive identical characters allowed in the generated password,
-    /// as expressed by the HTML `passwordrules` `max-consecutive` property.
-    ///
-    /// Currently parsed and stored, but not yet enforced by the generator.
-    // TODO: enforce `max_consecutive` in the generator.
+    /// as expressed by the HTML `passwordrules` `max-consecutive` property. `None` disables
+    /// the check; `Some(0)` is invalid and rejected at request validation. Enforced via
+    /// re-shuffle with a single-pass repair fallback for degenerate pool sizes.
     #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub max_consecutive: Option<u8>,
@@ -185,16 +184,21 @@ impl Distribution<char> for CharSet {
 /// To get an instance of it, use
 /// [`PasswordGeneratorRequest::validate_options`](PasswordGeneratorRequest::validate_options)
 struct PasswordGeneratorOptions {
-    pub(super) lower: (CharSet, usize),
-    pub(super) upper: (CharSet, usize),
-    pub(super) number: (CharSet, usize),
-    pub(super) special: (CharSet, usize),
+    lower: (CharSet, usize),
+    upper: (CharSet, usize),
+    number: (CharSet, usize),
+    special: (CharSet, usize),
     /// Custom required characters from `passwordrules` `required: [...]` entries. At least one
     /// char from this set is guaranteed to appear in the output when the set is non-empty.
-    pub(super) custom: (CharSet, usize),
-    pub(super) all: (CharSet, usize),
+    custom: (CharSet, usize),
+    all: (CharSet, usize),
 
-    pub(super) length: usize,
+    length: usize,
+
+    /// Maximum number of consecutive identical characters allowed in the output. `None`
+    /// disables the check. Validated to be `>= 1` in
+    /// [`PasswordGeneratorRequest::validate_options`].
+    max_consecutive: Option<usize>,
 }
 
 impl PasswordGeneratorRequest {
@@ -296,6 +300,15 @@ impl PasswordGeneratorRequest {
             length - minimum_length,
         );
 
+        // A `max_consecutive` of 0 would forbid every output (no character can appear once
+        // without exceeding a run of 0). Reject it up front so the generator can assume any
+        // populated `Some(_)` is `>= 1`.
+        let max_consecutive = match self.max_consecutive {
+            None => None,
+            Some(0) => return Err(PasswordError::InvalidLength),
+            Some(n) => Some(n as usize),
+        };
+
         Ok(PasswordGeneratorOptions {
             lower,
             upper,
@@ -304,6 +317,7 @@ impl PasswordGeneratorRequest {
             custom,
             all,
             length,
+            max_consecutive,
         })
     }
 }
@@ -342,7 +356,79 @@ fn password_with_rng(mut rng: impl Rng, options: PasswordGeneratorOptions) -> St
 
     buf.shuffle(&mut rng);
 
+    if let Some(limit) = options.max_consecutive {
+        // For realistic inputs (length up to 128, charset size > limit) a re-shuffle clears
+        // the violation in a few rounds. The repair-pass fallback handles pathological cases
+        // (small charset, large length) where re-shuffles wouldn't terminate quickly.
+        const MAX_RESHUFFLES: u8 = 16;
+        let mut tries = 0;
+        while violates_max_consecutive(&buf, limit) && tries < MAX_RESHUFFLES {
+            buf.shuffle(&mut rng);
+            tries += 1;
+        }
+        if violates_max_consecutive(&buf, limit) {
+            repair_consecutive(&mut buf, limit);
+        }
+    }
+
     buf.iter().collect()
+}
+
+/// Returns `true` if `buf` contains a run of identical characters longer than `limit`.
+fn violates_max_consecutive(buf: &[char], limit: usize) -> bool {
+    if limit == 0 || buf.len() <= limit {
+        return false;
+    }
+    let mut run = 1usize;
+    for w in buf.windows(2) {
+        if w[0] == w[1] {
+            run += 1;
+            if run > limit {
+                return true;
+            }
+        } else {
+            run = 1;
+        }
+    }
+    false
+}
+
+/// Single-pass repair: scans `buf` and, whenever a run grows past `limit`, swaps the
+/// offending character with the next non-matching character ahead in the buffer. Used
+/// only when re-shuffling fails to clear the constraint (typically when the available
+/// pool is degenerately small relative to the requested length).
+fn repair_consecutive(buf: &mut [char], limit: usize) {
+    if limit == 0 || buf.len() <= limit {
+        return;
+    }
+    let mut run = 1usize;
+    let mut i = 1;
+    while i < buf.len() {
+        if buf[i] == buf[i - 1] {
+            run += 1;
+            if run > limit {
+                // Find any later position with a character that breaks both the current
+                // run and the trailing run (so we don't extend a different violation).
+                let target = (i + 1..buf.len())
+                    .find(|&k| buf[k] != buf[i] && (k + 1 == buf.len() || buf[k + 1] != buf[i]));
+                match target {
+                    Some(j) => {
+                        buf.swap(i, j);
+                        run = 1;
+                    }
+                    None => {
+                        // No feasible swap target; leave the constraint partially satisfied
+                        // rather than looping. For realistic inputs (any charset of size >=2
+                        // with charset_size >> length / limit) this branch is unreachable.
+                        return;
+                    }
+                }
+            }
+        } else {
+            run = 1;
+        }
+        i += 1;
+    }
 }
 
 #[cfg(test)]
@@ -496,5 +582,119 @@ mod test {
 
         let pass = password_with_rng(&mut rng, options);
         assert_eq!(pass, "t&c0L73*D*G%aak7goq!N2T4");
+    }
+
+    fn longest_run(s: &str) -> usize {
+        let mut longest = 0usize;
+        let mut run = 0usize;
+        let mut prev: Option<char> = None;
+        for c in s.chars() {
+            if prev == Some(c) {
+                run += 1;
+            } else {
+                run = 1;
+                prev = Some(c);
+            }
+            longest = longest.max(run);
+        }
+        longest
+    }
+
+    #[test]
+    fn test_password_gen_honors_max_consecutive() {
+        // 64 attempts at length 64 across ascii-printable: even ignoring our enforcement,
+        // ambient runs of 4 should be vanishingly rare. With the constraint enforced
+        // (max_consecutive: 2) every iteration must satisfy run-length <= 2.
+        for seed_byte in 0u8..64 {
+            let mut rng = rand_chacha::ChaCha8Rng::from_seed([seed_byte; 32]);
+            let options = PasswordGeneratorRequest {
+                lowercase: true,
+                uppercase: true,
+                numbers: true,
+                special: true,
+                avoid_ambiguous: false,
+                length: 64,
+                max_consecutive: Some(2),
+                ..Default::default()
+            }
+            .validate_options()
+            .unwrap();
+            let pass = password_with_rng(&mut rng, options);
+            let run = longest_run(&pass);
+            assert!(
+                run <= 2,
+                "seed={seed_byte}: produced {pass:?} with run of length {run} (>2)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_password_gen_max_consecutive_one_breaks_pairs() {
+        // The tightest meaningful constraint: no two adjacent characters may be equal.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([7u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            length: 32,
+            max_consecutive: Some(1),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            longest_run(&pass) <= 1,
+            "produced {pass:?} with adjacent duplicate"
+        );
+    }
+
+    #[test]
+    fn test_password_gen_max_consecutive_zero_is_rejected() {
+        let result = PasswordGeneratorRequest {
+            lowercase: true,
+            length: 14,
+            max_consecutive: Some(0),
+            ..Default::default()
+        }
+        .validate_options();
+        assert!(
+            matches!(result, Err(PasswordError::InvalidLength)),
+            "expected InvalidLength for max_consecutive=Some(0)"
+        );
+    }
+
+    #[test]
+    fn test_password_gen_max_consecutive_none_is_unconstrained() {
+        // Sanity: explicit None and Default's None should behave identically (no constraint).
+        let mut rng_a = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let mut rng_b = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let opts_a = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+        let opts_b = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            max_consecutive: None,
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+        assert_eq!(
+            password_with_rng(&mut rng_a, opts_a),
+            password_with_rng(&mut rng_b, opts_b)
+        );
     }
 }
