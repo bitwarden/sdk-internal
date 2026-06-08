@@ -3492,7 +3492,9 @@ mod tests {
         };
 
         fn make_key_store() -> KeyStore<KeySlotIds> {
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ))
         }
 
         /// Encrypt a view through the legacy field-level path.
@@ -3949,8 +3951,9 @@ mod tests {
         /// key, so they fail to decrypt under any cipher key. The middle one has
         /// no wrapped key, marking it an "old" (v1) attachment.
         fn failing_attachments() -> Vec<attachment::Attachment> {
-            let wrong =
-                create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+            let wrong = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ));
             let mut ctx = wrong.context();
             let mut enc = |s: &str| s.encrypt(&mut ctx, SymmetricKeySlotId::User).unwrap();
             vec![
