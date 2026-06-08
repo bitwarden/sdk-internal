@@ -54,6 +54,16 @@ pub trait OrganizationUsersApi: Send + Sync {
         >,
     ) -> Result<(), Error>;
 
+    /// POST /organizations/{orgId}/users/bulk-auto-confirm
+    async fn bulk_automatically_confirm_organization_users<'a>(
+        &self,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
+        organization_user_bulk_confirm_request_model: Option<
+            models::OrganizationUserBulkConfirmRequestModel,
+        >,
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
+
     /// POST /organizations/{orgId}/users/confirm
     async fn bulk_confirm<'a>(
         &self,
@@ -147,11 +157,18 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
     ) -> Result<models::OrganizationUserUserMiniDetailsResponseModelListResponseModel, Error>;
 
+    /// GET /organizations/{orgId}/users/pending-auto-confirm
+    async fn get_pending_auto_confirm_users<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationUserPendingAutoConfirmResponseModelListResponseModel, Error>;
+
     /// GET /organizations/{orgId}/users/{id}/reset-password-details
     async fn get_reset_password_details<'a>(
         &self,
-        org_id: uuid::Uuid,
         id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
     ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/invite
@@ -321,6 +338,37 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
             local_var_req_builder.json(&organization_user_confirm_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn bulk_automatically_confirm_organization_users<'a>(
+        &self,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
+        organization_user_bulk_confirm_request_model: Option<
+            models::OrganizationUserBulkConfirmRequestModel,
+        >,
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/bulk-auto-confirm",
+            local_var_configuration.base_path,
+            orgId = crate::apis::urlencode(org_id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = organization {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("organization", &serde_json::to_value(param_value)?)]);
+        }
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&organization_user_bulk_confirm_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn bulk_confirm<'a>(
@@ -638,10 +686,33 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get_reset_password_details<'a>(
+    async fn get_pending_auto_confirm_users<'a>(
         &self,
         org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationUserPendingAutoConfirmResponseModelListResponseModel, Error>
+    {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/pending-auto-confirm",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_reset_password_details<'a>(
+        &self,
         id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
     ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
@@ -650,12 +721,16 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/users/{id}/reset-password-details",
             local_var_configuration.base_path,
-            orgId = org_id,
-            id = id
+            id = id,
+            orgId = crate::apis::urlencode(org_id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = organization {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("organization", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await

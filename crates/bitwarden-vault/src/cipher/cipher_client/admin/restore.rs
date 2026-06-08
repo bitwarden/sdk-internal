@@ -134,7 +134,7 @@ mod tests {
         models::{CipherMiniResponseModel, CipherMiniResponseModelListResponseModel},
     };
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use chrono::Utc;
 
     use super::*;
@@ -215,7 +215,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
         let start_time = Utc::now();
         let updated_cipher =
@@ -275,7 +275,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let start_time = Utc::now();

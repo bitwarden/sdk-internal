@@ -49,7 +49,7 @@ mod tests {
     use bitwarden_core::{
         client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
     };
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
 
@@ -57,8 +57,9 @@ mod tests {
     use crate::Folder;
 
     fn create_client() -> FoldersClient {
-        let store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
         let repository = Arc::new(MemoryRepository::<Folder>::default());
 
         FoldersClient {
