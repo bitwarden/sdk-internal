@@ -17,23 +17,34 @@ mod sqlite;
 mod memory;
 pub(super) use memory::MemoryDatabase;
 
+/// Errors that can occur when interacting with the SDK-managed database.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DatabaseError {
+    /// The requested database configuration is not supported on the current platform.
     #[error("Database not supported on this platform: {0:?}")]
     UnsupportedConfiguration(DatabaseConfiguration),
 
+    /// A call dispatched through the thread-bound runner failed.
     #[error(transparent)]
     ThreadBoundRunner(#[from] bitwarden_threading::CallError),
 
+    /// Failed to serialize or deserialize a stored value.
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
+    /// A JavaScript error was raised by the IndexedDB backend.
     #[error("JS error: {0}")]
     JS(String),
 
+    /// An unexpected internal error occurred in the database backend.
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// The database has been closed (e.g. by [`crate::registry::StateRegistry::wipe`]) and
+    /// can no longer service operations.
+    #[error("Database is closed")]
+    Closed,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -74,6 +85,8 @@ pub trait Database {
     async fn remove_bulk<T: RepositoryItem>(&self, keys: Vec<String>) -> Result<(), DatabaseError>;
 
     async fn remove_all<T: RepositoryItem>(&self) -> Result<(), DatabaseError>;
+
+    async fn wipe(&self) -> Result<(), DatabaseError>;
 }
 
 #[derive(Clone)]
@@ -175,6 +188,16 @@ impl Database for SystemDatabase {
             #[cfg(target_arch = "wasm32")]
             SystemDatabase::IndexedDb(db) => db.remove_all::<T>().await,
             SystemDatabase::Memory(db) => db.remove_all::<T>().await,
+        }
+    }
+
+    async fn wipe(&self) -> Result<(), DatabaseError> {
+        match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            SystemDatabase::Sqlite(db) => db.wipe().await,
+            #[cfg(target_arch = "wasm32")]
+            SystemDatabase::IndexedDb(db) => db.wipe().await,
+            SystemDatabase::Memory(db) => db.wipe().await,
         }
     }
 }
