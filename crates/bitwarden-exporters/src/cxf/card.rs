@@ -52,7 +52,7 @@ impl From<&CreditCardCredential> for Card {
             brand: value
                 .card_type
                 .clone()
-                .and_then(|b| sanitize_brand(&String::from(b))),
+                .and_then(|b| sanitize_brand(b.into())),
             number: value.number.clone().map(Into::into),
         }
     }
@@ -85,7 +85,7 @@ pub(super) fn to_card(credential: &CreditCardCredential) -> (Card, Vec<Field>) {
 ///
 /// - For recognized brands, the brand is normalized before being converted to a string.
 /// - For unrecognized brands, `None` is returned.
-fn sanitize_brand(value: &str) -> Option<String> {
+fn sanitize_brand(value: String) -> Option<String> {
     match value.to_lowercase().replace(" ", "").as_str() {
         "visa" => Some(CardBrand::Visa),
         "mastercard" => Some(CardBrand::Mastercard),
@@ -112,17 +112,23 @@ mod tests {
 
     #[test]
     fn test_sanitize_brand() {
-        assert_eq!(sanitize_brand("Visa"), Some("Visa".to_string()));
-        assert_eq!(sanitize_brand("  visa  "), Some("Visa".to_string()));
-        assert_eq!(sanitize_brand("MasterCard"), Some("Mastercard".to_string()));
-        assert_eq!(sanitize_brand("amex"), Some("Amex".to_string()));
-        assert_eq!(sanitize_brand("American Express"), Some("Amex".to_string()));
+        assert_eq!(sanitize_brand("Visa".into()), Some("Visa".to_string()));
+        assert_eq!(sanitize_brand("  visa  ".into()), Some("Visa".to_string()));
         assert_eq!(
-            sanitize_brand("DinersClub"),
+            sanitize_brand("MasterCard".into()),
+            Some("Mastercard".to_string())
+        );
+        assert_eq!(sanitize_brand("amex".into()), Some("Amex".to_string()));
+        assert_eq!(
+            sanitize_brand("American Express".into()),
+            Some("Amex".to_string())
+        );
+        assert_eq!(
+            sanitize_brand("DinersClub".into()),
             Some("Diners Club".to_string())
         );
-        assert_eq!(sanitize_brand("j c b"), Some("JCB".to_string()));
-        assert_eq!(sanitize_brand("Some unknown"), None);
+        assert_eq!(sanitize_brand("j c b".into()), Some("JCB".to_string()));
+        assert_eq!(sanitize_brand("Some unknown".into()), None);
     }
 
     #[test]
