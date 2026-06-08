@@ -2009,7 +2009,7 @@ impl PartialCipher for CipherMiniResponseModel {
             permissions: cipher.map_or(Default::default(), |c| c.permissions),
             view_password: cipher.is_none_or(|c| c.view_password),
             local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
-            data: cipher.map_or(Default::default(), |c| c.data.clone()),
+            data: self.data,
             collection_ids: cipher.map_or(Default::default(), |c| c.collection_ids.clone()),
         })
     }

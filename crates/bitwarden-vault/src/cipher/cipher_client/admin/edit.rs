@@ -338,6 +338,62 @@ mod tests {
         assert_eq!(result.folder_id, Some(folder_b));
     }
 
+    /// A blob edit must use the `data` blob the server returns, not the stale
+    /// pre-edit blob re-sealed from the original view.
+    #[tokio::test]
+    async fn test_edit_cipher_blob_uses_echoed_data() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeySlotId::User,
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+        );
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+
+        // Echo the request's blob (`key` + `data`) back, as the server does.
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put_admin()
+                .returning(move |_id, body| {
+                    let body = body.unwrap();
+                    Ok(CipherMiniResponseModel {
+                        id: Some(cipher_id.into()),
+                        r#type: body.r#type,
+                        key: body.key,
+                        data: body.data,
+                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let original_cipher_view = generate_test_cipher();
+        let mut cipher_view = original_cipher_view.clone();
+        cipher_view.name = "New Cipher Name".to_string();
+
+        let request: CipherEditRequest = cipher_view.try_into().unwrap();
+
+        let result = edit_cipher(
+            &store,
+            &api_client,
+            TEST_USER_ID.parse().unwrap(),
+            original_cipher_view,
+            request,
+            false,
+            false,
+            true, // use_blob
+        )
+        .await
+        .unwrap();
+
+        // The edited name lives inside the blob, so recovering it proves the
+        // echoed blob was used rather than the stale original.
+        assert_eq!(result.name, "New Cipher Name");
+    }
+
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
