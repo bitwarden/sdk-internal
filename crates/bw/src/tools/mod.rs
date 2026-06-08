@@ -268,8 +268,15 @@ pub enum SendCommands {
     Get {
         id: SendId,
 
-        #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-        output: Option<String>,
+        // The legacy CLI uses `--output <path>` here, but the top-level `bw` already defines
+        // a global `-o, --output` flag for the rendered output format (JSON, etc.). Naming
+        // this `--output-file` avoids a clap runtime panic when both args resolve to the
+        // same long flag with different types. Legacy parity is tracked in PM-34719 follow-ups.
+        #[arg(
+            long = "output-file",
+            help = "File path to save a file-type Send's decrypted contents to."
+        )]
+        output_file: Option<String>,
 
         #[arg(long, help = "Only return the access url.")]
         text: bool,

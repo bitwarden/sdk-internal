@@ -59,9 +59,23 @@ async fn dispatch_subcommand(
             let client = require_login(client)?;
             list_sends(&client).await
         }
-        SendCommands::Get { id, output, text } => {
+        SendCommands::Get {
+            id,
+            output_file,
+            text,
+        } => {
+            // TODO(PM-34719): When `--output-file` is provided for a file send, decrypt +
+            // write the file to disk via `SendClient::decrypt_file`. Until that lands, fail
+            // loudly *before* the auth check so the caller knows their request wasn't
+            // honored — silently emitting JSON would leave a non-existent file path behind
+            // a successful exit code.
+            if output_file.is_some() {
+                return Err(eyre!(
+                    "`--output-file` on `bw send get` is not yet implemented (PM-34719: file-decrypt pipeline pending)."
+                ));
+            }
             let client = require_login(client)?;
-            get_send(&client, id, output, text).await
+            get_send(&client, id, text).await
         }
         // The `bw receive` command handles incoming sends; `bw send receive` is the legacy
         // alias and is out of scope for this ticket. See `Commands::Receive` in main.rs.
@@ -81,9 +95,14 @@ async fn dispatch_subcommand(
             emails,
             full_object,
         } => {
-            // TODO(PM-34719): Fall back to reading `encoded_json` from stdin when omitted,
-            // matching the legacy CLI's behavior.
-            let _ = encoded_json;
+            // TODO(PM-34719): Accept `encoded_json` (positional or stdin) to match the legacy
+            // CLI. Until that lands, fail loudly when a caller supplies it — silently
+            // discarding the input would produce a different Send than the caller specified.
+            if encoded_json.is_some() {
+                return Err(eyre!(
+                    "`encoded_json` input on `bw send create` is not yet implemented (PM-34719)."
+                ));
+            }
 
             let request = build_create_request(CreateInputs {
                 file,
@@ -109,9 +128,14 @@ async fn dispatch_subcommand(
             password,
             emails,
         } => {
-            // TODO(PM-34719): Fall back to reading `encoded_json` from stdin when omitted,
-            // matching the legacy CLI's behavior.
-            let _ = encoded_json;
+            // TODO(PM-34719): Accept `encoded_json` (positional or stdin) to match the legacy
+            // CLI. Until that lands, fail loudly when a caller supplies it — silently
+            // discarding the input would mutate fields the caller didn't intend to touch.
+            if encoded_json.is_some() {
+                return Err(eyre!(
+                    "`encoded_json` input on `bw send edit` is not yet implemented (PM-34719)."
+                ));
+            }
 
             let send_id = itemid.ok_or_else(|| {
                 eyre!("--itemid is required (or provide it via encoded JSON, TODO PM-34719).")
@@ -157,12 +181,7 @@ async fn list_sends(client: &PasswordManagerClient) -> CommandResult {
     Ok(CommandOutput::Object(Box::new(views)))
 }
 
-async fn get_send(
-    client: &PasswordManagerClient,
-    id: SendId,
-    output: Option<String>,
-    text: bool,
-) -> CommandResult {
+async fn get_send(client: &PasswordManagerClient, id: SendId, text: bool) -> CommandResult {
     let view = client.sends().get(id).await?;
 
     if text {
@@ -173,10 +192,6 @@ async fn get_send(
             .unwrap_or_else(|| "(no access id)".to_string())
             .into());
     }
-
-    // TODO(PM-34719): When `output` is provided for a file send, decrypt + write the file to
-    // disk via `SendClient::decrypt_file`. For now we just emit the view.
-    let _ = output;
 
     Ok(CommandOutput::Object(Box::new(view)))
 }
@@ -474,9 +489,10 @@ fn build_auth(
 ///   - `(Some(p), None)` / `(None, Some(e))` overwrite to Password / Email auth.
 ///   - `(Some(_), Some(_))` is rejected (mutually exclusive).
 ///
-/// To explicitly remove auth from a Send on edit, supply `--password ""` is not the
-/// pattern — use `bw send remove-password` (the legacy CLI's dedicated subcommand) or
-/// pass an explicit `Some(SendAuthType::None)` at the SDK boundary.
+/// Note: passing `--password ""` is not how callers strip auth on edit. To remove a
+/// previously configured password, use `bw send remove-password` (the legacy CLI's
+/// dedicated subcommand), or pass an explicit `Some(SendAuthType::None)` at the SDK
+/// boundary.
 fn build_auth_for_edit(
     password: Option<String>,
     emails: Option<&str>,

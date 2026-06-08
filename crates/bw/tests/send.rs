@@ -290,6 +290,82 @@ fn send_edit_with_password_flag_parses() {
 }
 
 #[test]
+fn send_create_encoded_json_returns_not_implemented_error() {
+    // PM-34719: full-object JSON input is not yet implemented. Supplying it should fail
+    // loudly (before the auth check) rather than silently discarding the input and creating
+    // a Send with the CLI-flag defaults.
+    let output = bw()
+        .args(["send", "create", r#"{"name":"x","type":0}"#])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("encoded_json") && stderr.contains("not yet implemented"),
+        "expected `encoded_json ... not yet implemented` error, got:\n{stderr}"
+    );
+    // Crucially: the encoded_json error must fire *before* the auth check, so the user sees
+    // their input was unsupported rather than a confusing "not logged in" message.
+    assert!(
+        !stderr.contains("not logged in"),
+        "encoded_json check should pre-empt the auth check; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn send_edit_encoded_json_returns_not_implemented_error() {
+    let output = bw()
+        .args(["send", "edit", r#"{"name":"x"}"#])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("encoded_json") && stderr.contains("not yet implemented"),
+        "expected `encoded_json ... not yet implemented` error, got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("not logged in"),
+        "encoded_json check should pre-empt the auth check; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn send_get_output_file_returns_not_implemented_error() {
+    // PM-34719: --output-file for file Sends needs the decrypt-file pipeline, which isn't
+    // wired yet. Supplying it should fail loudly *before* the auth check + network call
+    // rather than silently writing JSON to stdout while the requested file path goes
+    // uncreated. The flag is `--output-file` (not `--output`) to avoid colliding with the
+    // top-level global `-o, --output` format flag.
+    let output = bw()
+        .args([
+            "send",
+            "get",
+            "25afb11c-9c95-4db5-8bac-c21cb204a3f1",
+            "--output-file",
+            "/tmp/bw-send-get-test.bin",
+        ])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--output-file") && stderr.contains("not yet implemented"),
+        "expected `--output-file ... not yet implemented` error, got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("not logged in"),
+        "--output-file check should pre-empt the auth check; got:\n{stderr}"
+    );
+}
+
+#[test]
 fn send_create_camelcase_aliases_work() {
     // The legacy CLI uses `--deleteInDays` and `--maxAccessCount`; we keep those as the
     // long-flag names to preserve backward compatibility.
