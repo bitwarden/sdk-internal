@@ -18,7 +18,8 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -115,6 +116,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     view: CipherView,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let collection_ids = view.collection_ids.clone();
 
@@ -145,7 +147,11 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
 
-    Ok(key_store.decrypt(&cipher)?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
+    } else {
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
@@ -181,6 +187,7 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             view,
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -293,6 +300,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await
         .unwrap();
@@ -349,6 +357,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await;
 
@@ -418,6 +427,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
         )
         .await
         .unwrap();
