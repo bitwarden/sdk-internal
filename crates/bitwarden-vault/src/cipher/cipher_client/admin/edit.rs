@@ -206,7 +206,7 @@ impl CipherAdminClient {
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherMiniResponseModel};
     use bitwarden_core::key_management::SymmetricKeySlotId;
-    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::{CipherId, CipherRepromptType, CipherType, LoginView};
@@ -264,7 +264,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
@@ -344,7 +344,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let api_client = ApiClient::new_mocked(move |mock| {

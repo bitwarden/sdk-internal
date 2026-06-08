@@ -137,7 +137,7 @@ impl CipherAdminClient {
 mod tests {
     use bitwarden_api_api::models::CipherMiniResponseModel;
     use bitwarden_core::{OrganizationId, key_management::SymmetricKeySlotId};
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use chrono::Utc;
 
     use super::*;
@@ -179,12 +179,12 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap()),
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let test_folder_id: crate::FolderId =
