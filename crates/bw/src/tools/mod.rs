@@ -8,6 +8,8 @@ use clap::{Args, Subcommand};
 
 use crate::render::CommandResult;
 
+mod send;
+
 #[derive(Args, Clone)]
 #[command(
     about = "Generate a password/passphrase.",
@@ -220,6 +222,13 @@ pub struct SendArgs {
     #[arg(long, help = "Optional password to access this Send.")]
     pub password: Option<String>,
 
+    // TODO(PM-34719): Gate behind the SendEmailOTP feature flag once flag plumbing exists in `bw`.
+    #[arg(
+        long,
+        help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
+    )]
+    pub emails: Option<String>,
+
     #[arg(
         short = 'a',
         long = "maxAccessCount",
@@ -312,6 +321,16 @@ pub enum SendCommands {
         #[arg(long, help = "Optional password to access this Send.")]
         password: Option<String>,
 
+        // TODO(PM-34719): Gate behind the SendEmailOTP feature flag once flag plumbing exists in
+        // `bw`. TODO(PM-34719): The legacy CLI enforces `--password` and `--emails` as mutually
+        // exclusive. clap-level mutual exclusivity is deferred; for now both are accepted and the
+        // builder picks password-first to match server precedence in `Send::emails`.
+        #[arg(
+            long,
+            help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
+        )]
+        emails: Option<String>,
+
         #[arg(
             long = "fullObject",
             help = "Return full Send object instead of access url."
@@ -341,6 +360,18 @@ pub enum SendCommands {
 
         #[arg(long, help = "Hide text.")]
         hidden: bool,
+
+        #[arg(long, help = "Optional password to access this Send.")]
+        password: Option<String>,
+
+        // TODO(PM-34719): Gate behind the SendEmailOTP feature flag once flag plumbing exists in
+        // `bw`. TODO(PM-34719): The legacy CLI enforces `--password` and `--emails` as mutually
+        // exclusive. clap-level mutual exclusivity is deferred; for now both are accepted.
+        #[arg(
+            long,
+            help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
+        )]
+        emails: Option<String>,
     },
 
     #[command(about = "Removes the saved password from a Send.")]
