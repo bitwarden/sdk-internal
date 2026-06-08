@@ -66,6 +66,14 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
             models::UpdateOrganizationInviteLinkRequestModel,
         >,
     ) -> Result<(), Error>;
+
+    /// POST /organizations/invite-link/validate-email-domain
+    async fn validate_email_domain<'a>(
+        &self,
+        organization_invite_link_validate_email_domain_request_model: Option<
+            models::OrganizationInviteLinkValidateEmailDomainRequestModel,
+        >,
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationInviteLinksApiClient {
@@ -215,6 +223,30 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_invite_link_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn validate_email_domain<'a>(
+        &self,
+        organization_invite_link_validate_email_domain_request_model: Option<
+            models::OrganizationInviteLinkValidateEmailDomainRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/invite-link/validate-email-domain",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder
+            .json(&organization_invite_link_validate_email_domain_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
