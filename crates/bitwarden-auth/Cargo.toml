@@ -50,6 +50,7 @@ serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
@@ -59,6 +60,7 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-api-identity = { workspace = true, features = ["mockall"] }
 bitwarden-test = { workspace = true }
 serde_json = { workspace = true }
 serde_urlencoded = ">=0.7.1, <0.8"

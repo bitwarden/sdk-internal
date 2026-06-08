@@ -32,7 +32,7 @@ pub enum ReceiveError {
     Channel(#[from] tokio::sync::broadcast::error::RecvError),
 
     #[error("Timed out while waiting for a message: {0}")]
-    Timeout(#[from] tokio::time::error::Elapsed),
+    Timeout(#[from] bitwarden_threading::time::ElapsedError),
 
     #[error("Cancelled while waiting for a message")]
     Cancelled,
@@ -46,7 +46,7 @@ pub enum TypedReceiveError {
     Channel(#[from] tokio::sync::broadcast::error::RecvError),
 
     #[error("Timed out while waiting for a message: {0}")]
-    Timeout(#[from] tokio::time::error::Elapsed),
+    Timeout(#[from] bitwarden_threading::time::ElapsedError),
 
     #[error("Cancelled while waiting for a message")]
     Cancelled,
@@ -76,11 +76,11 @@ pub enum RequestError {
     Receive(#[from] TypedReceiveError),
 
     #[error("Timed out while waiting for a message: {0}")]
-    Timeout(#[from] tokio::time::error::Elapsed),
+    Timeout(#[from] bitwarden_threading::time::ElapsedError),
 
     #[error("Failed to send message: {0}")]
     Send(String),
 
-    #[error("Error occured on the remote target: {0}")]
+    #[error("Error occurred on the remote target: {0}")]
     Rpc(#[from] RpcError),
 }

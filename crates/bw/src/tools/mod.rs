@@ -9,6 +9,23 @@ use clap::{Args, Subcommand};
 use crate::render::CommandResult;
 
 #[derive(Args, Clone)]
+#[command(
+    about = "Generate a password/passphrase.",
+    after_help = r#"Notes:
+    Default options are `-uln --length 14`.
+    Minimum `length` is 5.
+    Minimum `words` is 3.
+
+Examples:
+    bw generate
+    bw generate -u -l --length 18
+    bw generate -ulns --length 25
+    bw generate -ul
+    bw generate -p --separator _
+    bw generate -p --words 5 --separator space
+    bw generate -p --words 5 --separator empty
+    "#
+)]
 pub struct GenerateArgs {
     // Password arguments
     #[arg(short = 'u', long, action, help = "Include uppercase characters (A-Z)")]
@@ -140,6 +157,11 @@ fn normalize_separator(separator: String) -> String {
 }
 
 #[derive(Args, Clone)]
+pub struct GetSendArgs {
+    pub id: String,
+}
+
+#[derive(Args, Clone)]
 pub struct ImportArgs {
     /// Format to import from
     pub format: Option<String>,
@@ -149,8 +171,12 @@ pub struct ImportArgs {
     #[arg(long, help = "List formats")]
     pub formats: bool,
 
-    #[arg(long, help = "ID of the organization to import to.")]
-    pub organizationid: Option<String>,
+    #[arg(
+        long,
+        alias = "organizationid",
+        help = "ID of the organization to import to."
+    )]
+    pub organization_id: Option<String>,
 }
 
 #[derive(Args, Clone)]
@@ -167,8 +193,12 @@ pub struct ExportArgs {
     )]
     pub password: Option<String>,
 
-    #[arg(long, help = "Organization id for an organization.")]
-    pub organizationid: Option<String>,
+    #[arg(
+        long,
+        alias = "organizationid",
+        help = "Organization id for an organization."
+    )]
+    pub organization_id: Option<String>,
 }
 
 #[derive(Args, Clone)]
@@ -218,13 +248,13 @@ pub struct SendArgs {
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum SendCommands {
-    #[command(long_about = "List all the Sends owned by you.")]
+    #[command(about = "List all the Sends owned by you.")]
     List,
 
-    #[command(long_about = "Get json templates for send objects.")]
+    #[command(about = "Get json templates for send objects.")]
     Template { object: String },
 
-    #[command(long_about = "Get Sends owned by you.")]
+    #[command(about = "Get Sends owned by you.")]
     Get {
         id: String,
 
@@ -235,7 +265,7 @@ pub enum SendCommands {
         text: bool,
     },
 
-    #[command(long_about = "Access a Bitwarden Send from a url.")]
+    #[command(about = "Access a Bitwarden Send from a url.")]
     Receive {
         url: String,
 
@@ -246,7 +276,7 @@ pub enum SendCommands {
         obj: Option<String>,
     },
 
-    #[command(long_about = "Create a Send.")]
+    #[command(about = "Create a Send.")]
     Create {
         encoded_json: Option<String>,
 
@@ -289,7 +319,7 @@ pub enum SendCommands {
         full_object: bool,
     },
 
-    #[command(long_about = "Edit a Send.")]
+    #[command(about = "Edit a Send.")]
     Edit {
         encoded_json: Option<String>,
 
@@ -313,10 +343,10 @@ pub enum SendCommands {
         hidden: bool,
     },
 
-    #[command(long_about = "Removes the saved password from a Send.")]
+    #[command(about = "Removes the saved password from a Send.")]
     RemovePassword { id: String },
 
-    #[command(long_about = "Delete a Send.")]
+    #[command(about = "Delete a Send.")]
     Delete { id: String },
 }
 

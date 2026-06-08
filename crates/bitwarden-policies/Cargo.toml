@@ -1,5 +1,8 @@
 [package]
 name = "bitwarden-policies"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -11,9 +14,14 @@ readme.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["bitwarden-core/uniffi", "dep:uniffi"] # Uniffi bindings
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-organizations/uniffi",
+    "dep:uniffi",
+] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
+    "bitwarden-organizations/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -23,8 +31,9 @@ wasm = [
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-organizations = { workspace = true }
+chrono = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
+serde_repr = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }

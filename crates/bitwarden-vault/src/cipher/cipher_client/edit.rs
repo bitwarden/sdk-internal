@@ -1,14 +1,12 @@
-use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestModel};
+use bitwarden_api_api::models::{
+    CipherCollectionsRequestModel, CipherPartialRequestModel, CipherRequestModel,
+};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
-    require,
+    key_management::KeySlotIds, require,
 };
-use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, EncString, IdentifyKey, KeyStore, KeyStoreContext,
-    PrimitiveEncryptable,
-};
+use bitwarden_crypto::{CryptoError, EncString, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -22,10 +20,9 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
-    FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    FolderId, ItemNotFoundError, VaultParseError,
     cipher::cipher::{PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
-    password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
 #[allow(missing_docs)]
@@ -89,6 +86,8 @@ impl TryFrom<CipherView> for CipherEditRequest {
             CipherType::Identity => value.identity.map(CipherViewType::Identity),
             CipherType::SshKey => value.ssh_key.map(CipherViewType::SshKey),
             CipherType::BankAccount => value.bank_account.map(CipherViewType::BankAccount),
+            CipherType::DriversLicense => value.drivers_license.map(CipherViewType::DriversLicense),
+            CipherType::Passport => value.passport.map(CipherViewType::Passport),
         };
         Ok(Self {
             id: value.id.ok_or(MissingFieldError("id"))?,
@@ -108,230 +107,61 @@ impl TryFrom<CipherView> for CipherEditRequest {
     }
 }
 
-impl CipherEditRequest {
-    pub(super) fn generate_cipher_key(
-        &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        wrapping_key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
-        let old_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &self.key)?;
-
-        let new_key = ctx.generate_symmetric_key();
-
-        // Re-encrypt the internal fields with the new key
-        self.r#type
-            .as_login_view_mut()
-            .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
-            .transpose()?;
-        AttachmentView::reencrypt_keys(&mut self.attachments, ctx, old_key, new_key)?;
-        self.key = Some(ctx.wrap_symmetric_key(wrapping_key, new_key)?);
-        Ok(())
-    }
+/// Request to update the subset of cipher fields that a user without edit
+/// permissions is still allowed to change (`folder_id` and `favorite`).
+///
+/// Backed by the `PUT /ciphers/{id}/partial` server endpoint, which authorizes
+/// based on view (not edit) access.
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct CipherPartialEditRequest {
+    pub id: CipherId,
+    pub folder_id: Option<FolderId>,
+    pub favorite: bool,
 }
 
-/// Used as an intermediary between the public-facing [CipherEditRequest], and the encrypted
-/// value. This allows us to calculate password history safely, without risking misuse.
-#[derive(Clone, Debug)]
-pub(super) struct CipherEditRequestInternal {
-    pub(super) edit_request: CipherEditRequest,
-    pub(super) password_history: Vec<PasswordHistoryView>,
-}
-
-impl CipherEditRequestInternal {
-    pub(super) fn new(edit_request: CipherEditRequest, orig_cipher: &CipherView) -> Self {
-        let mut internal_req = Self {
-            edit_request,
-            password_history: vec![],
-        };
-        internal_req.update_password_history(orig_cipher);
-
-        internal_req
-    }
-
-    fn update_password_history(&mut self, original_cipher: &CipherView) {
-        let changes = self
-            .detect_login_password_changes(original_cipher)
-            .into_iter()
-            .chain(self.detect_hidden_field_changes(original_cipher));
-        let history: Vec<_> = changes
-            .rev()
-            .chain(original_cipher.password_history.iter().flatten().cloned())
-            .take(MAX_PASSWORD_HISTORY_ENTRIES)
-            .collect();
-
-        self.password_history = history;
-    }
-
-    fn detect_login_password_changes(
-        &mut self,
-        original_cipher: &CipherView,
-    ) -> Vec<PasswordHistoryView> {
-        self.edit_request
-            .r#type
-            .as_login_view_mut()
-            .map_or(vec![], |login| {
-                login.detect_password_change(&original_cipher.login)
-            })
-    }
-
-    fn detect_hidden_field_changes(
-        &self,
-        original_cipher: &CipherView,
-    ) -> Vec<PasswordHistoryView> {
-        FieldView::detect_hidden_field_changes(
-            self.edit_request.fields.as_slice(),
-            original_cipher.fields.as_deref().unwrap_or(&[]),
-        )
-    }
-
-    fn generate_checksums(&mut self) {
-        if let Some(login) = &mut self.edit_request.r#type.as_login_view_mut() {
-            login.generate_checksums();
-        }
-    }
-}
-
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
-    for CipherEditRequestInternal
-{
-    fn encrypt_composite(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<CipherRequestModel, CryptoError> {
-        let mut cipher_data = (*self).clone();
-        cipher_data.generate_checksums();
-
-        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &self.edit_request.key)?;
-
-        let cipher_request = CipherRequestModel {
-            encrypted_for: None,
-            r#type: Some(cipher_data.edit_request.r#type.get_cipher_type().into()),
-            organization_id: cipher_data
-                .edit_request
-                .organization_id
-                .map(|id| id.to_string()),
-            folder_id: cipher_data.edit_request.folder_id.map(|id| id.to_string()),
-            favorite: Some(cipher_data.edit_request.favorite),
-            reprompt: Some(cipher_data.edit_request.reprompt.into()),
-            key: cipher_data.edit_request.key.map(|k| k.to_string()),
-            name: cipher_data
-                .edit_request
-                .name
-                .encrypt(ctx, cipher_key)?
-                .to_string(),
-            notes: cipher_data
-                .edit_request
-                .notes
-                .as_ref()
-                .map(|n| n.encrypt(ctx, cipher_key))
-                .transpose()?
-                .map(|n| n.to_string()),
-            fields: Some(
-                cipher_data
-                    .edit_request
-                    .fields
-                    .encrypt_composite(ctx, cipher_key)?
-                    .into_iter()
-                    .map(|f| f.into())
-                    .collect(),
-            ),
-            password_history: Some(
-                cipher_data
-                    .password_history
-                    .encrypt_composite(ctx, cipher_key)?
-                    .into_iter()
-                    .map(Into::into)
-                    .collect(),
-            ),
-            attachments: None,
-            attachments2: Some(
-                cipher_data
-                    .edit_request
-                    .attachments
-                    .encrypt_composite(ctx, cipher_key)?
-                    .into_iter()
-                    .map(|a| {
-                        Ok((
-                            a.id.clone().ok_or(CryptoError::MissingField("id"))?,
-                            a.into(),
-                        )) as Result<_, CryptoError>
-                    })
-                    .collect::<Result<_, _>>()?,
-            ),
-            login: cipher_data
-                .edit_request
-                .r#type
-                .as_login_view()
-                .map(|l| l.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|l| Box::new(l.into())),
-            card: cipher_data
-                .edit_request
-                .r#type
-                .as_card_view()
-                .map(|c| c.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|c| Box::new(c.into())),
-            identity: cipher_data
-                .edit_request
-                .r#type
-                .as_identity_view()
-                .map(|i| i.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|c| Box::new(c.into())),
-
-            secure_note: cipher_data
-                .edit_request
-                .r#type
-                .as_secure_note_view()
-                .map(|i| i.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|c| Box::new(c.into())),
-            ssh_key: cipher_data
-                .edit_request
-                .r#type
-                .as_ssh_key_view()
-                .map(|i| i.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|c| Box::new(c.into())),
-            bank_account: cipher_data
-                .edit_request
-                .r#type
-                .as_bank_account_view()
-                .map(|b| b.encrypt_composite(ctx, cipher_key))
-                .transpose()?
-                .map(|b| Box::new(b.into())),
-
-            last_known_revision_date: Some(
-                cipher_data
-                    .edit_request
-                    .revision_date
-                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-            ),
-            archived_date: cipher_data
-                .edit_request
-                .archived_date
-                .map(|d| d.to_rfc3339()),
-            data: None,
-        };
-
-        Ok(cipher_request)
-    }
-}
-
-impl IdentifyKey<SymmetricKeySlotId> for CipherEditRequest {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        match self.organization_id {
-            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
-            None => SymmetricKeySlotId::User,
-        }
-    }
-}
-
-impl IdentifyKey<SymmetricKeySlotId> for CipherEditRequestInternal {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        self.edit_request.key_identifier()
+/// Internal helper to convert a [`CipherEditRequest`] into a [`CipherView`]
+/// so the existing `CipherView` encryption pipeline can be reused.
+///
+/// This conversion is lossy and intended for use only within the edit flow,
+/// as the `CipherView` produced will not have all fields populated (e.g. `collection_ids`).
+pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView {
+    CipherView {
+        id: Some(r.id),
+        organization_id: r.organization_id,
+        folder_id: r.folder_id,
+        // `collection_ids` is empty because collections are updated via a separate endpoint.
+        collection_ids: vec![],
+        key: r.key,
+        name: r.name,
+        notes: r.notes,
+        r#type: r.r#type.get_cipher_type(),
+        login: r.r#type.as_login_view().cloned(),
+        identity: r.r#type.as_identity_view().cloned(),
+        card: r.r#type.as_card_view().cloned(),
+        secure_note: r.r#type.as_secure_note_view().cloned(),
+        ssh_key: r.r#type.as_ssh_key_view().cloned(),
+        bank_account: r.r#type.as_bank_account_view().cloned(),
+        drivers_license: r.r#type.as_drivers_license_view().cloned(),
+        passport: r.r#type.as_passport_view().cloned(),
+        favorite: r.favorite,
+        reprompt: r.reprompt,
+        organization_use_totp: false,
+        edit: true,
+        permissions: None,
+        view_password: true,
+        local_data: None,
+        attachments: Some(r.attachments),
+        attachment_decryption_failures: None,
+        fields: Some(r.fields),
+        password_history: None,
+        // `creation_date` is overwritten by the server on merge
+        creation_date: Utc::now(),
+        deleted_date: None,
+        revision_date: r.revision_date,
+        archived_date: r.archived_date,
     }
 }
 
@@ -342,6 +172,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     request: CipherEditRequest,
     use_strict_decryption: bool,
+    enable_cipher_key_encryption: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
@@ -352,9 +183,18 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         key_store.decrypt(&original_cipher)?
     };
 
-    let request = CipherEditRequestInternal::new(request, &original_cipher_view);
+    let mut view: CipherView = convert_request_to_cipher_view(request);
+    view.update_password_history(&original_cipher_view);
 
-    let mut cipher_request = key_store.encrypt(request)?;
+    // TODO: Once this flag is removed, the key generation logic should be
+    // moved directly into the CompositeEncryptable implementation.
+    if view.key.is_none() && enable_cipher_key_encryption {
+        let key = view.key_identifier();
+        view.generate_cipher_key(&mut key_store.context(), key)?;
+    }
+
+    let cipher: Cipher = key_store.encrypt(view)?;
+    let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
     let cipher: Cipher = api_client
@@ -366,20 +206,52 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
+/// Update only the cipher fields available to users without edit permissions
+/// (`folder_id` and `favorite`) via the server's partial-update endpoint.
+async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
+    key_store: &KeyStore<KeySlotIds>,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    repository: &R,
+    request: CipherPartialEditRequest,
+    use_strict_decryption: bool,
+) -> Result<CipherView, EditCipherError> {
+    let cipher_id = request.id;
+
+    let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
+
+    let partial_request = CipherPartialRequestModel {
+        folder_id: request.folder_id.map(|id| id.to_string()),
+        favorite: Some(request.favorite),
+    };
+
+    let cipher: Cipher = api_client
+        .ciphers_api()
+        .put_partial(cipher_id.into(), Some(partial_request))
+        .await
+        .map_err(ApiError::from)?
+        .merge_with_cipher(Some(original_cipher))?;
+    debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
+    repository.set(cipher_id, cipher.clone()).await?;
+
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
+    } else {
+        key_store.decrypt(&cipher)?
+    })
+}
+
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
-    pub async fn edit(
-        &self,
-        mut request: CipherEditRequest,
-    ) -> Result<CipherView, EditCipherError> {
+    pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
@@ -390,25 +262,37 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved closer to the actual encryption logic.
-        if request.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
-        {
-            let key = request.key_identifier();
-            request.generate_cipher_key(&mut key_store.context(), key)?;
-        }
+        let enable_cipher_key_encryption =
+            self.client.flags().get().await.enable_cipher_key_encryption;
 
         edit_cipher(
             key_store,
             &config.api_client,
             repository.as_ref(),
             user_id,
+            request,
+            self.is_strict_decrypt().await,
+            enable_cipher_key_encryption,
+        )
+        .await
+    }
+
+    /// Update only `folder_id` and `favorite` on an existing [Cipher].
+    ///
+    /// Intended for users who do not have edit permissions on the cipher, but
+    /// are still allowed to change these personal organization fields.
+    pub async fn edit_partial(
+        &self,
+        request: CipherPartialEditRequest,
+    ) -> Result<CipherView, EditCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+
+        partial_edit_cipher(
+            key_store,
+            &config.api_client,
+            repository.as_ref(),
             request,
             self.is_strict_decrypt().await,
         )
@@ -438,10 +322,13 @@ impl CiphersClient {
                 .await?
                 .merge_with_cipher(orig_cipher)?
         } else {
-            let response: Cipher = api
-                .put_collections(cipher_id.into(), Some(req))
+            let cipher_response = api
+                .put_collections_v_next(cipher_id.into(), Some(req))
                 .await?
-                .merge_with_cipher(orig_cipher)?;
+                .cipher
+                .map(|c| *c)
+                .ok_or(MissingFieldError("cipher"))?;
+            let response: Cipher = cipher_response.merge_with_cipher(orig_cipher)?;
             repository.set(cipher_id, response.clone()).await?;
             response
         };
@@ -464,7 +351,7 @@ mod tests {
     use super::*;
     use crate::{
         Cipher, CipherId, CipherRepromptType, CipherType, FieldType, Login, LoginView,
-        PasswordHistoryView,
+        PasswordHistoryView, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
     };
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
@@ -494,6 +381,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            passport: None,
+            drivers_license: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -558,6 +447,8 @@ mod tests {
                 secure_note: None,
                 ssh_key: None,
                 bank_account: None,
+                drivers_license: None,
+                passport: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
@@ -625,6 +516,8 @@ mod tests {
                         secure_note: body.secure_note,
                         ssh_key: body.ssh_key,
                         bank_account: body.bank_account,
+                        drivers_license: body.drivers_license,
+                        passport: body.passport,
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,
@@ -656,6 +549,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             request,
             false,
+            false,
         )
         .await
         .unwrap();
@@ -664,6 +558,116 @@ mod tests {
         assert_eq!(result.name, "Test Login");
         // collection_ids must be preserved even though CipherResponseModel omits them.
         assert_eq!(result.collection_ids, vec![collection_id]);
+    }
+
+    #[tokio::test]
+    async fn test_edit_partial_cipher() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+                .unwrap();
+        }
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let new_folder_id: FolderId = "9b1e7c8f-3a04-4d2e-9d1e-b18100abcdef".parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put_partial()
+                .returning(move |id, body| {
+                    let body = body.unwrap();
+                    let expected_id: uuid::Uuid = cipher_id.into();
+                    assert_eq!(id, expected_id);
+                    assert_eq!(body.favorite, Some(true));
+                    assert_eq!(
+                        body.folder_id.as_deref(),
+                        Some(new_folder_id.to_string().as_str())
+                    );
+                    Ok(CipherResponseModel {
+                        object: Some("cipher".to_string()),
+                        id: Some(cipher_id.into()),
+                        name: Some(
+                            "2.+oPT8B4xJhyhQRe1VkIx0A==|PBtC/bZkggXR+fSnL/pG7g==|UkjRD0VpnUYkjRC/05ZLdEBAmRbr3qWRyJey2bUvR9w=".to_string(),
+                        ),
+                        r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                        organization_id: None,
+                        folder_id: Some(new_folder_id.into()),
+                        favorite: Some(true),
+                        reprompt: Some(bitwarden_api_api::models::CipherRepromptType::None),
+                        key: None,
+                        notes: None,
+                        view_password: Some(true),
+                        edit: Some(false),
+                        organization_use_totp: Some(true),
+                        revision_date: Some("2025-01-02T00:00:00Z".to_string()),
+                        creation_date: Some("2024-01-01T00:00:00Z".to_string()),
+                        deleted_date: None,
+                        login: None,
+                        card: None,
+                        identity: None,
+                        secure_note: None,
+                        ssh_key: None,
+                        bank_account: None,
+                        drivers_license: None,
+                        passport: None,
+                        fields: None,
+                        password_history: None,
+                        attachments: None,
+                        permissions: None,
+                        data: None,
+                        archived_date: None,
+                    })
+                })
+                .once();
+        });
+
+        let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+
+        let repository = MemoryRepository::<Cipher>::default();
+        repository_add_cipher(&repository, &store, cipher_id, "stored_name").await;
+        // Stamp a collection id to verify it is preserved across partial edit.
+        let mut stored = repository.get(cipher_id).await.unwrap().unwrap();
+        stored.collection_ids = vec![collection_id];
+        repository.set(cipher_id, stored).await.unwrap();
+
+        let request = CipherPartialEditRequest {
+            id: cipher_id,
+            folder_id: Some(new_folder_id),
+            favorite: true,
+        };
+
+        let result = partial_edit_cipher(&store, &api_client, &repository, request, false)
+            .await
+            .unwrap();
+
+        assert_eq!(result.id, Some(cipher_id));
+        assert_eq!(result.folder_id, Some(new_folder_id));
+        assert!(result.favorite);
+        // Partial endpoint omits collection_ids; they must be preserved from the original.
+        assert_eq!(result.collection_ids, vec![collection_id]);
+    }
+
+    #[tokio::test]
+    async fn test_edit_partial_cipher_does_not_exist() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+
+        let repository = MemoryRepository::<Cipher>::default();
+        let api_client = ApiClient::new_mocked(|_| {});
+
+        let request = CipherPartialEditRequest {
+            id: TEST_CIPHER_ID.parse().unwrap(),
+            folder_id: None,
+            favorite: false,
+        };
+
+        let result = partial_edit_cipher(&store, &api_client, &repository, request, false).await;
+
+        assert!(matches!(
+            result.unwrap_err(),
+            EditCipherError::ItemNotFound(_)
+        ));
     }
 
     #[tokio::test]
@@ -683,6 +687,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
             false,
         )
         .await;
@@ -707,11 +712,9 @@ mod tests {
         let cipher_id: CipherId = "5faa9684-c793-4a2d-8a12-b33900187097".parse().unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
-            mock.ciphers_api.expect_put().returning(move |_id, _body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.ciphers_api
+                .expect_put()
+                .returning(move |_id, _body| Err(std::io::Error::other("Simulated error").into()));
         });
 
         let repository = MemoryRepository::<Cipher>::default();
@@ -727,6 +730,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             request,
             false,
+            false,
         )
         .await;
 
@@ -734,16 +738,24 @@ mod tests {
         assert!(matches!(result.unwrap_err(), EditCipherError::Api(_)));
     }
 
+    /// Build the edit-side view the way the flow does: request → view, then
+    /// fold in password history against the decrypted original.
+    fn edit_view_with_history(new_cipher: CipherView, original: &CipherView) -> CipherView {
+        let mut view: CipherView =
+            convert_request_to_cipher_view(CipherEditRequest::try_from(new_cipher).unwrap());
+        view.update_password_history(original);
+        view
+    }
+
     #[test]
     fn test_password_history_on_password_change() {
         let original_cipher = create_test_login_cipher("old_password");
-        let edit_request =
-            CipherEditRequest::try_from(create_test_login_cipher("new_password")).unwrap();
 
         let start = Utc::now();
-        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
-        let history = internal_req.password_history;
+        let view =
+            edit_view_with_history(create_test_login_cipher("new_password"), &original_cipher);
         let end = Utc::now();
+        let history = view.password_history.unwrap_or_default();
 
         assert_eq!(history.len(), 1);
         assert!(
@@ -756,13 +768,10 @@ mod tests {
     #[test]
     fn test_password_history_on_unchanged_password() {
         let original_cipher = create_test_login_cipher("same_password");
-        let edit_request =
-            CipherEditRequest::try_from(create_test_login_cipher("same_password")).unwrap();
+        let view =
+            edit_view_with_history(create_test_login_cipher("same_password"), &original_cipher);
 
-        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
-        let password_history = internal_req.password_history;
-
-        assert!(password_history.is_empty());
+        assert!(view.password_history.unwrap_or_default().is_empty());
     }
 
     #[test]
@@ -777,10 +786,9 @@ mod tests {
                 .collect(),
         );
 
-        let edit_request =
-            CipherEditRequest::try_from(create_test_login_cipher("same_password")).unwrap();
-        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
-        let history = internal_req.password_history;
+        let view =
+            edit_view_with_history(create_test_login_cipher("same_password"), &original_cipher);
+        let history = view.password_history.unwrap_or_default();
 
         assert_eq!(history[0].password, "old_password_0");
 
@@ -823,10 +831,8 @@ mod tests {
             linked_id: None,
         }]);
 
-        let edit_request = CipherEditRequest::try_from(new_cipher).unwrap();
-
-        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
-        let history = internal_req.password_history;
+        let view = edit_view_with_history(new_cipher, &original_cipher);
+        let history = view.password_history.unwrap_or_default();
 
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].password, "Secret Key: old_secret_value");
@@ -844,12 +850,9 @@ mod tests {
                 .collect(),
         );
 
-        // Create edit request with new password (no existing history)
-        let edit_request =
-            CipherEditRequest::try_from(create_test_login_cipher("new_password")).unwrap();
-
-        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
-        let history = internal_req.password_history;
+        let view =
+            edit_view_with_history(create_test_login_cipher("new_password"), &original_cipher);
+        let history = view.password_history.unwrap_or_default();
 
         assert_eq!(history.len(), MAX_PASSWORD_HISTORY_ENTRIES);
         // Most recent change (original password) should be first

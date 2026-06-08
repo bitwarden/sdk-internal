@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::IdentifyKey;
+use bitwarden_core::{
+    Client, FromClient, OrganizationId,
+    client::{ApiConfigurations, FromClientPart},
+    key_management::{BLOB_SECURITY_VERSION, KeySlotIds},
+};
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{IdentifyKey, KeyStore};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -20,22 +24,65 @@ use crate::{
 use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
+mod bulk_update_collections;
+
+pub use admin::GetAssignedOrgCiphersAdminError;
 mod create;
 mod delete;
 mod delete_attachment;
 mod edit;
 mod get;
+mod move_many;
 mod restore;
 mod share_cipher;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
+    #[allow(dead_code)]
+    pub(crate) key_store: KeyStore<KeySlotIds>,
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
+    pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
+    #[deprecated(
+        note = "Use the component fields (key_store, api_configurations, repository) for new operations"
+    )]
     pub(crate) client: Client,
 }
 
+impl FromClient for CiphersClient {
+    fn from_client(client: &Client) -> Self {
+        #[allow(deprecated)]
+        Self {
+            key_store: client.get_part(),
+            api_configurations: client.get_part(),
+            repository: client.get_part(),
+            client: client.clone(),
+        }
+    }
+}
+
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
+    /// Returns `true` when cipher data for the given scope should be written in the
+    /// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
+    /// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
+    #[allow(dead_code)] // Consumed by the encrypt/decrypt wiring ticket.
+    pub(crate) fn should_use_blob_encryption(
+        &self,
+        organization_id: Option<OrganizationId>,
+    ) -> bool {
+        if organization_id.is_some() {
+            return false;
+        }
+        self.client
+            .internal
+            .get_key_store()
+            .context()
+            .get_security_state_version()
+            >= BLOB_SECURITY_VERSION
+    }
+
     #[allow(missing_docs)]
     pub async fn encrypt(
         &self,
@@ -50,13 +97,7 @@ impl CiphersClient {
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
-        if cipher_view.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
+        if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
@@ -92,12 +133,8 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let enable_cipher_key_encryption = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key_encryption =
+            self.client.flags().get().await.enable_cipher_key_encryption;
 
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -134,12 +171,7 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let enable_cipher_key = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key = self.client.flags().get().await.enable_cipher_key_encryption;
 
         let mut ctx = key_store.context();
 
@@ -168,11 +200,11 @@ impl CiphersClient {
     #[allow(missing_docs)]
     pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+        Ok(if self.is_strict_decrypt().await {
+            key_store.decrypt(&StrictDecrypt(cipher))?
         } else {
-            Ok(key_store.decrypt(&cipher)?)
-        }
+            key_store.decrypt(&cipher)?
+        })
     }
 
     #[allow(missing_docs)]
@@ -181,13 +213,13 @@ impl CiphersClient {
         ciphers: Vec<Cipher>,
     ) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+        Ok(if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            Ok(key_store.decrypt_list(&strict)?)
+            key_store.decrypt_list(&wrapped)?
         } else {
-            Ok(key_store.decrypt_list(&ciphers)?)
-        }
+            key_store.decrypt_list(&ciphers)?
+        })
     }
 
     /// Decrypt cipher list with failures
@@ -198,9 +230,9 @@ impl CiphersClient {
     ) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
             DecryptCipherListResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
@@ -223,19 +255,19 @@ impl CiphersClient {
     ) -> DecryptCipherResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
-            return DecryptCipherResult {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+            DecryptCipherResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-            };
-        }
-        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-
-        DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
@@ -292,23 +324,18 @@ impl CiphersClient {
     /// Returns a new client for performing admin operations.
     /// Uses the admin server API endpoints and does not modify local state.
     pub fn admin(&self) -> CipherAdminClient {
-        CipherAdminClient {
-            client: self.client.clone(),
-        }
+        CipherAdminClient::from_client(&self.client)
     }
 }
 
+#[allow(deprecated)]
 impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
         Ok(self.client.platform().state().get::<Cipher>()?)
     }
 
     async fn is_strict_decrypt(&self) -> bool {
-        self.client
-            .internal
-            .get_flags()
-            .await
-            .strict_cipher_decryption
+        self.client.flags().get().await.strict_cipher_decryption
     }
 }
 
@@ -346,6 +373,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -390,6 +419,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -455,6 +486,8 @@ mod tests {
                 secure_note: None,
                 ssh_key: None,
                 bank_account: None,
+                drivers_license: None,
+                passport: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
@@ -859,5 +892,41 @@ mod tests {
         for ctx in contexts {
             assert_eq!(ctx.encrypted_for, expected_user_id);
         }
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_individual_above_threshold_returns_true() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        assert!(client.vault().ciphers().should_use_blob_encryption(None));
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_individual_below_threshold_returns_false() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        // Default KeyStore security_state_version is 1, below BLOB_SECURITY_VERSION (2).
+
+        assert!(!client.vault().ciphers().should_use_blob_encryption(None));
+    }
+
+    #[tokio::test]
+    async fn should_use_blob_encryption_organization_returns_false() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+
+        assert!(
+            !client
+                .vault()
+                .ciphers()
+                .should_use_blob_encryption(Some(org_id))
+        );
     }
 }

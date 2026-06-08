@@ -147,6 +147,12 @@ pub struct PlanResponseModel {
     )]
     pub has_my_items: Option<bool>,
     #[serde(
+        rename = "hasInviteLinks",
+        alias = "HasInviteLinks",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub has_invite_links: Option<bool>,
+    #[serde(
         rename = "upgradeSortOrder",
         alias = "UpgradeSortOrder",
         skip_serializing_if = "Option::is_none"
@@ -209,6 +215,7 @@ impl PlanResponseModel {
             has_reset_password: None,
             users_get_premium: None,
             has_my_items: None,
+            has_invite_links: None,
             upgrade_sort_order: None,
             display_sort_order: None,
             legacy_year: None,

@@ -5,11 +5,15 @@ use bitwarden_core::{
     Client,
     client::{ApiConfigurations, FromClientPart},
 };
+use bitwarden_state::Setting;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-use crate::{SyncErrorHandler, SyncHandler, SyncHandlerError, registry::HandlerRegistry};
+use crate::{
+    SyncErrorHandler, SyncHandler, SyncHandlerError, registry::HandlerRegistry, state::LAST_SYNC,
+};
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
@@ -19,12 +23,18 @@ pub enum SyncError {
 
     #[error("Sync event handler failed: {0}")]
     HandlerFailed(#[source] SyncHandlerError),
+
+    #[error("Account has been deleted on the server.")]
+    AccountDeleted,
 }
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SyncRequest {
+    /// Skip the revision-date check and always sync.
+    #[serde(default)]
+    pub force: bool,
     /// Exclude the subdomains from the response, defaults to false
     pub exclude_subdomains: Option<bool>,
 }
@@ -38,6 +48,7 @@ pub struct SyncClient {
     sync_handlers: HandlerRegistry<dyn SyncHandler>,
     error_handlers: HandlerRegistry<dyn SyncErrorHandler>,
     sync_lock: Mutex<()>,
+    last_sync: Option<Setting<DateTime<Utc>>>,
 }
 
 impl SyncClient {
@@ -48,6 +59,18 @@ impl SyncClient {
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: Mutex::new(()),
+            last_sync: client.platform().state().setting(LAST_SYNC).ok(),
+        }
+    }
+
+    /// Get the timestamp of the last successful sync, if any.
+    pub async fn last_sync(&self) -> Option<DateTime<Utc>> {
+        match self.last_sync.as_ref()?.get().await {
+            Ok(value) => value,
+            Err(e) => {
+                tracing::warn!("Failed to read last sync timestamp: {e}");
+                None
+            }
         }
     }
 
@@ -199,10 +222,7 @@ mod tests {
 
     /// Helper to create a SyncClient with a mocked API client.
     fn test_client(api_client: bitwarden_api_api::apis::ApiClient) -> SyncClient {
-        let dummy_config = bitwarden_api_api::Configuration {
-            base_path: String::new(),
-            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
-        };
+        let dummy_config = bitwarden_api_api::Configuration::new(String::new());
         SyncClient {
             api_configurations: Arc::new(ApiConfigurations {
                 api_client,
@@ -214,6 +234,7 @@ mod tests {
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: tokio::sync::Mutex::new(()),
+            last_sync: None,
         }
     }
 
@@ -302,6 +323,7 @@ mod tests {
 
         let result = client
             .sync(SyncRequest {
+                force: false,
                 exclude_subdomains: None,
             })
             .await;
@@ -321,11 +343,9 @@ mod tests {
     #[tokio::test]
     async fn test_sync_error_notifies_error_handlers() {
         let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
-            mock.sync_api.expect_get().returning(|_| {
-                Err(bitwarden_api_api::Error::Io(std::io::Error::other(
-                    "test error",
-                )))
-            });
+            mock.sync_api
+                .expect_get()
+                .returning(|_| Err(std::io::Error::other("test error").into()));
         }));
         let error_log = Arc::new(Mutex::new(Vec::new()));
 
@@ -341,6 +361,7 @@ mod tests {
         // sync() will fail due to the mocked error, which should trigger all error handlers
         let result = client
             .sync(SyncRequest {
+                force: false,
                 exclude_subdomains: None,
             })
             .await;

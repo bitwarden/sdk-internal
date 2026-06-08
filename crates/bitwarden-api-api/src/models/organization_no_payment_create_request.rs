@@ -32,12 +32,8 @@ pub struct OrganizationNoPaymentCreateRequest {
     pub plan_type: Option<models::PlanType>,
     #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(
-        rename = "keys",
-        alias = "Keys",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub keys: Option<Box<models::OrganizationKeysRequestModel>>,
+    #[serde(rename = "keys", alias = "Keys")]
+    pub keys: Box<models::OrganizationKeysRequestModel>,
     #[serde(
         rename = "paymentMethodType",
         alias = "PaymentMethodType",
@@ -148,6 +144,12 @@ pub struct OrganizationNoPaymentCreateRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub initiation_path: Option<String>,
+    #[serde(
+        rename = "trialLength",
+        alias = "TrialLength",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trial_length: Option<i32>,
 }
 
 impl OrganizationNoPaymentCreateRequest {
@@ -155,6 +157,7 @@ impl OrganizationNoPaymentCreateRequest {
         name: String,
         billing_email: String,
         key: String,
+        keys: models::OrganizationKeysRequestModel,
         use_secrets_manager: bool,
     ) -> OrganizationNoPaymentCreateRequest {
         OrganizationNoPaymentCreateRequest {
@@ -163,7 +166,7 @@ impl OrganizationNoPaymentCreateRequest {
             billing_email,
             plan_type: None,
             key,
-            keys: None,
+            keys: Box::new(keys),
             payment_method_type: None,
             payment_token: None,
             additional_seats: None,
@@ -183,6 +186,7 @@ impl OrganizationNoPaymentCreateRequest {
             use_secrets_manager,
             is_from_secrets_manager_trial: None,
             initiation_path: None,
+            trial_length: None,
         }
     }
 }

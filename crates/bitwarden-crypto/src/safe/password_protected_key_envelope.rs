@@ -23,7 +23,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
+use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
@@ -531,6 +531,37 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
         PasswordProtectedKeyEnvelope::from_str(&string).unwrap_throw()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl OptionFromWasmAbi for PasswordProtectedKeyEnvelope {
+    fn is_none(abi: &Self::Abi) -> bool {
+        <String as OptionFromWasmAbi>::is_none(abi)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl IntoWasmAbi for PasswordProtectedKeyEnvelope {
+    type Abi = <String as IntoWasmAbi>::Abi;
+
+    fn into_abi(self) -> Self::Abi {
+        let string: String = self.into();
+        string.into_abi()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for PasswordProtectedKeyEnvelope {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        let string = value.as_string().ok_or_else(|| {
+            PasswordProtectedKeyEnvelopeError::Parsing(
+                "PasswordProtectedKeyEnvelope JsValue is not a string".to_string(),
+            )
+        })?;
+        PasswordProtectedKeyEnvelope::from_str(&string)
     }
 }
 

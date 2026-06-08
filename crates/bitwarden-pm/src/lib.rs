@@ -12,8 +12,10 @@ use bitwarden_core::{
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
+use bitwarden_unlock::UnlockClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};
 
@@ -26,8 +28,10 @@ pub mod clients {
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
+    pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::SendClient;
     pub use bitwarden_sync::SyncClient;
+    pub use bitwarden_unlock::UnlockClient;
     pub use bitwarden_vault::VaultClient;
 }
 #[cfg(feature = "bitwarden-license")]
@@ -35,6 +39,8 @@ pub use commercial::CommercialPasswordManagerClient;
 
 mod builder;
 pub mod migrations;
+pub use bitwarden_core::{RehydrationError, SaveStateData};
+pub use bitwarden_unlock::{SessionKey, UnlockError, UnlockMethod};
 pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
@@ -103,6 +109,11 @@ impl PasswordManagerClient {
         self.0.crypto()
     }
 
+    /// Feature flag operations
+    pub fn flags(&self) -> bitwarden_core::FlagsClient {
+        self.0.flags()
+    }
+
     /// Operations that manage the cryptographic machinery of a user account, including key-rotation
     pub fn user_crypto_management(
         &self,
@@ -130,9 +141,50 @@ impl PasswordManagerClient {
         self.0.sends()
     }
 
+    /// Policy operations
+    pub fn policies(&self) -> bitwarden_policies::PolicyClient {
+        self.0.policies()
+    }
+
     /// Sync operations
     pub fn sync(&self) -> bitwarden_sync::SyncClient {
         self.0.sync()
+    }
+
+    /// Returns true when the user's symmetric key is loaded into the key store.
+    pub fn is_unlocked(&self) -> bool {
+        use bitwarden_core::key_management::SymmetricKeySlotId;
+        self.0
+            .internal
+            .get_key_store()
+            .context()
+            .has_symmetric_key(SymmetricKeySlotId::User)
+    }
+
+    /// Unlock operations
+    pub fn unlock(&self) -> bitwarden_unlock::UnlockClient {
+        self.0.unlock()
+    }
+
+    /// Write rehydration state to a StateRegistry.
+    ///
+    /// Delegates to [`Client::save_to_state`](bitwarden_core::Client::save_to_state).
+    pub async fn save_to_state(
+        data: SaveStateData,
+        reg: &bitwarden_state::registry::StateRegistry,
+    ) -> Result<(), RehydrationError> {
+        bitwarden_core::Client::save_to_state(data, reg).await
+    }
+
+    /// Reconstruct a locked PasswordManagerClient from a populated StateRegistry.
+    ///
+    /// Delegates to [`Client::load_from_state`](bitwarden_core::Client::load_from_state).
+    pub async fn load_from_state(
+        token_handler: std::sync::Arc<dyn bitwarden_core::auth::auth_tokens::TokenHandler>,
+        registry: bitwarden_state::registry::StateRegistry,
+    ) -> Result<Self, RehydrationError> {
+        let client = bitwarden_core::Client::load_from_state(token_handler, registry).await?;
+        Ok(PasswordManagerClient(client))
     }
 }
 

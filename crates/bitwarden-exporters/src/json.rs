@@ -1,10 +1,29 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
+use serde::Serializer;
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    Card, Cipher, CipherType, Field, Folder, Identity, Login, LoginUri, SecureNote, SshKey,
+    Card, Cipher, CipherType, Fido2Credential, Field, Folder, Identity, Login, LoginUri,
+    PasswordHistory, SecureNote, SshKey,
 };
+
+/// Serialize a `DateTime<Utc>` with millisecond precision to match the web exporter, which uses
+/// JavaScript's `Date.toISOString()` format.
+fn rfc3339_millis_serialize<S: Serializer>(date: &DateTime<Utc>, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(&date.to_rfc3339_opts(SecondsFormat::Millis, true))
+}
+
+/// Serialize an optional `DateTime<Utc>` with millisecond precision when present.
+fn rfc3339_millis_serialize_opt<S: Serializer>(
+    date: &Option<DateTime<Utc>>,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    match date {
+        Some(d) => s.serialize_str(&d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+        None => s.serialize_none(),
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum JsonError {
@@ -18,7 +37,12 @@ pub(crate) fn export_json(folders: Vec<Folder>, ciphers: Vec<Cipher>) -> Result<
         folders: folders.into_iter().map(|f| f.into()).collect(),
         items: ciphers
             .into_iter()
-            .filter(|c| !matches!(c.r#type, CipherType::BankAccount))
+            .filter(|c| {
+                !matches!(
+                    c.r#type,
+                    CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense
+                )
+            })
             .map(|c| c.into())
             .collect(),
     };
@@ -83,10 +107,13 @@ struct JsonCipher {
 
     #[serde(skip_serializing_if = "Vec::is_empty")]
     fields: Vec<JsonField>,
-    password_history: Option<Vec<String>>,
+    password_history: Option<Vec<JsonPasswordHistory>>,
 
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
     revision_date: DateTime<Utc>,
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
     creation_date: DateTime<Utc>,
+    #[serde(serialize_with = "rfc3339_millis_serialize_opt")]
     deleted_date: Option<DateTime<Utc>>,
 }
 
@@ -97,7 +124,7 @@ struct JsonLogin {
     password: Option<String>,
     uris: Vec<JsonLoginUri>,
     totp: Option<String>,
-    fido2_credentials: Vec<String>,
+    fido2_credentials: Vec<JsonFido2Credential>,
 }
 
 impl From<Login> for JsonLogin {
@@ -107,7 +134,70 @@ impl From<Login> for JsonLogin {
             password: login.password,
             uris: login.login_uris.into_iter().map(|u| u.into()).collect(),
             totp: login.totp,
-            fido2_credentials: vec![],
+            fido2_credentials: login
+                .fido2_credentials
+                .unwrap_or_default()
+                .into_iter()
+                .map(|c| c.into())
+                .collect(),
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonFido2Credential {
+    credential_id: String,
+    key_type: String,
+    key_algorithm: String,
+    key_curve: String,
+    key_value: String,
+    rp_id: String,
+    user_handle: Option<String>,
+    user_name: Option<String>,
+    // Serialized as a string for parity with the web exporter.
+    counter: String,
+    rp_name: Option<String>,
+    user_display_name: Option<String>,
+    // Serialized as a string for parity with the web exporter.
+    discoverable: String,
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
+    creation_date: DateTime<Utc>,
+}
+
+impl From<Fido2Credential> for JsonFido2Credential {
+    fn from(credential: Fido2Credential) -> Self {
+        JsonFido2Credential {
+            credential_id: credential.credential_id,
+            key_type: credential.key_type,
+            key_algorithm: credential.key_algorithm,
+            key_curve: credential.key_curve,
+            key_value: credential.key_value,
+            rp_id: credential.rp_id,
+            user_handle: credential.user_handle,
+            user_name: credential.user_name,
+            counter: credential.counter.to_string(),
+            rp_name: credential.rp_name,
+            user_display_name: credential.user_display_name,
+            discoverable: credential.discoverable,
+            creation_date: credential.creation_date,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonPasswordHistory {
+    password: String,
+    #[serde(serialize_with = "rfc3339_millis_serialize")]
+    last_used_date: DateTime<Utc>,
+}
+
+impl From<PasswordHistory> for JsonPasswordHistory {
+    fn from(history: PasswordHistory) -> Self {
+        JsonPasswordHistory {
+            password: history.password,
+            last_used_date: history.last_used_date,
         }
     }
 }
@@ -260,10 +350,13 @@ impl From<Cipher> for JsonCipher {
             CipherType::Card(_) => 3,
             CipherType::Identity(_) => 4,
             CipherType::SshKey(_) => 5,
-            // BankAccount ciphers should be filtered out before reaching this point
-            CipherType::BankAccount => unreachable!(
-                "BankAccount ciphers are not supported for export and should be filtered out"
-            ),
+            // BankAccount/Passport/DriversLicense ciphers should be filtered out before reaching
+            // this point
+            CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense => {
+                unreachable!(
+                    "This cipher type is not supported for export and should be filtered out"
+                )
+            }
         };
 
         let (login, secure_note, card, identity, ssh_key) = match cipher.r#type {
@@ -272,9 +365,11 @@ impl From<Cipher> for JsonCipher {
             CipherType::Card(c) => (None, None, Some((*c).into()), None, None),
             CipherType::Identity(i) => (None, None, None, Some((*i).into()), None),
             CipherType::SshKey(ssh) => (None, None, None, None, Some((*ssh).into())),
-            CipherType::BankAccount => unreachable!(
-                "BankAccount ciphers are not supported for export and should be filtered out"
-            ),
+            CipherType::BankAccount | CipherType::Passport | CipherType::DriversLicense => {
+                unreachable!(
+                    "This cipher type is not supported for export and should be filtered out"
+                )
+            }
         };
 
         JsonCipher {
@@ -293,7 +388,9 @@ impl From<Cipher> for JsonCipher {
             favorite: cipher.favorite,
             reprompt: cipher.reprompt,
             fields: cipher.fields.into_iter().map(|f| f.into()).collect(),
-            password_history: None,
+            password_history: cipher
+                .password_history
+                .map(|h| h.into_iter().map(|p| p.into()).collect()),
             revision_date: cipher.revision_date,
             creation_date: cipher.creation_date,
             deleted_date: cipher.deleted_date,
@@ -306,7 +403,7 @@ mod tests {
     use std::{fs, io::Read, path::PathBuf};
 
     use super::*;
-    use crate::{Cipher, Field, LoginUri, SecureNoteType};
+    use crate::{Cipher, Fido2Credential, Field, LoginUri, PasswordHistory, SecureNoteType};
 
     #[test]
     fn test_convert_login() {
@@ -364,6 +461,7 @@ mod tests {
                 },
             ],
 
+            password_history: None,
             revision_date: "2024-01-30T14:09:33.753Z".parse().unwrap(),
             creation_date: "2024-01-30T11:23:54.416Z".parse().unwrap(),
             deleted_date: None,
@@ -455,6 +553,7 @@ mod tests {
 
             fields: vec![],
 
+            password_history: None,
             revision_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
             creation_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
             deleted_date: None,
@@ -510,6 +609,7 @@ mod tests {
 
             fields: vec![],
 
+            password_history: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
@@ -582,6 +682,7 @@ mod tests {
 
             fields: vec![],
 
+            password_history: None,
             revision_date: "2024-01-30T17:54:50.706Z".parse().unwrap(),
             creation_date: "2024-01-30T17:54:50.706Z".parse().unwrap(),
             deleted_date: None,
@@ -651,6 +752,7 @@ mod tests {
 
             fields: vec![],
 
+            password_history: None,
             revision_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
             creation_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
             deleted_date: None,
@@ -756,6 +858,7 @@ mod tests {
                         },
                     ],
 
+                    password_history: None,
                     revision_date: "2024-01-30T14:09:33.753Z".parse().unwrap(),
                     creation_date: "2024-01-30T11:23:54.416Z".parse().unwrap(),
                     deleted_date: None,
@@ -776,6 +879,7 @@ mod tests {
 
                     fields: vec![],
 
+                    password_history: None,
                     revision_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
                     creation_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
                     deleted_date: None,
@@ -801,6 +905,7 @@ mod tests {
 
                     fields: vec![],
 
+                    password_history: None,
                     revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
                     creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
                     deleted_date: None,
@@ -838,6 +943,7 @@ mod tests {
 
                     fields: vec![],
 
+                    password_history: None,
                     revision_date: "2024-01-30T17:54:50.706Z".parse().unwrap(),
                     creation_date: "2024-01-30T17:54:50.706Z".parse().unwrap(),
                     deleted_date: None,
@@ -860,6 +966,7 @@ mod tests {
 
                     fields: vec![],
 
+                    password_history: None,
                     revision_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
                     creation_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
                     deleted_date: None,
@@ -872,5 +979,126 @@ mod tests {
             export.parse::<serde_json::Value>().unwrap(),
             expected.parse::<serde_json::Value>().unwrap()
         )
+    }
+
+    /// Verifies that populated `fido2_credentials` flow through to the JSON export. The web
+    /// exporter includes these credentials and we must do the same so iOS/Android JSON exports
+    /// don't silently drop passkeys.
+    #[test]
+    fn test_login_with_fido2_credentials() {
+        let cipher = Cipher {
+            id: "25c8c414-b446-48e9-a1bd-b10700bbd740".parse().unwrap(),
+            folder_id: None,
+            name: "Bitwarden".to_string(),
+            notes: None,
+            r#type: CipherType::Login(Box::new(Login {
+                username: None,
+                password: None,
+                login_uris: vec![],
+                totp: None,
+                fido2_credentials: Some(vec![Fido2Credential {
+                    credential_id: "e8d88789-e916-e196-3cbd-81dafae71bbc".to_string(),
+                    key_type: "public-key".to_string(),
+                    key_algorithm: "ECDSA".to_string(),
+                    key_curve: "P-256".to_string(),
+                    key_value: "AAECAwQFBg".to_string(),
+                    rp_id: "bitwarden.com".to_string(),
+                    user_handle: Some("AAECAwQFBg".to_string()),
+                    user_name: Some("user@example.com".to_string()),
+                    counter: 0,
+                    rp_name: Some("Bitwarden".to_string()),
+                    user_display_name: Some("User".to_string()),
+                    discoverable: "true".to_string(),
+                    creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
+                }]),
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            password_history: None,
+            revision_date: "2024-01-30T14:09:33.753Z".parse().unwrap(),
+            creation_date: "2024-01-30T11:23:54.416Z".parse().unwrap(),
+            deleted_date: None,
+        };
+
+        let json = serde_json::to_value(JsonCipher::from(cipher)).unwrap();
+        let creds = &json["login"]["fido2Credentials"];
+
+        assert_eq!(creds.as_array().unwrap().len(), 1);
+        assert_eq!(
+            creds[0]["credentialId"],
+            "e8d88789-e916-e196-3cbd-81dafae71bbc"
+        );
+        assert_eq!(creds[0]["keyType"], "public-key");
+        // Counter and discoverable are serialized as strings to match the web exporter.
+        assert_eq!(creds[0]["counter"], "0");
+        assert_eq!(creds[0]["discoverable"], "true");
+        // Dates use millisecond precision to match JavaScript's toISOString().
+        assert_eq!(creds[0]["creationDate"], "2024-06-07T14:12:36.150Z");
+    }
+
+    /// Verifies that populated `password_history` is included in the JSON export. The web
+    /// exporter emits these entries and the SDK previously hardcoded them to null.
+    #[test]
+    fn test_cipher_with_password_history() {
+        let cipher = Cipher {
+            id: "25c8c414-b446-48e9-a1bd-b10700bbd740".parse().unwrap(),
+            folder_id: None,
+            name: "Bitwarden".to_string(),
+            notes: None,
+            r#type: CipherType::Login(Box::new(Login {
+                username: None,
+                password: None,
+                login_uris: vec![],
+                totp: None,
+                fido2_credentials: None,
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            password_history: Some(vec![PasswordHistory {
+                password: "old-password".to_string(),
+                last_used_date: "2024-01-30T14:09:33.753Z".parse().unwrap(),
+            }]),
+            revision_date: "2024-01-30T14:09:33.753Z".parse().unwrap(),
+            creation_date: "2024-01-30T11:23:54.416Z".parse().unwrap(),
+            deleted_date: None,
+        };
+
+        let json = serde_json::to_value(JsonCipher::from(cipher)).unwrap();
+        let history = &json["passwordHistory"];
+
+        assert_eq!(history.as_array().unwrap().len(), 1);
+        assert_eq!(history[0]["password"], "old-password");
+        assert_eq!(history[0]["lastUsedDate"], "2024-01-30T14:09:33.753Z");
+    }
+
+    /// Verifies that sub-millisecond timestamp precision is truncated to milliseconds in the
+    /// export, matching JavaScript's `Date.toISOString()` output used by the web exporter.
+    #[test]
+    fn test_dates_use_millisecond_precision() {
+        let cipher = Cipher {
+            id: "25c8c414-b446-48e9-a1bd-b10700bbd740".parse().unwrap(),
+            folder_id: None,
+            name: "Bitwarden".to_string(),
+            notes: None,
+            r#type: CipherType::SecureNote(Box::new(SecureNote {
+                r#type: SecureNoteType::Generic,
+            })),
+            favorite: false,
+            reprompt: 0,
+            fields: vec![],
+            password_history: None,
+            // Microsecond precision in the source value should be truncated to ms in the output.
+            revision_date: "2024-01-30T14:09:33.753456Z".parse().unwrap(),
+            creation_date: "2024-01-30T11:23:54.416789123Z".parse().unwrap(),
+            deleted_date: Some("2024-02-01T00:00:00.000000Z".parse().unwrap()),
+        };
+
+        let json = serde_json::to_value(JsonCipher::from(cipher)).unwrap();
+
+        assert_eq!(json["revisionDate"], "2024-01-30T14:09:33.753Z");
+        assert_eq!(json["creationDate"], "2024-01-30T11:23:54.416Z");
+        assert_eq!(json["deletedDate"], "2024-02-01T00:00:00.000Z");
     }
 }

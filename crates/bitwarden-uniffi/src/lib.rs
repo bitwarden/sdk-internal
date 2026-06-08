@@ -17,6 +17,8 @@ mod log_callback;
 #[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
+pub mod policies;
+#[allow(missing_docs)]
 pub mod tool;
 mod uniffi_support;
 #[allow(missing_docs)]
@@ -65,6 +67,21 @@ impl Client {
         CryptoClient(self.0.crypto())
     }
 
+    /// Returns the key-management state bridge client used to register a
+    /// host-supplied storage implementation.
+    pub fn km_state_bridge(
+        &self,
+    ) -> bitwarden_core::key_management::state_bridge::StateBridgeClient {
+        self.0.0.km_state_bridge()
+    }
+
+    /// Returns the user-crypto-management sub-client (PIN settings, key rotation, etc).
+    pub fn user_crypto_management(
+        &self,
+    ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
+        self.0.user_crypto_management()
+    }
+
     /// Vault item operations
     pub fn vault(&self) -> VaultClient {
         VaultClient(self.0.vault())
@@ -98,6 +115,12 @@ impl Client {
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
         AuthClient(self.0.0.clone())
+    }
+
+    /// Policy operations
+    pub fn policies(&self) -> policies::PoliciesClient {
+        use bitwarden_policies::PoliciesClientExt;
+        policies::PoliciesClient(self.0.0.policies())
     }
 
     /// Test method, echoes back the input

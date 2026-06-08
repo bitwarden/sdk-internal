@@ -190,11 +190,9 @@ mod tests {
         let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
 
         let client = create_client(ApiClient::new_mocked(move |mock| {
-            mock.folders_api.expect_put().returning(move |_id, _model| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.folders_api
+                .expect_put()
+                .returning(move |_id, _model| Err(std::io::Error::other("Simulated error").into()));
         }));
 
         repository_add_folder(&client, folder_id, "old_name").await;

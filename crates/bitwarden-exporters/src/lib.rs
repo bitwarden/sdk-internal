@@ -69,9 +69,20 @@ pub struct Cipher {
 
     pub fields: Vec<Field>,
 
+    pub password_history: Option<Vec<PasswordHistory>>,
+
     pub revision_date: DateTime<Utc>,
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
+}
+
+/// Export representation of a single password history entry.
+#[allow(missing_docs)]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+pub struct PasswordHistory {
+    pub password: String,
+    pub last_used_date: DateTime<Utc>,
 }
 
 /// Import representation of a Bitwarden cipher.
@@ -227,6 +238,22 @@ impl From<ImportingCipher> for CipherView {
                 None,
                 None,
             ),
+            CipherType::Passport => (
+                bitwarden_vault::CipherType::Passport,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            CipherType::DriversLicense => (
+                bitwarden_vault::CipherType::DriversLicense,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
         };
 
         Self {
@@ -244,6 +271,8 @@ impl From<ImportingCipher> for CipherView {
             secure_note,
             ssh_key,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: value.favorite,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -307,6 +336,8 @@ pub enum CipherType {
     Identity(Box<Identity>),
     SshKey(Box<SshKey>),
     BankAccount,
+    Passport,
+    DriversLicense,
 }
 
 impl fmt::Display for CipherType {
@@ -318,6 +349,8 @@ impl fmt::Display for CipherType {
             CipherType::Identity(_) => write!(f, "identity"),
             CipherType::SshKey(_) => write!(f, "ssh_key"),
             CipherType::BankAccount => write!(f, "bank_account"),
+            CipherType::DriversLicense => write!(f, "drivers_license"),
+            CipherType::Passport => write!(f, "passport"),
         }
     }
 }

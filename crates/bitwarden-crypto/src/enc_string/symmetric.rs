@@ -5,7 +5,7 @@ use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
 use tracing::instrument;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
+use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
@@ -96,6 +96,35 @@ impl FromWasmAbi for EncString {
 
         let s = unsafe { String::from_abi(abi) };
         Self::from_str(&s).unwrap_throw()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl OptionFromWasmAbi for EncString {
+    fn is_none(abi: &Self::Abi) -> bool {
+        <String as OptionFromWasmAbi>::is_none(abi)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl IntoWasmAbi for EncString {
+    type Abi = <String as IntoWasmAbi>::Abi;
+
+    fn into_abi(self) -> Self::Abi {
+        self.to_string().into_abi()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for EncString {
+    type Error = CryptoError;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        let string = value
+            .as_string()
+            .ok_or(EncStringParseError::NoType)
+            .map_err(CryptoError::from)?;
+        Self::from_str(&string)
     }
 }
 
@@ -377,9 +406,10 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
-            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
-                    .map_err(|_| CryptoError::Decrypt)
+            (EncString::Aes256Cbc_B64 { .. }, SymmetricCryptoKey::Aes256CbcKey(_)) => {
+                Err(CryptoError::OperationNotSupported(
+                    UnsupportedOperationError::DecryptionNotImplementedForKey,
+                ))
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
@@ -637,7 +667,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_cbc256() {
+    fn test_decrypt_fails_for_cbc256_keys() {
         let key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe08=".to_string();
         let key = SymmetricCryptoKey::try_from(key).unwrap();
 
@@ -645,8 +675,16 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
-        let dec_str: String = enc_string.decrypt_with_key(&key).unwrap();
-        assert_eq!(dec_str, "EncryptMe!");
+        let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::OperationNotSupported(
+                    crate::error::UnsupportedOperationError::DecryptionNotImplementedForKey
+                )),
+            ),
+            "Expected decrypt to fail when using deprecated type 0 key",
+        );
     }
 
     #[test]

@@ -174,6 +174,18 @@ pub struct HostPlatformInfo {
     pub bitwarden_package_type: Option<String>,
 }
 
+impl From<&ClientSettings> for HostPlatformInfo {
+    fn from(settings: &ClientSettings) -> Self {
+        Self {
+            user_agent: settings.user_agent.clone(),
+            device_type: settings.device_type,
+            device_identifier: settings.device_identifier.clone(),
+            bitwarden_client_version: settings.bitwarden_client_version.clone(),
+            bitwarden_package_type: settings.bitwarden_package_type.clone(),
+        }
+    }
+}
+
 static HOST_PLATFORM_INFO: OnceLock<HostPlatformInfo> = OnceLock::new();
 
 /// Initialize the global [`HostPlatformInfo`].
@@ -198,17 +210,12 @@ pub fn get_host_platform_info() -> &'static HostPlatformInfo {
 mod tests {
     use super::*;
 
-    // `OnceLock` is process-global, so a single sequential test covers the
-    // not-set, happy-path, and already-set cases without cross-test leakage.
+    // `OnceLock` is process-global. Any test in this binary that calls
+    // `init_host_platform_info` may have run first, so we cannot assert what
+    // value won the first-init race — only that a *subsequent* init does not
+    // change the stored value.
     #[test]
-    fn init_then_get_preserves_first_value() {
-        // Not-set case: `get` must panic before any `init` call.
-        let prev_hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(|_| {}));
-        let not_set = std::panic::catch_unwind(get_host_platform_info);
-        std::panic::set_hook(prev_hook);
-        assert!(not_set.is_err(), "expected panic before init");
-
+    fn second_init_does_not_overwrite_first() {
         let first = HostPlatformInfo {
             user_agent: "first".into(),
             device_type: DeviceType::SDK,
@@ -216,20 +223,35 @@ mod tests {
             bitwarden_client_version: Some("1.0.0".into()),
             bitwarden_package_type: Some("test".into()),
         };
-        init_host_platform_info(first.clone());
+        init_host_platform_info(first);
 
-        let got = get_host_platform_info();
-        assert_eq!(got.user_agent, first.user_agent);
-        assert_eq!(got.device_type, first.device_type);
-        assert_eq!(got.device_identifier, first.device_identifier);
+        // Capture whatever value won the first-init race (ours or another
+        // test's).
+        let after_first_init = get_host_platform_info().clone();
 
         let second = HostPlatformInfo {
             user_agent: "second".into(),
-            ..first.clone()
+            device_type: DeviceType::SDK,
+            device_identifier: Some("dev-2".into()),
+            bitwarden_client_version: Some("2.0.0".into()),
+            bitwarden_package_type: Some("test".into()),
         };
         init_host_platform_info(second);
 
-        let after = get_host_platform_info();
-        assert_eq!(after.user_agent, first.user_agent);
+        let after_second_init = get_host_platform_info();
+        assert_eq!(after_second_init.user_agent, after_first_init.user_agent);
+        assert_eq!(after_second_init.device_type, after_first_init.device_type);
+        assert_eq!(
+            after_second_init.device_identifier,
+            after_first_init.device_identifier
+        );
+        assert_eq!(
+            after_second_init.bitwarden_client_version,
+            after_first_init.bitwarden_client_version
+        );
+        assert_eq!(
+            after_second_init.bitwarden_package_type,
+            after_first_init.bitwarden_package_type
+        );
     }
 }

@@ -192,8 +192,8 @@ These npm packages are referenced as
 See [Licensing](#licensing) for details on why we have multiple packages.
 
 Every commit to `main` in `sdk-internal` will trigger a
-[publish](https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/publish-wasm-internal.yml)
-of these packages, with versions structured as follows:
+[publish](https://github.com/bitwarden/deploy/blob/main/.github/workflows/publish-wasm-internal.yml)
+(internal access only) of these packages, with versions structured as follows:
 
 ```
 {SemanticVersion}-main.{actionRunNumber}
@@ -208,7 +208,9 @@ For example:
 > [!TIP]
 >
 > To see what version is published to `npm` for a given publish action, you can check the Summary of
-> the publish action in Github.
+> the
+> [publish workflow run](https://github.com/bitwarden/deploy/actions/workflows/publish-wasm-internal.yml)
+> in Github (internal access only).
 
 When you have completed development of changes in `sdk-internal` and need to consume them in the
 client application, you will need to update the npm dependency in your feature branch to reference
@@ -433,10 +435,27 @@ The list of developer tools is:
 This repository uses various tools to check formatting and linting before it's merged. It's
 recommended to run the checks before submitting a PR.
 
+### Running the checks
+
+```
+npm run lint           # run every check (check-only, matches CI)
+npm run lint:fix       # auto-fix where supported, then run the rest
+
+# Run a single check:
+npm run lint -- --only fmt
+npm run lint -- --only clippy
+```
+
+The list of available checks: `fmt`, `clippy`, `sort`, `udeps`, `dylint`, `doc`, `prettier`,
+`dep-ownership`, `cargo-lock`.
+
+The command is implemented in [scripts/lint.sh](./scripts/lint.sh) and mirrors
+[.github/workflows/lint.yml](./.github/workflows/lint.yml), so a local pass means CI will pass.
+
 ### Installation
 
-Please see the [lint.yml](./.github/workflows/lint.yml) file, for example, installation commands and
-versions. Here are the cli tools we use:
+The tools each check needs (and pinned versions) are installed in the lint workflow above. The
+underlying tools are:
 
 - Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
   [cargo udeps](https://github.com/est31/cargo-udeps)
@@ -445,20 +464,7 @@ versions. Here are the cli tools we use:
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
 - [prettier](https://github.com/prettier/prettier)
 
-### Checks
-
-To verify if changes need to be made, here are examples for the above tools:
-
-```
-export RUSTFLAGS="-D warnings"
-
-cargo +nightly fmt --check
-cargo +nightly udeps --workspace --all-features
-cargo clippy --all-features --all-targets
-cargo dylint --all -- --all-features --all-targets
-cargo sort --workspace --grouped --check
-npm run lint
-```
+If a tool is missing locally, `npm run lint` will tell you which one and how to install it.
 
 ## Documentation
 

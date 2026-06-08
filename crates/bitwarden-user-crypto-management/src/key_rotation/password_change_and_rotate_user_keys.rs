@@ -1,6 +1,9 @@
 //! Functionality for rotating user keys, bundled with a password change.
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::key_management::{KeySlotIds, MasterPasswordAuthenticationData};
+use bitwarden_core::key_management::{
+    KeySlotIds, MasterPasswordAuthenticationData,
+    account_cryptographic_state::WrappedAccountCryptographicState,
+};
 use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
 use tracing::{info, instrument};
@@ -14,9 +17,9 @@ use crate::{
     key_rotation::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_request_model,
-        data::reencrypt_data,
+        data::{check_for_old_attachments, reencrypt_data},
         rotation_context::make_rotation_context,
-        sync::sync_current_account_data,
+        sync::{SyncedAccountData, sync_current_account_data},
         unlock::{
             ReencryptCommonUnlockDataInput, ReencryptMasterPasswordChangeAndUnlockInput,
             reencrypt_master_password_change_unlock_data,
@@ -38,13 +41,35 @@ pub struct PasswordChangeAndRotateUserKeysRequest {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl UserCryptoManagementClient {
     /// Combines a password change and user key rotation into a single request.
+    ///
+    /// Before rotating, this checks whether the user's public key encryption key pair needs
+    /// regeneration and fixes it if necessary. This ensures that key rotation can proceed even
+    /// if the existing private key is corrupt.
     pub async fn password_change_and_rotate_user_keys(
         &self,
         request: PasswordChangeAndRotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
-        internal_password_change_and_rotate_user_keys(key_store, api_client, request).await
+
+        let sync = sync_current_account_data(api_client)
+            .await
+            .map_err(|_| RotateUserKeysError::Api)?;
+
+        let wrapped_account_cryptographic_state = self
+            .regenerate_public_key_encryption_key_pair_if_needed_with_ciphers(&sync.ciphers)
+            .await
+            .map_err(|_| RotateUserKeysError::Crypto)?
+            .unwrap_or_else(|| sync.wrapped_account_cryptographic_state.clone());
+
+        internal_password_change_and_rotate_user_keys(
+            key_store,
+            api_client,
+            request,
+            wrapped_account_cryptographic_state,
+            sync,
+        )
+        .await
     }
 }
 
@@ -58,10 +83,11 @@ async fn internal_password_change_and_rotate_user_keys(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     request: PasswordChangeAndRotateUserKeysRequest,
+    wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
+    sync: SyncedAccountData,
 ) -> Result<(), RotateUserKeysError> {
-    let sync = sync_current_account_data(api_client)
-        .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+    // Fail early if any cipher has old attachments that would become irrecoverable
+    check_for_old_attachments(&sync.ciphers)?;
 
     // Create a separate scope so that the mutable context is not held across the await point
     let post_request = {
@@ -76,12 +102,12 @@ async fn internal_password_change_and_rotate_user_keys(
 
         info!("Rotating account cryptographic state for user key rotation");
         let account_keys_model = rotate_account_cryptographic_state_to_request_model(
-            &sync.wrapped_account_cryptographic_state,
+            &wrapped_account_cryptographic_state,
             &rotation_context.current_user_key_id,
             &rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account data for user key rotation");
         let account_data_model = reencrypt_data(
@@ -92,10 +118,10 @@ async fn internal_password_change_and_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account unlock data for user key rotation");
-        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::ApiError)?;
+        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::Api)?;
         let unlock_data_model = reencrypt_master_password_change_unlock_data(
             ReencryptMasterPasswordChangeAndUnlockInput {
                 password: request.password,
@@ -113,11 +139,11 @@ async fn internal_password_change_and_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         let old_master_password_authentication_data =
             MasterPasswordAuthenticationData::derive(&request.old_password, &kdf, &salt)
-                .map_err(|_| RotateUserKeysError::CryptoError)?;
+                .map_err(|_| RotateUserKeysError::Crypto)?;
 
         RotateUserAccountKeysAndDataRequestModel {
             old_master_key_authentication_hash: Some(
@@ -136,30 +162,27 @@ async fn internal_password_change_and_rotate_user_keys(
         .accounts_key_management_api()
         .password_change_and_rotate_user_account_keys(Some(post_request))
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
     info!("Successfully rotated user account keys and data");
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::{
-        apis::ApiClient,
-        models::{
-            DeviceAuthRequestResponseModelListResponseModel,
-            EmergencyAccessGranteeDetailsResponseModelListResponseModel, KdfType,
-            MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
-            PrivateKeysResponseModel, ProfileOrganizationResponseModelListResponseModel,
-            ProfileResponseModel, PublicKeyEncryptionKeyPairResponseModel, SyncResponseModel,
-            UserDecryptionResponseModel, WebAuthnCredentialResponseModelListResponseModel,
-        },
+    use std::str::FromStr;
+
+    use bitwarden_api_api::apis::ApiClient;
+    use bitwarden_core::key_management::{
+        KeySlotIds, SymmetricKeySlotId,
+        account_cryptographic_state::WrappedAccountCryptographicState,
     };
-    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{Kdf, KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm};
+    use bitwarden_vault::{Attachment, Cipher, CipherType};
+    use chrono::DateTime;
 
     use super::*;
 
-    fn make_test_key_store_and_sync_response() -> (KeyStore<KeySlotIds>, SyncResponseModel) {
+    fn make_test_key_store_and_synced_data() -> (KeyStore<KeySlotIds>, SyncedAccountData) {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let wrapped_private_key = {
             let mut ctx = store.context_mut();
@@ -170,136 +193,34 @@ mod tests {
                 .unwrap()
         };
 
-        let sync_response = SyncResponseModel {
-            object: Some("sync".to_string()),
-            profile: Some(Box::new(ProfileResponseModel {
-                id: Some(uuid::Uuid::new_v4()),
-                account_keys: Some(Box::new(PrivateKeysResponseModel {
-                    object: None,
-                    signature_key_pair: None,
-                    public_key_encryption_key_pair: Box::new(
-                        PublicKeyEncryptionKeyPairResponseModel {
-                            object: None,
-                            wrapped_private_key: Some(wrapped_private_key.to_string()),
-                            public_key: None,
-                            signed_public_key: None,
-                        },
-                    ),
-                    security_state: None,
-                })),
-                ..ProfileResponseModel::default()
-            })),
-            folders: Some(vec![]),
-            ciphers: Some(vec![]),
-            sends: Some(vec![]),
-            collections: None,
-            domains: None,
-            policies: None,
-            user_decryption: Some(Box::new(UserDecryptionResponseModel {
-                master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
-                    kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
-                        kdf_type: KdfType::PBKDF2_SHA256,
-                        iterations: 600000,
-                        memory: None,
-                        parallelism: None,
-                    }),
-                    master_key_encrypted_user_key: None,
-                    salt: Some("test_salt".to_string()),
-                })),
-                web_authn_prf_options: None,
-                v2_upgrade_token: None,
-            })),
+        let sync = SyncedAccountData {
+            wrapped_account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                private_key: wrapped_private_key,
+            },
+            folders: vec![],
+            ciphers: vec![],
+            sends: vec![],
+            emergency_access_memberships: vec![],
+            organization_memberships: vec![],
+            trusted_devices: vec![],
+            passkeys: vec![],
+            kdf_and_salt: Some((
+                Kdf::PBKDF2 {
+                    iterations: std::num::NonZeroU32::new(600000).unwrap(),
+                },
+                "test_salt".to_string(),
+            )),
         };
 
-        (store, sync_response)
-    }
-
-    fn mock_empty_sync_calls(mock: &mut bitwarden_api_api::apis::ApiClientMock) {
-        mock.organizations_api
-            .expect_get_user()
-            .once()
-            .returning(|| {
-                Ok(ProfileOrganizationResponseModelListResponseModel {
-                    object: None,
-                    data: Some(vec![]),
-                    continuation_token: None,
-                })
-            });
-        mock.emergency_access_api
-            .expect_get_contacts()
-            .once()
-            .returning(|| {
-                Ok(
-                    EmergencyAccessGranteeDetailsResponseModelListResponseModel {
-                        object: None,
-                        data: Some(vec![]),
-                        continuation_token: None,
-                    },
-                )
-            });
-        mock.devices_api.expect_get_all().once().returning(|| {
-            Ok(DeviceAuthRequestResponseModelListResponseModel {
-                object: None,
-                data: Some(vec![]),
-                continuation_token: None,
-            })
-        });
-        mock.web_authn_api.expect_get().once().returning(|| {
-            Ok(WebAuthnCredentialResponseModelListResponseModel {
-                object: None,
-                data: Some(vec![]),
-                continuation_token: None,
-            })
-        });
-    }
-
-    #[tokio::test]
-    async fn test_password_change_and_rotate_user_keys_sync_api_failure_returns_api_error() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api.expect_get().once().returning(|_| {
-                Err(bitwarden_api_api::apis::Error::Serde(
-                    serde_json::Error::io(std::io::Error::other("network error")),
-                ))
-            });
-            mock.accounts_key_management_api
-                .expect_password_change_and_rotate_user_account_keys()
-                .never();
-        });
-
-        let result = internal_password_change_and_rotate_user_keys(
-            &store,
-            &api_client,
-            PasswordChangeAndRotateUserKeysRequest {
-                old_password: "old_password".to_string(),
-                password: "new_password".to_string(),
-                hint: None,
-                trusted_organization_public_keys: vec![],
-                trusted_emergency_access_public_keys: vec![],
-            },
-        )
-        .await;
-
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.accounts_key_management_api.checkpoint();
-        }
+        (store, sync)
     }
 
     #[tokio::test]
     async fn test_password_change_and_rotate_user_keys_missing_kdf_returns_api_error() {
-        let (key_store, mut sync_response) = make_test_key_store_and_sync_response();
-        // Remove master_password_unlock so kdf_and_salt resolves to None
-        if let Some(user_decryption) = sync_response.user_decryption.as_mut() {
-            user_decryption.master_password_unlock = None;
-        }
+        let (key_store, mut sync) = make_test_key_store_and_synced_data();
+        sync.kdf_and_salt = None;
+
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_password_change_and_rotate_user_account_keys()
                 .never();
@@ -315,29 +236,21 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_password_change_and_rotate_user_keys_success() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_password_change_and_rotate_user_account_keys()
                 .once()
@@ -354,36 +267,26 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
         assert!(result.is_ok());
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
             mock.accounts_key_management_api.checkpoint();
         }
     }
 
     #[tokio::test]
     async fn test_password_change_and_rotate_user_keys_post_api_failure_returns_api_error() {
-        let (key_store, sync_response) = make_test_key_store_and_sync_response();
+        let (key_store, sync) = make_test_key_store_and_synced_data();
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.sync_api
-                .expect_get()
-                .once()
-                .returning(move |_| Ok(sync_response.clone()));
-            mock_empty_sync_calls(mock);
             mock.accounts_key_management_api
                 .expect_password_change_and_rotate_user_account_keys()
                 .once()
                 .returning(|_| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(serde_json::Error::io(std::io::Error::other("API error")).into())
                 });
         });
 
@@ -397,16 +300,88 @@ mod tests {
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
             },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
         )
         .await;
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
         if let ApiClient::Mock(mut mock) = api_client {
-            mock.sync_api.checkpoint();
-            mock.organizations_api.checkpoint();
-            mock.emergency_access_api.checkpoint();
-            mock.devices_api.checkpoint();
-            mock.web_authn_api.checkpoint();
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_password_change_and_rotate_old_attachments_returns_error() {
+        let (key_store, mut sync) = make_test_key_store_and_synced_data();
+        let enc_string = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
+
+        // Add a cipher with an old attachment (key is None)
+        sync.ciphers = vec![Cipher {
+            id: None,
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: false,
+            reprompt: Default::default(),
+            organization_use_totp: false,
+            edit: false,
+            permissions: None,
+            view_password: false,
+            name: enc_string.parse().unwrap(),
+            revision_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
+            archived_date: None,
+            creation_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
+            attachments: Some(vec![Attachment {
+                id: None,
+                url: None,
+                size: None,
+                size_name: None,
+                file_name: None,
+                key: None, // Old attachment - no per-attachment key
+            }]),
+            fields: None,
+            key: None,
+            notes: None,
+            local_data: None,
+            password_history: None,
+            deleted_date: None,
+            data: None,
+        }];
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            // Rotation API should never be called
+            mock.accounts_key_management_api
+                .expect_password_change_and_rotate_user_account_keys()
+                .never();
+        });
+
+        let result = internal_password_change_and_rotate_user_keys(
+            &key_store,
+            &api_client,
+            PasswordChangeAndRotateUserKeysRequest {
+                old_password: "old_password".to_string(),
+                password: "new_password".to_string(),
+                hint: None,
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await;
+
+        assert!(matches!(result, Err(RotateUserKeysError::OldAttachments)));
+        if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }
     }

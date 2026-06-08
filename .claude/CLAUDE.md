@@ -18,6 +18,8 @@ Monorepo crates organized in **four architectural layers**:
 
 - **bitwarden-crypto**: Cryptographic primitives and protocols, key store for securely working with
   keys held in memory.
+- **bitwarden-organization-crypto**: Cryptographic primitives and protocols related to organizations
+  and sharing.
 - **bitwarden-state**: Type-safe Repository pattern for SDK state (client-managed vs SDK-managed)
 - **bitwarden-threading**: ThreadBoundRunner for !Send types in WASM/GUI contexts (uses PhantomData
   marker)
@@ -59,7 +61,7 @@ Monorepo crates organized in **four architectural layers**:
 
 ## Critical Patterns & Rules
 
-### Cryptography (bitwarden-crypto)
+### Cryptography (bitwarden-crypto, bitwarden-organization-crypto)
 
 - **DO NOT modify** without careful consideration - backward compatibility is critical
 - **KeyStoreContext**: Never hold across await points
@@ -69,6 +71,8 @@ Monorepo crates organized in **four architectural layers**:
 - IMPORTANT: Use constant time equality checks
 - Do not expose low-level / hazmat functions from the crypto crate.
 - Do not expose key material from the crypto crate, use key references in the key store instead
+- These are foundational crates, **not** client crates, and _shall not_ depend on `bitwarden-core`
+  or any `bitwarden-core` dependendents.
 
 ### State Management (bitwarden-state)
 
@@ -82,6 +86,12 @@ Monorepo crates organized in **four architectural layers**:
 - Use ThreadBoundRunner for !Send types (WASM contexts, GUI handles, Rc<T>)
 - Pins state to thread via spawn_local, tasks via mpsc channel
 - PhantomData<\*const ()> for !Send marker (zero-cost)
+- **Do not use `#[async_trait(?Send)]` in hand-written code.** Wrap `!Send` types (e.g. JS
+  `extern "C"` bindings holding `JsValue`) in `ThreadBoundRunner` instead, which is `Send + Sync`.
+  This keeps the SDK compatible with external crates (e.g. `passkey-rs`) that require `Send`
+  upstream and avoids future refactors. Exceptions: the `bitwarden-api-*` crates (auto-generated
+  from OpenAPI specs) and `impl`s of `reqwest_middleware::Middleware`, whose trait declaration
+  applies `?Send` on `wasm32` upstream so impls must mirror it.
 
 ### Error Handling (bitwarden-error-macro)
 
@@ -135,8 +145,11 @@ discriminant + optional fields) belongs at the API→domain boundary.
 
 **Format & Lint:**
 
-- `cargo +nightly fmt --workspace` - Code formatting
-- Use `cargo clippy` to lint code and catch common mistakes
+- `npm run lint` - Run every formatting/linting check CI runs (fmt, clippy, sort, udeps, dylint,
+  doc, prettier, dep-ownership, cargo-lock). Matches `.github/workflows/lint.yml`.
+- `npm run lint:fix` - Same set, auto-fixing where the tool supports it.
+- `npm run lint -- --only <check>` - Run a single check (e.g. `--only clippy`).
+- Underlying script: `scripts/lint.sh`.
 
 **WASM Testing:**
 

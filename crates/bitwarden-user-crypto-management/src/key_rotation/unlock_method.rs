@@ -2,7 +2,7 @@
 
 use bitwarden_api_api::models::{self, UnlockMethodRequestModel};
 use bitwarden_core::key_management::{KeySlotIds, MasterPasswordUnlockData, SymmetricKeySlotId};
-use bitwarden_crypto::{Kdf, KeyStoreContext};
+use bitwarden_crypto::{Kdf, KeyConnectorKey, KeyStoreContext};
 
 use crate::key_rotation::{
     RotateUserKeysError, rotate_user_keys::KeyRotationMethod, sync::SyncedAccountData,
@@ -18,30 +18,37 @@ pub(super) enum PrimaryUnlockMethod {
         kdf: Kdf,
         salt: String,
     },
-    // Add key connector and TDE unlock methods here and the inputs needed to rotate them.
+    /// The Key Connector based unlock method.
+    KeyConnector { key_connector_key: KeyConnectorKey },
+    /// TDE based unlock method. TDE keys themselves are rotated as part of the
+    /// common_unlock_data.
+    Tde,
 }
 
 impl PrimaryUnlockMethod {
     pub(super) fn from_key_rotation_method(
         method: KeyRotationMethod,
         synced_account_data: &SyncedAccountData,
+        key_connector_key: Option<KeyConnectorKey>,
     ) -> Result<Self, RotateUserKeysError> {
         match method {
             KeyRotationMethod::Password { password } => {
                 let (kdf, salt) = synced_account_data
                     .kdf_and_salt
                     .clone()
-                    .ok_or(RotateUserKeysError::ApiError)?;
+                    .ok_or(RotateUserKeysError::Api)?;
                 Ok(PrimaryUnlockMethod::Password {
                     password,
                     kdf,
                     salt,
                 })
             }
-            KeyRotationMethod::KeyConnector => {
-                Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
+            KeyRotationMethod::KeyConnector { .. } => {
+                let key_connector_key =
+                    key_connector_key.ok_or(RotateUserKeysError::KeyConnectorApi)?;
+                Ok(PrimaryUnlockMethod::KeyConnector { key_connector_key })
             }
-            KeyRotationMethod::Tde => Err(RotateUserKeysError::UnimplementedKeyRotationMethod),
+            KeyRotationMethod::Tde => Ok(PrimaryUnlockMethod::Tde),
         }
     }
 }
@@ -68,6 +75,22 @@ pub(super) fn reencrypt_unlock_method_data(
                 key_connector_key_wrapped_user_key: None,
             })
         }
+        PrimaryUnlockMethod::KeyConnector { key_connector_key } => {
+            let wrapped_user_key = key_connector_key
+                .wrap_user_key(new_user_key_id, ctx)
+                .map_err(|_| ReencryptError::KeyConnectorWrapping)?;
+
+            Ok(UnlockMethodRequestModel {
+                unlock_method: models::UnlockMethod::KeyConnector,
+                master_password_unlock_data: None,
+                key_connector_key_wrapped_user_key: Some(wrapped_user_key.to_string()),
+            })
+        }
+        PrimaryUnlockMethod::Tde => Ok(UnlockMethodRequestModel {
+            unlock_method: models::UnlockMethod::Tde,
+            master_password_unlock_data: None,
+            key_connector_key_wrapped_user_key: None,
+        }),
     }
 }
 
@@ -80,7 +103,7 @@ mod tests {
         KeySlotIds, MasterPasswordUnlockData,
         account_cryptographic_state::WrappedAccountCryptographicState,
     };
-    use bitwarden_crypto::{Kdf, KeyStore, KeyStoreContext};
+    use bitwarden_crypto::{Kdf, KeyConnectorKey, KeyStore, KeyStoreContext};
 
     use super::*;
     use crate::key_rotation::{rotate_user_keys::KeyRotationMethod, sync::SyncedAccountData};
@@ -145,20 +168,21 @@ mod tests {
                 password: "pass".to_string(),
             },
             &synced_data,
+            None,
         );
 
         let input = result.expect("should succeed");
-        match input {
-            PrimaryUnlockMethod::Password {
-                password,
-                kdf: result_kdf,
-                salt: result_salt,
-            } => {
-                assert_eq!(password, "pass");
-                assert_eq!(result_kdf, kdf);
-                assert_eq!(result_salt, salt);
-            }
-        }
+        let PrimaryUnlockMethod::Password {
+            password,
+            kdf: result_kdf,
+            salt: result_salt,
+        } = input
+        else {
+            panic!("expected Password variant");
+        };
+        assert_eq!(password, "pass");
+        assert_eq!(result_kdf, kdf);
+        assert_eq!(result_salt, salt);
     }
 
     #[test]
@@ -170,37 +194,48 @@ mod tests {
                 password: "pass".to_string(),
             },
             &synced_data,
+            None,
         );
 
-        assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+        assert!(matches!(result, Err(RotateUserKeysError::Api)));
     }
 
     #[test]
-    fn test_from_key_rotation_method_key_connector_returns_error() {
+    fn test_from_key_rotation_method_key_connector_returns_input() {
+        let synced_data = make_synced_account_data(None);
+        let key = KeyConnectorKey::make();
+        let expected_b64: bitwarden_encoding::B64 = key.clone().into();
+
+        let result = PrimaryUnlockMethod::from_key_rotation_method(
+            KeyRotationMethod::KeyConnector {
+                key_connector_url: "https://kc.example.com".to_string(),
+            },
+            &synced_data,
+            Some(key),
+        );
+
+        let PrimaryUnlockMethod::KeyConnector { key_connector_key } =
+            result.expect("should succeed")
+        else {
+            panic!("expected KeyConnector variant");
+        };
+        let actual_b64: bitwarden_encoding::B64 = key_connector_key.into();
+        assert_eq!(actual_b64.to_string(), expected_b64.to_string());
+    }
+
+    #[test]
+    fn test_from_key_rotation_method_key_connector_no_key_returns_error() {
         let synced_data = make_synced_account_data(None);
 
         let result = PrimaryUnlockMethod::from_key_rotation_method(
-            KeyRotationMethod::KeyConnector,
+            KeyRotationMethod::KeyConnector {
+                key_connector_url: "https://kc.example.com".to_string(),
+            },
             &synced_data,
+            None,
         );
 
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
-        ));
-    }
-
-    #[test]
-    fn test_from_key_rotation_method_tde_returns_error() {
-        let synced_data = make_synced_account_data(None);
-
-        let result =
-            PrimaryUnlockMethod::from_key_rotation_method(KeyRotationMethod::Tde, &synced_data);
-
-        assert!(matches!(
-            result,
-            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
-        ));
+        assert!(matches!(result, Err(RotateUserKeysError::KeyConnectorApi)));
     }
 
     #[test]
@@ -276,5 +311,47 @@ mod tests {
             .unwrap_to_context(&mock_password, &mut ctx)
             .expect("unwrap should succeed");
         assert_symmetric_keys_equal(user_key_id, decrypted_user_key, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_unlock_method_data_key_connector() {
+        let key_connector_key = KeyConnectorKey::make();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key_id = ctx.generate_symmetric_key();
+
+        let input = PrimaryUnlockMethod::KeyConnector {
+            key_connector_key: key_connector_key.clone(),
+        };
+
+        let result = reencrypt_unlock_method_data(input, user_key_id, &mut ctx);
+
+        let model = result.expect("should be ok");
+        assert_eq!(model.unlock_method, UnlockMethod::KeyConnector);
+        assert!(model.master_password_unlock_data.is_none());
+        let wrapped_user_key_str = model
+            .key_connector_key_wrapped_user_key
+            .expect("should be present");
+        let wrapped_user_key: bitwarden_crypto::EncString =
+            wrapped_user_key_str.parse().expect("should parse");
+
+        let unwrapped_user_key_id = key_connector_key
+            .unwrap_user_key(wrapped_user_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(user_key_id, unwrapped_user_key_id, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_unlock_method_data_tde() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key_id = ctx.generate_symmetric_key();
+
+        let result = reencrypt_unlock_method_data(PrimaryUnlockMethod::Tde, user_key_id, &mut ctx);
+
+        let model = result.expect("should be ok");
+        assert_eq!(model.unlock_method, UnlockMethod::Tde);
+        assert!(model.master_password_unlock_data.is_none());
+        assert!(model.key_connector_key_wrapped_user_key.is_none());
     }
 }

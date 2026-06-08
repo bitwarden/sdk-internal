@@ -1,10 +1,12 @@
 #![feature(rustc_private)]
 #![warn(unused_extern_crates)]
 
+extern crate rustc_errors;
 extern crate rustc_hir;
 extern crate rustc_span;
 
-use clippy_utils::{diagnostics::span_lint, ty::implements_trait};
+use clippy_utils::{diagnostics::span_lint_and_sugg, ty::implements_trait};
+use rustc_errors::Applicability;
 use rustc_hir::{Item, ItemKind};
 use rustc_lint::LateLintPass;
 use rustc_span::symbol::sym;
@@ -39,7 +41,7 @@ impl<'tcx> LateLintPass<'tcx> for ErrorSuffix {
                         _ => unreachable!(),
                     };
 
-                    span_lint(
+                    span_lint_and_sugg(
                         cx,
                         ERROR_SUFFIX,
                         ident.span,
@@ -47,6 +49,9 @@ impl<'tcx> LateLintPass<'tcx> for ErrorSuffix {
                             "{} `{}` implements Error but doesn't end with 'Error'",
                             item_type, item_name
                         ),
+                        "rename to",
+                        format!("{}Error", item_name),
+                        Applicability::MaybeIncorrect,
                     );
                 }
             }

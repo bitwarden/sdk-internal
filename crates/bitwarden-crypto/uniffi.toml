@@ -2,8 +2,11 @@
 package_name = "com.bitwarden.crypto"
 generate_immutable_records = true
 android = true
+# Temporary workaround for https://github.com/mozilla/uniffi-rs/issues/2740
+omit_checksums = true
 
 [bindings.swift]
 ffi_module_name = "BitwardenCryptoFFI"
 module_name = "BitwardenCrypto"
 generate_immutable_records = true
+generate_codable_conformance = true

@@ -34,7 +34,8 @@ pub use master_password::{
 mod security_state;
 #[cfg(feature = "internal")]
 pub use security_state::{
-    MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SecurityState, SignedSecurityState,
+    BLOB_SECURITY_VERSION, MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SecurityState,
+    SignedSecurityState,
 };
 #[cfg(feature = "internal")]
 mod user_decryption;
@@ -52,9 +53,18 @@ pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 mod wasm_unlock_state;
 
 #[cfg(feature = "internal")]
+mod pin_lock_system;
+#[cfg(feature = "internal")]
+pub use pin_lock_system::{PinLockSystem, PinLockType, PinUnlockStatus};
+
+#[cfg(feature = "internal")]
 mod local_user_data_key;
 #[cfg(feature = "internal")]
 mod local_user_data_key_state;
+
+/// A temporary bridge to access KM-related state from within the SDK.
+#[cfg(feature = "internal")]
+pub mod state_bridge;
 
 use crate::{OrganizationId, UserId};
 

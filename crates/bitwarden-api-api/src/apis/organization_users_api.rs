@@ -174,6 +174,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
+        target_organization_user: Option<models::OrganizationUser>,
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
@@ -184,6 +185,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
+        target_organization_user: Option<models::OrganizationUser>,
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
@@ -711,6 +713,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
+        target_organization_user: Option<models::OrganizationUser>,
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
@@ -728,6 +731,12 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = target_organization_user {
+            local_var_req_builder = local_var_req_builder.query(&[(
+                "targetOrganizationUser",
+                &serde_json::to_value(param_value)?,
+            )]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_request_model);
@@ -739,6 +748,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
+        target_organization_user: Option<models::OrganizationUser>,
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
@@ -756,6 +766,12 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = target_organization_user {
+            local_var_req_builder = local_var_req_builder.query(&[(
+                "targetOrganizationUser",
+                &serde_json::to_value(param_value)?,
+            )]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_request_model);

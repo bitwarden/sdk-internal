@@ -90,6 +90,8 @@ pub enum BitwardenError {
     DecryptFido2AutofillCredentials(#[from] bitwarden_fido::DecryptFido2AutofillCredentialsError),
     #[error(transparent)]
     Fido2Client(#[from] bitwarden_fido::Fido2ClientError),
+    #[error(transparent)]
+    DeviceAuthKey(#[from] bitwarden_fido::DeviceAuthKeyError),
 
     #[error(transparent)]
     SshGeneration(#[from] bitwarden_ssh::error::KeyGenerationError),
@@ -100,7 +102,7 @@ pub enum BitwardenError {
     AcquireCookie(#[from] bitwarden_server_communication_config::AcquireCookieError),
 
     #[error("Callback invocation failed")]
-    CallbackError,
+    Callback,
 
     #[error("A conversion error occurred: {0}")]
     Conversion(String),
@@ -109,6 +111,6 @@ pub enum BitwardenError {
 /// Converts unexpected mobile exceptions into BitwardenError
 impl From<uniffi::UnexpectedUniFFICallbackError> for BitwardenError {
     fn from(_: uniffi::UnexpectedUniFFICallbackError) -> Self {
-        Self::CallbackError
+        Self::Callback
     }
 }

@@ -95,6 +95,11 @@ async fn share_ciphers_bulk(
                 .bank_account
                 .map(|b| (*b).try_into())
                 .transpose()?,
+            drivers_license: cipher_mini
+                .drivers_license
+                .map(|d| (*d).try_into())
+                .transpose()?,
+            passport: cipher_mini.passport.map(|p| (*p).try_into()).transpose()?,
             reprompt: cipher_mini
                 .reprompt
                 .map(|r| r.try_into())
@@ -154,6 +159,7 @@ async fn share_ciphers_bulk(
     Ok(results)
 }
 
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     fn update_organization_and_collections(
@@ -337,6 +343,8 @@ mod tests {
             secure_note: None,
             ssh_key: None,
             bank_account: None,
+            drivers_license: None,
+            passport: None,
             favorite: false,
             reprompt: CipherRepromptType::None,
             organization_use_totp: true,
@@ -535,6 +543,8 @@ mod tests {
                 secure_note: None,
                 ssh_key: None,
                 bank_account: None,
+                drivers_license: None,
+                passport: None,
                 favorite: false,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
@@ -629,11 +639,9 @@ mod tests {
     #[tokio::test]
     async fn test_share_cipher_api_handles_404() {
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.ciphers_api.expect_put_share().returning(|_id, _body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Not found",
-                )))
-            });
+            mock.ciphers_api
+                .expect_put_share()
+                .returning(|_id, _body| Err(std::io::Error::other("Not found").into()));
         });
 
         let repository = MemoryRepository::<Cipher>::default();
@@ -701,6 +709,8 @@ mod tests {
                 secure_note: None,
                 ssh_key: None,
                 bank_account: None,
+                drivers_license: None,
+                passport: None,
                 favorite: true,
                 reprompt: CipherRepromptType::None,
                 organization_use_totp: true,
@@ -765,11 +775,9 @@ mod tests {
     #[tokio::test]
     async fn test_share_ciphers_bulk_api_handles_error() {
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.ciphers_api.expect_put_share_many().returning(|_body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Server error",
-                )))
-            });
+            mock.ciphers_api
+                .expect_put_share_many()
+                .returning(|_body| Err(std::io::Error::other("Server error").into()));
         });
 
         let repository = MemoryRepository::<Cipher>::default();
@@ -809,8 +817,8 @@ mod tests {
         let client = Client::new_test(Some(settings));
 
         client
-            .internal
-            .load_flags(std::collections::HashMap::from([(
+            .flags()
+            .load(std::collections::HashMap::from([(
                 "enableCipherKeyEncryption".to_owned(),
                 true,
             )]))
