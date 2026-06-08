@@ -20,12 +20,19 @@ pub struct ServerSettingsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub disable_user_registration: Option<bool>,
+    #[serde(
+        rename = "suppressOnboardingInterstitials",
+        alias = "SuppressOnboardingInterstitials",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub suppress_onboarding_interstitials: Option<bool>,
 }
 
 impl ServerSettingsResponseModel {
     pub fn new() -> ServerSettingsResponseModel {
         ServerSettingsResponseModel {
             disable_user_registration: None,
+            suppress_onboarding_interstitials: None,
         }
     }
 }
