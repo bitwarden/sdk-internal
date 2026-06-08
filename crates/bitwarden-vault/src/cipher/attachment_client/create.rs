@@ -187,12 +187,10 @@ impl AttachmentsClient {
         as_admin: bool,
     ) -> Result<CreatedAttachment, CipherCreateAttachmentError> {
         let cipher = if as_admin {
-            // Admin operations don't read or modify local repository state, and the cipher may
-            // not be in the user's vault, so there is no existing cipher to merge.
             let cipher_mini = response
                 .cipher_mini_response
                 .ok_or(MissingFieldError("cipher_mini_response"))?;
-            (*cipher_mini).merge_with_cipher(None)?
+            (*cipher_mini).merge_with_cipher(existing_cipher)?
         } else {
             let cipher_response = response
                 .cipher_response
