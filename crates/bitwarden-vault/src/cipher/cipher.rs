@@ -2272,8 +2272,9 @@ mod tests {
     }
 
     fn blob_cipher() -> Cipher {
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
         let cipher: Cipher = key_store
             .encrypt(EncryptMode::Blob(generate_cipher()))
             .unwrap();
@@ -4104,7 +4105,9 @@ mod tests {
         use super::*;
 
         fn make_key_store() -> KeyStore<KeySlotIds> {
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ))
         }
 
         fn base_login_view() -> CipherView {

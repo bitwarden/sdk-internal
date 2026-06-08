@@ -1030,7 +1030,7 @@ mod tests {
             .get_key_store()
             .set_security_state_version(BLOB_SECURITY_VERSION);
 
-        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let new_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let new_key_b64 = new_key.to_base64();
 
         let ctx = client

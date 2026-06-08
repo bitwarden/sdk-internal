@@ -893,8 +893,9 @@ mod tests {
         /// not as a top-level encrypted field.
         #[test]
         fn password_history_lives_inside_blob_not_on_wire() {
-            let store =
-                create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+            let store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ));
 
             let original = create_test_login_cipher("old_password");
             let mut view = create_test_login_cipher("new_password");
@@ -918,8 +919,9 @@ mod tests {
         /// `BlobAwareDecrypt`.
         #[test]
         fn password_history_round_trips_through_the_blob() {
-            let store =
-                create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+            let store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ));
 
             let original = create_test_login_cipher("old_password");
             let mut view = create_test_login_cipher("new_password");
