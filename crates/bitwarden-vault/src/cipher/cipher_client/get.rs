@@ -33,11 +33,11 @@ async fn get_cipher(
     let id = id.parse().map_err(|_| ItemNotFoundError)?;
     let cipher = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
-    if use_strict_decryption {
-        Ok(store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(store.decrypt(&cipher)?)
-    }
+        store.decrypt(&cipher)?
+    })
 }
 
 async fn list_ciphers(
@@ -46,20 +46,20 @@ async fn list_ciphers(
     use_strict_decryption: bool,
 ) -> Result<DecryptCipherListResult, GetCipherError> {
     let ciphers = repository.list().await?;
-    if use_strict_decryption {
-        let strict: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
-        let (successes, failures) = store.decrypt_list_with_failures(&strict);
-        Ok(DecryptCipherListResult {
+    Ok(if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherListResult {
             successes,
             failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-        })
+        }
     } else {
         let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
-        Ok(DecryptCipherListResult {
+        DecryptCipherListResult {
             successes,
             failures: failures.into_iter().cloned().collect(),
-        })
-    }
+        }
+    })
 }
 
 async fn get_all_ciphers(
@@ -68,20 +68,20 @@ async fn get_all_ciphers(
     use_strict_decryption: bool,
 ) -> Result<DecryptCipherResult, GetCipherError> {
     let ciphers = repository.list().await?;
-    if use_strict_decryption {
-        let strict: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
-        let (successes, failures) = store.decrypt_list_with_failures(&strict);
-        Ok(DecryptCipherResult {
+    Ok(if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherResult {
             successes,
             failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-        })
+        }
     } else {
         let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
-        Ok(DecryptCipherResult {
+        DecryptCipherResult {
             successes,
             failures: failures.into_iter().cloned().collect(),
-        })
-    }
+        }
+    })
 }
 
 #[allow(deprecated)]

@@ -122,12 +122,7 @@ impl CipherKind for Passport {
             .as_ref()
             .map(|s| s.decrypt(ctx, key))
             .transpose()?;
-        let parts: Vec<String> = [given_name, surname]
-            .into_iter()
-            .flatten()
-            .filter(|s| !s.is_empty())
-            .collect();
-        Ok(parts.join(" "))
+        Ok(build_subtitle_passport(given_name, surname))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
@@ -149,6 +144,19 @@ impl CipherKind for Passport {
         .flatten()
         .collect()
     }
+}
+
+/// Builds the subtitle for a passport cipher
+pub(super) fn build_subtitle_passport(
+    given_name: Option<String>,
+    surname: Option<String>,
+) -> String {
+    [given_name, surname]
+        .into_iter()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 impl TryFrom<CipherPassportModel> for Passport {

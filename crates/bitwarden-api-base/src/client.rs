@@ -14,9 +14,11 @@ pub fn new_http_client_builder() -> reqwest::ClientBuilder {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
         use rustls::ClientConfig;
         use rustls_platform_verifier::ConfigVerifierExt;
-        client_builder = client_builder.use_preconfigured_tls(
+        client_builder = client_builder.tls_backend_preconfigured(
             ClientConfig::with_platform_verifier().expect("Failed to create platform verifier"),
         );
 

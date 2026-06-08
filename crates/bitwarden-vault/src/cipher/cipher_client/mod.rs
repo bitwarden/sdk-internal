@@ -200,11 +200,11 @@ impl CiphersClient {
     #[allow(missing_docs)]
     pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+        Ok(if self.is_strict_decrypt().await {
+            key_store.decrypt(&StrictDecrypt(cipher))?
         } else {
-            Ok(key_store.decrypt(&cipher)?)
-        }
+            key_store.decrypt(&cipher)?
+        })
     }
 
     #[allow(missing_docs)]
@@ -213,13 +213,13 @@ impl CiphersClient {
         ciphers: Vec<Cipher>,
     ) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+        Ok(if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            Ok(key_store.decrypt_list(&strict)?)
+            key_store.decrypt_list(&wrapped)?
         } else {
-            Ok(key_store.decrypt_list(&ciphers)?)
-        }
+            key_store.decrypt_list(&ciphers)?
+        })
     }
 
     /// Decrypt cipher list with failures
@@ -230,9 +230,9 @@ impl CiphersClient {
     ) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
             DecryptCipherListResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
@@ -255,19 +255,19 @@ impl CiphersClient {
     ) -> DecryptCipherResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
-            return DecryptCipherResult {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+            DecryptCipherResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-            };
-        }
-        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-
-        DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
