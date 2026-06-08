@@ -5,6 +5,7 @@ use bitwarden_core::{ApiError, MissingFieldError, key_management::SymmetricKeySl
 use bitwarden_crypto::{
     CryptoError, Decryptable, EncString, IdentifyKey, PrimitiveEncryptable,
     StreamingAttachmentDecryptor, StreamingAttachmentEncryptor, SymmetricCryptoKey,
+    SymmetricKeyAlgorithm,
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
@@ -201,7 +202,7 @@ impl AttachmentsClient {
         let cipher_key =
             Cipher::decrypt_cipher_key(&mut ctx, cipher.key_identifier(), &cipher.key)?;
 
-        let new_attachment_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let new_attachment_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let new_slot = ctx.add_local_symmetric_key(new_attachment_key.clone());
 
         let wrapped_new_attachment_key = ctx.wrap_symmetric_key(cipher_key, new_slot)?;
@@ -492,8 +493,9 @@ mod tests {
     #[tokio::test]
     async fn returns_not_found_when_cipher_missing() {
         let api_client = ApiClient::new_mocked(|_mock| {});
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
         let client = client(
             api_client,
             MemoryRepository::<Cipher>::default(),
@@ -513,8 +515,9 @@ mod tests {
     #[tokio::test]
     async fn returns_not_found_when_attachment_missing() {
         let api_client = ApiClient::new_mocked(|_mock| {});
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let repository = MemoryRepository::<Cipher>::default();
@@ -539,8 +542,9 @@ mod tests {
     #[tokio::test]
     async fn returns_already_upgraded_when_attachment_has_key() {
         let api_client = ApiClient::new_mocked(|_mock| {});
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let repository = MemoryRepository::<Cipher>::default();
@@ -580,8 +584,9 @@ mod tests {
             matchers::{method, path},
         };
 
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
         let wire = make_legacy_wire(&key_store, b"Hello, attachment upgrade world!").await;
         let encrypted_size = wire.len();
         let mini_name = encrypted_name(&key_store);
@@ -701,8 +706,9 @@ mod tests {
             matchers::{header, method, path},
         };
 
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
         let wire = make_legacy_wire(&key_store, b"azure upload path plaintext").await;
         let encrypted_size = wire.len();
         let mini_name = encrypted_name(&key_store);
@@ -797,8 +803,9 @@ mod tests {
             matchers::{method, path},
         };
 
-        let key_store =
-            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
         let wire = make_legacy_wire(&key_store, b"rollback path plaintext").await;
         let encrypted_size = wire.len();
         let mini_name = encrypted_name(&key_store);
