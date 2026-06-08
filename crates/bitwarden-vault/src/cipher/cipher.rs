@@ -196,7 +196,7 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
             passport: cipher.passport.map(|p| Box::new(p.into())),
-            data: None, // TODO: Consume this instead of the individual fields above.
+            data: cipher.data,
             last_known_revision_date: Some(
                 cipher
                     .revision_date
@@ -273,7 +273,7 @@ impl From<EncryptionContext> for CipherRequestModel {
             bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
             passport: cipher.passport.map(|p| Box::new(p.into())),
-            data: None, // TODO: Consume this instead of the individual fields above.
+            data: cipher.data,
             last_known_revision_date: Some(
                 cipher
                     .revision_date
@@ -2269,6 +2269,45 @@ mod tests {
                 attachment_names: None,
             }
         )
+    }
+
+    fn blob_cipher() -> Cipher {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+        let cipher: Cipher = key_store
+            .encrypt(EncryptMode::Blob(generate_cipher()))
+            .unwrap();
+        assert!(cipher.data.is_some(), "expected a blob-shaped cipher");
+        cipher
+    }
+
+    #[test]
+    fn test_encryption_context_to_cipher_with_id_request_preserves_data() {
+        let cipher = blob_cipher();
+        let expected = cipher.data.clone();
+
+        let request: CipherWithIdRequestModel = EncryptionContext {
+            encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            cipher,
+        }
+        .try_into()
+        .unwrap();
+
+        assert_eq!(request.data, expected);
+    }
+
+    #[test]
+    fn test_encryption_context_to_cipher_request_preserves_data() {
+        let cipher = blob_cipher();
+        let expected = cipher.data.clone();
+
+        let request: CipherRequestModel = EncryptionContext {
+            encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            cipher,
+        }
+        .into();
+
+        assert_eq!(request.data, expected);
     }
 
     #[test]
