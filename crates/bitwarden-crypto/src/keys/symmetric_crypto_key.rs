@@ -79,6 +79,15 @@ pub enum SymmetricKeyAlgorithm {
     Aes256CbcHmac,
     /// Used for V2 user keys and data envelopes
     XChaCha20Poly1305,
+
+    // Attachment Encryption algorithms
+    // These are only permitted for use with attachments. Using them in a distributed setting
+    // (such as the user key, or organization key) cannot guarantee nonce uniqueness. The
+    // extended-nonce constructions must be used instead.
+    /// Used as the encryption key for the chunked-AEAD streaming format
+    Aes256Gcm,
+    /// Used as the encryption key for the chunked-AEAD streaming format
+    ChaCha20Poly1305,
 }
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
@@ -178,6 +187,56 @@ impl PartialEq for XChaCha20Poly1305Key {
     }
 }
 
+/// [Aes256GcmKey] is a symmetric encryption key consisting of one 256-bit key, and contains a
+/// key id. It is used as the encryption key for the chunked-AEAD streaming format, and is
+/// represented as a COSE key using the standard AES-256-GCM algorithm identifier.
+#[derive(Zeroize, Clone)]
+pub struct Aes256GcmKey {
+    pub(crate) key_id: KeyId,
+    /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
+    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
+    #[zeroize(skip)]
+    pub(crate) supported_operations: Vec<KeyOperation>,
+}
+
+impl ConstantTimeEq for Aes256GcmKey {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.enc_key.ct_eq(&other.enc_key) & self.key_id.ct_eq(&other.key_id)
+    }
+}
+
+impl PartialEq for Aes256GcmKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
+/// [ChaCha20Poly1305Key] is a symmetric encryption key consisting of one 256-bit key, and
+/// contains a key id. It is used as the encryption key for the chunked-AEAD streaming format,
+/// and is represented as a COSE key using the standard ChaCha20-Poly1305 algorithm identifier.
+/// In contrast to [XChaCha20Poly1305Key], this uses the 96-bit nonce variant, suitable for the
+/// per-chunk counter nonces of the STREAM construction.
+#[derive(Zeroize, Clone)]
+pub struct ChaCha20Poly1305Key {
+    pub(crate) key_id: KeyId,
+    /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
+    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
+    #[zeroize(skip)]
+    pub(crate) supported_operations: Vec<KeyOperation>,
+}
+
+impl ConstantTimeEq for ChaCha20Poly1305Key {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.enc_key.ct_eq(&other.enc_key) & self.key_id.ct_eq(&other.key_id)
+    }
+}
+
+impl PartialEq for ChaCha20Poly1305Key {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(ZeroizeOnDrop, Clone)]
 pub enum SymmetricCryptoKey {
@@ -188,6 +247,10 @@ pub enum SymmetricCryptoKey {
     /// Data encrypted by XChaCha20Poly1305Key keys has type
     /// [`Cose_Encrypt0_B64`](crate::EncString::Cose_Encrypt0_B64)
     XChaCha20Poly1305Key(XChaCha20Poly1305Key),
+    /// Used as the encryption key for the chunked-AEAD streaming format with AES-256-GCM.
+    Aes256GcmKey(Aes256GcmKey),
+    /// Used as the encryption key for the chunked-AEAD streaming format with ChaCha20-Poly1305.
+    ChaCha20Poly1305Key(ChaCha20Poly1305Key),
 }
 
 impl SymmetricCryptoKey {
@@ -216,6 +279,8 @@ impl SymmetricCryptoKey {
         match algorithm {
             SymmetricKeyAlgorithm::Aes256CbcHmac => Self::make_aes256_cbc_hmac_key(),
             SymmetricKeyAlgorithm::XChaCha20Poly1305 => Self::make_xchacha20_poly1305_key(),
+            SymmetricKeyAlgorithm::Aes256Gcm => Self::make_aes256_gcm_key(),
+            SymmetricKeyAlgorithm::ChaCha20Poly1305 => Self::make_chacha20_poly1305_key(),
         }
     }
 
@@ -239,6 +304,28 @@ impl SymmetricCryptoKey {
                 KeyOperation::WrapKey,
                 KeyOperation::UnwrapKey,
             ],
+        })
+    }
+
+    fn make_aes256_gcm_key() -> Self {
+        let mut rng = rand::rng();
+        let mut enc_key = Box::pin(Array::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        Self::Aes256GcmKey(Aes256GcmKey {
+            enc_key,
+            key_id: KeyId::make(),
+            supported_operations: vec![KeyOperation::Decrypt, KeyOperation::Encrypt],
+        })
+    }
+
+    fn make_chacha20_poly1305_key() -> Self {
+        let mut rng = rand::rng();
+        let mut enc_key = Box::pin(Array::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        Self::ChaCha20Poly1305Key(ChaCha20Poly1305Key {
+            enc_key,
+            key_id: KeyId::make(),
+            supported_operations: vec![KeyOperation::Decrypt, KeyOperation::Encrypt],
         })
     }
 
@@ -319,6 +406,16 @@ impl SymmetricCryptoKey {
                         .into(),
                 )
             }
+            Self::Aes256GcmKey(key) => EncodedSymmetricKey::CoseKey(encode_stream_cose_key(
+                &key.key_id,
+                &key.enc_key,
+                coset::iana::Algorithm::A256GCM,
+            )),
+            Self::ChaCha20Poly1305Key(key) => EncodedSymmetricKey::CoseKey(encode_stream_cose_key(
+                &key.key_id,
+                &key.enc_key,
+                coset::iana::Algorithm::ChaCha20Poly1305,
+            )),
         }
     }
 
@@ -341,6 +438,8 @@ impl SymmetricCryptoKey {
             Self::Aes256CbcKey(_) => None,
             Self::Aes256CbcHmacKey(_) => None,
             Self::XChaCha20Poly1305Key(key) => Some(key.key_id.clone()),
+            Self::Aes256GcmKey(key) => Some(key.key_id.clone()),
+            Self::ChaCha20Poly1305Key(key) => Some(key.key_id.clone()),
         }
     }
 }
@@ -360,6 +459,12 @@ impl ConstantTimeEq for SymmetricCryptoKey {
 
             (XChaCha20Poly1305Key(a), XChaCha20Poly1305Key(b)) => a.ct_eq(b),
             (XChaCha20Poly1305Key(_), _) => Choice::from(0),
+
+            (Aes256GcmKey(a), Aes256GcmKey(b)) => a.ct_eq(b),
+            (Aes256GcmKey(_), _) => Choice::from(0),
+
+            (ChaCha20Poly1305Key(a), ChaCha20Poly1305Key(b)) => a.ct_eq(b),
+            (ChaCha20Poly1305Key(_), _) => Choice::from(0),
         }
     }
 }
@@ -450,6 +555,8 @@ impl std::fmt::Debug for SymmetricCryptoKey {
             SymmetricCryptoKey::Aes256CbcKey(key) => key.fmt(f),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => key.fmt(f),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.fmt(f),
+            SymmetricCryptoKey::Aes256GcmKey(key) => key.fmt(f),
+            SymmetricCryptoKey::ChaCha20Poly1305Key(key) => key.fmt(f),
         }
     }
 }
@@ -490,6 +597,43 @@ impl std::fmt::Debug for XChaCha20Poly1305Key {
         debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
         debug_struct.finish()
     }
+}
+
+impl std::fmt::Debug for Aes256GcmKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256Gcm");
+        debug_struct.field("key_id", &self.key_id);
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
+        debug_struct.finish()
+    }
+}
+
+impl std::fmt::Debug for ChaCha20Poly1305Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("SymmetricKey::ChaCha20Poly1305");
+        debug_struct.field("key_id", &self.key_id);
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
+        debug_struct.finish()
+    }
+}
+
+/// Encode a 256-bit stream key as a COSE symmetric key using a standard IANA algorithm
+/// identifier. Used by the AES-256-GCM and ChaCha20-Poly1305 stream key variants.
+fn encode_stream_cose_key(
+    key_id: &KeyId,
+    enc_key: &Pin<Box<Array<u8, U32>>>,
+    algorithm: coset::iana::Algorithm,
+) -> CoseKeyBytes {
+    let mut cose_key = coset::CoseKeyBuilder::new_symmetric_key(enc_key.to_vec())
+        .key_id(key_id.into())
+        .build();
+    cose_key.alg = Some(RegisteredLabelWithPrivate::Assigned(algorithm));
+    cose_key
+        .to_vec()
+        .expect("cose key serialization should not fail")
+        .into()
 }
 
 /// Pad a key to a minimum length using PKCS7-like padding.

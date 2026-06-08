@@ -8,6 +8,7 @@ use std::ops::Range;
 pub(crate) mod aes256_cbc_hmac_legacy_stream;
 mod large_memory_buffer;
 mod streaming_attachment_cipher;
+mod chunked_aead_stream;
 
 pub use streaming_attachment_cipher::{StreamingAttachmentDecryptor, StreamingAttachmentEncryptor};
 use thiserror::Error;

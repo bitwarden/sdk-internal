@@ -15,7 +15,8 @@ use tracing::instrument;
 use typenum::U32;
 
 use crate::{
-    ContentFormat, CoseEncrypt0Bytes, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    Aes256GcmKey, ChaCha20Poly1305Key, ContentFormat, CoseEncrypt0Bytes, CryptoError,
+    SymmetricCryptoKey, XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
     xchacha20,
@@ -285,6 +286,38 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                     .map_err(|_| CryptoError::InvalidKey)?;
                 Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
                     XChaCha20Poly1305Key {
+                        enc_key,
+                        key_id,
+                        supported_operations: key_opts,
+                    },
+                ))
+            }
+            coset::Algorithm::Assigned(iana::Algorithm::A256GCM) => {
+                let enc_key = Box::pin(
+                    Array::<u8, U32>::try_from(key_bytes).map_err(|_| CryptoError::InvalidKey)?,
+                );
+                let key_id = cose_key
+                    .key_id
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(SymmetricCryptoKey::Aes256GcmKey(Aes256GcmKey {
+                    enc_key,
+                    key_id,
+                    supported_operations: key_opts,
+                }))
+            }
+            coset::Algorithm::Assigned(iana::Algorithm::ChaCha20Poly1305) => {
+                let enc_key = Box::pin(
+                    Array::<u8, U32>::try_from(key_bytes).map_err(|_| CryptoError::InvalidKey)?,
+                );
+                let key_id = cose_key
+                    .key_id
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(SymmetricCryptoKey::ChaCha20Poly1305Key(
+                    ChaCha20Poly1305Key {
                         enc_key,
                         key_id,
                         supported_operations: key_opts,

@@ -339,6 +339,9 @@ impl CryptoClient {
             (SymmetricKeyAlgorithm::Aes256CbcHmac, None) => {
                 Err(CryptoClientError::UpgradeTokenRequired)
             }
+            (_, _) => {
+                Err(CryptoClientError::InvalidUpgradeToken)
+            }
         }
     }
 }

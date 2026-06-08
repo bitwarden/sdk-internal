@@ -43,7 +43,9 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         SymmetricCryptoKey::XChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
             UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
-        SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
+        SymmetricCryptoKey::Aes256CbcKey(_)
+        | SymmetricCryptoKey::Aes256GcmKey(_)
+        | SymmetricCryptoKey::ChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
             UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
     }?;

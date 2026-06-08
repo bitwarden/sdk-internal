@@ -396,9 +396,13 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
                 }
                 EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
-            SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperationError::EncryptionNotImplementedForKey,
-            )),
+            SymmetricCryptoKey::Aes256CbcKey(_)
+            | SymmetricCryptoKey::Aes256GcmKey(_)
+            | SymmetricCryptoKey::ChaCha20Poly1305Key(_) => {
+                Err(CryptoError::OperationNotSupported(
+                    UnsupportedOperationError::EncryptionNotImplementedForKey,
+                ))
+            }
         }
     }
 }
