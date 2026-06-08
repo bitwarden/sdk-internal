@@ -248,6 +248,10 @@ mod tests {
         "d5b1fde2-a1e3-4c5b-9e0f-1a2b3c4d5e6f".parse().unwrap()
     }
 
+    fn test_email() -> String {
+        "test@bitwarden.com".to_string()
+    }
+
     fn test_base_urls() -> BaseUrls {
         BaseUrls {
             identity_url: "https://identity.example.com".to_string(),
@@ -341,6 +345,7 @@ mod tests {
         Client::save_to_state(
             SaveStateData {
                 user_id: test_user_id(),
+                email: test_email(),
                 urls: test_base_urls(),
                 crypto_state,
             },
@@ -360,6 +365,7 @@ mod tests {
         Client::save_to_state(
             SaveStateData {
                 user_id: test_user_id(),
+                email: test_email(),
                 urls: test_base_urls(),
                 crypto_state: crypto_state.clone(),
             },
@@ -430,6 +436,7 @@ mod tests {
         Client::save_to_state(
             SaveStateData {
                 user_id: test_user_id(),
+                email: test_email(),
                 urls: test_base_urls(),
                 crypto_state,
             },
