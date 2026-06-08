@@ -343,7 +343,7 @@ mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
     #[cfg(feature = "wasm")]
-    use bitwarden_crypto::CryptoError;
+    use bitwarden_crypto::{CryptoError, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
@@ -795,7 +795,7 @@ mod tests {
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
-        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let new_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         let cipher_view = test_cipher_view();
         let new_key_b64 = new_key.to_base64();

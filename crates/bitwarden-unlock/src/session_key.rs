@@ -1,5 +1,5 @@
 use bitwarden_crypto::{
-    KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
+    KeySlotIds, KeyStoreContext, SymmetricCryptoKey, SymmetricKeyAlgorithm,
     safe::{SymmetricKeyEnvelope, SymmetricKeyEnvelopeError, SymmetricKeyEnvelopeNamespace},
 };
 
@@ -17,7 +17,9 @@ pub struct SessionKey(pub(crate) SymmetricCryptoKey);
 impl SessionKey {
     /// Mint a new random session key.
     pub fn make() -> Self {
-        Self(SymmetricCryptoKey::make_xchacha20_poly1305_key())
+        Self(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::XChaCha20Poly1305,
+        ))
     }
 
     /// Mint a new session key, seal `key_to_seal` (already present in `ctx`)
