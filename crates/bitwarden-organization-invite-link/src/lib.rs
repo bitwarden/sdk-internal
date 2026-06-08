@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-mod invite;
-pub use invite::{
-    OrganizationInviteCryptoBundle, OrganizationInviteCryptoBundleError,
-    generate_organization_invite_crypto_bundle, unseal_organization_invite_key,
+mod invite_link_client;
+pub use invite_link_client::{
+    InviteLinkClient, InviteLinkClientExt, OrganizationInviteCryptoBundle,
+    OrganizationInviteCryptoBundleError,
 };

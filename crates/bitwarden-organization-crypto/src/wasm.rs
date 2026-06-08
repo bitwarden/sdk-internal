@@ -21,10 +21,6 @@ const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
 export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
 "#;
 
-/// WASM bindings for organization cryptography operations.
-#[wasm_bindgen::prelude::wasm_bindgen]
-pub struct OrganizationCryptoWasm;
-
 impl wasm_bindgen::describe::WasmDescribe for InviteKeyData {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

@@ -898,6 +898,7 @@ dependencies = [
 name = "bitwarden-organization-invite-link"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-organization-crypto",
@@ -932,6 +933,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
+ "bitwarden-organization-invite-link",
  "bitwarden-policies",
  "bitwarden-send",
  "bitwarden-server-communication-config",
