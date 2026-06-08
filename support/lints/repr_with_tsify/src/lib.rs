@@ -5,7 +5,7 @@ extern crate rustc_data_structures;
 extern crate rustc_hir;
 extern crate rustc_span;
 
-use clippy_utils::diagnostics::span_lint_and_help;
+use clippy_utils::diagnostics::span_lint_hir_and_then;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{
     def::{DefKind, Res},
@@ -100,13 +100,16 @@ impl<'tcx> LateLintPass<'tcx> for ReprWithTsify {
                 continue;
             };
             let name = cx.tcx.item_name(did.to_def_id());
-            span_lint_and_help(
+            let hir_id = cx.tcx.local_def_id_to_hir_id(did);
+            span_lint_hir_and_then(
                 cx,
                 REPR_WITH_TSIFY,
+                hir_id,
                 span,
                 format!("`{name}` derives both `serde_repr` and `tsify::Tsify`"),
-                None,
-                HELP,
+                |diag| {
+                    diag.help(HELP);
+                },
             );
         }
     }
