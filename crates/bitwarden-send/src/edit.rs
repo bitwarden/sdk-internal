@@ -51,6 +51,26 @@ pub enum EditSendError {
     },
 }
 
+/// Controls how `bw send edit` updates the auth on an existing Send.
+///
+/// The previous shape (`Option<SendAuthType>`) overloaded `Option` with a sentinel:
+/// `None` did *not* mean "no auth", it meant "preserve". This enum encodes the
+/// preserve-versus-overwrite distinction directly in the type so readers don't have
+/// to recover the convention from doc-comments.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum AuthEdit {
+    /// Keep whatever auth the existing Send has. The SDK reads the encrypted-form
+    /// `password`/`emails`/`auth_type` from the repository row and forwards them
+    /// verbatim — no plaintext password is required.
+    Preserve,
+    /// Replace the existing auth with the supplied value. Pass `SendAuthType::None`
+    /// here to explicitly strip auth from the Send.
+    Set(SendAuthType),
+}
+
 /// Request model for editing an existing Send.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -78,13 +98,13 @@ pub struct SendEditRequest {
 
     /// Authentication method for accessing this Send.
     ///
-    /// `Some(_)` overwrites the existing auth (including switching to `SendAuthType::None`
-    /// to remove all protection). `None` is a partial-update marker that tells the SDK to
-    /// preserve the existing Send's auth configuration as-is — the existing `password` hash,
-    /// email list, and `authType` discriminant are forwarded verbatim to the server. Use
-    /// `None` when the caller is editing unrelated fields and must not silently strip a
-    /// previously configured password or email-OTP gate.
-    pub auth: Option<SendAuthType>,
+    /// `AuthEdit::Set(_)` overwrites the existing auth (including switching to
+    /// `SendAuthType::None` to remove all protection). `AuthEdit::Preserve` tells
+    /// the SDK to forward the existing Send's `password` hash, email list, and
+    /// `authType` discriminant verbatim to the server. Use `Preserve` when the
+    /// caller is editing unrelated fields and must not silently strip a previously
+    /// configured password or email-OTP gate.
+    pub auth: AuthEdit,
 }
 
 /// Internal helper struct that includes the send key for encryption.
@@ -92,8 +112,8 @@ pub struct SendEditRequest {
 ///
 /// `preserved_auth` carries the encrypted-form auth fields (password hash, emails
 /// comma-string, discriminant) read off the existing repository row when the caller asked
-/// to preserve auth (`SendEditRequest.auth == None`). When `request.auth` is `Some(_)`,
-/// this field is `None` and `request.auth` is the source of truth.
+/// to preserve auth (`SendEditRequest.auth == AuthEdit::Preserve`). When `request.auth`
+/// is `AuthEdit::Set(_)`, this field is `None` and `request.auth` is the source of truth.
 #[derive(Debug)]
 struct SendEditRequestWithKey {
     request: SendEditRequest,
@@ -137,26 +157,26 @@ impl
             .encrypt_composite(ctx, send_key)?;
 
         // Resolve auth from one of two sources, in order of precedence:
-        //   1. An explicit `SendAuthType` in the request, which authoritatively overwrites the
-        //      server-side auth (including switching to `None` to remove protection).
-        //   2. The preserved snapshot read off the existing repository row, used when the caller
-        //      passed `auth: None` to mean "do not touch". This branch forwards the stored password
-        //      hash and email list verbatim, so a partial edit never silently strips a previously
-        //      configured password or email-OTP gate.
+        //   1. `AuthEdit::Set(_)` authoritatively overwrites the server-side auth (including
+        //      switching to `SendAuthType::None` to remove protection).
+        //   2. `AuthEdit::Preserve` forwards the snapshot read off the existing repository row,
+        //      verbatim. This branch forwards the stored password hash and email list as-is, so a
+        //      partial edit never silently strips a previously configured password or email-OTP
+        //      gate.
         let (auth_type, password, emails) = match (&self.request.auth, &self.preserved_auth) {
-            (Some(auth), _) => {
+            (AuthEdit::Set(auth), _) => {
                 let (password, emails) = auth.auth_data(&k);
                 (auth.auth_type(), password, emails)
             }
-            (None, Some(preserved)) => (
+            (AuthEdit::Preserve, Some(preserved)) => (
                 preserved.auth_type,
                 preserved.password.clone(),
                 preserved.emails.clone(),
             ),
             // Unreachable in practice: `edit_send` always populates `preserved_auth` when
-            // `request.auth` is `None`. Fall back to "no auth" defensively rather than
-            // panicking from inside an encryption path.
-            (None, None) => (crate::AuthType::None, None, None),
+            // `request.auth` is `AuthEdit::Preserve`. Fall back to "no auth" defensively rather
+            // than panicking from inside an encryption path.
+            (AuthEdit::Preserve, None) => (crate::AuthType::None, None, None),
         };
 
         Ok(bitwarden_api_api::models::SendRequestModel {
@@ -199,9 +219,9 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
     send_id: SendId,
     request: SendEditRequest,
 ) -> Result<SendView, EditSendError> {
-    // Only validate when the caller is asserting a new auth configuration; `None` means
-    // "preserve existing", and the existing row is already a server-validated value.
-    if let Some(auth) = &request.auth {
+    // Only validate when the caller is asserting a new auth configuration; `Preserve`
+    // means "use the existing row", which is already a server-validated value.
+    if let AuthEdit::Set(auth) = &request.auth {
         auth.validate()?;
     }
 
@@ -214,7 +234,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
     // are read directly off the encrypted `Send` (no decryption needed for `password`,
     // `emails`, or `auth_type`) so the SDK can round-trip auth on partial edits without
     // requiring the plaintext password back from the caller.
-    let preserved_auth = request.auth.is_none().then(|| PreservedAuth {
+    let preserved_auth = matches!(request.auth, AuthEdit::Preserve).then(|| PreservedAuth {
         password: existing_send.password.clone(),
         emails: existing_send.emails.clone(),
         auth_type: existing_send.auth_type,
@@ -381,7 +401,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: Some(SendAuthType::None),
+                auth: AuthEdit::Set(SendAuthType::None),
             },
         )
         .await
@@ -439,7 +459,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: Some(SendAuthType::None),
+                auth: AuthEdit::Set(SendAuthType::None),
             },
         )
         .await;
@@ -519,7 +539,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: Some(SendAuthType::None),
+                auth: AuthEdit::Set(SendAuthType::None),
             },
         )
         .await;
@@ -650,8 +670,8 @@ mod tests {
     /// Regression test for the auth-strip bug. With the previous `auth: SendAuthType`
     /// (non-optional) field, the CLI passed `SendAuthType::None` whenever the user ran
     /// `bw send edit` without auth flags, and the server treated that as an overwrite
-    /// that cleared the password. With `auth: Option<SendAuthType>` and `None` meaning
-    /// "preserve", the SDK forwards the existing password hash verbatim.
+    /// that cleared the password. With `auth: AuthEdit` and `AuthEdit::Preserve` as the
+    /// no-auth-flags case, the SDK forwards the existing password hash verbatim.
     #[tokio::test]
     async fn test_edit_preserves_existing_password_when_auth_is_none() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
@@ -680,7 +700,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: None,
+                auth: AuthEdit::Preserve,
             },
         )
         .await;
@@ -725,7 +745,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: None,
+                auth: AuthEdit::Preserve,
             },
         )
         .await;
@@ -760,7 +780,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: None,
+                auth: AuthEdit::Preserve,
             },
         )
         .await;
@@ -773,9 +793,9 @@ mod tests {
         );
     }
 
-    /// An explicit `Some(SendAuthType::None)` still means "remove protection" — that's
-    /// the escape hatch a caller uses to deliberately strip auth (mirroring the legacy
-    /// `bw send remove-password` semantics for the auth slot generally).
+    /// An explicit `AuthEdit::Set(SendAuthType::None)` still means "remove protection" —
+    /// that's the escape hatch a caller uses to deliberately strip auth (mirroring the
+    /// legacy `bw send remove-password` semantics for the auth slot generally).
     #[tokio::test]
     async fn test_edit_explicit_auth_none_overrides_existing_password() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
@@ -803,7 +823,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: Some(SendAuthType::None),
+                auth: AuthEdit::Set(SendAuthType::None),
             },
         )
         .await;

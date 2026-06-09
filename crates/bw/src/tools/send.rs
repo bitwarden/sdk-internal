@@ -10,80 +10,122 @@ use std::path::PathBuf;
 
 use bitwarden_pm::PasswordManagerClient;
 use bitwarden_send::{
-    SendAddRequest, SendAuthType, SendEditRequest, SendFileView, SendId, SendTextView, SendViewType,
+    AuthEdit, SendAddRequest, SendAuthType, SendEditRequest, SendFileView, SendId, SendTextView,
+    SendViewType,
 };
 use chrono::{Duration, Utc};
 use color_eyre::eyre::{Context as _, eyre};
 use serde::Serialize;
 
-use super::{SendArgs, SendCommands};
+use super::{
+    SendArgs, SendCommands, SendCreateArgs, SendDeleteArgs, SendEditArgs, SendGetArgs,
+    SendListArgs, SendReceiveArgs, SendRemovePasswordArgs, SendTemplateArgs,
+};
 use crate::{
-    client_state::{AnyState, BwCommand},
+    client_state::{AnyState, BwCommand, BwCommandExt as _, ClientContext, LoggedIn},
     render::{CommandOutput, CommandResult},
 };
 
 impl BwCommand for SendArgs {
-    // `AnyState` because `bw send template` runs without a session; the auth-required arms
-    // (everything else) check `state.user` via `require_login` below.
+    // `AnyState` because `bw send template` and `bw send receive` run without a session; the
+    // auth-required arms route to per-variant `BwCommand` impls below whose `type Client` is
+    // `LoggedIn`, so the auth check happens via the typestate extractor in each branch.
     type Client = AnyState;
 
     async fn run(self, state: AnyState) -> CommandResult {
         // If no subcommand is supplied, the legacy CLI treats `bw send <data>` as a Create
         // shortcut. Route that through the same builder path as `bw send create` so the two
         // entry points share their happy path.
+        let ctx = ClientContext {
+            global: state.global,
+            user: state.user,
+        };
         match self.command.clone() {
             None => {
-                let client = require_login(state.user)?;
-                create_shortcut(&client, self).await
+                let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
+                create_shortcut(&user, self).await
             }
-            Some(cmd) => dispatch_subcommand(state.user, cmd).await,
+            // `encoded_json` is intentionally pre-empted *before* `dispatch` extracts
+            // `LoggedIn`. The integration tests in `tests/send.rs` assert that supplying
+            // `encoded_json` to `create`/`edit` returns the "not yet implemented" error
+            // even when the caller is logged out — that signals the input is unsupported
+            // rather than burying it behind a confusing auth error.
+            Some(SendCommands::Create(args)) if args.encoded_json.is_some() => Err(eyre!(
+                "`encoded_json` input on `bw send create` is not yet implemented (PM-34719)."
+            )),
+            Some(SendCommands::Edit(args)) if args.encoded_json.is_some() => Err(eyre!(
+                "`encoded_json` input on `bw send edit` is not yet implemented (PM-34719)."
+            )),
+            // `--output-file` on `get` similarly fails before the auth check: silently
+            // emitting JSON to stdout while the requested file path goes uncreated would
+            // be a worse UX than an explicit "not implemented" error.
+            Some(SendCommands::Get(args)) if args.output_file.is_some() => Err(eyre!(
+                "`--output-file` on `bw send get` is not yet implemented (PM-34719: file-decrypt pipeline pending)."
+            )),
+            Some(SendCommands::List(args)) => args.dispatch(ctx).await,
+            Some(SendCommands::Template(args)) => args.dispatch(ctx).await,
+            Some(SendCommands::Get(args)) => args.dispatch(ctx).await,
+            Some(SendCommands::Receive(args)) => args.dispatch(ctx).await,
+            Some(SendCommands::Create(args)) => args.dispatch(ctx).await,
+            Some(SendCommands::Edit(args)) => args.dispatch(ctx).await,
+            Some(SendCommands::RemovePassword(args)) => args.dispatch(ctx).await,
+            Some(SendCommands::Delete(args)) => args.dispatch(ctx).await,
         }
     }
 }
 
-fn require_login(
-    client: Option<PasswordManagerClient>,
-) -> color_eyre::eyre::Result<PasswordManagerClient> {
-    client.ok_or_else(|| eyre!("You are not logged in. Run `bw login` first."))
+impl BwCommand for SendListArgs {
+    type Client = LoggedIn;
+
+    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
+        list_sends(&user).await
+    }
 }
 
-async fn dispatch_subcommand(
-    client: Option<PasswordManagerClient>,
-    cmd: SendCommands,
-) -> CommandResult {
-    match cmd {
-        // `template` doesn't talk to the server; route it before the auth gate so users can
-        // generate JSON scaffolding without a session.
-        SendCommands::Template { object } => render_template(&object),
-        SendCommands::List => {
-            let client = require_login(client)?;
-            list_sends(&client).await
-        }
-        SendCommands::Get {
-            id,
-            output_file,
-            text,
-        } => {
-            // TODO(PM-34719): When `--output-file` is provided for a file send, decrypt +
-            // write the file to disk via `SendClient::decrypt_file`. Until that lands, fail
-            // loudly *before* the auth check so the caller knows their request wasn't
-            // honored — silently emitting JSON would leave a non-existent file path behind
-            // a successful exit code.
-            if output_file.is_some() {
-                return Err(eyre!(
-                    "`--output-file` on `bw send get` is not yet implemented (PM-34719: file-decrypt pipeline pending)."
-                ));
-            }
-            let client = require_login(client)?;
-            get_send(&client, id, text).await
-        }
-        // The `bw receive` command handles incoming sends; `bw send receive` is the legacy
-        // alias and is out of scope for this ticket. See `Commands::Receive` in main.rs.
-        SendCommands::Receive { .. } => Err(eyre!(
+impl BwCommand for SendTemplateArgs {
+    // `template` doesn't talk to the server; route it through `AnyState` so users can
+    // generate JSON scaffolding without a session.
+    type Client = AnyState;
+
+    async fn run(self, _: AnyState) -> CommandResult {
+        render_template(&self.object)
+    }
+}
+
+impl BwCommand for SendGetArgs {
+    type Client = LoggedIn;
+
+    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
+        // The `--output-file` early-error gate lives in [`SendArgs::run`] above so it can
+        // fire *before* the `LoggedIn` typestate extractor — a logged-out caller passing
+        // `--output-file` should see the precise "not yet implemented" error rather than
+        // a generic auth message. See PM-34719 for the file-decrypt pipeline follow-up.
+        get_send(&user, self.id, self.text).await
+    }
+}
+
+impl BwCommand for SendReceiveArgs {
+    // The `bw receive` command handles incoming sends; `bw send receive` is the legacy
+    // alias and is out of scope for this ticket. See `Commands::Receive` in main.rs.
+    // No login is required to reach that error path.
+    type Client = AnyState;
+
+    async fn run(self, _: AnyState) -> CommandResult {
+        Err(eyre!(
             "`bw send receive` is not implemented; use `bw receive <url>` instead."
-        )),
-        SendCommands::Create {
-            encoded_json,
+        ))
+    }
+}
+
+impl BwCommand for SendCreateArgs {
+    type Client = LoggedIn;
+
+    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
+        // The `encoded_json` early-error gate lives in [`SendArgs::run`] above so it can
+        // fire *before* the `LoggedIn` typestate extractor — see PM-34719 for the
+        // encoded-JSON input follow-up.
+        let SendCreateArgs {
+            encoded_json: _,
             file,
             text,
             delete_in_days,
@@ -94,85 +136,82 @@ async fn dispatch_subcommand(
             password,
             emails,
             full_object,
-        } => {
-            // TODO(PM-34719): Accept `encoded_json` (positional or stdin) to match the legacy
-            // CLI. Until that lands, fail loudly when a caller supplies it — silently
-            // discarding the input would produce a different Send than the caller specified.
-            if encoded_json.is_some() {
-                return Err(eyre!(
-                    "`encoded_json` input on `bw send create` is not yet implemented (PM-34719)."
-                ));
-            }
+        } = self;
 
-            let request = build_create_request(CreateInputs {
-                file,
-                text,
-                delete_in_days,
-                max_access_count,
-                hidden,
-                name,
-                notes,
-                password,
-                emails,
-            })?;
+        let request = build_create_request(CreateInputs {
+            file,
+            text,
+            delete_in_days,
+            max_access_count,
+            hidden,
+            name,
+            notes,
+            password,
+            emails,
+        })?;
 
-            let client = require_login(client)?;
-            run_create(&client, request, full_object).await
-        }
-        SendCommands::Edit {
-            encoded_json,
+        run_create(&user, request, full_object).await
+    }
+}
+
+impl BwCommand for SendEditArgs {
+    type Client = LoggedIn;
+
+    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
+        // The `encoded_json` early-error gate lives in [`SendArgs::run`] above so it can
+        // fire *before* the `LoggedIn` typestate extractor — see PM-34719 for the
+        // encoded-JSON input follow-up.
+        let SendEditArgs {
+            encoded_json: _,
             itemid,
             delete_in_days,
             max_access_count,
             hidden,
             password,
             emails,
-        } => {
-            // TODO(PM-34719): Accept `encoded_json` (positional or stdin) to match the legacy
-            // CLI. Until that lands, fail loudly when a caller supplies it — silently
-            // discarding the input would mutate fields the caller didn't intend to touch.
-            if encoded_json.is_some() {
-                return Err(eyre!(
-                    "`encoded_json` input on `bw send edit` is not yet implemented (PM-34719)."
-                ));
-            }
+        } = self;
 
-            let send_id = itemid.ok_or_else(|| {
-                eyre!("--itemid is required (or provide it via encoded JSON, TODO PM-34719).")
-            })?;
+        let send_id = itemid.ok_or_else(|| {
+            eyre!("--itemid is required (or provide it via encoded JSON, TODO PM-34719).")
+        })?;
 
-            let client = require_login(client)?;
+        // TODO(PM-34719): The CLI builds the edit request from the existing decrypted view
+        // plus CLI overrides. The legacy CLI lets the user supply the full object via
+        // encodedJson; we should support that path too. TODO(PM-34719): Enforce type
+        // immutability on edit.
+        let existing = user.sends().get(send_id).await?;
 
-            // TODO(PM-34719): The CLI builds the edit request from the existing decrypted view
-            // plus CLI overrides. The legacy CLI lets the user supply the full object via
-            // encodedJson; we should support that path too. TODO(PM-34719): Enforce type
-            // immutability on edit.
-            let existing = client.sends().get(send_id).await?;
+        let request = build_edit_request(
+            existing,
+            EditOverrides {
+                delete_in_days,
+                max_access_count,
+                hidden,
+                password,
+                emails,
+            },
+        )?;
 
-            let request = build_edit_request(
-                existing,
-                EditOverrides {
-                    delete_in_days,
-                    max_access_count,
-                    hidden,
-                    password,
-                    emails,
-                },
-            )?;
+        let view = user.sends().edit(send_id, request).await?;
+        Ok(CommandOutput::Object(Box::new(view)))
+    }
+}
 
-            let view = client.sends().edit(send_id, request).await?;
-            Ok(CommandOutput::Object(Box::new(view)))
-        }
-        SendCommands::RemovePassword { id } => {
-            let client = require_login(client)?;
-            let view = client.sends().remove_password(id).await?;
-            Ok(CommandOutput::Object(Box::new(view)))
-        }
-        SendCommands::Delete { id } => {
-            let client = require_login(client)?;
-            client.sends().delete(id).await?;
-            Ok("Send deleted.".into())
-        }
+impl BwCommand for SendRemovePasswordArgs {
+    type Client = LoggedIn;
+
+    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
+        let view = user.sends().remove_password(self.id).await?;
+        Ok(CommandOutput::Object(Box::new(view)))
+    }
+}
+
+impl BwCommand for SendDeleteArgs {
+    type Client = LoggedIn;
+
+    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
+        user.sends().delete(self.id).await?;
+        Ok("Send deleted.".into())
     }
 }
 
@@ -480,27 +519,28 @@ fn build_auth(
 /// Build the `auth` field for a [`SendEditRequest`].
 ///
 /// Edit semantics differ from create:
-///   - `(None, None)` returns `Ok(None)` to signal "preserve the existing auth". The SDK reads the
-///     existing wire-format `password` hash and `emails` string off the repository row and forwards
-///     them verbatim, so a partial edit (e.g. just changing `--deleteInDays`) never silently strips
-///     a previously configured password or email-OTP gate. This is the fix for the auth-strip bug —
-///     the previous code emitted `SendAuthType::None` here, which the server treats as an
-///     overwrite.
-///   - `(Some(p), None)` / `(None, Some(e))` overwrite to Password / Email auth.
+///   - `(None, None)` returns `AuthEdit::Preserve`, telling the SDK to keep the existing auth. The
+///     SDK reads the wire-format `password` hash and `emails` string off the repository row and
+///     forwards them verbatim, so a partial edit (e.g. just changing `--deleteInDays`) never
+///     silently strips a previously configured password or email-OTP gate. This is the fix for the
+///     auth-strip bug — the previous code emitted `SendAuthType::None` here, which the server
+///     treats as an overwrite.
+///   - `(Some(p), None)` / `(None, Some(e))` return `AuthEdit::Set(...)` to overwrite to Password /
+///     Email auth.
 ///   - `(Some(_), Some(_))` is rejected (mutually exclusive).
 ///
 /// Note: passing `--password ""` is not how callers strip auth on edit. To remove a
 /// previously configured password, use `bw send remove-password` (the legacy CLI's
-/// dedicated subcommand), or pass an explicit `Some(SendAuthType::None)` at the SDK
+/// dedicated subcommand), or pass `AuthEdit::Set(SendAuthType::None)` at the SDK
 /// boundary.
 fn build_auth_for_edit(
     password: Option<String>,
     emails: Option<&str>,
-) -> color_eyre::eyre::Result<Option<SendAuthType>> {
+) -> color_eyre::eyre::Result<AuthEdit> {
     match (password, emails) {
-        (None, None) => Ok(None),
-        (Some(p), None) => Ok(Some(SendAuthType::Password { password: p })),
-        (None, Some(e)) => Ok(Some(SendAuthType::Emails {
+        (None, None) => Ok(AuthEdit::Preserve),
+        (Some(p), None) => Ok(AuthEdit::Set(SendAuthType::Password { password: p })),
+        (None, Some(e)) => Ok(AuthEdit::Set(SendAuthType::Emails {
             emails: parse_emails(e)?,
         })),
         (Some(_), Some(_)) => Err(eyre!("--password and --emails are mutually exclusive.")),
@@ -810,15 +850,15 @@ mod tests {
 
     // ---- build_auth_for_edit ----
 
-    /// On edit, the `(None, None)` case must return `Ok(None)` (preserve), not
-    /// `Ok(Some(SendAuthType::None))` (overwrite to no-auth). This is the auth-strip
-    /// regression boundary at the CLI helper level.
+    /// On edit, the `(None, None)` case must return `AuthEdit::Preserve`, not
+    /// `AuthEdit::Set(SendAuthType::None)` (overwrite to no-auth). This is the
+    /// auth-strip regression boundary at the CLI helper level.
     #[test]
     fn build_auth_for_edit_no_flags_preserves() {
         let auth = build_auth_for_edit(None, None).unwrap();
         assert!(
-            auth.is_none(),
-            "no flags must produce `None` (preserve), got {auth:?}"
+            matches!(auth, AuthEdit::Preserve),
+            "no flags must produce `AuthEdit::Preserve`, got {auth:?}"
         );
     }
 
@@ -827,7 +867,7 @@ mod tests {
         let auth = build_auth_for_edit(Some("hunter2".into()), None).unwrap();
         assert!(matches!(
             auth,
-            Some(SendAuthType::Password { ref password }) if password == "hunter2"
+            AuthEdit::Set(SendAuthType::Password { ref password }) if password == "hunter2"
         ));
     }
 
@@ -835,8 +875,8 @@ mod tests {
     fn build_auth_for_edit_emails_overwrites() {
         let auth = build_auth_for_edit(None, Some("a@b.com,c@d.com")).unwrap();
         match auth {
-            Some(SendAuthType::Emails { emails }) => assert_eq!(emails.len(), 2),
-            other => panic!("expected Some(Emails), got {other:?}"),
+            AuthEdit::Set(SendAuthType::Emails { emails }) => assert_eq!(emails.len(), 2),
+            other => panic!("expected AuthEdit::Set(Emails), got {other:?}"),
         }
     }
 
@@ -892,16 +932,17 @@ mod tests {
     /// `build_edit_request` for a Send with an existing Password gate (no auth flags
     /// provided) produced `auth: SendAuthType::None`, which the server treats as an
     /// overwrite that clears the password. After the fix, the request carries
-    /// `auth: None` (the partial-update marker), and the SDK's `edit_send` consumes
-    /// that to forward the existing password hash to the server verbatim.
+    /// `auth: AuthEdit::Preserve` (the partial-update marker), and the SDK's
+    /// `edit_send` consumes that to forward the existing password hash to the server
+    /// verbatim.
     #[test]
     fn build_edit_request_preserves_existing_password_when_no_auth_flags() {
         let existing = make_existing(AuthType::Password, true, Vec::new());
         let req = build_edit_request(existing, no_override_edit()).unwrap();
         assert!(
-            req.auth.is_none(),
-            "expected preserve-marker (`None`), got {:?} — the previous behavior was \
-             `Some(SendAuthType::None)`, which silently strips the existing password",
+            matches!(req.auth, AuthEdit::Preserve),
+            "expected `AuthEdit::Preserve`, got {:?} — the previous behavior was \
+             `AuthEdit::Set(SendAuthType::None)`, which silently strips the existing password",
             req.auth
         );
     }
@@ -914,22 +955,23 @@ mod tests {
             vec!["a@b.com".to_string(), "c@d.com".to_string()],
         );
         let req = build_edit_request(existing, no_override_edit()).unwrap();
-        assert!(req.auth.is_none());
+        assert!(matches!(req.auth, AuthEdit::Preserve));
     }
 
-    /// Existing `AuthType::None` × no new auth flags → still preserve (i.e. `None`).
-    /// The SDK will look at the existing repository row and emit `AuthType::None` on
-    /// the wire; this CLI layer doesn't need to know that detail.
+    /// Existing `AuthType::None` × no new auth flags → still preserve (i.e.
+    /// `AuthEdit::Preserve`). The SDK will look at the existing repository row and
+    /// emit `AuthType::None` on the wire; this CLI layer doesn't need to know that
+    /// detail.
     #[test]
     fn build_edit_request_preserves_existing_none_auth_when_no_auth_flags() {
         let existing = make_existing(AuthType::None, false, Vec::new());
         let req = build_edit_request(existing, no_override_edit()).unwrap();
-        assert!(req.auth.is_none());
+        assert!(matches!(req.auth, AuthEdit::Preserve));
     }
 
     /// 4x4 matrix: existing { None, Password, Email } × override { None, Password,
     /// Emails }. The "preserve" cases all live above; the "overwrite" cases must
-    /// produce a concrete `Some(...)` regardless of the existing state.
+    /// produce a concrete `AuthEdit::Set(...)` regardless of the existing state.
     #[test]
     fn build_edit_request_password_flag_overwrites_regardless_of_existing() {
         for existing_auth in [AuthType::None, AuthType::Password, AuthType::Email] {
@@ -949,7 +991,7 @@ mod tests {
             assert!(
                 matches!(
                     req.auth,
-                    Some(SendAuthType::Password { ref password }) if password == "hunter2"
+                    AuthEdit::Set(SendAuthType::Password { ref password }) if password == "hunter2"
                 ),
                 "existing={existing_auth:?}, got auth={:?}",
                 req.auth
@@ -974,10 +1016,10 @@ mod tests {
             )
             .unwrap();
             match req.auth {
-                Some(SendAuthType::Emails { ref emails }) => assert_eq!(emails.len(), 1),
-                ref other => {
-                    panic!("existing={existing_auth:?}, expected Some(Emails), got {other:?}")
-                }
+                AuthEdit::Set(SendAuthType::Emails { ref emails }) => assert_eq!(emails.len(), 1),
+                ref other => panic!(
+                    "existing={existing_auth:?}, expected AuthEdit::Set(Emails), got {other:?}"
+                ),
             }
         }
     }
