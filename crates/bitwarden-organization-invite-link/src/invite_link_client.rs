@@ -14,18 +14,6 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[cfg(feature = "wasm")]
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_INVITE_KEY_DATA: &'static str = r#"
-export type InviteKeyData = Tagged<string, "InviteKeyData">;
-"#;
-
-#[cfg(feature = "wasm")]
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
-export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
-"#;
-
 /// Errors returned from [`InviteLinkClient`] operations.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -116,13 +104,13 @@ impl InviteLinkClientExt for Client {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_and_org_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
 
     fn make_client(org_id: OrganizationId) -> InviteLinkClient {
-        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(user_key, org_id, org_key);
         InviteLinkClient { key_store }
     }
