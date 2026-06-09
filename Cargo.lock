@@ -778,13 +778,10 @@ dependencies = [
  "chrono",
  "credential-exchange-format",
  "csv",
- "data-encoding",
- "keepass",
  "num-traits",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tokio",
  "tsify",
  "uniffi",
  "url",
@@ -858,6 +855,31 @@ dependencies = [
  "uniffi",
  "wasm-bindgen",
  "wiremock",
+]
+
+[[package]]
+name = "bitwarden-importers"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-collections",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-error",
+ "bitwarden-exporters",
+ "bitwarden-vault",
+ "chrono",
+ "data-encoding",
+ "keepass",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
+ "tsify",
+ "uniffi",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "zeroize",
 ]
 
 [[package]]
@@ -950,6 +972,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
+ "bitwarden-importers",
  "bitwarden-policies",
  "bitwarden-send",
  "bitwarden-server-communication-config",
@@ -1216,6 +1239,7 @@ dependencies = [
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
+ "bitwarden-importers",
  "bitwarden-organizations",
  "bitwarden-pm",
  "bitwarden-policies",
@@ -3690,9 +3714,9 @@ dependencies = [
 
 [[package]]
 name = "keepass"
-version = "0.13.7"
+version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c51b1fb17fc0fa314fde71da61804f15304984be6531294a94b7ba2286a4dfdc"
+checksum = "c21ad5c74f28ca9d2efd52b041a5a7be659e0681d0d3dc57e625ee050a6bd853"
 dependencies = [
  "aes 0.9.1",
  "base64 0.22.1",

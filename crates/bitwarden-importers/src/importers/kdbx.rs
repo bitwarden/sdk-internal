@@ -1,10 +1,12 @@
-//! KeePass KDBX (`.kdbx`) import.
+//! KeePass KDBX (`.kdbx`) parser.
 //!
 //! Parses an encrypted KeePass database (3.1 and 4) via the `keepass` crate and maps its group tree
-//! into the crate's [`ImportingCipher`] model with a folder list and cipher-folder relationships.
+//! into a [`ParsedImport`] (ciphers + folder paths + relationships) for the generic submit
+//! pipeline.
 
 use std::io::Cursor;
 
+use bitwarden_exporters::{CipherType, Field, ImportingCipher, Login, LoginUri};
 use chrono::Utc;
 use keepass::{
     Database, DatabaseKey,
@@ -14,8 +16,9 @@ use keepass::{
     },
 };
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
-use crate::{CipherType, ExportError, Field, ImportingCipher, Login, LoginUri};
+use crate::{ImportError, pipeline::ParsedImport};
 
 /// Maximum group nesting that will be traversed
 const MAX_GROUP_DEPTH: usize = 256;
@@ -38,32 +41,39 @@ const KDBX_SIGNATURE: [u8; 4] = [0x03, 0xd9, 0xa2, 0x9a];
 /// Ceiling on the input file size
 const MAX_KDBX_SIZE: usize = 10 * 1024 * 1024;
 
-fn check_kdbx_size(len: usize) -> Result<(), ExportError> {
+fn check_kdbx_size(len: usize) -> Result<(), ImportError> {
     if len > MAX_KDBX_SIZE {
-        return Err(ExportError::KdbxFileTooLarge);
+        return Err(ImportError::KdbxFileTooLarge);
     }
     Ok(())
 }
 
-/// Intermediate result of parsing a KDBX database, before encryption.
-#[cfg_attr(test, derive(Debug))]
-pub(crate) struct ParsedKdbx {
-    pub ciphers: Vec<ImportingCipher>,
-    /// Folder paths (e.g. `"Parent/Child"`), index-aligned with [`Self::folder_relationships`].
-    pub folders: Vec<String>,
-    /// `(cipher_index, folder_index)` pairs.
-    pub folder_relationships: Vec<(usize, usize)>,
+/// Parses a KeePass KDBX database, zeroizing the secret inputs (file bytes, password, key file).
+pub(crate) fn parse(
+    file: Vec<u8>,
+    password: Option<String>,
+    key_file: Option<Vec<u8>>,
+) -> Result<ParsedImport, ImportError> {
+    let file = Zeroizing::new(file);
+    let password = password.map(Zeroizing::new);
+    let key_file = key_file.map(Zeroizing::new);
+
+    parse_kdbx(
+        &file,
+        password.as_ref().map(|p| p.as_str()),
+        key_file.as_ref().map(|k| k.as_slice()),
+    )
 }
 
-pub(crate) fn parse_kdbx(
+fn parse_kdbx(
     data: &[u8],
     password: Option<&str>,
     key_file: Option<&[u8]>,
-) -> Result<ParsedKdbx, ExportError> {
+) -> Result<ParsedImport, ImportError> {
     check_kdbx_size(data.len())?;
 
     if data.len() < KDBX_SIGNATURE.len() || data[..KDBX_SIGNATURE.len()] != KDBX_SIGNATURE {
-        return Err(ExportError::KdbxInvalidFormat);
+        return Err(ImportError::KdbxInvalidFormat);
     }
 
     let mut key = DatabaseKey::new();
@@ -73,7 +83,7 @@ pub(crate) fn parse_kdbx(
     if let Some(key_file) = key_file {
         key = key
             .with_keyfile(&mut Cursor::new(key_file))
-            .map_err(|_| ExportError::KdbxCorruptOrUnsupported)?;
+            .map_err(|_| ImportError::KdbxCorruptOrUnsupported)?;
     }
 
     let db = Database::open(&mut Cursor::new(data), key).map_err(map_open_error)?;
@@ -85,7 +95,7 @@ pub(crate) fn parse_kdbx(
     } else {
         None
     };
-    let mut result = ParsedKdbx {
+    let mut result = ParsedImport {
         ciphers: Vec::new(),
         folders: Vec::new(),
         folder_relationships: Vec::new(),
@@ -100,12 +110,12 @@ pub(crate) fn parse_kdbx(
 /// fails as bad padding). keepass's `CryptographyError` isn't public, so we can't separate that
 /// from genuine corruption — bias both to wrong-credentials; everything else is
 /// corrupt/unsupported.
-fn map_open_error(error: DatabaseOpenError) -> ExportError {
+fn map_open_error(error: DatabaseOpenError) -> ImportError {
     match error {
         DatabaseOpenError::Key(_) | DatabaseOpenError::Cryptography(_) => {
-            ExportError::KdbxWrongCredentials
+            ImportError::KdbxWrongCredentials
         }
-        _ => ExportError::KdbxCorruptOrUnsupported,
+        _ => ImportError::KdbxCorruptOrUnsupported,
     }
 }
 
@@ -115,10 +125,10 @@ fn traverse(
     prefix: &str,
     recycle_bin: Option<Uuid>,
     depth: usize,
-    result: &mut ParsedKdbx,
-) -> Result<(), ExportError> {
+    result: &mut ParsedImport,
+) -> Result<(), ImportError> {
     if depth > MAX_GROUP_DEPTH {
-        return Err(ExportError::KdbxCorruptOrUnsupported);
+        return Err(ImportError::KdbxCorruptOrUnsupported);
     }
 
     if let Some(recycle_bin) = recycle_bin
@@ -352,7 +362,7 @@ mod tests {
         save(&db)
     }
 
-    fn parse(bytes: &[u8]) -> ParsedKdbx {
+    fn parse_bytes(bytes: &[u8]) -> ParsedImport {
         parse_kdbx(bytes, Some(PASSWORD), None).unwrap()
     }
 
@@ -377,7 +387,7 @@ mod tests {
             entry.set_unprotected(fields::OTP, "JBSWY3DPEHPK3PXP");
         });
 
-        let result = parse(&bytes);
+        let result = parse_bytes(&bytes);
 
         assert_eq!(result.ciphers.len(), 1);
         let cipher = &result.ciphers[0];
@@ -406,7 +416,7 @@ mod tests {
             child.add_entry().set_unprotected(fields::TITLE, "Nested");
         });
 
-        let result = parse(&bytes);
+        let result = parse_bytes(&bytes);
 
         assert!(result.folders.contains(&"Parent".to_string()));
         assert!(result.folders.contains(&"Parent/Child".to_string()));
@@ -427,7 +437,7 @@ mod tests {
             entry.set_protected("SecretField", "secret value");
         });
 
-        let cipher = &parse(&bytes).ciphers[0];
+        let cipher = &parse_bytes(&bytes).ciphers[0];
         let plain = cipher
             .fields
             .iter()
@@ -452,7 +462,7 @@ mod tests {
             entry.set_protected("TimeOtp-Secret-Base32", "JBSWY3DPEHPK3PXP");
         });
 
-        let cipher = &parse(&bytes).ciphers[0];
+        let cipher = &parse_bytes(&bytes).ciphers[0];
         assert_eq!(login(cipher).totp.as_deref(), Some("JBSWY3DPEHPK3PXP"));
         assert!(
             !cipher
@@ -473,7 +483,7 @@ mod tests {
             entry.set_unprotected("TimeOtp-Algorithm", "HMAC-SHA-256");
         });
 
-        let cipher = &parse(&bytes).ciphers[0];
+        let cipher = &parse_bytes(&bytes).ciphers[0];
         let totp = login(cipher).totp.as_deref().unwrap();
         assert!(totp.starts_with("otpauth://totp/"));
         assert!(totp.contains("secret=JBSWY3DPEHPK3PXP"));
@@ -495,7 +505,7 @@ mod tests {
                 entry.set_unprotected(fields::TITLE, "Encoded OTP");
                 entry.set_protected(field, value);
             });
-            let cipher = &parse(&bytes).ciphers[0];
+            let cipher = &parse_bytes(&bytes).ciphers[0];
             assert_eq!(
                 login(cipher).totp.as_deref(),
                 Some("JBSWY3DP"),
@@ -510,14 +520,18 @@ mod tests {
             root.add_entry().set_unprotected(fields::TITLE, "Secret");
         });
 
-        let err = parse_kdbx(&bytes, Some("incorrect"), None).unwrap_err();
-        assert!(matches!(err, ExportError::KdbxWrongCredentials));
+        assert!(matches!(
+            parse_kdbx(&bytes, Some("incorrect"), None),
+            Err(ImportError::KdbxWrongCredentials)
+        ));
     }
 
     #[test]
     fn non_kdbx_input_is_invalid_format() {
-        let err = parse_kdbx(b"not a kdbx file", Some(PASSWORD), None).unwrap_err();
-        assert!(matches!(err, ExportError::KdbxInvalidFormat));
+        assert!(matches!(
+            parse_kdbx(b"not a kdbx file", Some(PASSWORD), None),
+            Err(ImportError::KdbxInvalidFormat)
+        ));
     }
 
     #[test]
@@ -526,7 +540,7 @@ mod tests {
         assert!(check_kdbx_size(MAX_KDBX_SIZE).is_ok());
         assert!(matches!(
             check_kdbx_size(MAX_KDBX_SIZE + 1),
-            Err(ExportError::KdbxFileTooLarge)
+            Err(ImportError::KdbxFileTooLarge)
         ));
     }
 
@@ -547,7 +561,7 @@ mod tests {
 
     #[test]
     fn recycle_bin_group_is_skipped_when_enabled() {
-        let result = parse(&db_with_recycle_bin(true));
+        let result = parse_bytes(&db_with_recycle_bin(true));
         assert!(result.ciphers.is_empty());
         assert!(result.folders.is_empty());
     }
@@ -555,41 +569,9 @@ mod tests {
     #[test]
     fn recycle_bin_uuid_is_ignored_when_disabled() {
         // The feature is off, so the still-present UUID must not cause the group to be dropped.
-        let result = parse(&db_with_recycle_bin(false));
+        let result = parse_bytes(&db_with_recycle_bin(false));
         assert_eq!(result.folders, vec!["Trash".to_string()]);
         assert_eq!(result.ciphers.len(), 1);
         assert_eq!(result.ciphers[0].name, "in trash");
-    }
-
-    /// End-to-end coverage of the encrypt boundary: parse -> encrypt ciphers + folders through a
-    /// real client key store, and confirm the folder relationships survive by index.
-    #[tokio::test]
-    async fn import_kdbx_encrypts_ciphers_and_folders() {
-        use bitwarden_core::{Client, client::test_accounts::test_bitwarden_com_account};
-
-        use crate::ExporterClientExt;
-
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
-
-        let bytes = build_db(|root| {
-            let mut group = root.add_group();
-            group.name = "Social".into();
-            let mut entry = group.add_entry();
-            entry.set_unprotected(fields::TITLE, "GitHub");
-            entry.set_protected(fields::PASSWORD, "hunter2");
-        });
-
-        let result = client
-            .exporters()
-            .import_kdbx(bytes, Some(PASSWORD.to_string()), None)
-            .unwrap();
-
-        assert_eq!(result.ciphers.len(), 1);
-        assert_eq!(result.folders.len(), 1);
-        assert_eq!(result.folder_relationships.len(), 1);
-        assert_eq!(result.folder_relationships[0].cipher, 0);
-        assert_eq!(result.folder_relationships[0].folder, 0);
-        // The name is encrypted, not stored as the plaintext title.
-        assert_ne!(result.ciphers[0].name.to_string(), "GitHub");
     }
 }

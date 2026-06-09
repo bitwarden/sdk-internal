@@ -22,6 +22,7 @@ uniffi = [
     "bitwarden-exporters/uniffi",
     "bitwarden-fido/uniffi",
     "bitwarden-generators/uniffi",
+    "bitwarden-importers/uniffi",
     "bitwarden-send/uniffi",
     "bitwarden-state/uniffi",
     "bitwarden-unlock/uniffi",
@@ -34,6 +35,7 @@ wasm = [
     "bitwarden-core/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
+    "bitwarden-importers/wasm",
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
     "bitwarden-state/wasm",
@@ -54,6 +56,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
+bitwarden-importers = { workspace = true }
 bitwarden-policies = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-server-communication-config = { workspace = true }

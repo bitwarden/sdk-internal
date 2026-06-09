@@ -12,6 +12,7 @@ use bitwarden_core::{
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_importers::ImporterClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
@@ -28,6 +29,7 @@ pub mod clients {
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
+    pub use bitwarden_importers::ImporterClient;
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::SendClient;
     pub use bitwarden_sync::SyncClient;
@@ -129,6 +131,11 @@ impl PasswordManagerClient {
     /// Exporter operations
     pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
         self.0.exporters()
+    }
+
+    /// Importer operations
+    pub fn importers(&self) -> bitwarden_importers::ImporterClient {
+        self.0.importers()
     }
 
     /// Generator operations

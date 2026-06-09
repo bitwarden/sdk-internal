@@ -5,8 +5,8 @@ use bitwarden_vault::{Cipher, Folder};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    Account, ExportError, ExportFormat, KdbxImportResult,
-    export::{export_cxf, export_organization_vault, export_vault, import_cxf, import_kdbx},
+    Account, ExportError, ExportFormat,
+    export::{export_cxf, export_organization_vault, export_vault, import_cxf},
 };
 
 #[allow(missing_docs)]
@@ -63,20 +63,6 @@ impl ExporterClient {
     /// Ideally, the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>, ExportError> {
         import_cxf(&self.client, payload)
-    }
-
-    /// Import a KeePass KDBX (`.kdbx`) database.
-    ///
-    /// `file` is the raw `.kdbx` bytes; `password` and/or `key_file` unlock it. Returns the
-    /// encrypted ciphers and folders plus their relationships, ready to send to the import
-    /// endpoint. Inputs larger than 10 MiB are rejected with `KdbxFileTooLarge`
-    pub fn import_kdbx(
-        &self,
-        file: Vec<u8>,
-        password: Option<String>,
-        key_file: Option<Vec<u8>>,
-    ) -> Result<KdbxImportResult, ExportError> {
-        import_kdbx(&self.client, file, password, key_file)
     }
 }
 
