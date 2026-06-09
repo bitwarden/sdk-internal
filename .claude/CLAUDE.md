@@ -102,11 +102,6 @@ Monorepo crates organized in **four architectural layers**:
 ### Security Requirements
 
 - **Never log** keys, passwords, or vault data in logs or error paths
-  - Consider newtype wrappers, such as the ones exposed in the `bitwarden-sensitive-value` crate.
-    Calling `.expose()` on them is allowed when passing to external libraries that do not support
-    this type.
-  - The `SymmetricCryptoKey`, `PrivateKey` and `SigningKey` types have a protected logging
-    implementation that makes them safe to log.
 - **Redact sensitive data** in all error messages
 - **Unsafe blocks** require comments explaining safety and invariants
 - **Encryption/decryption changes** must maintain backward compatibility (existing encrypted data
