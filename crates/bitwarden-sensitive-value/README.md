@@ -1,7 +1,7 @@
 # Bitwarden Sensitive Value
 
-Provides the `Sensitive<T>`, `SensitiveString` wrapper types and aliases (`MasterPassword`,
-`Pin`) used to mark values as secret and prevent accidental logging.
+Provides the `Sensitive<T>`, `SensitiveString` wrapper types and aliases (`MasterPassword`, `Pin`)
+used to mark values as secret and prevent accidental logging.
 
 ## NOT A PUBLIC API
 
