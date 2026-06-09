@@ -222,10 +222,7 @@ mod tests {
 
     /// Helper to create a SyncClient with a mocked API client.
     fn test_client(api_client: bitwarden_api_api::apis::ApiClient) -> SyncClient {
-        let dummy_config = bitwarden_api_api::Configuration {
-            base_path: String::new(),
-            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
-        };
+        let dummy_config = bitwarden_api_api::Configuration::new(String::new());
         SyncClient {
             api_configurations: Arc::new(ApiConfigurations {
                 api_client,

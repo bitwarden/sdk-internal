@@ -9,7 +9,6 @@ mod reinit_user_crypto;
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
-use bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeNamespace;
 #[expect(deprecated)]
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
@@ -19,6 +18,7 @@ use bitwarden_crypto::{
     dangerous_get_v2_rotated_account_keys, derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
+use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 #[cfg(feature = "uniffi")]
@@ -926,7 +926,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let private_key = ctx.dangerous_get_private_key(private_key_id)?.clone();
 
     // New user key
-    let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+    let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
     // New signing key
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);

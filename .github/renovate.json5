@@ -5,12 +5,24 @@
   enabledManagers: ["cargo", "dockerfile", "github-actions", "npm", "nuget", "custom.regex"],
   regexManagers: [
     {
+      // Pinned binary cargo tools declared in [workspace.metadata.bin].
+      // Matches only crates.io-sourced entries (git-pinned tools have `git =`
+      // immediately after the version field, so they are skipped here and
+      // remain manually managed).
+      fileMatch: ["^Cargo\\.toml$"],
+      matchStrings: [
+        '(?<depName>[a-z][a-z0-9_-]*)\\s*=\\s*\\{\\s*version\\s*=\\s*"=?(?<currentValue>\\d+\\.\\d+\\.\\d+)"\\s*,\\s*locked\\s*=\\s*true',
+      ],
+      datasourceTemplate: "crate",
+      versioningTemplate: "cargo",
+    },
+    {
+      // Bootstrap pin for cargo-run-bin in CI workflows.
       fileMatch: ["^\\.github/workflows/.*\\.ya?ml$"],
       matchStrings: [
-        "cargo install (?<depName>cargo-dylint) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
-        "cargo install (?<depName>dylint-link) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
+        "cargo install (?<depName>cargo-run-bin) --locked --version (?<currentValue>\\d+\\.\\d+\\.\\d+)",
       ],
-      datasourceTemplate: "cargo",
+      datasourceTemplate: "crate",
       versioningTemplate: "cargo",
     },
   ],
@@ -68,6 +80,8 @@
       matchPackageNames: [
         "async-trait",
         "cargo-dylint",
+        "cargo-sort",
+        "cargo-udeps",
         "ciborium",
         "chrono",
         "data-encoding",

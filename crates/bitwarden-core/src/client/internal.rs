@@ -77,10 +77,7 @@ impl ApiConfigurations {
     /// values for the remaining fields. Only available for testing.
     #[cfg(feature = "test-fixtures")]
     pub fn from_api_client(api_client: bitwarden_api_api::apis::ApiClient) -> Self {
-        let dummy_config = bitwarden_api_base::Configuration {
-            base_path: String::new(),
-            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
-        };
+        let dummy_config = bitwarden_api_base::Configuration::new(String::new());
         Self {
             api_client,
             identity_client: bitwarden_api_identity::apis::ApiClient::new(&std::sync::Arc::new(
@@ -264,7 +261,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all, fields(user_id = ?self.get_user_id()))]
-    pub(crate) fn initialize_user_crypto_decrypted_key(
+    pub fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
         account_crypto_state: WrappedAccountCryptographicState,

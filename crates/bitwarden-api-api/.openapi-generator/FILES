@@ -268,6 +268,7 @@ src/models/notification_response_model.rs
 src/models/notification_response_model_list_response_model.rs
 src/models/open_id_connect_redirect_behavior.rs
 src/models/optional_cipher_details_response_model.rs
+src/models/organization.rs
 src/models/organization_api_key_information.rs
 src/models/organization_api_key_information_list_response_model.rs
 src/models/organization_api_key_request_model.rs
@@ -289,6 +290,7 @@ src/models/organization_integration_configuration_response_model.rs
 src/models/organization_integration_request_model.rs
 src/models/organization_integration_response_model.rs
 src/models/organization_integration_status.rs
+src/models/organization_invite_link_validate_email_domain_request_model.rs
 src/models/organization_keys_request_model.rs
 src/models/organization_keys_response_model.rs
 src/models/organization_license.rs
@@ -329,6 +331,8 @@ src/models/organization_user_bulk_response_model_list_response_model.rs
 src/models/organization_user_confirm_request_model.rs
 src/models/organization_user_details_response_model.rs
 src/models/organization_user_invite_request_model.rs
+src/models/organization_user_pending_auto_confirm_response_model.rs
+src/models/organization_user_pending_auto_confirm_response_model_list_response_model.rs
 src/models/organization_user_public_key_response_model.rs
 src/models/organization_user_public_key_response_model_list_response_model.rs
 src/models/organization_user_reset_password_details_response_model.rs
