@@ -115,6 +115,10 @@ jobs:
         if: matrix.needs_rust
         run: cargo install cargo-run-bin --locked --version 1.7.4
 
+      - name: Check cargo-binstall is not configured
+        if: matrix.needs_rust
+        run: ./scripts/check-no-binstall.sh
+
       - name: Run clippy with SARIF output
         if: matrix.check == 'clippy'
         # Pass `-D warnings` to clippy directly rather than via RUSTFLAGS so the

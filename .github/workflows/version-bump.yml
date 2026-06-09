@@ -38,6 +38,9 @@ jobs:
       - name: Install cargo-run-bin
         run: cargo install cargo-run-bin --locked --version 1.7.4
 
+      - name: Check cargo-binstall is not configured
+        run: ./scripts/check-no-binstall.sh
+
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
         with:

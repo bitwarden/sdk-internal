@@ -66,6 +66,9 @@ require_cargo_bin() {
     echo "(Binary tool versions are pinned in Cargo.toml under [workspace.metadata.bin].)" >&2
     exit 1
   fi
+  # Guard against cargo-run-bin falling through to cargo-binstall. Source installs
+  # only; see VULN-613.
+  "$REPO_ROOT/scripts/check-no-binstall.sh"
 }
 
 run_fmt() {
