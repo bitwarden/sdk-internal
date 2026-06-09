@@ -209,7 +209,7 @@ mod tests {
 
     /// Concealed strings are unwrapped as strings
     #[test]
-    fn test_credit_card_credential_to_card_mismatched_expiry_date_type() {
+    fn test_credit_card_credential_to_card_mismatched_card_type() {
         let credit_card: CreditCardCredential = serde_json::from_value(serde_json::json!({
             "cardType": {
                 "fieldType": "concealed-string",

@@ -4,23 +4,34 @@ use credential_exchange_format::{
     EditableFieldDate, EditableFieldEmail, EditableFieldNumber, EditableFieldString,
     EditableFieldSubdivisionCode, EditableFieldType as CxfEditableFieldType, EditableFieldValue,
     EditableFieldWifiNetworkSecurityType, EditableFieldYearMonth, FieldType as CxfFieldType,
+    UnexpectedField,
 };
 
 use crate::Field;
 
-/// Helper function to create a Field from any EditableField type
-pub(super) fn create_field<T>(field: &T, overridden_name: Option<impl Into<String>>) -> Field
+/// Convert a CXF [`EditableField`] into a Bitwarden [`Field`].
+///
+/// The Bitwarden `FieldType` is derived from the value's runtime CXF type rather than from the
+/// statically-expected `T`, so an unexpected payload (e.g. a `boolean` where we expected a
+/// `string`) reports the type that actually arrived — keeping the resulting `Field` coherent.
+pub(super) fn create_field<T>(
+    field: &EditableField<T>,
+    overridden_name: Option<impl Into<String>>,
+) -> Field
 where
-    T: EditableFieldToField,
+    T: InnerFieldType + CxfEditableFieldType,
 {
-    let field_name = overridden_name
-        .map(Into::into)
-        .or_else(|| field.label().clone());
+    let value = match field.value.as_expected() {
+        Ok(t) => t.to_field_value(),
+        Err(unexpected) => unexpected.to_field_value(),
+    };
 
     Field {
-        name: field_name,
-        value: Some(field.field_value()),
-        r#type: field.field_type() as u8,
+        name: overridden_name
+            .map(Into::into)
+            .or_else(|| field.label.clone()),
+        value: Some(value),
+        r#type: cxf_to_bitwarden_field_type(&field.value.field_type()) as u8,
         linked_id: None,
     }
 }
@@ -91,7 +102,7 @@ pub(super) fn field_to_editable_field_value(field: Field) -> Option<EditableFiel
 /// Defaults to the upstream `Into<String>` (which produces the spec wire form), so most types only
 /// need a marker `impl InnerFieldType for X {}`. Override `to_field_value` only when the
 /// vault-facing form should differ from the wire form (e.g. WiFi security types).
-pub(super) trait InnerFieldType: CxfEditableFieldType + Clone + Into<String> {
+pub(super) trait InnerFieldType: Clone + Into<String> {
     fn to_field_value(&self) -> String {
         self.clone().into()
     }
@@ -123,34 +134,25 @@ impl InnerFieldType for EditableFieldWifiNetworkSecurityType {
     }
 }
 
-/// Trait to convert CXF EditableField types to Bitwarden Field values and types.
-///
-/// The Bitwarden `FieldType` is derived from the value's runtime CXF type rather than from the
-/// statically-expected `T`, so an unexpected payload (e.g. a `boolean` where we expected a
-/// `string`) reports the type that actually arrived — keeping the resulting `Field` coherent.
-pub(super) trait EditableFieldToField {
-    fn field_type(&self) -> FieldType;
-    fn field_value(&self) -> String;
-    fn label(&self) -> &Option<String>;
-}
-
-impl<T> EditableFieldToField for EditableField<T>
-where
-    T: InnerFieldType,
-{
-    fn field_type(&self) -> FieldType {
-        cxf_to_bitwarden_field_type(&self.value.field_type())
-    }
-
-    fn field_value(&self) -> String {
-        match self.value.as_expected() {
-            Ok(t) => t.to_field_value(),
-            Err(unexpected) => unexpected.clone().into(),
+/// Unexpected payloads share the same string-formatting contract as the expected path. Dispatch
+/// each variant through its inner [`InnerFieldType::to_field_value`] so future overrides
+/// (currently only WiFi differs from upstream's `Into<String>`) apply uniformly to both paths.
+impl InnerFieldType for UnexpectedField {
+    fn to_field_value(&self) -> String {
+        match self {
+            UnexpectedField::String(v) => v.to_field_value(),
+            UnexpectedField::ConcealedString(v) => v.to_field_value(),
+            UnexpectedField::Boolean(v) => v.to_field_value(),
+            UnexpectedField::Date(v) => v.to_field_value(),
+            UnexpectedField::YearMonth(v) => v.to_field_value(),
+            UnexpectedField::SubdivisionCode(v) => v.to_field_value(),
+            UnexpectedField::CountryCode(v) => v.to_field_value(),
+            UnexpectedField::WifiNetworkSecurityType(v) => v.to_field_value(),
+            UnexpectedField::Email(v) => v.to_field_value(),
+            UnexpectedField::Number(v) => v.to_field_value(),
+            UnexpectedField::Unknown { value, .. } => value.clone(),
+            _ => self.clone().into(),
         }
-    }
-
-    fn label(&self) -> &Option<String> {
-        &self.label
     }
 }
 
@@ -439,6 +441,23 @@ mod tests {
                 linked_id: None,
             }
         );
+    }
+
+    /// Unexpected payloads share the per-variant formatting with the expected path, so a
+    /// `WifiNetworkSecurityType` arriving in a `string` slot still renders in vault-display form
+    /// ("WPA3 Personal") rather than wire form ("wpa3-personal").
+    #[test]
+    fn test_create_field_unexpected_wifi_security_renders_in_vault_form() {
+        let editable_field: EditableField<EditableFieldString> =
+            serde_json::from_value(serde_json::json!({
+                "fieldType": "wifi-network-security-type",
+                "value": "wpa3-personal",
+            }))
+            .unwrap();
+
+        let field = create_field(&editable_field, Some("WiFi"));
+
+        assert_eq!(field.value, Some("WPA3 Personal".to_string()));
     }
 
     /// An `Unknown` CXF field type (e.g. one we don't model) should fall back to Text.
