@@ -1456,7 +1456,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx).map_err(CryptoError::from),
             None => lenient_decrypt_cipher_view(self, ctx, key),
         }
     }
@@ -1469,7 +1469,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx)?.to_list_view(ctx, key),
             None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
@@ -1517,7 +1517,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx).map_err(CryptoError::from),
             None => strict_decrypt_cipher_view(&self.0, ctx, key),
         }
     }
@@ -1617,7 +1617,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx)?.to_list_view(ctx, key),
             None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }

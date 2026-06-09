@@ -153,7 +153,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
 #[instrument(err, skip_all, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id))]
 pub(crate) fn decrypt_blob_cipher(
     cipher: &Cipher,
-    sealed: SealedCipherBlob,
+    sealed: &SealedCipherBlob,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<CipherView, BlobEncryptionError> {
     let outer_key = cipher.key_identifier();
@@ -315,7 +315,7 @@ mod tests {
         cipher.key = view.key.clone();
 
         let view =
-            decrypt_blob_cipher(&cipher, try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
         assert_eq!(view.name, "Round Trip");
         assert_eq!(view.notes, Some("Some notes".to_string()));
     }
@@ -547,7 +547,7 @@ mod tests {
         assert!(try_parse_blob(&cipher).is_some());
 
         let restored =
-            decrypt_blob_cipher(&cipher, try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
 
         assert_eq!(restored.name, "My Login");
         assert_eq!(restored.notes, Some("Secret notes".to_string()));
@@ -586,7 +586,7 @@ mod tests {
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
         let restored =
-            decrypt_blob_cipher(&cipher, try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
 
         assert_eq!(restored.name, "My Card");
         assert_eq!(restored.notes, Some("Card notes".to_string()));
@@ -619,7 +619,7 @@ mod tests {
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
         let restored =
-            decrypt_blob_cipher(&cipher, try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
 
         assert_eq!(restored.id, Some(cipher_id));
         assert!(restored.favorite);
