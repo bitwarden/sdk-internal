@@ -24,7 +24,7 @@ bitwarden-cli = { workspace = true }
 bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-generators = { workspace = true }
-bitwarden-pm = { workspace = true }
+bitwarden-pm = { workspace = true, features = ["cli"] }
 bitwarden-sync = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }

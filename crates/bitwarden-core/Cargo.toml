@@ -29,6 +29,7 @@ no-memory-hardening = [
 secrets = [] # Secrets manager API
 uniffi = [
     "internal",
+    "bitwarden-api-base/uniffi",
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",

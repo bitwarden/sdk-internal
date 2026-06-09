@@ -12,8 +12,18 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  style:
+  check:
     name: Check Style
+    runs-on: ubuntu-24.04
+    needs: style
+    if: always()
+    steps:
+      - name: Verify all style checks passed
+        if: ${{ needs.style.result != 'success' }}
+        run: exit 1
+
+  style:
+    name: ${{ matrix.check }}
 
     runs-on: ubuntu-24.04
 
@@ -21,33 +31,62 @@ jobs:
       contents: read
       security-events: write
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: fmt
+            needs_rust: true
+            needs_rust_nightly: true
+          - check: clippy
+            needs_rust: true
+          - check: sort
+            needs_rust: true
+          - check: udeps
+            needs_rust: true
+            needs_rust_nightly: true
+          - check: dylint
+            needs_rust: true
+          - check: doc
+            needs_rust: true
+          - check: prettier
+            needs_node: true
+          - check: dep-ownership
+            needs_node: true
+          - check: cargo-lock
+            needs_rust: true
+
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - name: Set Rust Toolchain
+      - name: Set Rust toolchain version
+        if: matrix.needs_rust
         id: toolchain
         shell: bash
         run: |
           RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
           echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
-      - name: Set Rust Nightly Toolchain
+      - name: Set Rust nightly toolchain version
+        if: matrix.needs_rust_nightly
         id: nightly-toolchain
         shell: bash
         run: |
           RUST_NIGHTLY_TOOLCHAIN="$(grep -oP '^nightly-channel.*"(\K.*?)(?=")' rust-toolchain.toml)"
           echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
-      - name: Install rust
+      - name: Install Rust
+        if: matrix.needs_rust
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           components: clippy, rustfmt
 
-      - name: Install rust nightly
+      - name: Install Rust nightly
+        if: matrix.needs_rust_nightly
         env:
           RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
         run: |
@@ -55,69 +94,50 @@ jobs:
           rustup component add rustfmt --toolchain "${RUST_NIGHTLY_TOOLCHAIN}"-x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry
+        if: matrix.needs_rust
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      - name: Cargo fmt
-        env:
-          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
-        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" fmt --check
+      # Cache cargo-run-bin's built tools (.bin) separately from rust-cache. The
+      # tools depend only on their pinned versions (Cargo.toml) and the toolchain,
+      # not on Cargo.lock, so this key avoids rust-cache's lockfile rotation. Keyed
+      # per check so each one caches only the tools it builds, with no contention
+      # (rust-cache keys all matrix checks under one shared job-based key).
+      - name: Cache cargo-run-bin tools
+        if: matrix.needs_rust
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: .bin
+          key: cargo-bin-${{ runner.os }}-${{ matrix.check }}-${{ hashFiles('Cargo.toml', 'rust-toolchain.toml') }}
+          restore-keys: |
+            cargo-bin-${{ runner.os }}-${{ matrix.check }}-
 
-      - name: Install clippy-sarif and sarif-fmt
-        run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
+      - name: Install cargo-run-bin
+        if: matrix.needs_rust
+        run: cargo install cargo-run-bin --locked --version 1.7.4
 
-      - name: Cargo clippy-sarif
-        run: cargo clippy --all-features --all-targets --message-format=json |
-          clippy-sarif | tee clippy_result.sarif | sarif-fmt
-        env:
-          RUSTFLAGS: "-D warnings"
+      - name: Check cargo-binstall is not configured
+        if: matrix.needs_rust
+        run: ./scripts/check-no-binstall.sh
 
-      - name: Upload Clippy results to GitHub
+      - name: Run clippy with SARIF output
+        if: matrix.check == 'clippy'
+        # Pass `-D warnings` to clippy directly rather than via RUSTFLAGS so the
+        # deny level applies only to the linted crates, not to the from-source
+        # builds of clippy-sarif/sarif-fmt that `cargo bin` triggers in this step
+        # (some of their transitive deps emit warnings we don't control).
+        run: cargo clippy --all-features --all-targets --message-format=json -- -D warnings |
+          cargo bin clippy-sarif | tee clippy_result.sarif | cargo bin sarif-fmt
+
+      - name: Upload clippy results to GitHub
+        if: matrix.check == 'clippy'
         uses: github/codeql-action/upload-sarif@6bc82e05fd0ea64601dd4b465378bbcf57de0314 # v4.32.1
         with:
           sarif_file: clippy_result.sarif
           sha: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.sha }}
           ref: ${{ contains(github.event_name, 'pull_request') && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
 
-      # Run it again but this time without the sarif output so that the
-      # status code of the command is caught and reported as failed in GitHub.
-      # This should be cached from the previous step and should be fast.
-      - name: Cargo clippy
-        run: cargo clippy --all-features --all-targets
-        env:
-          RUSTFLAGS: "-D warnings"
-
-      - name: Install cargo-sort
-        run: cargo install cargo-sort --version 2.0.2 --locked
-
-      - name: Cargo sort
-        run: cargo sort --workspace --grouped --check
-
-      - name: Install cargo-udeps
-        run: cargo install cargo-udeps --version 0.1.57 --locked
-
-      - name: Cargo udeps
-        env:
-          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
-        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" udeps --workspace --all-features
-
-      - name: Install cargo-dylint
-        run: cargo install cargo-dylint dylint-link --version 5.0.0 --locked
-
-      - name: Cargo dylint
-        run: cargo dylint --all -- --all-features --all-targets
-        env:
-          RUSTFLAGS: "-D warnings"
-
-      - name: Check Cargo.lock unchanged
-        run: |
-          if git diff --exit-code Cargo.lock; then
-            echo "Cargo.lock is unchanged"
-          else
-            echo "Error: Cargo.lock has been modified. Please run `cargo check` and commit the changes to Cargo.lock."
-            exit 1
-          fi
-
       - name: Set up Node
+        if: matrix.needs_node
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           cache: "npm"
@@ -125,15 +145,8 @@ jobs:
           node-version: "16"
 
       - name: NPM setup
+        if: matrix.needs_node
         run: npm ci
 
-      - name: Lint unowned dependencies
-        run: npm run lint:dep-ownership
-
-      - name: Node Lint
-        run: npm run lint
-
-      - name: Verify rust documentation links
-        run: cargo doc --no-deps --all-features --document-private-items
-        env:
-          RUSTDOCFLAGS: "-D warnings"
+      - name: Run lint --only ${{ matrix.check }}
+        run: ./scripts/lint.sh --only ${{ matrix.check }}
