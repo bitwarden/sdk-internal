@@ -23,7 +23,7 @@ fn main() {
     #[cfg(not(feature = "dangerous-crypto-debug"))]
     assert_eq!(format!("{token:?}"), "[REDACTED]");
 
-    // `into_inner` consumes the wrapper and returns the underlying value.
+    // `expose_owned` consumes the wrapper and returns the underlying value.
     let raw = token.expose_owned();
     assert_eq!(raw, 0xDEAD_BEEF);
 }
