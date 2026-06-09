@@ -148,6 +148,7 @@ print_stderr = "warn"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(feature, values("uniffi", "wasm"))',
+    'cfg(dylint_lib, values("bitwarden_lints"))',
 ] }
 
 [workspace.metadata.dylint]
