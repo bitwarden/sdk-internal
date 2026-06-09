@@ -87,7 +87,12 @@ pub struct SendTextView {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+<<<<<<< tools/pm-37185/replace-tsify-with-wasm-bindgen
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+=======
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(dylint_lib = "bitwarden_lints", allow(repr_with_tsify))]
+>>>>>>> main
 pub enum SendType {
     /// Text-based send
     Text = 0,
@@ -99,7 +104,12 @@ pub enum SendType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+<<<<<<< tools/pm-37185/replace-tsify-with-wasm-bindgen
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+=======
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(dylint_lib = "bitwarden_lints", allow(repr_with_tsify))]
+>>>>>>> main
 pub enum AuthType {
     /// Email-based OTP authentication
     Email = 0,
