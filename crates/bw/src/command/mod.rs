@@ -17,6 +17,7 @@ use crate::{
     auth::LoginArgs,
     key_management::{LockArgs, UnlockArgs},
     platform::{CompletionArgs, ConfigCommand, EncodeArgs, ServeArgs, StatusArgs, SyncArgs},
+    render::Output,
     tools::{ExportArgs, GenerateArgs, ImportArgs, ReceiveArgs, SendArgs},
     vault::RestoreArgs,
 };
@@ -42,9 +43,9 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 
-    // Disabled since it collides with other flags.
-    // #[arg(short = 'o', long, global = true, value_enum, default_value_t = Output::JSON)]
-    // pub output: Output,
+    #[arg(short = 'o', global = true, value_enum, default_value_t = Output::JSON)]
+    pub output: Output,
+
     /// Color
     #[arg(short = 'c', long, global = true, value_enum, default_value_t = Color::Auto)]
     pub color: Color,
