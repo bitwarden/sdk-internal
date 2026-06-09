@@ -8,7 +8,7 @@ use crate::{
     auth::auth_tokens::TokenHandler,
     client::{
         ClientBuilder, get_host_platform_info,
-        persisted_state::{ACCOUNT_CRYPTO_STATE, BASE_URLS, BaseUrls, USER_ID},
+        persisted_state::{ACCOUNT_CRYPTO_STATE, BASE_URLS, BaseUrls, USER_EMAIL, USER_ID},
     },
     key_management::account_cryptographic_state::WrappedAccountCryptographicState,
 };
@@ -31,6 +31,8 @@ pub enum RehydrationError {
 pub struct SaveStateData {
     /// The authenticated user's ID.
     pub user_id: UserId,
+    /// The authenticated user's email.
+    pub email: String,
     /// The base API URLs for the user's server.
     pub urls: BaseUrls,
     /// The user's wrapped account cryptographic state.
@@ -54,6 +56,11 @@ impl Client {
         reg.setting(USER_ID)
             .map_err(|e| RehydrationError::State(e.into()))?
             .update(data.user_id)
+            .await
+            .map_err(RehydrationError::State)?;
+        reg.setting(USER_EMAIL)
+            .map_err(|e| RehydrationError::State(e.into()))?
+            .update(data.email)
             .await
             .map_err(RehydrationError::State)?;
         reg.setting(ACCOUNT_CRYPTO_STATE)
@@ -135,7 +142,7 @@ mod tests {
     use crate::{
         DeviceType, HostPlatformInfo, UserId,
         auth::auth_tokens::NoopTokenHandler,
-        client::persisted_state::{ACCOUNT_CRYPTO_STATE, BASE_URLS, BaseUrls, USER_ID},
+        client::persisted_state::{ACCOUNT_CRYPTO_STATE, BASE_URLS, BaseUrls, USER_EMAIL, USER_ID},
         key_management::{
             KeySlotIds, SecurityState,
             account_cryptographic_state::WrappedAccountCryptographicState,
@@ -189,9 +196,14 @@ mod tests {
         }
     }
 
+    fn test_email() -> String {
+        "user@example.com".to_string()
+    }
+
     fn test_save_data() -> SaveStateData {
         SaveStateData {
             user_id: test_user_id(),
+            email: test_email(),
             urls: test_base_urls(),
             crypto_state: test_crypto_state(),
         }
@@ -202,6 +214,7 @@ mod tests {
         let reg = StateRegistry::new_with_memory_db();
         let data = test_save_data();
         let expected_user_id = data.user_id;
+        let expected_email = data.email.clone();
         let expected_urls_identity = data.urls.identity_url.clone();
         let expected_urls_api = data.urls.api_url.clone();
 
@@ -226,6 +239,15 @@ mod tests {
             .unwrap()
             .expect("USER_ID should be present");
         assert_eq!(user_id, expected_user_id);
+
+        let email: String = reg
+            .setting(USER_EMAIL)
+            .unwrap()
+            .get()
+            .await
+            .unwrap()
+            .expect("USER_EMAIL should be present");
+        assert_eq!(email, expected_email);
 
         let crypto_state: WrappedAccountCryptographicState = reg
             .setting(ACCOUNT_CRYPTO_STATE)

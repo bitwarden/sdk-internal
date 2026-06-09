@@ -150,10 +150,27 @@ print_stderr = "warn"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(feature, values("uniffi", "wasm"))',
+    'cfg(dylint_lib, values("bitwarden_lints"))',
 ] }
 
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]
+
+# Pinned binary cargo tools used by CI and `scripts/lint.sh`.
+# Install the runner once with `cargo install cargo-run-bin --locked`, then
+# invoke any tool via `cargo bin <tool> <args>`. See README for details.
+[workspace.metadata.bin]
+cargo-sort = { version = "2.0.2", locked = true }
+cargo-udeps = { version = "0.1.57", locked = true }
+cargo-hack = { version = "0.6.33", locked = true }
+cargo-llvm-cov = { version = "0.5.38", locked = true }
+cargo-release = { version = "0.25.20", locked = true }
+cargo-edit = { version = "0.13.6", locked = true, bins = ["cargo-set-version"] }
+cargo-dylint = { version = "5.0.0", locked = true }
+dylint-link = { version = "5.0.0", locked = true }
+cross = { version = "0.2.5", git = "https://github.com/cross-rs/cross.git", rev = "185398b1b885820515a212de720a306b08e2c8c9", locked = true }
+clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
+sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out

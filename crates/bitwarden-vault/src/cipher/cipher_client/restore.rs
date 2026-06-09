@@ -157,7 +157,7 @@ mod tests {
     };
     use bitwarden_collections::collection::CollectionId;
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
     use chrono::Utc;
@@ -173,7 +173,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
         store
     }
@@ -247,7 +247,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
@@ -347,7 +347,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         repository.set(cipher_id, cipher_1).await.unwrap();
