@@ -31,7 +31,8 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, SecurityState, V2UpgradeToken,
+        MasterPasswordUnlockData, PrivateKeySlotId, SecurityState, SigningKeySlotId,
+        SymmetricKeySlotId, V2UpgradeToken,
         account_cryptographic_state::WrappedAccountCryptographicState, state_bridge::StateBridge,
     },
 };
@@ -289,6 +290,15 @@ impl InternalClient {
         // Note: The actual key does not get logged unless the crypto crate has the
         // dangerous-crypto-debug feature enabled, so this is safe
         info!("Setting user key with ID {:?}", user_key_id);
+
+        // The key store should not already have any keys initialized
+        if ctx.has_symmetric_key(SymmetricKeySlotId::User)
+            || ctx.has_private_key(PrivateKeySlotId::UserPrivateKey)
+            || ctx.has_signing_key(SigningKeySlotId::UserSigningKey)
+        {
+            return Err(EncryptionSettingsError::CryptoInitialization);
+        }
+
         // The user key gets set to the local context frame here; It then gets persisted to the
         // context when the cryptographic state was unwrapped correctly, so that there is no
         // risk of a partial / incorrect setup.
