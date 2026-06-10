@@ -68,11 +68,10 @@ pub(crate) async fn submit_import(
         match options.organization_id {
             // Personal vault: groups become folders, optionally nested under the target folder.
             None => {
-                // A target folder requires both an id and a name; derive it once so the folder
-                // list and the relationship shifting can't disagree.
                 let target_folder = options
-                    .target_folder_id
-                    .and_then(|id| options.target_folder_name.as_deref().map(|name| (id, name)));
+                    .target_folder
+                    .as_ref()
+                    .map(|t| (t.id, t.name.as_str()));
                 let folder_views = build_personal_folders(parsed.folders, target_folder);
                 let folder_models = folder_views
                     .into_iter()
@@ -116,37 +115,39 @@ pub(crate) async fn submit_import(
                     .collect::<Result<Vec<_>, _>>()?;
                 let folder_count = folder_models.len();
 
-                let (collection_models, collection_relationships) =
-                    match (options.target_collection_id, options.target_collection_name) {
-                        (Some(id), Some(name)) => {
-                            let view = CollectionView {
-                                id: Some(id),
-                                organization_id,
-                                name,
-                                external_id: None,
-                                hide_passwords: false,
-                                read_only: false,
-                                manage: true,
-                                r#type: CollectionType::SharedCollection,
-                            };
-                            let collection: Collection =
-                                view.encrypt_composite(&mut ctx, view.key_identifier())?;
-                            let relationships =
-                                (0..cipher_count).map(|c| (c, 0)).collect::<Vec<_>>();
-                            // The name is already encrypted; this is just the wire shape.
-                            let model = CollectionWithIdRequestModel {
-                                name: collection.name.to_string(),
-                                external_id: collection.external_id.clone(),
-                                groups: None,
-                                users: None,
-                                id: collection.id.map(Into::into),
-                            };
-                            (vec![model], relationships)
-                        }
-                        // No target: ciphers are submitted unassigned (the server enforces
-                        // permissions).
-                        _ => (Vec::new(), Vec::new()),
-                    };
+                let (collection_models, collection_relationships) = match options.target_collection
+                {
+                    Some(target) => {
+                        // `hide_passwords`/`read_only`/`manage` are required to build the view
+                        // but aren't carried by `CollectionWithIdRequestModel` — they're not a
+                        // permission decision, just construction placeholders.
+                        let view = CollectionView {
+                            id: Some(target.id),
+                            organization_id,
+                            name: target.name,
+                            external_id: None,
+                            hide_passwords: false,
+                            read_only: false,
+                            manage: true,
+                            r#type: CollectionType::SharedCollection,
+                        };
+                        let collection: Collection =
+                            view.encrypt_composite(&mut ctx, view.key_identifier())?;
+                        let relationships = (0..cipher_count).map(|c| (c, 0)).collect::<Vec<_>>();
+                        // The name is already encrypted; this is just the wire shape.
+                        let model = CollectionWithIdRequestModel {
+                            name: collection.name.to_string(),
+                            external_id: collection.external_id.clone(),
+                            groups: None,
+                            users: None,
+                            id: collection.id.map(Into::into),
+                        };
+                        (vec![model], relationships)
+                    }
+                    // No target: ciphers are submitted unassigned (the server enforces
+                    // permissions).
+                    None => (Vec::new(), Vec::new()),
+                };
                 let collection_count = collection_models.len();
 
                 let model = ImportOrganizationCiphersRequestModel {

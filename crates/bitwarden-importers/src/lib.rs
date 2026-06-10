@@ -21,8 +21,9 @@ mod pipeline;
 ///
 /// `organization_id` selects the destination: `None` imports into the user's personal vault (groups
 /// become personal folders), `Some` imports into that organization (ciphers are encrypted with the
-/// org key). The `target_*` fields nest the import under an existing folder (personal) or
-/// collection (organization), mirroring the client's import-target behavior. `restricted_types` are
+/// org key). `target_folder` (personal) and `target_collection` (organization) nest the import
+/// under an existing destination, mirroring the client's import-target behavior; each carries both
+/// its id and name together so a half-specified target can't be expressed. `restricted_types` are
 /// dropped before submission.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -33,14 +34,38 @@ mod pipeline;
 )]
 pub struct ImportOptions {
     pub organization_id: Option<OrganizationId>,
-    pub target_folder_id: Option<FolderId>,
-    pub target_folder_name: Option<String>,
-    pub target_collection_id: Option<CollectionId>,
-    pub target_collection_name: Option<String>,
+    pub target_folder: Option<ImportTargetFolder>,
+    pub target_collection: Option<ImportTargetCollection>,
     // `VaultCipherType` is the wasm-bindgen enum exported as `CipherType`; pin the TS name so
     // tsify doesn't emit the Rust alias.
     #[cfg_attr(feature = "wasm", tsify(type = "CipherType[]"))]
     pub restricted_types: Vec<VaultCipherType>,
+}
+
+/// An existing personal folder to nest a personal import under.
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(from_wasm_abi)
+)]
+pub struct ImportTargetFolder {
+    pub id: FolderId,
+    pub name: String,
+}
+
+/// An existing organization collection to assign an org import to.
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
+    tsify(from_wasm_abi)
+)]
+pub struct ImportTargetCollection {
+    pub id: CollectionId,
+    pub name: String,
 }
 
 /// Counts of what an import submitted to the server, broken down by cipher type so the client can
