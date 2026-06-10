@@ -697,4 +697,148 @@ mod test {
             password_with_rng(&mut rng_b, opts_b)
         );
     }
+
+    #[test]
+    fn test_custom_required_chars_appear_in_output() {
+        // The generator allocates one slot from the custom-required set up front, so at least
+        // one of the supplied chars is guaranteed to appear in the output.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            length: 32,
+            custom_required_chars: Some("!@#".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        // Required-custom contributes 1 to the minimum-count.
+        assert_eq!(options.custom.1, 1);
+        assert_eq!(to_set(&options.custom.0), BTreeSet::from(['!', '@', '#']));
+
+        let pass = password_with_rng(&mut rng, options);
+        let any = pass.chars().any(|c| matches!(c, '!' | '@' | '#'));
+        assert!(any, "expected at least one of !@# in {pass:?}");
+    }
+
+    #[test]
+    fn test_custom_allowed_chars_extend_pool_without_requirement() {
+        // `custom_allowed_chars` should join the overall pool but not force any specific char
+        // to appear. With no standard classes enabled, the output should consist exclusively
+        // of the allowed-custom chars.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 16,
+            custom_allowed_chars: Some("XYZ".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        // The `custom` slot covers required chars only — empty here.
+        assert!(to_set(&options.custom.0).is_empty());
+        assert_eq!(options.custom.1, 0);
+        // The `all` pool is the union of every enabled set — just XYZ in this case.
+        assert_eq!(to_set(&options.all.0), BTreeSet::from(['X', 'Y', 'Z']));
+
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            pass.chars().all(|c| matches!(c, 'X' | 'Y' | 'Z')),
+            "expected output to consist only of XYZ, got {pass:?}"
+        );
+        assert_eq!(pass.chars().count(), 16);
+    }
+
+    #[test]
+    fn test_custom_required_is_sole_charset_when_no_standards_enabled() {
+        // Only `custom_required_chars` set, no standard classes, no allowed extension:
+        // the request must validate, and the output must be drawn exclusively from those chars.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 8,
+            custom_required_chars: Some("abc".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        assert_eq!(options.custom.1, 1);
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            pass.chars().all(|c| matches!(c, 'a' | 'b' | 'c')),
+            "expected output to consist only of abc, got {pass:?}"
+        );
+        assert_eq!(pass.chars().count(), 8);
+    }
+
+    #[test]
+    fn test_custom_chars_are_sanitized() {
+        // `sanitize_custom_chars` keeps ASCII-graphic chars, drops whitespace, and dedupes.
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 8,
+            custom_required_chars: Some(" a\tbb!@\n".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        // Whitespace ( , \t, \n) dropped; the doubled 'b' deduplicated.
+        assert_eq!(
+            to_set(&options.custom.0),
+            BTreeSet::from(['a', 'b', '!', '@'])
+        );
+    }
+
+    #[test]
+    fn test_custom_required_and_allowed_compose() {
+        // Required chars must appear (1 slot reserved); allowed chars contribute to the pool
+        // but aren't forced; the total pool is the union of all custom sets.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 16,
+            custom_required_chars: Some("!".to_string()),
+            custom_allowed_chars: Some("abc".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        assert_eq!(to_set(&options.custom.0), BTreeSet::from(['!']));
+        assert_eq!(options.custom.1, 1);
+        assert_eq!(to_set(&options.all.0), BTreeSet::from(['!', 'a', 'b', 'c']));
+
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            pass.contains('!'),
+            "expected required ! to appear in {pass:?}"
+        );
+        assert!(
+            pass.chars().all(|c| matches!(c, '!' | 'a' | 'b' | 'c')),
+            "expected output to consist only of !abc, got {pass:?}"
+        );
+    }
 }
