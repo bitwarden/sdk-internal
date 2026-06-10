@@ -115,15 +115,16 @@ pub struct SendEditRequest {
 /// Internal helper struct that includes the send key for encryption.
 /// The key is retrieved from state during edit operations.
 ///
-/// `preserved_auth` carries the encrypted-form auth fields (password hash, emails
-/// comma-string, discriminant) read off the existing repository row when the caller asked
-/// to preserve auth (`SendEditRequest.auth == AuthEdit::Preserve`). When `request.auth`
-/// is `AuthEdit::Set { .. }`, this field is `None` and `request.auth` is the source of truth.
+/// `resolved_auth` carries the auth state that will be written to the server, already
+/// resolved at the `edit_send` boundary from the (`request.auth`, existing-row snapshot)
+/// pair. The encryption path consumes `resolved_auth` rather than `request.auth` so the
+/// "preserve was requested but we didn't snapshot" case is structurally impossible —
+/// no defensive fallback to `AuthType::None` (the auth-strip shape) is needed.
 #[derive(Debug)]
 struct SendEditRequestWithKey {
     request: SendEditRequest,
     send_key: String,
-    preserved_auth: Option<PreservedAuth>,
+    resolved_auth: ResolvedAuth,
 }
 
 /// Snapshot of an existing Send's wire-format auth fields, used to round-trip the auth
@@ -133,6 +134,20 @@ struct PreservedAuth {
     password: Option<String>,
     emails: Option<String>,
     auth_type: crate::AuthType,
+}
+
+/// Already-resolved auth for an encrypted edit request. Constructed at the `edit_send`
+/// boundary so the encryption path doesn't need a defensive fallback for the (logically
+/// impossible) "preserve was requested but we didn't snapshot the existing row" case.
+#[derive(Debug)]
+enum ResolvedAuth {
+    /// Caller passed `AuthEdit::Set { auth }` — write this auth verbatim. The carried
+    /// `SendAuthType` has already been `validate()`-d before this variant is built.
+    Overwrite(SendAuthType),
+    /// Caller passed `AuthEdit::Preserve` — forward the snapshot read off the existing
+    /// repository row verbatim. Stored password hash and email list go to the server
+    /// as-is so partial edits don't silently strip a previously configured gate.
+    Preserve(PreservedAuth),
 }
 
 impl
@@ -161,27 +176,22 @@ impl
             .clone()
             .encrypt_composite(ctx, send_key)?;
 
-        // Resolve auth from one of two sources, in order of precedence:
-        //   1. `AuthEdit::Set { auth }` authoritatively overwrites the server-side auth (including
-        //      switching to `SendAuthType::None` to remove protection).
-        //   2. `AuthEdit::Preserve` forwards the snapshot read off the existing repository row,
-        //      verbatim. This branch forwards the stored password hash and email list as-is, so a
-        //      partial edit never silently strips a previously configured password or email-OTP
-        //      gate.
-        let (auth_type, password, emails) = match (&self.request.auth, &self.preserved_auth) {
-            (AuthEdit::Set { auth }, _) => {
+        // `resolved_auth` was built at the `edit_send` boundary from the
+        // (`request.auth`, existing-row) pair, so both arms here are reachable and
+        // exhaustive. The previous shape kept `request.auth` + an `Option<PreservedAuth>`
+        // and needed a defensive fallback for the (impossible) "preserve was requested
+        // but no snapshot" combination — that fallback returned the auth-strip shape,
+        // which we want to make structurally impossible rather than merely unreachable.
+        let (auth_type, password, emails) = match &self.resolved_auth {
+            ResolvedAuth::Overwrite(auth) => {
                 let (password, emails) = auth.auth_data(&k);
                 (auth.auth_type(), password, emails)
             }
-            (AuthEdit::Preserve, Some(preserved)) => (
+            ResolvedAuth::Preserve(preserved) => (
                 preserved.auth_type,
                 preserved.password.clone(),
                 preserved.emails.clone(),
             ),
-            // Unreachable in practice: `edit_send` always populates `preserved_auth` when
-            // `request.auth` is `AuthEdit::Preserve`. Fall back to "no auth" defensively rather
-            // than panicking from inside an encryption path.
-            (AuthEdit::Preserve, None) => (crate::AuthType::None, None, None),
         };
 
         Ok(bitwarden_api_api::models::SendRequestModel {
@@ -224,26 +234,30 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
     send_id: SendId,
     request: SendEditRequest,
 ) -> Result<SendView, EditSendError> {
-    // Only validate when the caller is asserting a new auth configuration; `Preserve`
-    // means "use the existing row", which is already a server-validated value.
-    if let AuthEdit::Set { auth } = &request.auth {
-        auth.validate()?;
-    }
-
     let id = send_id.to_string();
 
-    // Retrieve the existing send to get its key (keys cannot be modified during edit)
+    // Retrieve the existing send to get its key (keys cannot be modified during edit) and
+    // the wire-format auth fields used by the `Preserve` path.
     let existing_send = repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
 
-    // Snapshot the existing wire-format auth fields before we move out the key. These
-    // are read directly off the encrypted `Send` (no decryption needed for `password`,
-    // `emails`, or `auth_type`) so the SDK can round-trip auth on partial edits without
-    // requiring the plaintext password back from the caller.
-    let preserved_auth = matches!(request.auth, AuthEdit::Preserve).then(|| PreservedAuth {
-        password: existing_send.password.clone(),
-        emails: existing_send.emails.clone(),
-        auth_type: existing_send.auth_type,
-    });
+    // Resolve auth at the boundary so the encryption path doesn't need a "preserve but
+    // didn't snapshot" defensive fallback (which would otherwise have the auth-strip
+    // shape). Validation runs inline on the `Set` arm — `Preserve` reuses the existing
+    // server-validated row verbatim. Snapshot fields (`password` hash, `emails` comma-
+    // string, `auth_type`) are read directly off the encrypted `Send` (no decryption
+    // needed), so the SDK can round-trip auth on partial edits without requiring the
+    // plaintext password back from the caller.
+    let resolved_auth = match &request.auth {
+        AuthEdit::Set { auth } => {
+            auth.validate()?;
+            ResolvedAuth::Overwrite(auth.clone())
+        }
+        AuthEdit::Preserve => ResolvedAuth::Preserve(PreservedAuth {
+            password: existing_send.password.clone(),
+            emails: existing_send.emails.clone(),
+            auth_type: existing_send.auth_type,
+        }),
+    };
 
     // Decrypt to get the key - we only need the key field
     let existing_send_view: SendView = key_store.decrypt(&existing_send)?;
@@ -253,7 +267,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
     let request_with_key = SendEditRequestWithKey {
         request,
         send_key,
-        preserved_auth,
+        resolved_auth,
     };
 
     let send_request = key_store.encrypt(request_with_key)?;
