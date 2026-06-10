@@ -4,6 +4,8 @@
 //! the SDK is fully implemented. When porting functionality from `client` the mobile clients should
 //! be updated to consume the regular code paths and in this module should eventually disappear.
 
+#[cfg(feature = "uniffi")]
+mod reinit_user_crypto;
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
@@ -19,6 +21,10 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
+#[cfg(feature = "uniffi")]
+pub(super) use reinit_user_crypto::reinit_user_crypto;
+#[cfg(feature = "uniffi")]
+pub use reinit_user_crypto::{ReinitUserCryptoError, ReinitUserCryptoRequest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -392,8 +398,7 @@ pub(super) async fn initialize_user_crypto(
             .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
     }
 
-    initialize_user_local_data_key(client).await?;
-    PinLockSystem::on_unlock(&PinLockSystem::with_client(client)).await;
+    on_unlock_handler(client).await?;
 
     client
         .internal
@@ -1157,6 +1162,17 @@ async fn initialize_user_local_data_key(client: &Client) -> Result<(), Encryptio
     wrapped_key
         .unwrap_to_context(&mut ctx)
         .map_err(|_| EncryptionSettingsError::LocalUserDataKeyLoadFailed)
+}
+
+/// Runs the code needed post unlock used by `initialize_user_crypto` and `reinit_user_crypto`.
+///
+/// Both code paths leave the SDK in an unlocked state with the active user key in the key store,
+/// and both need to ensure derived per-user state is consistent with that user key before clients
+/// can use the session.
+async fn on_unlock_handler(client: &Client) -> Result<(), EncryptionSettingsError> {
+    initialize_user_local_data_key(client).await?;
+    PinLockSystem::on_unlock(&PinLockSystem::with_client(client)).await;
+    Ok(())
 }
 
 /// Create the data needed to register for JIT master password
