@@ -38,7 +38,7 @@ bitwarden-pm = { workspace = true, features = ["uniffi"] }
 bitwarden-policies = { workspace = true, features = ["uniffi"] }
 bitwarden-send = { workspace = true, features = ["uniffi"] }
 bitwarden-server-communication-config = { workspace = true, features = ["uniffi"] }
-bitwarden-ssh = { workspace = true, features = ["uniffi"] }
+bitwarden-ssh = { workspace = true, features = ["uniffi", "ecdsa-keys"] }
 bitwarden-state = { workspace = true, features = ["uniffi"] }
 bitwarden-uniffi-error = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["uniffi"] }
