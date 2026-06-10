@@ -67,8 +67,13 @@ pub enum AuthEdit {
     /// verbatim — no plaintext password is required.
     Preserve,
     /// Replace the existing auth with the supplied value. Pass `SendAuthType::None`
-    /// here to explicitly strip auth from the Send.
-    Set(SendAuthType),
+    /// to explicitly strip auth from the Send. The `auth` field is a named struct
+    /// variant (not tuple) so the inner `SendAuthType`'s internally-tagged `"type"`
+    /// key doesn't collide with this enum's own `"type"` tag on the wire.
+    Set {
+        /// The new auth configuration to apply.
+        auth: SendAuthType,
+    },
 }
 
 /// Request model for editing an existing Send.
@@ -98,7 +103,7 @@ pub struct SendEditRequest {
 
     /// Authentication method for accessing this Send.
     ///
-    /// `AuthEdit::Set(_)` overwrites the existing auth (including switching to
+    /// `AuthEdit::Set { auth: _ }` overwrites the existing auth (including switching to
     /// `SendAuthType::None` to remove all protection). `AuthEdit::Preserve` tells
     /// the SDK to forward the existing Send's `password` hash, email list, and
     /// `authType` discriminant verbatim to the server. Use `Preserve` when the
@@ -113,7 +118,7 @@ pub struct SendEditRequest {
 /// `preserved_auth` carries the encrypted-form auth fields (password hash, emails
 /// comma-string, discriminant) read off the existing repository row when the caller asked
 /// to preserve auth (`SendEditRequest.auth == AuthEdit::Preserve`). When `request.auth`
-/// is `AuthEdit::Set(_)`, this field is `None` and `request.auth` is the source of truth.
+/// is `AuthEdit::Set { .. }`, this field is `None` and `request.auth` is the source of truth.
 #[derive(Debug)]
 struct SendEditRequestWithKey {
     request: SendEditRequest,
@@ -157,14 +162,14 @@ impl
             .encrypt_composite(ctx, send_key)?;
 
         // Resolve auth from one of two sources, in order of precedence:
-        //   1. `AuthEdit::Set(_)` authoritatively overwrites the server-side auth (including
+        //   1. `AuthEdit::Set { auth }` authoritatively overwrites the server-side auth (including
         //      switching to `SendAuthType::None` to remove protection).
         //   2. `AuthEdit::Preserve` forwards the snapshot read off the existing repository row,
         //      verbatim. This branch forwards the stored password hash and email list as-is, so a
         //      partial edit never silently strips a previously configured password or email-OTP
         //      gate.
         let (auth_type, password, emails) = match (&self.request.auth, &self.preserved_auth) {
-            (AuthEdit::Set(auth), _) => {
+            (AuthEdit::Set { auth }, _) => {
                 let (password, emails) = auth.auth_data(&k);
                 (auth.auth_type(), password, emails)
             }
@@ -221,7 +226,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
 ) -> Result<SendView, EditSendError> {
     // Only validate when the caller is asserting a new auth configuration; `Preserve`
     // means "use the existing row", which is already a server-validated value.
-    if let AuthEdit::Set(auth) = &request.auth {
+    if let AuthEdit::Set { auth } = &request.auth {
         auth.validate()?;
     }
 
@@ -308,6 +313,58 @@ mod tests {
 
     use super::*;
     use crate::{AuthType, SendTextView, SendType, SendViewType};
+
+    /// `AuthEdit` is serialized with `#[serde(tag = "type")]`, and its `Set` variant
+    /// carries a `SendAuthType` that *also* uses `#[serde(tag = "type")]`. With a tuple
+    /// variant (`Set(SendAuthType)`) the inner type's tag would flatten into the outer
+    /// object and collide with the outer tag, producing `{"type":"set","type":"password",...}`
+    /// (invalid JSON; deserialize would fail with "duplicate field 'type'"). The struct
+    /// variant `Set { auth: SendAuthType }` wraps the inner type in a sub-object instead,
+    /// keeping the two `"type"` tags in separate scopes. This test pins the wire shape so
+    /// the regression can't reappear.
+    #[test]
+    fn auth_edit_round_trips_through_json_without_duplicate_type_keys() {
+        let cases = [
+            (AuthEdit::Preserve, serde_json::json!({"type": "preserve"})),
+            (
+                AuthEdit::Set {
+                    auth: SendAuthType::None,
+                },
+                serde_json::json!({"type": "set", "auth": {"type": "none"}}),
+            ),
+            (
+                AuthEdit::Set {
+                    auth: SendAuthType::Password {
+                        password: "hunter2".to_string(),
+                    },
+                },
+                serde_json::json!({
+                    "type": "set",
+                    "auth": {"type": "password", "password": "hunter2"}
+                }),
+            ),
+            (
+                AuthEdit::Set {
+                    auth: SendAuthType::Emails {
+                        emails: vec!["a@b.com".to_string(), "c@d.com".to_string()],
+                    },
+                },
+                serde_json::json!({
+                    "type": "set",
+                    "auth": {"type": "emails", "emails": ["a@b.com", "c@d.com"]}
+                }),
+            ),
+        ];
+        for (value, expected_json) in cases {
+            let serialized = serde_json::to_value(&value).expect("serialize");
+            assert_eq!(
+                serialized, expected_json,
+                "wire shape mismatch for {value:?}"
+            );
+            let deserialized: AuthEdit = serde_json::from_value(serialized).expect("round-trip");
+            assert_eq!(deserialized, value, "round-trip mismatch for {value:?}");
+        }
+    }
 
     #[tokio::test]
     async fn test_edit_send() {
@@ -401,7 +458,9 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: AuthEdit::Set(SendAuthType::None),
+                auth: AuthEdit::Set {
+                    auth: SendAuthType::None,
+                },
             },
         )
         .await
@@ -459,7 +518,9 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: AuthEdit::Set(SendAuthType::None),
+                auth: AuthEdit::Set {
+                    auth: SendAuthType::None,
+                },
             },
         )
         .await;
@@ -539,7 +600,9 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: AuthEdit::Set(SendAuthType::None),
+                auth: AuthEdit::Set {
+                    auth: SendAuthType::None,
+                },
             },
         )
         .await;
@@ -793,7 +856,7 @@ mod tests {
         );
     }
 
-    /// An explicit `AuthEdit::Set(SendAuthType::None)` still means "remove protection" —
+    /// An explicit `AuthEdit::Set { auth: SendAuthType::None }` still means "remove protection" —
     /// that's the escape hatch a caller uses to deliberately strip auth (mirroring the
     /// legacy `bw send remove-password` semantics for the auth slot generally).
     #[tokio::test]
@@ -823,7 +886,9 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                auth: AuthEdit::Set(SendAuthType::None),
+                auth: AuthEdit::Set {
+                    auth: SendAuthType::None,
+                },
             },
         )
         .await;

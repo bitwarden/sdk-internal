@@ -525,24 +525,28 @@ fn build_auth(
 ///     silently strips a previously configured password or email-OTP gate. This is the fix for the
 ///     auth-strip bug — the previous code emitted `SendAuthType::None` here, which the server
 ///     treats as an overwrite.
-///   - `(Some(p), None)` / `(None, Some(e))` return `AuthEdit::Set(...)` to overwrite to Password /
-///     Email auth.
+///   - `(Some(p), None)` / `(None, Some(e))` return `AuthEdit::Set { auth: _ }` to overwrite to
+///     Password / Email auth.
 ///   - `(Some(_), Some(_))` is rejected (mutually exclusive).
 ///
 /// Note: passing `--password ""` is not how callers strip auth on edit. To remove a
 /// previously configured password, use `bw send remove-password` (the legacy CLI's
-/// dedicated subcommand), or pass `AuthEdit::Set(SendAuthType::None)` at the SDK
-/// boundary.
+/// dedicated subcommand), or pass `AuthEdit::Set { auth: SendAuthType::None }` at the
+/// SDK boundary.
 fn build_auth_for_edit(
     password: Option<String>,
     emails: Option<&str>,
 ) -> color_eyre::eyre::Result<AuthEdit> {
     match (password, emails) {
         (None, None) => Ok(AuthEdit::Preserve),
-        (Some(p), None) => Ok(AuthEdit::Set(SendAuthType::Password { password: p })),
-        (None, Some(e)) => Ok(AuthEdit::Set(SendAuthType::Emails {
-            emails: parse_emails(e)?,
-        })),
+        (Some(p), None) => Ok(AuthEdit::Set {
+            auth: SendAuthType::Password { password: p },
+        }),
+        (None, Some(e)) => Ok(AuthEdit::Set {
+            auth: SendAuthType::Emails {
+                emails: parse_emails(e)?,
+            },
+        }),
         (Some(_), Some(_)) => Err(eyre!("--password and --emails are mutually exclusive.")),
     }
 }
@@ -851,7 +855,7 @@ mod tests {
     // ---- build_auth_for_edit ----
 
     /// On edit, the `(None, None)` case must return `AuthEdit::Preserve`, not
-    /// `AuthEdit::Set(SendAuthType::None)` (overwrite to no-auth). This is the
+    /// `AuthEdit::Set { auth: SendAuthType::None }` (overwrite to no-auth). This is the
     /// auth-strip regression boundary at the CLI helper level.
     #[test]
     fn build_auth_for_edit_no_flags_preserves() {
@@ -867,7 +871,7 @@ mod tests {
         let auth = build_auth_for_edit(Some("hunter2".into()), None).unwrap();
         assert!(matches!(
             auth,
-            AuthEdit::Set(SendAuthType::Password { ref password }) if password == "hunter2"
+            AuthEdit::Set { auth: SendAuthType::Password { ref password } } if password == "hunter2"
         ));
     }
 
@@ -875,8 +879,10 @@ mod tests {
     fn build_auth_for_edit_emails_overwrites() {
         let auth = build_auth_for_edit(None, Some("a@b.com,c@d.com")).unwrap();
         match auth {
-            AuthEdit::Set(SendAuthType::Emails { emails }) => assert_eq!(emails.len(), 2),
-            other => panic!("expected AuthEdit::Set(Emails), got {other:?}"),
+            AuthEdit::Set {
+                auth: SendAuthType::Emails { emails },
+            } => assert_eq!(emails.len(), 2),
+            other => panic!("expected AuthEdit::Set {{ auth: Emails }}, got {other:?}"),
         }
     }
 
@@ -942,7 +948,7 @@ mod tests {
         assert!(
             matches!(req.auth, AuthEdit::Preserve),
             "expected `AuthEdit::Preserve`, got {:?} — the previous behavior was \
-             `AuthEdit::Set(SendAuthType::None)`, which silently strips the existing password",
+             `AuthEdit::Set {{ auth: SendAuthType::None }}`, which silently strips the existing password",
             req.auth
         );
     }
@@ -971,7 +977,7 @@ mod tests {
 
     /// 4x4 matrix: existing { None, Password, Email } × override { None, Password,
     /// Emails }. The "preserve" cases all live above; the "overwrite" cases must
-    /// produce a concrete `AuthEdit::Set(...)` regardless of the existing state.
+    /// produce a concrete `AuthEdit::Set { auth: _ }` regardless of the existing state.
     #[test]
     fn build_edit_request_password_flag_overwrites_regardless_of_existing() {
         for existing_auth in [AuthType::None, AuthType::Password, AuthType::Email] {
@@ -991,7 +997,7 @@ mod tests {
             assert!(
                 matches!(
                     req.auth,
-                    AuthEdit::Set(SendAuthType::Password { ref password }) if password == "hunter2"
+                    AuthEdit::Set { auth: SendAuthType::Password { ref password } } if password == "hunter2"
                 ),
                 "existing={existing_auth:?}, got auth={:?}",
                 req.auth
@@ -1016,9 +1022,13 @@ mod tests {
             )
             .unwrap();
             match req.auth {
-                AuthEdit::Set(SendAuthType::Emails { ref emails }) => assert_eq!(emails.len(), 1),
+                AuthEdit::Set {
+                    auth: SendAuthType::Emails { ref emails },
+                } => {
+                    assert_eq!(emails.len(), 1);
+                }
                 ref other => panic!(
-                    "existing={existing_auth:?}, expected AuthEdit::Set(Emails), got {other:?}"
+                    "existing={existing_auth:?}, expected AuthEdit::Set {{ auth: Emails }}, got {other:?}"
                 ),
             }
         }
