@@ -11,20 +11,6 @@ use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{InviteKeyBundleError, InviteKeyData, InviteKeyEnvelope};
 
-/// WASM bindings for organization cryptography operations.
-#[wasm_bindgen::prelude::wasm_bindgen]
-pub struct OrganizationCryptoWasm;
-
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_INVITE_KEY_DATA: &'static str = r#"
-export type InviteKeyData = Tagged<string, "InviteKeyData">;
-"#;
-
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
-export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
-"#;
-
 impl wasm_bindgen::describe::WasmDescribe for InviteKeyData {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

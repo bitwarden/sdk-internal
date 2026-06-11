@@ -25,6 +25,11 @@ pub enum InviteKeyBundleError {
     MissingKeyId(String),
 }
 
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_INVITE_KEY_DATA: &'static str = r#"
+export type InviteKeyData = Tagged<string, "InviteKeyData">;
+"#;
+
 /// Struct for holding the Invite Key's raw byte data. Supports WASM bindings,
 /// automatically using base64Url encoding for both `wasm-bindgen` and `tsify`.
 ///
@@ -90,6 +95,11 @@ impl Serialize for InviteKeyData {
         serializer.serialize_str(&String::from(self))
     }
 }
+
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
+export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
+"#;
 
 /// Struct for holding the wrapped invite key data. Currently supports encstring
 /// but the inner type must remain private as it may be extended in the future.
