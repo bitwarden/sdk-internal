@@ -25,6 +25,7 @@ pub enum InviteKeyBundleError {
     MissingKeyId(String),
 }
 
+#[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_INVITE_KEY_DATA: &'static str = r#"
 export type InviteKeyData = Tagged<string, "InviteKeyData">;
@@ -96,6 +97,7 @@ impl Serialize for InviteKeyData {
     }
 }
 
+#[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
 export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
