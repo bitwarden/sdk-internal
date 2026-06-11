@@ -1139,6 +1139,7 @@ dependencies = [
  "bitwarden-api-identity",
  "bitwarden-core",
  "bitwarden-state",
+ "bitwarden-test",
  "chrono",
  "reqwest",
  "reqwest-middleware",
