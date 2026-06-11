@@ -3,9 +3,8 @@ use std::io;
 use bitwarden_api_base::AuthRequired;
 use bitwarden_core::{ApiError, MissingFieldError, key_management::SymmetricKeySlotId};
 use bitwarden_crypto::{
-    CryptoError, Decryptable, EncString, IdentifyKey, PrimitiveEncryptable,
-    StreamingAttachmentDecryptor, StreamingAttachmentEncryptor, SymmetricCryptoKey,
-    SymmetricKeyAlgorithm,
+    CryptoError, Decryptable, IdentifyKey, StreamingAttachmentDecryptor,
+    StreamingAttachmentEncryptor, SymmetricCryptoKey,
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{RepositoryError, RepositoryOption};
@@ -26,7 +25,7 @@ use super::{
 };
 use crate::{
     AttachmentsClient, Cipher, CipherError, CipherId, CipherView, DecryptError, EncryptError,
-    VaultParseError,
+    VaultParseError, cipher::attachment::AttachmentEncryptionVersion,
 };
 
 #[allow(missing_docs)]
@@ -73,16 +72,6 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherUpgradeAttachmentError
     }
 }
 
-/// Data needed to re-encrypt an attachment
-struct ReencryptionMaterial {
-    /// New attachment key, kept raw so it survives the create-slot await.
-    new_attachment_key: SymmetricCryptoKey,
-    /// New key wrapped with the cipher key for the attachment record.
-    wrapped_new_attachment_key: EncString,
-    /// File name encrypted with the cipher key.
-    encrypted_file_name: EncString,
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
     /// Upgrades a legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
@@ -111,7 +100,10 @@ impl AttachmentsClient {
             })
             .ok_or(CipherUpgradeAttachmentError::NotFound)?;
 
-        if attachment.key.is_some() {
+        if matches!(
+            attachment.encryption_version(),
+            AttachmentEncryptionVersion::AttachmentKeyV2
+        ) {
             return Err(CipherUpgradeAttachmentError::AlreadyUpgraded);
         }
 
@@ -138,21 +130,24 @@ impl AttachmentsClient {
             .get_attachment_download_url(cipher_id, attachment_id.clone(), None)
             .await?;
 
-        let material = self.prepare_reencryption_material(&cipher, &file_name_plain)?;
+        let material = {
+            let mut ctx = self.key_store.context();
+            cipher.make_attachment_material(&mut ctx, &file_name_plain)?
+        };
 
         // Re-encrypt first so we can size the new slot from the actual output.
         // This also avoids creating a new slot if download or decrypt fails.
         let reencrypted = self
             .download_and_reencrypt(
                 cipher.key_identifier(),
-                material.new_attachment_key,
+                material.key,
                 plaintext_size_hint,
                 &download_url,
             )
             .await?;
 
         let request = CreateAttachmentRequest {
-            key: material.wrapped_new_attachment_key,
+            key: material.wrapped_key,
             file_name: material.encrypted_file_name,
             file_size: reencrypted.len() as u64,
             last_known_revision_date: cipher.revision_date,
@@ -187,39 +182,9 @@ impl AttachmentsClient {
 }
 
 impl AttachmentsClient {
-    /// Prepares the metadata needed to re-encrypt the attachment.
-    ///
-    /// Keeps `KeyStoreContext` scoped here so it does not live across `.await`.
-    /// The new key is generated here and added again during upload.
-    /// The legacy key is looked up by slot ID in the decryptor.
-    fn prepare_reencryption_material(
-        &self,
-        cipher: &Cipher,
-        file_name_plain: &str,
-    ) -> Result<ReencryptionMaterial, CipherUpgradeAttachmentError> {
-        let mut ctx = self.key_store.context();
-
-        let cipher_key =
-            Cipher::decrypt_cipher_key(&mut ctx, cipher.key_identifier(), &cipher.key)?;
-
-        let new_attachment_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_slot = ctx.add_local_symmetric_key(new_attachment_key.clone());
-
-        let wrapped_new_attachment_key = ctx.wrap_symmetric_key(cipher_key, new_slot)?;
-        let encrypted_file_name = file_name_plain.encrypt(&mut ctx, cipher_key)?;
-
-        Ok(ReencryptionMaterial {
-            new_attachment_key,
-            wrapped_new_attachment_key,
-            encrypted_file_name,
-        })
-    }
-
     /// Downloads the legacy ciphertext and re-encrypts it into memory.
     ///
-    /// Download and decrypt still stream, but the encrypted output is buffered
-    /// because `StreamingAttachmentEncryptor` needs the full payload before it
-    /// can write, and wasm `reqwest` only supports buffered request bodies.
+    /// Wasm `reqwest` only supports buffered request bodies so the output is buffered.
     async fn download_and_reencrypt(
         &self,
         legacy_key_slot: SymmetricKeySlotId,
@@ -336,7 +301,7 @@ mod tests {
         client::ApiConfigurations,
         key_management::{KeySlotIds, create_test_crypto_with_user_key},
     };
-    use bitwarden_crypto::KeyStore;
+    use bitwarden_crypto::{EncString, KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
 
