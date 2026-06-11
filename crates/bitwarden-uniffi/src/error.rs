@@ -23,6 +23,8 @@ pub enum BitwardenError {
     #[error(transparent)]
     MobileCrypto(#[from] bitwarden_core::key_management::crypto::CryptoClientError),
     #[error(transparent)]
+    ReinitUserCrypto(#[from] bitwarden_core::key_management::crypto::ReinitUserCryptoError),
+    #[error(transparent)]
     AuthValidate(#[from] bitwarden_core::auth::AuthValidateError),
     #[error(transparent)]
     ApproveAuthRequest(#[from] bitwarden_core::auth::ApproveAuthRequestError),
