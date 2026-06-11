@@ -18,6 +18,7 @@ fn build_policy_registry() -> PolicyRegistry {
         .register(RemoveUnlockWithPinPolicy)
         .register(RestrictedItemTypesPolicy)
         .register(AutomaticUserConfirmationPolicy)
+        .register(OrganizationUserNotificationPolicy)
         .build()
 }
 
