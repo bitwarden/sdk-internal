@@ -1,24 +1,34 @@
 //! Functionality for re-encrypting unlock (decryption) methods during user key rotation.
 //! During key-rotation, a new user-key is sampled. The unlock module then creates a set of newly
 //! encrypted copies, one for each decryption/unlock method.
+use std::str::FromStr;
+
 use bitwarden_api_api::models::{
-    self, CommonUnlockDataRequestModel, EmergencyAccessWithIdRequestModel,
-    MasterPasswordUnlockAndAuthenticationDataModel, OtherDeviceKeysUpdateRequestModel,
+    self, CommonUnlockDataRequestModel, EmergencyAccessKeyDataResponseModel,
+    EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
+    OrganizationPasswordResetKeyDataResponseModel, OtherDeviceKeysUpdateRequestModel,
     ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel, V2UpgradeTokenRequestModel,
     WebAuthnLoginRotateKeyRequestModel,
 };
-use bitwarden_core::key_management::{
-    KeySlotIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeySlotId,
-    V2UpgradeToken,
+use bitwarden_core::{
+    key_management::{
+        KeySlotIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeySlotId,
+        V2UpgradeToken,
+    },
+    require,
 };
-use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey};
+use bitwarden_crypto::{
+    Kdf, KeyStoreContext, PublicKey, SpkiPublicKeyBytes, SymmetricKeyAlgorithm, UnsignedSharedKey,
+};
+use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, debug_span, error, info};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
 use crate::key_rotation::{
-    partial_rotateable_keyset::PartialRotateableKeyset, rotate_user_keys::UpgradeTokenAction,
+    KeyRotationDataParseError, partial_rotateable_keyset::PartialRotateableKeyset,
+    rotate_user_keys::UpgradeTokenAction,
 };
 
 /// The data necessary to re-share the user-key to a V1 emergency access membership. Note: The
@@ -32,6 +42,24 @@ pub struct V1EmergencyAccessMembership {
     pub public_key: PublicKey,
 }
 
+impl TryFrom<EmergencyAccessKeyDataResponseModel> for V1EmergencyAccessMembership {
+    type Error = KeyRotationDataParseError;
+
+    fn try_from(ea: EmergencyAccessKeyDataResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: require!(ea.id),
+            grantee_id: require!(ea.grantee_id),
+            // The name can be null if a user does not set a name; fall back to the email and
+            // then to "Unknown" so we always have a non-empty display name.
+            name: ea
+                .grantee_name
+                .or(ea.grantee_email)
+                .unwrap_or_else(|| "Unknown".to_string()),
+            public_key: parse_public_key(&require!(ea.public_key))?,
+        })
+    }
+}
+
 /// The data necessary to re-share the user-key to a V1 organization membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
 #[derive(Serialize, Deserialize, Clone)]
@@ -40,6 +68,24 @@ pub struct V1OrganizationMembership {
     pub organization_id: uuid::Uuid,
     pub name: String,
     pub public_key: PublicKey,
+}
+
+impl TryFrom<OrganizationPasswordResetKeyDataResponseModel> for V1OrganizationMembership {
+    type Error = KeyRotationDataParseError;
+
+    fn try_from(o: OrganizationPasswordResetKeyDataResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            organization_id: require!(o.organization_id),
+            name: require!(o.organization_name),
+            public_key: parse_public_key(&require!(o.organization_public_key))?,
+        })
+    }
+}
+
+fn parse_public_key(public_key_b64: &str) -> Result<PublicKey, KeyRotationDataParseError> {
+    Ok(PublicKey::from_der(&SpkiPublicKeyBytes::from(
+        B64::from_str(public_key_b64)?.into_bytes(),
+    ))?)
 }
 
 #[derive(Debug)]

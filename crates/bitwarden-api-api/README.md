@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`2d19c1a9c577df52798de7b9a136886962b1683b`](https://github.com/bitwarden/server/commit/2d19c1a9c577df52798de7b9a136886962b1683b)
+  [`9cb35ece1bc389679079057b104e4c6f5a32c117`](https://github.com/bitwarden/server/commit/9cb35ece1bc389679079057b104e4c6f5a32c117)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -94,6 +94,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountsBillingApi_                      | [**get_invoices**](docs/AccountsBillingApi.md#accounts_billing_get_invoices)                                                                                     | **GET** /accounts/billing/invoices                                                                       |
 | _AccountsBillingApi_                      | [**get_transactions**](docs/AccountsBillingApi.md#accounts_billing_get_transactions)                                                                             | **GET** /accounts/billing/transactions                                                                   |
 | _AccountsKeyManagementApi_                | [**get_key_connector_confirmation_details**](docs/AccountsKeyManagementApi.md#accounts_key_management_get_key_connector_confirmation_details)                    | **GET** /accounts/key-connector/confirmation-details/{orgSsoIdentifier}                                  |
+| _AccountsKeyManagementApi_                | [**get_key_rotation_data**](docs/AccountsKeyManagementApi.md#accounts_key_management_get_key_rotation_data)                                                      | **GET** /accounts/key-management/key-rotation-data                                                       |
 | _AccountsKeyManagementApi_                | [**password_change_and_rotate_user_account_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_password_change_and_rotate_user_account_keys)        | **POST** /accounts/key-management/rotate-user-account-keys                                               |
 | _AccountsKeyManagementApi_                | [**post_convert_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_convert_to_key_connector)                                      | **POST** /accounts/convert-to-key-connector                                                              |
 | _AccountsKeyManagementApi_                | [**post_enroll_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_enroll_to_key_connector)                                        | **POST** /accounts/key-connector/enroll                                                                  |
@@ -657,6 +658,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [EmergencyAccessGrantorDetailsResponseModel](docs/EmergencyAccessGrantorDetailsResponseModel.md)
 - [EmergencyAccessGrantorDetailsResponseModelListResponseModel](docs/EmergencyAccessGrantorDetailsResponseModelListResponseModel.md)
 - [EmergencyAccessInviteRequestModel](docs/EmergencyAccessInviteRequestModel.md)
+- [EmergencyAccessKeyDataResponseModel](docs/EmergencyAccessKeyDataResponseModel.md)
 - [EmergencyAccessPasswordRequestModel](docs/EmergencyAccessPasswordRequestModel.md)
 - [EmergencyAccessStatusType](docs/EmergencyAccessStatusType.md)
 - [EmergencyAccessTakeoverResponseModel](docs/EmergencyAccessTakeoverResponseModel.md)
@@ -709,6 +711,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [KeyModel](docs/KeyModel.md)
 - [KeyPairRequestBody](docs/KeyPairRequestBody.md)
 - [KeyRegenerationRequestModel](docs/KeyRegenerationRequestModel.md)
+- [KeyRotationDataResponseModel](docs/KeyRotationDataResponseModel.md)
 - [KeysRequestModel](docs/KeysRequestModel.md)
 - [KeysResponseModel](docs/KeysResponseModel.md)
 - [LicenseType](docs/LicenseType.md)
@@ -755,6 +758,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationKeysResponseModel](docs/OrganizationKeysResponseModel.md)
 - [OrganizationLicense](docs/OrganizationLicense.md)
 - [OrganizationNoPaymentCreateRequest](docs/OrganizationNoPaymentCreateRequest.md)
+- [OrganizationPasswordResetKeyDataResponseModel](docs/OrganizationPasswordResetKeyDataResponseModel.md)
 - [OrganizationPublicKeyResponseModel](docs/OrganizationPublicKeyResponseModel.md)
 - [OrganizationReportFileResponseModel](docs/OrganizationReportFileResponseModel.md)
 - [OrganizationReportMetrics](docs/OrganizationReportMetrics.md)
@@ -810,6 +814,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserUserMiniDetailsResponseModelListResponseModel](docs/OrganizationUserUserMiniDetailsResponseModelListResponseModel.md)
 - [OrganizationVerifyDeleteRecoverRequestModel](docs/OrganizationVerifyDeleteRecoverRequestModel.md)
 - [OtherDeviceKeysUpdateRequestModel](docs/OtherDeviceKeysUpdateRequestModel.md)
+- [PasskeyKeyDataResponseModel](docs/PasskeyKeyDataResponseModel.md)
 - [PasswordHealthReportApplication](docs/PasswordHealthReportApplication.md)
 - [PasswordHealthReportApplicationModel](docs/PasswordHealthReportApplicationModel.md)
 - [PasswordHintRequestModel](docs/PasswordHintRequestModel.md)
@@ -990,6 +995,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [TaxIdRequest](docs/TaxIdRequest.md)
 - [TokenizedPaymentMethodRequest](docs/TokenizedPaymentMethodRequest.md)
 - [TransactionType](docs/TransactionType.md)
+- [TrustedDeviceKeyDataResponseModel](docs/TrustedDeviceKeyDataResponseModel.md)
 - [TwoFactorAuthenticatorDisableRequestModel](docs/TwoFactorAuthenticatorDisableRequestModel.md)
 - [TwoFactorAuthenticatorResponseModel](docs/TwoFactorAuthenticatorResponseModel.md)
 - [TwoFactorDuoResponseModel](docs/TwoFactorDuoResponseModel.md)
