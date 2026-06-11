@@ -24,9 +24,12 @@ pub(crate) struct IdentityTokenSuccessResponse {
     #[serde(rename = "kdfIterations", alias = "KdfIterations")]
     kdf_iterations: NonZeroU32,
 
-    #[serde(rename = "resetMasterPassword", alias = "ResetMasterPassword")]
+    // Defaulted for forward compatibility: newer servers omit these top-level flags, having moved
+    // the data into `userDecryptionOptions` / `masterPasswordPolicy`. A missing field would
+    // otherwise fail success-response parsing and degrade the login into a refresh response.
+    #[serde(default, rename = "resetMasterPassword", alias = "ResetMasterPassword")]
     pub reset_master_password: bool,
-    #[serde(rename = "forcePasswordReset", alias = "ForcePasswordReset")]
+    #[serde(default, rename = "forcePasswordReset", alias = "ForcePasswordReset")]
     pub force_password_reset: bool,
     #[serde(rename = "apiUseKeyConnector", alias = "ApiUseKeyConnector")]
     api_use_key_connector: Option<bool>,
