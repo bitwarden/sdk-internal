@@ -830,6 +830,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "password-rules-parser",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
  "reqwest",
@@ -1825,6 +1826,16 @@ name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
+
+[[package]]
+name = "colored"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
+dependencies = [
+ "lazy_static",
+ "windows-sys 0.52.0",
+]
 
 [[package]]
 name = "combine"
@@ -4246,6 +4257,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "password-rules-parser"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80f9f1ea3b803a37c42e84fa581354c8eee6c68b63b4923483d5d5d78286e32a"
+dependencies = [
+ "itertools 0.14.0",
+ "nom",
+ "once_cell",
+ "pretty-lint",
+]
+
+[[package]]
 name = "path_abs"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4513,6 +4536,15 @@ checksum = "d0de1b847b39c8131db0467e9df1ff60e6d0562ab8e9a16e568ad0fdb372e2f2"
 dependencies = [
  "predicates-core",
  "termtree",
+]
+
+[[package]]
+name = "pretty-lint"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37a28eb055b711a1daa116969810f3a7f61150044009d90ac4b8a5faa888199b"
+dependencies = [
+ "colored",
 ]
 
 [[package]]
