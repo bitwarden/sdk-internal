@@ -38,8 +38,24 @@ fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
 ) -> Result<SshKeyView, SshKeyImportError> {
+    match parse_pkcs8_pem(&encoded_key, password.as_deref()) {
+        // Some exporters (e.g. 1Password's 1PUX) emit the base64 body on a single line, which the
+        // strict RFC 7468 parser rejects. Re-wrap to 64-character lines and retry once. Only
+        // `Parsing` failures are retried, so keys that import successfully today are unaffected.
+        Err(SshKeyImportError::Parsing) => {
+            let rewrapped = rewrap_pem(&encoded_key).ok_or(SshKeyImportError::Parsing)?;
+            parse_pkcs8_pem(&rewrapped, password.as_deref())
+        }
+        result => result,
+    }
+}
+
+fn parse_pkcs8_pem(
+    encoded_key: &str,
+    password: Option<&str>,
+) -> Result<SshKeyView, SshKeyImportError> {
     let doc = if let Some(password) = password {
-        SecretDocument::from_pkcs8_encrypted_pem(&encoded_key, password.as_bytes()).map_err(
+        SecretDocument::from_pkcs8_encrypted_pem(encoded_key, password.as_bytes()).map_err(
             |err| match err {
                 pkcs8::Error::EncryptedPrivateKey(pkcs5::Error::DecryptFailed) => {
                     SshKeyImportError::WrongPassword
@@ -48,10 +64,53 @@ fn import_pkcs8_key(
             },
         )?
     } else {
-        SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::Parsing)?
+        SecretDocument::from_pkcs8_pem(encoded_key).map_err(|_| SshKeyImportError::Parsing)?
     };
 
     import_pkcs8_der_key(doc.as_bytes())
+}
+
+/// Re-wrap the base64 body of a PEM document to 64-character lines.
+///
+/// The strict RFC 7468 parser requires the body wrapped at 64 characters, but some exporters emit
+/// it on a single line. Returns [None] if the input is not a single well-formed PEM block, in which
+/// case the caller keeps the original parse error.
+fn rewrap_pem(pem: &str) -> Option<String> {
+    let mut lines = pem.lines();
+
+    let header = lines
+        .by_ref()
+        .find(|line| line.starts_with("-----BEGIN "))?;
+
+    // Concatenate the body (whitespace stripped) until the closing boundary.
+    let mut body = String::new();
+    let mut footer = None;
+    for line in lines.by_ref() {
+        if line.starts_with("-----END ") {
+            footer = Some(line);
+            break;
+        }
+        body.extend(line.split_whitespace());
+    }
+    let footer = footer?;
+
+    let mut out = String::with_capacity(body.len() + body.len() / 64 + header.len() + 16);
+    out.push_str(header);
+    out.push('\n');
+    // Char-based chunking keeps this panic-free even if the (already-rejected) body is non-ASCII.
+    let mut chars = body.chars();
+    loop {
+        let chunk: String = chars.by_ref().take(64).collect();
+        if chunk.is_empty() {
+            break;
+        }
+        out.push_str(&chunk);
+        out.push('\n');
+    }
+    out.push_str(footer);
+    out.push('\n');
+
+    Some(out)
 }
 
 /// Import a DER encoded private key, and returns a decoded [SshKeyView]. This is primarily used for
@@ -226,6 +285,24 @@ mod tests {
         let private_key = include_str!("../resources/import/ed25519_openssh_encrypted");
         let result = import_key(private_key.to_string(), Some("wrongpassword".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::WrongPassword);
+    }
+
+    /// 1Password's 1PUX export re-encodes Ed25519 keys as PKCS#8 (`BEGIN PRIVATE KEY`) with the
+    /// whole base64 body on a single line. The strict RFC 7468 parser (`pem-rfc7468`) rejects the
+    /// unwrapped body, surfacing as "Failed to parse key". Wrapped bodies (our other fixtures,
+    /// `ssh-keygen` output) hide this, so the import must also accept the unwrapped form.
+    /// https://github.com/bitwarden/clients/issues/20432
+    #[test]
+    fn import_key_ed25519_pkcs8_unencrypted_single_line() {
+        let wrapped = include_str!("../resources/import/ed25519_pkcs8_unencrypted");
+        let lines: Vec<&str> = wrapped.lines().collect();
+        let body: String = lines[1..lines.len() - 1].concat();
+        let single_line = format!("{}\n{}\n{}\n", lines[0], body, lines[lines.len() - 1]);
+
+        let public_key = include_str!("../resources/import/ed25519_pkcs8_unencrypted.pub").trim();
+
+        let result = import_key(single_line, None).unwrap();
+        assert_eq!(result.public_key, public_key);
     }
 
     #[test]
