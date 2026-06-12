@@ -26,10 +26,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
-    blob::{
-        decrypt_blob_cipher, encrypt_blob_cipher_with_wrapping_key,
-        try_parse_blob,
-    },
+    blob::{decrypt_blob_cipher, encrypt_blob_cipher_with_wrapping_key, try_parse_blob},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -369,6 +366,11 @@ impl Cipher {
             })?;
         self.key = Some(new_cipher_key);
         Ok(())
+    }
+
+    /// Returns `true` if this cipher's sensitive data is stored in the sealed-blob format.
+    pub fn is_blob_encrypted(&self) -> bool {
+        try_parse_blob(self).is_some()
     }
 }
 

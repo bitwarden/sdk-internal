@@ -1,5 +1,6 @@
-use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-use bitwarden_crypto::{KeyStoreContext, PublicKey};
+use bitwarden_core::key_management::{BLOB_SECURITY_VERSION, KeySlotIds, SymmetricKeySlotId};
+use bitwarden_crypto::{KeyStoreContext, PublicKey, SymmetricKeyAlgorithm};
+use bitwarden_vault::should_use_blob_encryption_for_version;
 use tracing::{debug, info, warn};
 
 use super::{
@@ -58,6 +59,9 @@ pub(super) struct RotationContext {
     pub(super) v1_emergency_access_memberships: Vec<V1EmergencyAccessMembership>,
     pub(super) current_user_key_id: SymmetricKeySlotId,
     pub(super) new_user_key_id: SymmetricKeySlotId,
+    /// Whether individual ciphers should be upgraded to the blob-encrypted format during this
+    /// rotation, i.e. the post-rotation account lands on the V2 security state.
+    pub(super) use_blob_encryption: bool,
 }
 
 pub(super) fn make_rotation_context(
@@ -85,14 +89,25 @@ pub(super) fn make_rotation_context(
     let current_user_key_id = SymmetricKeySlotId::User;
 
     debug!("Generating new xchacha20-poly1305 user key for key rotation");
-    let new_user_key_id =
-        ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+    let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+    // The post-rotation security version is determined by the new user key algorithm: an
+    // XChaCha20Poly1305 key lands the account on the V2 security state, which is what gates blob
+    // encryption. The key store context still reflects the pre-rotation version at this point, so
+    // we derive the version from the new key rather than reading it from the context.
+    let new_security_state_version = match ctx.get_symmetric_key_algorithm(new_user_key_id) {
+        Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305) => BLOB_SECURITY_VERSION,
+        _ => 1,
+    };
+    let use_blob_encryption =
+        should_use_blob_encryption_for_version(new_security_state_version, None);
 
     Ok(RotationContext {
         v1_organization_memberships,
         v1_emergency_access_memberships,
         current_user_key_id,
         new_user_key_id,
+        use_blob_encryption,
     })
 }
 
