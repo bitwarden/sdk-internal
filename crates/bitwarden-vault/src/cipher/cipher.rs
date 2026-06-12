@@ -1752,11 +1752,9 @@ fn strict_decrypt_cipher_list_view(
 }
 
 /// Selects between blob and legacy encryption paths. The variant is chosen at
-/// the [`CiphersClient`] layer via [`should_use_blob_encryption`].
-///
+/// the [`CiphersClient`] layer via `should_use_blob_encryption`.
 ///
 /// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
-/// [`should_use_blob_encryption`]: crate::cipher::cipher_client::CiphersClient::should_use_blob_encryption
 pub enum EncryptMode<T> {
     /// Encrypt as a sealed blob (current format).
     Blob(T),
