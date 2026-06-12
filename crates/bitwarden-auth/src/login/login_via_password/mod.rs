@@ -63,7 +63,7 @@
 //!         },
 //!     },
 //!     email: "user@example.com".to_string(),
-//!     password: "master-password".to_string(),
+//!     password: "master-password".into(),
 //!     prelogin_response: prelogin,
 //! }).await?;
 //!

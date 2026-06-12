@@ -7,6 +7,7 @@ use bitwarden_core::key_management::{
 };
 use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::SensitiveString;
 
 use crate::error::Result;
 
@@ -46,7 +47,7 @@ impl CryptoClient {
     /// password hash but does not update sdk state.
     pub async fn make_update_password(
         &self,
-        new_password: String,
+        new_password: SensitiveString,
     ) -> Result<UpdatePasswordResponse> {
         Ok(self.0.make_update_password(new_password).await?)
     }
@@ -101,7 +102,11 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
     /// user key and the new password hash but does not update sdk state.
-    pub async fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
+    pub async fn make_update_kdf(
+        &self,
+        password: SensitiveString,
+        kdf: Kdf,
+    ) -> Result<UpdateKdfResponse> {
         Ok(self.0.make_update_kdf(password, kdf).await?)
     }
 

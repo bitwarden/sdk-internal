@@ -98,7 +98,7 @@ mod tests {
                 },
             },
             email: TEST_EMAIL.to_string(),
-            password: TEST_PASSWORD.to_string(),
+            password: TEST_PASSWORD.into(),
             prelogin_response: PasswordPreloginResponse {
                 kdf: Kdf::default_pbkdf2(),
                 salt: TEST_SALT.to_string(),

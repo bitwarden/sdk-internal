@@ -1,4 +1,5 @@
 use bitwarden_crypto::EncString;
+use bitwarden_sensitive_value::SensitiveString;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -89,7 +90,7 @@ pub struct ApiKeyLoginRequest {
     pub client_secret: String,
 
     /// Bitwarden account master password
-    pub password: String,
+    pub password: SensitiveString,
 }
 
 #[allow(missing_docs)]

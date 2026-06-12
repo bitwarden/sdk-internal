@@ -1,5 +1,6 @@
 use bitwarden_crypto::{CryptoError, EncString, HashPurpose, Kdf, MasterKey, RsaKeyPair};
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -11,7 +12,7 @@ use crate::ApiError;
 pub struct RegisterRequest {
     pub email: String,
     pub name: Option<String>,
-    pub password: String,
+    pub password: SensitiveString,
     pub password_hint: Option<String>,
 }
 
@@ -26,12 +27,14 @@ pub enum RegisterError {
 
 pub(super) fn make_register_keys(
     email: String,
-    password: String,
+    password: SensitiveString,
     kdf: Kdf,
 ) -> Result<RegisterKeyResponse, CryptoError> {
     let master_key = MasterKey::derive(&password, &email, &kdf)?;
-    let master_password_hash =
-        master_key.derive_master_key_hash(password.as_bytes(), HashPurpose::ServerAuthorization);
+    // EXPOSE: The password bytes are fed into the master key hash (PBKDF2) primitive, which does
+    // not log them.
+    let master_password_hash = master_key
+        .derive_master_key_hash(password.expose().as_bytes(), HashPurpose::ServerAuthorization);
     let (user_key, encrypted_user_key) = master_key.make_user_key()?;
     let keys = user_key.make_key_pair()?;
 

@@ -10,6 +10,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
 use serde::{Deserialize, Serialize};
 use tracing::Level;
 #[cfg(feature = "wasm")]
@@ -73,7 +74,7 @@ impl MasterPasswordUnlockData {
     /// Unwrap the user key into the key store context using the provided password.
     pub fn unwrap_to_context<Ids: KeySlotIds>(
         &self,
-        password: &str,
+        password: &SensitiveString,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, MasterPasswordError> {
         let master_key = MasterKey::derive(password, &self.salt, &self.kdf)
@@ -85,7 +86,7 @@ impl MasterPasswordUnlockData {
     }
 
     pub(crate) fn derive_ref(
-        password: &str,
+        password: &SensitiveString,
         kdf: &Kdf,
         salt: &str,
         user_key: &SymmetricCryptoKey,
@@ -106,7 +107,7 @@ impl MasterPasswordUnlockData {
     /// Derive master password unlock data from a password and user key in the key store.
     #[tracing::instrument(skip(password, salt, ctx))]
     pub fn derive<Ids: KeySlotIds>(
-        password: &str,
+        password: &SensitiveString,
         kdf: &Kdf,
         salt: &str,
         user_key_id: Ids::Symmetric,
@@ -198,12 +199,18 @@ pub struct MasterPasswordAuthenticationData {
 impl MasterPasswordAuthenticationData {
     /// Derive master password authentication data from a password, KDF, and salt.
     #[tracing::instrument(skip(password, kdf, salt))]
-    pub fn derive(password: &str, kdf: &Kdf, salt: &str) -> Result<Self, MasterPasswordError> {
+    pub fn derive(
+        password: &SensitiveString,
+        kdf: &Kdf,
+        salt: &str,
+    ) -> Result<Self, MasterPasswordError> {
         tracing::event!(Level::INFO, "deriving master password authentication data");
         let master_key = MasterKey::derive(password, salt, kdf)
             .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
+        // EXPOSE: The password bytes are fed into the master key hash (PBKDF2) primitive, which
+        // does not log them.
         let hash = master_key.derive_master_key_hash(
-            password.as_bytes(),
+            password.expose().as_bytes(),
             bitwarden_crypto::HashPurpose::ServerAuthorization,
         );
 
@@ -305,12 +312,12 @@ mod tests {
         };
         let salt = TEST_SALT.to_string();
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, &salt, &user_key)
+        let data = MasterPasswordUnlockData::derive_ref(&SensitiveString::from(TEST_PASSWORD), &kdf, &salt, &user_key)
             .expect("Failed to derive master password unlock data");
         assert_eq!(data.salt, salt);
         assert!(matches!(data.kdf, Kdf::PBKDF2 { iterations } if iterations.get() == 600_000));
 
-        let master_key = MasterKey::derive(TEST_PASSWORD, &salt, &data.kdf)
+        let master_key = MasterKey::derive(&SensitiveString::from(TEST_PASSWORD), &salt, &data.kdf)
             .expect("Failed to derive master key");
         let decrypted_user_key = master_key
             .decrypt_user_key(data.master_key_wrapped_user_key)
@@ -324,7 +331,7 @@ mod tests {
             iterations: NonZeroU32::new(600_000).unwrap(),
         };
         let salt = TEST_SALT.to_string();
-        let data = MasterPasswordAuthenticationData::derive(TEST_PASSWORD, &kdf, &salt)
+        let data = MasterPasswordAuthenticationData::derive(&SensitiveString::from(TEST_PASSWORD), &kdf, &salt)
             .expect("Failed to derive master password authentication data");
         assert_eq!(data.salt, salt);
         assert!(matches!(data.kdf, Kdf::PBKDF2 { iterations } if iterations.get() == 600_000));
@@ -565,14 +572,14 @@ mod tests {
             iterations: NonZeroU32::new(600_000).expect("non-zero"),
         };
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
+        let data = MasterPasswordUnlockData::derive_ref(&SensitiveString::from(TEST_PASSWORD), &kdf, TEST_SALT, &user_key)
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let key_id = data
-            .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
+            .unwrap_to_context::<KeySlotIds>(&SensitiveString::from(TEST_PASSWORD), &mut ctx)
             .expect("Failed to unwrap to context");
 
         // Verify that the key was added to the context
@@ -593,13 +600,14 @@ mod tests {
             iterations: NonZeroU32::new(600_000).expect("non-zero"),
         };
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
+        let data = MasterPasswordUnlockData::derive_ref(&SensitiveString::from(TEST_PASSWORD), &kdf, TEST_SALT, &user_key)
             .expect("Failed to derive master password unlock data");
 
         // Attempt to unwrap with wrong password
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
-        let result = data.unwrap_to_context::<KeySlotIds>("wrong_password", &mut ctx);
+        let result =
+            data.unwrap_to_context::<KeySlotIds>(&SensitiveString::from("wrong_password"), &mut ctx);
 
         assert!(matches!(result, Err(MasterPasswordError::WrongPassword)));
     }
@@ -611,7 +619,7 @@ mod tests {
             iterations: NonZeroU32::new(600_000).expect("non-zero"),
         };
         let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
+        let data = MasterPasswordUnlockData::derive_ref(&SensitiveString::from(TEST_PASSWORD), &kdf, TEST_SALT, &user_key)
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
@@ -619,7 +627,7 @@ mod tests {
         {
             let mut ctx = store.context_mut();
             let local_key_id = data
-                .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
+                .unwrap_to_context::<KeySlotIds>(&SensitiveString::from(TEST_PASSWORD), &mut ctx)
                 .expect("Failed to unwrap to context");
 
             // Persist the local key to the User key slot

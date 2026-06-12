@@ -19,6 +19,7 @@ wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
     "bitwarden-policies/wasm",
+    "bitwarden-sensitive-value/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -26,6 +27,7 @@ wasm = [
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-policies/uniffi",
+    "bitwarden-sensitive-value/uniffi",
     "dep:uniffi",
 ] # Uniffi bindings
 secrets = ["bitwarden-core/secrets"] # Secrets Manager support
@@ -41,6 +43,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-policies = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 bitwarden-state = { workspace = true }
 chrono = { workspace = true }
 http = { workspace = true }

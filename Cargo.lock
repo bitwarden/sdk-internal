@@ -535,6 +535,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-policies",
+ "bitwarden-sensitive-value",
  "bitwarden-state",
  "bitwarden-test",
  "chrono",
@@ -1004,6 +1005,7 @@ dependencies = [
 name = "bitwarden-sensitive-value"
 version = "3.0.0"
 dependencies = [
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "uniffi",
@@ -1364,6 +1366,7 @@ dependencies = [
  "bitwarden-organization-crypto",
  "bitwarden-pm",
  "bitwarden-policies",
+ "bitwarden-sensitive-value",
  "bitwarden-server-communication-config",
  "bitwarden-shared-unlock",
  "bitwarden-ssh",
@@ -3813,6 +3816,7 @@ name = "memory-testing"
 version = "0.1.0"
 dependencies = [
  "bitwarden-crypto",
+ "bitwarden-sensitive-value",
  "comfy-table",
  "hex",
  "serde",

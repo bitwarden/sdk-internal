@@ -1,6 +1,7 @@
 use std::{env, io::Read, path::Path, process};
 
 use bitwarden_crypto::{MasterKey, SymmetricCryptoKey};
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
 
 fn wait_for_dump() {
     println!("Waiting for dump...");
@@ -39,9 +40,12 @@ fn main() {
                 email,
                 kdf,
             } => {
+                let password = SensitiveString::from(password);
                 let key = MasterKey::derive(&password, &email, &kdf).unwrap();
+                // EXPOSE: The password bytes are fed into the master key hash (PBKDF2) primitive,
+                // which does not log them.
                 let hash = key.derive_master_key_hash(
-                    password.as_bytes(),
+                    password.expose().as_bytes(),
                     bitwarden_crypto::HashPurpose::ServerAuthorization,
                 );
 

@@ -1,3 +1,5 @@
+#[cfg(feature = "internal")]
+use bitwarden_sensitive_value::SensitiveString;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "internal")]
@@ -110,7 +112,7 @@ pub struct PasswordLoginRequest {
     /// Bitwarden account email address
     pub email: String,
     /// Bitwarden account master password
-    pub password: String,
+    pub password: SensitiveString,
     /// Two-factor authentication
     pub two_factor: Option<TwoFactorRequest>,
 }

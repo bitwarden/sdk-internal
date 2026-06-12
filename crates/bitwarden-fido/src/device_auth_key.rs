@@ -345,7 +345,7 @@ async fn build_secret_verification_request(
             kdf_client
                 .hash_password(
                     email,
-                    master_password.to_string(),
+                    master_password.clone(),
                     kdf_params,
                     HashPurpose::ServerAuthorization,
                 )

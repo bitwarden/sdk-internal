@@ -21,7 +21,7 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-use bitwarden_sensitive_value::SensitiveString;
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
 #[cfg(feature = "uniffi")]
 pub(super) use reinit_user_crypto::reinit_user_crypto;
 #[cfg(feature = "uniffi")]
@@ -114,7 +114,7 @@ pub enum InitUserCryptoMethod {
     /// Master Password Unlock
     MasterPasswordUnlock {
         /// The user's master password
-        password: String,
+        password: SensitiveString,
         /// Contains the data needed to unlock with the master password
         master_password_unlock: MasterPasswordUnlockData,
     },
@@ -487,7 +487,7 @@ pub struct UpdateKdfResponse {
 
 pub(super) async fn make_update_kdf(
     client: &Client,
-    password: &str,
+    password: &SensitiveString,
     new_kdf: &Kdf,
 ) -> Result<UpdateKdfResponse, CryptoClientError> {
     let login_method = client
@@ -540,7 +540,7 @@ pub struct UpdatePasswordResponse {
 
 pub(super) async fn make_update_password(
     client: &Client,
-    new_password: String,
+    new_password: SensitiveString,
 ) -> Result<UpdatePasswordResponse, CryptoClientError> {
     let login_method = client
         .internal
@@ -564,8 +564,10 @@ pub(super) async fn make_update_password(
 
     let new_key = new_master_key.encrypt_user_key(user_key)?;
 
+    // EXPOSE: The password bytes are fed into the master key hash (PBKDF2) primitive, which does
+    // not log them.
     let password_hash = new_master_key.derive_master_key_hash(
-        new_password.as_bytes(),
+        new_password.expose().as_bytes(),
         bitwarden_crypto::HashPurpose::ServerAuthorization,
     );
 
@@ -729,7 +731,7 @@ pub struct DeriveKeyConnectorRequest {
     /// Encrypted user key, used to validate the master key
     pub user_key_encrypted: EncString,
     /// The user's master password
-    pub password: String,
+    pub password: SensitiveString,
     /// The KDF parameters used to derive the master key
     pub kdf: Kdf,
     /// The user's email address
@@ -1179,7 +1181,7 @@ async fn on_unlock_handler(client: &Client) -> Result<(), EncryptionSettingsErro
 /// Create the data needed to register for JIT master password
 pub(crate) fn make_user_jit_master_password_registration(
     client: &Client,
-    master_password: String,
+    master_password: SensitiveString,
     salt: String,
     org_public_key: B64,
 ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
@@ -1237,7 +1239,7 @@ pub struct MakeUserMasterPasswordRegistrationResponse {
 /// Creates cryptographic data needed for user master password registration
 pub(crate) fn make_user_password_registration(
     client: &Client,
-    master_password: String,
+    master_password: SensitiveString,
     salt: String,
 ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
     // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519
@@ -1377,7 +1379,8 @@ mod tests {
         let new_kdf = Kdf::PBKDF2 {
             iterations: 600_000.try_into().unwrap(),
         };
-        let new_kdf_response = make_update_kdf(&client, "123412341234", &new_kdf)
+        let new_kdf_response =
+            make_update_kdf(&client, &SensitiveString::from("123412341234"), &new_kdf)
             .await
             .unwrap();
 
@@ -1393,7 +1396,7 @@ mod tests {
                     private_key: priv_key.to_owned(),
                 },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: "123412341234".to_string(),
+                    password: "123412341234".into(),
                     master_password_unlock: MasterPasswordUnlockData {
                         kdf: new_kdf.clone(),
                         master_key_wrapped_user_key: new_kdf_response
@@ -1465,7 +1468,7 @@ mod tests {
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: "asdfasdfasdf".to_string(),
+                    password: "asdfasdfasdf".into(),
                     master_password_unlock: MasterPasswordUnlockData {
                         kdf: kdf.clone(),
                         master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -1797,7 +1800,7 @@ mod tests {
         client
             .internal
             .initialize_user_crypto_master_password_unlock(
-                "asdfasdfasdf".to_string(),
+                "asdfasdfasdf".into(),
                 MasterPasswordUnlockData {
                     kdf: Kdf::PBKDF2 {
                         iterations: NonZeroU32::new(600_000).unwrap(),
@@ -1835,7 +1838,7 @@ mod tests {
     #[test]
     fn test_derive_key_connector() {
         let request = DeriveKeyConnectorRequest {
-            password: "asdfasdfasdf".to_string(),
+            password: "asdfasdfasdf".into(),
             email: "test@bitwarden.com".to_string(),
             kdf: Kdf::PBKDF2 {
                 iterations: NonZeroU32::new(600_000).unwrap(),
@@ -1853,7 +1856,7 @@ mod tests {
 
     fn setup_asymmetric_keys_test() -> (UserKey, RsaKeyPair) {
         let master_key = MasterKey::derive(
-            "asdfasdfasdf",
+            &SensitiveString::from("asdfasdfasdf"),
             "test@bitwarden.com",
             &Kdf::PBKDF2 {
                 iterations: NonZeroU32::new(600_000).unwrap(),
@@ -1977,7 +1980,7 @@ mod tests {
         .unwrap();
 
         let master_key = MasterKey::derive(
-            "asdfasdfasdf",
+            &SensitiveString::from("asdfasdfasdf"),
             "test@bitwarden.com",
             &Kdf::PBKDF2 {
                 iterations: NonZeroU32::new(100_000).unwrap(),
@@ -2131,7 +2134,7 @@ mod tests {
                     private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
                 },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: TEST_USER_PASSWORD.to_string(),
+                    password: TEST_USER_PASSWORD.into(),
                     master_password_unlock: MasterPasswordUnlockData {
                         kdf: Kdf::PBKDF2 {
                             iterations: 600_000.try_into().unwrap(),
@@ -2737,7 +2740,7 @@ mod tests {
         let make_keys_response = registration_client
             .crypto()
             .make_user_password_registration(
-                TEST_USER_PASSWORD.to_string(),
+                TEST_USER_PASSWORD.into(),
                 TEST_USER_EMAIL.to_string(),
             )
             .expect("user password registration should succeed");
@@ -2751,7 +2754,7 @@ mod tests {
                 email: TEST_USER_EMAIL.to_string(),
                 account_cryptographic_state: make_keys_response.account_cryptographic_state,
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
-                    password: TEST_USER_PASSWORD.to_string(),
+                    password: TEST_USER_PASSWORD.into(),
                     master_password_unlock: make_keys_response.master_password_unlock_data.clone(),
                 },
                 upgrade_token: None,
@@ -2769,7 +2772,7 @@ mod tests {
             .expect("retrieved key should be valid symmetric key");
 
         let master_key = MasterKey::derive(
-            TEST_USER_PASSWORD,
+            &SensitiveString::from(TEST_USER_PASSWORD),
             TEST_USER_EMAIL,
             &make_keys_response.master_password_unlock_data.kdf,
         )

@@ -1,5 +1,6 @@
 use bitwarden_crypto::{CryptoError, HashPurpose, Kdf};
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::SensitiveString;
 
 use crate::{Client, mobile::kdf::hash_password};
 
@@ -13,7 +14,7 @@ impl KdfClient {
     pub async fn hash_password(
         &self,
         email: String,
-        password: String,
+        password: SensitiveString,
         kdf_params: Kdf,
         purpose: HashPurpose,
     ) -> Result<B64, CryptoError> {

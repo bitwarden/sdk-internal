@@ -75,9 +75,25 @@ impl From<String> for SensitiveString {
     }
 }
 
+impl Clone for SensitiveString {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 impl PartialEq for SensitiveString {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq(&other.0)
+    }
+}
+
+impl schemars::JsonSchema for SensitiveString {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "SensitiveString".into()
+    }
+
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
+        generator.subschema_for::<String>()
     }
 }
 

@@ -3,6 +3,7 @@
 use bitwarden_api_api::models::{self, UnlockMethodRequestModel};
 use bitwarden_core::key_management::{KeySlotIds, MasterPasswordUnlockData, SymmetricKeySlotId};
 use bitwarden_crypto::{Kdf, KeyConnectorKey, KeyStoreContext};
+use bitwarden_sensitive_value::SensitiveString;
 
 use crate::key_rotation::{
     RotateUserKeysError, rotate_user_keys::KeyRotationMethod, sync::SyncedAccountData,
@@ -14,7 +15,7 @@ use crate::key_rotation::{
 pub(super) enum PrimaryUnlockMethod {
     /// The master password based unlock method.
     Password {
-        password: String,
+        password: SensitiveString,
         kdf: Kdf,
         salt: String,
     },
@@ -165,7 +166,7 @@ mod tests {
 
         let result = PrimaryUnlockMethod::from_key_rotation_method(
             KeyRotationMethod::Password {
-                password: "pass".to_string(),
+                password: "pass".into(),
             },
             &synced_data,
             None,
@@ -180,7 +181,7 @@ mod tests {
         else {
             panic!("expected Password variant");
         };
-        assert_eq!(password, "pass");
+        assert_eq!(password, SensitiveString::from("pass"));
         assert_eq!(result_kdf, kdf);
         assert_eq!(result_salt, salt);
     }
@@ -191,7 +192,7 @@ mod tests {
 
         let result = PrimaryUnlockMethod::from_key_rotation_method(
             KeyRotationMethod::Password {
-                password: "pass".to_string(),
+                password: "pass".into(),
             },
             &synced_data,
             None,
@@ -240,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_method_data_password_pbkdf2() {
-        let mock_password = "test_password".to_string();
+        let mock_password = SensitiveString::from("test_password");
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key_id = ctx.generate_symmetric_key();
@@ -277,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_method_data_password_argon2id() {
-        let mock_password = "test_password".to_string();
+        let mock_password = SensitiveString::from("test_password");
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key_id = ctx.generate_symmetric_key();

@@ -1,5 +1,6 @@
 use bitwarden_crypto::{HashPurpose, MasterKey};
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
 
 use crate::{
     Client, NotAuthenticatedError, WrongPasswordError,
@@ -10,7 +11,7 @@ use crate::{
 /// Validate if the provided password matches the password hash stored in the client.
 pub(crate) async fn validate_password(
     client: &Client,
-    password: String,
+    password: SensitiveString,
     password_hash: B64,
 ) -> Result<bool, AuthValidateError> {
     let login_method = client
@@ -32,7 +33,7 @@ pub(crate) async fn validate_password(
 
 pub(crate) async fn validate_password_user_key(
     client: &Client,
-    password: String,
+    password: SensitiveString,
     encrypted_user_key: String,
 ) -> Result<B64, AuthValidateError> {
     use crate::key_management::SymmetricKeySlotId;
@@ -61,8 +62,12 @@ pub(crate) async fn validate_password_user_key(
                 return Err(AuthValidateError::WrongUserKey);
             }
 
-            Ok(master_key
-                .derive_master_key_hash(password.as_bytes(), HashPurpose::LocalAuthorization))
+            // EXPOSE: The password bytes are fed into the master key hash (PBKDF2) primitive,
+            // which does not log them.
+            Ok(master_key.derive_master_key_hash(
+                password.expose().as_bytes(),
+                HashPurpose::LocalAuthorization,
+            ))
         }
     }
 }
@@ -70,6 +75,7 @@ pub(crate) async fn validate_password_user_key(
 #[cfg(test)]
 mod tests {
     use bitwarden_crypto::{EncString, Kdf};
+    use bitwarden_sensitive_value::SensitiveString;
 
     use crate::{
         auth::password::{validate::validate_password_user_key, validate_password},
@@ -96,7 +102,7 @@ mod tests {
             }))
             .await;
 
-        let password = "password123".to_string();
+        let password = SensitiveString::from("password123");
         let password_hash = "7kTqkF1pY/3JeOu73N9kR99fDDe9O1JOZaVc7KH3lsU="
             .parse()
             .unwrap();
@@ -137,7 +143,7 @@ mod tests {
         client
             .internal
             .initialize_user_crypto_master_password_unlock(
-                password.to_string(),
+                SensitiveString::from(password),
                 MasterPasswordUnlockData {
                     kdf,
                     master_key_wrapped_user_key: user_key.clone(),
@@ -149,7 +155,11 @@ mod tests {
             .unwrap();
 
         let result =
-            validate_password_user_key(&client, "asdfasdfasdf".to_owned(), user_key.to_string())
+            validate_password_user_key(
+                &client,
+                SensitiveString::from("asdfasdfasdf"),
+                user_key.to_string(),
+            )
                 .await
                 .unwrap();
 
@@ -158,7 +168,7 @@ mod tests {
             "aOvkBXFhSdgrBWR3hZCMRoML9+h5yRblU3lFphCdkeA="
         );
         assert!(
-            validate_password(&client, password.to_owned(), result)
+            validate_password(&client, SensitiveString::from(password), result)
                 .await
                 .unwrap()
         )
@@ -196,7 +206,7 @@ mod tests {
         client
             .internal
             .initialize_user_crypto_master_password_unlock(
-                password.to_string(),
+                SensitiveString::from(password),
                 MasterPasswordUnlockData {
                     kdf,
                     master_key_wrapped_user_key: user_key.parse().unwrap(),
@@ -208,7 +218,11 @@ mod tests {
             .unwrap();
 
         let result =
-            validate_password_user_key(&client, "asdfasdfasdf".to_string(), user_key.to_string())
+            validate_password_user_key(
+                &client,
+                SensitiveString::from("asdfasdfasdf"),
+                user_key.to_string(),
+            )
                 .await
                 .unwrap();
 
@@ -217,7 +231,7 @@ mod tests {
             "aOvkBXFhSdgrBWR3hZCMRoML9+h5yRblU3lFphCdkeA="
         );
         assert!(
-            validate_password(&client, "asdfasdfasdf".to_string(), result)
+            validate_password(&client, SensitiveString::from("asdfasdfasdf"), result)
                 .await
                 .unwrap()
         )

@@ -7,6 +7,7 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::SensitiveString;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -108,7 +109,7 @@ impl CryptoClient {
     /// user key and the new password hash but does not update sdk state.
     pub async fn make_update_kdf(
         &self,
-        password: String,
+        password: SensitiveString,
         kdf: Kdf,
     ) -> Result<UpdateKdfResponse, CryptoClientError> {
         make_update_kdf(&self.client, &password, &kdf).await
@@ -212,7 +213,7 @@ impl CryptoClient {
     /// password hash but does not update sdk state.
     pub async fn make_update_password(
         &self,
-        new_password: String,
+        new_password: SensitiveString,
     ) -> Result<UpdatePasswordResponse, CryptoClientError> {
         make_update_password(&self.client, new_password).await
     }
@@ -283,7 +284,7 @@ impl CryptoClient {
     /// and security state) wrapped with a new user key.
     pub fn make_user_jit_master_password_registration(
         &self,
-        master_password: String,
+        master_password: SensitiveString,
         salt: String,
         org_public_key: B64,
     ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
@@ -300,7 +301,7 @@ impl CryptoClient {
     /// security state) wrapped with a new user key.
     pub fn make_user_password_registration(
         &self,
-        master_password: String,
+        master_password: SensitiveString,
         salt: String,
     ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
         make_user_password_registration(&self.client, master_password, salt)

@@ -99,7 +99,7 @@ mod tests {
         client
             .internal
             .initialize_user_crypto_master_password_unlock(
-                password.to_string(),
+                password.into(),
                 MasterPasswordUnlockData {
                     kdf,
                     master_key_wrapped_user_key: user_key.parse().unwrap(),

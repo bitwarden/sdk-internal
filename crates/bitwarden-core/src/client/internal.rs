@@ -9,6 +9,8 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_crypto::{
     EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
 };
+#[cfg(feature = "internal")]
+use bitwarden_sensitive_value::SensitiveString;
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info, instrument};
@@ -377,7 +379,7 @@ impl InternalClient {
     #[instrument(err, skip_all)]
     pub(crate) fn initialize_user_crypto_master_password_unlock(
         &self,
-        password: String,
+        password: SensitiveString,
         master_password_unlock: MasterPasswordUnlockData,
         account_crypto_state: WrappedAccountCryptographicState,
         upgrade_token: &Option<V2UpgradeToken>,
@@ -443,6 +445,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{EncString, Kdf, MasterKey};
+    use bitwarden_sensitive_value::SensitiveString;
 
     use crate::{
         Client,
@@ -519,7 +522,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_set_user_master_password_unlock_email_and_keys_not_updated() {
-        let password = "asdfasdfasdf".to_string();
+        let password = SensitiveString::from("asdfasdfasdf");
         let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
         let kdf = Kdf::default_pbkdf2();
         let expected_email = TEST_ACCOUNT_EMAIL.to_owned();

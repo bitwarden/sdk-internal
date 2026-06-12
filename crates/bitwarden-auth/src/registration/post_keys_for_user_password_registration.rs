@@ -8,6 +8,7 @@ use bitwarden_core::{
     },
 };
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::SensitiveString;
 use tracing::error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -28,7 +29,7 @@ pub struct UserMasterPasswordRegistrationRequest {
     /// Salt for master password hashing
     pub salt: String,
     /// Master password for the account
-    pub master_password: String,
+    pub master_password: SensitiveString,
     /// Optional hint for the master password
     pub master_password_hint: Option<String>,
     /// Optional token for email verification
@@ -297,7 +298,7 @@ mod tests {
         let request = UserMasterPasswordRegistrationRequest {
             email: test_email.to_string(),
             salt: test_email.to_string(),
-            master_password: test_password.to_string(),
+            master_password: test_password.into(),
             master_password_hint: Some(test_hint.to_string()),
             email_verification_token: None,
             organization_user_id: None,
@@ -345,7 +346,7 @@ mod tests {
         let request = UserMasterPasswordRegistrationRequest {
             email: test_email.to_string(),
             salt: test_email.to_string(),
-            master_password: test_password.to_string(),
+            master_password: test_password.into(),
             master_password_hint: Some(test_hint.to_string()),
             email_verification_token: None,
             organization_user_id: None,

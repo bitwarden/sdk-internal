@@ -150,7 +150,7 @@ async fn temp_login(
         .auth()
         .login_password(&PasswordLoginRequest {
             email,
-            password,
+            password: password.into(),
             two_factor: None,
         })
         .await?;

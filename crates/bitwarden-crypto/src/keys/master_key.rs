@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::SensitiveString;
 use hybrid_array::Array;
 use rand::RngExt;
 use tracing::instrument;
@@ -60,7 +61,11 @@ impl MasterKey {
     ///
     /// Note: the email is trimmed and converted to lowercase before being used.
     #[cfg_attr(feature = "dangerous-crypto-debug", instrument)]
-    pub fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
+    pub fn derive(
+        password: &SensitiveString,
+        email: &str,
+        kdf: &Kdf,
+    ) -> Result<Self, CryptoError> {
         Ok(KdfDerivedKeyMaterial::derive(password, email, kdf)?.into())
     }
 
@@ -185,7 +190,7 @@ mod tests {
 
     use rand::SeedableRng;
 
-    use super::{HashPurpose, Kdf, MasterKey, make_user_key};
+    use super::{HashPurpose, Kdf, MasterKey, SensitiveString, make_user_key};
     use crate::{
         EncString, SymmetricCryptoKey,
         keys::{master_key::KdfDerivedKeyMaterial, symmetric_crypto_key::derive_symmetric_key},
@@ -204,9 +209,10 @@ mod tests {
         };
 
         for salt in salts.iter() {
-            let master_key: MasterKey = KdfDerivedKeyMaterial::derive(password, salt, &kdf)
-                .unwrap()
-                .into();
+            let master_key: MasterKey =
+                KdfDerivedKeyMaterial::derive(&SensitiveString::from(password), salt, &kdf)
+                    .unwrap()
+                    .into();
 
             assert_eq!(
                 "wmyadRMyBZOH7P/a/ucTCbSghKgdzDpPqUnu/DAVtSw=",
@@ -230,9 +236,10 @@ mod tests {
             parallelism: NonZeroU32::new(2).unwrap(),
         };
 
-        let master_key: MasterKey = KdfDerivedKeyMaterial::derive(password, salt, &kdf)
-            .unwrap()
-            .into();
+        let master_key: MasterKey =
+            KdfDerivedKeyMaterial::derive(&SensitiveString::from(password), salt, &kdf)
+                .unwrap()
+                .into();
 
         assert_eq!(
             "PR6UjYmjmppTYcdyTiNbAhPJuQQOmynKbdEl1oyi/iQ=",
@@ -305,9 +312,10 @@ mod tests {
             iterations: NonZeroU32::new(600_000).unwrap(),
         };
 
-        let master_key: MasterKey = KdfDerivedKeyMaterial::derive(password, salt, &kdf)
-            .unwrap()
-            .into();
+        let master_key: MasterKey =
+            KdfDerivedKeyMaterial::derive(&SensitiveString::from(password), salt, &kdf)
+                .unwrap()
+                .into();
 
         let user_key: EncString = "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap();
 

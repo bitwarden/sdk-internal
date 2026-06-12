@@ -23,7 +23,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         .auth()
         .login_password(&PasswordLoginRequest {
             email: email.clone(),
-            password: password.clone(),
+            password: password.clone().into(),
             two_factor: None,
         })
         .await?;
@@ -47,7 +47,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
                 .auth()
                 .send_two_factor_email(&TwoFactorEmailRequest {
                     email: email.clone(),
-                    password: password.clone(),
+                    password: password.clone().into(),
                 })
                 .await?;
 
@@ -67,7 +67,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
             .auth()
             .login_password(&PasswordLoginRequest {
                 email,
-                password,
+                password: password.into(),
                 two_factor,
             })
             .await?;
@@ -107,7 +107,7 @@ pub(crate) async fn login_api_key(
         .login_api_key(&ApiKeyLoginRequest {
             client_id,
             client_secret,
-            password,
+            password: password.into(),
         })
         .await?;
 

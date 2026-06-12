@@ -10,6 +10,7 @@ use bitwarden_core::{
     },
 };
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::SensitiveString;
 use tracing::{error, info};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -37,7 +38,7 @@ pub struct JitMasterPasswordRegistrationRequest {
     /// Salt for master password hashing, usually email
     pub salt: String,
     /// Master password for the account
-    pub master_password: String,
+    pub master_password: SensitiveString,
     /// Optional hint for the master password
     pub master_password_hint: Option<String>,
     /// Should enroll user into admin password reset
@@ -301,7 +302,7 @@ mod tests {
             organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
             user_id: TEST_USER_ID.parse().unwrap(),
             salt: "test@example.com".to_string(),
-            master_password: "test-password-123".to_string(),
+            master_password: "test-password-123".into(),
             master_password_hint: Some(expected_hint.to_string()),
             reset_password_enroll: true,
         };
@@ -363,7 +364,7 @@ mod tests {
             organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
             user_id: TEST_USER_ID.parse().unwrap(),
             salt: "test@example.com".to_string(),
-            master_password: "test-password-123".to_string(),
+            master_password: "test-password-123".into(),
             master_password_hint: Some("test hint".to_string()),
             reset_password_enroll: true,
         };
@@ -409,7 +410,7 @@ mod tests {
             organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
             user_id: TEST_USER_ID.parse().unwrap(),
             salt: "test@example.com".to_string(),
-            master_password: "test-password-123".to_string(),
+            master_password: "test-password-123".into(),
             master_password_hint: Some("test hint".to_string()),
             reset_password_enroll: true,
         };
@@ -452,7 +453,7 @@ mod tests {
             organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
             user_id: TEST_USER_ID.parse().unwrap(),
             salt: "test@example.com".to_string(),
-            master_password: "test-password-123".to_string(),
+            master_password: "test-password-123".into(),
             master_password_hint: Some("test hint".to_string()),
             reset_password_enroll: false,
         };

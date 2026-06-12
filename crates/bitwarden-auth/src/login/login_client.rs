@@ -51,7 +51,7 @@ use wasm_bindgen::prelude::*;
 ///         },
 ///     },
 ///     email,
-///     password,
+///     password: password.into(),
 ///     prelogin_response: prelogin,
 /// }).await?;
 ///

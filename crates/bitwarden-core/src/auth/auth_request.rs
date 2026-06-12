@@ -157,7 +157,7 @@ mod tests {
         client
             .internal
             .initialize_user_crypto_master_password_unlock(
-                "asdfasdfasdf".to_string(),
+                "asdfasdfasdf".into(),
                 MasterPasswordUnlockData {
                     kdf: Kdf::PBKDF2 {
                         iterations: NonZeroU32::new(600_000).unwrap(),
@@ -232,7 +232,7 @@ mod tests {
         existing_device
             .internal
             .initialize_user_crypto_master_password_unlock(
-                "asdfasdfasdf".to_string(),
+                "asdfasdfasdf".into(),
                 MasterPasswordUnlockData {
                     kdf: kdf.clone(),
                     master_key_wrapped_user_key: user_key,

@@ -7,6 +7,7 @@ use bitwarden_crypto::{
     safe::PasswordProtectedKeyEnvelope,
 };
 use bitwarden_encoding::B64;
+use bitwarden_sensitive_value::SensitiveString;
 
 use crate::{auth::registration::RegistrationClient, error::Result};
 
@@ -48,7 +49,7 @@ impl AuthClient {
     pub async fn hash_password(
         &self,
         email: String,
-        password: String,
+        password: SensitiveString,
         kdf_params: Kdf,
         purpose: HashPurpose,
     ) -> Result<B64> {
@@ -63,7 +64,7 @@ impl AuthClient {
     pub fn make_register_keys(
         &self,
         email: String,
-        password: String,
+        password: SensitiveString,
         kdf: Kdf,
     ) -> Result<RegisterKeyResponse> {
         Ok(self.0.auth().make_register_keys(email, password, kdf)?)
@@ -93,7 +94,11 @@ impl AuthClient {
     /// To retrieve the user's password hash, use [`AuthClient::hash_password`] with
     /// `HashPurpose::LocalAuthentication` during login and persist it. If the login method has no
     /// password, use the email OTP.
-    pub async fn validate_password(&self, password: String, password_hash: B64) -> Result<bool> {
+    pub async fn validate_password(
+        &self,
+        password: SensitiveString,
+        password_hash: B64,
+    ) -> Result<bool> {
         Ok(self
             .0
             .auth()
@@ -109,7 +114,7 @@ impl AuthClient {
     /// This works by comparing the provided password against the encrypted user key.
     pub async fn validate_password_user_key(
         &self,
-        password: String,
+        password: SensitiveString,
         encrypted_user_key: String,
     ) -> Result<B64> {
         Ok(self

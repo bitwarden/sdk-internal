@@ -3,6 +3,7 @@ use std::str::FromStr;
 use bitwarden_core::key_management::KeySlotIds;
 #[allow(deprecated)]
 use bitwarden_crypto::dangerous_derive_kdf_material;
+use bitwarden_sensitive_value::SensitiveString;
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError,
     Decryptable, EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
@@ -100,7 +101,7 @@ impl PureCrypto {
 
     pub fn decrypt_user_key_with_master_password(
         encrypted_user_key: String,
-        master_password: String,
+        master_password: SensitiveString,
         email: String,
         kdf: Kdf,
     ) -> Result<Vec<u8>, CryptoError> {
@@ -111,7 +112,7 @@ impl PureCrypto {
         )
         .entered();
 
-        let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let master_key = MasterKey::derive(&master_password, email.as_str(), &kdf)?;
         let encrypted_user_key = EncString::from_str(&encrypted_user_key)?;
         let result = master_key
             .decrypt_user_key(encrypted_user_key)
@@ -121,7 +122,7 @@ impl PureCrypto {
 
     pub fn encrypt_user_key_with_master_password(
         user_key: Vec<u8>,
-        master_password: String,
+        master_password: SensitiveString,
         email: String,
         kdf: Kdf,
     ) -> Result<String, CryptoError> {
@@ -131,7 +132,7 @@ impl PureCrypto {
             kdf = ?kdf
         )
         .entered();
-        let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
+        let master_key = MasterKey::derive(&master_password, email.as_str(), &kdf)?;
         let user_key = &BitwardenLegacyKeyBytes::from(user_key);
         let user_key = SymmetricCryptoKey::try_from(user_key)?;
         let result = master_key.encrypt_user_key(&user_key)?;
@@ -639,14 +640,14 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let user_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let encrypted_user_key = PureCrypto::encrypt_user_key_with_master_password(
             user_key.clone(),
-            master_password.to_string(),
+            master_password.into(),
             email.to_string(),
             kdf.clone(),
         )
         .unwrap();
         let decrypted_user_key = PureCrypto::decrypt_user_key_with_master_password(
             encrypted_user_key,
-            master_password.to_string(),
+            master_password.into(),
             email.to_string(),
             kdf,
         )
@@ -779,14 +780,14 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_decrypt_user_key_with_master_key() {
-        let password = "test_password";
+        let password = SensitiveString::from("test_password");
         let email = "test_email@example.com";
         let kdf = &Kdf::Argon2id {
             iterations: NonZero::try_from(3).unwrap(),
             memory: NonZero::try_from(64).unwrap(),
             parallelism: NonZero::try_from(4).unwrap(),
         };
-        let master_key = MasterKey::derive(password, email, kdf).unwrap();
+        let master_key = MasterKey::derive(&password, email, kdf).unwrap();
         let (user_key, encrypted_user_key) = master_key.make_user_key().unwrap();
         let master_key_bytes = master_key.to_base64().into_bytes();
 

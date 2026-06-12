@@ -5,6 +5,7 @@ use bitwarden_core::key_management::{
     account_cryptographic_state::WrappedAccountCryptographicState,
 };
 use bitwarden_crypto::{KeyStore, PublicKey};
+use bitwarden_sensitive_value::SensitiveString;
 use serde::{Deserialize, Serialize};
 use tracing::{info, instrument};
 #[cfg(feature = "wasm")]
@@ -31,8 +32,8 @@ use crate::{
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PasswordChangeAndRotateUserKeysRequest {
-    pub old_password: String,
-    pub password: String,
+    pub old_password: SensitiveString,
+    pub password: SensitiveString,
     pub hint: Option<String>,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
     pub trusted_organization_public_keys: Vec<PublicKey>,
@@ -230,8 +231,8 @@ mod tests {
             &key_store,
             &api_client,
             PasswordChangeAndRotateUserKeysRequest {
-                old_password: "old_password".to_string(),
-                password: "new_password".to_string(),
+                old_password: "old_password".into(),
+                password: "new_password".into(),
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -261,8 +262,8 @@ mod tests {
             &key_store,
             &api_client,
             PasswordChangeAndRotateUserKeysRequest {
-                old_password: "old_password".to_string(),
-                password: "new_password".to_string(),
+                old_password: "old_password".into(),
+                password: "new_password".into(),
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -294,8 +295,8 @@ mod tests {
             &key_store,
             &api_client,
             PasswordChangeAndRotateUserKeysRequest {
-                old_password: "old_password".to_string(),
-                password: "new_password".to_string(),
+                old_password: "old_password".into(),
+                password: "new_password".into(),
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -369,8 +370,8 @@ mod tests {
             &key_store,
             &api_client,
             PasswordChangeAndRotateUserKeysRequest {
-                old_password: "old_password".to_string(),
-                password: "new_password".to_string(),
+                old_password: "old_password".into(),
+                password: "new_password".into(),
                 hint: None,
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],

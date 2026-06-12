@@ -23,6 +23,7 @@ uniffi = ["dep:uniffi"]
 wasm = ["dep:wasm-bindgen"]
 
 [dependencies]
+schemars = { workspace = true }
 serde = { workspace = true }
 uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }

@@ -1,5 +1,6 @@
 use bitwarden_api_api::models::TwoFactorEmailRequestModel;
 use bitwarden_crypto::HashPurpose;
+use bitwarden_sensitive_value::SensitiveString;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -15,7 +16,7 @@ use crate::{
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TwoFactorEmailRequest {
     /// User Password
-    pub password: String,
+    pub password: SensitiveString,
     /// User email
     pub email: String,
 }

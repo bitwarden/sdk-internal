@@ -4,6 +4,7 @@ use bitwarden_core::key_management::{
     KeySlotIds, V2UpgradeToken, account_cryptographic_state::WrappedAccountCryptographicState,
 };
 use bitwarden_crypto::{KeyConnectorKey, KeyStore, PublicKey, SymmetricCryptoKey};
+use bitwarden_sensitive_value::SensitiveString;
 use serde::{Deserialize, Serialize};
 use tracing::{info, instrument};
 #[cfg(feature = "wasm")]
@@ -31,7 +32,7 @@ use crate::{
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum KeyRotationMethod {
     /// Master password user, key rotation without a password change.
-    Password { password: String },
+    Password { password: SensitiveString },
     /// Key Connector user, key rotation without a password change.
     KeyConnector { key_connector_url: String },
     /// TDE user, key rotation without a password change.
@@ -464,7 +465,7 @@ mod tests {
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
+                    password: "test_password".into(),
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -501,7 +502,7 @@ mod tests {
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
+                    password: "test_password".into(),
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -543,7 +544,7 @@ mod tests {
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
+                    password: "test_password".into(),
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -585,7 +586,7 @@ mod tests {
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
+                    password: "test_password".into(),
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -629,7 +630,7 @@ mod tests {
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
+                    password: "test_password".into(),
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -679,7 +680,7 @@ mod tests {
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
+                    password: "test_password".into(),
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],
@@ -769,7 +770,7 @@ mod tests {
             None,
             RotateUserKeysRequest {
                 key_rotation_method: KeyRotationMethod::Password {
-                    password: "test_password".to_string(),
+                    password: "test_password".into(),
                 },
                 trusted_organization_public_keys: vec![],
                 trusted_emergency_access_public_keys: vec![],

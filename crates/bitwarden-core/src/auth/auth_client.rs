@@ -5,6 +5,8 @@ use bitwarden_crypto::{
 };
 #[cfg(feature = "internal")]
 use bitwarden_encoding::B64;
+#[cfg(feature = "internal")]
+use bitwarden_sensitive_value::SensitiveString;
 
 use crate::Client;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -76,7 +78,7 @@ impl AuthClient {
     pub fn make_register_keys(
         &self,
         email: String,
-        password: String,
+        password: SensitiveString,
         kdf: Kdf,
     ) -> Result<RegisterKeyResponse, CryptoError> {
         make_register_keys(email, password, kdf)
@@ -132,7 +134,7 @@ impl AuthClient {
     #[allow(missing_docs)]
     pub async fn validate_password(
         &self,
-        password: String,
+        password: SensitiveString,
         password_hash: B64,
     ) -> Result<bool, AuthValidateError> {
         validate_password(&self.client, password, password_hash).await
@@ -141,7 +143,7 @@ impl AuthClient {
     #[allow(missing_docs)]
     pub async fn validate_password_user_key(
         &self,
-        password: String,
+        password: SensitiveString,
         encrypted_user_key: String,
     ) -> Result<B64, AuthValidateError> {
         validate_password_user_key(&self.client, password, encrypted_user_key).await

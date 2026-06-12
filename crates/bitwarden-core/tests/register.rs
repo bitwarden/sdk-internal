@@ -49,7 +49,7 @@ async fn test_register_initialize_crypto() {
 
     let register_response = client
         .auth()
-        .make_register_keys(email.to_owned(), password.to_owned(), kdf.clone())
+        .make_register_keys(email.to_owned(), password.into(), kdf.clone())
         .unwrap();
 
     // Ensure we can initialize the crypto with the new keys
@@ -63,7 +63,7 @@ async fn test_register_initialize_crypto() {
                 private_key: register_response.keys.private,
             },
             method: InitUserCryptoMethod::MasterPasswordUnlock {
-                password: password.to_owned(),
+                password: password.into(),
                 master_password_unlock: MasterPasswordUnlockData {
                     kdf,
                     master_key_wrapped_user_key: register_response.encrypted_user_key,

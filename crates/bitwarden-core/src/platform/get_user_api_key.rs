@@ -14,6 +14,7 @@
 
 use bitwarden_api_api::models::{ApiKeyResponseModel, SecretVerificationRequestModel};
 use bitwarden_crypto::{CryptoError, HashPurpose, MasterKey};
+use bitwarden_sensitive_value::ExposeSensitive;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info};
@@ -79,9 +80,14 @@ fn build_secret_verification_request(
             .map(|p| {
                 let master_key = MasterKey::derive(p, email, kdf)?;
 
+                // EXPOSE: The password bytes are fed into the master key hash (PBKDF2) primitive,
+                // which does not log them.
                 Ok::<String, CryptoError>(
                     master_key
-                        .derive_master_key_hash(p.as_bytes(), HashPurpose::ServerAuthorization)
+                        .derive_master_key_hash(
+                            p.expose().as_bytes(),
+                            HashPurpose::ServerAuthorization,
+                        )
                         .to_string(),
                 )
             })

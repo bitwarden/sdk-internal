@@ -1,3 +1,4 @@
+use bitwarden_sensitive_value::SensitiveString;
 use serde::{Deserialize, Serialize};
 
 use crate::login::{login_via_password::PasswordPreloginResponse, models::LoginRequest};
@@ -18,7 +19,7 @@ pub struct PasswordLoginRequest {
     /// User's email address
     pub email: String,
     /// User's master password
-    pub password: String,
+    pub password: SensitiveString,
 
     /// Prelogin data required for password authentication
     /// (e.g., KDF configuration for deriving the master key)

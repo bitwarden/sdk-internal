@@ -14,6 +14,7 @@ keywords.workspace = true
 
 [dependencies]
 bitwarden-crypto = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 comfy-table = "7.1.1"
 hex = "0.4.3"
 serde = "1.0.196"

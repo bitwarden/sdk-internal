@@ -12,6 +12,7 @@ use bitwarden_core::key_management::{
     V2UpgradeToken,
 };
 use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey};
+use bitwarden_sensitive_value::SensitiveString;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, debug_span, error, info};
 #[cfg(feature = "wasm")]
@@ -58,7 +59,7 @@ pub(super) enum ReencryptError {
 
 pub(super) struct ReencryptMasterPasswordChangeAndUnlockInput {
     /// Master password change data.
-    pub(super) password: String,
+    pub(super) password: SensitiveString,
     pub(super) hint: Option<String>,
     pub(super) kdf: Kdf,
     pub(super) salt: String,
@@ -246,7 +247,7 @@ fn reencrypt_organization_memberships(
 }
 
 fn reencrypt_userkey_for_masterpassword_unlock(
-    password: String,
+    password: SensitiveString,
     hint: Option<String>,
     kdf: Kdf,
     salt: String,
@@ -414,12 +415,12 @@ mod tests {
 
         let kdf = create_test_kdf_pbkdf2();
         let salt = "test@example.com";
-        let password = "test_password";
+        let password = SensitiveString::from("test_password");
 
         let user_key_id = ctx.generate_symmetric_key();
-        let unlock_data = MasterPasswordUnlockData::derive(password, &kdf, salt, user_key_id, &ctx)
+        let unlock_data = MasterPasswordUnlockData::derive(&password, &kdf, salt, user_key_id, &ctx)
             .expect("derive should succeed");
-        let auth_data = MasterPasswordAuthenticationData::derive(password, &kdf, salt)
+        let auth_data = MasterPasswordAuthenticationData::derive(&password, &kdf, salt)
             .expect("derive should succeed");
 
         let result = to_authentication_and_unlock_data(unlock_data, auth_data, None);
@@ -446,7 +447,7 @@ mod tests {
             salt: salt.to_string(),
         };
         let decrypted_user_key = master_password_unlock_data
-            .unwrap_to_context(password, &mut ctx)
+            .unwrap_to_context(&password, &mut ctx)
             .expect("unwrap should succeed");
         assert_symmetric_keys_equal(user_key_id, decrypted_user_key, &mut ctx);
     }
@@ -458,12 +459,12 @@ mod tests {
 
         let kdf = create_test_kdf_argon2id();
         let salt = "test@example.com";
-        let password = "test_password";
+        let password = SensitiveString::from("test_password");
 
         let user_key_id = ctx.generate_symmetric_key();
-        let unlock_data = MasterPasswordUnlockData::derive(password, &kdf, salt, user_key_id, &ctx)
+        let unlock_data = MasterPasswordUnlockData::derive(&password, &kdf, salt, user_key_id, &ctx)
             .expect("derive should succeed");
-        let auth_data = MasterPasswordAuthenticationData::derive(password, &kdf, salt)
+        let auth_data = MasterPasswordAuthenticationData::derive(&password, &kdf, salt)
             .expect("derive should succeed");
 
         let result = to_authentication_and_unlock_data(unlock_data, auth_data, None);
@@ -489,7 +490,7 @@ mod tests {
             salt: salt.to_string(),
         };
         let decrypted_user_key = master_password_unlock_data
-            .unwrap_to_context(password, &mut ctx)
+            .unwrap_to_context(&password, &mut ctx)
             .expect("unwrap should succeed");
         assert_symmetric_keys_equal(user_key_id, decrypted_user_key, &mut ctx);
     }
@@ -765,7 +766,7 @@ mod tests {
         let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let input = ReencryptMasterPasswordChangeAndUnlockInput {
-            password: "test_password".to_string(),
+            password: "test_password".into(),
             hint: None,
             kdf: create_test_kdf_pbkdf2(),
             salt: "test@example.com".to_string(),

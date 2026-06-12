@@ -108,7 +108,7 @@ mod tests {
                 },
             },
             email: TEST_EMAIL.to_string(),
-            password: TEST_PASSWORD.to_string(),
+            password: TEST_PASSWORD.into(),
             prelogin_response: PasswordPreloginResponse {
                 kdf,
                 salt: TEST_SALT.to_string(),
@@ -435,7 +435,7 @@ mod tests {
                 },
             },
             email: TEST_EMAIL.to_string(),
-            password: TEST_PASSWORD.to_string(),
+            password: TEST_PASSWORD.into(),
             prelogin_response: PasswordPreloginResponse {
                 kdf: Kdf::PBKDF2 {
                     iterations: std::num::NonZeroU32::new(100).unwrap(), // Below minimum of 5000

@@ -1,5 +1,6 @@
 use std::{num::NonZeroU32, pin::Pin};
 
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
 use hybrid_array::Array;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -90,9 +91,15 @@ impl KdfDerivedKeyMaterial {
     /// Derives a users master key from their password, email and KDF.
     ///
     /// Note: the email is trimmed and converted to lowercase before being used.
-    pub(super) fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
+    pub(super) fn derive(
+        password: &SensitiveString,
+        email: &str,
+        kdf: &Kdf,
+    ) -> Result<Self, CryptoError> {
+        // EXPOSE: The password bytes are fed directly into the KDF primitive, which does not log
+        // them.
         Self::derive_kdf_key(
-            password.as_bytes(),
+            password.expose().as_bytes(),
             email.trim().to_lowercase().as_bytes(),
             kdf,
         )
@@ -174,6 +181,8 @@ fn default_argon2_parallelism() -> NonZeroU32 {
 mod tests {
     use std::num::{NonZero, NonZeroU32};
 
+    use bitwarden_sensitive_value::SensitiveString;
+
     use crate::keys::kdf::{Kdf, KdfDerivedKeyMaterial};
 
     #[test]
@@ -218,7 +227,7 @@ mod tests {
     #[test]
     fn test_master_key_derive_pbkdf2() {
         let kdf_key = KdfDerivedKeyMaterial::derive(
-            "67t9b5g67$%Dh89n",
+            &SensitiveString::from("67t9b5g67$%Dh89n"),
             "test_key",
             &Kdf::PBKDF2 {
                 iterations: NonZeroU32::new(10000).unwrap(),
@@ -238,7 +247,7 @@ mod tests {
     #[test]
     fn test_master_key_derive_argon2() {
         let kdf_key = KdfDerivedKeyMaterial::derive(
-            "67t9b5g67$%Dh89n",
+            &SensitiveString::from("67t9b5g67$%Dh89n"),
             "test_key",
             &Kdf::Argon2id {
                 iterations: NonZeroU32::new(4).unwrap(),

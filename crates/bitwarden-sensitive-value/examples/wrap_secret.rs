@@ -1,12 +1,12 @@
 //! Demonstrates wrapping secret values with [`Sensitive`] and [`SensitiveString`] so that
 //! `Debug` and `Display` output is redacted by default.
 
-use bitwarden_sensitive_value::{ExposeSensitive, MasterPassword, Sensitive};
+use bitwarden_sensitive_value::{ExposeSensitive, Sensitive, SensitiveString};
 
 fn main() {
     // `SensitiveString` is the FFI-friendly wrapper used for passwords, PINs, and similar
-    // string-shaped secrets. `MasterPassword` and `Pin` are type aliases for it.
-    let password: MasterPassword = MasterPassword::from("hunter2");
+    // string-shaped secrets.
+    let password: SensitiveString = SensitiveString::from("hunter2");
 
     // `Debug` and `Display` are redacted, so the secret is safe to log accidentally.
     #[cfg(not(feature = "dangerous-crypto-debug"))]
