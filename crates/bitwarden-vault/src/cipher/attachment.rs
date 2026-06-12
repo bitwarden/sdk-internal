@@ -2,7 +2,7 @@ use bitwarden_api_api::models::CipherAttachmentModel;
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
-    OctetStreamBytes, PrimitiveEncryptable,
+    OctetStreamBytes, PrimitiveEncryptable, SymmetricCryptoKey,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -10,6 +10,16 @@ use tsify::Tsify;
 
 use super::Cipher;
 use crate::VaultParseError;
+
+/// Cryptographic material for a new attachment, shared by the upgrade and create paths.
+pub(crate) struct AttachmentMaterial {
+    /// Raw attachment key, used to encrypt the attachment contents.
+    pub(crate) key: SymmetricCryptoKey,
+    /// Attachment key wrapped with the cipher key, stored on the attachment record.
+    pub(crate) wrapped_key: EncString,
+    /// File name encrypted with the cipher key.
+    pub(crate) encrypted_file_name: EncString,
+}
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,6 +41,25 @@ impl From<Attachment> for CipherAttachmentModel {
         Self {
             file_name: attachment.file_name.map(|f| f.to_string()),
             key: attachment.key.map(|k| k.to_string()),
+        }
+    }
+}
+
+/// The encryption format an attachment uses, derived from whether it carries its own key.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum AttachmentEncryptionVersion {
+    /// Legacy v1: contents are encrypted directly with the cipher key; no per-attachment key.
+    LegacyNoKeyV1,
+    /// V2: a per-attachment key, wrapped by the cipher key, encrypts the contents.
+    AttachmentKeyV2,
+}
+
+impl Attachment {
+    /// Returns the [`AttachmentEncryptionVersion`] this attachment uses.
+    pub(crate) fn encryption_version(&self) -> AttachmentEncryptionVersion {
+        match self.key {
+            Some(_) => AttachmentEncryptionVersion::AttachmentKeyV2,
+            None => AttachmentEncryptionVersion::LegacyNoKeyV1,
         }
     }
 }

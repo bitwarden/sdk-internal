@@ -29,7 +29,6 @@ mod bulk_update_collections;
 pub use admin::GetAssignedOrgCiphersAdminError;
 mod create;
 mod delete;
-mod delete_attachment;
 mod edit;
 mod get;
 mod move_many;
