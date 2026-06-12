@@ -94,6 +94,7 @@
         "http",
         "js-sys",
         "mockall",
+        "password-rules-parser",
         "proc-macro2",
         "quote",
         "rand",

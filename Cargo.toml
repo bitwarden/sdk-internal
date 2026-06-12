@@ -49,6 +49,7 @@ bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=3.0.0" }
+bitwarden-sensitive-value = { path = "crates/bitwarden-sensitive-value", version = "=3.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=3.0.0" }
 bitwarden-shared-unlock = { path = "crates/bitwarden-shared-unlock", version = "=3.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=3.0.0" }
@@ -77,6 +78,7 @@ hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
 js-sys = { version = ">=0.3.72, <0.4" }
 mockall = { version = ">=0.13.1, <0.15" }
+password-rules-parser = ">=1.1.0, <2"
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"
