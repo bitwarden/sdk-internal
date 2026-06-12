@@ -21,6 +21,7 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
+use bitwarden_sensitive_value::SensitiveString;
 #[cfg(feature = "uniffi")]
 pub(super) use reinit_user_crypto::reinit_user_crypto;
 #[cfg(feature = "uniffi")]
@@ -138,7 +139,7 @@ pub enum InitUserCryptoMethod {
     /// PIN state, where the PIN envelope is stored in persistent client-managed state
     PinState {
         /// The user's PIN
-        pin: String,
+        pin: SensitiveString,
     },
     /// PIN Envelope
     PinEnvelope {
@@ -289,7 +290,7 @@ pub(super) async fn initialize_user_crypto(
         }
         InitUserCryptoMethod::PinState { pin } => {
             PinLockSystem::with_client(client)
-                .unlock(pin.as_str())
+                .unlock(&pin)
                 .await
                 .map_err(|err| match err {
                     UnlockError::PinWrong => EncryptionSettingsError::WrongPin,

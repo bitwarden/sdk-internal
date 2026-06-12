@@ -1,5 +1,6 @@
 use bitwarden_core::key_management::{PinLockSystem, PinLockType, PinUnlockStatus};
 use bitwarden_error::bitwarden_error;
+use bitwarden_sensitive_value::SensitiveString;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -38,7 +39,7 @@ impl PinSettingsClient {
     /// Returns an error when the PIN-protected state cannot be persisted.
     pub async fn set_pin(
         &self,
-        pin: String,
+        pin: SensitiveString,
         lock_type: bitwarden_core::key_management::PinLockType,
     ) -> Result<(), PinSettingsError> {
         PinLockSystem::with_client(&self.client)
@@ -67,14 +68,14 @@ impl PinSettingsClient {
     }
 
     /// Validates whether `pin` matches the currently configured unlock PIN.
-    pub async fn validate_pin(&self, pin: String) -> bool {
+    pub async fn validate_pin(&self, pin: SensitiveString) -> bool {
         PinLockSystem::with_client(&self.client)
             .validate_pin(pin)
             .await
     }
 
     /// Returns the currently configured PIN, if available.
-    pub async fn get_pin(&self) -> Option<String> {
+    pub async fn get_pin(&self) -> Option<SensitiveString> {
         PinLockSystem::with_client(&self.client).get_pin().await
     }
 }

@@ -32,12 +32,14 @@ uniffi = [
     "bitwarden-api-base/uniffi",
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
+    "bitwarden-sensitive-value/uniffi",
     "dep:bitwarden-uniffi-error",
     "dep:uniffi",
 ] # Uniffi bindings
 wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-sensitive-value/wasm",
     "bitwarden-error/wasm",
     "bitwarden-state/wasm",
     "getrandom2/js",
@@ -65,6 +67,7 @@ bitwarden-core-macro = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-state-bridge-macro = { workspace = true }
 bitwarden-test = { workspace = true, optional = true }
