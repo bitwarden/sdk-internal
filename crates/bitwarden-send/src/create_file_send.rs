@@ -20,8 +20,7 @@ use crate::{
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[cfg_attr(dylint_lib = "bitwarden_lints", allow(repr_with_tsify))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum FileUploadType {
     /// Upload directly to the Bitwarden server via `POST /sends/{id}/file/{file_id}`.
     Direct = 0,
