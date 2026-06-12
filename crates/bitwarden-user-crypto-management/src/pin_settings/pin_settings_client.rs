@@ -43,7 +43,7 @@ impl PinSettingsClient {
         lock_type: bitwarden_core::key_management::PinLockType,
     ) -> Result<(), PinSettingsError> {
         PinLockSystem::with_client(&self.client)
-            .set_pin(pin, lock_type)
+            .set_pin(&pin, lock_type)
             .await
             .map_err(|_| PinSettingsError::SetPinState)
     }
@@ -70,7 +70,7 @@ impl PinSettingsClient {
     /// Validates whether `pin` matches the currently configured unlock PIN.
     pub async fn validate_pin(&self, pin: SensitiveString) -> bool {
         PinLockSystem::with_client(&self.client)
-            .validate_pin(pin)
+            .validate_pin(&pin)
             .await
     }
 

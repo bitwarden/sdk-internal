@@ -210,7 +210,7 @@ impl PinLockSystem<'_> {
         .map_err(|_| MigrationFailed::PinDecryption)?;
 
         // Do a fresh enrollment with the new user-key
-        self.set_pin(pin, PinLockType::BeforeFirstUnlock)
+        self.set_pin(&pin, PinLockType::BeforeFirstUnlock)
             .await
             .map_err(|_| MigrationFailed::Reenrollment)?;
 
@@ -266,7 +266,7 @@ impl PinLockSystem<'_> {
     }
 
     /// Sets the PIN and stores the generated envelope according to the lock type.
-    pub async fn set_pin(&self, pin: SensitiveString, lock_type: PinLockType) -> Result<(), ()> {
+    pub async fn set_pin(&self, pin: &SensitiveString, lock_type: PinLockType) -> Result<(), ()> {
         // Clear the existing configuration
         self.client
             .km_state_bridge()
@@ -397,7 +397,7 @@ impl PinLockSystem<'_> {
     }
 
     /// Validates that the provided PIN can decrypt the stored PIN envelope.
-    pub async fn validate_pin(&self, pin: SensitiveString) -> bool {
+    pub async fn validate_pin(&self, pin: &SensitiveString) -> bool {
         let pin_envelope = self.get_active_pin_envelope().await;
         let Some(pin_envelope) = pin_envelope else {
             return false;
@@ -495,7 +495,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -531,7 +531,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -562,11 +562,11 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("first".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"first".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("first set_pin");
         system
-            .set_pin("second".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"second".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("second set_pin");
 
@@ -579,8 +579,8 @@ mod tests {
             system.get_pin_lock_type().await,
             Some(PinLockType::AfterFirstUnlock)
         );
-        assert!(system.validate_pin("second".into()).await);
-        assert!(!system.validate_pin("first".into()).await);
+        assert!(system.validate_pin(&"second".into()).await);
+        assert!(!system.validate_pin(&"first".into()).await);
     }
 
     #[tokio::test]
@@ -589,7 +589,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
         system.unset_pin().await;
@@ -610,7 +610,7 @@ mod tests {
         let pre_unlock_user_key_id = user_key_id(&client);
         // Snapshot ciphertext under the original user key, then drop the key from memory.
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
         client.internal.get_key_store().clear();
@@ -625,7 +625,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -651,7 +651,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("persistent".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"persistent".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -675,7 +675,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -698,7 +698,7 @@ mod tests {
         let user_key_id = user_key_id(&client);
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
         client
@@ -746,7 +746,7 @@ mod tests {
         assert_eq!(system.get_pin().await, None);
 
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
         assert_eq!(system.get_pin().await, Some(SensitiveString::from("1234")));
@@ -760,14 +760,14 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
 
-        assert!(!system.validate_pin("anything".into()).await);
+        assert!(!system.validate_pin(&"anything".into()).await);
 
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
-        assert!(system.validate_pin("1234".into()).await);
-        assert!(!system.validate_pin("wrong".into()).await);
+        assert!(system.validate_pin(&"1234".into()).await);
+        assert!(!system.validate_pin(&"wrong".into()).await);
     }
 
     /// Snapshot of the persisted state a client would have after a V1→V2 user-key upgrade,
@@ -946,7 +946,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -1035,7 +1035,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 

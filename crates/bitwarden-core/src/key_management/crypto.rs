@@ -1738,7 +1738,7 @@ mod tests {
             .register_bridge(Box::new(InMemoryStateBridge::default()));
 
         PinLockSystem::with_client(&client1)
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
