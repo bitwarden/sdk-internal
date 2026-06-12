@@ -200,7 +200,7 @@ impl PinLockSystem<'_> {
             .ok_or(MigrationFailed::MissingEncryptedPin)?;
 
         // Attempt to decrypt the previous PIN via the upgrade token.
-        let pin = (|| -> Result<String, ()> {
+        let pin: SensitiveString = (|| -> Result<SensitiveString, ()> {
             let mut ctx = self.key_store().context_mut();
             let v1_slot = token
                 .unwrap_v1(SymmetricKeySlotId::User, &mut ctx)
@@ -210,7 +210,7 @@ impl PinLockSystem<'_> {
         .map_err(|_| MigrationFailed::PinDecryption)?;
 
         // Do a fresh enrollment with the new user-key
-        self.set_pin(SensitiveString::from(pin), PinLockType::BeforeFirstUnlock)
+        self.set_pin(pin, PinLockType::BeforeFirstUnlock)
             .await
             .map_err(|_| MigrationFailed::Reenrollment)?;
 
@@ -242,10 +242,9 @@ impl PinLockSystem<'_> {
         // Make the fresh PIN envelope
         let Ok(pin_envelope) = (|| -> Result<PasswordProtectedKeyEnvelope, ()> {
             let mut ctx = self.key_store().context_mut();
-            let decrypted_pin: String = encrypted_pin
+            let pin: SensitiveString = encrypted_pin
                 .decrypt(&mut ctx, SymmetricKeySlotId::User)
                 .map_err(|_| ())?;
-            let pin = SensitiveString::from(decrypted_pin);
             // EXPOSE: Temporary until a follow-up PR migrates `PasswordProtectedKeyEnvelope`
             PasswordProtectedKeyEnvelope::seal(
                 SymmetricKeySlotId::User,
@@ -389,13 +388,12 @@ impl PinLockSystem<'_> {
     /// Returns the configured PIN, if an encrypted PIN is available and decryptable.
     pub async fn get_pin(&self) -> Option<SensitiveString> {
         let encrypted_pin = self.client.km_state_bridge().get_encrypted_pin().await?;
-        let pin: String = encrypted_pin
+        encrypted_pin
             .decrypt(
                 &mut self.client.internal.get_key_store().context_mut(),
                 SymmetricKeySlotId::User,
             )
-            .ok()?;
-        Some(SensitiveString::from(pin))
+            .ok()
     }
 
     /// Validates that the provided PIN can decrypt the stored PIN envelope.
