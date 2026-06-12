@@ -33,8 +33,7 @@ async fn remove_send_password<R: Repository<Send> + ?Sized>(
     let resp = api_client
         .sends_api()
         .put_remove_password(&send_id.to_string())
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     let send: Send = resp.try_into()?;
 

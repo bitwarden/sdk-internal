@@ -44,12 +44,6 @@ pub enum EditCipherAdminError {
     Decrypt(#[from] DecryptError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherAdminError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 async fn edit_cipher(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -84,8 +78,7 @@ async fn edit_cipher(
     let mut cipher: Cipher = api_client
         .ciphers_api()
         .put_admin(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(orig_cipher))?;
 
     cipher.folder_id = folder_id;

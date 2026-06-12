@@ -20,8 +20,7 @@ pub(crate) async fn prelogin(client: &Client, email: String) -> Result<Kdf, Prel
         .identity_client
         .accounts_api()
         .post_password_prelogin(Some(request_model))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     Ok(parse_prelogin(result)?)
 }
