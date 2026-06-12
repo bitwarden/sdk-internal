@@ -496,7 +496,7 @@ mod tests {
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
         let client = Client::load_from_state(token_handler, reg).await.unwrap();
 
-        let wrong_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let wrong_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let result = client
             .unlock()
             .unlock(UnlockMethod::SessionKey(SessionKey(wrong_key)))
