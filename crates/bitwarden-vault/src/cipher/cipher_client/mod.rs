@@ -42,10 +42,9 @@ mod share_cipher;
 /// blob-encrypted format. Individual-vault ciphers qualify once the security state has reached
 /// [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
 ///
-/// Takes the security state version directly so callers that do not (yet) reflect the version in
-/// the key store context can reuse the same gate — e.g. key rotation evaluates this against the
-/// post-rotation state.
-pub fn should_use_blob_encryption_for_version(
+/// Takes the security state version directly so the gate can be unit-tested independently of the
+/// key store context.
+pub(crate) fn should_use_blob_encryption_for_version(
     security_state_version: u64,
     organization_id: Option<OrganizationId>,
 ) -> bool {
