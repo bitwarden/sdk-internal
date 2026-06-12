@@ -43,9 +43,10 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 
-    #[arg(short = 'o', long, global = true, value_enum, default_value_t = Output::JSON)]
+    #[arg(short = 'o', global = true, value_enum, default_value_t = Output::JSON)]
     pub output: Output,
 
+    /// Color
     #[arg(short = 'c', long, global = true, value_enum, default_value_t = Color::Auto)]
     pub color: Color,
 

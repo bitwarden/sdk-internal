@@ -29,6 +29,11 @@ impl GeneratorClients {
         Ok(self.0.passphrase(settings)?)
     }
 
+    /// Parses an HTML `passwordrules` attribute string into a [`PasswordGeneratorRequest`].
+    pub fn password_rules(&self, rules: String) -> Result<PasswordGeneratorRequest> {
+        Ok(self.0.password_rules(rules)?)
+    }
+
     /// Generate Username
     pub async fn username(&self, settings: UsernameGeneratorRequest) -> Result<String> {
         Ok(self.0.username(settings).await?)
