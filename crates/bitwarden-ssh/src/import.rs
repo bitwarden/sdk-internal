@@ -288,20 +288,18 @@ mod tests {
     }
 
     /// 1Password's 1PUX export re-encodes Ed25519 keys as PKCS#8 (`BEGIN PRIVATE KEY`) with the
-    /// whole base64 body on a single line. The strict RFC 7468 parser (`pem-rfc7468`) rejects the
-    /// unwrapped body, surfacing as "Failed to parse key". Wrapped bodies (our other fixtures,
-    /// `ssh-keygen` output) hide this, so the import must also accept the unwrapped form.
+    /// whole base64 body on a single line. The strict RFC 7468 parser (`pem-rfc7468`) rejects this
+    /// which will result in SshKeyImportError::Parsing ("Failed to parse key")
     /// https://github.com/bitwarden/clients/issues/20432
     #[test]
     fn import_key_ed25519_pkcs8_unencrypted_single_line() {
-        let wrapped = include_str!("../resources/import/ed25519_pkcs8_unencrypted");
-        let lines: Vec<&str> = wrapped.lines().collect();
-        let body: String = lines[1..lines.len() - 1].concat();
-        let single_line = format!("{}\n{}\n{}\n", lines[0], body, lines[lines.len() - 1]);
-
+        // the private key used below was created by modifying ed25519_pkcs8_unencrypted to match
+        // 1pux export format where key contents span a single line
+        let private_key =
+            include_str!("../resources/import/ed25519_pkcs8_1password_single_line_unencrypted");
         let public_key = include_str!("../resources/import/ed25519_pkcs8_unencrypted.pub").trim();
 
-        let result = import_key(single_line, None).unwrap();
+        let result = import_key(private_key.to_string(), None).unwrap();
         assert_eq!(result.public_key, public_key);
     }
 
