@@ -181,7 +181,6 @@ async fn internal_rotate_user_keys(
             sync.sends.as_slice(),
             rotation_context.current_user_key_id,
             rotation_context.new_user_key_id,
-            rotation_context.use_blob_encryption,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;

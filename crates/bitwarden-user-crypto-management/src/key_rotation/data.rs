@@ -59,19 +59,13 @@ pub(super) fn reencrypt_data(
     sends: &[bitwarden_send::Send],
     current_user_key_id: SymmetricKeySlotId,
     new_user_key_id: SymmetricKeySlotId,
-    use_blob_encryption: bool,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<AccountDataRequestModel, DataReencryptionError> {
     // Fully re-encrypt all user data with the new user key
     let reencrypted_folders =
         reencrypt_folders(folders, current_user_key_id, new_user_key_id, ctx)?;
-    let reencrypted_ciphers = reencrypt_ciphers(
-        ciphers,
-        current_user_key_id,
-        new_user_key_id,
-        use_blob_encryption,
-        ctx,
-    )?;
+    let reencrypted_ciphers =
+        reencrypt_ciphers(ciphers, current_user_key_id, new_user_key_id, ctx)?;
     let reencrypted_sends = reencrypt_sends(sends, current_user_key_id, new_user_key_id, ctx)?;
     Ok(AccountDataRequestModel {
         folders: Some(
@@ -130,7 +124,6 @@ fn reencrypt_ciphers(
     ciphers: &[bitwarden_vault::Cipher],
     current_key: SymmetricKeySlotId,
     new_key: SymmetricKeySlotId,
-    use_blob_encryption: bool,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError> {
     ciphers
@@ -138,43 +131,21 @@ fn reencrypt_ciphers(
         .map(|cipher| {
             let _span = debug_span!("reencrypt_cipher", cipher_id = ?cipher.id).entered();
 
-            if use_blob_encryption {
-                // The account is V2: every individual cipher ends up blob-encrypted. Ciphers that
-                // are already sealed blobs only need their per-item key re-wrapped; the sealed blob
-                // is left untouched. Legacy ciphers are decrypted and re-sealed as blobs.
-                if cipher.is_blob_encrypted() && cipher.key.is_some() {
-                    debug!("Cipher already blob-encrypted, re-wrapping cipher key");
-                    let mut cipher = cipher.clone();
-                    cipher
-                        .rewrap_cipher_key(current_key, new_key, ctx)
-                        .map_err(|_| DataReencryptionError::CipherKeyRewrap)?;
-                    Ok(cipher)
-                } else {
-                    debug!("Upgrading legacy cipher to blob encryption");
-                    let cipher_view = decrypt_for_blob_upgrade(cipher, current_key, new_key, ctx)?;
-                    EncryptMode::Blob(cipher_view)
-                        .encrypt_composite(ctx, new_key)
-                        .map_err(|_| DataReencryptionError::Encryption)
-                }
-
-            // Pre-blob (V1) rotation: preserve the existing field-level format.
-            // If the cipher has a per-vault-item cipher-key, the cipher-key is re-wrapped.
-            } else if cipher.key.is_some() {
-                debug!("Re-wrapping cipher key without decrypting cipher");
+            // Rotation always lands the account on the V2 security state, so every individual
+            // cipher ends up blob-encrypted. Ciphers that are already sealed blobs only need their
+            // per-item key re-wrapped; the sealed blob is left untouched. Legacy ciphers are
+            // decrypted and re-sealed as blobs.
+            if cipher.is_blob_encrypted() && cipher.key.is_some() {
+                debug!("Cipher already blob-encrypted, re-wrapping cipher key");
                 let mut cipher = cipher.clone();
                 cipher
                     .rewrap_cipher_key(current_key, new_key, ctx)
                     .map_err(|_| DataReencryptionError::CipherKeyRewrap)?;
                 Ok(cipher)
-
-            // If the cipher has no cipher-key, the entire cipher is decrypted and re-encrypted
-            // and has to be re-uploaded.
             } else {
-                debug!("Cipher has no cipher key, decrypting and re-encrypting");
-                let cipher_view: CipherView = cipher
-                    .decrypt(ctx, current_key)
-                    .map_err(|_| DataReencryptionError::Decryption)?;
-                EncryptMode::Legacy(cipher_view)
+                debug!("Upgrading legacy cipher to blob encryption");
+                let cipher_view = decrypt_for_blob_upgrade(cipher, current_key, new_key, ctx)?;
+                EncryptMode::Blob(cipher_view)
                     .encrypt_composite(ctx, new_key)
                     .map_err(|_| DataReencryptionError::Encryption)
             }
@@ -412,16 +383,11 @@ mod tests {
         let cipher = make_cipher_view();
         let encrypted_cipher = cipher.encrypt_composite(&mut ctx, user_key_old).unwrap();
 
-        // Rotate it with blob encryption enabled
+        // Rotate it
         let ciphers = vec![encrypted_cipher];
-        let reencrypted_ciphers = super::reencrypt_ciphers(
-            ciphers.as_slice(),
-            user_key_old,
-            user_key_new,
-            true,
-            &mut ctx,
-        )
-        .unwrap();
+        let reencrypted_ciphers =
+            super::reencrypt_ciphers(ciphers.as_slice(), user_key_old, user_key_new, &mut ctx)
+                .unwrap();
 
         // The keyless legacy cipher is upgraded to the blob format and decrypts under the new key
         assert!(reencrypted_ciphers[0].is_blob_encrypted());
@@ -448,8 +414,7 @@ mod tests {
         assert!(encrypted.key.is_some());
 
         let reencrypted =
-            super::reencrypt_ciphers(&[encrypted], user_key_old, user_key_new, true, &mut ctx)
-                .unwrap();
+            super::reencrypt_ciphers(&[encrypted], user_key_old, user_key_new, &mut ctx).unwrap();
 
         // The keyed legacy cipher is fully upgraded to the blob format
         assert!(reencrypted[0].is_blob_encrypted());
@@ -477,7 +442,6 @@ mod tests {
             std::slice::from_ref(&encrypted),
             user_key_old,
             user_key_new,
-            true,
             &mut ctx,
         )
         .unwrap();
@@ -486,52 +450,6 @@ mod tests {
         assert!(reencrypted[0].is_blob_encrypted());
         assert_eq!(encrypted.data, reencrypted[0].data);
         assert_ne!(encrypted.key, reencrypted[0].key);
-        assert_decrypts_to(&reencrypted[0], &cipher, user_key_new, &mut ctx);
-    }
-
-    #[test]
-    fn test_non_blob_gate_rewraps_keyed_cipher() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-
-        let user_key_old =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let user_key_new =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        let mut cipher = make_cipher_view();
-        cipher.generate_cipher_key(&mut ctx, user_key_old).unwrap();
-        let encrypted = EncryptMode::Legacy(cipher.clone())
-            .encrypt_composite(&mut ctx, user_key_old)
-            .unwrap();
-
-        let reencrypted =
-            super::reencrypt_ciphers(&[encrypted], user_key_old, user_key_new, false, &mut ctx)
-                .unwrap();
-
-        // Gate disabled: the cipher stays in the legacy field-level format
-        assert!(!reencrypted[0].is_blob_encrypted());
-        assert_decrypts_to(&reencrypted[0], &cipher, user_key_new, &mut ctx);
-    }
-
-    #[test]
-    fn test_non_blob_gate_keeps_keyless_cipher_legacy() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-
-        let user_key_old =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let user_key_new =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        let cipher = make_cipher_view();
-        let encrypted = cipher.encrypt_composite(&mut ctx, user_key_old).unwrap();
-
-        let reencrypted =
-            super::reencrypt_ciphers(&[encrypted], user_key_old, user_key_new, false, &mut ctx)
-                .unwrap();
-
-        assert!(!reencrypted[0].is_blob_encrypted());
         assert_decrypts_to(&reencrypted[0], &cipher, user_key_new, &mut ctx);
     }
 
