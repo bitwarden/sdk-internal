@@ -16,7 +16,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
+uniffi = ["dep:uniffi", "bitwarden-core/uniffi"]
 wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-vault/wasm",
