@@ -196,6 +196,7 @@ src/models/emergency_access_grantee_details_response_model_list_response_model.r
 src/models/emergency_access_grantor_details_response_model.rs
 src/models/emergency_access_grantor_details_response_model_list_response_model.rs
 src/models/emergency_access_invite_request_model.rs
+src/models/emergency_access_key_data_response_model.rs
 src/models/emergency_access_password_request_model.rs
 src/models/emergency_access_status_type.rs
 src/models/emergency_access_takeover_response_model.rs
@@ -249,6 +250,7 @@ src/models/key_connector_enrollment_request_model.rs
 src/models/key_model.rs
 src/models/key_pair_request_body.rs
 src/models/key_regeneration_request_model.rs
+src/models/key_rotation_data_response_model.rs
 src/models/keys_request_model.rs
 src/models/keys_response_model.rs
 src/models/license_type.rs
@@ -296,6 +298,7 @@ src/models/organization_keys_request_model.rs
 src/models/organization_keys_response_model.rs
 src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
+src/models/organization_password_reset_key_data_response_model.rs
 src/models/organization_public_key_response_model.rs
 src/models/organization_report_file_response_model.rs
 src/models/organization_report_metrics.rs
@@ -351,6 +354,7 @@ src/models/organization_user_user_mini_details_response_model.rs
 src/models/organization_user_user_mini_details_response_model_list_response_model.rs
 src/models/organization_verify_delete_recover_request_model.rs
 src/models/other_device_keys_update_request_model.rs
+src/models/passkey_key_data_response_model.rs
 src/models/password_health_report_application.rs
 src/models/password_health_report_application_model.rs
 src/models/password_hint_request_model.rs
@@ -531,6 +535,7 @@ src/models/sync_response_model.rs
 src/models/tax_id_request.rs
 src/models/tokenized_payment_method_request.rs
 src/models/transaction_type.rs
+src/models/trusted_device_key_data_response_model.rs
 src/models/two_factor_authenticator_disable_request_model.rs
 src/models/two_factor_authenticator_response_model.rs
 src/models/two_factor_duo_response_model.rs
