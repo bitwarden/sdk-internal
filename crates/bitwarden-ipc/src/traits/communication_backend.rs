@@ -1,12 +1,15 @@
 use std::fmt::Debug;
 
-use crate::message::{IncomingMessage, OutgoingMessage};
+use crate::{
+    error::IpcErrorKind,
+    message::{IncomingMessage, OutgoingMessage},
+};
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
 /// broadcasting.
 pub trait CommunicationBackend: Send + Sync + 'static {
-    type SendError: Debug + Send + Sync + 'static;
+    type SendError: Debug + Send + Sync + 'static + IpcErrorKind;
     type Receiver: CommunicationBackendReceiver;
 
     /// Send a message to the destination specified in the message. This function may be called
@@ -39,7 +42,7 @@ pub trait CommunicationBackend: Send + Sync + 'static {
 ///       receive().
 ///     - The receiver buffers messages between calls to receive().
 pub trait CommunicationBackendReceiver: Send + Sync + 'static {
-    type ReceiveError: Debug + Send + Sync + 'static;
+    type ReceiveError: Debug + Send + Sync + 'static + IpcErrorKind;
 
     /// Receive a message. This function will block asynchronously until a message is received.
     ///

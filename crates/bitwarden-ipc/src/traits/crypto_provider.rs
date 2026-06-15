@@ -3,7 +3,10 @@ use std::fmt::Debug;
 #[cfg(any(test, feature = "test-support"))]
 use super::CommunicationBackendReceiver;
 use super::{CommunicationBackend, SessionRepository};
-use crate::message::{IncomingMessage, OutgoingMessage};
+use crate::{
+    error::IpcErrorKind,
+    message::{IncomingMessage, OutgoingMessage},
+};
 
 pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
 where
@@ -11,8 +14,8 @@ where
     Ses: SessionRepository<Self::Session>,
 {
     type Session: Send + Sync + 'static;
-    type SendError: Debug + Send + Sync + 'static;
-    type ReceiveError: Debug + Send + Sync + 'static;
+    type SendError: Debug + Send + Sync + 'static + IpcErrorKind;
+    type ReceiveError: Debug + Send + Sync + 'static + IpcErrorKind;
 
     /// Send a message.
     ///
