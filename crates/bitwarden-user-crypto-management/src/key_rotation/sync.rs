@@ -59,7 +59,7 @@ pub(super) struct KeyRotationData {
 /// password reset enrolled organizations and emergency-access grantees, and the encrypted keysets
 /// for the trusted devices and PRF-enabled passkeys. The server filters these to only the entries
 /// that participate in key rotation, so no client-side filtering is required.
-pub(super) async fn fetch_key_rotation_data(
+pub(super) async fn get_key_rotation_data(
     api_client: &ApiClient,
 ) -> Result<KeyRotationData, SyncError> {
     let data = api_client
@@ -234,10 +234,10 @@ pub(super) async fn sync_current_account_data(
         WrappedAccountCryptographicState::try_from(account_cryptographic_state.as_ref())
             .debug_map_err(SyncError::Data)?;
 
-    // Fetch the key rotation data (organizations, emergency access, devices, passkeys) in a single
+    // Get the key rotation data (organizations, emergency access, devices, passkeys) in a single
     // request. The server filters these down to the entries that participate in key rotation.
     info!("Syncing key rotation data (organizations, emergency access, devices, passkeys)");
-    let key_rotation_data = fetch_key_rotation_data(api_client).await?;
+    let key_rotation_data = get_key_rotation_data(api_client).await?;
 
     Ok(SyncedAccountData {
         wrapped_account_cryptographic_state,
@@ -455,7 +455,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_key_rotation_data_success() {
+    async fn test_get_key_rotation_data_success() {
         let org_id = uuid::Uuid::new_v4();
         let ea_id = uuid::Uuid::new_v4();
         let grantee_id = uuid::Uuid::new_v4();
@@ -473,7 +473,7 @@ mod tests {
                 });
         });
 
-        let data = fetch_key_rotation_data(&api_client).await.unwrap();
+        let data = get_key_rotation_data(&api_client).await.unwrap();
 
         assert_eq!(data.organization_memberships.len(), 1);
         assert_eq!(data.organization_memberships[0].organization_id, org_id);
@@ -534,7 +534,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_key_rotation_data_network_error() {
+    async fn test_get_key_rotation_data_network_error() {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
                 .expect_get_key_rotation_data()
@@ -544,7 +544,7 @@ mod tests {
                 });
         });
 
-        let result = fetch_key_rotation_data(&api_client).await;
+        let result = get_key_rotation_data(&api_client).await;
         assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -553,7 +553,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_key_rotation_data_empty_arrays_returns_empty_data() {
+    async fn test_get_key_rotation_data_empty_arrays_returns_empty_data() {
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
                 .expect_get_key_rotation_data()
@@ -571,7 +571,7 @@ mod tests {
                 });
         });
 
-        let data = fetch_key_rotation_data(&api_client).await.unwrap();
+        let data = get_key_rotation_data(&api_client).await.unwrap();
 
         assert!(data.organization_memberships.is_empty());
         assert!(data.emergency_access_memberships.is_empty());
@@ -584,7 +584,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_key_rotation_data_missing_field_is_data_error() {
+    async fn test_get_key_rotation_data_missing_field_is_data_error() {
         let device_id = uuid::Uuid::new_v4();
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
@@ -607,7 +607,7 @@ mod tests {
                 });
         });
 
-        let result = fetch_key_rotation_data(&api_client).await;
+        let result = get_key_rotation_data(&api_client).await;
         assert!(matches!(result, Err(SyncError::Data)));
 
         if let ApiClient::Mock(mut mock) = api_client {
@@ -616,7 +616,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_key_rotation_data_emergency_access_name_fallback() {
+    async fn test_get_key_rotation_data_emergency_access_name_fallback() {
         let ea_id_email = uuid::Uuid::new_v4();
         let ea_id_unknown = uuid::Uuid::new_v4();
         let grantee_id = uuid::Uuid::new_v4();
@@ -655,7 +655,7 @@ mod tests {
                 });
         });
 
-        let data = fetch_key_rotation_data(&api_client).await.unwrap();
+        let data = get_key_rotation_data(&api_client).await.unwrap();
         assert_eq!(data.emergency_access_memberships.len(), 2);
         assert_eq!(
             data.emergency_access_memberships[0].name,

@@ -28,7 +28,7 @@ impl UserCryptoManagementClient {
         &self,
     ) -> Result<Vec<V1OrganizationMembership>, RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
-        let key_rotation_data = sync::fetch_key_rotation_data(api_client)
+        let key_rotation_data = sync::get_key_rotation_data(api_client)
             .await
             .map_err(|_| RotateUserKeysError::Api)?;
         Ok(key_rotation_data.organization_memberships)
@@ -40,14 +40,14 @@ impl UserCryptoManagementClient {
         &self,
     ) -> Result<Vec<V1EmergencyAccessMembership>, RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
-        let key_rotation_data = sync::fetch_key_rotation_data(api_client)
+        let key_rotation_data = sync::get_key_rotation_data(api_client)
             .await
             .map_err(|_| RotateUserKeysError::Api)?;
         Ok(key_rotation_data.emergency_access_memberships)
     }
 }
 
-/// Errors that can occur while converting key rotation API response models into their domain
+/// Errors that can occur while converting key rotation data response models into their domain
 /// representations.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
