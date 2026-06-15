@@ -32,17 +32,6 @@ impl IpcErrorKind for std::convert::Infallible {
     }
 }
 
-impl IpcErrorKind for String {
-    fn is_fatal(&self) -> bool {
-        // String errors carry no structured recoverability information. The IPC backends that use
-        // them (e.g. the WASM communication backend) have no genuinely non-recoverable send or
-        // receive errors today, so treat them as recoverable to keep the shared client alive. If a
-        // backend ever needs to signal a fatal error, it should use a structured error type that
-        // implements [`IpcErrorKind`] with a real fatal/recoverable distinction instead.
-        false
-    }
-}
-
 #[cfg(any(test, feature = "test-support"))]
 impl IpcErrorKind for () {
     fn is_fatal(&self) -> bool {
