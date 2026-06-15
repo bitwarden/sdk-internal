@@ -22,7 +22,13 @@ pub(crate) mod ssh_key;
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
-pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
+pub use attachment_client::{
+    AttachmentAdminClient, AttachmentFileUploadType, AttachmentsClient,
+    CipherAdminGetAttachmentDownloadUrlError, CipherCreateAttachmentError,
+    CipherDeleteAttachmentError, CipherGetAttachmentDownloadUrlError,
+    CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentRequest,
+    CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError, EncryptFileError,
+};
 pub use bank_account::BankAccountView;
 pub use blob::{BlobEncryptionError, SealedCipherBlobError};
 pub use card::{CardBrand, CardListView, CardView};
