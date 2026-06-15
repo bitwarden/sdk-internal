@@ -41,6 +41,14 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
     /// GET /organizations/{orgId}/invite-link
     async fn get<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
 
+    /// POST /organizations/invite-link/policies
+    async fn get_policies<'a>(
+        &self,
+        get_organization_invite_link_policies_request_model: Option<
+            models::GetOrganizationInviteLinkPoliciesRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
     /// POST /organizations/invite-link/status
     async fn get_status<'a>(
         &self,
@@ -147,6 +155,30 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn get_policies<'a>(
+        &self,
+        get_organization_invite_link_policies_request_model: Option<
+            models::GetOrganizationInviteLinkPoliciesRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/invite-link/policies",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&get_organization_invite_link_policies_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

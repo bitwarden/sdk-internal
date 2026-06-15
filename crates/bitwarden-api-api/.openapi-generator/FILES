@@ -216,6 +216,7 @@ src/models/folder_response_model.rs
 src/models/folder_response_model_list_response_model.rs
 src/models/folder_with_id_request_model.rs
 src/models/gateway_type.rs
+src/models/get_organization_invite_link_policies_request_model.rs
 src/models/get_organization_invite_link_status_request_model.rs
 src/models/get_secrets_request_model.rs
 src/models/global_domains.rs
