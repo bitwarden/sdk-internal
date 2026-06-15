@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`9cb35ece1bc389679079057b104e4c6f5a32c117`](https://github.com/bitwarden/server/commit/9cb35ece1bc389679079057b104e4c6f5a32c117)
+  [`87eeba2134f4b2f1a82db1c800aa58508da03b43`](https://github.com/bitwarden/server/commit/87eeba2134f4b2f1a82db1c800aa58508da03b43)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -282,6 +282,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationInviteLinksApi_              | [**create**](docs/OrganizationInviteLinksApi.md#organization_invite_links_create)                                                                                | **POST** /organizations/{orgId}/invite-link                                                              |
 | _OrganizationInviteLinksApi_              | [**delete**](docs/OrganizationInviteLinksApi.md#organization_invite_links_delete)                                                                                | **DELETE** /organizations/{orgId}/invite-link                                                            |
 | _OrganizationInviteLinksApi_              | [**get**](docs/OrganizationInviteLinksApi.md#organization_invite_links_get)                                                                                      | **GET** /organizations/{orgId}/invite-link                                                               |
+| _OrganizationInviteLinksApi_              | [**get_policies**](docs/OrganizationInviteLinksApi.md#organization_invite_links_get_policies)                                                                    | **POST** /organizations/invite-link/policies                                                             |
 | _OrganizationInviteLinksApi_              | [**get_status**](docs/OrganizationInviteLinksApi.md#organization_invite_links_get_status)                                                                        | **POST** /organizations/invite-link/status                                                               |
 | _OrganizationInviteLinksApi_              | [**refresh**](docs/OrganizationInviteLinksApi.md#organization_invite_links_refresh)                                                                              | **POST** /organizations/{orgId}/invite-link/refresh                                                      |
 | _OrganizationInviteLinksApi_              | [**update**](docs/OrganizationInviteLinksApi.md#organization_invite_links_update)                                                                                | **PUT** /organizations/{orgId}/invite-link                                                               |
@@ -679,6 +680,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [FolderResponseModelListResponseModel](docs/FolderResponseModelListResponseModel.md)
 - [FolderWithIdRequestModel](docs/FolderWithIdRequestModel.md)
 - [GatewayType](docs/GatewayType.md)
+- [GetOrganizationInviteLinkPoliciesRequestModel](docs/GetOrganizationInviteLinkPoliciesRequestModel.md)
 - [GetOrganizationInviteLinkStatusRequestModel](docs/GetOrganizationInviteLinkStatusRequestModel.md)
 - [GetSecretsRequestModel](docs/GetSecretsRequestModel.md)
 - [GlobalDomains](docs/GlobalDomains.md)
