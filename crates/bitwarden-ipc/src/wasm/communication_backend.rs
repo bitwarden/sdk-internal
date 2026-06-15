@@ -35,7 +35,7 @@ pub enum WasmCommunicationError {
     /// An error returned by the JavaScript backend (e.g. a failed send). Recoverable: the IPC
     /// client keeps running so future operations can succeed.
     #[error("{0}")]
-    JsError(String),
+    Js(String),
 
     /// The incoming message receiver fell behind and `0` messages were dropped. Recoverable: the
     /// next receive resumes normally.
@@ -131,8 +131,8 @@ impl CommunicationBackend for JsCommunicationBackend {
                 sender.send(message).await.map_err(|e| format!("{e:?}"))
             })
             .await
-            .map_err(|e| WasmCommunicationError::JsError(e.to_string()))?
-            .map_err(WasmCommunicationError::JsError)
+            .map_err(|e| WasmCommunicationError::Js(e.to_string()))?
+            .map_err(WasmCommunicationError::Js)
     }
 
     async fn subscribe(&self) -> Self::Receiver {
