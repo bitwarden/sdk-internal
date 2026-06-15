@@ -145,8 +145,11 @@ discriminant + optional fields) belongs at the API→domain boundary.
 
 **Format & Lint:**
 
-- `cargo +nightly fmt --workspace` - Code formatting
-- Use `cargo clippy` to lint code and catch common mistakes
+- `npm run lint` - Run every formatting/linting check CI runs (fmt, clippy, sort, udeps, dylint,
+  doc, prettier, dep-ownership, cargo-lock). Matches `.github/workflows/lint.yml`.
+- `npm run lint:fix` - Same set, auto-fixing where the tool supports it.
+- `npm run lint -- --only <check>` - Run a single check (e.g. `--only clippy`).
+- Underlying script: `scripts/lint.sh`.
 
 **WASM Testing:**
 

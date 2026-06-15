@@ -23,7 +23,7 @@ uniffi = [
     "dep:bitwarden-uniffi-error",
     "dep:uniffi",
 ] # Uniffi bindings
-wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
+wasm = ["dep:tsify", "dep:wasm-bindgen", "dep:js-sys"] # WASM support
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
@@ -49,6 +49,7 @@ hex = { version = ">=0.4.0, <0.5" }
 hkdf = "0.13.0"
 hmac = { workspace = true, features = ["zeroize"] }
 hybrid-array = { version = "0.4.10", features = ["alloc", "serde", "zeroize"] }
+js-sys = { workspace = true, optional = true }
 ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
@@ -64,6 +65,7 @@ sha1 = { workspace = true, features = ["zeroize"] }
 sha2 = { workspace = true, features = ["zeroize"] }
 subtle = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util"] }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 typenum = ">=1.18.0, <1.20.0"
@@ -77,6 +79,7 @@ zeroizing-alloc = ">=0.1.0, <0.2"
 criterion = "0.8.0"
 rand_chacha = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "rt"] }
 
 [[bench]]
 name = "default_allocator"

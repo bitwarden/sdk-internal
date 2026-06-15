@@ -50,11 +50,11 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
         .merge_with_cipher(existing_cipher)?;
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -63,6 +63,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
     api_client: &ApiClient,
     repository: &R,
     key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
 ) -> Result<DecryptCipherListResult, RestoreCipherError> {
     let api = api_client.ciphers_api();
 
@@ -92,10 +93,19 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
         }
     }
 
-    let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-    Ok(DecryptCipherListResult {
-        successes,
-        failures: failures.into_iter().cloned().collect(),
+    Ok(if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    } else {
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
     })
 }
 
@@ -126,7 +136,14 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = &*self.get_repository()?;
 
-        restore_many(cipher_ids, api_client, repository, key_store).await
+        restore_many(
+            cipher_ids,
+            api_client,
+            repository,
+            key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
 }
 
@@ -140,7 +157,7 @@ mod tests {
     };
     use bitwarden_collections::collection::CollectionId;
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
     use chrono::Utc;
@@ -156,7 +173,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
         store
     }
@@ -230,7 +247,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
@@ -330,7 +347,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         repository.set(cipher_id, cipher_1).await.unwrap();
@@ -342,6 +359,7 @@ mod tests {
             &api_client,
             &repository,
             &store,
+            false,
         )
         .await
         .unwrap();
@@ -470,6 +488,7 @@ mod tests {
             &api_client,
             &repository,
             &store,
+            false,
         )
         .await
         .unwrap();
