@@ -292,6 +292,8 @@ pub mod folder_with_id_request_model;
 pub use self::folder_with_id_request_model::FolderWithIdRequestModel;
 pub mod gateway_type;
 pub use self::gateway_type::GatewayType;
+pub mod get_organization_invite_link_policies_request_model;
+pub use self::get_organization_invite_link_policies_request_model::GetOrganizationInviteLinkPoliciesRequestModel;
 pub mod get_organization_invite_link_status_request_model;
 pub use self::get_organization_invite_link_status_request_model::GetOrganizationInviteLinkStatusRequestModel;
 pub mod get_secrets_request_model;
