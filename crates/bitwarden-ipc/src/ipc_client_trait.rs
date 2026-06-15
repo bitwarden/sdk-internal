@@ -26,6 +26,11 @@ pub trait IpcClient: Send + Sync {
     fn is_running(&self) -> bool;
 
     /// Send a message over IPC.
+    ///
+    /// Returning an error means this particular send failed. The client only stops processing
+    /// messages when the underlying error is fatal (see
+    /// [`IpcErrorKind`](crate::IpcErrorKind)); recoverable errors leave the client running, so the
+    /// send can be retried and existing subscriptions remain valid.
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError>;
 
     /// Subscribe to receive messages, optionally filtered by topic.

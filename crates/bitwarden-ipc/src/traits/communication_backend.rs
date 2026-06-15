@@ -15,8 +15,10 @@ pub trait CommunicationBackend: Send + Sync + 'static {
     /// Send a message to the destination specified in the message. This function may be called
     /// from any thread at any time.
     ///
-    /// An error should only be returned for fatal and unrecoverable errors.
-    /// Returning an error will cause the IPC client to stop processing messages.
+    /// Both recoverable and fatal errors may be returned, classified via
+    /// [`IpcErrorKind::is_fatal()`]. A recoverable error (e.g. a transient transport failure) is
+    /// logged and the IPC client keeps running; a fatal error stops the client from processing any
+    /// further messages. Ambiguous cases should be classified as recoverable.
     ///
     /// The implementation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers and senders can coexist.
@@ -46,8 +48,10 @@ pub trait CommunicationBackendReceiver: Send + Sync + 'static {
 
     /// Receive a message. This function will block asynchronously until a message is received.
     ///
-    /// An error should only be returned for fatal and unrecoverable errors.
-    /// Returning an error will cause the IPC client to stop processing messages.
+    /// Both recoverable and fatal errors may be returned, classified via
+    /// [`IpcErrorKind::is_fatal()`]. A recoverable error (e.g. the receiver lagging) is logged and
+    /// the IPC client's processing loop continues; a fatal error (e.g. the channel being closed)
+    /// stops the loop. Ambiguous cases should be classified as recoverable.
     ///
     /// Do not call this function from multiple threads at the same time. Use the subscribe function
     /// to create one receiver per thread.
