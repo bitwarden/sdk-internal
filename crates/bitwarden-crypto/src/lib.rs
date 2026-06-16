@@ -8,13 +8,6 @@
 //! moving this struct around, we use a Box to keep the values on the heap. We also pin the box to
 //! make sure that the contents can't be pulled out of the box and moved.
 
-// TODO: Migrate this crate's call sites to `bitwarden_logging::instrument` and remove this
-// allow. Deferred because the `dangerous-crypto-debug` instrumentation here intentionally logs
-// key material, which needs to be re-expressed as explicit `fields(...)` opt-ins under the
-// wrapper's `skip_all` default. `unknown_lints` is paired so plain `cargo check`/`clippy`
-// (which don't load dylint) don't warn that `tracing_instrument` is an unknown lint name.
-#![allow(unknown_lints, tracing_instrument)]
-
 #[cfg(not(feature = "no-memory-hardening"))]
 #[global_allocator]
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
