@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bitwarden_crypto::{
     BitwardenLegacyKeyBytes, EncString, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
 };
-use bitwarden_encoding::{B64, B64Url, FromStrVisitor};
+use bitwarden_encoding::{B64Url, FromStrVisitor};
 use serde::{Deserialize, Serialize};
 use subtle::{Choice, ConstantTimeEq};
 use thiserror::Error;
@@ -24,6 +24,12 @@ pub enum InviteKeyBundleError {
     #[error("Missing Key for Id: {0}")]
     MissingKeyId(String),
 }
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_INVITE_KEY_DATA: &'static str = r#"
+export type InviteKeyData = Tagged<string, "InviteKeyData">;
+"#;
 
 /// Struct for holding the Invite Key's raw byte data. Supports WASM bindings,
 /// automatically using base64Url encoding for both `wasm-bindgen` and `tsify`.
@@ -91,19 +97,22 @@ impl Serialize for InviteKeyData {
     }
 }
 
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
+export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
+"#;
+
 /// Struct for holding the wrapped invite key data. Currently supports encstring
 /// but the inner type must remain private as it may be extended in the future.
+#[derive(Clone)]
 pub struct InviteKeyEnvelope(EncString);
 
+/// Serializes to the Bitwarden EncString text format, which is the
+/// format expected by the server's `EncryptedInviteKey` field validator.
 impl From<&InviteKeyEnvelope> for String {
     fn from(key_data: &InviteKeyEnvelope) -> Self {
-        B64::from(
-            key_data
-                .0
-                .to_buffer()
-                .expect("`to_buffer` never fails for `EncString`"),
-        )
-        .to_string()
+        key_data.0.to_string()
     }
 }
 
@@ -111,11 +120,9 @@ impl FromStr for InviteKeyEnvelope {
     type Err = InviteKeyBundleError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let data = B64::try_from(s).map_err(|_| InviteKeyBundleError::DecodingFailed)?;
-        Ok(InviteKeyEnvelope(
-            EncString::from_buffer(data.as_bytes())
-                .map_err(|_| InviteKeyBundleError::DecodingFailed)?,
-        ))
+        s.parse::<EncString>()
+            .map(InviteKeyEnvelope)
+            .map_err(|_| InviteKeyBundleError::DecodingFailed)
     }
 }
 
@@ -274,7 +281,14 @@ mod tests {
             .unwrap_symmetric_key(TestSymmKey::Organization, &key.sealed_key_envelope.0)
             .unwrap();
 
-        ctx.assert_symmetric_keys_equal(raw_key_id, unsealed_key);
+        #[allow(deprecated)]
+        let raw_key = ctx.dangerous_get_symmetric_key(raw_key_id).unwrap().clone();
+        #[allow(deprecated)]
+        let unsealed = ctx
+            .dangerous_get_symmetric_key(unsealed_key)
+            .unwrap()
+            .clone();
+        assert_eq!(raw_key, unsealed);
     }
 
     #[test]
