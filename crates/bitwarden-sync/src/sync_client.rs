@@ -125,6 +125,13 @@ impl SyncClient {
         // Wait for any in-progress sync to complete before starting a new one
         let _guard = self.sync_lock.lock().await;
 
+        // Capture the sync start time before any server interaction. Using the start time
+        // (not the finish time) as last_sync guarantees that any server-side change committed
+        // during the sync window has a revision date strictly greater than last_sync, so the
+        // next needs_sync check will pick it up. Matches the Node CLI pattern:
+        // `const now = new Date()` before `needsSyncing()`.
+        let sync_start = Utc::now();
+
         let needs_sync = if request.force {
             true
         } else {
@@ -142,7 +149,7 @@ impl SyncClient {
             // server, every revision check will say "no sync needed" and we keep bumping
             // lastSync to a future-skewed `now` — server-side changes are never picked up
             // until the clock is corrected. Matches Node CLI behaviour.
-            self.update_last_sync(Utc::now()).await;
+            self.update_last_sync(sync_start).await;
             return Ok(false);
         }
 
@@ -155,7 +162,7 @@ impl SyncClient {
 
         match result {
             Ok(_) => {
-                self.update_last_sync(Utc::now()).await;
+                self.update_last_sync(sync_start).await;
                 Ok(true)
             }
             Err(error) => {
