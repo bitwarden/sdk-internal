@@ -46,6 +46,7 @@ bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=3.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=3.0.0" }
 bitwarden-logging-macro = { path = "crates/bitwarden-logging-macro", version = "=3.0.0" }
 bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=3.0.0" }
+bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }

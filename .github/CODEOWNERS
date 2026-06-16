@@ -42,6 +42,7 @@ crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-importers/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-organization-crypto/** @bitwarden/team-key-management-dev
+crates/bitwarden-organization-invite-link/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev
 crates/bitwarden-sensitive-value/** @bitwarden/team-key-management-dev

@@ -36,6 +36,7 @@ wasm = [
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
     "bitwarden-importers/wasm",
+    "bitwarden-organization-invite-link/wasm",
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
     "bitwarden-state/wasm",
@@ -57,6 +58,7 @@ bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }
+bitwarden-organization-invite-link = { workspace = true }
 bitwarden-policies = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-server-communication-config = { workspace = true }

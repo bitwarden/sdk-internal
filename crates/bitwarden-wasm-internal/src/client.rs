@@ -122,6 +122,11 @@ impl PasswordManagerClient {
     pub fn sends(&self) -> SendClient {
         self.0.sends()
     }
+
+    /// Organization invite link operations.
+    pub fn invite_link(&self) -> InviteLinkClient {
+        self.0.invite_link()
+    }
 }
 
 #[bitwarden_error(basic)]
