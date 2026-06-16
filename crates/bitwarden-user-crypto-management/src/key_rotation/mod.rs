@@ -28,10 +28,10 @@ impl UserCryptoManagementClient {
         &self,
     ) -> Result<Vec<V1OrganizationMembership>, RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
-        let organizations = sync::sync_orgs(api_client)
+        let key_rotation_data = sync::get_key_rotation_data(api_client)
             .await
             .map_err(|_| RotateUserKeysError::Api)?;
-        Ok(organizations)
+        Ok(key_rotation_data.organization_memberships)
     }
 
     /// Fetches the emergency access public keys for V1 emergency access memberships for the user.
@@ -40,11 +40,24 @@ impl UserCryptoManagementClient {
         &self,
     ) -> Result<Vec<V1EmergencyAccessMembership>, RotateUserKeysError> {
         let api_client = &self.client.internal.get_api_configurations().api_client;
-        let emergency_access = sync::sync_emergency_access(api_client)
+        let key_rotation_data = sync::get_key_rotation_data(api_client)
             .await
             .map_err(|_| RotateUserKeysError::Api)?;
-        Ok(emergency_access)
+        Ok(key_rotation_data.emergency_access_memberships)
     }
+}
+
+/// Errors that can occur while converting key rotation data response models into their domain
+/// representations.
+#[allow(missing_docs)]
+#[derive(Debug, Error)]
+pub enum KeyRotationDataParseError {
+    #[error(transparent)]
+    MissingField(#[from] bitwarden_core::MissingFieldError),
+    #[error(transparent)]
+    Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    B64(#[from] bitwarden_encoding::NotB64EncodedError),
 }
 
 #[derive(Debug, Error)]
