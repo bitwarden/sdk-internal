@@ -108,6 +108,11 @@ impl PasswordManagerClient {
         self.0.exporters()
     }
 
+    /// Importer related operations.
+    pub fn importers(&self) -> ImporterClient {
+        self.0.importers()
+    }
+
     /// Policy related operations.
     pub fn policies(&self) -> PolicyClient {
         self.0.policies()

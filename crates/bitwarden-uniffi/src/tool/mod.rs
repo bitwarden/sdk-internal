@@ -3,6 +3,7 @@ use bitwarden_exporters::{Account, ExportFormat};
 use bitwarden_generators::{
     PassphraseGeneratorRequest, PasswordGeneratorRequest, UsernameGeneratorRequest,
 };
+use bitwarden_importers::{ImportOptions, ImportSummary};
 use bitwarden_vault::{Cipher, Folder};
 
 use crate::error::Result;
@@ -84,5 +85,25 @@ impl ExporterClient {
     /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>> {
         Ok(self.0.import_cxf(payload)?)
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct ImporterClient(pub(crate) bitwarden_importers::ImporterClient);
+
+#[uniffi::export(async_runtime = "tokio")]
+impl ImporterClient {
+    /// Import a KeePass KDBX (`.kdbx`) database and submit it to the server.
+    pub async fn import_kdbx(
+        &self,
+        file: Vec<u8>,
+        password: Option<String>,
+        key_file: Option<Vec<u8>>,
+        options: ImportOptions,
+    ) -> Result<ImportSummary> {
+        Ok(self
+            .0
+            .import_kdbx(file, password, key_file, options)
+            .await?)
     }
 }

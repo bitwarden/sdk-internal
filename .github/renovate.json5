@@ -77,6 +77,12 @@
     },
     {
       matchManagers: ["cargo"],
+      matchPackageNames: ["keepass"],
+      commitMessagePrefix: "[deps] Tools:",
+      reviewers: ["team:team-tools-dev"],
+    },
+    {
+      matchManagers: ["cargo"],
       matchPackageNames: [
         "async-trait",
         "cargo-dylint",
