@@ -3,6 +3,42 @@ use thiserror::Error;
 
 use crate::rpc::error::RpcError;
 
+/// Classifies an IPC error as either fatal or recoverable.
+///
+/// The IPC client runs a single long-lived processing loop that is shared across every peer and
+/// every message. Historically *any* transport or crypto error tore that loop down, which meant a
+/// single transient failure (a handshake timeout, a peer disconnecting mid-send, a malformed
+/// frame) permanently disabled the shared client and it never recovered.
+///
+/// This trait lets each layer classify its own errors so the client can distinguish the two cases:
+/// - **Fatal** (`is_fatal() == true`): the client can no longer make progress, so the processing
+///   loop should stop.
+/// - **Recoverable** (`is_fatal() == false`): only the current operation failed, so the client
+///   should stay running and continue processing other messages.
+///
+/// Implementations should classify errors at construction, where the most context is available,
+/// and default ambiguous cases to recoverable. Failing open keeps the shared client alive, which
+/// is almost always the safer choice.
+pub trait IpcErrorKind {
+    /// Returns `true` if the error is fatal and the IPC client should stop processing messages, or
+    /// `false` if the error is recoverable and the client should keep running.
+    fn is_fatal(&self) -> bool;
+}
+
+impl IpcErrorKind for std::convert::Infallible {
+    fn is_fatal(&self) -> bool {
+        // `Infallible` can never be constructed, so this is unreachable.
+        match *self {}
+    }
+}
+
+#[cfg(any(test, feature = "test-support"))]
+impl IpcErrorKind for () {
+    fn is_fatal(&self) -> bool {
+        false
+    }
+}
+
 /// Error returned by [`IpcClient::start`](crate::IpcClient::start). Indicates that the IPC client
 /// is already running.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
