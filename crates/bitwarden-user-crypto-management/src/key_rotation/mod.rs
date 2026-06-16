@@ -10,7 +10,10 @@ mod unlock;
 mod unlock_method;
 
 use bitwarden_error::bitwarden_error;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -18,6 +21,15 @@ use crate::{
     UserCryptoManagementClient,
     key_rotation::unlock::{V1EmergencyAccessMembership, V1OrganizationMembership},
 };
+
+/// Response model for untrusted memberships, containing both organization and emergency access
+/// memberships.
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct UntrustedMembershipsResponse {
+    emergency_access_memberships: Vec<V1EmergencyAccessMembership>,
+    organization_memberships: Vec<V1OrganizationMembership>,
+}
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl UserCryptoManagementClient {
@@ -44,6 +56,21 @@ impl UserCryptoManagementClient {
             .await
             .map_err(|_| RotateUserKeysError::Api)?;
         Ok(key_rotation_data.emergency_access_memberships)
+    }
+
+    /// Fetches all untrusted public keys from user's organization and emergency access memberships.
+    /// These have to be trusted manually by the user before rotating.
+    pub async fn get_untrusted_memberships(
+        &self,
+    ) -> Result<UntrustedMembershipsResponse, RotateUserKeysError> {
+        let api_client = &self.client.internal.get_api_configurations().api_client;
+        let key_rotation_data = sync::get_key_rotation_data(api_client)
+            .await
+            .map_err(|_| RotateUserKeysError::Api)?;
+        Ok(UntrustedMembershipsResponse {
+            emergency_access_memberships: key_rotation_data.emergency_access_memberships,
+            organization_memberships: key_rotation_data.organization_memberships,
+        })
     }
 }
 
