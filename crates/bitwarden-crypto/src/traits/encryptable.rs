@@ -17,6 +17,8 @@
 //! checking of the content format, and the risk of using the wrong content format is limited to
 //! converting untyped bytes into a `Bytes<C>`
 
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
+
 use crate::{ContentFormat, CryptoError, EncString, KeySlotId, KeySlotIds, store::KeyStoreContext};
 
 /// An encryption operation that takes the input value and encrypts the fields on it recursively.
@@ -109,6 +111,20 @@ impl<Ids: KeySlotIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for S
         key: Ids::Symmetric,
     ) -> Result<EncString, CryptoError> {
         self.as_bytes().encrypt(ctx, key, ContentFormat::Utf8)
+    }
+}
+
+impl<Ids: KeySlotIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for SensitiveString {
+    fn encrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
+    ) -> Result<EncString, CryptoError> {
+        // EXPOSE: Encrypting feeds the bytes into a rustcrypto AEAD primitive, which requires the
+        // raw value and does not log it.
+        self.expose()
+            .as_bytes()
+            .encrypt(ctx, key, ContentFormat::Utf8)
     }
 }
 

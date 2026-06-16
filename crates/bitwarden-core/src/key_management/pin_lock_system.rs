@@ -11,6 +11,7 @@ use bitwarden_crypto::{
     Decryptable, KeyStore, PrimitiveEncryptable,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
 };
+use bitwarden_sensitive_value::{ExposeSensitive, SensitiveString};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 #[cfg(feature = "wasm")]
@@ -119,16 +120,17 @@ impl PinLockSystem<'_> {
     /// Returns [`UnlockError::NoPinSet`] if no PIN is configured,
     /// [`UnlockError::PinWrong`] if `pin` is incorrect, and
     /// [`UnlockError::InternalError`] for other failures.
-    pub(crate) async fn unlock(&self, pin: &str) -> Result<(), UnlockError> {
+    pub(crate) async fn unlock(&self, pin: &SensitiveString) -> Result<(), UnlockError> {
         let pin_envelope = Self::get_active_pin_envelope(self)
             .await
             .ok_or(UnlockError::NoPinSet)?;
 
         // Unseal to key ctx
         let mut ctx = self.key_store().context_mut();
+        // EXPOSE: Temporary until a follow-up PR migrates `PasswordProtectedKeyEnvelope`
         let key_slot = pin_envelope
             .unseal(
-                pin,
+                pin.expose().as_str(),
                 PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
                 &mut ctx,
             )
@@ -198,7 +200,7 @@ impl PinLockSystem<'_> {
             .ok_or(MigrationFailed::MissingEncryptedPin)?;
 
         // Attempt to decrypt the previous PIN via the upgrade token.
-        let pin = (|| -> Result<String, ()> {
+        let pin: SensitiveString = (|| -> Result<SensitiveString, ()> {
             let mut ctx = self.key_store().context_mut();
             let v1_slot = token
                 .unwrap_v1(SymmetricKeySlotId::User, &mut ctx)
@@ -208,7 +210,7 @@ impl PinLockSystem<'_> {
         .map_err(|_| MigrationFailed::PinDecryption)?;
 
         // Do a fresh enrollment with the new user-key
-        self.set_pin(pin, PinLockType::BeforeFirstUnlock)
+        self.set_pin(&pin, PinLockType::BeforeFirstUnlock)
             .await
             .map_err(|_| MigrationFailed::Reenrollment)?;
 
@@ -240,12 +242,13 @@ impl PinLockSystem<'_> {
         // Make the fresh PIN envelope
         let Ok(pin_envelope) = (|| -> Result<PasswordProtectedKeyEnvelope, ()> {
             let mut ctx = self.key_store().context_mut();
-            let pin: String = encrypted_pin
+            let pin: SensitiveString = encrypted_pin
                 .decrypt(&mut ctx, SymmetricKeySlotId::User)
                 .map_err(|_| ())?;
+            // EXPOSE: Temporary until a follow-up PR migrates `PasswordProtectedKeyEnvelope`
             PasswordProtectedKeyEnvelope::seal(
                 SymmetricKeySlotId::User,
-                pin.as_str(),
+                pin.expose().as_str(),
                 PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
                 &ctx,
             )
@@ -263,7 +266,7 @@ impl PinLockSystem<'_> {
     }
 
     /// Sets the PIN and stores the generated envelope according to the lock type.
-    pub async fn set_pin(&self, pin: String, lock_type: PinLockType) -> Result<(), ()> {
+    pub async fn set_pin(&self, pin: &SensitiveString, lock_type: PinLockType) -> Result<(), ()> {
         // Clear the existing configuration
         self.client
             .km_state_bridge()
@@ -275,9 +278,10 @@ impl PinLockSystem<'_> {
             .await;
         self.client.km_state_bridge().clear_encrypted_pin().await;
 
+        // EXPOSE: Temporary until a follow-up PR migrates `PasswordProtectedKeyEnvelope`
         let pin_envelope: PasswordProtectedKeyEnvelope = PasswordProtectedKeyEnvelope::seal(
             SymmetricKeySlotId::User,
-            pin.as_str(),
+            pin.expose().as_str(),
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &self.key_store().context_mut(),
         )
@@ -382,7 +386,7 @@ impl PinLockSystem<'_> {
     }
 
     /// Returns the configured PIN, if an encrypted PIN is available and decryptable.
-    pub async fn get_pin(&self) -> Option<String> {
+    pub async fn get_pin(&self) -> Option<SensitiveString> {
         let encrypted_pin = self.client.km_state_bridge().get_encrypted_pin().await?;
         encrypted_pin
             .decrypt(
@@ -393,15 +397,16 @@ impl PinLockSystem<'_> {
     }
 
     /// Validates that the provided PIN can decrypt the stored PIN envelope.
-    pub async fn validate_pin(&self, pin: String) -> bool {
+    pub async fn validate_pin(&self, pin: &SensitiveString) -> bool {
         let pin_envelope = self.get_active_pin_envelope().await;
         let Some(pin_envelope) = pin_envelope else {
             return false;
         };
 
+        // EXPOSE: Temporary until a follow-up PR migrates `PasswordProtectedKeyEnvelope`
         pin_envelope
             .unseal(
-                pin.as_str(),
+                pin.expose().as_str(),
                 PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
                 &mut self.key_store().context_mut(),
             )
@@ -490,7 +495,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -526,7 +531,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -557,11 +562,11 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("first".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"first".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("first set_pin");
         system
-            .set_pin("second".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"second".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("second set_pin");
 
@@ -574,8 +579,8 @@ mod tests {
             system.get_pin_lock_type().await,
             Some(PinLockType::AfterFirstUnlock)
         );
-        assert!(system.validate_pin("second".into()).await);
-        assert!(!system.validate_pin("first".into()).await);
+        assert!(system.validate_pin(&"second".into()).await);
+        assert!(!system.validate_pin(&"first".into()).await);
     }
 
     #[tokio::test]
@@ -584,7 +589,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
         system.unset_pin().await;
@@ -605,12 +610,12 @@ mod tests {
         let pre_unlock_user_key_id = user_key_id(&client);
         // Snapshot ciphertext under the original user key, then drop the key from memory.
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
         client.internal.get_key_store().clear();
 
-        assert!(system.unlock("1234").await.is_ok());
+        assert!(system.unlock(&"1234".into()).await.is_ok());
         let post_unlock_user_key_id = user_key_id(&client);
         assert_eq!(post_unlock_user_key_id, pre_unlock_user_key_id);
     }
@@ -620,12 +625,12 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
         assert!(matches!(
-            system.unlock("wrong").await,
+            system.unlock(&"wrong".into()).await,
             Err(UnlockError::PinWrong)
         ));
     }
@@ -636,7 +641,7 @@ mod tests {
         let system = PinLockSystem::with_client(&client);
 
         assert!(matches!(
-            system.unlock("anything").await,
+            system.unlock(&"anything".into()).await,
             Err(UnlockError::NoPinSet)
         ));
     }
@@ -646,7 +651,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("persistent".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"persistent".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -658,9 +663,9 @@ mod tests {
             .set_ephemeral_pin_envelope(&ephemeral)
             .await;
 
-        assert!(system.unlock("ephemeral").await.is_ok());
+        assert!(system.unlock(&"ephemeral".into()).await.is_ok());
         assert!(matches!(
-            system.unlock("persistent").await,
+            system.unlock(&"persistent".into()).await,
             Err(UnlockError::PinWrong)
         ));
     }
@@ -670,7 +675,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -693,7 +698,7 @@ mod tests {
         let user_key_id = user_key_id(&client);
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
         client
@@ -711,7 +716,7 @@ mod tests {
             .expect("on_unlock should restore the ephemeral envelope");
         assert_envelope_wraps_user_key(&client, &rebuilt, "1234", &user_key_id);
         assert_eq!(system.get_pin_status().await, PinUnlockStatus::Available);
-        assert!(system.unlock("1234").await.is_ok());
+        assert!(system.unlock(&"1234".into()).await.is_ok());
     }
 
     #[tokio::test]
@@ -741,10 +746,10 @@ mod tests {
         assert_eq!(system.get_pin().await, None);
 
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
-        assert_eq!(system.get_pin().await, Some("1234".to_owned()));
+        assert_eq!(system.get_pin().await, Some(SensitiveString::from("1234")));
 
         system.unset_pin().await;
         assert_eq!(system.get_pin().await, None);
@@ -755,14 +760,14 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
 
-        assert!(!system.validate_pin("anything".into()).await);
+        assert!(!system.validate_pin(&"anything".into()).await);
 
         system
-            .set_pin("1234".into(), PinLockType::AfterFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::AfterFirstUnlock)
             .await
             .expect("set_pin succeeds");
-        assert!(system.validate_pin("1234".into()).await);
-        assert!(!system.validate_pin("wrong".into()).await);
+        assert!(system.validate_pin(&"1234".into()).await);
+        assert!(!system.validate_pin(&"wrong".into()).await);
     }
 
     /// Snapshot of the persisted state a client would have after a V1→V2 user-key upgrade,
@@ -898,7 +903,7 @@ mod tests {
             Some(PinLockType::BeforeFirstUnlock),
         );
         assert_eq!(system.get_pin_status().await, PinUnlockStatus::Available);
-        assert!(system.unlock(pin).await.is_ok());
+        assert!(system.unlock(&SensitiveString::from(pin)).await.is_ok());
     }
 
     #[tokio::test]
@@ -920,7 +925,7 @@ mod tests {
             .await
             .expect("persistent envelope present after on_unlock");
         assert_envelope_wraps_user_key(&client, &persistent, pin, &user_key_id);
-        assert!(system.unlock(pin).await.is_ok());
+        assert!(system.unlock(&SensitiveString::from(pin)).await.is_ok());
     }
 
     #[tokio::test]
@@ -941,7 +946,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 
@@ -1030,7 +1035,7 @@ mod tests {
         let client = client_with_user_key();
         let system = PinLockSystem::with_client(&client);
         system
-            .set_pin("1234".into(), PinLockType::BeforeFirstUnlock)
+            .set_pin(&"1234".into(), PinLockType::BeforeFirstUnlock)
             .await
             .expect("set_pin succeeds");
 

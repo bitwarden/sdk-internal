@@ -1,3 +1,4 @@
+use bitwarden_sensitive_value::SensitiveString;
 use tracing::instrument;
 
 use crate::{CryptoError, EncString, KeySlotId, KeySlotIds, store::KeyStoreContext};
@@ -30,6 +31,18 @@ impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
     ) -> Result<String, CryptoError> {
         let bytes: Vec<u8> = self.decrypt(ctx, key)?;
         String::from_utf8(bytes).map_err(|_| CryptoError::InvalidUtf8String)
+    }
+}
+
+impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, SensitiveString> for EncString {
+    #[instrument(err, skip_all)]
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<Ids>,
+        key: Ids::Symmetric,
+    ) -> Result<SensitiveString, CryptoError> {
+        let value: String = self.decrypt(ctx, key)?;
+        Ok(SensitiveString::from(value))
     }
 }
 

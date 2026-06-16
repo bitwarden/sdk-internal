@@ -18,6 +18,7 @@ keywords.workspace = true
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
+    "bitwarden-sensitive-value/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -25,6 +26,7 @@ wasm = [
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-send/uniffi",
+    "bitwarden-sensitive-value/uniffi",
     "dep:uniffi",
 ] # Uniffi bindings
 
@@ -37,6 +39,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-send = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
