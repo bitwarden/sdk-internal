@@ -204,6 +204,24 @@ pub struct ExportArgs {
     pub organization_id: Option<String>,
 }
 
+/// Allowed values for `--deleteInDays`, matching the legacy CLI's enumerated set.
+const DELETE_IN_DAYS_ALLOWED: &[u64] = &[1, 2, 3, 7, 14, 30];
+
+/// Clap value parser for `--deleteInDays`. Rejects anything outside the legacy-CLI
+/// allowed set at parse time so the user gets a clear error before any API call.
+fn parse_delete_in_days(s: &str) -> Result<u64, String> {
+    let value: u64 = s
+        .parse()
+        .map_err(|_| format!("`{s}` is not a valid integer"))?;
+    if DELETE_IN_DAYS_ALLOWED.contains(&value) {
+        Ok(value)
+    } else {
+        Err(format!(
+            "`{s}` is not an allowed value. Allowed: {DELETE_IN_DAYS_ALLOWED:?}"
+        ))
+    }
+}
+
 #[derive(Args, Clone)]
 pub struct SendArgs {
     /// The data to Send
@@ -216,11 +234,16 @@ pub struct SendArgs {
         short = 'd',
         long = "deleteInDays",
         help = "The number of days in the future to set deletion date.",
-        default_value_t = 7
+        default_value_t = 7,
+        value_parser = parse_delete_in_days,
     )]
     pub delete_in_days: u64,
 
-    #[arg(long, help = "Optional password to access this Send.")]
+    #[arg(
+        long,
+        conflicts_with = "emails",
+        help = "Optional password to access this Send."
+    )]
     pub password: Option<String>,
 
     #[arg(
@@ -333,7 +356,8 @@ pub struct SendCreateArgs {
         short = 'd',
         long = "deleteInDays",
         help = "The number of days in the future to set deletion date.",
-        default_value_t = 7
+        default_value_t = 7,
+        value_parser = parse_delete_in_days,
     )]
     pub delete_in_days: u64,
 
@@ -352,12 +376,13 @@ pub struct SendCreateArgs {
     #[arg(long, help = "Notes to add to the Send.")]
     pub notes: Option<String>,
 
-    #[arg(long, help = "Optional password to access this Send.")]
+    #[arg(
+        long,
+        conflicts_with = "emails",
+        help = "Optional password to access this Send."
+    )]
     pub password: Option<String>,
 
-    // TODO(PM-34719): The legacy CLI enforces `--password` and `--emails` as mutually
-    // exclusive at parse time. clap-level enforcement is deferred; for now the builder
-    // (`build_auth` in `tools/send.rs`) returns an error when both are supplied.
     #[arg(
         long,
         help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
@@ -381,7 +406,8 @@ pub struct SendEditArgs {
     #[arg(
         short = 'd',
         long = "deleteInDays",
-        help = "The number of days in the future to set deletion date."
+        help = "The number of days in the future to set deletion date.",
+        value_parser = parse_delete_in_days,
     )]
     pub delete_in_days: Option<u64>,
 
@@ -394,12 +420,13 @@ pub struct SendEditArgs {
     #[arg(long, help = "Hide text.")]
     pub hidden: bool,
 
-    #[arg(long, help = "Optional password to access this Send.")]
+    #[arg(
+        long,
+        conflicts_with = "emails",
+        help = "Optional password to access this Send."
+    )]
     pub password: Option<String>,
 
-    // TODO(PM-34719): The legacy CLI enforces `--password` and `--emails` as mutually
-    // exclusive at parse time. clap-level enforcement is deferred; for now the builder
-    // (`build_auth_for_edit` in `tools/send.rs`) returns an error when both are supplied.
     #[arg(
         long,
         help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."

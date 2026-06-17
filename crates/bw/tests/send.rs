@@ -392,3 +392,87 @@ fn send_create_camelcase_aliases_work() {
         "clap should accept legacy camelCase flags; got:\n{stderr}"
     );
 }
+
+/// Legacy CLI rejects `--password` + `--emails` at parse time. clap-level
+/// `conflicts_with` matches that behavior so the user sees a flag-conflict error
+/// before any API call (and before the auth check, which would otherwise be the
+/// first thing to fail in this test environment).
+#[test]
+fn send_create_password_and_emails_are_mutually_exclusive() {
+    let output = bw()
+        .args([
+            "send",
+            "create",
+            "--text",
+            "x",
+            "--password",
+            "p",
+            "--emails",
+            "a@b.com",
+        ])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be used with") && stderr.contains("--emails"),
+        "expected clap conflict error mentioning --emails; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn send_edit_password_and_emails_are_mutually_exclusive() {
+    let output = bw()
+        .args(["send", "edit", "--password", "p", "--emails", "a@b.com"])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be used with") && stderr.contains("--emails"),
+        "expected clap conflict error mentioning --emails; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn send_top_level_password_and_emails_are_mutually_exclusive() {
+    let output = bw()
+        .args(["send", "x", "--password", "p", "--emails", "a@b.com"])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be used with") && stderr.contains("--emails"),
+        "expected clap conflict error mentioning --emails; got:\n{stderr}"
+    );
+}
+
+/// Legacy CLI restricts `--deleteInDays` to the enumerated set {1, 2, 3, 7, 14, 30}.
+/// Anything outside that set is rejected at parse time so the user sees a clear error
+/// up-front rather than a confusing server-side validation failure.
+#[test]
+fn send_create_delete_in_days_rejects_disallowed_value() {
+    let output = bw()
+        .args(["send", "create", "--text", "x", "--deleteInDays", "5"])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("invalid value") && stderr.contains("deleteInDays"),
+        "expected clap value-parser error mentioning deleteInDays; got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("Allowed"),
+        "error should list the allowed values; got:\n{stderr}"
+    );
+}

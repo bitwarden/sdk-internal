@@ -52,24 +52,14 @@ pub enum EditSendError {
 }
 
 /// Controls how `bw send edit` updates the auth on an existing Send.
-///
-/// The previous shape (`Option<SendAuthType>`) overloaded `Option` with a sentinel:
-/// `None` did *not* mean "no auth", it meant "preserve". This enum encodes the
-/// preserve-versus-overwrite distinction directly in the type so readers don't have
-/// to recover the convention from doc-comments.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum AuthEdit {
-    /// Keep whatever auth the existing Send has. The SDK reads the encrypted-form
-    /// `password`/`emails`/`auth_type` from the repository row and forwards them
-    /// verbatim — no plaintext password is required.
+    /// Keep the existing auth on the Send.
     Preserve,
-    /// Replace the existing auth with the supplied value. Pass `SendAuthType::None`
-    /// to explicitly strip auth from the Send. The `auth` field is a named struct
-    /// variant (not tuple) so the inner `SendAuthType`'s internally-tagged `"type"`
-    /// key doesn't collide with this enum's own `"type"` tag on the wire.
+    /// Replace the existing auth. Pass `SendAuthType::None` to strip auth entirely.
     Set {
         /// The new auth configuration to apply.
         auth: SendAuthType,
@@ -101,25 +91,12 @@ pub struct SendEditRequest {
     /// Optional date and time when the Send expires and can no longer be accessed.
     pub expiration_date: Option<DateTime<Utc>>,
 
-    /// Authentication method for accessing this Send.
-    ///
-    /// `AuthEdit::Set { auth: _ }` overwrites the existing auth (including switching to
-    /// `SendAuthType::None` to remove all protection). `AuthEdit::Preserve` tells
-    /// the SDK to forward the existing Send's `password` hash, email list, and
-    /// `authType` discriminant verbatim to the server. Use `Preserve` when the
-    /// caller is editing unrelated fields and must not silently strip a previously
-    /// configured password or email-OTP gate.
+    /// Authentication for accessing this Send. Use `AuthEdit::Preserve` to keep the
+    /// existing auth on partial edits.
     pub auth: AuthEdit,
 }
 
-/// Internal helper struct that includes the send key for encryption.
-/// The key is retrieved from state during edit operations.
-///
-/// `resolved_auth` carries the auth state that will be written to the server, already
-/// resolved at the `edit_send` boundary from the (`request.auth`, existing-row snapshot)
-/// pair. The encryption path consumes `resolved_auth` rather than `request.auth` so the
-/// "preserve was requested but we didn't snapshot" case is structurally impossible —
-/// no defensive fallback to `AuthType::None` (the auth-strip shape) is needed.
+/// Internal helper carrying the send key and resolved auth needed for encryption.
 #[derive(Debug)]
 struct SendEditRequestWithKey {
     request: SendEditRequest,
@@ -127,27 +104,14 @@ struct SendEditRequestWithKey {
     resolved_auth: ResolvedAuth,
 }
 
-/// Snapshot of an existing Send's wire-format auth fields, used to round-trip the auth
-/// configuration through a partial edit without requiring the plaintext password.
-#[derive(Debug)]
-struct PreservedAuth {
-    password: Option<String>,
-    emails: Option<String>,
-    auth_type: crate::AuthType,
-}
-
-/// Already-resolved auth for an encrypted edit request. Constructed at the `edit_send`
-/// boundary so the encryption path doesn't need a defensive fallback for the (logically
-/// impossible) "preserve was requested but we didn't snapshot the existing row" case.
+/// Resolved auth for an encrypted edit request, built at the `edit_send` boundary.
 #[derive(Debug)]
 enum ResolvedAuth {
-    /// Caller passed `AuthEdit::Set { auth }` — write this auth verbatim. The carried
-    /// `SendAuthType` has already been `validate()`-d before this variant is built.
+    /// Write this `SendAuthType` verbatim. Already `validate()`-d.
     Overwrite(SendAuthType),
-    /// Caller passed `AuthEdit::Preserve` — forward the snapshot read off the existing
-    /// repository row verbatim. Stored password hash and email list go to the server
-    /// as-is so partial edits don't silently strip a previously configured gate.
-    Preserve(PreservedAuth),
+    /// Forward the existing `authType` only. The server retains the stored password
+    /// hash and email list when `password`/`emails` are omitted from the request.
+    Preserve(crate::AuthType),
 }
 
 impl
@@ -176,22 +140,12 @@ impl
             .clone()
             .encrypt_composite(ctx, send_key)?;
 
-        // `resolved_auth` was built at the `edit_send` boundary from the
-        // (`request.auth`, existing-row) pair, so both arms here are reachable and
-        // exhaustive. The previous shape kept `request.auth` + an `Option<PreservedAuth>`
-        // and needed a defensive fallback for the (impossible) "preserve was requested
-        // but no snapshot" combination — that fallback returned the auth-strip shape,
-        // which we want to make structurally impossible rather than merely unreachable.
         let (auth_type, password, emails) = match &self.resolved_auth {
             ResolvedAuth::Overwrite(auth) => {
                 let (password, emails) = auth.auth_data(&k);
                 (auth.auth_type(), password, emails)
             }
-            ResolvedAuth::Preserve(preserved) => (
-                preserved.auth_type,
-                preserved.password.clone(),
-                preserved.emails.clone(),
-            ),
+            ResolvedAuth::Preserve(auth_type) => (*auth_type, None, None),
         };
 
         Ok(bitwarden_api_api::models::SendRequestModel {
@@ -236,27 +190,14 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
 ) -> Result<SendView, EditSendError> {
     let id = send_id.to_string();
 
-    // Retrieve the existing send to get its key (keys cannot be modified during edit) and
-    // the wire-format auth fields used by the `Preserve` path.
     let existing_send = repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
 
-    // Resolve auth at the boundary so the encryption path doesn't need a "preserve but
-    // didn't snapshot" defensive fallback (which would otherwise have the auth-strip
-    // shape). Validation runs inline on the `Set` arm — `Preserve` reuses the existing
-    // server-validated row verbatim. Snapshot fields (`password` hash, `emails` comma-
-    // string, `auth_type`) are read directly off the encrypted `Send` (no decryption
-    // needed), so the SDK can round-trip auth on partial edits without requiring the
-    // plaintext password back from the caller.
     let resolved_auth = match &request.auth {
         AuthEdit::Set { auth } => {
             auth.validate()?;
             ResolvedAuth::Overwrite(auth.clone())
         }
-        AuthEdit::Preserve => ResolvedAuth::Preserve(PreservedAuth {
-            password: existing_send.password.clone(),
-            emails: existing_send.emails.clone(),
-            auth_type: existing_send.auth_type,
-        }),
+        AuthEdit::Preserve => ResolvedAuth::Preserve(existing_send.auth_type),
     };
 
     // Decrypt to get the key - we only need the key field
@@ -629,7 +570,9 @@ mod tests {
     /// row carries the provided `password_hash`, `emails`, and `auth_type`. We construct
     /// the encrypted `Send` directly (rather than going through `encrypt(SendView)`)
     /// because `SendView` deliberately doesn't surface the password hash — those fields
-    /// only live on the wire-format `Send` struct.
+    /// only live on the wire-format `Send` struct. Preserve-mode tests use this to assert
+    /// that the SDK does *not* forward those fields back to the server (the server
+    /// retains them based on `authType` alone).
     async fn make_fixture_with_existing_auth(
         send_id: uuid::Uuid,
         password_hash: Option<String>,
@@ -748,18 +691,15 @@ mod tests {
     /// (non-optional) field, the CLI passed `SendAuthType::None` whenever the user ran
     /// `bw send edit` without auth flags, and the server treated that as an overwrite
     /// that cleared the password. With `auth: AuthEdit` and `AuthEdit::Preserve` as the
-    /// no-auth-flags case, the SDK forwards the existing password hash verbatim.
+    /// no-auth-flags case, the SDK forwards the existing `authType` only — `password`
+    /// and `emails` are omitted, and the server retains the stored values.
     #[tokio::test]
     async fn test_edit_preserves_existing_password_when_auth_is_none() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let existing_hash = "abc123hashstub==".to_string();
-        let (store, repository) = make_fixture_with_existing_auth(
-            send_id,
-            Some(existing_hash.clone()),
-            None,
-            AuthType::Password,
-        )
-        .await;
+        let (store, repository) =
+            make_fixture_with_existing_auth(send_id, Some(existing_hash), None, AuthType::Password)
+                .await;
 
         let model = capture_edit_put_model(
             &store,
@@ -783,14 +723,14 @@ mod tests {
         .await;
 
         assert_eq!(
-            model.password,
-            Some(existing_hash),
-            "preserve-mode edit must forward the existing password hash to the server",
+            model.password, None,
+            "preserve mode must omit the password hash so the server retains the stored value",
         );
         assert_eq!(model.emails, None);
         assert_eq!(
             model.auth_type,
             Some(bitwarden_api_api::models::AuthType::Password),
+            "preserve mode must forward the existing authType so the server doesn't clear auth",
         );
     }
 
@@ -798,13 +738,9 @@ mod tests {
     async fn test_edit_preserves_existing_emails_when_auth_is_none() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
         let existing_emails = "a@b.com,c@d.com".to_string();
-        let (store, repository) = make_fixture_with_existing_auth(
-            send_id,
-            None,
-            Some(existing_emails.clone()),
-            AuthType::Email,
-        )
-        .await;
+        let (store, repository) =
+            make_fixture_with_existing_auth(send_id, None, Some(existing_emails), AuthType::Email)
+                .await;
 
         let model = capture_edit_put_model(
             &store,
@@ -828,10 +764,14 @@ mod tests {
         .await;
 
         assert_eq!(model.password, None);
-        assert_eq!(model.emails, Some(existing_emails));
+        assert_eq!(
+            model.emails, None,
+            "preserve mode must omit the email list so the server retains the stored value",
+        );
         assert_eq!(
             model.auth_type,
             Some(bitwarden_api_api::models::AuthType::Email),
+            "preserve mode must forward the existing authType so the server doesn't clear auth",
         );
     }
 

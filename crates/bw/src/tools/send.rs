@@ -105,14 +105,15 @@ impl BwCommand for SendGetArgs {
 }
 
 impl BwCommand for SendReceiveArgs {
-    // The `bw receive` command handles incoming sends; `bw send receive` is the legacy
-    // alias and is out of scope for this ticket. See `Commands::Receive` in main.rs.
-    // No login is required to reach that error path.
+    // `bw send receive` is the legacy alias for the top-level `bw receive` command.
+    // Both are tracked under PM-34718 ("[SDK CLI] Receive Command"), a sibling to this
+    // ticket. Routed through `AnyState` so the not-yet-implemented error fires without
+    // an auth check.
     type Client = AnyState;
 
     async fn run(self, _: AnyState) -> CommandResult {
         Err(eyre!(
-            "`bw send receive` is not implemented; use `bw receive <url>` instead."
+            "`bw send receive` is not yet implemented (tracked under PM-34718)."
         ))
     }
 }
