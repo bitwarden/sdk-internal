@@ -200,7 +200,7 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
-#[tracing::instrument(skip_all, err)]
+#[bitwarden_logging::instrument(err)]
 pub(super) async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,

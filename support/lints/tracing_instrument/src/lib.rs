@@ -44,10 +44,12 @@ dylint_linting::declare_late_lint! {
     ///
     /// ### Default level
     ///
-    /// Currently defaults to `Allow` to give existing call sites time to migrate without
-    /// breaking CI (the workspace runs `cargo dylint` with `-D warnings`). Crates that have
-    /// already been swept can opt in via `#![warn(tracing_instrument)]` (or `deny`) at the
-    /// crate root. The default will flip to `Warn` once the workspace is clean.
+    /// Defaults to `Warn`: the workspace has been swept to `bitwarden_logging::instrument`, so
+    /// any new `tracing::instrument` is flagged (the workspace runs `cargo dylint` with
+    /// `-D warnings`). `bitwarden-crypto` is temporarily opted out via
+    /// `#![allow(unknown_lints, tracing_instrument)]` at its crate root, because its
+    /// `dangerous-crypto-debug` instrumentation intentionally logs key material and is migrated
+    /// separately.
     ///
     /// ### Why is this bad?
     ///
@@ -71,7 +73,7 @@ dylint_linting::declare_late_lint! {
     /// fn derive_master_key(password: &str) {}
     /// ```
     pub TRACING_INSTRUMENT,
-    Allow,
+    Warn,
     "use `bitwarden_logging::instrument` instead of `tracing::instrument`"
 }
 

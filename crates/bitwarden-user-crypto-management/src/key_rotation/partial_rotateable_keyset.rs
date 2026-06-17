@@ -13,7 +13,6 @@ use bitwarden_core::{
 use bitwarden_crypto::{
     Decryptable, EncString, KeyStoreContext, PrimitiveEncryptable, PublicKey, UnsignedSharedKey,
 };
-use tracing::instrument;
 
 use crate::key_rotation::KeyRotationDataParseError;
 
@@ -74,7 +73,7 @@ impl PartialRotateableKeyset {
     /// Makes a new `PartialRotateableKeyset` by re-encrypting the user-key. Specifically,
     /// the user-key-encrypted-public-key is re-encrypted for the new user-key, and the
     /// public-key-encrypted-user-key is re-created for the new user-key.
-    #[instrument(skip(self, ctx))]
+    #[bitwarden_logging::instrument(fields(current_user_key_id = ?current_user_key_id, new_user_key_id = ?new_user_key_id))]
     pub(super) fn rotate_userkey(
         &self,
         current_user_key_id: SymmetricKeySlotId,

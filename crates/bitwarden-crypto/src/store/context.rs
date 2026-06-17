@@ -5,7 +5,6 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
-use tracing::instrument;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
@@ -212,7 +211,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
-    #[instrument(skip(self, wrapped_key), err)]
+    #[bitwarden_logging::instrument(err, fields(wrapping_key = ?wrapping_key))]
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -368,7 +367,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Errors
     /// Returns an error if decryption or parsing fails.
-    #[instrument(skip(self, wrapped_key), err)]
+    #[bitwarden_logging::instrument(err, fields(wrapping_key = ?wrapping_key))]
     pub fn unwrap_private_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -680,7 +679,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Returns `true` if the given symmetric key uses V1 (Aes256CbcHmac) encryption.
-    #[instrument(skip(self), err)]
+    #[bitwarden_logging::instrument(err, fields(key_id = ?key_id))]
     pub fn is_v1_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<bool> {
         let algorithm = self.get_symmetric_key_algorithm(key_id)?;
         Ok(algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac)
@@ -730,7 +729,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         key_id
     }
 
-    #[instrument(skip(self, data), err)]
+    #[bitwarden_logging::instrument(err, fields(key = ?key))]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,
