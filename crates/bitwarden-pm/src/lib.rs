@@ -12,6 +12,8 @@ use bitwarden_core::{
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_importers::ImporterClientExt as _;
+use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
@@ -28,6 +30,8 @@ pub mod clients {
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
+    pub use bitwarden_importers::ImporterClient;
+    pub use bitwarden_organization_invite_link::InviteLinkClient;
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::SendClient;
     pub use bitwarden_sync::SyncClient;
@@ -131,6 +135,11 @@ impl PasswordManagerClient {
         self.0.exporters()
     }
 
+    /// Importer operations
+    pub fn importers(&self) -> bitwarden_importers::ImporterClient {
+        self.0.importers()
+    }
+
     /// Generator operations
     pub fn generator(&self) -> bitwarden_generators::GeneratorClient {
         self.0.generator()
@@ -144,6 +153,11 @@ impl PasswordManagerClient {
     /// Policy operations
     pub fn policies(&self) -> bitwarden_policies::PolicyClient {
         self.0.policies()
+    }
+
+    /// Organization invite link operations
+    pub fn invite_link(&self) -> bitwarden_organization_invite_link::InviteLinkClient {
+        self.0.invite_link()
     }
 
     /// Sync operations

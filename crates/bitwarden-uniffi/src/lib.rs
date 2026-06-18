@@ -35,7 +35,7 @@ pub use platform::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
     ServerCommunicationConfigRepository, SsoCookieVendorConfig,
 };
-use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
+use tool::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
 use vault::VaultClient;
 
 #[allow(missing_docs)]
@@ -100,6 +100,11 @@ impl Client {
     /// Exporters
     pub fn exporters(&self) -> ExporterClient {
         ExporterClient(self.0.exporters())
+    }
+
+    /// Importers
+    pub fn importers(&self) -> ImporterClient {
+        ImporterClient(self.0.importers())
     }
 
     /// Sends operations

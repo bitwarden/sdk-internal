@@ -1,7 +1,6 @@
 use bitwarden_crypto::{EncString, KeyStoreContext};
 use key_management::LocalUserDataKeyState;
 use thiserror::Error;
-use tracing::instrument;
 
 use crate::{
     key_management,
@@ -16,7 +15,7 @@ pub(crate) struct WrappedLocalUserDataKey(pub(crate) EncString);
 
 impl WrappedLocalUserDataKey {
     /// Create a user key, wrapped by the user key.
-    #[instrument(skip(ctx), err)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn from_context_user_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, LocalUserDataKeyError> {
@@ -33,7 +32,7 @@ impl WrappedLocalUserDataKey {
     /// Used during V1→V2 user-key upgrades: the wrapped key was previously sealed with the V1
     /// user key and must be re-sealed with the V2 user key so that local data encrypted under
     /// the local user data key remains decryptable after rotation.
-    #[instrument(skip(self, ctx), err)]
+    #[bitwarden_logging::instrument(err, fields(old_wrapping_key_id = ?old_wrapping_key_id))]
     pub(crate) fn rewrap_with_user_key(
         &self,
         old_wrapping_key_id: SymmetricKeySlotId,
@@ -50,7 +49,7 @@ impl WrappedLocalUserDataKey {
 
     /// Unwrap the local user data key and set it in the context under the
     /// [`SymmetricKeySlotId::LocalUserData`] key id.
-    #[instrument(skip(self, ctx), err)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn unwrap_to_context(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,

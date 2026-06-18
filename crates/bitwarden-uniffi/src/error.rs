@@ -80,6 +80,8 @@ pub enum BitwardenError {
 
     #[error(transparent)]
     Export(#[from] ExportError),
+    #[error(transparent)]
+    Import(#[from] bitwarden_importers::ImportError),
 
     // Fido
     #[error(transparent)]

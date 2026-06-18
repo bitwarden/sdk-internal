@@ -1,19 +1,15 @@
 //! The wasm module holds serialization/encoding needed wasm bindings for
 //! any types related to InviteKeyEnvelope. This means base64url for the
-//! InviteKeyData type, and  base64 for the InviteKey type. In order to minimize
-//! complexity, the actual  B64/B64Url encoding/decoding are limited to the
-//! `From<String>` and `FromStr`  implementations. All other serialization
-//! goes through String to simplify maintenance.
+//! InviteKeyData type, and Bitwarden EncString text format (`"2.iv|data|mac"`)
+//! for the InviteKeyEnvelope type. In order to minimize complexity, the actual
+//! encoding/decoding is limited to the `From<String>` and `FromStr`
+//! implementations. All other serialization goes through String to simplify
+//! maintenance.
 use std::str::FromStr;
 
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{InviteKeyBundleError, InviteKeyData, InviteKeyEnvelope};
-
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type InviteKeyData = Tagged<string, "InviteKeyData">;
-"#;
 
 impl wasm_bindgen::describe::WasmDescribe for InviteKeyData {
     fn describe() {
@@ -55,11 +51,6 @@ impl TryFrom<wasm_bindgen::JsValue> for InviteKeyData {
         Self::from_str(&string)
     }
 }
-
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
-"#;
 
 impl wasm_bindgen::describe::WasmDescribe for InviteKeyEnvelope {
     fn describe() {

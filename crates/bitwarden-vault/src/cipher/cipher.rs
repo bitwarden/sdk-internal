@@ -19,7 +19,6 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
-use tracing::instrument;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -777,7 +776,7 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
@@ -796,7 +795,7 @@ impl Cipher {
     ///
     /// * `ctx` - The key store context where the new attachment key will be registered
     /// * `file_name` - The plaintext file name to encrypt with the cipher key
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn make_attachment_material(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1464,7 +1463,7 @@ impl IdentifyKey<SymmetricKeySlotId> for Cipher {
 }
 
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
-    #[instrument(err, skip_all, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
+    #[bitwarden_logging::instrument(err, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1528,7 +1527,7 @@ impl IdentifyKey<SymmetricKeySlotId> for StrictDecrypt<Cipher> {
 }
 
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<Cipher> {
-    #[instrument(err, skip_all, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
+    #[bitwarden_logging::instrument(err, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
