@@ -20,6 +20,9 @@ pub enum ImportError {
     Api(#[from] bitwarden_core::ApiError),
     #[error(transparent)]
     BitwardenCrypto(#[from] bitwarden_crypto::CryptoError),
+    /// A Keeper importer cryptography operation failed.
+    #[error(transparent)]
+    KeeperCrypto(#[from] crate::keeper::crypto::KeeperCryptoError),
     /// Encryption from the shared import bridge (`bitwarden_exporters::encrypt_import`).
     #[error(transparent)]
     Export(#[from] bitwarden_exporters::ExportError),

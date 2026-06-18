@@ -864,6 +864,8 @@ dependencies = [
 name = "bitwarden-importers"
 version = "3.0.0"
 dependencies = [
+ "aes 0.9.1",
+ "aes-gcm 0.11.0-rc.4",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
@@ -871,10 +873,16 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-exporters",
  "bitwarden-vault",
+ "cbc",
  "chrono",
  "data-encoding",
  "keepass",
+ "p256 0.14.0-rc.10",
+ "rand 0.10.1",
+ "rsa",
  "serde",
+ "sha2 0.11.0",
+ "subtle",
  "thiserror 2.0.18",
  "tokio",
  "tsify",
@@ -2686,6 +2694,7 @@ dependencies = [
  "digest 0.11.3",
  "ff 0.14.0",
  "group 0.14.0",
+ "hkdf",
  "hybrid-array",
  "pkcs8 0.11.0",
  "rand_core 0.10.1",

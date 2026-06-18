@@ -15,6 +15,7 @@ mod import;
 mod importer_client;
 pub use importer_client::{ImporterClient, ImporterClientExt};
 mod importers;
+pub use importers::keeper;
 mod pipeline;
 
 /// Destination options for a vault import.
