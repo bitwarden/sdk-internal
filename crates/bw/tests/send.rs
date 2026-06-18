@@ -336,7 +336,7 @@ fn send_edit_encoded_json_returns_not_implemented_error() {
 
 #[test]
 fn send_get_output_file_returns_not_implemented_error() {
-    // PM-34719: --output-file for file Sends needs the decrypt-file pipeline, which isn't
+    //  --output-file for file Sends needs the decrypt-file pipeline, which isn't
     // wired yet. Supplying it should fail loudly *before* the auth check + network call
     // rather than silently writing JSON to stdout while the requested file path goes
     // uncreated. The flag is `--output-file` (not `--output`) to avoid colliding with the
