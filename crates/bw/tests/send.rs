@@ -291,7 +291,7 @@ fn send_edit_with_password_flag_parses() {
 
 #[test]
 fn send_create_encoded_json_returns_not_implemented_error() {
-    // PM-34719: full-object JSON input is not yet implemented. Supplying it should fail
+    // full-object JSON input is not yet implemented. Supplying it should fail
     // loudly (before the auth check) rather than silently discarding the input and creating
     // a Send with the CLI-flag defaults.
     let output = bw()
