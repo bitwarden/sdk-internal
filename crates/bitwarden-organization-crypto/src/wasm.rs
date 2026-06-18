@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
-use crate::{InviteKeyBundleError, InviteKeyData, Invite};
+use crate::{Invite, InviteKeyBundleError, InviteKeyData};
 
 impl wasm_bindgen::describe::WasmDescribe for InviteKeyData {
     fn describe() {
@@ -54,7 +54,7 @@ impl TryFrom<wasm_bindgen::JsValue> for InviteKeyData {
 
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
+export type Invite = Tagged<string, "Invite">;
 "#;
 
 impl wasm_bindgen::describe::WasmDescribe for Invite {

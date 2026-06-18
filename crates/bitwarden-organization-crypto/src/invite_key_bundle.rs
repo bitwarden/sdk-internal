@@ -99,11 +99,11 @@ impl Serialize for InviteKeyData {
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
-export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
+const TS_INVITE: &'static str = r#"
+export type Invite = Tagged<string, "Invite">;
 "#;
 
-/// Cryptographic invite for an organization. 
+/// Cryptographic invite for an organization.
 #[derive(Debug, Clone)]
 pub struct Invite {
     organization_key_wrapped_invite_key: EncString,
@@ -190,7 +190,11 @@ impl Invite {
     }
 
     #[allow(unused)]
-    fn enable_confirmation<Ids: KeySlotIds>(&mut self, _organization_key: Ids::Symmetric, _ctx: &mut KeyStoreContext<Ids>) -> Result<(), InviteKeyBundleError> {
+    fn enable_confirmation<Ids: KeySlotIds>(
+        &mut self,
+        _organization_key: Ids::Symmetric,
+        _ctx: &mut KeyStoreContext<Ids>,
+    ) -> Result<(), InviteKeyBundleError> {
         unimplemented!("Confirmation is not yet supported in this version of the crate");
     }
 
@@ -211,7 +215,9 @@ impl Invite {
         _new_organization_key: Ids::Symmetric,
         _ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<(), InviteKeyBundleError> {
-        unimplemented!("Organization key rotation is not yet supported in this version of the crate");
+        unimplemented!(
+            "Organization key rotation is not yet supported in this version of the crate"
+        );
     }
 }
 
@@ -277,7 +283,7 @@ mod tests {
     use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyStore, SymmetricCryptoKey, key_slot_ids};
     use bitwarden_encoding::{B64, B64Url};
 
-    use crate::invite_key_bundle::{InviteBundle, InviteKeyData, Invite};
+    use crate::invite_key_bundle::{Invite, InviteBundle, InviteKeyData};
 
     #[test]
     fn test_basic_invitation_envelope_bundle() {
@@ -372,9 +378,7 @@ mod tests {
         let internal_unwrapped_key_id = ctx
             .unwrap_symmetric_key(
                 TestSymmKey::Organization,
-                &key_bundle
-                    .invite
-                    .organization_key_wrapped_invite_key,
+                &key_bundle.invite.organization_key_wrapped_invite_key,
             )
             .unwrap();
 

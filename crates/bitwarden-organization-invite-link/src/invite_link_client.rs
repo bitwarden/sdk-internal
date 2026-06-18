@@ -4,9 +4,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyStore;
 use bitwarden_error::bitwarden_error;
-use bitwarden_organization_crypto::{
-    Invite, InviteBundle, InviteKeyBundleError, InviteKeyData
-};
+use bitwarden_organization_crypto::{Invite, InviteBundle, InviteKeyBundleError, InviteKeyData};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -154,19 +152,21 @@ mod tests {
     }
 
     #[test]
-    fn sealed_envelope_serializes_as_encstring_text_format() {
-        // The server validates EncryptedInviteKey as a Bitwarden EncString text
-        // format (e.g. "2.iv|data|mac").
+    fn sealed_invite_serializes_as_stable_base64_wire_format() {
+        // The invite is serialized as a base64-encoded CBOR structure (the
+        // extendable wire format). It must round-trip back to an identical
+        // invite that still unseals to the original invite key.
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
         let bundle = client.make_invite(org_id).unwrap();
-        let envelope_str = String::from(&bundle.invite);
+        let invite_str = String::from(&bundle.invite);
 
-        assert!(
-            envelope_str.parse::<bitwarden_crypto::EncString>().is_ok(),
-            "sealed_invite_key_envelope must parse as a valid EncString, got: {envelope_str}"
-        );
+        let reparsed: Invite = invite_str
+            .parse()
+            .expect("serialized invite must parse back from its base64 wire format");
+        let unsealed = client.get_invite_key(org_id, reparsed).unwrap();
+        assert_eq!(bundle.invite_key, unsealed);
     }
 
     #[test]

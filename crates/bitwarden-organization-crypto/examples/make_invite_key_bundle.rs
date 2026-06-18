@@ -4,7 +4,7 @@
 use bitwarden_crypto::{
     KeyStore, KeyStoreContext, SymmetricKeyAlgorithm::Aes256CbcHmac, key_slot_ids,
 };
-use bitwarden_organization_crypto::{InviteBundle, InviteKeyData, Invite};
+use bitwarden_organization_crypto::{Invite, InviteBundle, InviteKeyData};
 
 fn main() {
     let key_store = KeyStore::<ExampleIds>::default();
@@ -42,8 +42,7 @@ fn main() {
     //   "otherData":...
     // }
     // ```
-    let invite_key_envelope: &Invite =
-        bundle.get_envelope();
+    let invite_key_envelope: &Invite = bundle.get_envelope();
 
     // 4. Given a sealed `InviteKeyEnvelope` and an organization key, it may
     // be necessary to unseal and access the inner InviteKey, e.g. to implement
