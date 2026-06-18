@@ -209,6 +209,16 @@ impl Invite {
     }
 
     #[allow(unused)]
+    fn unseal_organization_key<Ids: KeySlotIds>(
+        &self,
+        _invite_key: &InviteKeyData,
+        _target_key_slot: Ids::Symmetric,
+        _ctx: &mut KeyStoreContext<impl KeySlotIds>,
+    ) -> Result<SymmetricCryptoKey, InviteKeyBundleError> {
+        unimplemented!("Confirmation is not yet supported in this version of the crate");
+    }
+
+    #[allow(unused)]
     fn update_organization_key<Ids: KeySlotIds>(
         &mut self,
         _old_organization_key: Ids::Symmetric,
