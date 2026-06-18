@@ -51,16 +51,16 @@ impl BwCommand for SendArgs {
             // even when the caller is logged out — that signals the input is unsupported
             // rather than burying it behind a confusing auth error.
             Some(SendCommands::Create(args)) if args.encoded_json.is_some() => Err(eyre!(
-                "`encoded_json` input on `bw send create` is not yet implemented (PM-34719)."
+                "`encoded_json` input on `bw send create` is not yet implemented (tracked under PM-39240)."
             )),
             Some(SendCommands::Edit(args)) if args.encoded_json.is_some() => Err(eyre!(
-                "`encoded_json` input on `bw send edit` is not yet implemented (PM-34719)."
+                "`encoded_json` input on `bw send edit` is not yet implemented (tracked under PM-39240)."
             )),
-            // `--output-file` on `get` similarly fails before the auth check: silently
+            // `--output` on `get` similarly fails before the auth check: silently
             // emitting JSON to stdout while the requested file path goes uncreated would
             // be a worse UX than an explicit "not implemented" error.
-            Some(SendCommands::Get(args)) if args.output_file.is_some() => Err(eyre!(
-                "`--output-file` on `bw send get` is not yet implemented (PM-34719: file-decrypt pipeline pending)."
+            Some(SendCommands::Get(args)) if args.output_path.is_some() => Err(eyre!(
+                "`--output` on `bw send get` is not yet implemented (tracked under PM-39238)."
             )),
             Some(SendCommands::List(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Template(args)) => args.dispatch(ctx).await,
@@ -96,10 +96,10 @@ impl BwCommand for SendGetArgs {
     type Client = LoggedIn;
 
     async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
-        // The `--output-file` early-error gate lives in [`SendArgs::run`] above so it can
+        // The `--output` early-error gate lives in [`SendArgs::run`] above so it can
         // fire *before* the `LoggedIn` typestate extractor — a logged-out caller passing
-        // `--output-file` should see the precise "not yet implemented" error rather than
-        // a generic auth message. See PM-34719 for the file-decrypt pipeline follow-up.
+        // `--output` should see the precise "not yet implemented" error rather than
+        // a generic auth message. The file-decrypt pipeline follow-up is PM-39238.
         get_send(&user, self.id, self.text).await
     }
 }
@@ -123,8 +123,7 @@ impl BwCommand for SendCreateArgs {
 
     async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
         // The `encoded_json` early-error gate lives in [`SendArgs::run`] above so it can
-        // fire *before* the `LoggedIn` typestate extractor — see PM-34719 for the
-        // encoded-JSON input follow-up.
+        // fire *before* the `LoggedIn` typestate extractor. Encoded-JSON support is PM-39240.
         let SendCreateArgs {
             encoded_json: _,
             file,
@@ -160,8 +159,7 @@ impl BwCommand for SendEditArgs {
 
     async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
         // The `encoded_json` early-error gate lives in [`SendArgs::run`] above so it can
-        // fire *before* the `LoggedIn` typestate extractor — see PM-34719 for the
-        // encoded-JSON input follow-up.
+        // fire *before* the `LoggedIn` typestate extractor. Encoded-JSON support is PM-39240.
         let SendEditArgs {
             encoded_json: _,
             itemid,
@@ -173,13 +171,11 @@ impl BwCommand for SendEditArgs {
         } = self;
 
         let send_id = itemid.ok_or_else(|| {
-            eyre!("--itemid is required (or provide it via encoded JSON, TODO PM-34719).")
+            eyre!("--itemid is required (or provide it via encoded JSON; see PM-39240).")
         })?;
 
-        // TODO(PM-34719): The CLI builds the edit request from the existing decrypted view
-        // plus CLI overrides. The legacy CLI lets the user supply the full object via
-        // encodedJson; we should support that path too. TODO(PM-34719): Enforce type
-        // immutability on edit.
+        // The CLI builds the edit request from the existing decrypted view plus CLI overrides.
+        // Full-object encodedJson input + type-immutability enforcement on edit are PM-39240.
         let existing = user.sends().get(send_id).await?;
 
         let request = build_edit_request(
@@ -225,8 +221,9 @@ async fn get_send(client: &PasswordManagerClient, id: SendId, text: bool) -> Com
     let view = client.sends().get(id).await?;
 
     if text {
-        // TODO(PM-34719): Building a shareable access URL requires the server's web vault URL
-        // and the access_id + key fragment. Emit only the access_id for now.
+        // Building a shareable access URL requires the server's web vault URL and the
+        // access_id + key fragment. Emit only the access_id for now; the URL emission
+        // work is tracked in PM-39239.
         return Ok(view
             .access_id
             .unwrap_or_else(|| "(no access id)".to_string())
@@ -306,14 +303,11 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
         emails,
     } = inputs;
 
-    // TODO(PM-34719): Validate `delete_in_days` against the legacy CLI's allowed set (1, 2, 3,
-    // 7, 14, 30) instead of accepting any positive integer.
     let deletion_date = compute_deletion_date(delete_in_days)?;
 
     let view_type = match (file.as_deref(), text.as_deref()) {
         (Some(path), None) => {
-            // TODO(PM-34719): File sends require a premium account; enforce that check before
-            // building the request.
+            // File sends require a premium account; the precondition check is PM-39238.
             let path = PathBuf::from(path);
             let file_name = path
                 .file_name()
@@ -397,8 +391,8 @@ fn build_edit_request(
             hidden: if hidden { true } else { t.hidden },
         }),
         (None, Some(f)) => SendViewType::File(f),
-        // TODO(PM-34719): Sends should always carry exactly one of text/file; the API can in
-        // theory return both. The legacy CLI prefers text in that case.
+        // Sends should always carry exactly one of text/file; the API can in theory return
+        // both. The legacy CLI prefers text in that case, which is what we do here.
         (Some(t), Some(_)) => SendViewType::Text(SendTextView {
             text: t.text,
             hidden: if hidden { true } else { t.hidden },
@@ -471,12 +465,12 @@ async fn run_create(
 ) -> CommandResult {
     let is_file = matches!(request.view_type, SendViewType::File(_));
 
-    // TODO(PM-34719): For file sends, the create flow has to follow up with `upload_send_file`
-    // using the encrypted file bytes. The CLI doesn't have the encrypted bytes yet — the
-    // file-encryption step is its own follow-up. For now we surface the gap explicitly.
+    // For file sends, the create flow has to follow up with `upload_send_file` using the
+    // encrypted file bytes. The CLI doesn't have the encrypted bytes yet — the file-
+    // encryption step is tracked in PM-39238. For now we surface the gap explicitly.
     if is_file {
         return Err(eyre!(
-            "Creating file Sends from the Rust CLI is not yet implemented (PM-34719: file encryption pipeline pending)."
+            "Creating file Sends from the Rust CLI is not yet implemented (tracked under PM-39238)."
         ));
     }
 
@@ -486,8 +480,9 @@ async fn run_create(
         return Ok(CommandOutput::Object(Box::new(view)));
     }
 
-    // TODO(PM-34719): The default output is the access URL. We don't have the web vault URL
-    // wired here yet, so emit the access id (which is the path component of the URL).
+    // The default output should be the shareable access URL. We don't have the web vault
+    // URL wired here yet (PM-39239), so emit the access id — which is the path component
+    // of the URL — for now.
     Ok(view
         .access_id
         .unwrap_or_else(|| "(no access id)".to_string())

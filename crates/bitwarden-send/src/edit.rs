@@ -269,14 +269,11 @@ mod tests {
     use super::*;
     use crate::{AuthType, SendTextView, SendType, SendViewType};
 
-    /// `AuthEdit` is serialized with `#[serde(tag = "type")]`, and its `Set` variant
-    /// carries a `SendAuthType` that *also* uses `#[serde(tag = "type")]`. With a tuple
-    /// variant (`Set(SendAuthType)`) the inner type's tag would flatten into the outer
-    /// object and collide with the outer tag, producing `{"type":"set","type":"password",...}`
-    /// (invalid JSON; deserialize would fail with "duplicate field 'type'"). The struct
-    /// variant `Set { auth: SendAuthType }` wraps the inner type in a sub-object instead,
-    /// keeping the two `"type"` tags in separate scopes. This test pins the wire shape so
-    /// the regression can't reappear.
+    // Pins the wire shape of `AuthEdit`. Both `AuthEdit` and `SendAuthType` are
+    // internally tagged with `#[serde(tag = "type")]`; the `Set { auth: ... }` struct
+    // variant keeps those tags in separate scopes. A tuple variant `Set(SendAuthType)`
+    // would flatten the inner tag into the outer object and produce a duplicate `"type"`
+    // key — this test catches that if anyone refactors back.
     #[test]
     fn auth_edit_round_trips_through_json_without_duplicate_type_keys() {
         let cases = [
@@ -566,13 +563,10 @@ mod tests {
         assert!(matches!(result.unwrap_err(), EditSendError::Api(_)));
     }
 
-    /// Builds a key store / repository fixture pre-populated with a Send whose encrypted
-    /// row carries the provided `password_hash`, `emails`, and `auth_type`. We construct
-    /// the encrypted `Send` directly (rather than going through `encrypt(SendView)`)
-    /// because `SendView` deliberately doesn't surface the password hash — those fields
-    /// only live on the wire-format `Send` struct. Preserve-mode tests use this to assert
-    /// that the SDK does *not* forward those fields back to the server (the server
-    /// retains them based on `authType` alone).
+    // Builds a fixture with the given `password_hash`, `emails`, and `auth_type` patched
+    // onto the encrypted `Send` row. Goes around `encrypt(SendView)` because `SendView`
+    // doesn't expose the wire-format password/emails fields that preserve-mode tests need
+    // to assert against.
     async fn make_fixture_with_existing_auth(
         send_id: uuid::Uuid,
         password_hash: Option<String>,
@@ -628,9 +622,7 @@ mod tests {
         (store, repository)
     }
 
-    /// Drives `edit_send` against a fixture and captures the `SendRequestModel` that the
-    /// SDK would have sent to the server. We don't care about the round-trip response
-    /// content here — the assertion lives on the request body.
+    // Drives `edit_send` and captures the `SendRequestModel` sent to the server.
     async fn capture_edit_put_model(
         store: &KeyStore<KeySlotIds>,
         repository: &MemoryRepository<Send>,
@@ -687,12 +679,8 @@ mod tests {
         captured.lock().unwrap().take().expect("PUT was not called")
     }
 
-    /// Regression test for the auth-strip bug. With the previous `auth: SendAuthType`
-    /// (non-optional) field, the CLI passed `SendAuthType::None` whenever the user ran
-    /// `bw send edit` without auth flags, and the server treated that as an overwrite
-    /// that cleared the password. With `auth: AuthEdit` and `AuthEdit::Preserve` as the
-    /// no-auth-flags case, the SDK forwards the existing `authType` only — `password`
-    /// and `emails` are omitted, and the server retains the stored values.
+    // Regression test for the auth-strip bug: `AuthEdit::Preserve` must forward only
+    // the existing `authType` so the server retains the stored password hash.
     #[tokio::test]
     async fn test_edit_preserves_existing_password_when_auth_is_none() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
@@ -810,9 +798,8 @@ mod tests {
         );
     }
 
-    /// An explicit `AuthEdit::Set { auth: SendAuthType::None }` still means "remove protection" —
-    /// that's the escape hatch a caller uses to deliberately strip auth (mirroring the
-    /// legacy `bw send remove-password` semantics for the auth slot generally).
+    // `AuthEdit::Set { auth: SendAuthType::None }` is the escape hatch for deliberately
+    // stripping auth — distinct from `Preserve`, which leaves existing auth in place.
     #[tokio::test]
     async fn test_edit_explicit_auth_none_overrides_existing_password() {
         let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");

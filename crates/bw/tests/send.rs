@@ -17,7 +17,7 @@
 mod common;
 use common::bw;
 
-// The crate name `bw` is a binary; to access its types we have to compile it as a library too.
+// The crate named `bw` is a binary; to access its types we have to compile it as a library too.
 // Instead, parse via the user-facing argv shapes and assert on the structured output. This
 // matches what `generate.rs` does (it runs the compiled binary and asserts on stdout) and
 // avoids coupling the test to internal module visibility.
@@ -335,18 +335,16 @@ fn send_edit_encoded_json_returns_not_implemented_error() {
 }
 
 #[test]
-fn send_get_output_file_returns_not_implemented_error() {
-    //  --output-file for file Sends needs the decrypt-file pipeline, which isn't
-    // wired yet. Supplying it should fail loudly *before* the auth check + network call
-    // rather than silently writing JSON to stdout while the requested file path goes
-    // uncreated. The flag is `--output-file` (not `--output`) to avoid colliding with the
-    // top-level global `-o, --output` format flag.
+fn send_get_output_returns_not_implemented_error() {
+    // --output for file Sends needs the decrypt-file pipeline, which isn't wired yet.
+    // Supplying it should fail loudly *before* the auth check + network call rather than
+    // silently writing JSON to stdout while the requested file path goes uncreated.
     let output = bw()
         .args([
             "send",
             "get",
             "25afb11c-9c95-4db5-8bac-c21cb204a3f1",
-            "--output-file",
+            "--output",
             "/tmp/bw-send-get-test.bin",
         ])
         .env_remove("BW_EMAIL")
@@ -356,12 +354,12 @@ fn send_get_output_file_returns_not_implemented_error() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--output-file") && stderr.contains("not yet implemented"),
-        "expected `--output-file ... not yet implemented` error, got:\n{stderr}"
+        stderr.contains("--output") && stderr.contains("not yet implemented"),
+        "expected `--output ... not yet implemented` error, got:\n{stderr}"
     );
     assert!(
         !stderr.contains("not logged in"),
-        "--output-file check should pre-empt the auth check; got:\n{stderr}"
+        "--output check should pre-empt the auth check; got:\n{stderr}"
     );
 }
 

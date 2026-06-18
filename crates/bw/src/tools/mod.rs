@@ -317,15 +317,14 @@ pub struct SendTemplateArgs {
 pub struct SendGetArgs {
     pub id: SendId,
 
-    // The legacy CLI uses `--output <path>` here, but the top-level `bw` already defines
-    // a global `-o, --output` flag for the rendered output format (JSON, etc.). Naming
-    // this `--output-file` avoids a clap runtime panic when both args resolve to the
-    // same long flag with different types. Legacy parity is tracked in PM-34719 follow-ups.
+    // The internal field is `output_path` (not `output`) to avoid clashing with the
+    // top-level `Cli::output` (the `-o` rendered-output-format arg). User-facing long
+    // flag stays `--output` to match the legacy CLI.
     #[arg(
-        long = "output-file",
+        long = "output",
         help = "File path to save a file-type Send's decrypted contents to."
     )]
-    pub output_file: Option<String>,
+    pub output_path: Option<String>,
 
     #[arg(long, help = "Only return the access url.")]
     pub text: bool,
