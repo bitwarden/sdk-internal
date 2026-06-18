@@ -1,7 +1,7 @@
 import { OrganizationId } from "@bitwarden/sdk-internal";
 
-import { TEST_ORGANIZATION_ID } from "./org-fixtures";
-import { makeOrgInitializedClient, makeStateBridge } from "./utils";
+import { TEST_ORGANIZATION_ID } from "../org-fixtures";
+import { makeOrgInitializedClient, makeStateBridge } from "../utils";
 
 const UNKNOWN_ORGANIZATION_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff" as unknown as OrganizationId;
 
