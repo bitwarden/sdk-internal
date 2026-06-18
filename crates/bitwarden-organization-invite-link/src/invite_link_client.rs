@@ -27,8 +27,8 @@ pub enum OrganizationInviteCryptoBundleError {
 /// The cryptographic bundle returned when generating an organization member invite link.
 ///
 /// - `invite_key`: raw invite key encoded as base64Url. **MUST NOT be sent to the server.**
-/// - `invite`: invite key sealed with the organization key, serialized as an
-///   EncString. Safe to send to the server.
+/// - `invite`: invite key sealed with the organization key, serialized as an EncString. Safe to
+///   send to the server.
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
