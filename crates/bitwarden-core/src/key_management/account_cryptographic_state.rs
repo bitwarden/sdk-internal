@@ -22,7 +22,7 @@ use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{info, instrument};
+use tracing::info;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -259,7 +259,7 @@ impl WrappedAccountCryptographicState {
     /// Converts to a AccountKeysRequestModel in order to make API requests. Since the
     /// [WrappedAccountCryptographicState] is encrypted, the key store needs to contain the
     /// user key required to unlock this state.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn to_request_model(
         &self,
         user_key: &SymmetricKeySlotId,
@@ -375,7 +375,7 @@ impl WrappedAccountCryptographicState {
     /// Currently only supports V1 accounts.
     ///
     /// This is useful for obtaining the wrapped state after an asymmetric key regeneration.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn get_from_key_store(
         ctx: &KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, RotateCryptographyStateError> {
@@ -395,7 +395,7 @@ impl WrappedAccountCryptographicState {
 
     /// Re-wraps the account cryptographic state with a new user key. If the cryptographic state is
     /// a V1 state, it gets upgraded to a V2 state
-    #[instrument(skip(self, ctx), err)]
+    #[bitwarden_logging::instrument(err, fields(current_user_key = ?current_user_key, new_user_key = ?new_user_key))]
     pub fn rotate(
         &self,
         current_user_key: &SymmetricKeySlotId,

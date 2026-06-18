@@ -44,6 +44,7 @@ bitwarden-logging = { workspace = true, features = ["wasm"] }
 # ensure wasm-bindgen is generated for the `bitwarden-organization-crypto` crate
 # See [package.metadata.cargo-udeps.ignore] above for more.
 bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
+bitwarden-organization-invite-link = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }

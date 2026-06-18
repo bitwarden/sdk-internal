@@ -10,7 +10,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
-    PrimitiveEncryptable,
+    PrimitiveEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
@@ -19,7 +19,6 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
-use tracing::instrument;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -777,7 +776,7 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
@@ -787,6 +786,31 @@ impl Cipher {
             Some(ciphers_key) => ctx.unwrap_symmetric_key(key, ciphers_key),
             None => Ok(key),
         }
+    }
+
+    /// Builds the cryptographic material for a new attachment: a fresh key (raw and wrapped with
+    /// the cipher key) plus the encrypted file name.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The key store context where the new attachment key will be registered
+    /// * `file_name` - The plaintext file name to encrypt with the cipher key
+    #[bitwarden_logging::instrument(err)]
+    pub(crate) fn make_attachment_material(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        file_name: &str,
+    ) -> Result<attachment::AttachmentMaterial, CryptoError> {
+        let cipher_key = Self::decrypt_cipher_key(ctx, self.key_identifier(), &self.key)?;
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let slot = ctx.add_local_symmetric_key(key.clone());
+        let wrapped_key = ctx.wrap_symmetric_key(cipher_key, slot)?;
+        let encrypted_file_name = file_name.encrypt(ctx, cipher_key)?;
+        Ok(attachment::AttachmentMaterial {
+            key,
+            wrapped_key,
+            encrypted_file_name,
+        })
     }
 
     /// Temporary helper to return a [CipherKind] instance based on the cipher type.
@@ -1439,7 +1463,7 @@ impl IdentifyKey<SymmetricKeySlotId> for Cipher {
 }
 
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
-    #[instrument(err, skip_all, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
+    #[bitwarden_logging::instrument(err, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1503,7 +1527,7 @@ impl IdentifyKey<SymmetricKeySlotId> for StrictDecrypt<Cipher> {
 }
 
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<Cipher> {
-    #[instrument(err, skip_all, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
+    #[bitwarden_logging::instrument(err, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
