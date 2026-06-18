@@ -174,8 +174,7 @@ impl BwCommand for SendEditArgs {
             eyre!("--itemid is required (or provide it via encoded JSON; see PM-39240).")
         })?;
 
-        // The CLI builds the edit request from the existing decrypted view plus CLI overrides.
-        // Full-object encodedJson input + type-immutability enforcement on edit are PM-39240.
+        // PM-39240: support full-object JSON input and reject text↔file type changes on edit.
         let existing = user.sends().get(send_id).await?;
 
         let request = build_edit_request(
