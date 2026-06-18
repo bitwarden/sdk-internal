@@ -1,8 +1,10 @@
 //! This example demonstrates how to make a new invite key bundle
 //! sealed with the organization key using the [`InviteKeyBundle`]
 
-use bitwarden_crypto::{KeyStore, KeyStoreContext, key_slot_ids};
-use bitwarden_organization_crypto::{InviteKeyBundle, InviteKeyData, InviteKeyEnvelope};
+use bitwarden_crypto::{
+    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm::Aes256CbcHmac, key_slot_ids,
+};
+use bitwarden_organization_crypto::{InviteBundle, InviteKeyData, Invite};
 
 fn main() {
     let key_store = KeyStore::<ExampleIds>::default();
@@ -11,12 +13,12 @@ fn main() {
 
     // For the sdk, this is automatically done during initialization by
     // `init_org`.
-    let organization_key = ctx.generate_symmetric_key();
+    let organization_key = ctx.make_symmetric_key(Aes256CbcHmac);
     ctx.persist_symmetric_key(organization_key, ExampleSymmetricKey::Organization(org_id))
         .expect("switching key ids should work");
 
     // 1. Create an `InviteKeyBundle`, each bundle consists of two parts.
-    let bundle = InviteKeyBundle::make(ExampleSymmetricKey::Organization(org_id), &mut ctx)
+    let bundle = InviteBundle::make(ExampleSymmetricKey::Organization(org_id), &mut ctx)
         .expect("generating an invitation key bundle should work");
 
     // 2. The first part is an `InviteKeyData`. This represents the raw Invite
@@ -32,14 +34,22 @@ fn main() {
     // key sealed (a.k.a. sealed) by the org key. `InviteKeyEnvelope`
     // automatically serializes to `base64` when using serde,
     // `String::from(&inviteKeyEnvelope)`, or wasm abi serialization.
-    let organization_wrapped_invitation_key: &InviteKeyEnvelope =
-        bundle.get_sealed_invite_key_envelope();
+    //
+    // This can be sent to the server, and should be persisted there:
+    // ```
+    // { // Request model
+    //   "inviteKeyEnvelope": "abcdef==",
+    //   "otherData":...
+    // }
+    // ```
+    let invite_key_envelope: &Invite =
+        bundle.get_envelope();
 
     // 4. Given a sealed `InviteKeyEnvelope` and an organization key, it may
     // be necessary to unseal and access the inner InviteKey, e.g. to implement
     // `reconstructUrl`. The `InviteKeyEnvelope` provides an easy interface for
     // transforming `InviteKeyEnvelope` => `InviteKeyData`
-    let unsealed_key = organization_wrapped_invitation_key
+    let unsealed_key = invite_key_envelope
         .unseal(organization_key, &mut ctx)
         .expect("unsealing should work");
 

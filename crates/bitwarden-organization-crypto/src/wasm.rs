@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
-use crate::{InviteKeyBundleError, InviteKeyData, InviteKeyEnvelope};
+use crate::{InviteKeyBundleError, InviteKeyData, Invite};
 
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -61,29 +61,29 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
 "#;
 
-impl wasm_bindgen::describe::WasmDescribe for InviteKeyEnvelope {
+impl wasm_bindgen::describe::WasmDescribe for Invite {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
-impl FromWasmAbi for InviteKeyEnvelope {
+impl FromWasmAbi for Invite {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        InviteKeyEnvelope::from_str(&string).unwrap_throw()
+        Invite::from_str(&string).unwrap_throw()
     }
 }
 
-impl OptionFromWasmAbi for InviteKeyEnvelope {
+impl OptionFromWasmAbi for Invite {
     fn is_none(abi: &Self::Abi) -> bool {
         <String as OptionFromWasmAbi>::is_none(abi)
     }
 }
 
-impl IntoWasmAbi for InviteKeyEnvelope {
+impl IntoWasmAbi for Invite {
     type Abi = <String as IntoWasmAbi>::Abi;
 
     fn into_abi(self) -> Self::Abi {
@@ -91,7 +91,7 @@ impl IntoWasmAbi for InviteKeyEnvelope {
     }
 }
 
-impl TryFrom<wasm_bindgen::JsValue> for InviteKeyEnvelope {
+impl TryFrom<wasm_bindgen::JsValue> for Invite {
     type Error = InviteKeyBundleError;
 
     fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {

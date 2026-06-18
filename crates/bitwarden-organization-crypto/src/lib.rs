@@ -2,7 +2,7 @@
 
 mod invite_key_bundle;
 pub use invite_key_bundle::{
-    InviteKeyBundle, InviteKeyBundleError, InviteKeyData, InviteKeyEnvelope,
+    InviteBundle, InviteKeyBundleError, InviteKeyData, Invite,
 };
 
 #[cfg(feature = "wasm")]

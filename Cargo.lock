@@ -901,7 +901,9 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "ciborium",
  "serde",
+ "serde_json",
  "subtle",
  "thiserror 2.0.18",
  "tsify",
