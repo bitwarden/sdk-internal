@@ -41,10 +41,12 @@ bitwarden-ffi = { path = "crates/bitwarden-ffi", version = "=3.0.0" }
 bitwarden-ffi-macro = { path = "crates/bitwarden-ffi-macro", version = "=3.0.0" }
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=3.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=3.0.0" }
+bitwarden-importers = { path = "crates/bitwarden-importers", version = "=3.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=3.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=3.0.0" }
 bitwarden-logging-macro = { path = "crates/bitwarden-logging-macro", version = "=3.0.0" }
 bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=3.0.0" }
+bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
@@ -77,6 +79,7 @@ futures = ">=0.3.31, <0.4"
 hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
 js-sys = { version = ">=0.3.72, <0.4" }
+keepass = { version = ">=0.13.7, <0.14", default-features = false }
 mockall = { version = ">=0.13.1, <0.15" }
 password-rules-parser = ">=1.1.0, <2"
 proc-macro2 = ">=1.0.89, <2"

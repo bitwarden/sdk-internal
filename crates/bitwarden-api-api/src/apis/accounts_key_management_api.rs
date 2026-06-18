@@ -32,6 +32,9 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         org_sso_identifier: &'a str,
     ) -> Result<models::KeyConnectorConfirmationDetailsResponseModel, Error>;
 
+    /// GET /accounts/key-management/key-rotation-data
+    async fn get_key_rotation_data(&self) -> Result<models::KeyRotationDataResponseModel, Error>;
+
     /// POST /accounts/key-management/rotate-user-account-keys
     async fn password_change_and_rotate_user_account_keys<'a>(
         &self,
@@ -93,6 +96,23 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
             "{}/accounts/key-connector/confirmation-details/{orgSsoIdentifier}",
             local_var_configuration.base_path,
             orgSsoIdentifier = crate::apis::urlencode(org_sso_identifier)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_key_rotation_data(&self) -> Result<models::KeyRotationDataResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/accounts/key-management/key-rotation-data",
+            local_var_configuration.base_path
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());

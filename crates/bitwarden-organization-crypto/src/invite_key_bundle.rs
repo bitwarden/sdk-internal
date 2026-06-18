@@ -25,7 +25,14 @@ pub enum InviteKeyBundleError {
     MissingKeyId(String),
 }
 
-/// The encoded, unencrypted invite key
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_INVITE_KEY_DATA: &'static str = r#"
+export type InviteKeyData = Tagged<string, "InviteKeyData">;
+"#;
+
+/// Struct for holding the Invite Key's raw byte data. Supports WASM bindings,
+/// automatically using base64Url encoding for both `wasm-bindgen` and `tsify`.
 ///
 /// To manually encode as a `base64URL` string:
 /// ```ignore
@@ -90,8 +97,14 @@ impl Serialize for InviteKeyData {
     }
 }
 
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_INVITE_KEY_ENVELOPE: &'static str = r#"
+export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
+"#;
+
 /// Cryptographic invite for an organization. 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Invite {
     organization_key_wrapped_invite_key: EncString,
     // Milestone 3:
@@ -328,7 +341,14 @@ mod tests {
             )
             .unwrap();
 
-        ctx.assert_symmetric_keys_equal(raw_key_id, unsealed_key);
+        #[allow(deprecated)]
+        let raw_key = ctx.dangerous_get_symmetric_key(raw_key_id).unwrap().clone();
+        #[allow(deprecated)]
+        let unsealed = ctx
+            .dangerous_get_symmetric_key(unsealed_key)
+            .unwrap()
+            .clone();
+        assert_eq!(raw_key, unsealed);
     }
 
     #[test]
