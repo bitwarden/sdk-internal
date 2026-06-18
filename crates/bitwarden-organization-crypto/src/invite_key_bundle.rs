@@ -224,7 +224,7 @@ impl Invite {
         _old_organization_key: Ids::Symmetric,
         _new_organization_key: Ids::Symmetric,
         _ctx: &mut KeyStoreContext<Ids>,
-    ) -> Result<(), InviteKeyBundleError> {
+    ) -> Result<Invite, InviteKeyBundleError> {
         unimplemented!(
             "Organization key rotation is not yet supported in this version of the crate"
         );
