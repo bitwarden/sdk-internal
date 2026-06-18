@@ -1,7 +1,5 @@
 //! The wasm module holds serialization/encoding needed wasm bindings for
-//! any types related to InviteKeyEnvelope. This means base64url for the
-//! InviteKeyData type, and Bitwarden EncString text format (`"2.iv|data|mac"`)
-//! for the InviteKeyEnvelope type. In order to minimize complexity, the actual
+//! any types related to Invite. In order to minimize complexity, the actual
 //! encoding/decoding is limited to the `From<String>` and `FromStr`
 //! implementations. All other serialization goes through String to simplify
 //! maintenance.
@@ -51,11 +49,6 @@ impl TryFrom<wasm_bindgen::JsValue> for InviteKeyData {
         Self::from_str(&string)
     }
 }
-
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type Invite = Tagged<string, "Invite">;
-"#;
 
 impl wasm_bindgen::describe::WasmDescribe for Invite {
     fn describe() {
