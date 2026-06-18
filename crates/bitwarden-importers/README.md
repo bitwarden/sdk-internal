@@ -16,12 +16,12 @@ Exposes `client.importers()` ([`ImporterClient`]) with:
 The Keeper "direct" importer logs into Keeper's API and decrypts the vault on-device. Its access
 layer is being ported from TypeScript (`clients` repo) into the [`keeper`] module incrementally
 (strangler-fig). The first piece, [`keeper::crypto`], implements **Keeper's** competitor wire
-formats — unauthenticated AES-CBC ("aes-v1"), AES-GCM with a prepended nonce ("aes-v2"), RSA
-PKCS#1 v1.5, an ECDH-P256 → SHA-256 → AES-GCM scheme, and Keeper's custom `encryptionParams` blob.
-These are **not** Bitwarden cryptography and deliberately do not live in `bitwarden-crypto`; they
-reuse `bitwarden_crypto` where a primitive is standard (PBKDF2) and the RustCrypto crates otherwise.
-WASM ([`keeper::KeeperCryptoClient`]) and UniFFI bindings let the still-TypeScript access layer call
-the Rust implementation while the rest is migrated.
+formats — unauthenticated AES-CBC ("aes-v1"), AES-GCM with a prepended nonce ("aes-v2"), RSA PKCS#1
+v1.5, an ECDH-P256 → SHA-256 → AES-GCM scheme, and Keeper's custom `encryptionParams` blob. These
+are **not** Bitwarden cryptography and deliberately do not live in `bitwarden-crypto`; they reuse
+`bitwarden_crypto` where a primitive is standard (PBKDF2) and the RustCrypto crates otherwise. WASM
+([`keeper::KeeperCryptoClient`]) and UniFFI bindings let the still-TypeScript access layer call the
+Rust implementation while the rest is migrated.
 
 ## Architecture
 
