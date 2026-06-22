@@ -675,6 +675,7 @@ name = "bitwarden-crypto"
 version = "3.0.0"
 dependencies = [
  "aes 0.9.1",
+ "aes-gcm 0.11.0-rc.4",
  "argon2",
  "bitwarden-api-key-connector",
  "bitwarden-encoding",
