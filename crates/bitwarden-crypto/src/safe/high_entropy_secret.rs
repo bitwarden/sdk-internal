@@ -46,6 +46,8 @@ impl HighEntropySecret {
     /// Constructs a `HighEntropySecret` from any [`HighEntropySecretSource`], whose implementation
     /// guarantees the provided bytes are high-entropy.
     pub fn from<T: HighEntropySecretSource>(secret: T) -> Self {
+        // EXPOSE: This conversion is safe because the `HighEntropySecret` overrides the Debug
+        // implementation to never print the secret bytes.
         Self::from_internal(secret.provide_high_entropy_bytes().expose_owned())
     }
 
