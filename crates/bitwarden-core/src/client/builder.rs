@@ -149,8 +149,6 @@ impl ClientBuilder {
 
         // Configure the key store's cipher suite from the client's environment, so all crypto
         // operations (e.g. the KDF for a new account) pick compliant algorithms.
-        // TODO: gov_mode() is a placeholder that always returns false until PM-38266 lands; once it
-        // does, this automatically resolves to the FIPS suite in gov environments.
         client
             .internal
             .get_key_store()
