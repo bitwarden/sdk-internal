@@ -289,4 +289,3 @@ pub(crate) fn debug_key_operation(key_operation: KeyOperation) -> &'static str {
         _ => "Unknown",
     }
 }
-

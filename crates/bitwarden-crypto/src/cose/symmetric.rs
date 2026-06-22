@@ -4,8 +4,8 @@
 //! - High: Consumer (`crate::safe`, `EncString`)
 
 use coset::{
-    Algorithm, CborSerializable, CoseEncrypt, CoseEncrypt0, CoseEncrypt0Builder, CoseEncryptBuilder,
-    Header, HeaderBuilder, iana,
+    Algorithm, CborSerializable, CoseEncrypt, CoseEncrypt0, CoseEncrypt0Builder,
+    CoseEncryptBuilder, Header, HeaderBuilder, iana,
 };
 
 use super::XCHACHA20_POLY1305;
@@ -103,13 +103,11 @@ pub(crate) fn encrypt_cose(
     cek: &[u8],
 ) -> Result<CoseEncrypt, CryptoError> {
     let mut plaintext = plaintext.to_vec();
-    if let Ok(content_format) = ContentFormat::try_from(&protected_header) {
-        if should_pad_content(&content_format) {
-            let min_length =
-                TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+    if let Ok(content_format) = ContentFormat::try_from(&protected_header)
+        && should_pad_content(&content_format) {
+            let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
             crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
         }
-    }
     match algorithm {
         CoseContentEncryptionAlgorithm::Aes256Gcm => {
             let cek: &<Aes256Gcm as Aead>::Key =
@@ -161,11 +159,10 @@ pub(crate) fn decrypt_cose(
             XChaCha20Poly1305::decrypt_cose(cose_encrypt, cek)?
         }
     };
-    if let Ok(content_format) = ContentFormat::try_from(&cose_encrypt.protected.header) {
-        if should_pad_content(&content_format) {
+    if let Ok(content_format) = ContentFormat::try_from(&cose_encrypt.protected.header)
+        && should_pad_content(&content_format) {
             return Ok(crate::keys::utils::unpad_bytes(&decrypted)?.to_vec());
         }
-    }
     Ok(decrypted)
 }
 
@@ -183,13 +180,11 @@ pub(crate) fn encrypt_cose0(
     cek: &[u8],
 ) -> Result<CoseEncrypt0, CryptoError> {
     let mut plaintext = plaintext.to_vec();
-    if let Ok(content_format) = ContentFormat::try_from(&protected_header) {
-        if should_pad_content(&content_format) {
-            let min_length =
-                TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+    if let Ok(content_format) = ContentFormat::try_from(&protected_header)
+        && should_pad_content(&content_format) {
+            let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
             crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
         }
-    }
     match algorithm {
         CoseContentEncryptionAlgorithm::Aes256Gcm => {
             let cek: &<Aes256Gcm as Aead>::Key =
@@ -228,24 +223,23 @@ pub(crate) fn decrypt_cose0(
     default_algorithm: Option<CoseContentEncryptionAlgorithm>,
     cek: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
-    let decrypted =
-        match algorithm_from_header(&cose_encrypt0.protected.header, default_algorithm)? {
-            CoseContentEncryptionAlgorithm::Aes256Gcm => {
-                let cek: &<Aes256Gcm as Aead>::Key =
-                    cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
-                Aes256Gcm::decrypt_cose0(cose_encrypt0, cek)?
-            }
-            CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
-                let cek: &<XChaCha20Poly1305 as Aead>::Key =
-                    cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
-                XChaCha20Poly1305::decrypt_cose0(cose_encrypt0, cek)?
-            }
-        };
-    if let Ok(content_format) = ContentFormat::try_from(&cose_encrypt0.protected.header) {
-        if should_pad_content(&content_format) {
+    let decrypted = match algorithm_from_header(&cose_encrypt0.protected.header, default_algorithm)?
+    {
+        CoseContentEncryptionAlgorithm::Aes256Gcm => {
+            let cek: &<Aes256Gcm as Aead>::Key =
+                cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
+            Aes256Gcm::decrypt_cose0(cose_encrypt0, cek)?
+        }
+        CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
+            let cek: &<XChaCha20Poly1305 as Aead>::Key =
+                cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
+            XChaCha20Poly1305::decrypt_cose0(cose_encrypt0, cek)?
+        }
+    };
+    if let Ok(content_format) = ContentFormat::try_from(&cose_encrypt0.protected.header)
+        && should_pad_content(&content_format) {
             return Ok(crate::keys::utils::unpad_bytes(&decrypted)?.to_vec());
         }
-    }
     Ok(decrypted)
 }
 
@@ -476,8 +470,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
     if should_pad_content(&content_format) {
-        let min_length =
-            TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+        let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
         crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
     }
 
@@ -569,11 +562,11 @@ mod tests {
     ];
     const TEST_VECTOR_PLAINTEXT: &[u8] = b"Message test vector";
     const TEST_VECTOR_COSE_ENCRYPT0: &[u8] = &[
-        131, 88, 28, 163, 1, 58, 0, 1, 17, 111, 3, 24, 42, 4, 80, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-        10, 11, 12, 13, 14, 15, 161, 5, 88, 24, 78, 20, 28, 157, 180, 246, 131, 220, 82, 104, 72,
-        73, 75, 43, 69, 139, 216, 167, 145, 220, 67, 168, 144, 173, 88, 35, 127, 234, 194, 83,
-        189, 172, 65, 29, 156, 73, 98, 87, 231, 87, 129, 15, 235, 127, 125, 97, 211, 51, 212, 211,
-        2, 13, 36, 123, 53, 12, 31, 191, 40, 13, 175,
+        131, 88, 28, 163, 1, 58, 0, 1, 17, 111, 3, 24, 42, 4, 80, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 161, 5, 88, 24, 78, 20, 28, 157, 180, 246, 131, 220, 82, 104, 72, 73,
+        75, 43, 69, 139, 216, 167, 145, 220, 67, 168, 144, 173, 88, 35, 127, 234, 194, 83, 189,
+        172, 65, 29, 156, 73, 98, 87, 231, 87, 129, 15, 235, 127, 125, 97, 211, 51, 212, 211, 2,
+        13, 36, 123, 53, 12, 31, 191, 40, 13, 175,
     ];
 
     fn algorithms() -> [CoseContentEncryptionAlgorithm; 2] {
@@ -744,8 +737,7 @@ mod tests {
         };
 
         let plaintext = b"Hello, world!";
-        let encrypted =
-            encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::CoseKey).unwrap();
+        let encrypted = encrypt_xchacha20_poly1305(plaintext, key, ContentFormat::CoseKey).unwrap();
         let decrypted = decrypt_xchacha20_poly1305(&encrypted, key).unwrap();
         assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::CoseKey));
     }
@@ -793,8 +785,7 @@ mod tests {
             .create_ciphertext(&[], &[], |_, _| Vec::new())
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
-        let serialized_message =
-            CoseEncrypt0Bytes::from(cose_encrypt0.to_vec().unwrap());
+        let serialized_message = CoseEncrypt0Bytes::from(cose_encrypt0.to_vec().unwrap());
 
         let key = make_xchacha_key();
         assert!(matches!(

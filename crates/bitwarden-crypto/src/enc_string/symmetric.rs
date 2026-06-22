@@ -362,7 +362,8 @@ impl EncString {
         key: &XChaCha20Poly1305Key,
         content_format: ContentFormat,
     ) -> Result<EncString> {
-        let data = crate::cose::symmetric::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
+        let data =
+            crate::cose::symmetric::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
         Ok(EncString::Cose_Encrypt0_B64 {
             data: data.to_vec(),
         })

@@ -236,10 +236,11 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (content_bytes, content_format) = crate::cose::symmetric::decrypt_xchacha20_poly1305(
-                    &CoseEncrypt0Bytes::from(data.clone()),
-                    key,
-                )?;
+                let (content_bytes, content_format) =
+                    crate::cose::symmetric::decrypt_xchacha20_poly1305(
+                        &CoseEncrypt0Bytes::from(data.clone()),
+                        key,
+                    )?;
                 match content_format {
                     ContentFormat::BitwardenLegacyKey => {
                         SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
