@@ -3,7 +3,7 @@
 //! of arbitrary length.
 //!
 //! It is implemented by using a cheap KDF (HKDF-SHA256) combined with symmetric key encryption
-//! (XChaCha20-Poly1305). Unlike the [crate::safe::PasswordProtectedKeyEnvelope], which protects a
+//! (AES-256-GCM). Unlike the [crate::safe::PasswordProtectedKeyEnvelope], which protects a
 //! low-entropy secret (password, PIN) and therefore uses a hard KDF (Argon2ID, PBKDF2) to slow down
 //! brute-forcing, this envelope assumes the secret is high-entropy and not brute-forceable, so a
 //! cheap KDF is sufficient. The cheap KDF also natively accepts input material of arbitrary length.
@@ -11,17 +11,20 @@
 //! For the consumer, the output is an opaque blob that can be later unsealed with the same secret.
 //! The KDF salt is contained in the envelope, and does not need to be provided for unsealing.
 //!
-//! Internally, the envelope is a CoseEncrypt object that uses the standardized COSE "Direct Key with
-//! KDF" construction with the `direct+HKDF-SHA-256` recipient algorithm, as described in
+//! Internally, the envelope is a CoseEncrypt object that uses the standardized COSE "Direct Key
+//! with KDF" construction with the `direct+HKDF-SHA-256` recipient algorithm, as described in
 //! [RFC 9053 §6.1.2](https://datatracker.ietf.org/doc/html/rfc9053#name-direct-key-with-kdf). The
-//! random HKDF salt is placed in the single recipient's unprotected headers (the standardized `salt`
-//! header parameter), and the secret is used as the input keying material. The output from the KDF -
-//! "envelope key", is used directly as the content-encryption key that wraps the symmetric key
-//! sealed by the envelope.
+//! random HKDF salt is placed in the single recipient's unprotected headers (the standardized
+//! `salt` header parameter), and the secret is used as the input keying material. The output from
+//! the KDF - "envelope key", is used directly as the content-encryption key that wraps the
+//! symmetric key sealed by the envelope.
+//!
+//! Note: AES-GCM issed here since the CEK is locally derived, so there is no nonce re-use problem
 
 use std::{num::TryFromIntError, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
+use bitwarden_sensitive_value::ExposeSensitive;
 use ciborium::Value;
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder, iana};
 use rand::Rng;
@@ -31,61 +34,56 @@ use thiserror::Error;
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
-    KEY_ID_SIZE, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
+    ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
-        CONTAINED_KEY_ID, ContentNamespace, CoseExtractError, SafeObjectNamespace,
-        XCHACHA20_POLY1305, extract_bytes,
+        ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
+        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
     },
     keys::KeyId,
-    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
-    xchacha20,
+    safe::{
+        DecodeSealedKeyError, HighEntropySecret, decode_sealed_symmetric_key, extract_key_id,
+        extract_single_recipient,
+        helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
+        set_contained_key_id,
+    },
 };
 
 /// The recipient algorithm used by the envelope: `direct+HKDF-SHA-256`
 /// (<https://datatracker.ietf.org/doc/html/rfc9053#name-direct-key-with-kdf>).
-const HKDF_ALGORITHM: coset::Algorithm =
-    coset::Algorithm::Assigned(iana::Algorithm::Direct_HKDF_SHA_256);
+const HKDF_ALGORITHM: coset::iana::Algorithm = iana::Algorithm::Direct_HKDF_SHA_256;
 /// The standardized COSE `salt` header algorithm parameter label (-20).
 const HKDF_SALT_LABEL: i64 = iana::HeaderAlgorithmParameter::Salt as i64;
 /// 32 matches the SHA-256 output size (HashLen), which is the RECOMMENDED salt size for HKDF:
 /// <https://datatracker.ietf.org/doc/html/rfc5869>
 const ENVELOPE_HKDF_SALT_SIZE: usize = 32;
-/// 32 is chosen to match the size of an XChaCha20-Poly1305 key
+/// 32 is chosen to match the size of an AES-256-GCM key
 const ENVELOPE_HKDF_OUTPUT_KEY_SIZE: usize = 32;
-/// Minimum accepted secret length in bytes. 16 bytes = 128 bits of headroom for a uniformly
-/// random secret, matching the security level this envelope assumes.
-const MIN_SECRET_LENGTH: usize = 16;
-/// Minimum acceptable ratio of observed Shannon entropy to the maximum achievable for the given
-/// length. Uniformly-random input approaches 1.0; repetitive/ASCII text falls well below.
-const MIN_SECRET_ENTROPY_RATIO: f64 = 0.85;
 
 /// A secret-protected key envelope can seal a symmetric key, and protect it with a high-entropy
 /// secret of arbitrary length.
 ///
 /// Unlike the [crate::safe::PasswordProtectedKeyEnvelope], which is meant for low-entropy secrets
-/// such as PINs and uses a compute-hard or memory-hard KDF, this envelope assumes the secret is high-entropy
-/// and thus uses a cheap KDF (HKDF). The KDF salt is stored in the envelope and does not have to be
-/// provided.
+/// such as PINs and uses a compute-hard or memory-hard KDF, this envelope assumes the secret is
+/// high-entropy and thus uses a cheap KDF (HKDF). The KDF salt is stored in the envelope and does
+/// not have to be provided.
 ///
-/// Internally, HKDF-SHA256 is used as the KDF and XChaCha20-Poly1305 is used to encrypt the key.
+/// Internally, HKDF-SHA256 is used as the KDF and AES-256-GCM is used to encrypt the key.
 #[derive(Clone)]
 pub struct SecretProtectedKeyEnvelope {
     cose_encrypt: coset::CoseEncrypt,
 }
 
 impl SecretProtectedKeyEnvelope {
-    /// Seals a symmetric key with a secret, using a random salt.
+    /// Seals a symmetric key with a [`HighEntropySecret`], using a random salt.
     ///
-    /// The secret must be high-entropy: it must be at least 16 bytes long and pass a Shannon
-    /// entropy check, otherwise [`SecretProtectedKeyEnvelopeError::LowEntropySecret`] is returned.
-    /// This guards against accidentally protecting a key with a low-entropy secret (e.g. an ASCII
-    /// password), which the cheap KDF used here cannot defend against brute-forcing.
+    /// The secret is guaranteed to be high-entropy by the [`HighEntropySecret`] type, which the
+    /// cheap KDF used here relies on, since it cannot defend a low-entropy secret against
+    /// brute-forcing.
     ///
     /// This should never fail, except for memory allocation error, when running the KDF.
     pub fn seal<Ids: KeySlotIds>(
         key_to_seal: Ids::Symmetric,
-        secret: &[u8],
+        secret: &HighEntropySecret,
         namespace: SecretProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, SecretProtectedKeyEnvelopeError> {
@@ -99,33 +97,32 @@ impl SecretProtectedKeyEnvelope {
     /// to only work with key store references.
     fn seal_ref(
         key_to_seal: &SymmetricCryptoKey,
-        secret: &[u8],
+        secret: &HighEntropySecret,
         namespace: SecretProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, SecretProtectedKeyEnvelopeError> {
-        Self::seal_ref_with_settings(key_to_seal, secret, &HkdfRawSettings::new(), namespace)
+        Self::seal_ref_with_settings(key_to_seal, secret, &HkdfSettings::new(), namespace)
     }
 
-    /// Seals a key reference with a secret and custom provided settings. This function is not public
-    /// since callers are expected to only work with key store references.
+    /// Seals a key reference with a secret and custom provided settings. This function is not
+    /// public since callers are expected to only work with key store references.
     fn seal_ref_with_settings(
         key_to_seal: &SymmetricCryptoKey,
-        secret: &[u8],
-        kdf_settings: &HkdfRawSettings,
+        secret: &HighEntropySecret,
+        hkdf_settings: &HkdfSettings,
         namespace: SecretProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, SecretProtectedKeyEnvelopeError> {
-        // Reject low-entropy secrets, since the cheap KDF this envelope uses provides no
-        // brute-force protection. This is the single chokepoint for all seal paths (`seal`,
-        // `seal_ref`, and `reseal`'s new secret).
-        validate_secret_entropy(secret)?;
-
-        // Cose does not yet have a standardized way to protect a key using a secret.
-        // This implements content encryption using direct encryption with a KDF derived key,
-        // similar to "Direct Key with KDF" mentioned in the COSE spec. The KDF settings are
-        // placed in a single recipient struct.
-
         // The envelope key is directly derived from the KDF and used as the key to encrypt the key
-        // that should be sealed.
-        let envelope_key = derive_key(kdf_settings, secret)?;
+        // that should be sealed. The secret is guaranteed to be high-entropy by its type, which the
+        // cheap KDF relies on for brute-force resistance. The KDF context binds the derived key to
+        // the content-encryption algorithm, which is also declared in the protected header below.
+        // EXPOSE: derive_cek needs the raw secret bytes to feed the KDF; the bytes never leave this
+        // crate and are not logged.
+        // This envelope only uses AES-256-GCM; the KDF context is bound to its IANA algorithm id.
+        let cek = derive_cek(
+            hkdf_settings,
+            secret.as_bytes().expose_owned(),
+            iana::Algorithm::A256GCM,
+        )?;
 
         let (content_format, key_to_seal_bytes) = match key_to_seal.to_encoded_raw() {
             EncodedSymmetricKey::BitwardenLegacyKey(key_bytes) => {
@@ -134,39 +131,37 @@ impl SecretProtectedKeyEnvelope {
             EncodedSymmetricKey::CoseKey(key_bytes) => (ContentFormat::CoseKey, key_bytes.to_vec()),
         };
 
-        let mut nonce = [0u8; crate::xchacha20::NONCE_SIZE];
+        let protected_header = {
+            let mut header = HeaderBuilder::from(content_format).build();
+            if let Some(key_id) = key_to_seal.key_id() {
+                set_contained_key_id(&mut header, key_id);
+            }
+            set_safe_namespaces(
+                &mut header,
+                SafeObjectNamespace::SecretProtectedKeyEnvelope,
+                namespace,
+            );
+            header
+        };
 
         // The message is constructed by placing the KDF settings in a recipient struct's
-        // unprotected headers. They do not need to live in the protected header, since to
-        // authenticate the protected header, the settings must be correct.
-        let mut cose_encrypt = coset::CoseEncryptBuilder::new()
-            .add_recipient({
-                let mut recipient = coset::CoseRecipientBuilder::new()
-                    .unprotected(kdf_settings.into())
-                    .build();
-                recipient.protected.header.alg = Some(HKDF_ALGORITHM);
-                recipient
-            })
-            .protected({
-                let mut hdr = HeaderBuilder::from(content_format);
-                if let Some(key_id) = key_to_seal.key_id() {
-                    hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
-                }
-                let mut header = hdr.build();
-                set_safe_namespaces(
-                    &mut header,
-                    SafeObjectNamespace::SecretProtectedKeyEnvelope,
-                    namespace,
-                );
-                header
-            })
-            .create_ciphertext(&key_to_seal_bytes, &[], |data, aad| {
-                let ciphertext = xchacha20::encrypt_xchacha20_poly1305(&envelope_key, data, aad);
-                nonce.copy_from_slice(&ciphertext.nonce());
-                ciphertext.encrypted_bytes().to_vec()
-            })
-            .build();
-        cose_encrypt.unprotected.iv = nonce.into();
+        // unprotected headers. The envelope key derived above is the content-encryption key, and
+        // the content-encryption algorithm is declared in the protected header by `encrypt_cose`.
+        let builder = coset::CoseEncryptBuilder::new().add_recipient(
+            coset::CoseRecipientBuilder::new()
+                .unprotected(hkdf_settings.into())
+                .build(),
+        );
+        // `cek` is the fixed-size key produced by `derive_cek`, so the length check inside
+        // `encrypt_cose` never trips here.
+        let cose_encrypt = encrypt_cose(
+            CoseContentEncryptionAlgorithm::Aes256Gcm,
+            builder,
+            protected_header,
+            &key_to_seal_bytes,
+            &cek,
+        )
+        .map_err(|_| SecretProtectedKeyEnvelopeError::Kdf)?;
 
         Ok(SecretProtectedKeyEnvelope { cose_encrypt })
     }
@@ -175,7 +170,7 @@ impl SecretProtectedKeyEnvelope {
     /// context.
     pub fn unseal<Ids: KeySlotIds>(
         &self,
-        secret: &[u8],
+        secret: &HighEntropySecret,
         namespace: SecretProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, SecretProtectedKeyEnvelopeError> {
@@ -185,21 +180,18 @@ impl SecretProtectedKeyEnvelope {
 
     fn unseal_ref(
         &self,
-        secret: &[u8],
+        secret: &HighEntropySecret,
         content_namespace: SecretProtectedKeyEnvelopeNamespace,
     ) -> Result<SymmetricCryptoKey, SecretProtectedKeyEnvelopeError> {
         // There must be exactly one recipient in the COSE Encrypt object, which contains the KDF
         // parameters.
-        let recipient = self
-            .cose_encrypt
-            .recipients
-            .first()
-            .filter(|_| self.cose_encrypt.recipients.len() == 1)
-            .ok_or_else(|| {
-                SecretProtectedKeyEnvelopeError::Parsing("Invalid number of recipients".to_string())
-            })?;
+        let recipient = extract_single_recipient(&self.cose_encrypt).map_err(|_| {
+            SecretProtectedKeyEnvelopeError::Parsing("Invalid number of recipients".to_string())
+        })?;
 
-        if recipient.protected.header.alg != Some(HKDF_ALGORITHM) {
+        if recipient.unprotected.alg
+            != Some(coset::RegisteredLabelWithPrivate::Assigned(HKDF_ALGORITHM))
+        {
             return Err(SecretProtectedKeyEnvelopeError::Parsing(
                 "Unknown or unsupported KDF algorithm".to_string(),
             ));
@@ -212,56 +204,47 @@ impl SecretProtectedKeyEnvelope {
         )
         .map_err(|_| SecretProtectedKeyEnvelopeError::InvalidNamespace)?;
 
-        let kdf_settings: HkdfRawSettings = (&recipient.unprotected).try_into().map_err(|_| {
+        let kdf_settings: HkdfSettings = (&recipient.unprotected).try_into().map_err(|_| {
             SecretProtectedKeyEnvelopeError::Parsing(
                 "Invalid or missing KDF parameters".to_string(),
             )
         })?;
-        let envelope_key = derive_key(&kdf_settings, secret)?;
-        let nonce: [u8; crate::xchacha20::NONCE_SIZE] = self
-            .cose_encrypt
-            .unprotected
-            .iv
-            .clone()
-            .try_into()
-            .map_err(|_| SecretProtectedKeyEnvelopeError::Parsing("Invalid IV".to_string()))?;
+        // The KDF context binds the derived key to the content-encryption algorithm declared in the
+        // protected header (RFC 9053 §6.1.2). `decrypt_cose` separately validates that this matches
+        // the cipher, and the header is authenticated as AEAD associated data.
+        let content_alg = content_encryption_algorithm(&self.cose_encrypt.protected.header)?;
+        // EXPOSE: derive_cek needs the raw secret bytes to feed the KDF; the bytes never leave this
+        // crate and are not logged.
+        let cek = derive_cek(&kdf_settings, secret.as_bytes().expose_owned(), content_alg)?;
 
-        let key_bytes = self
-            .cose_encrypt
-            .decrypt_ciphertext(
-                &[],
-                || CryptoError::MissingField("ciphertext"),
-                |data, aad| xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad),
-            )
-            // If decryption fails, the envelope-key is incorrect and thus the secret is incorrect
-            // since the KDF salt is guaranteed to be correct
+        // If decryption fails, the envelope-key is incorrect and thus the secret is incorrect
+        // since the KDF salt is guaranteed to be correct. The envelope always declares its
+        // content-encryption algorithm in the protected header, so no decryption fallback is needed.
+        let key_bytes = decrypt_cose(&self.cose_encrypt, None, &cek)
             .map_err(|_| SecretProtectedKeyEnvelopeError::WrongSecret)?;
 
-        SymmetricCryptoKey::try_from(
-            match ContentFormat::try_from(&self.cose_encrypt.protected.header).map_err(|_| {
-                SecretProtectedKeyEnvelopeError::Parsing("Invalid content format".to_string())
-            })? {
-                ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
-                    BitwardenLegacyKeyBytes::from(key_bytes),
-                ),
-                ContentFormat::CoseKey => {
-                    EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes))
+        decode_sealed_symmetric_key(&self.cose_encrypt.protected.header, key_bytes).map_err(|e| {
+            match e {
+                DecodeSealedKeyError::InvalidContentFormat => {
+                    SecretProtectedKeyEnvelopeError::Parsing("Invalid content format".to_string())
                 }
-                _ => {
-                    return Err(SecretProtectedKeyEnvelopeError::Parsing(
+                DecodeSealedKeyError::UnsupportedContentFormat => {
+                    SecretProtectedKeyEnvelopeError::Parsing(
                         "Unknown or unsupported content format".to_string(),
-                    ));
+                    )
                 }
-            },
-        )
-        .map_err(|_| SecretProtectedKeyEnvelopeError::Parsing("Failed to decode key".to_string()))
+                DecodeSealedKeyError::InvalidKey => {
+                    SecretProtectedKeyEnvelopeError::Parsing("Failed to decode key".to_string())
+                }
+            }
+        })
     }
 
     /// Re-seals the key with a new salt, and a new secret
     pub fn reseal(
         &self,
-        secret: &[u8],
-        new_secret: &[u8],
+        secret: &HighEntropySecret,
+        new_secret: &HighEntropySecret,
         namespace: SecretProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, SecretProtectedKeyEnvelopeError> {
         let unsealed = self.unseal_ref(secret, namespace)?;
@@ -271,20 +254,8 @@ impl SecretProtectedKeyEnvelope {
     /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
     /// Only COSE keys have a key ID, legacy keys do not.
     pub fn contained_key_id(&self) -> Result<Option<KeyId>, SecretProtectedKeyEnvelopeError> {
-        let key_id_bytes = extract_bytes(
-            &self.cose_encrypt.protected.header,
-            CONTAINED_KEY_ID,
-            "key id",
-        );
-
-        if let Ok(bytes) = key_id_bytes {
-            let key_id_array: [u8; KEY_ID_SIZE] = bytes.as_slice().try_into().map_err(|_| {
-                SecretProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
-            })?;
-            Ok(Some(KeyId::from(key_id_array)))
-        } else {
-            Ok(None)
-        }
+        extract_key_id(&self.cose_encrypt.protected.header)
+            .map_err(|_| SecretProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string()))
     }
 }
 
@@ -368,33 +339,43 @@ impl Serialize for SecretProtectedKeyEnvelope {
 
 /// Raw HKDF settings. The salt is a fixed size, randomly generated value. Unlike a memory-hard KDF,
 /// HKDF has no difficulty parameters to tune, since the input secret is assumed to be high-entropy.
-struct HkdfRawSettings {
+struct HkdfSettings {
+    alg: iana::Algorithm,
     salt: [u8; ENVELOPE_HKDF_SALT_SIZE],
 }
 
-impl HkdfRawSettings {
+impl HkdfSettings {
     /// Creates HKDF settings with a freshly generated random salt.
     fn new() -> Self {
-        Self { salt: make_salt() }
+        Self {
+            alg: HKDF_ALGORITHM,
+            salt: make_salt(),
+        }
     }
 }
 
-impl From<&HkdfRawSettings> for Header {
-    fn from(settings: &HkdfRawSettings) -> Header {
-        // The salt is carried in the standardized COSE `salt` header algorithm parameter (-20).
-        let mut header = HeaderBuilder::new()
+impl From<&HkdfSettings> for Header {
+    fn from(settings: &HkdfSettings) -> Header {
+        HeaderBuilder::new()
             .value(HKDF_SALT_LABEL, Value::from(settings.salt.to_vec()))
-            .build();
-        header.alg = Some(HKDF_ALGORITHM);
-        header
+            .algorithm(settings.alg)
+            .build()
     }
 }
 
-impl TryInto<HkdfRawSettings> for &Header {
+impl TryInto<HkdfSettings> for &Header {
     type Error = SecretProtectedKeyEnvelopeError;
 
-    fn try_into(self) -> Result<HkdfRawSettings, SecretProtectedKeyEnvelopeError> {
-        Ok(HkdfRawSettings {
+    fn try_into(self) -> Result<HkdfSettings, SecretProtectedKeyEnvelopeError> {
+        Ok(HkdfSettings {
+            alg: match self.alg {
+                Some(coset::RegisteredLabelWithPrivate::Assigned(alg)) => alg,
+                _ => {
+                    return Err(SecretProtectedKeyEnvelopeError::Parsing(
+                        "Missing KDF algorithm".to_string(),
+                    ));
+                }
+            },
             salt: extract_bytes(self, HKDF_SALT_LABEL, "salt")?
                 .try_into()
                 .map_err(|_| {
@@ -423,17 +404,15 @@ fn make_salt() -> [u8; ENVELOPE_HKDF_SALT_SIZE] {
 /// ]
 /// ```
 ///
-/// The context binds the derived key to the content-encryption algorithm (XChaCha20-Poly1305) and
-/// the requested key length, providing domain separation. `PartyUInfo`/`PartyVInfo` are empty and
-/// `protected` is the empty (zero-length) map, since no additional negotiated parameters apply.
-///
-/// It is built directly as CBOR (rather than via coset's `CoseKdfContext`) because the AlgorithmID
-/// is a private-use value, which coset's builder cannot represent.
-fn kdf_context_info() -> Result<Vec<u8>, SecretProtectedKeyEnvelopeError> {
+/// The context binds the derived key to the content-encryption algorithm (`alg`) and the requested
+/// key length, providing domain separation. `PartyUInfo`/`PartyVInfo` are empty and `protected` is
+/// the empty (zero-length) map, since no additional negotiated parameters apply.
+fn kdf_context_info(alg: iana::Algorithm) -> Result<Vec<u8>, SecretProtectedKeyEnvelopeError> {
     let empty_party_info = || Value::Array(vec![Value::Null, Value::Null, Value::Null]);
     let context = Value::Array(vec![
-        // AlgorithmID: the algorithm the derived key is used for - XChaCha20-Poly1305.
-        Value::Integer(XCHACHA20_POLY1305.into()),
+        // AlgorithmID: the content-encryption algorithm the derived key is used for. This is the
+        // algorithm declared in the protected header of the message (e.g. AES-256-GCM).
+        Value::Integer((alg as i64).into()),
         empty_party_info(),
         empty_party_info(),
         Value::Array(vec![
@@ -449,49 +428,30 @@ fn kdf_context_info() -> Result<Vec<u8>, SecretProtectedKeyEnvelopeError> {
     Ok(info)
 }
 
-/// Order-0 Shannon entropy of `data` in bits per byte (0.0..=8.0).
-fn shannon_entropy_bits_per_byte(data: &[u8]) -> f64 {
-    let mut counts = [0usize; 256];
-    for &b in data {
-        counts[b as usize] += 1;
+/// Reads the content-encryption algorithm declared in the protected header. This value is used as
+/// the `AlgorithmID` of the `COSE_KDF_Context`, binding the derived key to the message's declared
+/// algorithm (RFC 9053 §6.1.2).
+fn content_encryption_algorithm(
+    header: &Header,
+) -> Result<iana::Algorithm, SecretProtectedKeyEnvelopeError> {
+    match header.alg {
+        Some(coset::RegisteredLabelWithPrivate::Assigned(alg)) => Ok(alg),
+        _ => Err(SecretProtectedKeyEnvelopeError::Parsing(
+            "Missing or unsupported content encryption algorithm".to_string(),
+        )),
     }
-    let len = data.len() as f64;
-    counts
-        .iter()
-        .filter(|&&c| c > 0)
-        .map(|&c| {
-            let p = c as f64 / len;
-            -p * p.log2()
-        })
-        .sum()
 }
 
-/// Rejects secrets that are too short or too low-entropy to be safely protected by the cheap
-/// (non-brute-force-hardened) KDF this envelope uses.
-fn validate_secret_entropy(secret: &[u8]) -> Result<(), SecretProtectedKeyEnvelopeError> {
-    if secret.len() < MIN_SECRET_LENGTH {
-        return Err(SecretProtectedKeyEnvelopeError::LowEntropySecret);
-    }
-    // The maximum achievable order-0 entropy is bounded by the number of samples when the input is
-    // shorter than the 256-value byte alphabet, so compare against that ceiling rather than a fixed
-    // bits-per-byte threshold.
-    let max_entropy = (secret.len().min(256) as f64).log2();
-    let ratio = shannon_entropy_bits_per_byte(secret) / max_entropy;
-    if ratio < MIN_SECRET_ENTROPY_RATIO {
-        return Err(SecretProtectedKeyEnvelopeError::LowEntropySecret);
-    }
-    Ok(())
-}
-
-fn derive_key(
-    hkdf_settings: &HkdfRawSettings,
+fn derive_cek(
+    hkdf_settings: &HkdfSettings,
     secret: &[u8],
+    alg: iana::Algorithm,
 ) -> Result<[u8; ENVELOPE_HKDF_OUTPUT_KEY_SIZE], SecretProtectedKeyEnvelopeError> {
     // COSE "Direct Key with KDF" (RFC 9053 §6.1.2) using `direct+HKDF-SHA-256`: the secret is the
     // input keying material, the random salt is the HKDF-Extract salt, and the serialized
     // COSE_KDF_Context is the HKDF-Expand info. Full HKDF (extract + expand) is used since the
     // secret can be of arbitrary length and is not required to be a uniformly random key.
-    let info = kdf_context_info()?;
+    let info = kdf_context_info(alg)?;
     let hkdf = hkdf::Hkdf::<sha2::Sha256>::new(Some(&hkdf_settings.salt), secret);
     let mut key = [0u8; ENVELOPE_HKDF_OUTPUT_KEY_SIZE];
     hkdf.expand(&info, &mut key)
@@ -505,9 +465,6 @@ pub enum SecretProtectedKeyEnvelopeError {
     /// The secret provided is incorrect or the envelope was tampered with
     #[error("Wrong secret")]
     WrongSecret,
-    /// The provided secret is too short or has insufficient entropy to be used with this envelope
-    #[error("Secret has insufficient entropy")]
-    LowEntropySecret,
     /// The envelope could not be parsed correctly, or the KDF parameters are invalid
     #[error("Parsing error {0}")]
     Parsing(String),
@@ -650,52 +607,55 @@ mod tests {
     use super::*;
     use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
-    // A fixed, high-entropy (random) 32-byte secret. The envelope rejects low-entropy secrets, so
-    // the test vectors must be sealed with random bytes rather than ASCII text.
-    const TESTVECTOR_SECRET: &[u8] = &[
+    // A fixed, high-entropy (random) 32-byte secret. The envelope only accepts high-entropy
+    // secrets, so the test vectors must be sealed with random bytes rather than ASCII text.
+    const TESTVECTOR_SECRET_BYTES: &[u8] = &[
         174, 83, 45, 9, 235, 3, 186, 62, 199, 125, 198, 108, 129, 205, 24, 21, 174, 148, 88, 80,
         10, 238, 169, 66, 75, 202, 41, 201, 186, 244, 169, 67,
     ];
 
-    // Test vectors below are generated by sealing a key with `TESTVECTOR_SECRET` and capturing the
-    // encoded key + the serialized envelope bytes (see the password-protected envelope for the same
-    // approach).
+    fn testvector_secret() -> HighEntropySecret {
+        HighEntropySecret::from_internal(TESTVECTOR_SECRET_BYTES)
+    }
+
+    // Test vectors below are generated by sealing a key with `TESTVECTOR_SECRET_BYTES` and
+    // capturing the encoded key + the serialized envelope bytes (see the password-protected
+    // envelope for the same approach).
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[
-        165, 1, 4, 2, 80, 62, 90, 33, 227, 72, 39, 219, 58, 47, 135, 117, 49, 183, 228, 4, 37, 3,
-        58, 0, 1, 17, 111, 4, 132, 3, 4, 5, 6, 32, 88, 32, 28, 214, 78, 167, 40, 227, 21, 255, 161,
-        175, 206, 135, 175, 143, 209, 254, 151, 184, 163, 109, 32, 70, 20, 35, 2, 120, 174, 176, 4,
-        114, 239, 152, 1,
+        165, 1, 4, 2, 80, 214, 124, 137, 200, 1, 180, 227, 27, 77, 48, 119, 198, 210, 9, 149, 144,
+        3, 58, 0, 1, 17, 111, 4, 132, 3, 4, 5, 6, 32, 88, 32, 111, 105, 200, 46, 142, 185, 114,
+        127, 136, 152, 153, 40, 8, 62, 120, 184, 252, 175, 210, 2, 245, 237, 175, 195, 73, 211,
+        136, 23, 217, 203, 35, 10, 1,
     ];
     const TESTVECTOR_COSEKEY_ENVELOPE: &[u8] = &[
-        132, 88, 38, 164, 3, 24, 101, 58, 0, 1, 21, 92, 80, 62, 90, 33, 227, 72, 39, 219, 58, 47,
-        135, 117, 49, 183, 228, 4, 37, 58, 0, 1, 56, 129, 6, 58, 0, 1, 56, 128, 32, 161, 5, 88, 24,
-        139, 217, 106, 6, 152, 213, 1, 199, 208, 139, 94, 183, 109, 241, 39, 75, 37, 101, 92, 83,
-        244, 37, 177, 61, 88, 84, 31, 2, 159, 22, 14, 203, 162, 36, 227, 66, 126, 124, 56, 128, 90,
-        92, 208, 57, 36, 39, 12, 143, 185, 182, 102, 41, 176, 177, 177, 89, 18, 192, 104, 94, 1,
-        206, 245, 209, 247, 130, 97, 202, 188, 86, 18, 68, 215, 203, 228, 80, 133, 88, 44, 16, 44,
-        243, 211, 149, 74, 203, 33, 33, 139, 11, 51, 48, 87, 216, 104, 224, 58, 238, 33, 64, 185,
-        197, 117, 85, 144, 55, 232, 125, 76, 30, 129, 131, 67, 161, 1, 41, 162, 1, 41, 51, 88, 32,
-        169, 73, 114, 153, 34, 163, 97, 146, 152, 1, 122, 127, 65, 116, 232, 210, 24, 209, 22, 20,
-        60, 29, 55, 36, 186, 98, 201, 12, 203, 227, 163, 30, 246,
+        132, 88, 40, 165, 1, 3, 3, 24, 101, 58, 0, 1, 21, 92, 80, 214, 124, 137, 200, 1, 180, 227,
+        27, 77, 48, 119, 198, 210, 9, 149, 144, 58, 0, 1, 56, 129, 6, 58, 0, 1, 56, 128, 32, 161,
+        5, 76, 155, 157, 246, 33, 115, 165, 158, 222, 125, 222, 199, 188, 88, 84, 132, 235, 37,
+        236, 53, 75, 63, 253, 184, 134, 147, 83, 103, 87, 56, 81, 69, 202, 114, 23, 82, 25, 163,
+        68, 36, 13, 104, 187, 54, 143, 167, 113, 63, 62, 88, 146, 50, 214, 209, 170, 6, 235, 122,
+        44, 129, 149, 67, 213, 112, 112, 55, 51, 183, 165, 61, 168, 174, 215, 147, 110, 133, 164,
+        198, 29, 177, 84, 20, 203, 8, 0, 211, 218, 226, 62, 121, 51, 129, 230, 248, 66, 170, 83,
+        106, 109, 129, 131, 64, 162, 1, 41, 51, 88, 32, 123, 254, 226, 185, 81, 106, 88, 73, 109,
+        191, 241, 1, 143, 230, 179, 47, 36, 100, 235, 131, 4, 180, 12, 96, 125, 91, 184, 5, 175,
+        125, 188, 16, 246,
     ];
     const TEST_UNSEALED_LEGACYKEY_ENCODED: &[u8] = &[
-        179, 177, 223, 165, 47, 210, 2, 242, 254, 55, 120, 30, 21, 108, 81, 150, 134, 253, 3, 194,
-        106, 179, 102, 222, 87, 210, 94, 231, 55, 174, 251, 159, 3, 244, 69, 169, 179, 233, 26, 74,
-        79, 36, 22, 143, 51, 155, 131, 128, 35, 128, 195, 190, 242, 189, 118, 5, 146, 236, 58, 190,
-        94, 171, 28, 38,
+        23, 37, 64, 225, 53, 59, 143, 179, 18, 121, 128, 120, 86, 134, 93, 166, 214, 151, 210, 46,
+        240, 216, 69, 249, 247, 222, 110, 100, 185, 38, 173, 84, 202, 107, 132, 251, 144, 245, 105,
+        244, 220, 93, 212, 227, 98, 208, 173, 122, 245, 78, 244, 106, 174, 124, 109, 91, 53, 119,
+        96, 182, 45, 174, 206, 131,
     ];
     const TESTVECTOR_LEGACYKEY_ENVELOPE: &[u8] = &[
-        132, 88, 50, 163, 3, 120, 34, 97, 112, 112, 108, 105, 99, 97, 116, 105, 111, 110, 47, 120,
-        46, 98, 105, 116, 119, 97, 114, 100, 101, 110, 46, 108, 101, 103, 97, 99, 121, 45, 107,
-        101, 121, 58, 0, 1, 56, 129, 6, 58, 0, 1, 56, 128, 32, 161, 5, 88, 24, 76, 236, 192, 23,
-        48, 94, 186, 104, 122, 56, 106, 129, 105, 43, 179, 145, 103, 104, 200, 205, 188, 104, 200,
-        89, 88, 80, 64, 210, 166, 213, 93, 37, 0, 43, 31, 212, 129, 17, 147, 126, 50, 37, 163, 184,
-        244, 170, 148, 23, 211, 53, 159, 64, 234, 188, 136, 6, 114, 148, 87, 195, 119, 85, 249, 99,
-        63, 208, 65, 48, 190, 125, 62, 112, 230, 95, 86, 29, 109, 83, 223, 95, 248, 185, 204, 236,
-        193, 123, 221, 48, 245, 163, 153, 107, 27, 48, 35, 129, 162, 31, 200, 251, 103, 187, 186,
-        35, 189, 56, 129, 131, 67, 161, 1, 41, 162, 1, 41, 51, 88, 32, 59, 110, 59, 130, 125, 35,
-        236, 17, 174, 186, 170, 23, 207, 94, 175, 194, 231, 28, 127, 3, 252, 233, 112, 227, 128,
-        244, 176, 32, 25, 121, 87, 215, 246,
+        132, 88, 52, 164, 1, 3, 3, 120, 34, 97, 112, 112, 108, 105, 99, 97, 116, 105, 111, 110, 47,
+        120, 46, 98, 105, 116, 119, 97, 114, 100, 101, 110, 46, 108, 101, 103, 97, 99, 121, 45,
+        107, 101, 121, 58, 0, 1, 56, 129, 6, 58, 0, 1, 56, 128, 32, 161, 5, 76, 20, 11, 52, 107,
+        155, 203, 125, 143, 165, 38, 59, 135, 88, 80, 84, 46, 227, 50, 142, 191, 103, 207, 31, 192,
+        201, 215, 163, 102, 18, 93, 181, 247, 229, 12, 166, 221, 143, 98, 86, 74, 138, 12, 165, 1,
+        206, 101, 240, 222, 51, 239, 216, 4, 85, 61, 212, 62, 44, 29, 1, 184, 4, 191, 189, 248,
+        174, 159, 11, 133, 205, 19, 22, 28, 148, 138, 238, 136, 253, 173, 250, 69, 186, 232, 91,
+        222, 238, 9, 175, 178, 214, 27, 120, 254, 212, 110, 129, 131, 64, 162, 1, 41, 51, 88, 32,
+        222, 10, 249, 242, 57, 196, 223, 240, 234, 177, 19, 72, 201, 32, 1, 129, 46, 6, 76, 38,
+        149, 151, 217, 94, 84, 67, 50, 107, 103, 74, 88, 72, 246,
     ];
 
     #[test]
@@ -704,7 +664,7 @@ mod tests {
         let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let envelope = SecretProtectedKeyEnvelope::seal_ref(
             &key,
-            TESTVECTOR_SECRET,
+            &testvector_secret(),
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
         )
         .unwrap();
@@ -719,14 +679,13 @@ mod tests {
             .expect("Key envelope should be valid");
         let key = envelope
             .unseal(
-                TESTVECTOR_SECRET,
+                &testvector_secret(),
                 SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
                 &mut ctx,
             )
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
@@ -743,14 +702,13 @@ mod tests {
                 .expect("Key envelope should be valid");
         let key = envelope
             .unseal(
-                TESTVECTOR_SECRET,
+                &testvector_secret(),
                 SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
                 &mut ctx,
             )
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
@@ -764,12 +722,12 @@ mod tests {
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let secret = TESTVECTOR_SECRET;
+        let secret = testvector_secret();
 
         // Seal the key with a secret
         let envelope = SecretProtectedKeyEnvelope::seal(
             test_key,
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             &ctx,
         )
@@ -781,21 +739,19 @@ mod tests {
             SecretProtectedKeyEnvelope::try_from(&serialized).unwrap();
         let key = deserialized
             .unseal(
-                secret,
+                &secret,
                 SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
                 &mut ctx,
             )
             .unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let key_before_sealing = ctx
-            .dangerous_get_symmetric_key(test_key)
+            .get_symmetric_key(test_key)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key, key_before_sealing);
@@ -807,12 +763,12 @@ mod tests {
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.generate_symmetric_key();
 
-        let secret = TESTVECTOR_SECRET;
+        let secret = testvector_secret();
 
         // Seal the key with a secret
         let envelope = SecretProtectedKeyEnvelope::seal(
             test_key,
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             &ctx,
         )
@@ -824,21 +780,19 @@ mod tests {
             SecretProtectedKeyEnvelope::try_from(&serialized).unwrap();
         let key = deserialized
             .unseal(
-                secret,
+                &secret,
                 SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
                 &mut ctx,
             )
             .unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let key_before_sealing = ctx
-            .dangerous_get_symmetric_key(test_key)
+            .get_symmetric_key(test_key)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key, key_before_sealing);
@@ -847,15 +801,13 @@ mod tests {
     #[test]
     fn test_reseal_envelope() {
         let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        let secret = TESTVECTOR_SECRET;
-        // The new secret must also be high-entropy, otherwise resealing is rejected.
-        let new_secret: [u8; 32] = *crate::util::generate_random_bytes();
-        let new_secret = new_secret.as_slice();
+        let secret = testvector_secret();
+        let new_secret = HighEntropySecret::make(32).unwrap();
 
         // Seal the key with a secret
         let envelope: SecretProtectedKeyEnvelope = SecretProtectedKeyEnvelope::seal_ref(
             &key,
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
         )
         .expect("Sealing should work");
@@ -863,14 +815,14 @@ mod tests {
         // Reseal
         let envelope = envelope
             .reseal(
-                secret,
-                new_secret,
+                &secret,
+                &new_secret,
                 SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             )
             .expect("Resealing should work");
         let unsealed = envelope
             .unseal_ref(
-                new_secret,
+                &new_secret,
                 SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             )
             .expect("Unsealing should work");
@@ -885,13 +837,13 @@ mod tests {
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let secret = TESTVECTOR_SECRET;
-        let wrong_secret = b"wrong_secret".as_slice();
+        let secret = testvector_secret();
+        let wrong_secret = HighEntropySecret::make(32).unwrap();
 
         // Seal the key with a secret
         let envelope = SecretProtectedKeyEnvelope::seal(
             test_key,
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             &ctx,
         )
@@ -902,7 +854,7 @@ mod tests {
             SecretProtectedKeyEnvelope::try_from(&(&envelope).into()).unwrap();
         assert!(matches!(
             deserialized.unseal(
-                wrong_secret,
+                &wrong_secret,
                 SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
                 &mut ctx
             ),
@@ -915,11 +867,11 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let secret = TESTVECTOR_SECRET;
+        let secret = testvector_secret();
 
         let mut envelope = SecretProtectedKeyEnvelope::seal(
             test_key,
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             &ctx,
         )
@@ -943,7 +895,7 @@ mod tests {
                 .expect("Envelope should be valid");
 
         let a = deserialized.unseal(
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             &mut ctx,
         );
@@ -959,19 +911,14 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        #[allow(deprecated)]
-        let key_id = ctx
-            .dangerous_get_symmetric_key(test_key)
-            .unwrap()
-            .key_id()
-            .unwrap();
+        let key_id = ctx.get_symmetric_key(test_key).unwrap().key_id().unwrap();
 
-        let secret = TESTVECTOR_SECRET;
+        let secret = testvector_secret();
 
         // Seal the key with a secret
         let envelope = SecretProtectedKeyEnvelope::seal(
             test_key,
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             &ctx,
         )
@@ -986,88 +933,17 @@ mod tests {
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.generate_symmetric_key();
 
-        let secret = TESTVECTOR_SECRET;
+        let secret = testvector_secret();
 
         // Seal the key with a secret
         let envelope = SecretProtectedKeyEnvelope::seal(
             test_key,
-            secret,
+            &secret,
             SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
             &ctx,
         )
         .unwrap();
         let contained_key_id = envelope.contained_key_id().unwrap();
         assert_eq!(None, contained_key_id);
-    }
-
-    #[test]
-    fn test_entropy_rejects_ascii_text() {
-        // Natural-language text, a repeated word, and a single repeated byte are all low-entropy
-        // ASCII inputs that should be rejected.
-        for secret in [
-            b"this is a low entropy ascii secret".as_slice(),
-            b"passwordpasswordpassword".as_slice(),
-            b"aaaaaaaaaaaaaaaaaaaaaaaa".as_slice(),
-        ] {
-            assert!(
-                matches!(
-                    validate_secret_entropy(secret),
-                    Err(SecretProtectedKeyEnvelopeError::LowEntropySecret)
-                ),
-                "expected {secret:?} to be rejected as low-entropy"
-            );
-        }
-    }
-
-    #[test]
-    fn test_entropy_rejects_short_input() {
-        // 15 random bytes: below the 16-byte minimum even though it is high-entropy.
-        let short: [u8; 15] = *crate::util::generate_random_bytes();
-        assert!(matches!(
-            validate_secret_entropy(&short),
-            Err(SecretProtectedKeyEnvelopeError::LowEntropySecret)
-        ));
-    }
-
-    #[test]
-    fn test_entropy_accepts_random() {
-        let secret_16: [u8; 16] = *crate::util::generate_random_bytes();
-        let secret_32: [u8; 32] = *crate::util::generate_random_bytes();
-        assert!(validate_secret_entropy(&secret_16).is_ok());
-        assert!(validate_secret_entropy(&secret_32).is_ok());
-    }
-
-    #[test]
-    fn test_seal_rejects_low_entropy_secret() {
-        let test_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        assert!(matches!(
-            SecretProtectedKeyEnvelope::seal_ref(
-                &test_key,
-                b"low entropy ascii secret",
-                SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
-            ),
-            Err(SecretProtectedKeyEnvelopeError::LowEntropySecret)
-        ));
-    }
-
-    #[test]
-    fn test_reseal_rejects_low_entropy_new_secret() {
-        let test_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        let envelope = SecretProtectedKeyEnvelope::seal_ref(
-            &test_key,
-            TESTVECTOR_SECRET,
-            SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
-        )
-        .unwrap();
-
-        // The old (high-entropy) secret unseals fine, but the new low-entropy secret is rejected.
-        assert!(matches!(
-            envelope.reseal(
-                TESTVECTOR_SECRET,
-                b"low entropy ascii secret",
-                SecretProtectedKeyEnvelopeNamespace::ExampleNamespace,
-            ),
-            Err(SecretProtectedKeyEnvelopeError::LowEntropySecret)
-        ));
     }
 }

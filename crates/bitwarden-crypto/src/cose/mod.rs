@@ -5,8 +5,10 @@
 
 use std::fmt::Debug;
 
+pub(crate) mod symmetric;
+
 use coset::{
-    CborSerializable, ContentType, CoseEncrypt0, CoseEncrypt0Builder, Header, Label,
+    CborSerializable, ContentType, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
 use hybrid_array::Array;
@@ -17,7 +19,10 @@ use crate::{
     ContentFormat, CoseEncrypt0Bytes, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
-    xchacha20,
+    hazmat::symmetric_encryption::{
+        Aead,
+        xchacha20::{XChaCha20Poly1305, XChaCha20Poly1305Ciphertext, XChaCha20Poly1305Nonce},
+    },
 };
 
 // Custom COSE algorithm values
@@ -104,48 +109,6 @@ pub(crate) const SAFE_CONTENT_NAMESPACE: i64 = -80001;
 
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 
-/// Encrypt a plaintext message with a given key
-pub(crate) fn encrypt_cose(
-    cose_encrypt0_builder: CoseEncrypt0Builder,
-    plaintext: &[u8],
-    key: &XChaCha20Poly1305Key,
-) -> CoseEncrypt0 {
-    let mut nonce = [0u8; xchacha20::NONCE_SIZE];
-    cose_encrypt0_builder
-        .create_ciphertext(plaintext, &[], |data, aad| {
-            let ciphertext =
-                crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
-            nonce = ciphertext.nonce();
-            ciphertext.encrypted_bytes().to_vec()
-        })
-        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
-        .build()
-}
-
-pub struct DecryptFailed;
-/// Decrypt a CoseEncrypt0 message with a CoseKey
-pub(crate) fn decrypt_cose(
-    cose_encrypt0: &CoseEncrypt0,
-    key: &XChaCha20Poly1305Key,
-) -> Result<Vec<u8>, DecryptFailed> {
-    let nonce: [u8; xchacha20::NONCE_SIZE] = cose_encrypt0
-        .unprotected
-        .iv
-        .clone()
-        .try_into()
-        .map_err(|_| DecryptFailed)?;
-    cose_encrypt0
-        .clone()
-        .decrypt_ciphertext(
-            &[],
-            || CryptoError::MissingField("ciphertext"),
-            |data, aad| {
-                xchacha20::decrypt_xchacha20_poly1305(&nonce, &(*key.enc_key).into(), data, aad)
-            },
-        )
-        .map_err(|_| DecryptFailed)
-}
-
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
@@ -170,16 +133,19 @@ pub(crate) fn encrypt_xchacha20_poly1305(
         crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
     }
 
-    let mut nonce = [0u8; xchacha20::NONCE_SIZE];
+    let nonce = XChaCha20Poly1305Nonce::make();
     let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
         .protected(protected_header)
         .create_ciphertext(&plaintext, &[], |data, aad| {
-            let ciphertext =
-                crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
-            nonce = ciphertext.nonce();
-            ciphertext.encrypted_bytes().to_vec()
+            XChaCha20Poly1305::encrypt(&(*key.enc_key).into(), &nonce, data, aad)
+                .encrypted_bytes()
+                .to_vec()
         })
-        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
+        .unprotected(
+            coset::HeaderBuilder::new()
+                .iv(nonce.as_bytes().to_vec())
+                .build(),
+        )
         .build();
 
     cose_encrypt0
@@ -213,17 +179,15 @@ pub(crate) fn decrypt_xchacha20_poly1305(
         return Err(CryptoError::WrongCoseKeyId);
     }
 
+    let nonce = XChaCha20Poly1305Nonce::try_from(&msg)?;
     let decrypted_message = msg.decrypt_ciphertext(
         &[],
         || CryptoError::MissingField("ciphertext"),
         |data, aad| {
-            let nonce = msg.unprotected.iv.as_slice();
-            crate::xchacha20::decrypt_xchacha20_poly1305(
-                nonce
-                    .try_into()
-                    .map_err(|_| CryptoError::InvalidNonceLength)?,
+            XChaCha20Poly1305::decrypt(
                 &(*key.enc_key).into(),
-                data,
+                &nonce,
+                &XChaCha20Poly1305Ciphertext::from(data.to_vec()),
                 aad,
             )
         },
