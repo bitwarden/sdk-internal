@@ -12,7 +12,7 @@
 //! Two ciphers are implemented, and the message shape (single- vs multi-recipient) is orthogonal to
 //! the cipher choice:
 //! - AES-256-GCM, used by the
-//!   `SecretProtectedKeyEnvelope` over [`CoseEncrypt`].
+//!   [`SecretProtectedKeyEnvelope`](crate::safe::SecretProtectedKeyEnvelope) over [`CoseEncrypt`].
 //!   AES-GCM is sound here because the CEK is locally derived and unique per message, so there is
 //!   no nonce-reuse problem. See [`crate::hazmat::symmetric_encryption::aes_gcm`] for the caveats.
 //! - XChaCha20-Poly1305, used by the [`SymmetricKeyEnvelope`](crate::safe::SymmetricKeyEnvelope)

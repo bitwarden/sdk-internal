@@ -4,6 +4,8 @@ mod password_protected_key_envelope;
 pub use password_protected_key_envelope::*;
 mod high_entropy_secret;
 pub use high_entropy_secret::*;
+mod secret_protected_key_envelope;
+pub use secret_protected_key_envelope::*;
 mod symmetric_key_envelope;
 pub use symmetric_key_envelope::*;
 mod data_envelope;
@@ -35,8 +37,9 @@ pub(super) enum DecodeSealedKeyError {
 /// content format declared in the envelope's protected `header`.
 ///
 /// Shared by the key envelopes
-/// ([`PasswordProtectedKeyEnvelope`], `SecretProtectedKeyEnvelope`, and [`SymmetricKeyEnvelope`]),
-/// which all store the wrapped key using the same content-format-tagged encoding.
+/// ([`PasswordProtectedKeyEnvelope`], [`SecretProtectedKeyEnvelope`], and
+/// [`SymmetricKeyEnvelope`]), which all store the wrapped key using the same content-format-tagged
+/// encoding.
 pub(super) fn decode_sealed_symmetric_key(
     header: &coset::Header,
     key_bytes: Vec<u8>,
@@ -51,6 +54,19 @@ pub(super) fn decode_sealed_symmetric_key(
         _ => return Err(DecodeSealedKeyError::UnsupportedContentFormat),
     };
     SymmetricCryptoKey::try_from(encoded_key).map_err(|_| DecodeSealedKeyError::InvalidKey)
+}
+
+/// Extract the single recipient from a [`coset::CoseEncrypt`].
+///
+/// The COSE objects used by this module's envelopes always carry exactly one recipient (holding the
+/// KDF parameters). Returns an error if there is not exactly one recipient.
+pub(super) fn extract_single_recipient(
+    cose_encrypt: &coset::CoseEncrypt,
+) -> Result<&coset::CoseRecipient, ()> {
+    match cose_encrypt.recipients.as_slice() {
+        [recipient] => Ok(recipient),
+        _ => Err(()),
+    }
 }
 
 /// Extract the contained key ID from a COSE header, if present.
