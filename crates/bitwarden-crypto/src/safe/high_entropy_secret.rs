@@ -76,6 +76,8 @@ impl HighEntropySecret {
 
     /// Returns the secret bytes as a redacted [`SensitiveSlice`]. Not public since callers should
     /// not handle the raw secret material directly.
+    // Consumed by in-crate KDF/envelope code that is not yet wired up on this branch.
+    #[allow(dead_code)]
     pub(crate) fn as_bytes(&self) -> SensitiveSlice<'_> {
         Sensitive::from(self.secret.as_slice())
     }
