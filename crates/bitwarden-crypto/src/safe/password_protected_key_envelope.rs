@@ -140,10 +140,6 @@ impl PasswordProtectedKeyEnvelope {
             recipient
         });
 
-        // The envelope key derived above is the content-encryption key. `encrypt_cose` declares the
-        // content-encryption algorithm (XChaCha20-Poly1305) in the protected header and stores a
-        // fresh nonce in the unprotected `iv` header. `envelope_key` is the fixed-size key produced
-        // by `derive_key`, so the length check inside `encrypt_cose` never trips here.
         let cose_encrypt = encrypt_cose(
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
             builder,

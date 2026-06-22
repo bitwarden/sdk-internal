@@ -102,9 +102,6 @@ impl SymmetricKeyEnvelope {
         );
         protected_header.key_id = wrapping_key.key_id.as_slice().into();
 
-        // The content-encryption algorithm (XChaCha20-Poly1305) is declared in the protected header
-        // by `encrypt_cose0`. The wrapping key is always a 32-byte XChaCha20-Poly1305 key (checked
-        // above), so the length check inside `encrypt_cose0` never trips here.
         let cose_encrypt0 = encrypt_cose0(
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
             CoseEncrypt0Builder::new(),
@@ -150,8 +147,6 @@ impl SymmetricKeyEnvelope {
                 SymmetricKeyEnvelopeError::Parsing("Invalid content format".to_string())
             })?;
 
-        // Decrypt the key bytes. The envelope always declares the content-encryption algorithm, so
-        // no decryption fallback is needed.
         let key_bytes = decrypt_cose0(
             &self.cose_encrypt0,
             None,
