@@ -36,6 +36,8 @@ const KEEPER_KEY_SIZE: usize = 32;
 const AES_BLOCK_SIZE: usize = 16;
 /// AES-GCM nonce size used by Keeper.
 const AES_GCM_NONCE_SIZE: usize = 12;
+/// AES-GCM authentication tag size.
+const AES_GCM_TAG_SIZE: usize = 16;
 /// Length of an uncompressed SEC1 P-256 public key (`0x04 || X || Y`).
 const EC_PUBLIC_KEY_SIZE: usize = 65;
 /// Total length of a valid Keeper `encryptionParams` blob: version(1) + iterations(3) + salt(16) +
@@ -54,6 +56,9 @@ pub enum KeeperCryptoError {
     /// A key could not be parsed or has the wrong size.
     #[error("Invalid Keeper key material")]
     InvalidKey,
+    /// A private key required to decrypt the given record key type was not supplied.
+    #[error("Missing Keeper private key")]
+    MissingPrivateKey,
     /// The input was malformed (too short, wrong length, or not a valid encoding).
     #[error("Malformed Keeper input")]
     InvalidData,
@@ -178,7 +183,9 @@ pub fn decrypt_aes_v2(data: &[u8], key: &[u8]) -> Result<Vec<u8>, KeeperCryptoEr
     if key.len() != KEEPER_KEY_SIZE {
         return Err(KeeperCryptoError::InvalidKey);
     }
-    if data.len() < AES_GCM_NONCE_SIZE {
+    // A valid packet is at least nonce(12) + tag(16); the AEAD rejects anything shorter anyway, but
+    // guarding here keeps the failure a clear "malformed input" rather than a decrypt error.
+    if data.len() < AES_GCM_NONCE_SIZE + AES_GCM_TAG_SIZE {
         return Err(KeeperCryptoError::InvalidData);
     }
     let (nonce_bytes, ciphertext) = data.split_at(AES_GCM_NONCE_SIZE);
@@ -258,7 +265,8 @@ pub fn encrypt_ec(data: &[u8], public_key: &[u8]) -> Result<Vec<u8>, KeeperCrypt
 ///
 /// The packet is `ephemeralPublic(65) || aes-v2 packet`. `private_key` is a PKCS#8 DER P-256 key.
 pub fn decrypt_ec(data: &[u8], private_key: &[u8]) -> Result<Vec<u8>, KeeperCryptoError> {
-    if data.len() < EC_PUBLIC_KEY_SIZE {
+    // A valid packet is at least ephemeralPublic(65) + nonce(12) + tag(16).
+    if data.len() < EC_PUBLIC_KEY_SIZE + AES_GCM_NONCE_SIZE + AES_GCM_TAG_SIZE {
         return Err(KeeperCryptoError::InvalidData);
     }
     let secret =
@@ -354,12 +362,12 @@ pub fn decrypt_keeper_key(
     let key = match key_type {
         KeeperRecordKeyType::EncryptedByDataKey => decrypt_aes_v1(encrypted_key, data_key)?,
         KeeperRecordKeyType::EncryptedByPublicKey => {
-            let private_key = rsa_private_key.ok_or(KeeperCryptoError::InvalidKey)?;
+            let private_key = rsa_private_key.ok_or(KeeperCryptoError::MissingPrivateKey)?;
             decrypt_rsa(encrypted_key, private_key)?
         }
         KeeperRecordKeyType::EncryptedByDataKeyGcm => decrypt_aes_v2(encrypted_key, data_key)?,
         KeeperRecordKeyType::EncryptedByPublicKeyEcc => {
-            let private_key = ec_private_key.ok_or(KeeperCryptoError::InvalidKey)?;
+            let private_key = ec_private_key.ok_or(KeeperCryptoError::MissingPrivateKey)?;
             decrypt_ec(encrypted_key, private_key)?
         }
         KeeperRecordKeyType::NoKey
@@ -683,7 +691,18 @@ mod tests {
                 None,
                 None
             ),
-            Err(KeeperCryptoError::InvalidKey)
+            Err(KeeperCryptoError::MissingPrivateKey)
+        ));
+        // ECC path with no private key supplied.
+        assert!(matches!(
+            decrypt_keeper_key(
+                &[1, 2, 3],
+                KeeperRecordKeyType::EncryptedByPublicKeyEcc,
+                &data_key,
+                None,
+                None
+            ),
+            Err(KeeperCryptoError::MissingPrivateKey)
         ));
     }
 }
