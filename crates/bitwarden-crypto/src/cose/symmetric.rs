@@ -11,10 +11,9 @@
 //!
 //! Two ciphers are implemented, and the message shape (single- vs multi-recipient) is orthogonal to
 //! the cipher choice:
-//! - AES-256-GCM, used by the
-//!   `SecretProtectedKeyEnvelope` over [`CoseEncrypt`].
-//!   AES-GCM is sound here because the CEK is locally derived and unique per message, so there is
-//!   no nonce-reuse problem. See [`crate::hazmat::symmetric_encryption::aes_gcm`] for the caveats.
+//! - AES-256-GCM, used by the `SecretProtectedKeyEnvelope` over [`CoseEncrypt`]. AES-GCM is sound
+//!   here because the CEK is locally derived and unique per message, so there is no nonce-reuse
+//!   problem. See [`crate::hazmat::symmetric_encryption::aes_gcm`] for the caveats.
 //! - XChaCha20-Poly1305, used by the [`SymmetricKeyEnvelope`](crate::safe::SymmetricKeyEnvelope)
 //!   over [`CoseEncrypt0`]. It uses a private-use COSE algorithm identifier (see
 //!   [`XCHACHA20_POLY1305`]).
@@ -64,8 +63,9 @@ impl TryFrom<&Algorithm> for CoseContentEncryptionAlgorithm {
 /// Recovers the content-encryption algorithm declared in a message's protected header, falling back
 /// to `default_algorithm` when the header omits one.
 ///
-/// Some legacy envelopes (notably early [`PasswordProtectedKeyEnvelope`](crate::safe::PasswordProtectedKeyEnvelope)s)
-/// were sealed without declaring the content-encryption algorithm in their protected header. Callers
+/// Some legacy envelopes (notably early
+/// [`PasswordProtectedKeyEnvelope`](crate::safe::PasswordProtectedKeyEnvelope)s) were sealed
+/// without declaring the content-encryption algorithm in their protected header. Callers
 /// that must decrypt such messages pass the algorithm they expect as `default_algorithm`; passing
 /// `None` requires the header to declare it.
 fn algorithm_from_header(
