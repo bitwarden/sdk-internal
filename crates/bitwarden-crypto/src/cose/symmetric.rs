@@ -104,10 +104,11 @@ pub(crate) fn encrypt_cose(
 ) -> Result<CoseEncrypt, CryptoError> {
     let mut plaintext = plaintext.to_vec();
     if let Ok(content_format) = ContentFormat::try_from(&protected_header)
-        && should_pad_content(&content_format) {
-            let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
-            crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
-        }
+        && should_pad_content(&content_format)
+    {
+        let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
+    }
     match algorithm {
         CoseContentEncryptionAlgorithm::Aes256Gcm => {
             let cek: &<Aes256Gcm as Aead>::Key =
@@ -160,9 +161,10 @@ pub(crate) fn decrypt_cose(
         }
     };
     if let Ok(content_format) = ContentFormat::try_from(&cose_encrypt.protected.header)
-        && should_pad_content(&content_format) {
-            return Ok(crate::keys::utils::unpad_bytes(&decrypted)?.to_vec());
-        }
+        && should_pad_content(&content_format)
+    {
+        return Ok(crate::keys::utils::unpad_bytes(&decrypted)?.to_vec());
+    }
     Ok(decrypted)
 }
 
@@ -181,10 +183,11 @@ pub(crate) fn encrypt_cose0(
 ) -> Result<CoseEncrypt0, CryptoError> {
     let mut plaintext = plaintext.to_vec();
     if let Ok(content_format) = ContentFormat::try_from(&protected_header)
-        && should_pad_content(&content_format) {
-            let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
-            crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
-        }
+        && should_pad_content(&content_format)
+    {
+        let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
+    }
     match algorithm {
         CoseContentEncryptionAlgorithm::Aes256Gcm => {
             let cek: &<Aes256Gcm as Aead>::Key =
@@ -237,9 +240,10 @@ pub(crate) fn decrypt_cose0(
         }
     };
     if let Ok(content_format) = ContentFormat::try_from(&cose_encrypt0.protected.header)
-        && should_pad_content(&content_format) {
-            return Ok(crate::keys::utils::unpad_bytes(&decrypted)?.to_vec());
-        }
+        && should_pad_content(&content_format)
+    {
+        return Ok(crate::keys::utils::unpad_bytes(&decrypted)?.to_vec());
+    }
     Ok(decrypted)
 }
 
