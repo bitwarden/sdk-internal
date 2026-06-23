@@ -67,15 +67,27 @@ impl PasswordManagerClient {
         PasswordManagerClientBuilder::new()
     }
 
-    /// Initialize a new instance of the SDK client with client-managed tokens
+    /// Initialize a new instance of the SDK client with client-managed tokens and
+    /// a shared managed-settings handle.
     pub fn new_with_client_tokens(
         settings: Option<bitwarden_core::ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
+        managed_settings: &bitwarden_managed_settings::ManagedSettingsClient,
     ) -> Self {
-        Self(bitwarden_core::Client::new_with_token_handler(
-            settings,
-            ClientManagedTokenHandler::new(tokens),
-        ))
+        let core = bitwarden_core::ClientBuilder::new()
+            .with_token_handler(ClientManagedTokenHandler::new(tokens))
+            .with_middleware(vec![Arc::new(
+                bitwarden_core::client::tracing_middleware::ReqwestTracingMiddleware,
+            )]);
+        let core = bitwarden_managed_settings::ManagedSettingsBuilderExt::with_managed_settings(
+            core,
+            managed_settings,
+        );
+        let core = match settings {
+            Some(s) => core.with_settings(s),
+            None => core,
+        };
+        Self(core.build())
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_auth::token_management::PasswordManagerTokenHandler;
 use bitwarden_core::{ClientBuilder, client::tracing_middleware::ReqwestTracingMiddleware};
+use bitwarden_managed_settings::{ManagedSettingsBuilderExt as _, ManagedSettingsClient};
 
 use crate::PasswordManagerClient;
 
@@ -10,6 +11,7 @@ pub struct PasswordManagerClientBuilder {
     settings: Option<bitwarden_core::ClientSettings>,
     cookie_provider:
         Option<std::sync::Arc<dyn bitwarden_server_communication_config::CookieProvider>>,
+    managed_settings: Option<ManagedSettingsClient>,
 }
 
 impl PasswordManagerClientBuilder {
@@ -18,12 +20,19 @@ impl PasswordManagerClientBuilder {
         Self {
             settings: None,
             cookie_provider: None,
+            managed_settings: None,
         }
     }
 
     /// Sets the [`ClientSettings`](bitwarden_core::ClientSettings) for the client being built.
     pub fn with_settings(mut self, settings: bitwarden_core::ClientSettings) -> Self {
         self.settings = Some(settings);
+        self
+    }
+
+    /// Share an externally-owned managed-settings handle with the client.
+    pub fn with_managed_settings(mut self, client: &ManagedSettingsClient) -> Self {
+        self.managed_settings = Some(client.clone());
         self
     }
 
@@ -56,6 +65,9 @@ impl PasswordManagerClientBuilder {
         }
 
         builder = builder.with_middleware(middleware);
+        if let Some(managed_settings) = &self.managed_settings {
+            builder = builder.with_managed_settings(managed_settings);
+        }
         PasswordManagerClient(builder.build())
     }
 }
@@ -81,6 +93,22 @@ mod tests {
         let _client = PasswordManagerClientBuilder::new()
             .with_settings(settings)
             .build();
+    }
+
+    #[test]
+    fn with_managed_settings_is_observed_by_generator() {
+        use bitwarden_managed_settings::{ManagedSettingsClient, ManagementProfile};
+
+        let handle = ManagedSettingsClient::new();
+        let client = PasswordManagerClientBuilder::new()
+            .with_managed_settings(&handle)
+            .build();
+
+        let mut p = ManagementProfile::empty();
+        p.settings.insert("generator.password.length".to_owned(), "20".to_owned());
+        handle.update_profile(Some(p));
+
+        assert!(client.managed_settings().is_managed("generator.password.length".to_owned()));
     }
 
     #[test]
