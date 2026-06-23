@@ -1,6 +1,6 @@
-#[cfg(feature = "internal")]
-use std::sync::RwLock;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
+
+use bitwarden_managed_settings_types::ManagementProfile;
 
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
@@ -130,6 +130,10 @@ pub struct InternalClient {
     // removed as soon as KM state can be mapped via the platform APIs.
     #[cfg(feature = "internal")]
     pub(crate) state_bridge: StateBridge,
+
+    /// Shared cell holding the active IT-administrator managed-settings profile.
+    /// Cloned into every `Client` the host builds so all observe the same pushes.
+    pub(crate) managed_profile: Arc<RwLock<Option<ManagementProfile>>>,
 }
 
 impl InternalClient {
@@ -206,6 +210,12 @@ impl InternalClient {
     #[allow(missing_docs)]
     pub fn get_key_store(&self) -> &KeyStore<KeySlotIds> {
         &self.key_store
+    }
+
+    /// Clone of the shared managed-settings cell. Used by the
+    /// `bitwarden-managed-settings` extension traits.
+    pub fn managed_profile_handle(&self) -> Arc<RwLock<Option<ManagementProfile>>> {
+        self.managed_profile.clone()
     }
 
     /// Returns the security version of the user.

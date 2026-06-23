@@ -1,6 +1,6 @@
-#[cfg(feature = "internal")]
-use std::sync::RwLock;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
+
+use bitwarden_managed_settings_types::ManagementProfile;
 
 use bitwarden_api_base::new_http_client_builder;
 use bitwarden_crypto::KeyStore;
@@ -24,6 +24,7 @@ pub struct ClientBuilder {
     token_handler: Arc<dyn TokenHandler>,
     state_registry: Option<StateRegistry>,
     middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    managed_profile: Option<Arc<RwLock<Option<ManagementProfile>>>>,
 }
 
 impl ClientBuilder {
@@ -34,6 +35,7 @@ impl ClientBuilder {
             token_handler: Arc::new(NoopTokenHandler),
             state_registry: None,
             middleware: Vec::new(),
+            managed_profile: None,
         }
     }
 
@@ -62,6 +64,17 @@ impl ClientBuilder {
     /// If not set, defaults to [`StateRegistry::new_with_memory_db`].
     pub fn with_state(mut self, state_registry: StateRegistry) -> Self {
         self.state_registry = Some(state_registry);
+        self
+    }
+
+    /// Low-level hook to store a managed-settings profile cell. Defaults to a
+    /// fresh empty cell when not set. The `with_managed_settings` extension in
+    /// `bitwarden-managed-settings` calls this.
+    pub fn with_managed_profile(
+        mut self,
+        cell: Arc<RwLock<Option<ManagementProfile>>>,
+    ) -> Self {
+        self.managed_profile = Some(cell);
         self
     }
 
@@ -132,6 +145,10 @@ impl ClientBuilder {
             client: bw_http_client,
         };
 
+        let managed_profile = self
+            .managed_profile
+            .unwrap_or_else(|| Arc::new(RwLock::new(None)));
+
         Client {
             internal: Arc::new(InternalClient {
                 user_id: OnceLock::new(),
@@ -144,6 +161,7 @@ impl ClientBuilder {
                 #[cfg(feature = "internal")]
                 state_bridge: StateBridge::new(),
                 state_registry,
+                managed_profile,
             }),
         }
     }
@@ -256,6 +274,23 @@ mod tests {
             .with_settings(ClientSettings::default())
             .with_state(registry)
             .build();
+    }
+
+    #[test]
+    fn managed_profile_defaults_to_empty_cell() {
+        let client = ClientBuilder::new().build();
+        assert!(client.internal.managed_profile_handle().read().unwrap().is_none());
+    }
+
+    #[test]
+    fn with_managed_profile_shares_the_same_cell() {
+        use bitwarden_managed_settings_types::ManagementProfile;
+        let cell = std::sync::Arc::new(std::sync::RwLock::new(Some(ManagementProfile::empty())));
+        let client = ClientBuilder::new().with_managed_profile(cell.clone()).build();
+        // Mutate through the original handle; the client observes it.
+        cell.write().unwrap().as_mut().unwrap().settings.insert("k".into(), "1".into());
+        let observed = client.internal.managed_profile_handle();
+        assert!(observed.read().unwrap().as_ref().unwrap().is_managed("k"));
     }
 
     #[test]
