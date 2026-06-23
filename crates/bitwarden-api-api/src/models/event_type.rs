@@ -87,6 +87,7 @@ pub enum EventType {
     OrganizationUser_AdminResetTwoFactor,
     OrganizationUser_Revoked_TwoFactorNonCompliance,
     OrganizationUser_Revoked_SingleOrganizationNonCompliance,
+    OrganizationUser_NotificationBannerActionClicked,
     Organization_Updated,
     Organization_PurgedVault,
     Organization_ClientExportedVault,
@@ -149,6 +150,12 @@ pub enum EventType {
     Send_Created_File,
     Send_Created_File_WithEmailVerification,
     Send_Created_File_WithPasswordProtection,
+    Send_Edited_Text,
+    Send_Edited_File,
+    Send_Deleted_Text,
+    Send_Deleted_File,
+    Send_Accessed_Text,
+    Send_Accessed_File,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -230,6 +237,7 @@ impl EventType {
             Self::OrganizationUser_AdminResetTwoFactor => 1519,
             Self::OrganizationUser_Revoked_TwoFactorNonCompliance => 1520,
             Self::OrganizationUser_Revoked_SingleOrganizationNonCompliance => 1521,
+            Self::OrganizationUser_NotificationBannerActionClicked => 1522,
             Self::Organization_Updated => 1600,
             Self::Organization_PurgedVault => 1601,
             Self::Organization_ClientExportedVault => 1602,
@@ -292,6 +300,12 @@ impl EventType {
             Self::Send_Created_File => 2503,
             Self::Send_Created_File_WithEmailVerification => 2504,
             Self::Send_Created_File_WithPasswordProtection => 2505,
+            Self::Send_Edited_Text => 2506,
+            Self::Send_Edited_File => 2507,
+            Self::Send_Deleted_Text => 2508,
+            Self::Send_Deleted_File => 2509,
+            Self::Send_Accessed_Text => 2510,
+            Self::Send_Accessed_File => 2511,
             Self::__Unknown(v) => *v,
         }
     }
@@ -371,6 +385,7 @@ impl EventType {
             1519 => Self::OrganizationUser_AdminResetTwoFactor,
             1520 => Self::OrganizationUser_Revoked_TwoFactorNonCompliance,
             1521 => Self::OrganizationUser_Revoked_SingleOrganizationNonCompliance,
+            1522 => Self::OrganizationUser_NotificationBannerActionClicked,
             1600 => Self::Organization_Updated,
             1601 => Self::Organization_PurgedVault,
             1602 => Self::Organization_ClientExportedVault,
@@ -437,6 +452,12 @@ impl EventType {
             2503 => Self::Send_Created_File,
             2504 => Self::Send_Created_File_WithEmailVerification,
             2505 => Self::Send_Created_File_WithPasswordProtection,
+            2506 => Self::Send_Edited_Text,
+            2507 => Self::Send_Edited_File,
+            2508 => Self::Send_Deleted_Text,
+            2509 => Self::Send_Deleted_File,
+            2510 => Self::Send_Accessed_Text,
+            2511 => Self::Send_Accessed_File,
             v => Self::__Unknown(v),
         }
     }

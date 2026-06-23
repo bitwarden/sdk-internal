@@ -29,8 +29,8 @@ fn main() {
     let key: &InviteKeyData = bundle.dangerous_get_raw_invite_key();
 
     // 3. The second part is `InviteKeyEnvelope`. This is the invite
-    // key sealed (a.k.a. sealed) by the org key. `InviteKeyEnvelope`
-    // automatically serializes to `base64` when using serde,
+    // key sealed by the org key. `InviteKeyEnvelope` serializes to the
+    // Bitwarden EncString text format (`"2.iv|data|mac"`) when using serde,
     // `String::from(&inviteKeyEnvelope)`, or wasm abi serialization.
     let organization_wrapped_invitation_key: &InviteKeyEnvelope =
         bundle.get_sealed_invite_key_envelope();

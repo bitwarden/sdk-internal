@@ -1,19 +1,26 @@
 //! Error types for API operations.
 
-use std::{error, fmt};
+use std::{convert::Infallible, error, fmt, marker::PhantomData};
+
+use serde::{Deserialize, Serialize};
 
 /// Response content from a failed API call.
-#[derive(Debug)]
-pub struct ResponseContent<T = ()> {
+#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct ResponseContent {
     /// HTTP status code of the response.
+    #[serde(with = "crate::status_code_serializer")]
     pub status: reqwest::StatusCode,
-    /// Raw response body content.
-    pub content: String,
-    /// Deserialized entity from the response.
-    pub entity: Option<T>,
+    /// Response body content.
+    pub message: String,
 }
 
 /// Errors that can occur during API operations.
+///
+/// This type is intentionally not exposed over UniFFI. It is always wrapped into
+/// `bitwarden_core::ApiError` before crossing the FFI boundary, and that type carries the
+/// `uniffi::Error` derive. Deriving `uniffi::Error` here as well would export a second error type
+/// named `Error`, which collides with the `Swift.Error` protocol in the generated Swift bindings.
 #[derive(Debug)]
 pub enum Error<T = ()> {
     /// Error from the reqwest HTTP client.
@@ -25,7 +32,12 @@ pub enum Error<T = ()> {
     /// I/O error.
     Io(std::io::Error),
     /// API returned an error response.
-    ResponseError(ResponseContent<T>),
+    Response(ResponseContent),
+
+    /// Phantom variant to keep the unused `T` parameter alive without affecting downstream
+    /// `impl<T> From<Error<T>> for FooError` impls. Uninhabited via [`Infallible`].
+    #[doc(hidden)]
+    _Phantom(PhantomData<T>, Infallible),
 }
 
 impl<T> fmt::Display for Error<T> {
@@ -35,7 +47,8 @@ impl<T> fmt::Display for Error<T> {
             Error::ReqwestMiddleware(e) => ("reqwest-middleware", e.to_string()),
             Error::Serde(e) => ("serde", e.to_string()),
             Error::Io(e) => ("IO", e.to_string()),
-            Error::ResponseError(e) => ("response", format!("status code {}", e.status)),
+            Error::Response(e) => ("response", format!("status code {}", e.status)),
+            Error::_Phantom(_, _) => unreachable!(),
         };
         write!(f, "error in {}: {}", module, e)
     }
@@ -48,7 +61,7 @@ impl<T: fmt::Debug> error::Error for Error<T> {
             Error::ReqwestMiddleware(e) => e,
             Error::Serde(e) => e,
             Error::Io(e) => e,
-            Error::ResponseError(_) => return None,
+            Error::Response(_) | Error::_Phantom(_, _) => return None,
         })
     }
 }
@@ -74,5 +87,11 @@ impl<T> From<serde_json::Error> for Error<T> {
 impl<T> From<std::io::Error> for Error<T> {
     fn from(e: std::io::Error) -> Self {
         Error::Io(e)
+    }
+}
+
+impl<T> From<ResponseContent> for Error<T> {
+    fn from(value: ResponseContent) -> Self {
+        Self::Response(value)
     }
 }

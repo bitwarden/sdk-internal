@@ -11,7 +11,6 @@ use coset::{
 };
 use hybrid_array::Array;
 use thiserror::Error;
-use tracing::instrument;
 use typenum::U32;
 
 use crate::{
@@ -242,7 +241,7 @@ const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
 impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     type Error = CryptoError;
 
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     fn try_from(cose_key: &coset::CoseKey) -> Result<Self, Self::Error> {
         let key_bytes = cose_key
             .params

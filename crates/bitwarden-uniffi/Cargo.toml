@@ -32,13 +32,14 @@ bitwarden-encoding = { workspace = true, features = ["uniffi"] }
 bitwarden-exporters = { workspace = true, features = ["uniffi"] }
 bitwarden-fido = { workspace = true, features = ["uniffi"] }
 bitwarden-generators = { workspace = true, features = ["uniffi"] }
+bitwarden-importers = { workspace = true, features = ["uniffi"] }
 bitwarden-managed-settings = { workspace = true, features = ["uniffi"] }
 bitwarden-organizations = { workspace = true, features = ["uniffi"] }
 bitwarden-pm = { workspace = true, features = ["uniffi"] }
 bitwarden-policies = { workspace = true, features = ["uniffi"] }
 bitwarden-send = { workspace = true, features = ["uniffi"] }
 bitwarden-server-communication-config = { workspace = true, features = ["uniffi"] }
-bitwarden-ssh = { workspace = true, features = ["uniffi"] }
+bitwarden-ssh = { workspace = true, features = ["uniffi", "ecdsa-keys"] }
 bitwarden-state = { workspace = true, features = ["uniffi"] }
 bitwarden-uniffi-error = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["uniffi"] }
@@ -54,7 +55,7 @@ uuid = { workspace = true }
 # The use of rustls-platform-verifier requires some extra support to communicate with the Android platform
 jni = ">=0.21, <0.22"
 libloading = ">=0.8.1, <0.9"
-rustls-platform-verifier = "0.6.0"
+rustls-platform-verifier = { workspace = true }
 tracing-android = "0.2.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]

@@ -45,11 +45,12 @@ bitwarden-logging = { workspace = true, features = ["wasm"] }
 # See [package.metadata.cargo-udeps.ignore] above for more.
 bitwarden-managed-settings = { workspace = true, features = ["wasm"] }
 bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
+bitwarden-organization-invite-link = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }
 bitwarden-shared-unlock = { workspace = true, features = ["wasm"] }
-bitwarden-ssh = { workspace = true, features = ["wasm"] }
+bitwarden-ssh = { workspace = true, features = ["wasm", "ecdsa-keys"] }
 bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }

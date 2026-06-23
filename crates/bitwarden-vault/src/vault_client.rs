@@ -31,9 +31,7 @@ impl VaultClient {
 impl VaultClient {
     /// Attachment related operations.
     pub fn attachments(&self) -> AttachmentsClient {
-        AttachmentsClient {
-            client: self.client.clone(),
-        }
+        AttachmentsClient::from_client(&self.client)
     }
 
     /// Cipher related operations.

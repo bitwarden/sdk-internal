@@ -358,13 +358,15 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
             #(#uniffi_impls)*
         }
 
-        #[cfg(test)]
-        pub(crate) mod test_support {
+        #[cfg(any(test, feature = "internal-test-utils"))]
+        #[allow(missing_docs)]
+        pub mod test_support {
+            //! In-memory test fixtures for the state bridge.
             use super::*;
 
             /// In-memory `StateBridgeImpl` for use in tests.
             #[derive(Default)]
-            pub(crate) struct InMemoryStateBridge {
+            pub struct InMemoryStateBridge {
                 #(#test_support_struct_fields)*
             }
 

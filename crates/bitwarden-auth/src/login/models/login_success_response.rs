@@ -1,7 +1,17 @@
 use std::fmt::Debug;
 
-use bitwarden_core::{key_management::MasterPasswordError, require};
+use bitwarden_core::{
+    MissingFieldError,
+    key_management::{
+        MasterPasswordError,
+        account_cryptographic_state::{
+            AccountKeysResponseParseError, WrappedAccountCryptographicState,
+        },
+    },
+    require,
+};
 use bitwarden_policies::MasterPasswordPolicyResponse;
+use thiserror::Error;
 
 use crate::login::{api::response::LoginSuccessApiResponse, models::UserDecryptionOptionsResponse};
 
@@ -62,14 +72,13 @@ pub struct LoginSuccessResponse {
     /// If the user is subject to an organization master password policy,
     /// this field contains the requirements of that policy.
     pub master_password_policy: Option<MasterPasswordPolicyResponse>,
-    // TODO: PM-30222 we can expose this once we have a trait to convert PrivateKeysResponseModel
-    // to WrappedAccountCryptographicState
-    // The user's account cryptographic keys (wrapped with the user key).
-    // pub wrapped_account_crypto_state: Option<WrappedAccountCryptographicState>,
+
+    /// The user's account cryptographic keys (wrapped with the user key).
+    pub wrapped_account_crypto_state: Option<WrappedAccountCryptographicState>,
 }
 
 impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
-    type Error = MasterPasswordError;
+    type Error = LoginResponseError;
     fn try_from(response: LoginSuccessApiResponse) -> Result<Self, Self::Error> {
         // We want to convert the expires_in from seconds to a millisecond timestamp to have a
         // concrete time the token will expire. This makes it easier to build logic around a
@@ -92,9 +101,29 @@ impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
             // User decryption options are required on successful login responses
             user_decryption_options: require!(response.user_decryption_options).try_into()?,
             master_password_policy: response.master_password_policy.map(|policy| policy.into()),
-            // TODO: PM-30222 - we can expose this once we have a trait to convert
-            // PrivateKeysResponseModel to WrappedAccountCryptographicState
-            // wrapped_account_crypto_state: response.account_keys.map(|keys| keys.into()),
+            wrapped_account_crypto_state: response
+                .account_keys
+                .as_ref()
+                .map(TryInto::try_into)
+                .transpose()?,
         })
+    }
+}
+
+/// Error that can occur during login and response parsing.
+#[derive(Debug, Error)]
+pub enum LoginResponseError {
+    /// Error from master password related operations.
+    #[error(transparent)]
+    MasterPassword(#[from] MasterPasswordError),
+
+    /// Error parsing account cryptographic state from API response.
+    #[error("Failed to parse account keys: {0}")]
+    AccountKeys(#[from] AccountKeysResponseParseError),
+}
+
+impl From<MissingFieldError> for LoginResponseError {
+    fn from(value: MissingFieldError) -> Self {
+        LoginResponseError::MasterPassword(value.into())
     }
 }

@@ -28,6 +28,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-api-identity = { workspace = true, features = ["mockall"] }
+bitwarden-test = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }

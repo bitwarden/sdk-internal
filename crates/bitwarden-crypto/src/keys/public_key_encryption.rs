@@ -4,7 +4,6 @@ use bitwarden_encoding::{B64, FromStrVisitor};
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use tracing::instrument;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
 
@@ -83,7 +82,7 @@ impl PublicKey {
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
         Ok(PublicKey {
             inner: RawPublicKey::RsaOaepSha1(
@@ -94,7 +93,7 @@ impl PublicKey {
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn to_der(&self) -> Result<SpkiPublicKeyBytes> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
@@ -190,8 +189,19 @@ impl PrivateKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    // Under `dangerous-crypto-debug` we intentionally log key material, so this arm uses
+    // `tracing::instrument` directly (the `bitwarden_logging` wrapper enforces `skip_all`).
+    // The production arm goes through the wrapper. The `allow` only applies when the dangerous
+    // arm is active.
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -202,8 +212,15 @@ impl PrivateKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -214,8 +231,15 @@ impl PrivateKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
