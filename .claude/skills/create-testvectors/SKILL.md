@@ -1,6 +1,11 @@
 ---
 name: create-testvectors
-description: Record a serialized/encrypted format as a permanent test vector. Use when adding a type whose serialization format must stay backward-compatible (envelopes, COSE blobs, encrypted/wire formats), or when the user asks to "create a test vector", "record a serialized format", or "lock in the wire format". Generates output with a temporary ignored test, then pins it in a permanent deserialization unit test.
+description:
+  Record a serialized/encrypted format as a permanent test vector. Use when adding a type whose
+  serialization format must stay backward-compatible (envelopes, COSE blobs, encrypted/wire
+  formats), or when the user asks to "create a test vector", "record a serialized format", or "lock
+  in the wire format". Generates output with a temporary ignored test, then pins it in a permanent
+  deserialization unit test.
 ---
 
 # Create a serialization test vector
@@ -26,13 +31,13 @@ Read these before writing a new one; copy whichever style fits:
 
 ### 1. Pick the encoding for the constant
 
-- **Base64 `&str`** (preferred) when the type implements `From<T> for String` / `FromStr` (or
-  serde to a B64 string), e.g. `DataEnvelope`. Compact in source.
-- **`&[u8]` byte array** when the type only round-trips through raw bytes
-  (`From<&T> for Vec<u8>` / `TryFrom<&Vec<u8>>`), e.g. `PasswordProtectedKeyEnvelope`.
+- **Base64 `&str`** (preferred) when the type implements `From<T> for String` / `FromStr` (or serde
+  to a B64 string), e.g. `DataEnvelope`. Compact in source.
+- **`&[u8]` byte array** when the type only round-trips through raw bytes (`From<&T> for Vec<u8>` /
+  `TryFrom<&Vec<u8>>`), e.g. `PasswordProtectedKeyEnvelope`.
 
-Use a **fixed, deterministic** input value and a **stable test namespace** (e.g.
-`ExampleNamespace`) so the permanent test is self-contained.
+Use a **fixed, deterministic** input value and a **stable test namespace** (e.g. `ExampleNamespace`)
+so the permanent test is self-contained.
 
 ### 2. Write a temporary generator test
 
