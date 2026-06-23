@@ -1,7 +1,28 @@
-//! COSE symmetric encryption — the middle layer of the three-layer stack:
-//! - Lowest: Hazmat primitive (`crate::hazmat::symmetric_encryption`)
+//! Content encryption of COSE `CoseEncrypt`/`CoseEncrypt0` messages by the hazmat symmetric
+//! ciphers.
+//!
+//! This is the middle layer of the three-layer symmetric-encryption stack:
+//! - Lowest: hazmat primitive ([`crate::hazmat::symmetric_encryption`])
 //! - Mid: COSE framing (this module)
-//! - High: Consumer (`crate::safe`, `EncString`)
+//! - High: consumer ([`crate::safe`], [`EncString`](crate::EncString))
+//!
+//! The [`CoseEncryptCipher`] trait adds `encrypt_cose`/`decrypt_cose` (multi-recipient
+//! [`CoseEncrypt`]) and `encrypt_cose0`/`decrypt_cose0` (single-recipient [`CoseEncrypt0`]) to an
+//! [`Aead`] cipher: the caller supplies the content-encryption key (CEK) - typically derived via a
+//! KDF or held in the key store - and the protected headers, while the cipher owns the
+//! symmetric-encryption details. The cipher declares its COSE content-encryption algorithm in the
+//! protected header (so it is authenticated as associated data) and a fresh nonce is generated per
+//! message and stored in the unprotected `iv` header.
+//!
+//! Two ciphers are implemented, and the message shape (single- vs multi-recipient) is orthogonal to
+//! the cipher choice:
+//! - AES-256-GCM, used by the
+//!   [`SecretProtectedKeyEnvelope`](crate::safe::SecretProtectedKeyEnvelope) over [`CoseEncrypt`].
+//!   AES-GCM is sound here because the CEK is locally derived and unique per message, so there is
+//!   no nonce-reuse problem. See [`crate::hazmat::symmetric_encryption::aes_gcm`] for the caveats.
+//! - XChaCha20-Poly1305, used by the [`SymmetricKeyEnvelope`](crate::safe::SymmetricKeyEnvelope)
+//!   over [`CoseEncrypt0`]. It uses a private-use COSE algorithm identifier (see
+//!   [`XCHACHA20_POLY1305`]).
 
 use coset::{
     Algorithm, CborSerializable, CoseEncrypt, CoseEncrypt0, CoseEncrypt0Builder,
