@@ -99,7 +99,7 @@ reqwest-middleware = { version = "0.5.1", features = [
     "form",
     "query",
 ] }
-rsa = "0.10.0-rc.17"
+rsa = "=0.10.0-rc.17"
 rustls = { version = "0.23.27", default-features = false, features = [
     "std",
     "tls12",
