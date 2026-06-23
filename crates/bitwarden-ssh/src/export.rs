@@ -143,7 +143,6 @@ mod tests {
         assert!(!exported_key.is_empty());
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn export_ecdsa_p256_roundtrip() {
         let private_key = include_str!("../resources/generator/ecdsa_p256_key");
@@ -154,7 +153,6 @@ mod tests {
         assert_eq!(reimported.public_key, view.public_key);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn export_ecdsa_p384_roundtrip() {
         let private_key = include_str!("../resources/generator/ecdsa_p384_key");
@@ -165,7 +163,6 @@ mod tests {
         assert_eq!(reimported.public_key, view.public_key);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn export_ecdsa_p521_roundtrip() {
         let private_key = include_str!("../resources/generator/ecdsa_p521_key");
