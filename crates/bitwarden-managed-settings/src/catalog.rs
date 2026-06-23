@@ -62,5 +62,6 @@ mod tests {
         let keys = managed_keys();
         assert!(keys.iter().any(|k| k.key == "generator.password.length"));
         assert!(keys.iter().any(|k| k.key == "generator.passphrase.numWords"));
+        assert_eq!(managed_keys().len(), 14, "catalog key count changed — update this count and the per-platform admin schemas together");
     }
 }

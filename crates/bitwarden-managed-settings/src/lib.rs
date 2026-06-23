@@ -10,7 +10,7 @@ mod managed_settings_client;
 mod override_trait;
 
 pub use bitwarden_managed_settings_types::{ManagedSettingsError, ManagementProfile};
-pub use catalog::{managed_keys, ManagedKey};
+pub use catalog::{managed_keys, ManagedKey, ManagedKeyType};
 pub use managed_settings_client::{
     ManagedSettingsBuilderExt, ManagedSettingsClient, ManagedSettingsClientExt,
 };

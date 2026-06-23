@@ -626,6 +626,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-logging",
+ "bitwarden-managed-settings-types",
  "bitwarden-state",
  "bitwarden-state-bridge-macro",
  "bitwarden-test",
@@ -941,6 +942,20 @@ name = "bitwarden-managed-settings"
 version = "3.0.0"
 dependencies = [
  "bitwarden-core",
+ "bitwarden-error",
+ "bitwarden-managed-settings-types",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "bitwarden-managed-settings-types"
+version = "3.0.0"
+dependencies = [
  "bitwarden-error",
  "serde",
  "serde_json",
