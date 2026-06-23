@@ -19,7 +19,8 @@
 //! the KDF - "envelope key", is used directly as the content-encryption key that wraps the
 //! symmetric key sealed by the envelope.
 //!
-//! Note: AES-GCM is used here since the CEK is locally derived, so there is no nonce re-use problem.
+//! Note: AES-GCM is used here since the CEK is locally derived, so there is no nonce re-use
+//! problem.
 
 use std::{num::TryFromIntError, str::FromStr};
 
@@ -555,6 +556,9 @@ pub enum SecretProtectedKeyEnvelopeNamespace {
     /// Neutral placeholder so the public API and example are usable. Replace with a
     /// product-specific variant when the first real consumer lands.
     ExampleUse = 1,
+    /// Bitwarden Desktop biometric (Windows Hello) unlock. The high-entropy secret is a PRF derived
+    /// from the Windows Hello signing credential, and the sealed key is the user key.
+    DesktopBiometricUnlock = 2,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -576,6 +580,7 @@ impl TryFrom<i128> for SecretProtectedKeyEnvelopeNamespace {
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleUse),
+            2 => Ok(SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock),
             #[cfg(test)]
             -1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
