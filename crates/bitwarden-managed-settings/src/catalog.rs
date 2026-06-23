@@ -8,8 +8,11 @@
 /// Value type an admin supplies for a managed key, used by schema generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ManagedKeyType {
+    /// A boolean (`true`/`false`) value.
     Bool,
+    /// An unsigned 8-bit integer value.
     U8,
+    /// A UTF-8 string value.
     String,
 }
 

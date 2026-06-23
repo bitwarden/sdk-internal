@@ -58,9 +58,13 @@ impl Client {
         #[cfg(target_os = "android")]
         android_support::init();
 
+        // Managed-settings host injection over UniFFI is deferred to the mobile acquisition plan;
+        // a fresh empty handle means "no managed settings" on this client for now.
+        let managed_settings = bitwarden_managed_settings::ManagedSettingsClient::new();
         Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
             settings,
             token_provider,
+            &managed_settings,
         ))
     }
 
