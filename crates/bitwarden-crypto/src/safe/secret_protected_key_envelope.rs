@@ -133,9 +133,7 @@ impl SecretProtectedKeyEnvelope {
 
         let protected_header = {
             let mut header = HeaderBuilder::from(content_format).build();
-            if let Some(key_id) = key_to_seal.key_id() {
-                set_contained_key_id(&mut header, key_id);
-            }
+            set_contained_key_id(&mut header, key_to_seal.key_id());
             set_safe_namespaces(
                 &mut header,
                 SafeObjectNamespace::SecretProtectedKeyEnvelope,

@@ -89,10 +89,7 @@ impl SymmetricKeyEnvelope {
 
         let mut protected_header = HeaderBuilder::from(content_format).build();
 
-        // Only set the contained key ID if the key has one
-        if let Some(key_id) = key_to_seal.key_id() {
-            set_contained_key_id(&mut protected_header, key_id);
-        }
+        set_contained_key_id(&mut protected_header, key_to_seal.key_id());
 
         set_safe_namespaces(
             &mut protected_header,
@@ -101,9 +98,6 @@ impl SymmetricKeyEnvelope {
         );
         protected_header.key_id = wrapping_key.key_id.as_slice().into();
 
-        // The content-encryption algorithm (XChaCha20-Poly1305) is declared in the protected header
-        // by `encrypt_cose0`. The wrapping key is always a 32-byte XChaCha20-Poly1305 key (checked
-        // above), so the length check inside `encrypt_cose0` never trips here.
         let cose_encrypt0 = encrypt_cose0(
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
             CoseEncrypt0Builder::new(),

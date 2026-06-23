@@ -82,10 +82,11 @@ pub(super) fn extract_key_id(header: &coset::Header) -> Result<Option<KeyId>, ()
     }
 }
 
-/// Set the contained key ID on a COSE header.
-/// Only COSE keys have a key ID; legacy keys do not.
-pub(super) fn set_contained_key_id(header: &mut coset::Header, key_id: KeyId) {
-    set_header_value(header, CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
+/// Set the contained key ID on a COSE header, if present.
+pub(super) fn set_contained_key_id(header: &mut coset::Header, key_id: Option<KeyId>) {
+    if let Some(key_id) = key_id {
+        set_header_value(header, CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
+    }
 }
 
 #[cfg(test)]
@@ -97,7 +98,7 @@ mod tests {
         let key_id = KeyId::from([7u8; KEY_ID_SIZE]);
         let mut header = coset::HeaderBuilder::new().build();
 
-        set_contained_key_id(&mut header, key_id.clone());
+        set_contained_key_id(&mut header, Some(key_id.clone()));
 
         assert_eq!(extract_key_id(&header), Ok(Some(key_id)));
     }
@@ -105,6 +106,15 @@ mod tests {
     #[test]
     fn extract_key_id_returns_none_when_absent() {
         let header = coset::HeaderBuilder::new().build();
+
+        assert_eq!(extract_key_id(&header), Ok(None));
+    }
+
+    #[test]
+    fn set_contained_key_id_with_none_leaves_header_without_key_id() {
+        let mut header = coset::HeaderBuilder::new().build();
+
+        set_contained_key_id(&mut header, None);
 
         assert_eq!(extract_key_id(&header), Ok(None));
     }

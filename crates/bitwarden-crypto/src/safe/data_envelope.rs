@@ -221,8 +221,8 @@ impl DataEnvelope {
         }
 
         // Decrypt the message. `decrypt_cose0` validates that the protected header declares the
-        // XChaCha20-Poly1305 content-encryption algorithm before attempting decryption. The envelope
-        // always declares the algorithm, so no decryption fallback is needed.
+        // XChaCha20-Poly1305 content-encryption algorithm before attempting decryption. The
+        // envelope always declares the algorithm, so no decryption fallback is needed.
         let decrypted_message = decrypt_cose0(&msg, None, cek.enc_key.as_slice())
             .map_err(|_| DataEnvelopeError::Decryption)?;
 
