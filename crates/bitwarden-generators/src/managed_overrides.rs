@@ -128,12 +128,12 @@ impl ApplyManagedOverride for PassphraseGeneratorRequest {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_managed_settings::{ManagementProfile, ManagementSource};
+    use bitwarden_managed_settings::ManagementProfile;
 
     use super::*;
 
     fn profile_with(pairs: &[(&str, &str)]) -> ManagementProfile {
-        let mut p = ManagementProfile::empty(ManagementSource::PolicyLinux);
+        let mut p = ManagementProfile::empty();
         for (k, v) in pairs {
             p.settings.insert((*k).to_owned(), (*v).to_owned());
         }
@@ -147,7 +147,7 @@ mod tests {
             uppercase: false,
             ..Default::default()
         };
-        let profile = ManagementProfile::empty(ManagementSource::PolicyWindows);
+        let profile = ManagementProfile::empty();
         let out = PasswordGeneratorRequest {
             length: 12,
             uppercase: false,

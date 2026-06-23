@@ -138,32 +138,26 @@ impl GeneratorClientsExt for Client {
 #[cfg(test)]
 mod managed_override_tests {
     //! End-to-end tests proving the managed-settings override is applied by
-    //! [`GeneratorClient`] before generation. These tests touch the
-    //! process-global managed-settings store, so they take a shared mutex
-    //! to serialize.
-
-    use std::sync::Mutex;
+    //! [`GeneratorClient`] before generation. Each test builds its own
+    //! client wired to a fresh handle, so tests are fully independent.
 
     use bitwarden_core::Client;
     use bitwarden_managed_settings::{
-        ManagedSettingsClientExt, ManagementProfile, ManagementSource,
+        ManagedSettingsBuilderExt, ManagedSettingsClient, ManagementProfile,
     };
 
-    use super::*;
+    use crate::{GeneratorClientsExt as _, PasswordGeneratorRequest, PassphraseGeneratorRequest};
 
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
-
-    fn lock_and_reset() -> std::sync::MutexGuard<'static, ()> {
-        let g = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        // Clear any leftover profile from another test.
-        Client::new(None).managed_settings().update_profile(None);
-        g
+    /// Build a client wired to a fresh managed-settings handle, returning both.
+    fn client_with_handle() -> (Client, ManagedSettingsClient) {
+        let handle = ManagedSettingsClient::new();
+        let client = Client::builder().with_managed_settings(&handle).build();
+        (client, handle)
     }
 
     #[test]
     fn no_profile_request_unchanged_password() {
-        let _g = lock_and_reset();
-        let client = Client::new(None);
+        let (client, _handle) = client_with_handle();
         let req = PasswordGeneratorRequest {
             length: 12,
             ..Default::default()
@@ -175,23 +169,16 @@ mod managed_override_tests {
 
     #[test]
     fn managed_length_overrides_request() {
-        let _g = lock_and_reset();
-        let client = Client::new(None);
-        let mut p = ManagementProfile::empty(ManagementSource::PolicyLinux);
-        p.settings
-            .insert("generator.password.length".to_owned(), "20".to_owned());
-        client.managed_settings().update_profile(Some(p));
+        let (client, handle) = client_with_handle();
+        let mut p = ManagementProfile::empty();
+        p.settings.insert("generator.password.length".to_owned(), "20".to_owned());
+        handle.update_profile(Some(p));
 
-        let req = PasswordGeneratorRequest {
-            length: 12,
-            ..Default::default()
-        };
-        let result = client.generator().password(req).unwrap();
-        assert_eq!(
-            result.chars().count(),
-            20,
-            "admin-forced length 20 must override request length 12"
-        );
+        let pwd = client
+            .generator()
+            .password(PasswordGeneratorRequest { length: 12, ..Default::default() })
+            .unwrap();
+        assert_eq!(pwd.chars().count(), 20);
     }
 
     #[test]
@@ -202,14 +189,9 @@ mod managed_override_tests {
         // minimum has already been baked into the request fields. So we
         // simulate that here as `policy_applied_length = 14`. The admin
         // override (20) must then take precedence.
-        let _g = lock_and_reset();
-        let client = Client::new(None);
+        let (client, handle) = client_with_handle();
 
         let policy_applied_length: u8 = 14;
-        let request = PasswordGeneratorRequest {
-            length: policy_applied_length,
-            ..Default::default()
-        };
 
         // No managed profile yet — confirm the policy-derived length is honored.
         let pwd_policy_only = client.generator().password(PasswordGeneratorRequest {
@@ -219,12 +201,14 @@ mod managed_override_tests {
         assert_eq!(pwd_policy_only.chars().count(), policy_applied_length as usize);
 
         // Now push an admin profile that forces length=20.
-        let mut p = ManagementProfile::empty(ManagementSource::ExtensionManagedStorage);
-        p.settings
-            .insert("generator.password.length".to_owned(), "20".to_owned());
-        client.managed_settings().update_profile(Some(p));
+        let mut p = ManagementProfile::empty();
+        p.settings.insert("generator.password.length".to_owned(), "20".to_owned());
+        handle.update_profile(Some(p));
 
-        let pwd_managed = client.generator().password(request).unwrap();
+        let pwd_managed = client.generator().password(PasswordGeneratorRequest {
+            length: policy_applied_length,
+            ..Default::default()
+        }).unwrap();
         assert_eq!(
             pwd_managed.chars().count(),
             20,
@@ -234,16 +218,14 @@ mod managed_override_tests {
 
     #[test]
     fn passphrase_managed_num_words_overrides_request() {
-        let _g = lock_and_reset();
-        let client = Client::new(None);
-        let mut p = ManagementProfile::empty(ManagementSource::MdmApple);
-        p.settings
-            .insert("generator.passphrase.numWords".to_owned(), "7".to_owned());
+        let (client, handle) = client_with_handle();
+        let mut p = ManagementProfile::empty();
+        p.settings.insert("generator.passphrase.numWords".to_owned(), "7".to_owned());
         p.settings.insert(
             "generator.passphrase.wordSeparator".to_owned(),
             "\"-\"".to_owned(),
         );
-        client.managed_settings().update_profile(Some(p));
+        handle.update_profile(Some(p));
 
         let req = PassphraseGeneratorRequest {
             num_words: 3,
