@@ -6,7 +6,7 @@
 //! and then validates as usual. This keeps managed-settings resolution out of
 //! the generator's core algorithm.
 
-use crate::profile::ManagementProfile;
+use bitwarden_managed_settings_types::ManagementProfile;
 
 /// Apply the managed-settings overrides from `profile` to `self`.
 ///

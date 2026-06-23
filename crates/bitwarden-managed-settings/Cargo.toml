@@ -16,10 +16,12 @@ keywords.workspace = true
 [features]
 uniffi = [
     "bitwarden-core/uniffi",
+    "bitwarden-managed-settings-types/uniffi",
     "dep:uniffi",
 ] # UniFFI bindings
 wasm = [
     "bitwarden-core/wasm",
+    "bitwarden-managed-settings-types/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
 ] # WASM support
@@ -27,6 +29,7 @@ wasm = [
 [dependencies]
 bitwarden-core = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-managed-settings-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
