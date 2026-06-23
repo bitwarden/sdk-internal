@@ -89,10 +89,7 @@ impl SymmetricKeyEnvelope {
 
         let mut protected_header = HeaderBuilder::from(content_format).build();
 
-        // Only set the contained key ID if the key has one
-        if let Some(key_id) = key_to_seal.key_id() {
-            set_contained_key_id(&mut protected_header, key_id);
-        }
+        set_contained_key_id(&mut protected_header, key_to_seal.key_id());
 
         set_safe_namespaces(
             &mut protected_header,
