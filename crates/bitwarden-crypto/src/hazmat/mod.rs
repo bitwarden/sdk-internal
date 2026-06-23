@@ -1,6 +1,7 @@
-//! # Hazardous materials
+//! Hazmat module
 //!
-//! Low-level cryptographic primitives. These operate directly on raw key material and are easy to
-//! misuse; prefer the higher-level [`safe`](crate::safe) module where possible.
+//! Inside here live low level crypto implementations that are not safe to use by themselves and
+//! can be easily misused. This should never be used from another crate, and handled with extreme
+//! care.
 
 pub(crate) mod symmetric_encryption;
