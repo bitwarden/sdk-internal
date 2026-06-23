@@ -6,6 +6,10 @@ configuration. Clients (desktop, browser extension, mobile, CLI; **not** web vau
 controls in the UI, surfacing org-of-record diagnostics. The SDK is the single source of
 truth for which value wins.
 
+`ManagementProfile` and `ManagedSettingsError` live in the companion leaf crate
+`bitwarden-managed-settings-types` so that feature crates (e.g. `bitwarden-generators`)
+can depend on the type without pulling in resolution logic.
+
 ## Naming
 
 The crate is called `bitwarden-managed-settings`. We did not call it `device-management`
@@ -36,7 +40,7 @@ exposes the profile and the trait.
 ## Trust model: no `locked`, no `recommended`
 
 A `ManagementProfile` is a flat `HashMap<String, String>` plus diagnostic metadata
-(`version`, `source`, `fetched_at`). There is **no** `locked: bool` flag and there is
+(`version: u32`, `updated_at: i64`). There is **no** `locked: bool` flag and there is
 **no** `recommended` tier.
 
 Every supported acquisition source is OS-mediated and writable only by root/admin:
@@ -82,63 +86,66 @@ enum would force every binding language to reimplement JSON, which is busywork t
 adds no value over "this is a JSON string." The string-encoded form crosses UniFFI and
 WASM identically, and `ManagementProfile::get_as<T>` does typed decoding on demand.
 
-## Push (prototype) vs pull-provider (production)
+## Shared-handle model
 
-The prototype API is **push**:
-
-```rust
-client.managed_settings().update_profile(Some(profile));
-```
-
-The host fetches the profile from its OS channel and pushes it into the SDK. A
-process-global `RwLock<Option<ManagementProfile>>` (see `store.rs`) holds the active
-profile.
-
-The production design is a **pull provider trait** injected at PM-builder time, mirroring
-`bitwarden-server-communication-config`'s `CookieProvider`
-(see `crates/bitwarden-server-communication-config/src/cookie_provider.rs:13-32`):
+The host builds one `ManagedSettingsClient` handle at boot and injects it when
+constructing each `Client`:
 
 ```rust
-#[async_trait::async_trait]
-pub trait ManagementProfileProvider: Send + Sync + 'static {
-    async fn current(&self) -> Option<ManagementProfile>;
-}
+let handle = ManagedSettingsClient::new();
 
-PasswordManagerClient::builder()
-    .with_management_profile_provider(Arc::new(MyHostProvider))
+let client = Client::builder()
+    .with_managed_settings(&handle)  // ManagedSettingsBuilderExt
     .build();
 ```
 
-The provider is held in an `Arc` inside the builder; the `ManagedSettingsClient` reads
-it on demand instead of consulting a global. The public surface
-(`is_managed`, `get`, `current_profile`) does not change, so swapping push for pull
-is non-breaking for clients.
+`with_managed_settings` calls `ClientBuilder::with_managed_profile`, storing the handle's
+`Arc<RwLock<Option<ManagementProfile>>>` on `bitwarden_core::InternalClient.managed_profile`.
+`ManagedSettingsClientExt::managed_settings()` reads it back from a `Client` by wrapping
+the same `Arc`.
 
-We use push here because the WASM and UniFFI bindings should be a plain struct +
-methods, not an async trait with a host-implemented dyn callback. That second piece is
-non-trivial across both binding generators, and the prototype's job is to prove the
-override path, not the IPC plumbing.
+The handle is cheap to clone (`#[derive(Clone)]`, `#[wasm_bindgen]`). All clones share one
+`Arc`, so a push from any clone — including from the host after construction — is immediately
+visible to every `Client` and every other clone. The host fetches the profile from its OS
+channel and pushes it in:
+
+```rust
+handle.update_profile(Some(profile));  // visible to all clients instantly
+handle.update_profile(None);           // clears the override
+```
+
+Public methods: `new`, `update_profile(Option<ManagementProfile>)`, `is_managed(String)`,
+`get(String)`, `current_profile()`. The raw cell accessors (`cell()`, `from_profile()`)
+are `pub(crate)`.
+
+There is no process-global store and no pull-provider trait. Tests are per-client and
+fully isolated; no test-serializing `Mutex` or `reset_for_test` is required.
 
 ## Per-platform client acquisition summary
 
 The SDK does not vary behavior by source, but for completeness:
 
 * **Apple (iOS, macOS):** `UserDefaults.standard.dictionary(forKey: "com.apple.configuration.managed")`
-  yields the MDM-delivered config blob. Map known keys to `settings`, tag
-  `source: MdmApple`, push.
+  yields the MDM-delivered config blob. Map known keys to `settings`, push via
+  `update_profile`.
 * **Android:** `RestrictionsManager.getApplicationRestrictions()` returns a `Bundle`.
-  Translate known keys, tag `source: MdmAndroid`.
+  Translate known keys and push.
 * **Windows desktop:** read `HKLM\SOFTWARE\Policies\Bitwarden` (registry); each value
-  becomes a dotted key. Tag `source: PolicyWindows`.
+  becomes a dotted key. Push.
 * **Linux desktop:** read JSON files under `/etc/bitwarden/policies/` (or the
-  distro-conventional system-policy path). Tag `source: PolicyLinux`.
+  distro-conventional system-policy path). Push.
 * **Browser extension (Chromium):** `chrome.storage.managed.get()` returns the
   policy JSON deployed by the admin (Group Policy on Windows, plist on macOS,
-  `/etc/chromium/policies/managed/*.json` on Linux). Tag
-  `source: ExtensionManagedStorage`.
+  `/etc/chromium/policies/managed/*.json` on Linux). Push.
 * **Web vault:** out of scope. The web vault has no OS context to read from; admin
   configuration there continues to go through the existing organization-policy
   mechanism.
+
+## Key catalog
+
+`catalog.rs` exports `managed_keys()`, a hand-maintained list of every dotted key the SDK
+consumes. A CI check in the clients repo validates admin-facing JSON schemas against this
+catalog.
 
 ## Vignette: password generator
 
@@ -167,15 +174,7 @@ The trait implementation is in `bitwarden-generators`. `GeneratorClient::passwor
 and call `apply_managed_override` before delegating to the existing generation
 function.
 
-## Open prototype caveats
+## Error type
 
-* `store.rs` uses a process-global `RwLock`. Acceptable per the trust model (every
-  `Client` in a process is bound by the same OS-mediated policy). Documented in
-  `store.rs` and replaced by an injected provider in production.
-* No `unwrap_used` in production paths. Tests use `unwrap_or_else(into_inner)` for
-  the `Mutex` that serializes the global-store tests; this is intentional, only in
-  `#[cfg(test)]` code, and the deny-list does not apply to test code that explicitly
-  recovers from poison.
-* Error type is intentionally minimal (`ManagedSettingsError::Decode`). A real
-  implementation would add `BadShape`, `OutOfRange`, etc. once we have downstream
-  consumers that need to discriminate.
+`ManagedSettingsError::Decode` is intentionally minimal. A real implementation would add
+`BadShape`, `OutOfRange`, etc. once downstream consumers need to discriminate.
