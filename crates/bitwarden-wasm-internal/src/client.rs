@@ -29,10 +29,16 @@ pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     #[wasm_bindgen(constructor)]
-    pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
+    pub fn new(
+        token_provider: JsTokenProvider,
+        settings: Option<ClientSettings>,
+        managed_settings: &ManagedSettingsClient,
+    ) -> Self {
         let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
         Self(InnerPasswordManagerClient::new_with_client_tokens(
-            settings, tokens,
+            settings,
+            tokens,
+            managed_settings,
         ))
     }
 
