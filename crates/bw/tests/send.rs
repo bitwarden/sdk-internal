@@ -470,7 +470,7 @@ fn send_create_delete_in_days_rejects_disallowed_value() {
         "expected clap value-parser error mentioning deleteInDays; got:\n{stderr}"
     );
     assert!(
-        stderr.contains("Allowed"),
+        stderr.contains("possible values"),
         "error should list the allowed values; got:\n{stderr}"
     );
 }

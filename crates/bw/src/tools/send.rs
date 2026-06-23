@@ -14,17 +14,249 @@ use bitwarden_send::{
     SendViewType,
 };
 use chrono::{Duration, Utc};
+use clap::{
+    Args, Subcommand,
+    builder::{PossibleValuesParser, TypedValueParser as _},
+};
 use color_eyre::eyre::{Context as _, eyre};
 use serde::Serialize;
 
-use super::{
-    SendArgs, SendCommands, SendCreateArgs, SendDeleteArgs, SendEditArgs, SendGetArgs,
-    SendListArgs, SendReceiveArgs, SendRemovePasswordArgs, SendTemplateArgs,
-};
 use crate::{
     client_state::{AnyState, BwCommand, BwCommandExt as _, ClientContext, LoggedIn},
     render::{CommandOutput, CommandResult},
 };
+
+/// Allowed values for `--deleteInDays`, matching the legacy CLI's enumerated set.
+/// Kept as strings so `PossibleValuesParser` can surface them in `--help` output.
+const DELETE_IN_DAYS_ALLOWED: &[&str] = &["1", "2", "3", "7", "14", "30"];
+
+/// Clap value parser for `--deleteInDays`. Restricts input to the legacy-CLI allowed
+/// set (also surfaced in `--help`) and maps it back to the `u64` field type.
+fn delete_in_days_parser() -> impl clap::builder::TypedValueParser<Value = u64> + Clone {
+    PossibleValuesParser::new(DELETE_IN_DAYS_ALLOWED)
+        .map(|s| s.parse::<u64>().expect("allowed values are valid u64"))
+}
+
+#[derive(Args, Clone)]
+pub struct SendArgs {
+    /// The data to Send
+    pub data: Option<String>,
+
+    #[arg(short = 'f', long, help = "Specifies that <data> is a filepath.")]
+    pub file: bool,
+
+    #[arg(
+        short = 'd',
+        long = "deleteInDays",
+        help = "The number of days in the future to set deletion date.",
+        default_value_t = 7,
+        value_parser = delete_in_days_parser(),
+    )]
+    pub delete_in_days: u64,
+
+    #[arg(
+        long,
+        conflicts_with = "emails",
+        help = "Optional password to access this Send."
+    )]
+    pub password: Option<String>,
+
+    #[arg(
+        long,
+        help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
+    )]
+    pub emails: Option<String>,
+
+    #[arg(
+        short = 'a',
+        long = "maxAccessCount",
+        help = "The amount of max possible accesses."
+    )]
+    pub max_access_count: Option<u32>,
+
+    #[arg(long, help = "Hide <data> in web by default.")]
+    pub hidden: bool,
+
+    #[arg(short = 'n', long, help = "The name of the Send.")]
+    pub name: Option<String>,
+
+    #[arg(long, help = "Notes to add to the Send.")]
+    pub notes: Option<String>,
+
+    #[arg(
+        long = "fullObject",
+        help = "Specifies that the full Send object should be returned."
+    )]
+    pub full_object: bool,
+
+    #[command(subcommand)]
+    pub command: Option<SendCommands>,
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum SendCommands {
+    #[command(about = "List all the Sends owned by you.")]
+    List(SendListArgs),
+
+    #[command(about = "Get json templates for send objects.")]
+    Template(SendTemplateArgs),
+
+    #[command(about = "Get Sends owned by you.")]
+    Get(SendGetArgs),
+
+    #[command(about = "Access a Bitwarden Send from a url.")]
+    Receive(SendReceiveArgs),
+
+    #[command(about = "Create a Send.")]
+    Create(SendCreateArgs),
+
+    #[command(about = "Edit a Send.")]
+    Edit(SendEditArgs),
+
+    #[command(about = "Removes the saved password from a Send.")]
+    RemovePassword(SendRemovePasswordArgs),
+
+    #[command(about = "Delete a Send.")]
+    Delete(SendDeleteArgs),
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct SendListArgs;
+
+#[derive(Args, Clone, Debug)]
+pub struct SendTemplateArgs {
+    pub object: String,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct SendGetArgs {
+    pub id: SendId,
+
+    // The internal field is `output_path` (not `output`) to avoid clashing with the
+    // top-level `Cli::output` (the `-o` rendered-output-format arg). User-facing long
+    // flag stays `--output` to match the legacy CLI.
+    #[arg(
+        long = "output",
+        help = "File path to save a file-type Send's decrypted contents to."
+    )]
+    pub output_path: Option<String>,
+
+    #[arg(long, help = "Only return the access url.")]
+    pub text: bool,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct SendReceiveArgs {
+    pub url: String,
+
+    #[arg(long, help = "Optional password for the Send.")]
+    pub password: Option<String>,
+
+    #[arg(long, help = "Specify a file path to save a File-type Send to.")]
+    pub obj: Option<String>,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct SendCreateArgs {
+    pub encoded_json: Option<String>,
+
+    #[arg(short = 'f', long, help = "Path to the file to Send.")]
+    pub file: Option<String>,
+
+    #[arg(long, help = "Text to Send.")]
+    pub text: Option<String>,
+
+    #[arg(
+        short = 'd',
+        long = "deleteInDays",
+        help = "The number of days in the future to set deletion date.",
+        default_value_t = 7,
+        value_parser = delete_in_days_parser(),
+    )]
+    pub delete_in_days: u64,
+
+    #[arg(
+        long = "maxAccessCount",
+        help = "The maximum number of times this Send can be accessed."
+    )]
+    pub max_access_count: Option<u32>,
+
+    #[arg(long, help = "Hide text.")]
+    pub hidden: bool,
+
+    #[arg(short = 'n', long, help = "The name of the Send.")]
+    pub name: Option<String>,
+
+    #[arg(long, help = "Notes to add to the Send.")]
+    pub notes: Option<String>,
+
+    #[arg(
+        long,
+        conflicts_with = "emails",
+        help = "Optional password to access this Send."
+    )]
+    pub password: Option<String>,
+
+    #[arg(
+        long,
+        help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
+    )]
+    pub emails: Option<String>,
+
+    #[arg(
+        long = "fullObject",
+        help = "Return full Send object instead of access url."
+    )]
+    pub full_object: bool,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct SendEditArgs {
+    pub encoded_json: Option<String>,
+
+    #[arg(long, help = "Overrides the itemId provided in encodedJson.")]
+    pub itemid: Option<SendId>,
+
+    #[arg(
+        short = 'd',
+        long = "deleteInDays",
+        help = "The number of days in the future to set deletion date.",
+        value_parser = delete_in_days_parser(),
+    )]
+    pub delete_in_days: Option<u64>,
+
+    #[arg(
+        long = "maxAccessCount",
+        help = "The maximum number of times this Send can be accessed."
+    )]
+    pub max_access_count: Option<u32>,
+
+    #[arg(long, help = "Hide text.")]
+    pub hidden: bool,
+
+    #[arg(
+        long,
+        conflicts_with = "emails",
+        help = "Optional password to access this Send."
+    )]
+    pub password: Option<String>,
+
+    #[arg(
+        long,
+        help = "Email addresses for OTP authentication (single, JSON array, comma- or space-separated)."
+    )]
+    pub emails: Option<String>,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct SendRemovePasswordArgs {
+    pub id: SendId,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct SendDeleteArgs {
+    pub id: SendId,
+}
 
 impl BwCommand for SendArgs {
     // `AnyState` because `bw send template` and `bw send receive` run without a session; the
