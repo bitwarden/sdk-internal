@@ -19,7 +19,7 @@
 //! the KDF - "envelope key", is used directly as the content-encryption key that wraps the
 //! symmetric key sealed by the envelope.
 //!
-//! Note: AES-GCM issed here since the CEK is locally derived, so there is no nonce re-use problem
+//! Note: AES-GCM is used here since the CEK is locally derived, so there is no nonce re-use problem.
 
 use std::{num::TryFromIntError, str::FromStr};
 
