@@ -49,4 +49,12 @@ impl Client {
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
     }
+
+    /// Whether the client is in Gov Mode (FedRAMP).
+    ///
+    /// TODO: Placeholder that always returns `false` until the real implementation lands in
+    /// <https://bitwarden.atlassian.net/browse/PM-38266>.
+    pub fn gov_mode(&self) -> bool {
+        false
+    }
 }
