@@ -108,6 +108,11 @@ impl PasswordManagerClient {
         self.0.exporters()
     }
 
+    /// Importer related operations.
+    pub fn importers(&self) -> ImporterClient {
+        self.0.importers()
+    }
+
     /// Policy related operations.
     pub fn policies(&self) -> PolicyClient {
         self.0.policies()
@@ -116,6 +121,16 @@ impl PasswordManagerClient {
     /// Send related operations.
     pub fn sends(&self) -> SendClient {
         self.0.sends()
+    }
+
+    /// Organization invite link operations.
+    pub fn invite_link(&self) -> InviteLinkClient {
+        self.0.invite_link()
+    }
+
+    /// Crypto cipher suite operations.
+    pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
+        self.0.crypto_cipher_suite()
     }
 }
 

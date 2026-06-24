@@ -19,9 +19,11 @@ cli = ["bitwarden-unlock/cli"]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
     "bitwarden-core/uniffi",
+    "bitwarden-crypto-cipher-suite/uniffi",
     "bitwarden-exporters/uniffi",
     "bitwarden-fido/uniffi",
     "bitwarden-generators/uniffi",
+    "bitwarden-importers/uniffi",
     "bitwarden-send/uniffi",
     "bitwarden-state/uniffi",
     "bitwarden-unlock/uniffi",
@@ -32,8 +34,11 @@ wasm = [
     "bitwarden-auth/wasm",
     "bitwarden-commercial-vault/wasm",
     "bitwarden-core/wasm",
+    "bitwarden-crypto-cipher-suite/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
+    "bitwarden-importers/wasm",
+    "bitwarden-organization-invite-link/wasm",
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
     "bitwarden-state/wasm",
@@ -51,9 +56,12 @@ bitwarden-auth = { workspace = true }
 bitwarden-commercial-vault = { workspace = true, optional = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-crypto-cipher-suite = { workspace = true }
 bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
+bitwarden-importers = { workspace = true }
+bitwarden-organization-invite-link = { workspace = true }
 bitwarden-policies = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-server-communication-config = { workspace = true }

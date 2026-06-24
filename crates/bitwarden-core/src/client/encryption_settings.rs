@@ -7,7 +7,7 @@ use bitwarden_crypto::UnsignedSharedKey;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "internal")]
-use tracing::{info, instrument};
+use tracing::info;
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
@@ -82,7 +82,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn set_org_keys(
         org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
         store: &KeyStore<KeySlotIds>,

@@ -6,7 +6,7 @@ use bitwarden_core::key_management::{
 };
 use bitwarden_crypto::{KeyStore, PublicKey};
 use serde::{Deserialize, Serialize};
-use tracing::{info, instrument};
+use tracing::info;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -73,12 +73,7 @@ impl UserCryptoManagementClient {
     }
 }
 
-#[instrument(
-    name = "password_change_and_rotate_user_keys",
-    level = "info",
-    skip_all,
-    err
-)]
+#[bitwarden_logging::instrument(name = "password_change_and_rotate_user_keys", level = "info", err)]
 async fn internal_password_change_and_rotate_user_keys(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,

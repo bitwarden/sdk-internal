@@ -26,6 +26,12 @@ pub enum SyncError {
 
     #[error("Account has been deleted on the server.")]
     AccountDeleted,
+
+    #[error(transparent)]
+    Setting(#[from] bitwarden_state::SettingsError),
+
+    #[error("Server returned an unrepresentable revision date.")]
+    InvalidRevisionDate,
 }
 
 #[allow(missing_docs)]
@@ -63,7 +69,7 @@ impl SyncClient {
         }
     }
 
-    /// Get the timestamp of the last successful sync, if any.
+    /// Get the timestamp of the last successful sync or confirmed-up-to-date skip, if any.
     pub async fn last_sync(&self) -> Option<DateTime<Utc>> {
         match self.last_sync.as_ref()?.get().await {
             Ok(value) => value,
@@ -91,22 +97,61 @@ impl SyncClient {
         self.error_handlers.register(handler);
     }
 
-    /// Perform a full sync operation
+    /// Perform a sync operation, skipping the server call when nothing has changed.
     ///
-    /// This method:
-    /// 1. Performs the sync with the Bitwarden API
-    /// 2. On success, dispatches `on_sync` with the sync response to all registered handlers
-    /// 3. Dispatches `on_sync_complete` to all handlers for post-processing
-    /// 4. On error (from API or handlers), notifies all registered error handlers
+    /// Returns `Ok(true)` if a full sync was performed, or `Ok(false)` if the revision-date
+    /// check determined that the server has no new changes and the sync was skipped.
     ///
-    /// Handlers receive the raw API models and are responsible for converting to domain types
-    /// as needed. This allows each handler to decide how to process the data.
+    /// ## Control flow
     ///
-    /// If any error occurs, all registered error handlers are notified before
-    /// the error is returned to the caller.
-    pub async fn sync(&self, request: SyncRequest) -> Result<SyncResponseModel, SyncError> {
+    /// Unless `request.force` is `true`, this method first fetches the account revision date
+    /// from the server and compares it to the stored `last_sync` timestamp. If the revision
+    /// is not newer, the sync is skipped: `last_sync` is bumped to now and `Ok(false)` is
+    /// returned without calling any sync or error handlers.
+    ///
+    /// When a full sync is performed:
+    /// 1. Fetches the full sync response from the Bitwarden API.
+    /// 2. Dispatches `on_sync` with the response to all registered handlers in order; stops on the
+    ///    first handler error.
+    /// 3. Dispatches `on_sync_complete` to all handlers for post-processing.
+    /// 4. On success, bumps `last_sync` to now and returns `Ok(true)`.
+    ///
+    /// ## Errors
+    ///
+    /// Any error (revision-date fetch, API call, or handler failure) is forwarded to all
+    /// registered error handlers before being returned to the caller. `last_sync` is never
+    /// bumped on an error path.
+    pub async fn sync(&self, request: SyncRequest) -> Result<bool, SyncError> {
         // Wait for any in-progress sync to complete before starting a new one
         let _guard = self.sync_lock.lock().await;
+
+        // Capture the sync start time before any server interaction. Using the start time
+        // (not the finish time) as last_sync guarantees that any server-side change committed
+        // during the sync window has a revision date strictly greater than last_sync, so the
+        // next needs_sync check will pick it up. Matches the Node CLI pattern:
+        // `const now = new Date()` before `needsSyncing()`.
+        let sync_start = Utc::now();
+
+        let needs_sync = if request.force {
+            true
+        } else {
+            match self.needs_sync().await {
+                Ok(needed) => needed,
+                Err(e) => {
+                    self.run_error_handlers(&e).await;
+                    return Err(e);
+                }
+            }
+        };
+
+        if !needs_sync {
+            // Persistent clock-skew note: if the local clock is permanently ahead of the
+            // server, every revision check will say "no sync needed" and we keep bumping
+            // lastSync to a future-skewed `now` — server-side changes are never picked up
+            // until the clock is corrected. Matches Node CLI behaviour.
+            self.update_last_sync(sync_start).await;
+            return Ok(false);
+        }
 
         let result = async {
             let response = self.perform_sync(&request).await?;
@@ -115,11 +160,49 @@ impl SyncClient {
         }
         .await;
 
-        if let Err(ref error) = result {
-            self.run_error_handlers(error).await;
+        match result {
+            Ok(_) => {
+                self.update_last_sync(sync_start).await;
+                Ok(true)
+            }
+            Err(error) => {
+                self.run_error_handlers(&error).await;
+                Err(error)
+            }
+        }
+    }
+
+    async fn needs_sync(&self) -> Result<bool, SyncError> {
+        let Some(last_sync_setting) = self.last_sync.as_ref() else {
+            return Ok(true); // No state backend — always sync
+        };
+        let Some(last_sync) = last_sync_setting.get().await? else {
+            return Ok(true); // First sync — skip revision check
+        };
+
+        let revision_ms = self
+            .api_configurations
+            .api_client
+            .accounts_api()
+            .get_account_revision_date()
+            .await
+            .map_err(|e| SyncError::Api(e.into()))?;
+
+        if revision_ms < 0 {
+            return Err(SyncError::AccountDeleted);
         }
 
-        result
+        Ok(DateTime::<Utc>::from_timestamp_millis(revision_ms)
+            .ok_or(SyncError::InvalidRevisionDate)?
+            > last_sync)
+    }
+
+    async fn update_last_sync(&self, now: DateTime<Utc>) {
+        if let Some(setting) = self.last_sync.as_ref()
+            && let Err(e) = setting.update(now).await
+        {
+            tracing::warn!("Failed to update last sync timestamp: {e}");
+        }
     }
 
     /// Run sync handlers for a completed sync operation
@@ -188,6 +271,8 @@ impl SyncClientExt for Client {
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use chrono::{Duration, Utc};
+
     use super::*;
 
     struct TestHandler {
@@ -236,6 +321,27 @@ mod tests {
             sync_lock: tokio::sync::Mutex::new(()),
             last_sync: None,
         }
+    }
+
+    /// Helper to create a SyncClient with a state-backed last_sync setting.
+    ///
+    /// If `stored_last_sync` is `Some`, it is written into the in-memory repository so
+    /// that subsequent calls to `needs_sync` see it.
+    async fn test_client_with_last_sync(
+        api_client: bitwarden_api_api::apis::ApiClient,
+        stored_last_sync: Option<DateTime<Utc>>,
+    ) -> SyncClient {
+        let repo: Arc<dyn bitwarden_state::repository::Repository<bitwarden_state::SettingItem>> =
+            Arc::new(bitwarden_test::MemoryRepository::<
+                bitwarden_state::SettingItem,
+            >::default());
+        let setting = bitwarden_state::Setting::new(repo, crate::state::LAST_SYNC);
+        if let Some(dt) = stored_last_sync {
+            setting.update(dt).await.expect("pre-populate last_sync");
+        }
+        let mut client = test_client(api_client);
+        client.last_sync = Some(setting);
+        client
     }
 
     #[tokio::test]
@@ -371,6 +477,186 @@ mod tests {
             *error_log.lock().unwrap(),
             vec!["first", "second"],
             "All error handlers should be called on sync failure"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_first_sync_skips_revision_check() {
+        // Setting exists but has no stored value — revision check must not be called.
+        let client = test_client_with_last_sync(
+            bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+                mock.sync_api
+                    .expect_get()
+                    .returning(|_| Ok(SyncResponseModel::default()));
+                // accounts_api has no expectation — mock panics on unexpected calls
+            }),
+            None,
+        )
+        .await;
+
+        let result = client
+            .sync(SyncRequest {
+                force: false,
+                exclude_subdomains: None,
+            })
+            .await;
+
+        assert!(result.is_ok_and(|v| v));
+    }
+
+    #[tokio::test]
+    async fn test_revision_check_skips_sync_when_up_to_date() {
+        let stored_last_sync = Utc::now();
+        // Server revision is 60 seconds older than our stored last_sync.
+        let server_revision_ms = (stored_last_sync - Duration::seconds(60)).timestamp_millis();
+
+        let sync_log = Arc::new(Mutex::new(Vec::<String>::new()));
+        let sync_log_clone = sync_log.clone();
+
+        let client = test_client_with_last_sync(
+            bitwarden_api_api::apis::ApiClient::new_mocked(move |mock| {
+                mock.accounts_api
+                    .expect_get_account_revision_date()
+                    .returning(move || Ok(server_revision_ms));
+                // sync_api has no expectation — must not be called
+            }),
+            Some(stored_last_sync),
+        )
+        .await;
+
+        client.register_sync_handler(Arc::new(TestHandler {
+            name: "should_not_run".to_string(),
+            execution_log: sync_log_clone,
+            should_fail: false,
+        }));
+
+        let result = client
+            .sync(SyncRequest {
+                force: false,
+                exclude_subdomains: None,
+            })
+            .await;
+
+        assert!(result.is_ok_and(|v| !v), "Expected Ok(false) skip result");
+        assert!(
+            sync_log.lock().unwrap().is_empty(),
+            "Sync handler must not be called on skip"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_force_bypasses_revision_check() {
+        let stored_last_sync = Utc::now();
+
+        let client = test_client_with_last_sync(
+            bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+                mock.sync_api
+                    .expect_get()
+                    .returning(|_| Ok(SyncResponseModel::default()));
+                // accounts_api has no expectation
+            }),
+            Some(stored_last_sync),
+        )
+        .await;
+
+        let result = client
+            .sync(SyncRequest {
+                force: true,
+                exclude_subdomains: None,
+            })
+            .await;
+
+        assert!(result.is_ok_and(|v| v));
+    }
+
+    #[tokio::test]
+    async fn test_account_deleted_error() {
+        let stored_last_sync = Utc::now();
+        let error_log = Arc::new(Mutex::new(Vec::<String>::new()));
+        let error_log_clone = error_log.clone();
+
+        let client = test_client_with_last_sync(
+            bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+                mock.accounts_api
+                    .expect_get_account_revision_date()
+                    .returning(|| Ok(-1i64));
+            }),
+            Some(stored_last_sync),
+        )
+        .await;
+
+        client.register_error_handler(Arc::new(TestErrorHandler {
+            name: "error_handler".to_string(),
+            error_log: error_log_clone,
+        }));
+
+        let result = client
+            .sync(SyncRequest {
+                force: false,
+                exclude_subdomains: None,
+            })
+            .await;
+
+        assert!(
+            matches!(result, Err(SyncError::AccountDeleted)),
+            "Expected AccountDeleted error"
+        );
+        assert_eq!(
+            *error_log.lock().unwrap(),
+            vec!["error_handler"],
+            "Error handler must be called for AccountDeleted"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_revision_fetch_failure_does_not_bump_last_sync() {
+        let stored_last_sync =
+            DateTime::<Utc>::from_timestamp_millis(1_000_000).expect("valid timestamp");
+        let error_log = Arc::new(Mutex::new(Vec::<String>::new()));
+        let error_log_clone = error_log.clone();
+
+        // Build Setting manually so we can inspect it after sync.
+        let repo: Arc<dyn bitwarden_state::repository::Repository<bitwarden_state::SettingItem>> =
+            Arc::new(bitwarden_test::MemoryRepository::<
+                bitwarden_state::SettingItem,
+            >::default());
+        let setting = bitwarden_state::Setting::new(repo, crate::state::LAST_SYNC);
+        setting
+            .update(stored_last_sync)
+            .await
+            .expect("pre-populate last_sync");
+
+        let mut client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_get_account_revision_date()
+                .returning(|| Err(std::io::Error::other("network error").into()));
+        }));
+        client.last_sync = Some(setting.clone());
+
+        client.register_error_handler(Arc::new(TestErrorHandler {
+            name: "error_handler".to_string(),
+            error_log: error_log_clone,
+        }));
+
+        let result = client
+            .sync(SyncRequest {
+                force: false,
+                exclude_subdomains: None,
+            })
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Expected error from revision fetch failure"
+        );
+        assert_eq!(
+            setting.get().await.unwrap(),
+            Some(stored_last_sync),
+            "last_sync must not be bumped on error"
+        );
+        assert!(
+            !error_log.lock().unwrap().is_empty(),
+            "Error handler must be called"
         );
     }
 }
