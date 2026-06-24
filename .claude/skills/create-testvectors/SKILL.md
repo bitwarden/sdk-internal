@@ -6,6 +6,7 @@ description:
   formats), or when the user asks to "create a test vector", "record a serialized format", or "lock
   in the wire format". Generates output with a temporary ignored test, then pins it in a permanent
   deserialization unit test.
+allowed-tools: Bash(cargo test:*), Bash(npm run lint)
 ---
 
 # Create a serialization test vector
