@@ -4,9 +4,9 @@ use bitwarden_crypto::{
     safe::{DataEnvelope, DataEnvelopeError},
 };
 use bitwarden_encoding::B64;
+use bitwarden_logging::instrument;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::instrument;
 
 use super::CipherBlob;
 
@@ -60,7 +60,7 @@ impl SealedCipherBlob {
     }
 
     /// Unseals the `CipherBlob` from this container using the provided wrapping key.
-    #[instrument(err, skip_all, fields(format_version = self.format_version))]
+    #[instrument(err, fields(format_version = self.format_version))]
     pub(super) fn unseal(
         &self,
         wrapping_key: &SymmetricKeySlotId,

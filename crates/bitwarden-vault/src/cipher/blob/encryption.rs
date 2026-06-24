@@ -3,8 +3,8 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, IdentifyKey, KeyStoreContext,
     PrimitiveEncryptable,
 };
+use bitwarden_logging::instrument;
 use thiserror::Error;
-use tracing::instrument;
 
 use super::{CipherBlob, CipherBlobLatest, SealedCipherBlob, SealedCipherBlobError};
 use crate::cipher::{
@@ -150,7 +150,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
 
 /// Decrypts a pre-parsed blob-encrypted `Cipher` into a `CipherView`. Callers
 /// should obtain the [`SealedCipherBlob`] via [`try_parse_blob`].
-#[instrument(err, skip_all, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id))]
+#[instrument(err, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id))]
 pub(crate) fn decrypt_blob_cipher(
     cipher: &Cipher,
     sealed: &SealedCipherBlob,
