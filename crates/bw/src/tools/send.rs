@@ -32,7 +32,7 @@ const DELETE_IN_DAYS_ALLOWED: &[&str] = &["1", "2", "3", "7", "14", "30"];
 
 /// Clap value parser for `--deleteInDays`. Restricts input to the legacy-CLI allowed
 /// set (also surfaced in `--help`) and maps it back to the `u64` field type.
-fn delete_in_days_parser() -> impl clap::builder::TypedValueParser<Value = u64> + Clone {
+fn delete_in_days_parser() -> impl clap::builder::TypedValueParser<Value = u64> {
     PossibleValuesParser::new(DELETE_IN_DAYS_ALLOWED)
         .map(|s| s.parse::<u64>().expect("allowed values are valid u64"))
 }
