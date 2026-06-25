@@ -6,17 +6,24 @@ use thiserror::Error;
 use tokio::select;
 
 use crate::{
-    Endpoint, constants::CHANNEL_BUFFER_CAPACITY, error::{
+    Endpoint,
+    constants::CHANNEL_BUFFER_CAPACITY,
+    error::{
         AlreadyRunningError, IpcErrorKind, ReceiveError, SendError, SubscribeError,
         TypedReceiveError,
-    }, message::{
+    },
+    message::{
         IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
         TypedOutgoingMessage,
-    }, reachability::{ReachabilityTracker, is_reachability_topic}, rpc::{
+    },
+    reachability::{ReachabilityTracker, is_reachability_topic},
+    rpc::{
         exec::{handler::ErasedRpcHandler, handler_registry::RpcHandlerRegistry},
         request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
         response_message::OutgoingRpcResponseMessage,
-    }, serde_utils, traits::{CommunicationBackend, CryptoProvider, SessionRepository},
+    },
+    serde_utils,
+    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
 /// A subscription to receive messages over IPC.
