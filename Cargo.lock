@@ -1438,6 +1438,7 @@ dependencies = [
  "bitwarden-organization-invite-link",
  "bitwarden-pm",
  "bitwarden-policies",
+ "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-shared-unlock",
  "bitwarden-ssh",

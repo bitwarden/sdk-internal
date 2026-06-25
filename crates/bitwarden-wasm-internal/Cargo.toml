@@ -13,9 +13,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [package.metadata.cargo-udeps.ignore]
-normal = [
-    "bitwarden-organization-crypto",
-] # Only used to enable wasm-bindgen, not imported directly
+normal = ["bitwarden-organization-crypto"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -33,7 +31,7 @@ performance-tracing = []
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-commercial-vault = { workspace = true, optional = true, features = [
-  "wasm",
+    "wasm",
 ] }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
@@ -47,6 +45,7 @@ bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-organization-invite-link = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
+bitwarden-send = { workspace = true, features = ["wasm"] }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }
 bitwarden-shared-unlock = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm", "ecdsa-keys"] }
