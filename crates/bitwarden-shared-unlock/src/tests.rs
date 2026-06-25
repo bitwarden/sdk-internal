@@ -159,6 +159,9 @@ impl Harness {
             InMemorySessionRepository::new(HashMap::new()),
         ));
 
+        // The leader must look reachable or the follower skips starting sessions.
+        mark_leader_reachable(&ipc_client, &follower_ipc_backend).await;
+
         let follower = Follower::create(follower_lock.clone(), ipc_client);
         follower.start_sessions().await;
 
@@ -235,24 +238,54 @@ impl Harness {
 
 /// Builds a follower whose IPC backend reports the given reachability, plus the backend so the test
 /// can inspect outgoing messages.
-fn unreachable_aware_follower(
+async fn unreachable_aware_follower(
     follower_states: HashMap<UserId, LockState>,
     reachable: bool,
 ) -> (Follower<MockDriver>, TestCommunicationBackend) {
     let follower_lock = MockDriver::new(follower_states);
     let backend = TestCommunicationBackend::new();
-    // Gate the leader endpoint so reachability is enforced, then drive it via the tracker: a
-    // recorded liveness signal makes it reachable; leaving it unrecorded keeps it unreachable.
+    // Reachability is derived from inbound traffic, so an endpoint stays unreachable until a
+    // message is observed from it. No ping targets are configured, keeping the ping scheduler from
+    // emitting liveness pings that would otherwise show up in `drain_outgoing`.
     let ipc_client: Arc<dyn IpcClient> = Arc::new(TestIpcClient::new_with_reachability(
         NoEncryptionCryptoProvider,
         backend.clone(),
         InMemorySessionRepository::new(HashMap::new()),
-        vec![LEADER_ENDPOINT],
+        Vec::new(),
     ));
     if reachable {
-        ipc_client.record_reachability(LEADER_ENDPOINT);
+        mark_leader_reachable(&ipc_client, &backend).await;
     }
     (Follower::create(follower_lock, ipc_client), backend)
+}
+
+/// Drives the IPC client's reachability tracker to report the leader as reachable by starting its
+/// receive loop and delivering an inbound message from the leader, mirroring real transport traffic
+/// (reachability is derived from observed inbound messages, not set directly).
+async fn mark_leader_reachable(ipc_client: &Arc<dyn IpcClient>, backend: &TestCommunicationBackend) {
+    ipc_client
+        .start(None)
+        .await
+        .expect("IPC client should start");
+    backend.push_incoming(IncomingMessage {
+        payload: Vec::new(),
+        destination: Endpoint::DesktopRenderer,
+        source: Source::DesktopMain,
+        topic: None,
+    });
+    wait_until_reachable(ipc_client, LEADER_ENDPOINT).await;
+}
+
+/// Polls the IPC client until `endpoint` is reported reachable, yielding so the spawned receive loop
+/// can process the injected message.
+async fn wait_until_reachable(ipc_client: &Arc<dyn IpcClient>, endpoint: Endpoint) {
+    for _ in 0..1000 {
+        if ipc_client.is_reachable(endpoint.clone()).await {
+            return;
+        }
+        tokio::task::yield_now().await;
+    }
+    panic!("leader did not become reachable");
 }
 
 #[tokio::test]
@@ -263,7 +296,7 @@ async fn test_follower_skips_start_sessions_when_leader_unreachable() {
             user_key: test_user_key(),
         },
     )]);
-    let (follower, backend) = unreachable_aware_follower(follower_states, false);
+    let (follower, backend) = unreachable_aware_follower(follower_states, false).await;
 
     follower.start_sessions().await;
 
@@ -281,7 +314,7 @@ async fn test_follower_starts_sessions_when_leader_reachable() {
             user_key: test_user_key(),
         },
     )]);
-    let (follower, backend) = unreachable_aware_follower(follower_states, true);
+    let (follower, backend) = unreachable_aware_follower(follower_states, true).await;
 
     follower.start_sessions().await;
 

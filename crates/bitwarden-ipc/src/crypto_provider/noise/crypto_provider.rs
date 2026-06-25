@@ -403,7 +403,7 @@ impl Frame {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, time::Duration};
+    use std::collections::HashMap;
 
     use crate::{
         IpcClientImpl,
@@ -411,10 +411,7 @@ mod tests {
         endpoint::Endpoint,
         ipc_client_trait::IpcClient,
         message::OutgoingMessage,
-        reachability::is_reachability_topic,
-        traits::{
-            InMemorySessionRepository, TestCommunicationBackend, TestTwoWayCommunicationBackend,
-        },
+        traits::{InMemorySessionRepository, TestTwoWayCommunicationBackend},
     };
 
     #[tokio::test]
