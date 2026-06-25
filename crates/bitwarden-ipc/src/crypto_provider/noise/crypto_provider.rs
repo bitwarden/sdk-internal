@@ -105,6 +105,12 @@ impl NoiseCryptoProvider {
                     continue;
                 }
 
+                // Plaintext reachability ping/pong travels over the raw transport and must NOT be
+                // parsed as a Noise frame; skip it so it doesn't abort an in-flight handshake.
+                if is_reachability_topic(incoming.topic.as_deref()) {
+                    continue;
+                }
+
                 // Malformed messages will cancel the handshake
                 let Ok(response_frame) = Frame::from_cbor(&incoming.payload) else {
                     return Err(NoiseCryptoProviderError::HandshakeProtocol);
@@ -403,7 +409,7 @@ impl Frame {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, time::Duration};
 
     use crate::{
         IpcClientImpl,
@@ -418,15 +424,36 @@ mod tests {
     async fn ping_pong() {
         let (provider_1, provider_2) = TestTwoWayCommunicationBackend::new();
 
+        // Both clients ping each other so their reachability trackers see liveness; in this test
+        // backend every message appears to originate from `DesktopMain`.
         let session_map_1 = InMemorySessionRepository::new(HashMap::new());
-        let client_1 = IpcClientImpl::new(NoiseCryptoProvider, provider_1, session_map_1);
+        let client_1 = IpcClientImpl::new_with_reachability(
+            NoiseCryptoProvider,
+            provider_1,
+            session_map_1,
+            vec![Endpoint::DesktopMain],
+        );
         let _ = client_1.start(None).await;
         let mut recv_1 = client_1.subscribe(None).await.unwrap();
 
         let session_map_2 = InMemorySessionRepository::new(HashMap::new());
-        let client_2 = IpcClientImpl::new(NoiseCryptoProvider, provider_2, session_map_2);
+        let client_2 = IpcClientImpl::new_with_reachability(
+            NoiseCryptoProvider,
+            provider_2,
+            session_map_2,
+            vec![Endpoint::DesktopMain],
+        );
         let _ = client_2.start(None).await;
         let mut recv_2 = client_2.subscribe(None).await.unwrap();
+
+        // `send` drops messages to a destination that is not yet reachable, so wait for the ping
+        // schedulers to establish reachability before exchanging traffic. Otherwise the first send
+        // would be silently dropped and the receivers would block forever.
+        for client in [&client_1, &client_2] {
+            while !client.is_reachable(Endpoint::DesktopMain).await {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }
 
         let handle_1 = tokio::spawn(async move {
             let mut val: u8 = 0;

@@ -262,7 +262,10 @@ async fn unreachable_aware_follower(
 /// Drives the IPC client's reachability tracker to report the leader as reachable by starting its
 /// receive loop and delivering an inbound message from the leader, mirroring real transport traffic
 /// (reachability is derived from observed inbound messages, not set directly).
-async fn mark_leader_reachable(ipc_client: &Arc<dyn IpcClient>, backend: &TestCommunicationBackend) {
+async fn mark_leader_reachable(
+    ipc_client: &Arc<dyn IpcClient>,
+    backend: &TestCommunicationBackend,
+) {
     ipc_client
         .start(None)
         .await
@@ -276,8 +279,8 @@ async fn mark_leader_reachable(ipc_client: &Arc<dyn IpcClient>, backend: &TestCo
     wait_until_reachable(ipc_client, LEADER_ENDPOINT).await;
 }
 
-/// Polls the IPC client until `endpoint` is reported reachable, yielding so the spawned receive loop
-/// can process the injected message.
+/// Polls the IPC client until `endpoint` is reported reachable, yielding so the spawned receive
+/// loop can process the injected message.
 async fn wait_until_reachable(ipc_client: &Arc<dyn IpcClient>, endpoint: Endpoint) {
     for _ in 0..1000 {
         if ipc_client.is_reachable(endpoint.clone()).await {
