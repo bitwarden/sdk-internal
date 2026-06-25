@@ -17,11 +17,7 @@ keywords.workspace = true
 
 [features]
 ecdsa-keys = [] # ECDSA key generation and import
-wasm = [
-    "bitwarden-error/wasm",
-    "dep:tsify",
-    "dep:wasm-bindgen",
-] # WASM support
+wasm = ["bitwarden-error/wasm", "dep:tsify", "dep:wasm-bindgen"] # WASM support
 uniffi = ["dep:uniffi"] # Uniffi bindings
 
 [dependencies]
