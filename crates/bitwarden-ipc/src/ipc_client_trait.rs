@@ -48,7 +48,7 @@ pub trait IpcClient: Send + Sync {
     #[doc(hidden)]
     async fn register_rpc_handler_erased(&self, name: &str, handler: Box<dyn ErasedRpcHandler>);
 
-    /// Whether `destination` is reachable
+    /// Whether `destination` is reachable.
     async fn is_reachable(&self, destination: Endpoint) -> bool;
 
     /// Immediately mark `endpoint` as unreachable (e.g. on a transport disconnect)

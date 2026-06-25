@@ -85,8 +85,18 @@ impl ReachabilityTracker {
         self.emit_if_changed(endpoint, false);
     }
 
-    /// Returns whether a destination is reachable
+    /// Returns whether a destination is reachable.
     pub fn is_reachable(&self, endpoint: &Endpoint) -> bool {
+        if self.ping_targets.contains(endpoint) {
+            self.is_active(endpoint)
+        } else {
+            true
+        }
+    }
+
+    /// Raw liveness for `endpoint`: whether the last message seen from it was within
+    /// [`ACTIVE_WINDOW`]. This is the signal a monitored ping target's reachability derives from.
+    fn is_active(&self, endpoint: &Endpoint) -> bool {
         let last = self
             .last_message
             .lock()
@@ -103,7 +113,7 @@ impl ReachabilityTracker {
     /// Polling this is also where staleness transitions surface (the ping scheduler calls it
     /// every cycle).
     pub(crate) fn interval_for(&self, endpoint: &Endpoint) -> Duration {
-        let active = self.is_reachable(endpoint);
+        let active = self.is_active(endpoint);
         self.emit_if_changed(endpoint, active);
         if active {
             ACTIVE_PING_INTERVAL
@@ -232,9 +242,10 @@ mod tests {
         let (tracker, _clock) = tracker(vec![Endpoint::DesktopRenderer]);
         tracker.record(&Endpoint::DesktopMain);
         // Each endpoint is keyed individually; recording the main process does not make the
-        // renderer reachable.
-        assert!(tracker.is_reachable(&Endpoint::DesktopMain));
-        assert!(!tracker.is_reachable(&Endpoint::DesktopRenderer));
+        // renderer active. (Checked via raw liveness, since reachability is permissive for
+        // unmonitored endpoints.)
+        assert!(tracker.is_active(&Endpoint::DesktopMain));
+        assert!(!tracker.is_active(&Endpoint::DesktopRenderer));
     }
 
     #[test]
@@ -249,8 +260,17 @@ mod tests {
         };
         let (tracker, _clock) = tracker(vec![]);
         tracker.record(&tab1);
-        assert!(tracker.is_reachable(&tab1));
-        assert!(!tracker.is_reachable(&tab2));
+        assert!(tracker.is_active(&tab1));
+        assert!(!tracker.is_active(&tab2));
+    }
+
+    #[test]
+    fn unmonitored_endpoints_are_always_reachable() {
+        // An endpoint that is not a ping target has no liveness signal, so it is treated as
+        // reachable even before (and without) any message being observed from it.
+        let (tracker, _clock) = tracker(vec![Endpoint::DesktopRenderer]);
+        assert!(tracker.is_reachable(&Endpoint::DesktopMain));
+        assert!(!tracker.is_reachable(&Endpoint::DesktopRenderer));
     }
 
     #[test]

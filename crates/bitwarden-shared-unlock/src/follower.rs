@@ -44,9 +44,11 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
             return;
         };
 
-        // Do not start sessions when the leader is unreachable. This avoids triggering Noise
-        // handshakes (and the resulting reconnect churn) against an absent leader. Reachability is
-        // a transport-level signal that does not go through the crypto channel.
+        // Do not start sessions when the leader is a monitored ping target that has gone stale.
+        // This avoids triggering Noise handshakes (and the resulting reconnect churn) against an
+        // absent leader. A leader we don't actively monitor is always treated as reachable, so we
+        // still establish the session (see `IpcClient::is_reachable`). Reachability is a
+        // transport-level signal that does not go through the crypto channel.
         if !self.0.ipc_client.is_reachable(leader.clone()).await {
             tracing::debug!("Leader not reachable; not starting shared unlock sessions");
             return;
@@ -128,8 +130,10 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                     }
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
                         if let Some(leader) = follower.0.driver.discover_leader().await {
-                            // Skip the heartbeat when the leader is unreachable, so we don't trigger
-                            // a Noise handshake against an absent leader every interval.
+                            // Skip the heartbeat when the leader is a monitored ping target that has
+                            // gone stale, so we don't trigger a Noise handshake against an absent
+                            // leader every interval. An unmonitored leader is always treated as
+                            // reachable (see `IpcClient::is_reachable`).
                             if !follower.0.ipc_client.is_reachable(leader.clone()).await {
                                 continue;
                             }

@@ -12,7 +12,7 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_encoding::B64;
 use bitwarden_ipc::{
     Endpoint, HostId, InMemorySessionRepository, IncomingMessage, IpcClient,
-    NoEncryptionCryptoProvider, Source, TestCommunicationBackend, TestIpcClient,
+    NoEncryptionCryptoProvider, PayloadTypeName, Source, TestCommunicationBackend, TestIpcClient,
     TypedIncomingMessage,
 };
 
@@ -236,27 +236,35 @@ impl Harness {
 
 // --- Tests ---
 
-/// Builds a follower whose IPC backend reports the given reachability, plus the backend so the test
-/// can inspect outgoing messages.
-async fn unreachable_aware_follower(
+/// Builds a follower that actively monitors (pings) `LEADER_ENDPOINT`, plus the backend so the test
+/// can inspect outgoing messages. Reachability gating only applies to monitored ping targets, so
+/// the leader must be one for the unreachable case to be exercised. When `reachable` is set, the
+/// leader is driven to look reachable via an injected inbound message.
+async fn monitoring_follower(
     follower_states: HashMap<UserId, LockState>,
     reachable: bool,
 ) -> (Follower<MockDriver>, TestCommunicationBackend) {
     let follower_lock = MockDriver::new(follower_states);
     let backend = TestCommunicationBackend::new();
-    // Reachability is derived from inbound traffic, so an endpoint stays unreachable until a
-    // message is observed from it. No ping targets are configured, keeping the ping scheduler from
-    // emitting liveness pings that would otherwise show up in `drain_outgoing`.
     let ipc_client: Arc<dyn IpcClient> = Arc::new(TestIpcClient::new_with_reachability(
         NoEncryptionCryptoProvider,
         backend.clone(),
         InMemorySessionRepository::new(HashMap::new()),
-        Vec::new(),
+        vec![LEADER_ENDPOINT],
     ));
     if reachable {
         mark_leader_reachable(&ipc_client, &backend).await;
     }
     (Follower::create(follower_lock, ipc_client), backend)
+}
+
+/// Counts the `StartSession` (follower-to-leader typed) messages among `outgoing`, ignoring the
+/// plaintext reachability pings the scheduler emits to monitored targets.
+fn count_start_sessions(outgoing: &[bitwarden_ipc::OutgoingMessage]) -> usize {
+    outgoing
+        .iter()
+        .filter(|m| m.topic.as_deref() == Some(FollowerMessage::PAYLOAD_TYPE_NAME))
+        .count()
 }
 
 /// Drives the IPC client's reachability tracker to report the leader as reachable by starting its
@@ -299,13 +307,14 @@ async fn test_follower_skips_start_sessions_when_leader_unreachable() {
             user_key: test_user_key(),
         },
     )]);
-    let (follower, backend) = unreachable_aware_follower(follower_states, false).await;
+    let (follower, backend) = monitoring_follower(follower_states, false).await;
 
     follower.start_sessions().await;
 
-    assert!(
-        backend.drain_outgoing().await.is_empty(),
-        "no StartSession should be sent while the leader is unreachable"
+    assert_eq!(
+        count_start_sessions(&backend.drain_outgoing().await),
+        0,
+        "no StartSession should be sent while the monitored leader is unreachable"
     );
 }
 
@@ -317,12 +326,12 @@ async fn test_follower_starts_sessions_when_leader_reachable() {
             user_key: test_user_key(),
         },
     )]);
-    let (follower, backend) = unreachable_aware_follower(follower_states, true).await;
+    let (follower, backend) = monitoring_follower(follower_states, true).await;
 
     follower.start_sessions().await;
 
     assert_eq!(
-        backend.drain_outgoing().await.len(),
+        count_start_sessions(&backend.drain_outgoing().await),
         1,
         "a StartSession should be sent to a reachable leader"
     );
