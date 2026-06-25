@@ -21,7 +21,7 @@ wasm = [
     "dep:wasm-bindgen",
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
-]
+] # WASM support
 
 [dependencies]
 bitwarden-crypto = { workspace = true }

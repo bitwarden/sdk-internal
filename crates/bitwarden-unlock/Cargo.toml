@@ -15,7 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-cli = []
+cli = [] # CLI support
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
@@ -23,8 +23,12 @@ wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-]
-uniffi = ["bitwarden-core/uniffi", "bitwarden-state/uniffi", "dep:uniffi"]
+] # WASM support
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-state/uniffi",
+    "dep:uniffi",
+] # Uniffi bindings
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]
