@@ -18,8 +18,8 @@ async function setupClientPair(driver = makeMockBiometricsDriver()) {
   init_sdk();
 
   const [requesterBackend, responderBackend] = makeMockTransportPair();
-  const requester = IpcClient.newWithSdkInMemorySessions(requesterBackend);
-  const responder = IpcClient.newWithSdkInMemorySessions(responderBackend);
+  const requester = IpcClient.newWithSdkInMemorySessions(requesterBackend, { pingTargets: [] });
+  const responder = IpcClient.newWithSdkInMemorySessions(responderBackend, { pingTargets: [] });
 
   await requester.start();
   await responder.start();

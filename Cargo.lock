@@ -918,6 +918,7 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "web-time",
  "zeroize",
 ]
 
@@ -2207,8 +2208,7 @@ dependencies = [
 [[package]]
 name = "crypto-bigint"
 version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a52aa3fcda4e6302a9f48734f234d35d4721b96f8fe07d073f07ce9df4f0271"
+source = "git+https://github.com/RustCrypto/crypto-bigint?tag=v0.7.5#2b54d248cce00457e3afb5650d9b14632ef4a116"
 dependencies = [
  "cpubits",
  "ctutils",

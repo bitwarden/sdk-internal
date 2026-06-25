@@ -6,22 +6,17 @@ use thiserror::Error;
 use tokio::select;
 
 use crate::{
-    constants::CHANNEL_BUFFER_CAPACITY,
-    error::{
+    Endpoint, constants::CHANNEL_BUFFER_CAPACITY, error::{
         AlreadyRunningError, IpcErrorKind, ReceiveError, SendError, SubscribeError,
         TypedReceiveError,
-    },
-    message::{
+    }, message::{
         IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
         TypedOutgoingMessage,
-    },
-    rpc::{
+    }, reachability::{ReachabilityTracker, is_reachability_topic}, rpc::{
         exec::{handler::ErasedRpcHandler, handler_registry::RpcHandlerRegistry},
         request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
         response_message::OutgoingRpcResponseMessage,
-    },
-    serde_utils,
-    traits::{CommunicationBackend, CryptoProvider, SessionRepository},
+    }, serde_utils, traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
 /// A subscription to receive messages over IPC.
@@ -52,6 +47,7 @@ where
     crypto: Crypto,
     communication: Com,
     sessions: Ses,
+    reachability: ReachabilityTracker,
 
     handlers: RpcHandlerRegistry,
     incoming: Mutex<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
@@ -92,13 +88,30 @@ where
     Ses: SessionRepository<Crypto::Session>,
 {
     /// Create a new IPC client with the provided crypto provider, communication backend, and
-    /// session repository.
+    /// session repository. The client does not actively ping any peers; a destination is only
+    /// reported reachable once inbound traffic has been observed from it within the active window.
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
+        Self::new_with_reachability(crypto, communication, sessions, Vec::new())
+    }
+
+    /// Create a new IPC client that actively pings the given leader endpoints.
+    ///
+    /// `ping_targets` are the leader endpoints this client follows: the SDK runs an adaptive ping
+    /// scheduler for each (emitting plaintext reachability pings as ordinary [`OutgoingMessage`]s
+    /// over the communication backend, bypassing the crypto channel). An endpoint's reachability
+    /// is then derived from inbound traffic (see [`ReachabilityTracker`]).
+    pub fn new_with_reachability(
+        crypto: Crypto,
+        communication: Com,
+        sessions: Ses,
+        ping_targets: Vec<Endpoint>,
+    ) -> Self {
         Self {
             inner: Arc::new(IpcClientInner {
                 crypto,
                 communication,
                 sessions,
+                reachability: ReachabilityTracker::new(ping_targets),
 
                 handlers: RpcHandlerRegistry::new(),
                 incoming: Mutex::new(None),
@@ -130,6 +143,10 @@ where
             .expect("Failed to lock cancellation token mutex")
             .replace(cancellation_token.clone());
 
+        // Cloned before `cancellation_token` is moved into the receive loop, so the ping
+        // scheduler(s) below share the same lifecycle.
+        let scheduler_token = cancellation_token.clone();
+
         let com_receiver = self.inner.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
@@ -150,10 +167,15 @@ where
                     }
                     received = inner.crypto.receive(&com_receiver, &inner.communication, &inner.sessions) => {
                         match received {
+                            Ok(message) if is_reachability_topic(message.topic.as_deref()) => {
+                                handle_reachability(&inner, message).await;
+                            }
                             Ok(message) if message.topic == Some(rpc_topic) => {
+                                inner.reachability.record(&message.source.to_endpoint());
                                 handle_rpc_request(&inner, message)
                             }
                             Ok(message) => {
+                                inner.reachability.record(&message.source.to_endpoint());
                                 if client_tx.send(message).is_err() {
                                     tracing::error!("Failed to save incoming message");
                                     break;
@@ -180,6 +202,36 @@ where
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(future);
 
+        // Spawn one reachability ping scheduler per configured leader endpoint
+        for target in self.inner.reachability.ping_targets().to_vec() {
+            let inner = self.inner.clone();
+            let scheduler_token = scheduler_token.clone();
+            let ping_future = async move {
+                loop {
+                    let _ = inner
+                        .communication
+                        .send(OutgoingMessage {
+                            payload: Vec::new(),
+                            destination: target.clone(),
+                            topic: Some(crate::reachability::REACHABILITY_PING_TOPIC.to_owned()),
+                        })
+                        .await;
+                    let interval = inner.reachability.interval_for(&target);
+                    select! {
+                        _ = scheduler_token.cancelled() => break,
+                        _ = bitwarden_threading::time::sleep(interval) => {}
+                        _ = inner.reachability.rearmed() => {}
+                    }
+                }
+            };
+
+            #[cfg(not(target_arch = "wasm32"))]
+            tokio::spawn(ping_future);
+
+            #[cfg(target_arch = "wasm32")]
+            wasm_bindgen_futures::spawn_local(ping_future);
+        }
+
         Ok(())
     }
 
@@ -205,7 +257,12 @@ where
         let result = self
             .inner
             .crypto
-            .send(&self.inner.communication, &self.inner.sessions, message)
+            .send(
+                &self.inner.communication,
+                &self.inner.sessions,
+                &self.inner.reachability,
+                message,
+            )
             .await;
 
         if let Err(ref error) = result {
@@ -240,6 +297,14 @@ where
         })
     }
 
+    async fn is_reachable(&self, destination: Endpoint) -> bool {
+        self.inner.reachability.is_reachable(&destination)
+    }
+
+    fn invalidate_reachability(&self, endpoint: Endpoint) {
+        self.inner.reachability.invalidate(&endpoint);
+    }
+
     async fn register_rpc_handler_erased(&self, name: &str, handler: Box<dyn ErasedRpcHandler>) {
         self.inner
             .handlers
@@ -261,6 +326,29 @@ where
 
     if let Some(cancellation_token) = cancellation_token.take() {
         cancellation_token.cancel();
+    }
+}
+
+async fn handle_reachability<Crypto, Com, Ses>(
+    inner: &Arc<IpcClientInner<Crypto, Com, Ses>>,
+    message: IncomingMessage,
+) where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Crypto::Session>,
+{
+    let source = message.source.to_endpoint();
+    inner.reachability.record(&source);
+
+    if message.topic.as_deref() == Some(crate::reachability::REACHABILITY_PING_TOPIC) {
+        let _ = inner
+            .communication
+            .send(OutgoingMessage {
+                payload: Vec::new(),
+                destination: source,
+                topic: Some(crate::reachability::REACHABILITY_PONG_TOPIC.to_owned()),
+            })
+            .await;
     }
 }
 
@@ -315,7 +403,12 @@ fn handle_rpc_request<Crypto, Com, Ses>(
                 // since we're inside the background task and don't have a trait object.
                 let result = inner
                     .crypto
-                    .send(&inner.communication, &inner.sessions, outgoing_message)
+                    .send(
+                        &inner.communication,
+                        &inner.sessions,
+                        &inner.reachability,
+                        outgoing_message,
+                    )
                     .await;
                 if result.is_err() {
                     tracing::error!("Failed to send response message");
@@ -461,6 +554,7 @@ mod tests {
             &self,
             _communication: &TestCommunicationBackend,
             _sessions: &TestSessionRepository,
+            _reachability: &ReachabilityTracker,
             _message: OutgoingMessage,
         ) -> Result<(), Self::SendError> {
             match &self.send_result {
@@ -815,6 +909,69 @@ mod tests {
         let is_running = client.is_running();
 
         assert!(!is_running);
+    }
+
+    #[tokio::test]
+    async fn scheduler_emits_reachability_ping_to_target() {
+        let target = Endpoint::BrowserBackground { id: HostId::Own };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = InMemorySessionRepository::new(HashMap::new());
+        let client = IpcClientImpl::new_with_reachability(
+            NoEncryptionCryptoProvider,
+            communication_provider.clone(),
+            session_map,
+            vec![target.clone()],
+        );
+        client.start(None).await.unwrap();
+
+        // Give the scheduler a moment to emit its first ping.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let outgoing = communication_provider.outgoing().await;
+        assert!(
+            outgoing.iter().any(|m| m.destination == target
+                && m.topic.as_deref() == Some(crate::reachability::REACHABILITY_PING_TOPIC)),
+            "scheduler should emit a reachability ping to the configured target"
+        );
+    }
+
+    #[tokio::test]
+    async fn replies_with_pong_to_incoming_ping() {
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = InMemorySessionRepository::new(HashMap::new());
+        // No ping targets: the client only responds, so the sole outgoing message is the pong.
+        let client = IpcClientImpl::new(
+            NoEncryptionCryptoProvider,
+            communication_provider.clone(),
+            session_map,
+        );
+        client.start(None).await.unwrap();
+
+        // Inject a plaintext reachability ping from a web tab.
+        communication_provider.push_incoming(IncomingMessage {
+            payload: vec![],
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            source: Source::Web {
+                tab_id: 7,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            },
+            topic: Some(crate::reachability::REACHABILITY_PING_TOPIC.to_owned()),
+        });
+
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let outgoing = communication_provider.outgoing().await;
+        assert!(
+            outgoing.iter().any(|m| m.topic.as_deref()
+                == Some(crate::reachability::REACHABILITY_PONG_TOPIC)
+                && m.destination
+                    == Endpoint::Web {
+                        tab_id: 7,
+                        document_id: "doc-1".to_string(),
+                    }),
+            "a ping should be answered with a pong addressed back to the sender"
+        );
     }
 
     #[tokio::test]

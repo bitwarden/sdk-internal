@@ -6,6 +6,7 @@ use super::{CommunicationBackend, SessionRepository};
 use crate::{
     error::IpcErrorKind,
     message::{IncomingMessage, OutgoingMessage},
+    reachability::ReachabilityTracker,
 };
 
 pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
@@ -33,6 +34,7 @@ where
         &self,
         communication: &Com,
         sessions: &Ses,
+        reachability: &ReachabilityTracker,
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send + Sync;
 
@@ -75,6 +77,7 @@ where
         &self,
         communication: &Com,
         _sessions: &Ses,
+        _reachability: &ReachabilityTracker,
         message: OutgoingMessage,
     ) -> Result<(), Self::SendError> {
         communication.send(message).await

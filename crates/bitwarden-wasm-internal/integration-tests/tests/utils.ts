@@ -16,6 +16,7 @@ import {
   IncomingMessage,
   OutgoingMessage,
   Source,
+  Endpoint,
   BiometricsUnlock,
   BiometricsStatus,
   SharedUnlockDriver,
@@ -216,6 +217,13 @@ export async function makeOrgInitializedClient(
 export interface MockTransportRouter {
   setFirstReceiver(receive: (m: IncomingMessage) => void): void;
   setSecondReceiver(receive: (m: IncomingMessage) => void): void;
+  /**
+   * Brings a directional link up or down. While a link is down, every message
+   * sent in that direction is silently dropped, modelling a dead transport
+   * (the SDK's `send` is already fire-and-forget). `firstToSecond` is the
+   * follower→leader uplink; `secondToFirst` is the leader→follower downlink.
+   */
+  setLinkUp(direction: "firstToSecond" | "secondToFirst", up: boolean): void;
   firstSource: Source;
   secondSource: Source;
 }
@@ -232,9 +240,12 @@ export function makeMockTransportPair(
 ): [IpcCommunicationBackend, IpcCommunicationBackend, MockTransportRouter] {
   let receiveOnFirst: (m: IncomingMessage) => void;
   let receiveOnSecond: (m: IncomingMessage) => void;
+  let firstToSecondUp = true;
+  let secondToFirstUp = true;
 
   const firstSender: IpcCommunicationBackendSender = {
     send: async (outgoing: OutgoingMessage) => {
+      if (!firstToSecondUp) return;
       receiveOnSecond(
         new IncomingMessage(outgoing.payload, outgoing.destination, firstSource, outgoing.topic),
       );
@@ -242,6 +253,7 @@ export function makeMockTransportPair(
   };
   const secondSender: IpcCommunicationBackendSender = {
     send: async (outgoing: OutgoingMessage) => {
+      if (!secondToFirstUp) return;
       receiveOnFirst(
         new IncomingMessage(outgoing.payload, outgoing.destination, secondSource, outgoing.topic),
       );
@@ -259,6 +271,13 @@ export function makeMockTransportPair(
     },
     setSecondReceiver: (fn) => {
       receiveOnSecond = fn;
+    },
+    setLinkUp: (direction, up) => {
+      if (direction === "firstToSecond") {
+        firstToSecondUp = up;
+      } else {
+        secondToFirstUp = up;
+      }
     },
     firstSource,
     secondSource,
@@ -378,14 +397,26 @@ export interface SharedUnlockPair {
     router: MockTransportRouter;
     leaderBackend: IpcCommunicationBackend;
     followerBackend: IpcCommunicationBackend;
+    leaderIpc: IpcClient;
+    followerIpc: IpcClient;
     followerSource: Source;
     leaderSource: Source;
   };
 }
 
+/**
+ * Driver options plus optional reachability ping targets for that side. When
+ * `pingTargets` is set, that client gates (and actively pings) the listed
+ * endpoints; when omitted it stays permissively reachable, preserving the
+ * default used by the happy-path shared-unlock tests.
+ */
+export type SharedUnlockSideOptions = MockSharedUnlockDriverOptions & {
+  pingTargets?: Endpoint[];
+};
+
 export async function setupSharedUnlockPair(options: {
-  leader: MockSharedUnlockDriverOptions;
-  follower: MockSharedUnlockDriverOptions;
+  leader: SharedUnlockSideOptions;
+  follower: SharedUnlockSideOptions;
 }): Promise<SharedUnlockPair> {
   init_sdk();
 
@@ -398,8 +429,14 @@ export async function setupSharedUnlockPair(options: {
     leaderSource,
   );
 
-  const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
-  const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend);
+  // By default neither side pings and every destination stays permissively reachable (reachability
+  // gating is covered by reachability-ipc.test). A side can opt into gating via `pingTargets`.
+  const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend, {
+    pingTargets: options.leader.pingTargets ?? [],
+  });
+  const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend, {
+    pingTargets: options.follower.pingTargets ?? [],
+  });
 
   await leaderIpc.start();
   await followerIpc.start();
@@ -428,6 +465,8 @@ export async function setupSharedUnlockPair(options: {
       router,
       leaderBackend,
       followerBackend,
+      leaderIpc,
+      followerIpc,
       followerSource,
       leaderSource,
     },
@@ -460,7 +499,9 @@ export async function reloadFollower(
 
   router.setFirstReceiver((m) => newFollowerBackend.receive(m));
 
-  const newFollowerIpc = IpcClient.newWithSdkInMemorySessions(newFollowerBackend);
+  const newFollowerIpc = IpcClient.newWithSdkInMemorySessions(newFollowerBackend, {
+    pingTargets: [],
+  });
   await newFollowerIpc.start();
 
   const newFollowerDriver = makeMockSharedUnlockDriver(options.follower);
@@ -507,7 +548,7 @@ export async function reloadLeader(
 
   router.setSecondReceiver((m) => newLeaderBackend.receive(m));
 
-  const newLeaderIpc = IpcClient.newWithSdkInMemorySessions(newLeaderBackend);
+  const newLeaderIpc = IpcClient.newWithSdkInMemorySessions(newLeaderBackend, { pingTargets: [] });
   await newLeaderIpc.start();
 
   const newLeaderDriver = makeMockSharedUnlockDriver(options.leader);
@@ -526,4 +567,132 @@ export async function reloadLeader(
       leaderBackend: newLeaderBackend,
     },
   };
+}
+
+/** Stable comparison key for an `Endpoint`/`Source` (which share their wire shape here). */
+function endpointKey(endpoint: Endpoint | Source): string {
+  return typeof endpoint === "string" ? endpoint : JSON.stringify(endpoint);
+}
+
+/**
+ * Hub for one leader and N followers over in-memory transports. Followers send
+ * only to the leader; the leader addresses each follower by the `Source` that
+ * follower stamps on its own frames (which is how the leader's session map keys
+ * them). Each follower's downlink (leader→follower) can be brought down to model
+ * that follower being unreachable while the others stay connected.
+ */
+export interface MockTransportHub {
+  leaderBackend: IpcCommunicationBackend;
+  followerBackends: IpcCommunicationBackend[];
+  /** Bring the leader→follower[index] downlink up or down. */
+  setDownlinkUp(index: number, up: boolean): void;
+}
+
+export function makeMockTransportHub(
+  leaderSource: Source,
+  followerSources: Source[],
+): MockTransportHub {
+  const downlinkUp = followerSources.map(() => true);
+  const followerReceives: ((m: IncomingMessage) => void)[] = [];
+  let receiveOnLeader: (m: IncomingMessage) => void;
+
+  // Leader → followers: route by destination to the follower whose endpoint matches.
+  const leaderSender: IpcCommunicationBackendSender = {
+    send: async (outgoing: OutgoingMessage) => {
+      const index = followerSources.findIndex(
+        (source) => endpointKey(source) === endpointKey(outgoing.destination),
+      );
+      if (index === -1 || !downlinkUp[index]) return;
+      followerReceives[index](
+        new IncomingMessage(outgoing.payload, outgoing.destination, leaderSource, outgoing.topic),
+      );
+    },
+  };
+  const leaderBackend = new IpcCommunicationBackend(leaderSender);
+  receiveOnLeader = (m) => leaderBackend.receive(m);
+
+  const followerBackends = followerSources.map((source, index) => {
+    const followerSender: IpcCommunicationBackendSender = {
+      send: async (outgoing: OutgoingMessage) => {
+        // Followers only ever address the leader.
+        receiveOnLeader(
+          new IncomingMessage(outgoing.payload, outgoing.destination, source, outgoing.topic),
+        );
+      },
+    };
+    const backend = new IpcCommunicationBackend(followerSender);
+    followerReceives[index] = (m) => backend.receive(m);
+    return backend;
+  });
+
+  return {
+    leaderBackend,
+    followerBackends,
+    setDownlinkUp: (index, up) => {
+      downlinkUp[index] = up;
+    },
+  };
+}
+
+/** A single follower attached to a {@link SharedUnlockHub}. */
+export interface SharedUnlockHubFollower {
+  follower: SharedUnlockFollower;
+  driver: MockSharedUnlockDriverHandle;
+  abort: AbortController;
+  ipc: IpcClient;
+}
+
+/** One leader fanning out to multiple followers, for broadcast/partition tests. */
+export interface SharedUnlockHub {
+  leader: SharedUnlockLeader;
+  leaderDriver: MockSharedUnlockDriverHandle;
+  leaderAbort: AbortController;
+  followers: SharedUnlockHubFollower[];
+  hub: MockTransportHub;
+}
+
+/**
+ * Wires one `SharedUnlockLeader` to up to two `SharedUnlockFollower`s over a
+ * {@link makeMockTransportHub}. Followers default to the `"browser"` client
+ * name, which discovers `DesktopRenderer` as its leader, so the leader stamps
+ * `DesktopRenderer`. Each follower stamps a distinct non-Web source so the
+ * leader tracks them as separate endpoints and the web origin check is skipped.
+ */
+export async function setupSharedUnlockHub(options: {
+  leader: MockSharedUnlockDriverOptions;
+  followers: MockSharedUnlockDriverOptions[];
+}): Promise<SharedUnlockHub> {
+  init_sdk();
+
+  const leaderSource: Source = "DesktopRenderer";
+  const allFollowerSources: Source[] = ["DesktopMain", { BrowserBackground: { id: "Own" } }];
+  if (options.followers.length > allFollowerSources.length) {
+    throw new Error(`setupSharedUnlockHub supports at most ${allFollowerSources.length} followers`);
+  }
+  const followerSources = allFollowerSources.slice(0, options.followers.length);
+
+  const hub = makeMockTransportHub(leaderSource, followerSources);
+
+  // Start the leader first so it has subscribed before followers send their initial sessions.
+  const leaderIpc = IpcClient.newWithSdkInMemorySessions(hub.leaderBackend, { pingTargets: [] });
+  await leaderIpc.start();
+  const leaderDriver = makeMockSharedUnlockDriver(options.leader);
+  const leader = SharedUnlockLeader.try_new(leaderIpc, leaderDriver.driver);
+  const leaderAbort = new AbortController();
+  await leader.start(leaderAbort);
+
+  const followers: SharedUnlockHubFollower[] = [];
+  for (let index = 0; index < options.followers.length; index++) {
+    const ipc = IpcClient.newWithSdkInMemorySessions(hub.followerBackends[index], {
+      pingTargets: [],
+    });
+    await ipc.start();
+    const driver = makeMockSharedUnlockDriver(options.followers[index]);
+    const follower = SharedUnlockFollower.try_new(ipc, driver.driver);
+    const abort = new AbortController();
+    await follower.start(abort);
+    followers.push({ follower, driver, abort, ipc });
+  }
+
+  return { leader, leaderDriver, leaderAbort, followers, hub };
 }

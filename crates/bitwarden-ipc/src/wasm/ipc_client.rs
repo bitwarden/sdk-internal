@@ -1,12 +1,15 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
+use serde::{Deserialize, Serialize};
+use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
     IpcClientImpl,
     crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
+    endpoint::Endpoint,
     error::{AlreadyRunningError, ReceiveError, SubscribeError},
     ipc_client::IpcClientSubscription,
     ipc_client_trait::IpcClient,
@@ -17,6 +20,16 @@ use crate::{
         generic_session_repository::GenericSessionRepository,
     },
 };
+
+/// Reachability configuration for an `IpcClient`.
+#[derive(Tsify, Serialize, Deserialize)]
+#[tsify(from_wasm_abi)]
+#[serde(rename_all = "camelCase")]
+pub struct ReachabilityConfig {
+    /// The leader endpoints this client follows. The SDK runs an adaptive reachability ping
+    /// for each of the targets, to determine at runtime whether they are reachable continuously.
+    pub ping_targets: Vec<Endpoint>,
+}
 
 /// JavaScript wrapper around the IPC client. For more information, see the
 /// [`IpcClient`] trait documentation.
@@ -62,14 +75,16 @@ impl JsIpcClient {
     #[wasm_bindgen(js_name = newWithSdkInMemorySessions)]
     pub fn new_with_sdk_in_memory_sessions(
         communication_provider: &JsCommunicationBackend,
+        reachability: ReachabilityConfig,
     ) -> JsIpcClient {
         JsIpcClient {
-            client: Arc::new(IpcClientImpl::new(
+            client: Arc::new(IpcClientImpl::new_with_reachability(
                 NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
                     HashMap::new(),
                 ))),
+                reachability.ping_targets,
             )),
         }
     }
@@ -81,14 +96,16 @@ impl JsIpcClient {
     pub fn new_with_client_managed_sessions(
         communication_provider: &JsCommunicationBackend,
         session_repository: RawJsSessionRepository,
+        reachability: ReachabilityConfig,
     ) -> JsIpcClient {
         JsIpcClient {
-            client: Arc::new(IpcClientImpl::new(
+            client: Arc::new(IpcClientImpl::new_with_reachability(
                 NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::JsSessionRepository(Arc::new(JsSessionRepository::new(
                     session_repository,
                 ))),
+                reachability.ping_targets,
             )),
         }
     }
@@ -125,5 +142,21 @@ impl JsIpcClient {
     pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
         let subscription = self.client.subscribe(None).await?;
         Ok(JsIpcClientSubscription { subscription })
+    }
+
+    /// Whether `endpoint` is currently reachable, per the client's reachability tracker: an
+    /// endpoint is reachable when inbound traffic was seen from it within the active window.
+    #[wasm_only]
+    #[wasm_bindgen(js_name = isReachable)]
+    pub async fn is_reachable(&self, endpoint: Endpoint) -> bool {
+        self.client.is_reachable(endpoint).await
+    }
+
+    /// Immediately mark `endpoint` as unreachable (e.g. on a known transport disconnect), without
+    /// waiting for the active window to elapse.
+    #[wasm_only]
+    #[wasm_bindgen(js_name = invalidateReachability)]
+    pub fn invalidate_reachability(&self, endpoint: Endpoint) {
+        self.client.invalidate_reachability(endpoint);
     }
 }

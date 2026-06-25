@@ -1,6 +1,7 @@
 use bitwarden_threading::cancellation_token::CancellationToken;
 
 use crate::{
+    endpoint::Endpoint,
     error::{AlreadyRunningError, SendError, SubscribeError},
     ipc_client::IpcClientSubscription,
     message::OutgoingMessage,
@@ -46,4 +47,10 @@ pub trait IpcClient: Send + Sync {
     /// instead.
     #[doc(hidden)]
     async fn register_rpc_handler_erased(&self, name: &str, handler: Box<dyn ErasedRpcHandler>);
+
+    /// Whether `destination` is reachable
+    async fn is_reachable(&self, destination: Endpoint) -> bool;
+
+    /// Immediately mark `endpoint` as unreachable (e.g. on a transport disconnect)
+    fn invalidate_reachability(&self, endpoint: Endpoint);
 }

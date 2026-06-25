@@ -9,6 +9,7 @@ mod ipc_client;
 mod ipc_client_ext;
 mod ipc_client_trait;
 mod message;
+mod reachability;
 mod rpc;
 mod serde_utils;
 mod traits;
@@ -27,6 +28,7 @@ pub use ipc_client_trait::IpcClient;
 pub use message::{
     IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage, TypedOutgoingMessage,
 };
+pub use reachability::ReachabilityTracker;
 #[doc(hidden)]
 pub use rpc::exec::handler::ErasedRpcHandler;
 pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};

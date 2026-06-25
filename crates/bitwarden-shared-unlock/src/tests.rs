@@ -233,6 +233,65 @@ impl Harness {
 
 // --- Tests ---
 
+/// Builds a follower whose IPC backend reports the given reachability, plus the backend so the test
+/// can inspect outgoing messages.
+fn unreachable_aware_follower(
+    follower_states: HashMap<UserId, LockState>,
+    reachable: bool,
+) -> (Follower<MockDriver>, TestCommunicationBackend) {
+    let follower_lock = MockDriver::new(follower_states);
+    let backend = TestCommunicationBackend::new();
+    // Gate the leader endpoint so reachability is enforced, then drive it via the tracker: a
+    // recorded liveness signal makes it reachable; leaving it unrecorded keeps it unreachable.
+    let ipc_client: Arc<dyn IpcClient> = Arc::new(TestIpcClient::new_with_reachability(
+        NoEncryptionCryptoProvider,
+        backend.clone(),
+        InMemorySessionRepository::new(HashMap::new()),
+        vec![LEADER_ENDPOINT],
+    ));
+    if reachable {
+        ipc_client.record_reachability(LEADER_ENDPOINT);
+    }
+    (Follower::create(follower_lock, ipc_client), backend)
+}
+
+#[tokio::test]
+async fn test_follower_skips_start_sessions_when_leader_unreachable() {
+    let follower_states = HashMap::from([(
+        user_a(),
+        LockState::Unlocked {
+            user_key: test_user_key(),
+        },
+    )]);
+    let (follower, backend) = unreachable_aware_follower(follower_states, false);
+
+    follower.start_sessions().await;
+
+    assert!(
+        backend.drain_outgoing().await.is_empty(),
+        "no StartSession should be sent while the leader is unreachable"
+    );
+}
+
+#[tokio::test]
+async fn test_follower_starts_sessions_when_leader_reachable() {
+    let follower_states = HashMap::from([(
+        user_a(),
+        LockState::Unlocked {
+            user_key: test_user_key(),
+        },
+    )]);
+    let (follower, backend) = unreachable_aware_follower(follower_states, true);
+
+    follower.start_sessions().await;
+
+    assert_eq!(
+        backend.drain_outgoing().await.len(),
+        1,
+        "a StartSession should be sent to a reachable leader"
+    );
+}
+
 #[tokio::test]
 async fn test_follower_startup_locked() {
     let user = user_a();

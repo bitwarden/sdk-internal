@@ -40,13 +40,19 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
     }
 
     pub(crate) async fn start_sessions(&self) {
+        let Some(leader) = self.0.driver.discover_leader().await else {
+            return;
+        };
+
+        // Do not start sessions when the leader is unreachable. This avoids triggering Noise
+        // handshakes (and the resulting reconnect churn) against an absent leader. Reachability is
+        // a transport-level signal that does not go through the crypto channel.
+        if !self.0.ipc_client.is_reachable(leader.clone()).await {
+            tracing::debug!("Leader not reachable; not starting shared unlock sessions");
+            return;
+        }
+
         let users: Vec<bitwarden_core::UserId> = self.0.driver.list_users().await;
-        let leader = self
-            .0
-            .driver
-            .discover_leader()
-            .await
-            .expect("leader discovery should return a leader");
 
         if !users.is_empty() {
             tracing::info!("Starting shared unlock sessions for users: {:?}", users);
@@ -122,6 +128,11 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                     }
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
                         if let Some(leader) = follower.0.driver.discover_leader().await {
+                            // Skip the heartbeat when the leader is unreachable, so we don't trigger
+                            // a Noise handshake against an absent leader every interval.
+                            if !follower.0.ipc_client.is_reachable(leader.clone()).await {
+                                continue;
+                            }
                             // For all users that are logged in, send a heartbeat message to the leader.
                             for user_id in follower.0.driver.list_users().await {
                                 let message = FollowerMessage::HeartBeat { user_id };

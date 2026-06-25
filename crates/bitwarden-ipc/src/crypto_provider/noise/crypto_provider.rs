@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 
 use crate::{
+    ReachabilityTracker,
     crypto_provider::noise::{
         handshake::{
             CipherSuite, HandshakeFinishMessage, HandshakeInitiator, HandshakeResponder,
@@ -14,6 +15,7 @@ use crate::{
     },
     error::IpcErrorKind,
     message::{IncomingMessage, OutgoingMessage},
+    reachability::is_reachability_topic,
     traits::{
         CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
     },
@@ -173,6 +175,7 @@ where
         &self,
         communication: &Com,
         sessions: &Ses,
+        reachability: &ReachabilityTracker,
         message: OutgoingMessage,
     ) -> Result<(), Self::SendError> {
         // Send operations *MUST* be serialized, otherwise nonce re-use may happen since
@@ -187,7 +190,19 @@ where
             .await
             .expect("Get session should not fail");
 
+        let reachable = reachability.is_reachable(&destination);
+
         let mut should_handshake = crypto_state.is_none();
+
+        // Not reachable, drop the message
+        if !reachable {
+            info!(
+                "Destination {:?} is not reachable; dropping message without attempting handshake",
+                destination
+            );
+            return Ok(());
+        }
+
         if let Some(state) = crypto_state.as_ref()
             && state.state.should_rehandshake(REHANDSHAKE_INTERVAL_SECS)
         {
@@ -260,6 +275,12 @@ where
                     fatal: e.is_fatal(),
                 }
             })?;
+
+            // Plaintext reachability ping/pong travels over the raw transport and must NOT be
+            // decoded as a Noise frame. Pass it straight through; the IPC client handles it.
+            if is_reachability_topic(message.topic.as_deref()) {
+                return Ok(message);
+            }
 
             // Ensure session exists
             let source_endpoint: crate::endpoint::Endpoint = message.source.clone().into();
@@ -382,7 +403,7 @@ impl Frame {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, time::Duration};
 
     use crate::{
         IpcClientImpl,
@@ -390,7 +411,10 @@ mod tests {
         endpoint::Endpoint,
         ipc_client_trait::IpcClient,
         message::OutgoingMessage,
-        traits::{InMemorySessionRepository, TestTwoWayCommunicationBackend},
+        reachability::is_reachability_topic,
+        traits::{
+            InMemorySessionRepository, TestCommunicationBackend, TestTwoWayCommunicationBackend,
+        },
     };
 
     #[tokio::test]
