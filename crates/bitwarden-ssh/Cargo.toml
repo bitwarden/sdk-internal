@@ -16,13 +16,9 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-ecdsa-keys = [] # ECDSA key generation and import
-wasm = [
-    "bitwarden-error/wasm",
-    "dep:tsify",
-    "dep:wasm-bindgen",
-] # WASM support
-uniffi = ["dep:uniffi"] # Uniffi bindings
+ecdsa-keys = []
+wasm = ["bitwarden-error/wasm", "dep:tsify", "dep:wasm-bindgen"]
+uniffi = ["dep:uniffi"]
 
 [dependencies]
 bitwarden-error = { workspace = true }

@@ -21,12 +21,8 @@ wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-] # WASM support
-uniffi = [
-    "bitwarden-core/uniffi",
-    "bitwarden-send/uniffi",
-    "dep:uniffi",
-] # Uniffi bindings
+]
+uniffi = ["bitwarden-core/uniffi", "bitwarden-send/uniffi", "dep:uniffi"]
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]

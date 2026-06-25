@@ -15,18 +15,12 @@ license-file.workspace = true
 keywords.workspace = true
 
 [package.metadata.cargo-udeps.ignore]
-normal = [
-    "getrandom2",
-    "getrandom3",
-    "getrandom4",
-] # Only used to enable WASM support, not used directly
+normal = ["getrandom2", "getrandom3", "getrandom4"]
 
 [features]
 internal = ["dep:zxcvbn"]
-no-memory-hardening = [
-    "bitwarden-crypto/no-memory-hardening",
-] # Disable memory hardening features
-secrets = [] # Secrets manager API
+no-memory-hardening = ["bitwarden-crypto/no-memory-hardening"]
+secrets = []
 uniffi = [
     "internal",
     "bitwarden-api-base/uniffi",
@@ -34,7 +28,7 @@ uniffi = [
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
     "dep:uniffi",
-] # Uniffi bindings
+]
 wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
@@ -47,7 +41,7 @@ wasm = [
     "dep:wasm-bindgen-futures",
     "dep:serde-wasm-bindgen",
     "dep:tsify",
-] # WASM support
+]
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
