@@ -8,16 +8,16 @@ use crate::{
     policy_type::PolicyType,
 };
 
-/// How a single organization's policy of a given type applies to the current
+/// How a specific organization's policy of a given type applies to the current
 /// user.
 ///
 /// Similar to [`PolicyView`], but with two differences:
-/// - `enabled` is replaced by `enforced`, which reflects user-specific evaluation rather than just
-///   the policy's on/off state.
+/// - `enabled` is replaced by `enforced`, which reflects user-specific evaluation rather than the
+///   policy's raw state.
 /// - `data` is strongly typed via the policy's [`PolicyData::Data`].
 ///
-/// When no matching policy is found for the requested organization, `enforced`
-/// is `false` and `data` is `None`.
+/// `data` is always populated. When no matching policy is found, or when the
+/// policy record's data could not be parsed, `data` is [`Default::default()`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnforcedPolicy<D> {
     /// The organization this enforcement decision is for.
@@ -27,8 +27,9 @@ pub struct EnforcedPolicy<D> {
     /// Whether the policy is being enforced against the current user for this
     /// organization.
     pub enforced: bool,
-    /// Strongly-typed policy data, if the policy carries any and is enforced.
-    pub data: Option<D>,
+    /// Strongly-typed policy data. [`Default::default()`] when not enforced or
+    /// when the policy record's data could not be parsed.
+    pub data: D,
 }
 
 /// Opt-in extension for policies that carry strongly-typed data.
@@ -37,21 +38,21 @@ pub struct EnforcedPolicy<D> {
 /// the policy. Policies with no data can implement [`NoData`] instead and get
 /// a trivial [`PolicyData`] implementation for free.
 pub trait PolicyData: Policy {
-    /// The strongly-typed data this policy carries.
-    type Data;
+    /// The strongly-typed data this policy carries. The [`Default`] value is
+    /// the fall-back whenever the policy is not enforced or the raw data could
+    /// not be parsed.
+    type Data: Default;
 
     /// Parses the raw JSON `data` field of a [`PolicyView`] into this policy's
-    /// typed [`Data`](Self::Data). Returns `None` when the policy carries no
-    /// data or the field is absent or unparseable.
-    fn parse_data(&self, raw: Option<&str>) -> Option<Self::Data>;
+    /// typed [`Data`](Self::Data). Implementations should return
+    /// [`Default::default()`] when the field is absent or unparseable.
+    fn parse_data(&self, raw: Option<&str>) -> Self::Data;
 }
 
 impl<P: Policy + NoData> PolicyData for P {
     type Data = ();
 
-    fn parse_data(&self, _: Option<&str>) -> Option<Self::Data> {
-        None
-    }
+    fn parse_data(&self, _: Option<&str>) -> Self::Data {}
 }
 
 /// Extension trait that adds an
@@ -91,7 +92,7 @@ pub trait PolicyDataFilter: PolicyData {
                 organization_id,
                 r#type: self.policy_type(),
                 enforced: false,
-                data: None,
+                data: Self::Data::default(),
             },
         }
     }
@@ -181,7 +182,7 @@ mod tests {
     // --- typed data parsing ---
 
     #[test]
-    fn enforced_policy_data_is_none_when_view_data_absent() {
+    fn enforced_policy_data_is_default_when_view_data_absent() {
         let org_id = Uuid::new_v4();
         let policies = [demo_policy_view(org_id, None)];
         let orgs = [org(org_id)];
@@ -189,11 +190,11 @@ mod tests {
         let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
 
         assert!(result.enforced);
-        assert_eq!(result.data, None);
+        assert_eq!(result.data, DemoData::default());
     }
 
     #[test]
-    fn enforced_policy_data_is_none_when_view_data_unparseable() {
+    fn enforced_policy_data_is_default_when_view_data_unparseable() {
         let org_id = Uuid::new_v4();
         let policies = [demo_policy_view(org_id, Some("not json"))];
         let orgs = [org(org_id)];
@@ -201,6 +202,16 @@ mod tests {
         let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
 
         assert!(result.enforced);
-        assert_eq!(result.data, None);
+        assert_eq!(result.data, DemoData::default());
+    }
+
+    #[test]
+    fn enforced_policy_data_is_default_when_not_enforced() {
+        let org_id = Uuid::new_v4();
+
+        let result = DemoPolicy.enforced_policy(org_id, &[], &[]);
+
+        assert!(!result.enforced);
+        assert_eq!(result.data, DemoData::default());
     }
 }

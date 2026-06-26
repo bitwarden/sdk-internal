@@ -191,7 +191,7 @@ pub(crate) mod test_helpers {
     /// [`PolicyData`] and [`PolicyAggregate`] layers.
     pub struct DemoPolicy;
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
     pub struct DemoData {
         pub min: i32,
     }
@@ -209,8 +209,9 @@ pub(crate) mod test_helpers {
     impl PolicyData for DemoPolicy {
         type Data = DemoData;
 
-        fn parse_data(&self, raw: Option<&str>) -> Option<Self::Data> {
+        fn parse_data(&self, raw: Option<&str>) -> Self::Data {
             raw.and_then(|s| serde_json::from_str(s).ok())
+                .unwrap_or_default()
         }
     }
 

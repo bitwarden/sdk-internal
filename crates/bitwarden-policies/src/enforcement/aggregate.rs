@@ -12,7 +12,8 @@ use crate::{
 /// `enforced` is `true` if any of the user's organization policies of this type
 /// are enforced. `data` is the combination of the underlying enforced policies'
 /// data, computed via [`PolicyAggregate::aggregate`]; how those values are
-/// combined is determined by the policy itself.
+/// combined is determined by the policy itself. When no policy is enforced,
+/// `data` is [`Default::default()`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnforcedCombinedPolicy<D> {
     /// The policy type.
@@ -20,9 +21,9 @@ pub struct EnforcedCombinedPolicy<D> {
     /// Whether at least one of the user's organizations is enforcing this
     /// policy.
     pub enforced: bool,
-    /// The aggregated strongly-typed policy data, if any enforced policy
-    /// carried data.
-    pub data: Option<D>,
+    /// The aggregated strongly-typed policy data, or [`Default::default()`]
+    /// when not enforced.
+    pub data: D,
 }
 
 /// Opt-in extension for policies whose data can be combined across
@@ -62,19 +63,18 @@ pub trait PolicyAggregateFilter: PolicyAggregate {
         Self: Sized,
     {
         let filtered = self.filter(policies, organization_user_policy_contexts);
-        let enforced = !filtered.is_empty();
-        let data_items: Vec<Self::Data> = filtered
-            .iter()
-            .filter_map(|p| self.parse_data(p.data.as_deref()))
-            .collect();
-        let data = if data_items.is_empty() {
-            None
+        let data = if filtered.is_empty() {
+            Self::Data::default()
         } else {
-            Some(self.aggregate(data_items))
+            let data_items: Vec<Self::Data> = filtered
+                .iter()
+                .map(|p| self.parse_data(p.data.as_deref()))
+                .collect();
+            self.aggregate(data_items)
         };
         EnforcedCombinedPolicy {
             r#type: self.policy_type(),
-            enforced,
+            enforced: !filtered.is_empty(),
             data,
         }
     }
@@ -99,7 +99,7 @@ mod tests {
         let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
 
         assert!(result.enforced);
-        assert_eq!(result.data, Some(DemoData { min: 8 }));
+        assert_eq!(result.data, DemoData { min: 8 });
         assert_eq!(result.organization_id, org_id);
     }
 
@@ -116,7 +116,7 @@ mod tests {
         let result = DemoPolicy.enforced_combined_policy(&policies, &orgs);
 
         assert!(result.enforced);
-        assert_eq!(result.data, Some(DemoData { min: 14 }));
+        assert_eq!(result.data, DemoData { min: 14 });
     }
 
     #[test]
@@ -124,7 +124,7 @@ mod tests {
         let result = DemoPolicy.enforced_combined_policy(&[], &[]);
 
         assert!(!result.enforced);
-        assert_eq!(result.data, None);
+        assert_eq!(result.data, DemoData::default());
     }
 
     #[test]
@@ -153,7 +153,6 @@ mod tests {
         let result = TestPolicy.enforced_combined_policy(&policies, &orgs);
 
         assert!(!result.enforced);
-        assert_eq!(result.data, None);
     }
 
     #[test]
@@ -162,7 +161,8 @@ mod tests {
         let org2 = Uuid::new_v4();
         let policies = [
             demo_policy_view(org1, Some(r#"{"min":8}"#)),
-            // Disabled — should be skipped by the filter.
+            // Disabled — should be skipped by the filter, so its `min: 14` does not feed
+            // aggregation.
             demo_policy_view_with_enabled(org2, Some(r#"{"min":14}"#), false),
         ];
         let orgs = [org(org1), org(org2)];
@@ -170,11 +170,11 @@ mod tests {
         let result = DemoPolicy.enforced_combined_policy(&policies, &orgs);
 
         assert!(result.enforced);
-        assert_eq!(result.data, Some(DemoData { min: 8 }));
+        assert_eq!(result.data, DemoData { min: 8 });
     }
 
     #[test]
-    fn enforced_combined_policy_data_none_when_no_parseable_data() {
+    fn enforced_combined_policy_data_is_default_when_no_parseable_data() {
         let org1 = Uuid::new_v4();
         let org2 = Uuid::new_v4();
         let policies = [
@@ -186,11 +186,12 @@ mod tests {
         let result = DemoPolicy.enforced_combined_policy(&policies, &orgs);
 
         assert!(result.enforced);
-        assert_eq!(result.data, None);
+        // Both policies parse to Default, aggregation of two defaults stays Default.
+        assert_eq!(result.data, DemoData::default());
     }
 
     #[test]
-    fn enforced_combined_policy_aggregates_only_parseable_data() {
+    fn enforced_combined_policy_treats_unparseable_as_default() {
         let org1 = Uuid::new_v4();
         let org2 = Uuid::new_v4();
         let policies = [
@@ -201,12 +202,13 @@ mod tests {
 
         let result = DemoPolicy.enforced_combined_policy(&policies, &orgs);
 
+        // Unparseable becomes DemoData::default() (min=0); aggregation `max` selects min=8.
         assert!(result.enforced);
-        assert_eq!(result.data, Some(DemoData { min: 8 }));
+        assert_eq!(result.data, DemoData { min: 8 });
     }
 
     #[test]
-    fn enforced_combined_policy_nodata_returns_enforced_with_no_data() {
+    fn enforced_combined_policy_nodata_returns_enforced_with_default_data() {
         let org1 = Uuid::new_v4();
         let org2 = Uuid::new_v4();
         let policies = [
@@ -231,6 +233,7 @@ mod tests {
         let result = TestPolicy.enforced_combined_policy(&policies, &orgs);
 
         assert!(result.enforced);
-        assert_eq!(result.data, None);
+        // Data type for a NoData policy is `()` — the assertion is trivial but documents intent.
+        assert_eq!(result.data, ());
     }
 }
