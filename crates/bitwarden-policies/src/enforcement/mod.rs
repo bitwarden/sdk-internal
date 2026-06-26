@@ -23,7 +23,7 @@ use crate::{
 mod aggregate;
 mod data;
 
-pub use aggregate::{EnforcedCombinedPolicy, PolicyAggregate, PolicyAggregateFilter};
+pub use aggregate::{EnforcedAggregatePolicy, PolicyAggregate, PolicyAggregateFilter};
 pub use data::{EnforcedPolicy, PolicyData, PolicyDataFilter};
 
 /// Defines the filtering behavior for a specific policy type.
@@ -65,7 +65,7 @@ pub trait Policy: Send + Sync + 'static {
 /// Implementing this trait gives the policy free [`PolicyData`] and
 /// [`PolicyAggregate`] implementations with `Data = ()`, so it can use
 /// [`PolicyDataFilter::enforced_policy`] and
-/// [`PolicyAggregateFilter::enforced_combined_policy`] without declaring any
+/// [`PolicyAggregateFilter::enforced_aggregate_policy`] without declaring any
 /// data plumbing.
 pub trait NoData {}
 

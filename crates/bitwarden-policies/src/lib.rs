@@ -14,7 +14,7 @@ mod policy_type;
 mod registry;
 
 pub use enforcement::{
-    EnforcedCombinedPolicy, EnforcedPolicy, NoData, Policy, PolicyAggregate, PolicyData,
+    EnforcedAggregatePolicy, EnforcedPolicy, NoData, Policy, PolicyAggregate, PolicyData,
 };
 pub use master_password_policy_response::MasterPasswordPolicyResponse;
 pub use models::{OrganizationUserPolicyContext, PolicyView};
