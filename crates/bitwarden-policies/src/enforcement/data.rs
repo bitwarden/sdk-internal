@@ -73,7 +73,7 @@ pub trait EnforcedPolicyFilter: PolicyData {
     /// pipeline. Always returns a non-`None` result; when no matching policy
     /// applies, the returned [`EnforcedPolicy`] has `enforced=false` and
     /// `data=None`.
-    fn enforced_policy(
+    fn get_enforced_policy(
         &self,
         organization_id: Uuid,
         policies: &[PolicyView],
@@ -128,7 +128,7 @@ mod tests {
             false,
         )];
 
-        let result = TestPolicy.enforced_policy(org_id, &policies, &orgs);
+        let result = TestMasterPasswordPolicy.get_enforced_policy(org_id, &policies, &orgs);
 
         assert!(result.enforced);
         assert_eq!(result.organization_id, org_id);
@@ -139,7 +139,7 @@ mod tests {
     fn enforced_policy_not_enforced_when_no_policy() {
         let org_id = Uuid::new_v4();
 
-        let result = TestPolicy.enforced_policy(org_id, &[], &[]);
+        let result = TestMasterPasswordPolicy.get_enforced_policy(org_id, &[], &[]);
 
         assert!(!result.enforced);
         assert_eq!(result.organization_id, org_id);
@@ -157,7 +157,7 @@ mod tests {
             false,
         )];
 
-        let result = TestPolicy.enforced_policy(org_id, &policies, &orgs);
+        let result = TestMasterPasswordPolicy.get_enforced_policy(org_id, &policies, &orgs);
 
         assert!(!result.enforced);
     }
@@ -173,7 +173,7 @@ mod tests {
             false,
         )];
 
-        let result = TestPolicy.enforced_policy(org_id, &policies, &orgs);
+        let result = TestMasterPasswordPolicy.get_enforced_policy(org_id, &policies, &orgs);
 
         assert!(!result.enforced);
     }
@@ -183,7 +183,7 @@ mod tests {
         let org_id = Uuid::new_v4();
         let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
 
-        let result = TestPolicy.enforced_policy(org_id, &policies, &[]);
+        let result = TestMasterPasswordPolicy.get_enforced_policy(org_id, &policies, &[]);
 
         assert!(result.enforced);
     }
@@ -196,7 +196,7 @@ mod tests {
         let policies = [demo_policy_view(org_id, None)];
         let orgs = [org(org_id)];
 
-        let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
+        let result = DemoPolicy.get_enforced_policy(org_id, &policies, &orgs);
 
         assert!(result.enforced);
         assert_eq!(result.data, DemoData::default());
@@ -208,7 +208,7 @@ mod tests {
         let policies = [demo_policy_view(org_id, Some("not json"))];
         let orgs = [org(org_id)];
 
-        let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
+        let result = DemoPolicy.get_enforced_policy(org_id, &policies, &orgs);
 
         assert!(result.enforced);
         assert_eq!(result.data, DemoData::default());
@@ -218,7 +218,7 @@ mod tests {
     fn enforced_policy_data_is_default_when_not_enforced() {
         let org_id = Uuid::new_v4();
 
-        let result = DemoPolicy.enforced_policy(org_id, &[], &[]);
+        let result = DemoPolicy.get_enforced_policy(org_id, &[], &[]);
 
         assert!(!result.enforced);
         assert_eq!(result.data, DemoData::default());

@@ -55,7 +55,7 @@ pub trait PolicyAggregateFilter: PolicyAggregate {
     /// [`aggregate`](PolicyAggregate::aggregate) of the underlying enforced
     /// policies' data (combined as determined by the policy), or
     /// [`Default::default()`] when no policy is enforced.
-    fn enforced_aggregate_policy(
+    fn get_enforced_aggregate_policy(
         &self,
         policies: &[PolicyView],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
@@ -97,7 +97,7 @@ mod tests {
         let policies = [demo_policy_view(org_id, Some(r#"{"min":8}"#))];
         let orgs = [org(org_id)];
 
-        let result = DemoPolicy.enforced_policy(org_id, &policies, &orgs);
+        let result = DemoPolicy.get_enforced_policy(org_id, &policies, &orgs);
 
         assert!(result.enforced);
         assert_eq!(result.data, DemoData { min: 8 });
@@ -114,7 +114,7 @@ mod tests {
         ];
         let orgs = [org(org1), org(org2)];
 
-        let result = DemoPolicy.enforced_aggregate_policy(&policies, &orgs);
+        let result = DemoPolicy.get_enforced_aggregate_policy(&policies, &orgs);
 
         assert!(result.enforced);
         assert_eq!(result.data, DemoData { min: 14 });
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn enforced_aggregate_policy_returns_not_enforced_when_no_policies() {
-        let result = DemoPolicy.enforced_aggregate_policy(&[], &[]);
+        let result = DemoPolicy.get_enforced_aggregate_policy(&[], &[]);
 
         assert!(!result.enforced);
         assert_eq!(result.data, DemoData::default());
@@ -151,7 +151,7 @@ mod tests {
             ),
         ];
 
-        let result = TestPolicy.enforced_aggregate_policy(&policies, &orgs);
+        let result = TestMasterPasswordPolicy.get_enforced_aggregate_policy(&policies, &orgs);
 
         assert!(!result.enforced);
     }
@@ -168,7 +168,7 @@ mod tests {
         ];
         let orgs = [org(org1), org(org2)];
 
-        let result = DemoPolicy.enforced_aggregate_policy(&policies, &orgs);
+        let result = DemoPolicy.get_enforced_aggregate_policy(&policies, &orgs);
 
         assert!(result.enforced);
         assert_eq!(result.data, DemoData { min: 8 });
@@ -184,7 +184,7 @@ mod tests {
         ];
         let orgs = [org(org1), org(org2)];
 
-        let result = DemoPolicy.enforced_aggregate_policy(&policies, &orgs);
+        let result = DemoPolicy.get_enforced_aggregate_policy(&policies, &orgs);
 
         assert!(result.enforced);
         // Both policies parse to Default, aggregation of two defaults stays Default.
@@ -201,7 +201,7 @@ mod tests {
         ];
         let orgs = [org(org1), org(org2)];
 
-        let result = DemoPolicy.enforced_aggregate_policy(&policies, &orgs);
+        let result = DemoPolicy.get_enforced_aggregate_policy(&policies, &orgs);
 
         // Unparseable becomes DemoData::default() (min=0); aggregation `max` selects min=8.
         assert!(result.enforced);
@@ -231,7 +231,7 @@ mod tests {
             ),
         ];
 
-        let result = TestPolicy.enforced_aggregate_policy(&policies, &orgs);
+        let result = TestMasterPasswordPolicy.get_enforced_aggregate_policy(&policies, &orgs);
 
         assert!(result.enforced);
         // Data type for a NoData policy is `()` — the assertion is trivial but documents intent.

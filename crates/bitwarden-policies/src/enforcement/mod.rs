@@ -63,8 +63,8 @@ pub(crate) mod test_helpers {
     }
 
     /// A [`NoData`] policy used by tests that don't care about typed data.
-    pub struct TestPolicy;
-    impl Policy for TestPolicy {
+    pub struct TestMasterPasswordPolicy;
+    impl Policy for TestMasterPasswordPolicy {
         fn policy_type(&self) -> PolicyType {
             PolicyType::MasterPassword
         }
@@ -86,7 +86,7 @@ pub(crate) mod test_helpers {
             ]
         }
     }
-    impl NoData for TestPolicy {}
+    impl NoData for TestMasterPasswordPolicy {}
 
     /// A policy with strongly-typed data, used by tests that exercise the
     /// [`PolicyData`] and [`PolicyAggregate`] layers.
