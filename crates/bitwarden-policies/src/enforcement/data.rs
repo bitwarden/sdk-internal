@@ -1,11 +1,12 @@
 //! Strongly-typed data layer.
 
+use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
-use super::{NoData, Policy, PolicyFilter};
+use super::{Policy, PolicyFilter};
 use crate::{
+    PolicyType,
     models::{OrganizationUserPolicyContext, PolicyView},
-    policy_type::PolicyType,
 };
 
 /// How a specific organization's policy of a given type applies to the current
@@ -32,33 +33,41 @@ pub struct EnforcedPolicy<D> {
     pub data: D,
 }
 
-/// Opt-in extension for policies that carry strongly-typed data.
-///
-/// Implementing this trait unlocks [`PolicyDataFilter::enforced_policy`] for
-/// the policy. Policies with no data can implement [`NoData`] instead and get
-/// a trivial [`PolicyData`] implementation for free.
+/// Implement to specify the strongly typed data stored on the [`PolicyView`].
+/// If your policy does not carry data, implement [`NoData`] instead.
 pub trait PolicyData: Policy {
-    /// The strongly-typed data this policy carries. The [`Default`] value is
+    /// The strongly-typed data for this policy. The [`Default`] value is
     /// the fall-back whenever the policy is not enforced or the raw data could
     /// not be parsed.
-    type Data: Default;
-
-    /// Parses the raw JSON `data` field of a [`PolicyView`] into this policy's
-    /// typed [`Data`](Self::Data). Implementations should return
-    /// [`Default::default()`] when the field is absent or unparseable.
-    fn parse_data(&self, raw: Option<&str>) -> Self::Data;
+    type Data: Default + DeserializeOwned;
 }
+
+/// Marker trait declaring that a [`Policy`] carries no typed data.
+///
+/// Implementing this trait gives the policy free [`PolicyData`] and
+/// [`PolicyAggregate`] implementations with `Data = ()`, so it can use
+/// [`PolicyDataFilter::enforced_policy`] and
+/// [`PolicyAggregateFilter::enforced_aggregate_policy`] without declaring any
+/// data plumbing.
+pub trait NoData {}
 
 impl<P: Policy + NoData> PolicyData for P {
     type Data = ();
-
-    fn parse_data(&self, _: Option<&str>) -> Self::Data {}
 }
 
 /// Extension trait that adds an
 /// [`enforced_policy`](PolicyDataFilter::enforced_policy) method to every
 /// [`PolicyData`]. Implemented automatically for all `P: PolicyData`.
-pub trait PolicyDataFilter: PolicyData {
+pub trait EnforcedPolicyFilter: PolicyData {
+    /// Deserializes the [`PolicyView::Data`] string into the `Policy::Data` type.
+    /// Returns the default type if there is no data or it cannot be parsed.
+    fn get_data_or_default(&self, view: &PolicyView) -> Self::Data {
+        match &view.data {
+            Some(data) => serde_json::from_str(data).unwrap_or_default(),
+            None => Self::Data::default(),
+        }
+    }
+
     /// Returns the [`EnforcedPolicy`] for `organization_id` against the current
     /// user. Performs a targeted lookup — does not iterate the full filter
     /// pipeline. Always returns a non-`None` result; when no matching policy
@@ -86,7 +95,7 @@ pub trait PolicyDataFilter: PolicyData {
                 organization_id,
                 r#type: self.policy_type(),
                 enforced: true,
-                data: self.parse_data(v.data.as_deref()),
+                data: self.get_data_or_default(v),
             },
             _ => EnforcedPolicy {
                 organization_id,
@@ -98,7 +107,7 @@ pub trait PolicyDataFilter: PolicyData {
     }
 }
 
-impl<P: PolicyData> PolicyDataFilter for P {}
+impl<P: PolicyData> EnforcedPolicyFilter for P {}
 
 #[cfg(test)]
 mod tests {

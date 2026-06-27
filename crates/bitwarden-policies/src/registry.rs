@@ -13,7 +13,9 @@ use crate::{
     enforcement::{Policy, PolicyFilter},
 };
 
-/// A [`Policy`] that uses the default filtering behavior for any policy type.
+/// A [`Policy`] that uses the default enforcement behavior for any policy type.
+/// This is not suitable if you need to specify different exempt roles or
+/// applicable statuses, or if your policy type carries strongly typed data.
 struct DefaultPolicy(PolicyType);
 
 impl Policy for DefaultPolicy {

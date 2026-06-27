@@ -1,7 +1,8 @@
 //! Aggregation layer — combining typed policy data across organizations.
 
-use super::{NoData, Policy, PolicyData, PolicyFilter};
+use super::{Policy, PolicyData, PolicyFilter, data::NoData};
 use crate::{
+    enforcement::EnforcedPolicyFilter,
     models::{OrganizationUserPolicyContext, PolicyView},
     policy_type::PolicyType,
 };
@@ -68,7 +69,7 @@ pub trait PolicyAggregateFilter: PolicyAggregate {
         } else {
             let data_items: Vec<Self::Data> = filtered
                 .iter()
-                .map(|p| self.parse_data(p.data.as_deref()))
+                .map(|p| self.get_data_or_default(p))
                 .collect();
             self.aggregate(data_items)
         };
@@ -88,7 +89,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::enforcement::{PolicyDataFilter, test_helpers::*};
+    use crate::enforcement::{EnforcedPolicyFilter, test_helpers::*};
 
     #[test]
     fn enforced_policy_returns_typed_data() {
