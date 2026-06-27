@@ -9,13 +9,12 @@ use crate::{
     models::{OrganizationUserPolicyContext, PolicyView},
 };
 
-/// How a specific organization's policy of a given type applies to the current
-/// user.
+/// A per-organization enforcement decision for a single policy type.
 ///
-/// Similar to [`PolicyView`], but with two differences:
-/// - `enabled` is replaced by `enforced`, which reflects user-specific evaluation rather than the
-///   policy's raw state.
-/// - `data` is strongly typed via the policy's [`PolicyData::Data`].
+/// Unlike [`PolicyView`] (the server-side record), this carries only the
+/// fields relevant to an enforcement decision: `enforced` reflects the
+/// user-specific evaluation rather than the policy's raw `enabled` flag, and
+/// `data` is strongly typed via [`PolicyData::Data`].
 ///
 /// `data` is always populated. When no matching policy is found, or when the
 /// policy record's data could not be parsed, `data` is [`Default::default()`].
@@ -69,9 +68,15 @@ pub trait EnforcedPolicyFilter: PolicyData {
         }
     }
 
-    /// Returns the [`EnforcedPolicy`] for `organization_id` against the current
-    /// user. When no matching policy applies, the returned
-    /// [`EnforcedPolicy`] has `enforced=false` and `data=Default::default()`.
+    /// Returns the [`EnforcedPolicy`] for `organization_id` against the user
+    /// described by `organization_user_policy_contexts`. When no matching
+    /// policy applies, the returned [`EnforcedPolicy`] has `enforced=false`
+    /// and `data=Default::default()`.
+    ///
+    /// If `organization_id` is not present in
+    /// `organization_user_policy_contexts`, an existing matching policy is
+    /// enforced — unknown organizations are treated as in-scope by default so
+    /// policies are not silently bypassed.
     fn get_enforced_policy(
         &self,
         organization_id: Uuid,

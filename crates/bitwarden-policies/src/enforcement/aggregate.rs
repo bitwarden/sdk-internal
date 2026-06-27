@@ -7,14 +7,18 @@ use crate::{
     policy_type::PolicyType,
 };
 
-/// The aggregated enforcement of a single policy type across all of the user's
-/// organizations.
+/// The aggregated enforcement of a single policy type across every
+/// organization the user belongs to.
 ///
-/// `enforced` is `true` if any of the user's organization policies of this type
-/// are enforced. `data` is the combination of the underlying enforced policies'
-/// data, computed via [`PolicyAggregate::aggregate`]; how those values are
-/// combined is determined by the policy itself. When no policy is enforced,
-/// `data` is [`Default::default()`].
+/// This represents a combination of [`PolicyView`]s rather than any
+/// specific [`PolicyView`]. Also unlike [`PolicyView`] (the server-side record),
+/// this carries only the fields relevant to an enforcement decision: `enforced` reflects the
+/// user-specific evaluation rather than any one policy's raw `enabled` flag, and
+/// `data` is strongly typed via [`PolicyData::Data`] and combined via
+/// [`PolicyAggregate::aggregate`]
+///
+/// `data` is always populated. When no matching policy is found or no data
+/// can be parsed, data is [`Default::default()`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnforcedAggregatePolicy<D> {
     /// The policy type.
@@ -50,11 +54,17 @@ impl<P: Policy + NoData> PolicyAggregate for P {
 /// `P: PolicyAggregate`.
 pub trait PolicyAggregateFilter: PolicyAggregate {
     /// Returns the [`EnforcedAggregatePolicy`] aggregating this policy type
-    /// across all of the user's organizations. `enforced` is `true` if any of
-    /// the user's organizations enforce this policy. `data` is the
+    /// across every organization the user belongs to (as described by
+    /// `organization_user_policy_contexts`). `enforced` is `true` if any of
+    /// those organizations enforce this policy. `data` is the
     /// [`aggregate`](PolicyAggregate::aggregate) of the underlying enforced
     /// policies' data (combined as determined by the policy), or
     /// [`Default::default()`] when no policy is enforced.
+    ///
+    /// If a policy's organization is not present in
+    /// `organization_user_policy_contexts`, the policy is enforced — unknown
+    /// organizations are treated as in-scope by default so policies are not
+    /// silently bypassed.
     fn get_enforced_aggregate_policy(
         &self,
         policies: &[PolicyView],

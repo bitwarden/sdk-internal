@@ -8,9 +8,15 @@ use crate::{
     policy_type::PolicyType,
 };
 
-/// Defines the filtering behavior for a specific policy type.
+/// Declares which organization members a specific policy type applies to.
 ///
-/// Implement this trait to control how a policy is enforced.
+/// An implementor identifies the [`PolicyType`] it handles and specifies the
+/// role exemptions, applicable membership statuses, and provider exemption.
+/// The defaults match the most common Bitwarden policy: exempt Owners and
+/// Admins, exempt provider users, apply to Accepted and Confirmed members.
+///
+/// Ready-made implementations for the built-in policy types live in
+/// [`policy_overrides`](crate::policy_overrides).
 pub trait Policy: Send + Sync + 'static {
     /// Returns the policy type this definition handles.
     fn policy_type(&self) -> PolicyType;
@@ -42,15 +48,34 @@ pub trait Policy: Send + Sync + 'static {
     }
 }
 
-/// Extension trait that adds [`enforced`](PolicyFilter::enforced) and
-/// [`filter`](PolicyFilter::filter) methods to every [`Policy`]. Implemented
-/// automatically for all `T: Policy`.
+/// Adds the [`enforced`](PolicyFilter::enforced) (single decision) and
+/// [`filter`](PolicyFilter::filter) (bulk filter) enforcement methods to every
+/// [`Policy`].
+///
+/// For typed-data decisions, prefer
+/// [`EnforcedPolicyFilter`](super::EnforcedPolicyFilter) /
+/// [`PolicyAggregateFilter`](super::PolicyAggregateFilter) which return a
+/// structured [`EnforcedPolicy`](super::EnforcedPolicy) /
+/// [`EnforcedAggregatePolicy`](super::EnforcedAggregatePolicy). Use
+/// [`PolicyFilter::filter`] only when you need the raw [`PolicyView`]s back.
+///
+/// Blanket-implemented for all `T: Policy`.
 pub trait PolicyFilter: Policy {
-    /// Evaluates whether a single [`PolicyView`] is enforced against the user
-    /// based on this policy's rules. If no `context` is supplied,
-    /// the policy is enforced by default.
-    /// The caller must ensure that the [`Policy`], [`PolicyView`] and
-    /// [`OrganizationUserPolicyContext`] are all correctly matched.
+    /// Returns whether `view` is enforced against the user described by
+    /// `context`. When `context` is `None`, the policy is enforced — unknown
+    /// organizations are treated as in-scope by default so policies are not
+    /// silently bypassed.
+    ///
+    /// # Inputs
+    ///
+    /// `view.r#type` must equal [`self.policy_type()`](Policy::policy_type),
+    /// and when `context` is `Some`, `context.id` must equal
+    /// `view.organization_id`. Both invariants should be guaranteed by
+    /// upstream filtering and lookup.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either invariant above is violated.
     fn enforced(&self, view: &PolicyView, context: Option<&OrganizationUserPolicyContext>) -> bool {
         // Sanity checks: if inputs are invalid, refuse to make an enforcement decision
         // TODO: should this panic or return a result?
@@ -91,11 +116,13 @@ pub trait PolicyFilter: Policy {
     /// This evaluates common business rules (e.g. the policy is enabled),
     /// as well as policy-specific rules according to its [`Policy`].
     ///
-    /// This accepts all policy types and will ignore those that do not match the
-    /// [`Policy::policy_type`].
+    /// `policies` may include other policy types; entries whose `type` field
+    /// does not match [`Policy::policy_type`] are dropped.
     ///
     /// If a policy's organization is not present in
-    /// `organization_user_policy_contexts`, the policy is enforced by default.
+    /// `organization_user_policy_contexts`, the policy is enforced — unknown
+    /// organizations are treated as in-scope by default so policies are not
+    /// silently bypassed.
     fn filter<'a>(
         &self,
         policies: &'a [PolicyView],

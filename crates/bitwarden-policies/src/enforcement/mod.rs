@@ -1,14 +1,45 @@
 #![allow(dead_code)]
 
-//! Policy filtering and enforcement logic.
+//! Decide whether organization policies apply to a user, and surface the
+//! typed data they carry.
 //!
-//! The framework is layered:
-//! - [`Policy`] defines per-policy filtering rules.
-//! - [`PolicyData`] defines how strongly typed data is handled.
-//! - [`PolicyAggregate`] is opt-in for policies that can be combined across organizations.
+//! # Consumer overview
 //!
-//! Each layer ships an extension trait — [`PolicyFilter`], [`EnforcedPolicyFilter`],
-//! [`PolicyAggregateFilter`] — providing the computed enforcement APIs.
+//! Inputs throughout this module are:
+//! - `policies`: the user's full list of [`PolicyView`](crate::PolicyView)s, as returned by the
+//!   server.
+//! - `organization_user_policy_contexts`: an
+//!   [`OrganizationUserPolicyContext`](crate::OrganizationUserPolicyContext) per organization the
+//!   user belongs to. The "user" the enforcement decision is made against is the user described by
+//!   these contexts.
+//!
+//! Pick the API that matches the question being asked:
+//!
+//! | Question | Method |
+//! | --- | --- |
+//! | How is this policy for this specific organization enforced against the user? | [`EnforcedPolicyFilter::get_enforced_policy`] |
+//! | How is this policy type enforced against the user for all organizations they belong to? | [`PolicyAggregateFilter::get_enforced_aggregate_policy`] |
+//! | Give me all raw [`PolicyView`](crate::PolicyView)s that should be enforced against the user.| [`PolicyFilter::filter`] |
+//!
+//! Ready-made [`Policy`] implementations for every server-defined policy type
+//! live in [`policy_overrides`](crate::policy_overrides) — most consumers use
+//! those directly rather than implementing [`Policy`] themselves.
+//!
+//! # Authoring a new policy
+//!
+//! The framework is layered. Implement only as much as the policy needs:
+//! - [`Policy`] — required. Declares the policy type and which org members it applies to (role
+//!   exemptions, applicable membership statuses, provider exemption).
+//! - [`NoData`] — marker for policies that carry no typed data. Gives free [`PolicyData`] and
+//!   [`PolicyAggregate`] impls with `Data = ()`.
+//! - [`PolicyData`] — implement instead of [`NoData`] when the policy carries strongly-typed
+//!   configuration (e.g. minimum master password length).
+//! - [`PolicyAggregate`] — implement when typed data needs to combine across multiple organizations
+//!   (e.g. take the strictest minimum).
+//!
+//! Each layer ships an extension trait blanket-implemented for every type that
+//! satisfies the layer above it — [`PolicyFilter`], [`EnforcedPolicyFilter`],
+//! [`PolicyAggregateFilter`] — providing the enforcement APIs above.
 
 mod aggregate;
 mod data;
