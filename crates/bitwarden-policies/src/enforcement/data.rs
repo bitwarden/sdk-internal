@@ -45,22 +45,23 @@ pub trait PolicyData: Policy {
 /// Marker trait declaring that a [`Policy`] carries no typed data.
 ///
 /// Implementing this trait gives the policy free [`PolicyData`] and
-/// [`PolicyAggregate`] implementations with `Data = ()`, so it can use
-/// [`PolicyDataFilter::enforced_policy`] and
-/// [`PolicyAggregateFilter::enforced_aggregate_policy`] without declaring any
-/// data plumbing.
+/// [`PolicyAggregate`](super::PolicyAggregate) implementations with
+/// `Data = ()`, so it can use [`EnforcedPolicyFilter::get_enforced_policy`] and
+/// [`PolicyAggregateFilter::get_enforced_aggregate_policy`](super::PolicyAggregateFilter::get_enforced_aggregate_policy)
+/// without declaring any data plumbing.
 pub trait NoData {}
 
 impl<P: Policy + NoData> PolicyData for P {
     type Data = ();
 }
 
-/// Extension trait that adds an
-/// [`enforced_policy`](PolicyDataFilter::enforced_policy) method to every
-/// [`PolicyData`]. Implemented automatically for all `P: PolicyData`.
+/// Extension trait that adds a
+/// [`get_enforced_policy`](EnforcedPolicyFilter::get_enforced_policy) method to
+/// every [`PolicyData`]. Implemented automatically for all `P: PolicyData`.
 pub trait EnforcedPolicyFilter: PolicyData {
-    /// Deserializes the [`PolicyView::Data`] string into the `Policy::Data` type.
-    /// Returns the default type if there is no data or it cannot be parsed.
+    /// Deserializes the [`PolicyView::data`] string into the
+    /// [`PolicyData::Data`] type. Returns [`Default::default()`] if there is no
+    /// data or it cannot be parsed.
     fn get_data_or_default(&self, view: &PolicyView) -> Self::Data {
         match &view.data {
             Some(data) => serde_json::from_str(data).unwrap_or_default(),
@@ -69,10 +70,8 @@ pub trait EnforcedPolicyFilter: PolicyData {
     }
 
     /// Returns the [`EnforcedPolicy`] for `organization_id` against the current
-    /// user. Performs a targeted lookup — does not iterate the full filter
-    /// pipeline. Always returns a non-`None` result; when no matching policy
-    /// applies, the returned [`EnforcedPolicy`] has `enforced=false` and
-    /// `data=None`.
+    /// user. When no matching policy applies, the returned
+    /// [`EnforcedPolicy`] has `enforced=false` and `data=Default::default()`.
     fn get_enforced_policy(
         &self,
         organization_id: Uuid,

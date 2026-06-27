@@ -31,7 +31,7 @@ pub struct EnforcedAggregatePolicy<D> {
 /// organizations.
 ///
 /// Implementing this trait unlocks
-/// [`PolicyAggregateFilter::enforced_aggregate_policy`] for the policy.
+/// [`PolicyAggregateFilter::get_enforced_aggregate_policy`] for the policy.
 /// [`NoData`] policies get a trivial implementation for free.
 pub trait PolicyAggregate: PolicyData {
     /// Combines multiple [`Data`](PolicyData::Data) values into a single value.
@@ -44,8 +44,8 @@ impl<P: Policy + NoData> PolicyAggregate for P {
     fn aggregate(&self, _: Vec<Self::Data>) -> Self::Data {}
 }
 
-/// Extension trait that adds an
-/// [`enforced_aggregate_policy`](PolicyAggregateFilter::enforced_aggregate_policy)
+/// Extension trait that adds a
+/// [`get_enforced_aggregate_policy`](PolicyAggregateFilter::get_enforced_aggregate_policy)
 /// method to every [`PolicyAggregate`]. Implemented automatically for all
 /// `P: PolicyAggregate`.
 pub trait PolicyAggregateFilter: PolicyAggregate {
