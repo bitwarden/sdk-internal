@@ -10,6 +10,7 @@ use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
 };
+use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
@@ -28,6 +29,7 @@ uniffi::setup_scaffolding!();
 pub mod clients {
     pub use bitwarden_auth::AuthClient;
     pub use bitwarden_core::key_management::CryptoClient;
+    pub use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
@@ -111,6 +113,11 @@ impl PasswordManagerClient {
     /// Crypto operations
     pub fn crypto(&self) -> bitwarden_core::key_management::CryptoClient {
         self.0.crypto()
+    }
+
+    /// Crypto cipher suite operations
+    pub fn crypto_cipher_suite(&self) -> bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient {
+        self.0.crypto_cipher_suite()
     }
 
     /// Feature flag operations
