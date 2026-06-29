@@ -1,3 +1,5 @@
+pub mod accept_organization_invite_link_request_model;
+pub use self::accept_organization_invite_link_request_model::AcceptOrganizationInviteLinkRequestModel;
 pub mod access_policy_request;
 pub use self::access_policy_request::AccessPolicyRequest;
 pub mod access_token_create_request_model;

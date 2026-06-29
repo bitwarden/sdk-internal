@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`87eeba2134f4b2f1a82db1c800aa58508da03b43`](https://github.com/bitwarden/server/commit/87eeba2134f4b2f1a82db1c800aa58508da03b43)
+  [`f5ec38e3c84de53bb320b66c96223e9e6e1dbf38`](https://github.com/bitwarden/server/commit/f5ec38e3c84de53bb320b66c96223e9e6e1dbf38)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -313,6 +313,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationSponsorshipsApi_             | [**sync**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_sync)                                                                                   | **POST** /organization/sponsorship/sync                                                                  |
 | _OrganizationUsersApi_                    | [**accept**](docs/OrganizationUsersApi.md#organization_users_accept)                                                                                             | **POST** /organizations/{orgId}/users/{organizationUserId}/accept                                        |
 | _OrganizationUsersApi_                    | [**accept_init**](docs/OrganizationUsersApi.md#organization_users_accept_init)                                                                                   | **POST** /organizations/{orgId}/users/{organizationUserId}/accept-init                                   |
+| _OrganizationUsersApi_                    | [**accept_invite_link**](docs/OrganizationUsersApi.md#organization_users_accept_invite_link)                                                                     | **POST** /organizations/users/invite-link/accept                                                         |
 | _OrganizationUsersApi_                    | [**automatically_confirm_organization_user**](docs/OrganizationUsersApi.md#organization_users_automatically_confirm_organization_user)                           | **POST** /organizations/{orgId}/users/{id}/auto-confirm                                                  |
 | _OrganizationUsersApi_                    | [**bulk_automatically_confirm_organization_users**](docs/OrganizationUsersApi.md#organization_users_bulk_automatically_confirm_organization_users)               | **POST** /organizations/{orgId}/users/bulk-auto-confirm                                                  |
 | _OrganizationUsersApi_                    | [**bulk_confirm**](docs/OrganizationUsersApi.md#organization_users_bulk_confirm)                                                                                 | **POST** /organizations/{orgId}/users/confirm                                                            |
@@ -332,9 +333,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                    | [**get_reset_password_details**](docs/OrganizationUsersApi.md#organization_users_get_reset_password_details)                                                     | **GET** /organizations/{orgId}/users/{id}/reset-password-details                                         |
 | _OrganizationUsersApi_                    | [**invite**](docs/OrganizationUsersApi.md#organization_users_invite)                                                                                             | **POST** /organizations/{orgId}/users/invite                                                             |
 | _OrganizationUsersApi_                    | [**put**](docs/OrganizationUsersApi.md#organization_users_put)                                                                                                   | **PUT** /organizations/{orgId}/users/{id}                                                                |
-| _OrganizationUsersApi_                    | [**put_recover_account**](docs/OrganizationUsersApi.md#organization_users_put_recover_account)                                                                   | **PUT** /organizations/{orgId}/users/{id}/recover-account                                                |
-| _OrganizationUsersApi_                    | [**put_reset_password**](docs/OrganizationUsersApi.md#organization_users_put_reset_password)                                                                     | **PUT** /organizations/{orgId}/users/{id}/reset-password                                                 | Backward compat alias — remove after clients migrate to recover-account.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | _OrganizationUsersApi_                    | [**put_reset_password_enrollment**](docs/OrganizationUsersApi.md#organization_users_put_reset_password_enrollment)                                               | **PUT** /organizations/{orgId}/users/{userId}/reset-password-enrollment                                  |
+| _OrganizationUsersApi_                    | [**recover_account**](docs/OrganizationUsersApi.md#organization_users_recover_account)                                                                           | **PUT** /organizations/{orgId}/users/{id}/recover-account                                                |
 | _OrganizationUsersApi_                    | [**reinvite**](docs/OrganizationUsersApi.md#organization_users_reinvite)                                                                                         | **POST** /organizations/{orgId}/users/{id}/reinvite                                                      |
 | _OrganizationUsersApi_                    | [**remove**](docs/OrganizationUsersApi.md#organization_users_remove)                                                                                             | **DELETE** /organizations/{orgId}/users/{id}                                                             |
 | _OrganizationUsersApi_                    | [**restore_async_v_next**](docs/OrganizationUsersApi.md#organization_users_restore_async_v_next)                                                                 | **PUT** /organizations/{orgId}/users/{id}/restore/vnext                                                  |
@@ -532,6 +532,7 @@ All URIs are relative to *https://api.bitwarden.com*
 
 ## Documentation For Models
 
+- [AcceptOrganizationInviteLinkRequestModel](docs/AcceptOrganizationInviteLinkRequestModel.md)
 - [AccessPolicyRequest](docs/AccessPolicyRequest.md)
 - [AccessTokenCreateRequestModel](docs/AccessTokenCreateRequestModel.md)
 - [AccessTokenCreationResponseModel](docs/AccessTokenCreationResponseModel.md)

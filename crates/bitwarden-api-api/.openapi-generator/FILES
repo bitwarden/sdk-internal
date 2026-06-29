@@ -69,6 +69,7 @@ src/apis/two_factor_api.rs
 src/apis/users_api.rs
 src/apis/web_authn_api.rs
 src/lib.rs
+src/models/accept_organization_invite_link_request_model.rs
 src/models/access_policy_request.rs
 src/models/access_token_create_request_model.rs
 src/models/access_token_creation_response_model.rs
