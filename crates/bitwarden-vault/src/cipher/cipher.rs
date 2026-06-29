@@ -1215,7 +1215,13 @@ impl CipherView {
             CipherType::Passport => self
                 .passport
                 .as_ref()
-                .map(|p| passport::build_subtitle_passport(p.given_name.clone(), p.surname.clone()))
+                .map(|p| {
+                    passport::build_subtitle_passport(
+                        p.given_name.clone(),
+                        p.surname.clone(),
+                        p.issuing_country.clone(),
+                    )
+                })
                 .unwrap_or_default(),
         }
     }

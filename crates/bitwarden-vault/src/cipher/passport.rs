@@ -122,7 +122,16 @@ impl CipherKind for Passport {
             .as_ref()
             .map(|s| s.decrypt(ctx, key))
             .transpose()?;
-        Ok(build_subtitle_passport(given_name, surname))
+        let issuing_country: Option<String> = self
+            .issuing_country
+            .as_ref()
+            .map(|s| s.decrypt(ctx, key))
+            .transpose()?;
+        Ok(build_subtitle_passport(
+            given_name,
+            surname,
+            issuing_country,
+        ))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
@@ -150,13 +159,28 @@ impl CipherKind for Passport {
 pub(super) fn build_subtitle_passport(
     given_name: Option<String>,
     surname: Option<String>,
+    issuing_country: Option<String>,
 ) -> String {
-    [given_name, surname]
-        .into_iter()
-        .flatten()
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut subtitle = String::new();
+
+    if let Some(given_name) = given_name {
+        subtitle.push_str(&given_name);
+    }
+    if let Some(surname) = surname {
+        if subtitle.len() > 0 && surname.len() > 0 {
+            subtitle.push_str(" ");
+        }
+        subtitle.push_str(&surname);
+    }
+
+    if let Some(issuing_country) = issuing_country {
+        if subtitle.len() > 0 && issuing_country.len() > 0 {
+            subtitle.push_str(", ");
+        }
+        subtitle.push_str(&issuing_country);
+    }
+
+    subtitle
 }
 
 impl TryFrom<CipherPassportModel> for Passport {
