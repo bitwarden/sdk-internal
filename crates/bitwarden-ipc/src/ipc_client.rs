@@ -7,6 +7,7 @@ use tokio::select;
 
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
+    control_splitter::ControlSplitter,
     error::{
         AlreadyRunningError, IpcErrorKind, ReceiveError, SendError, SubscribeError,
         TypedReceiveError,
@@ -15,6 +16,7 @@ use crate::{
         IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
         TypedOutgoingMessage,
     },
+    reachability::ReachabilityTracker,
     rpc::{
         exec::{handler::ErasedRpcHandler, handler_registry::RpcHandlerRegistry},
         request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
@@ -45,13 +47,17 @@ pub struct IpcClientTypedSubscription<Payload: DeserializeOwned + PayloadTypeNam
 /// Internal shared state for the IPC client.
 struct IpcClientInner<Crypto, Com, Ses>
 where
-    Crypto: CryptoProvider<Com, Ses>,
+    Crypto: CryptoProvider<ControlSplitter<Com>, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
     crypto: Crypto,
-    communication: Com,
+    /// The raw backend wrapped so reachability control frames bypass the crypto layer.
+    communication: ControlSplitter<Com>,
     sessions: Ses,
+    /// Owns the per-endpoint ping loops and the auto-pong responder; handed to consumers via
+    /// [`IpcClient::reachability`](crate::IpcClient::reachability).
+    reachability: Arc<ReachabilityTracker>,
 
     handlers: RpcHandlerRegistry,
     incoming: Mutex<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
@@ -65,7 +71,7 @@ where
 /// This is the concrete implementation of the [`IpcClient`](crate::IpcClient) trait.
 pub struct IpcClientImpl<Crypto, Com, Ses>
 where
-    Crypto: CryptoProvider<Com, Ses>,
+    Crypto: CryptoProvider<ControlSplitter<Com>, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
@@ -74,7 +80,7 @@ where
 
 impl<Crypto, Com, Ses> Clone for IpcClientImpl<Crypto, Com, Ses>
 where
-    Crypto: CryptoProvider<Com, Ses>,
+    Crypto: CryptoProvider<ControlSplitter<Com>, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
@@ -87,18 +93,22 @@ where
 
 impl<Crypto, Com, Ses> IpcClientImpl<Crypto, Com, Ses>
 where
-    Crypto: CryptoProvider<Com, Ses>,
+    Crypto: CryptoProvider<ControlSplitter<Com>, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
     /// Create a new IPC client with the provided crypto provider, communication backend, and
     /// session repository.
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
+        let backend = Arc::new(communication);
+        let reachability = Arc::new(ReachabilityTracker::from_backend(backend.clone()));
+        let communication = ControlSplitter::new(backend, reachability.clone());
         Self {
             inner: Arc::new(IpcClientInner {
                 crypto,
                 communication,
                 sessions,
+                reachability,
 
                 handlers: RpcHandlerRegistry::new(),
                 incoming: Mutex::new(None),
@@ -111,7 +121,7 @@ where
 #[async_trait::async_trait]
 impl<Crypto, Com, Ses> crate::ipc_client_trait::IpcClient for IpcClientImpl<Crypto, Com, Ses>
 where
-    Crypto: CryptoProvider<Com, Ses>,
+    Crypto: CryptoProvider<ControlSplitter<Com>, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
@@ -129,6 +139,9 @@ where
             .lock()
             .expect("Failed to lock cancellation token mutex")
             .replace(cancellation_token.clone());
+
+        // Start the single reachability control-frame handler (auto-pong + liveness recording).
+        self.inner.communication.spawn_control_handler();
 
         let com_receiver = self.inner.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
@@ -246,11 +259,15 @@ where
             .register_erased(name.to_owned(), handler)
             .await;
     }
+
+    fn reachability(&self) -> Arc<ReachabilityTracker> {
+        self.inner.reachability.clone()
+    }
 }
 
 fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)
 where
-    Crypto: CryptoProvider<Com, Ses>,
+    Crypto: CryptoProvider<ControlSplitter<Com>, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
@@ -268,7 +285,7 @@ fn handle_rpc_request<Crypto, Com, Ses>(
     inner: &Arc<IpcClientInner<Crypto, Com, Ses>>,
     incoming_message: IncomingMessage,
 ) where
-    Crypto: CryptoProvider<Com, Ses>,
+    Crypto: CryptoProvider<ControlSplitter<Com>, Ses>,
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
@@ -426,15 +443,17 @@ mod tests {
     }
 
     type TestSessionRepository = InMemorySessionRepository<String>;
-    impl CryptoProvider<TestCommunicationBackend, TestSessionRepository> for TestCryptoProvider {
+    // Generic over the backend so it satisfies the client's `CryptoProvider<ControlSplitter<Com>>`
+    // bound as well as a bare backend in other tests.
+    impl<Com: CommunicationBackend> CryptoProvider<Com, TestSessionRepository> for TestCryptoProvider {
         type Session = String;
         type SendError = TestCryptoError;
         type ReceiveError = TestCryptoError;
 
         async fn receive(
             &self,
-            _receiver: &<TestCommunicationBackend as CommunicationBackend>::Receiver,
-            _communication: &TestCommunicationBackend,
+            _receiver: &Com::Receiver,
+            _communication: &Com,
             _sessions: &TestSessionRepository,
         ) -> Result<IncomingMessage, Self::ReceiveError> {
             match &self.receive_result {
@@ -459,7 +478,7 @@ mod tests {
 
         async fn send(
             &self,
-            _communication: &TestCommunicationBackend,
+            _communication: &Com,
             _sessions: &TestSessionRepository,
             _message: OutgoingMessage,
         ) -> Result<(), Self::SendError> {
