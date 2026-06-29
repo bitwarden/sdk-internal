@@ -100,7 +100,7 @@ reqwest-middleware = { version = "0.5.1", features = [
     "form",
     "query",
 ] }
-rsa = "0.10.0-rc.17"
+rsa = "0.10.0-rc.18"
 rustls = { version = "0.23.27", default-features = false, features = [
     "std",
     "tls12",
@@ -202,3 +202,9 @@ opt-level = 3
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
+
+# The crates.io 0.7.x releases of crypto-bigint were yanked after 0.7.5 shipped a bugfix, so
+# stale registry indexes can fail to resolve `crypto-bigint = "^0.7"` (required by rsa). Override
+# to the published 0.7.5 from git to keep the build resolving regardless of index state.
+[patch.crates-io]
+crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint", tag = "v0.7.5" }
