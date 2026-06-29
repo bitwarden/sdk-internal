@@ -1,24 +1,22 @@
 use std::{
     collections::HashMap,
-    sync::{
-        Arc, Mutex, Weak,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex, Weak},
 };
 
 use bitwarden_threading::cancellation_token::CancellationToken;
 use tokio::select;
 
 use super::{
-    PING_INTERVAL, POLL_INTERVAL, ReachFn, Registry, SendFn, TrackerInner,
-    handle::ReachabilityHandle, prune,
+    ReachFn, Registry, SendFn,
+    handle::{ReachabilityHandle, ReachabilityHandleInner},
+    prune,
 };
 use crate::{
     control::{ControlMessage, IncomingControlMessage},
     control_splitter::ControlReceiver,
     endpoint::Endpoint,
     error::IpcErrorKind,
-    traits::{CommunicationBackend, CommunicationBackendReceiver, Reachability},
+    traits::{CommunicationBackend, CommunicationBackendReceiver},
 };
 
 /// Tracks whether peer endpoints are reachable, so a caller can avoid sending to an absent peer.
@@ -28,10 +26,9 @@ use crate::{
 /// with [`ReachabilityHandle::is_reachable`]. A handle is a live subscription — hold it for as long
 /// as you care about the endpoint and drop it to stop tracking.
 ///
-/// Reachability is resolved by asking the transport first ([`Reachability::Reachable`] /
-/// [`Reachability::Unreachable`] are taken at face value); only when the transport answers
-/// [`Reachability::Unknown`] does the tracker fall back to a ping/pong liveness window, emitting
-/// pings to that endpoint and treating it as reachable while replies keep arriving.
+/// The tracker is the factory and router: it hands out (deduped) handles, and feeds inbound control
+/// frames to the right endpoint's handle state. The per-endpoint ping loop lives on the handle's
+/// shared inner (see [`ReachabilityHandle`]).
 pub struct ReachabilityTracker {
     registry: Arc<Registry>,
     send_fn: SendFn,
@@ -65,7 +62,8 @@ impl ReachabilityTracker {
     }
 
     /// Begin (or join) tracking `endpoint`, returning a handle. Calls for the same endpoint share a
-    /// single ping loop; the loop is spawned only when the first handle for an endpoint is created.
+    /// single inner (and its single ping loop); the loop is spawned only when the first handle for
+    /// an endpoint is created.
     pub fn track(&self, endpoint: Endpoint) -> ReachabilityHandle {
         let mut map = self
             .registry
@@ -78,21 +76,14 @@ impl ReachabilityTracker {
             return ReachabilityHandle { inner };
         }
 
-        let inner = Arc::new(TrackerInner {
-            endpoint: endpoint.clone(),
-            live: AtomicBool::new(false),
-            reply_seen: AtomicBool::new(false),
-            reach_fn: self.reach_fn.clone(),
-            registry: Arc::downgrade(&self.registry),
-        });
-        map.insert(endpoint.clone(), Arc::downgrade(&inner));
-
-        spawn_ping_loop(
-            Arc::downgrade(&inner),
+        let inner = ReachabilityHandleInner::new(
+            endpoint.clone(),
             self.send_fn.clone(),
             self.reach_fn.clone(),
-            endpoint,
+            Arc::downgrade(&self.registry),
         );
+        map.insert(endpoint, Arc::downgrade(&inner));
+        inner.spawn_loop();
 
         ReachabilityHandle { inner }
     }
@@ -138,67 +129,13 @@ impl ReachabilityTracker {
             .get(&source)
             .and_then(Weak::upgrade)
         {
-            // Any control frame from the endpoint proves it is alive; reflect that immediately and
-            // record the reply so the in-flight ping cycle does not clear liveness.
-            inner.live.store(true, Ordering::Relaxed);
-            inner.reply_seen.store(true, Ordering::Relaxed);
+            inner.mark_alive();
         }
 
         if incoming.message == ControlMessage::Ping {
             (self.send_fn)(ControlMessage::Pong.to_outgoing(source)).await;
         }
     }
-}
-
-fn spawn_ping_loop(
-    weak: Weak<TrackerInner>,
-    send_fn: SendFn,
-    reach_fn: ReachFn,
-    endpoint: Endpoint,
-) {
-    let future = async move {
-        loop {
-            // The loop holds only a `Weak`; once the last handle is dropped the upgrade fails and
-            // the loop ends. The strong ref is released before sleeping so a drop during the sleep
-            // is observed on the next cycle.
-            let Some(inner) = weak.upgrade() else {
-                break;
-            };
-
-            let reachability = (reach_fn)(endpoint.clone()).await;
-            let interval = if reachability == Reachability::Unknown {
-                // Probe: clear the reply flag, ping, and let the interval below act as the window
-                // in which a reply must arrive.
-                inner.reply_seen.store(false, Ordering::Relaxed);
-                (send_fn)(ControlMessage::Ping.to_outgoing(endpoint.clone())).await;
-                PING_INTERVAL
-            } else {
-                // The transport answered authoritatively; no ping needed. Keep polling at the
-                // backoff cadence so a later transition to `Unknown` resumes pinging.
-                POLL_INTERVAL
-            };
-
-            drop(inner);
-            bitwarden_threading::time::sleep(interval).await;
-
-            // After the probe window, if no reply was seen the endpoint is no longer live. A reply
-            // (handled in `handle_inbound`) sets `live` immediately, so liveness is not delayed by
-            // this cycle.
-            if reachability == Reachability::Unknown {
-                let Some(inner) = weak.upgrade() else {
-                    break;
-                };
-                if !inner.reply_seen.load(Ordering::Relaxed) {
-                    inner.live.store(false, Ordering::Relaxed);
-                }
-            }
-        }
-    };
-
-    #[cfg(not(target_arch = "wasm32"))]
-    tokio::spawn(future);
-    #[cfg(target_arch = "wasm32")]
-    wasm_bindgen_futures::spawn_local(future);
 }
 
 #[cfg(test)]
@@ -209,6 +146,7 @@ mod tests {
     use crate::{
         endpoint::{HostId, Source},
         message::OutgoingMessage,
+        traits::Reachability,
     };
 
     const ENDPOINT: Endpoint = Endpoint::DesktopMain;
