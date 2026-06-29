@@ -26,7 +26,11 @@ use crate::{
 /// Wraps a communication backend so reachability control frames bypass crypto. The receivers handed
 /// to the crypto layer silently drop control frames; a single dedicated handler task routes them to
 /// the tracker (recording liveness and answering pings).
-pub(crate) struct ControlSplitter<Com> {
+// Public (but hidden) only because it appears in `IpcClientImpl`'s public trait bounds: the client
+// hands this wrapper to the crypto provider so control frames never reach it. It is not part of the
+// supported API and should not be used directly.
+#[doc(hidden)]
+pub struct ControlSplitter<Com> {
     backend: Arc<Com>,
     tracker: Arc<ReachabilityTracker>,
 }
@@ -88,7 +92,8 @@ impl<Com: CommunicationBackend> CommunicationBackend for ControlSplitter<Com> {
 }
 
 /// Receiver wrapper that drops control-topic frames so the crypto layer never sees them.
-pub(crate) struct ControlSplitterReceiver<R> {
+#[doc(hidden)]
+pub struct ControlSplitterReceiver<R> {
     inner: R,
 }
 

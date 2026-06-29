@@ -20,6 +20,10 @@ mod traits;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+// Re-exported (hidden) only to satisfy `private_interfaces`: `ControlSplitter` appears in
+// `IpcClientImpl`'s public trait bounds. Not part of the supported API.
+#[doc(hidden)]
+pub use control_splitter::{ControlSplitter, ControlSplitterReceiver};
 pub use endpoint::{Endpoint, HostId, Source};
 pub use error::{
     IpcErrorKind, ReceiveError, RequestError, SendError, SubscribeError, TypedReceiveError,

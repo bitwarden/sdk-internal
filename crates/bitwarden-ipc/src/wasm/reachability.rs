@@ -7,8 +7,7 @@ use crate::{
     reachability::{ReachabilityHandle, ReachabilityTracker},
 };
 
-/// JavaScript wrapper around the reachability tracker. See
-/// [`ReachabilityTracker`](crate::ReachabilityTracker).
+/// JavaScript wrapper around the reachability tracker. See [`ReachabilityTracker`].
 #[wasm_bindgen(js_name = ReachabilityTracker)]
 pub struct JsReachabilityTracker {
     pub(crate) tracker: Arc<ReachabilityTracker>,
@@ -28,8 +27,7 @@ impl JsReachabilityTracker {
     }
 }
 
-/// JavaScript wrapper around a reachability handle. See
-/// [`ReachabilityHandle`](crate::ReachabilityHandle).
+/// JavaScript wrapper around a reachability handle. See [`ReachabilityHandle`].
 #[wasm_bindgen(js_name = ReachabilityHandle)]
 pub struct JsReachabilityHandle {
     handle: ReachabilityHandle,
