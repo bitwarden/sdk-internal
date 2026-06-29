@@ -1208,6 +1208,7 @@ impl CipherView {
                     drivers_license::build_subtitle_drivers_license(
                         d.first_name.clone(),
                         d.last_name.clone(),
+                        d.issuing_state.clone(),
                     )
                 })
                 .unwrap_or_default(),

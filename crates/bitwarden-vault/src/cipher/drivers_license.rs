@@ -108,7 +108,16 @@ impl CipherKind for DriversLicense {
             .as_ref()
             .map(|l| l.decrypt(ctx, key))
             .transpose()?;
-        Ok(build_subtitle_drivers_license(first_name, last_name))
+        let issuing_state: Option<String> = self
+            .issuing_state
+            .as_ref()
+            .map(|l| l.decrypt(ctx, key))
+            .transpose()?;
+        Ok(build_subtitle_drivers_license(
+            first_name,
+            last_name,
+            issuing_state,
+        ))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
@@ -136,13 +145,28 @@ impl CipherKind for DriversLicense {
 pub(super) fn build_subtitle_drivers_license(
     first_name: Option<String>,
     last_name: Option<String>,
+    issuing_state: Option<String>,
 ) -> String {
-    [first_name, last_name]
-        .into_iter()
-        .flatten()
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut subtitle = String::new();
+
+    if let Some(first_name) = first_name {
+        subtitle.push_str(&first_name);
+    }
+    if let Some(last_name) = last_name {
+        if subtitle.len() > 0 && last_name.len() > 0 {
+            subtitle.push_str(" ");
+        }
+        subtitle.push_str(&last_name);
+    }
+
+    if let Some(issuing_state) = issuing_state {
+        if subtitle.len() > 0 && issuing_state.len() > 0 {
+            subtitle.push_str(", ");
+        }
+        subtitle.push_str(&issuing_state);
+    }
+
+    subtitle
 }
 
 impl TryFrom<CipherDriversLicenseModel> for DriversLicense {
