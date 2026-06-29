@@ -8,7 +8,7 @@
 //! Reachability resolves as follows:
 //! - the transport answers [`Reachability::Reachable`]/[`Reachability::Unreachable`] -> that wins,
 //!   and no pings are sent;
-//! - the transport answers [`Reachability::Unknown`] -> fall back to ping/pong liveness: the
+//! - the transport answers [`Reachability::Unsupported`] -> fall back to ping/pong liveness: the
 //!   endpoint is reachable while replies to its pings keep arriving (see [`PING_INTERVAL`]).
 //!
 //! Ping/pong frames travel over the raw transport under a reserved control-topic namespace and are
@@ -35,12 +35,10 @@ pub use tracker::ReachabilityTracker;
 use self::handle::ReachabilityHandleInner;
 use crate::{endpoint::Endpoint, message::OutgoingMessage, traits::Reachability};
 
-/// Ping cadence while probing an endpoint whose transport reachability is `Unknown`. Each cycle
-/// sends a ping and, after this interval, marks the endpoint not-live unless a reply was seen — so
-/// it doubles as the liveness window. Kept clock-free (sleep-based) so it works on wasm too.
+/// Ping cadence while probing an endpoint whose transport is `Unsupported`. Each cycle sends a ping
+/// and, after this interval, marks the endpoint not-live unless a reply was seen — so it doubles as
+/// the liveness window. Kept clock-free (sleep-based) so it works on wasm too.
 const PING_INTERVAL: Duration = Duration::from_secs(2);
-/// Re-check cadence while the transport answers authoritatively (no pinging needed).
-const POLL_INTERVAL: Duration = Duration::from_secs(10);
 
 type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 /// Type-erased "send this frame over the raw transport".

@@ -237,7 +237,7 @@ export function makeMockTransportPair(
   let receiveOnSecond: (m: IncomingMessage) => void;
 
   // When a reachability is given, both senders answer it natively (so the SDK trusts it and skips
-  // ping/pong); otherwise the method is absent and the SDK treats the transport as Unknown.
+  // ping/pong); otherwise the method is absent and the SDK treats the transport as Unsupported.
   const reachabilityMethod = reachability
     ? { reachability: async (_endpoint: Endpoint): Promise<Reachability> => reachability }
     : {};

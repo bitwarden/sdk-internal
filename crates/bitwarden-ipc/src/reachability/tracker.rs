@@ -184,8 +184,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unknown_falls_back_to_liveness() {
-        let (tracker, _sent) = mock_tracker(Reachability::Unknown);
+    async fn unsupported_falls_back_to_liveness() {
+        let (tracker, _sent) = mock_tracker(Reachability::Unsupported);
         let handle = tracker.track(ENDPOINT);
 
         // No control frame seen yet -> not reachable.
@@ -200,7 +200,7 @@ mod tests {
 
     #[tokio::test]
     async fn answers_inbound_ping_with_pong() {
-        let (tracker, sent) = mock_tracker(Reachability::Unknown);
+        let (tracker, sent) = mock_tracker(Reachability::Unsupported);
         let web = Source::Web {
             tab_id: 7,
             document_id: "doc".to_owned(),
@@ -224,7 +224,7 @@ mod tests {
 
     #[tokio::test]
     async fn track_dedupes_by_endpoint() {
-        let (tracker, _sent) = mock_tracker(Reachability::Unknown);
+        let (tracker, _sent) = mock_tracker(Reachability::Unsupported);
         let handle_a = tracker.track(ENDPOINT);
         let handle_b = tracker.track(ENDPOINT);
 
@@ -239,7 +239,7 @@ mod tests {
 
     #[tokio::test]
     async fn dropping_last_handle_cleans_registry_entry() {
-        let (tracker, _sent) = mock_tracker(Reachability::Unknown);
+        let (tracker, _sent) = mock_tracker(Reachability::Unsupported);
         let handle_a = tracker.track(ENDPOINT);
         let handle_b = tracker.track(ENDPOINT);
         assert_eq!(tracker.registry.lock().unwrap().len(), 1);
@@ -255,8 +255,8 @@ mod tests {
 
     #[tokio::test]
     async fn pings_only_when_transport_is_unknown() {
-        // Unknown -> the loop emits at least one ping promptly.
-        let (tracker, sent) = mock_tracker(Reachability::Unknown);
+        // Unsupported -> the loop emits at least one ping promptly.
+        let (tracker, sent) = mock_tracker(Reachability::Unsupported);
         let _handle = tracker.track(ENDPOINT);
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert!(
@@ -264,7 +264,7 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|m| m.topic.as_deref() == Some(ControlMessage::Ping.topic())),
-            "an Unknown transport should be probed with a ping"
+            "an Unsupported transport should be probed with a ping"
         );
 
         // Reachable -> no pings.
@@ -279,7 +279,7 @@ mod tests {
 
     #[tokio::test]
     async fn ping_loop_stops_after_last_handle_dropped() {
-        let (tracker, sent) = mock_tracker(Reachability::Unknown);
+        let (tracker, sent) = mock_tracker(Reachability::Unsupported);
         let handle = tracker.track(ENDPOINT);
         tokio::time::sleep(Duration::from_millis(50)).await;
         drop(handle);

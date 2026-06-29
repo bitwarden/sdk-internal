@@ -26,7 +26,7 @@ async function waitForReachable(
 }
 
 describe("reachability ipc", () => {
-  it("pings a leader whose transport is Unknown and becomes reachable once it pongs", async () => {
+  it("pings a leader whose transport does not support reachability and becomes reachable once it pongs", async () => {
     init_sdk();
 
     // first stamps "DesktopMain", second stamps "DesktopRenderer".
@@ -42,7 +42,7 @@ describe("reachability ipc", () => {
     const leaderEndpoint: Endpoint = "DesktopRenderer";
     const handle = follower.reachability().track(leaderEndpoint);
 
-    // The mock transport does not implement reachability(), so it answers Unknown: the leader is
+    // The mock transport does not implement reachability(), so it answers Unsupported: the leader is
     // gated until the ping/pong round trip lands.
     expect(await handle.isReachable()).toBe(false);
     expect(await waitForReachable(handle)).toBe(true);

@@ -10,10 +10,15 @@ use crate::{
 
 /// A transport-native answer to "is this endpoint reachable right now?".
 ///
-/// The transport answers authoritatively when it can (e.g. a native-messaging port is either
-/// connected or not). When it has no synchronous way to tell (e.g. a `postMessage` relay to a
-/// content script that may or may not exist), it returns [`Reachability::Unknown`] and reachability
-/// falls back to the ping/pong liveness window tracked by the `ReachabilityTracker`.
+/// A transport either *supports* reachability — it can authoritatively answer
+/// [`Reachable`](Reachability::Reachable)/[`Unreachable`](Reachability::Unreachable), e.g. by
+/// inspecting a connected port — or it doesn't, in which case it returns
+/// [`Unsupported`](Reachability::Unsupported) and reachability falls back to the ping/pong liveness
+/// signal tracked by the `ReachabilityTracker`.
+///
+/// A backend must answer *consistently* for a given endpoint: either always definitive or always
+/// `Unsupported`. The tracker stops its liveness loop once it sees a definitive answer, so a
+/// transport that flipped from definitive to `Unsupported` would not resume ping/pong.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "wasm",
@@ -25,8 +30,8 @@ pub enum Reachability {
     Reachable,
     /// The transport knows the endpoint is not reachable.
     Unreachable,
-    /// The transport cannot tell; fall back to ping/pong liveness.
-    Unknown,
+    /// The transport does not support reachability; fall back to ping/pong liveness.
+    Unsupported,
 }
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
@@ -53,14 +58,15 @@ pub trait CommunicationBackend: Send + Sync + 'static {
 
     /// Query the transport-native reachability of `endpoint`.
     ///
-    /// The default implementation returns [`Reachability::Unknown`], which makes reachability fall
-    /// back entirely to ping/pong liveness. Backends that can answer authoritatively (e.g. by
-    /// inspecting a connected port) should override this.
+    /// The default implementation returns [`Reachability::Unsupported`], which makes reachability
+    /// fall back entirely to ping/pong liveness. Backends that can answer authoritatively (e.g. by
+    /// inspecting a connected port) should override this — and must do so consistently per endpoint
+    /// (see [`Reachability`]).
     fn reachability(
         &self,
         _endpoint: &Endpoint,
     ) -> impl std::future::Future<Output = Reachability> + Send + Sync {
-        async { Reachability::Unknown }
+        async { Reachability::Unsupported }
     }
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to

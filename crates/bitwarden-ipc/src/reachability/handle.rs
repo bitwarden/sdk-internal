@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use super::{PING_INTERVAL, POLL_INTERVAL, ReachFn, Registry, SendFn, prune};
+use super::{PING_INTERVAL, ReachFn, Registry, SendFn, prune};
 use crate::{control::ControlMessage, endpoint::Endpoint, traits::Reachability};
 
 /// A scoped reachability subscription for a single endpoint. Holding it keeps that endpoint's
@@ -17,14 +17,14 @@ pub struct ReachabilityHandle {
 impl ReachabilityHandle {
     /// Whether the tracked endpoint is currently reachable.
     ///
-    /// Pulls the transport-native signal on demand; only when that is [`Reachability::Unknown`]
+    /// Pulls the transport-native signal on demand; only when that is [`Reachability::Unsupported`]
     /// does it fall back to the ping/pong liveness signal.
     pub async fn is_reachable(&self) -> bool {
         match (self.inner.reach_fn)(self.inner.endpoint.clone()).await {
             Reachability::Reachable => true,
             Reachability::Unreachable => false,
             // No transport opinion: reachable while a reply was seen within the last ping cycle.
-            Reachability::Unknown => self.inner.live.load(Ordering::Relaxed),
+            Reachability::Unsupported => self.inner.live.load(Ordering::Relaxed),
         }
     }
 }
@@ -35,8 +35,8 @@ impl ReachabilityHandle {
 pub(super) struct ReachabilityHandleInner {
     endpoint: Endpoint,
     /// Whether the endpoint is currently live per ping/pong. Only consulted when the transport
-    /// answers `Unknown`. Set as soon as a control frame is seen; cleared by the ping loop after a
-    /// cycle with no reply.
+    /// answers `Unsupported`. Set as soon as a control frame is seen; cleared by the ping loop
+    /// after a cycle with no reply.
     live: AtomicBool,
     /// Set whenever a control frame is seen from `endpoint`; the ping loop clears it before each
     /// ping and reads it after the interval to detect a missed reply.
@@ -71,9 +71,13 @@ impl ReachabilityHandleInner {
         self.reply_seen.store(true, Ordering::Relaxed);
     }
 
-    /// Spawn this endpoint's ping loop. The loop holds only a [`Weak`] to `self`, so it ends once
-    /// the last handle is dropped (the upgrade then fails). The strong ref is released before each
-    /// sleep so a drop during the sleep is observed on the next cycle.
+    /// Spawn this endpoint's ping loop, used only while the transport does not support
+    /// reachability.
+    ///
+    /// The loop holds only a [`Weak`] to `self`, so it ends once the last handle is dropped (the
+    /// upgrade then fails). It also exits as soon as the transport gives a definitive answer: a
+    /// supported transport is read on demand by [`is_reachable`](ReachabilityHandle::is_reachable),
+    /// so no loop is needed (a transport answers consistently — see [`Reachability`]).
     pub(super) fn spawn_loop(self: &Arc<Self>) {
         let weak = Arc::downgrade(self);
         let future = async move {
@@ -82,32 +86,28 @@ impl ReachabilityHandleInner {
                     break;
                 };
 
-                let reachability = (inner.reach_fn)(inner.endpoint.clone()).await;
-                let interval = if reachability == Reachability::Unknown {
-                    // Probe: clear the reply flag, ping, and let the interval act as the window in
-                    // which a reply must arrive.
-                    inner.reply_seen.store(false, Ordering::Relaxed);
-                    (inner.send_fn)(ControlMessage::Ping.to_outgoing(inner.endpoint.clone())).await;
-                    PING_INTERVAL
-                } else {
-                    // The transport answered authoritatively; no ping needed. Keep polling at the
-                    // backoff cadence so a later transition to `Unknown` resumes pinging.
-                    POLL_INTERVAL
-                };
+                // A supported transport is authoritative and read on demand, so stop pinging once
+                // we see a definitive answer.
+                if (inner.reach_fn)(inner.endpoint.clone()).await != Reachability::Unsupported {
+                    break;
+                }
 
+                // Probe: clear the reply flag, ping, and let `PING_INTERVAL` be the window in which
+                // a reply must arrive. The strong ref is released before sleeping so a drop during
+                // the sleep ends the loop on the next cycle.
+                inner.reply_seen.store(false, Ordering::Relaxed);
+                (inner.send_fn)(ControlMessage::Ping.to_outgoing(inner.endpoint.clone())).await;
                 drop(inner);
-                bitwarden_threading::time::sleep(interval).await;
+                bitwarden_threading::time::sleep(PING_INTERVAL).await;
 
-                // After the probe window, if no reply was seen the endpoint is no longer live. A
-                // reply (see `mark_alive`) sets `live` immediately, so liveness is not delayed by
-                // this cycle.
-                if reachability == Reachability::Unknown {
-                    let Some(inner) = weak.upgrade() else {
-                        break;
-                    };
-                    if !inner.reply_seen.load(Ordering::Relaxed) {
-                        inner.live.store(false, Ordering::Relaxed);
-                    }
+                // If no reply was seen this cycle the endpoint is no longer live. A reply (see
+                // `mark_alive`) sets `live` immediately, so liveness is never delayed by this
+                // cycle.
+                let Some(inner) = weak.upgrade() else {
+                    break;
+                };
+                if !inner.reply_seen.load(Ordering::Relaxed) {
+                    inner.live.store(false, Ordering::Relaxed);
                 }
             }
         };
