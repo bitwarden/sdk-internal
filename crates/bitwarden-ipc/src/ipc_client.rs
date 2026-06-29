@@ -141,7 +141,10 @@ where
             .replace(cancellation_token.clone());
 
         // Start the single reachability control-frame handler (auto-pong + liveness recording).
-        self.inner.communication.spawn_control_handler();
+        // It shares the client's cancellation token so it stops on shutdown rather than leaking.
+        self.inner
+            .communication
+            .spawn_control_handler(cancellation_token.clone());
 
         let com_receiver = self.inner.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
