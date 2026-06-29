@@ -4,6 +4,7 @@ use bitwarden_crypto::{
     safe::{DataEnvelope, DataEnvelopeError},
 };
 use bitwarden_encoding::B64;
+use bitwarden_logging::instrument;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,15 +14,20 @@ const FORMAT_VERSION: u8 = 1;
 
 /// Error type for `SealedCipherBlob` operations.
 #[derive(Debug, Error)]
-pub(crate) enum SealedCipherBlobError {
+pub enum SealedCipherBlobError {
+    /// The format version is newer or older than this client supports.
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
+    /// Encoding the sealed container to CBOR failed.
     #[error("CBOR encoding error")]
     CborEncoding,
+    /// The bytes did not parse as a valid CBOR-encoded sealed container.
     #[error("CBOR decoding error")]
     CborDecoding,
+    /// The container's base64 wrapper did not decode.
     #[error("Base64 decoding error")]
     Base64Decoding,
+    /// The inner `DataEnvelope` could not be sealed or opened.
     #[error(transparent)]
     DataEnvelope(#[from] DataEnvelopeError),
 }
@@ -30,7 +36,7 @@ pub(crate) enum SealedCipherBlobError {
 ///
 /// Serializable into the `Cipher.data: Option<String>` field.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub(super) struct SealedCipherBlob {
+pub(crate) struct SealedCipherBlob {
     format_version: u8,
     wrapped_cek: EncString,
     envelope: DataEnvelope,
@@ -54,6 +60,7 @@ impl SealedCipherBlob {
     }
 
     /// Unseals the `CipherBlob` from this container using the provided wrapping key.
+    #[instrument(err, fields(format_version = self.format_version))]
     pub(super) fn unseal(
         &self,
         wrapping_key: &SymmetricKeySlotId,
