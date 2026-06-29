@@ -12,7 +12,7 @@ import {
   makeMockTransportPair,
   TEST_USER_ID,
   testSymmetricKey,
-} from "./utils";
+} from "../utils";
 
 async function setupClientPair(driver = makeMockBiometricsDriver()) {
   init_sdk();

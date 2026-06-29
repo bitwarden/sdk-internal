@@ -5,7 +5,7 @@ import {
   reloadFollower,
   reloadLeader,
   testSymmetricKey,
-} from "./utils";
+} from "../utils";
 
 const USER_A = "00000000-0000-0000-0000-000000000001" as unknown as UserId;
 const USER_KEY = testSymmetricKey(0x11);
