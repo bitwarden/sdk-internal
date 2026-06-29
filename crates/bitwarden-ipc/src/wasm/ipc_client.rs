@@ -7,10 +7,12 @@ use super::communication_backend::JsCommunicationBackend;
 use crate::{
     IpcClientImpl,
     crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
+    endpoint::Endpoint,
     error::{AlreadyRunningError, ReceiveError, SubscribeError},
     ipc_client::IpcClientSubscription,
     ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage},
+    reachability::{ReachabilityHandle, ReachabilityTracker},
     traits::InMemorySessionRepository,
     wasm::{
         JsSessionRepository, RawJsSessionRepository,
@@ -125,5 +127,53 @@ impl JsIpcClient {
     pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
         let subscription = self.client.subscribe(None).await?;
         Ok(JsIpcClientSubscription { subscription })
+    }
+
+    /// The reachability tracker for this client. Use it to track a peer endpoint and query whether
+    /// it is reachable.
+    #[wasm_only]
+    pub fn reachability(&self) -> JsReachabilityTracker {
+        JsReachabilityTracker {
+            tracker: self.client.reachability(),
+        }
+    }
+}
+
+/// JavaScript wrapper around the reachability tracker. See
+/// [`ReachabilityTracker`](crate::ReachabilityTracker).
+#[wasm_bindgen(js_name = ReachabilityTracker)]
+pub struct JsReachabilityTracker {
+    tracker: Arc<ReachabilityTracker>,
+}
+
+#[bitwarden_ffi::wasm_export]
+#[wasm_bindgen(js_class = ReachabilityTracker)]
+impl JsReachabilityTracker {
+    /// Begin tracking `endpoint`'s reachability, returning a handle. Hold the handle for as long as
+    /// you care about the endpoint; calling `free()` on it (or letting it be garbage-collected)
+    /// stops tracking that endpoint.
+    #[wasm_only]
+    pub fn track(&self, endpoint: Endpoint) -> JsReachabilityHandle {
+        JsReachabilityHandle {
+            handle: self.tracker.track(endpoint),
+        }
+    }
+}
+
+/// JavaScript wrapper around a reachability handle. See
+/// [`ReachabilityHandle`](crate::ReachabilityHandle).
+#[wasm_bindgen(js_name = ReachabilityHandle)]
+pub struct JsReachabilityHandle {
+    handle: ReachabilityHandle,
+}
+
+#[bitwarden_ffi::wasm_export]
+#[wasm_bindgen(js_class = ReachabilityHandle)]
+impl JsReachabilityHandle {
+    /// Whether the tracked endpoint is currently reachable.
+    #[wasm_only]
+    #[wasm_bindgen(js_name = isReachable)]
+    pub async fn is_reachable(&self) -> bool {
+        self.handle.is_reachable().await
     }
 }
