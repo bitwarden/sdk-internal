@@ -23,10 +23,12 @@ pub struct PasswordPreloginResponse {
     pub salt: String,
 }
 
-impl TryFrom<PasswordPreloginResponseModel> for PasswordPreloginResponse {
+impl TryFrom<(PasswordPreloginResponseModel, &str)> for PasswordPreloginResponse {
     type Error = MissingFieldError;
 
-    fn try_from(response: PasswordPreloginResponseModel) -> Result<Self, Self::Error> {
+    fn try_from(
+        (response, email): (PasswordPreloginResponseModel, &str),
+    ) -> Result<Self, Self::Error> {
         let kdf_settings = require!(response.kdf_settings);
 
         let kdf = match kdf_settings.kdf_type {
@@ -47,10 +49,9 @@ impl TryFrom<PasswordPreloginResponseModel> for PasswordPreloginResponse {
             }
         };
 
-        Ok(PasswordPreloginResponse {
-            kdf,
-            salt: require!(response.salt),
-        })
+        let salt: String = response.salt.unwrap_or_else(|| email.trim().to_lowercase());
+
+        Ok(PasswordPreloginResponse { kdf, salt })
     }
 }
 
@@ -61,6 +62,7 @@ mod tests {
     use super::*;
 
     const TEST_SALT: &str = "test-salt";
+    const TEST_EMAIL: &str = "user@test.dev";
 
     #[test]
     fn test_try_from_pbkdf2_with_iterations() {
@@ -80,7 +82,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = PasswordPreloginResponse::try_from(response).unwrap();
+        let result = PasswordPreloginResponse::try_from((response, TEST_EMAIL)).unwrap();
 
         assert_eq!(
             result.kdf,
@@ -109,7 +111,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = PasswordPreloginResponse::try_from(response).unwrap();
+        let result = PasswordPreloginResponse::try_from((response, TEST_EMAIL)).unwrap();
 
         assert_eq!(
             result.kdf,
@@ -133,7 +135,7 @@ mod tests {
             salt: Some(TEST_SALT.to_string()),
         };
 
-        let result = PasswordPreloginResponse::try_from(response);
+        let result = PasswordPreloginResponse::try_from((response, TEST_EMAIL));
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), MissingFieldError { .. }));
@@ -157,7 +159,7 @@ mod tests {
             salt: None, // Missing salt
         };
 
-        let result = PasswordPreloginResponse::try_from(response);
+        let result = PasswordPreloginResponse::try_from((response, TEST_EMAIL));
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), MissingFieldError { .. }));
