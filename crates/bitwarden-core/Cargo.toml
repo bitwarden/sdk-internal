@@ -102,8 +102,9 @@ zxcvbn = { workspace = true, optional = true }
 
 [dev-dependencies]
 bitwarden-crypto = { workspace = true, features = ["test-utils"] }
+mockall = { workspace = true }
 rand_chacha = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["rt", "macros"] }
 wiremock = { workspace = true }
 zeroize = { workspace = true, features = ["derive", "aarch64"] }
 
