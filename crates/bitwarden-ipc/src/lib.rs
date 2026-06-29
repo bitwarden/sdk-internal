@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 mod constants;
+mod control;
+mod control_splitter;
 mod crypto_provider;
 pub mod discover;
 mod endpoint;
@@ -9,6 +11,7 @@ mod ipc_client;
 mod ipc_client_ext;
 mod ipc_client_trait;
 mod message;
+mod reachability;
 mod rpc;
 mod serde_utils;
 mod traits;
@@ -17,6 +20,10 @@ mod traits;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+// Re-exported (hidden) only to satisfy `private_interfaces`: `ControlSplitter` appears in
+// `IpcClientImpl`'s public trait bounds. Not part of the supported API.
+#[doc(hidden)]
+pub use control_splitter::{ControlSplitter, ControlSplitterReceiver};
 pub use endpoint::{Endpoint, HostId, Source};
 pub use error::{
     IpcErrorKind, ReceiveError, RequestError, SendError, SubscribeError, TypedReceiveError,
@@ -27,6 +34,7 @@ pub use ipc_client_trait::IpcClient;
 pub use message::{
     IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage, TypedOutgoingMessage,
 };
+pub use reachability::{ReachabilityHandle, ReachabilityTracker};
 #[doc(hidden)]
 pub use rpc::exec::handler::ErasedRpcHandler;
 pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};
@@ -34,7 +42,7 @@ pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};
 pub use traits::NoEncryptionCryptoProvider;
 #[cfg(any(test, feature = "test-support"))]
 pub use traits::TestCommunicationBackend;
-pub use traits::{InMemorySessionRepository, NoopCommunicationBackend};
+pub use traits::{InMemorySessionRepository, NoopCommunicationBackend, Reachability};
 
 // Test configuration of the IPC client, always available in test and test-support contexts.
 #[cfg(any(test, feature = "test-support"))]

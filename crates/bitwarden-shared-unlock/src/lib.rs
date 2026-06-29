@@ -172,7 +172,7 @@ pub enum DeviceEvent {
         /// User whose vault was manually unlocked.
         user_id: UserId,
         /// Raw user key bytes used to unlock the vault.
-        #[tsify(type = "SymmetricKey")]
+        #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey"))]
         user_key: SymmetricCryptoKey,
     },
 }

@@ -7,9 +7,10 @@ use tokio::sync::RwLock;
 use wasm_bindgen::prelude::*;
 
 use crate::{
+    endpoint::Endpoint,
     error::IpcErrorKind,
     message::{IncomingMessage, OutgoingMessage},
-    traits::{CommunicationBackend, CommunicationBackendReceiver},
+    traits::{CommunicationBackend, CommunicationBackendReceiver, Reachability},
 };
 
 #[allow(missing_docs)]
@@ -58,6 +59,12 @@ impl IpcErrorKind for WasmCommunicationError {
 const TS_CUSTOM_TYPES: &'static str = r#"
 export interface IpcCommunicationBackendSender {
     send(message: OutgoingMessage): Promise<void>;
+    /**
+     * Optional transport-native reachability query. When implemented, the SDK trusts a definite
+     * answer (Reachable/Unreachable) and skips ping/pong; when omitted or it returns Unsupported,
+     * reachability falls back to ping/pong liveness.
+     */
+    reachability?(endpoint: Endpoint): Promise<Reachability>;
 }
 "#;
 
@@ -77,6 +84,14 @@ extern "C" {
     /// Used by JavaScript to provide an incoming message to the IPC framework.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
+
+    /// Optional transport-native reachability query. A sender that does not implement this method
+    /// causes the call to reject, which is mapped to [`Reachability::Unsupported`].
+    #[wasm_bindgen(catch, method, structural)]
+    pub async fn reachability(
+        this: &JsCommunicationBackendSender,
+        endpoint: Endpoint,
+    ) -> Result<Reachability, JsValue>;
 }
 
 /// JavaScript implementation of the `CommunicationBackend` trait for IPC communication.
@@ -137,6 +152,30 @@ impl CommunicationBackend for JsCommunicationBackend {
 
     async fn subscribe(&self) -> Self::Receiver {
         RwLock::new(self.receive_rx.resubscribe())
+    }
+
+    async fn reachability(&self, endpoint: &Endpoint) -> Reachability {
+        let endpoint = endpoint.clone();
+        self.sender
+            .run_in_thread(|sender| async move {
+                // `reachability` is optional on the sender. Calling a missing async method traps
+                // (panic=abort poisons the whole instance), so feature-detect it first and fall
+                // back to Unsupported when it is absent or its implementation rejects.
+                let sender_value: &JsValue = sender.as_ref();
+                let implemented =
+                    js_sys::Reflect::get(sender_value, &JsValue::from_str("reachability"))
+                        .map(|value| value.is_function())
+                        .unwrap_or(false);
+                if !implemented {
+                    return Reachability::Unsupported;
+                }
+                sender
+                    .reachability(endpoint)
+                    .await
+                    .unwrap_or(Reachability::Unsupported)
+            })
+            .await
+            .unwrap_or(Reachability::Unsupported)
     }
 }
 

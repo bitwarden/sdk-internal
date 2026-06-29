@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use bitwarden_threading::cancellation_token::CancellationToken;
 
 use crate::{
     error::{AlreadyRunningError, SendError, SubscribeError},
     ipc_client::IpcClientSubscription,
     message::OutgoingMessage,
+    reachability::ReachabilityTracker,
     rpc::exec::handler::ErasedRpcHandler,
 };
 
@@ -46,4 +49,11 @@ pub trait IpcClient: Send + Sync {
     /// instead.
     #[doc(hidden)]
     async fn register_rpc_handler_erased(&self, name: &str, handler: Box<dyn ErasedRpcHandler>);
+
+    /// The reachability tracker for this client.
+    ///
+    /// Consumers that need to know whether a peer is reachable call
+    /// [`ReachabilityTracker::track`] with the peer's endpoint (typically discovered at runtime)
+    /// and hold the returned handle for as long as they care; dropping it stops tracking.
+    fn reachability(&self) -> Arc<ReachabilityTracker>;
 }

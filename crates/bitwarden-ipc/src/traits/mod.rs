@@ -7,7 +7,8 @@ pub use communication_backend::test_support::TestCommunicationBackend;
 #[cfg(test)]
 pub(crate) use communication_backend::test_support::TestTwoWayCommunicationBackend;
 pub use communication_backend::{
-    CommunicationBackend, CommunicationBackendReceiver, noop::NoopCommunicationBackend,
+    CommunicationBackend, CommunicationBackendReceiver, Reachability,
+    noop::NoopCommunicationBackend,
 };
 pub use crypto_provider::CryptoProvider;
 #[cfg(any(test, feature = "test-support"))]

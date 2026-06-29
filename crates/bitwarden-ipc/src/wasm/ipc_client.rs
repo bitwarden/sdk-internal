@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use wasm_bindgen::prelude::*;
 
-use super::communication_backend::JsCommunicationBackend;
+use super::{communication_backend::JsCommunicationBackend, reachability::JsReachabilityTracker};
 use crate::{
     IpcClientImpl,
     crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
@@ -125,5 +125,14 @@ impl JsIpcClient {
     pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
         let subscription = self.client.subscribe(None).await?;
         Ok(JsIpcClientSubscription { subscription })
+    }
+
+    /// The reachability tracker for this client. Use it to track a peer endpoint and query whether
+    /// it is reachable.
+    #[wasm_only]
+    pub fn reachability(&self) -> JsReachabilityTracker {
+        JsReachabilityTracker {
+            tracker: self.client.reachability(),
+        }
     }
 }

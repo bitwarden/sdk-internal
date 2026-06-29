@@ -12,8 +12,8 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_encoding::B64;
 use bitwarden_ipc::{
     Endpoint, HostId, InMemorySessionRepository, IncomingMessage, IpcClient,
-    NoEncryptionCryptoProvider, Source, TestCommunicationBackend, TestIpcClient,
-    TypedIncomingMessage,
+    NoEncryptionCryptoProvider, OutgoingMessage, PayloadTypeName, Reachability, Source,
+    TestCommunicationBackend, TestIpcClient, TypedIncomingMessage,
 };
 
 use crate::{
@@ -232,6 +232,70 @@ impl Harness {
 }
 
 // --- Tests ---
+
+/// Builds a follower whose transport reports `reachability` for the leader, without auto-starting
+/// sessions (so the gating in `start_sessions` can be exercised directly).
+async fn follower_with_reachability(
+    states: HashMap<UserId, LockState>,
+    reachability: Reachability,
+) -> (Follower<MockDriver>, TestCommunicationBackend) {
+    let backend = TestCommunicationBackend::new();
+    backend.set_reachability(reachability).await;
+    let ipc_client: Arc<dyn IpcClient> = Arc::new(TestIpcClient::new(
+        NoEncryptionCryptoProvider,
+        backend.clone(),
+        InMemorySessionRepository::new(HashMap::new()),
+    ));
+    let follower = Follower::create(MockDriver::new(states), ipc_client);
+    (follower, backend)
+}
+
+/// Counts the `StartSession` (follower-to-leader) frames among `outgoing`, ignoring any
+/// reachability control frames.
+fn count_start_sessions(outgoing: &[OutgoingMessage]) -> usize {
+    outgoing
+        .iter()
+        .filter(|m| m.topic.as_deref() == Some(FollowerMessage::PAYLOAD_TYPE_NAME))
+        .count()
+}
+
+#[tokio::test]
+async fn test_follower_starts_sessions_when_leader_reachable() {
+    let states = HashMap::from([(
+        user_a(),
+        LockState::Unlocked {
+            user_key: test_user_key(),
+        },
+    )]);
+    let (follower, backend) = follower_with_reachability(states, Reachability::Reachable).await;
+
+    follower.start_sessions().await;
+
+    assert_eq!(
+        count_start_sessions(&backend.drain_outgoing().await),
+        1,
+        "a StartSession should be sent to a reachable leader"
+    );
+}
+
+#[tokio::test]
+async fn test_follower_skips_start_sessions_when_leader_unreachable() {
+    let states = HashMap::from([(
+        user_a(),
+        LockState::Unlocked {
+            user_key: test_user_key(),
+        },
+    )]);
+    let (follower, backend) = follower_with_reachability(states, Reachability::Unreachable).await;
+
+    follower.start_sessions().await;
+
+    assert_eq!(
+        count_start_sessions(&backend.drain_outgoing().await),
+        0,
+        "no StartSession should be sent while the leader is unreachable"
+    );
+}
 
 #[tokio::test]
 async fn test_follower_startup_locked() {

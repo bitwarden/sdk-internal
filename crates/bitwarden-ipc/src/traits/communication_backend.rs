@@ -1,9 +1,38 @@
 use std::fmt::Debug;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
+    endpoint::Endpoint,
     error::IpcErrorKind,
     message::{IncomingMessage, OutgoingMessage},
 };
+
+/// A transport-native answer to "is this endpoint reachable right now?".
+///
+/// A transport either *supports* reachability — it can authoritatively answer
+/// [`Reachable`](Reachability::Reachable)/[`Unreachable`](Reachability::Unreachable), e.g. by
+/// inspecting a connected port — or it doesn't, in which case it returns
+/// [`Unsupported`](Reachability::Unsupported) and reachability falls back to the ping/pong liveness
+/// signal tracked by the `ReachabilityTracker`.
+///
+/// A backend must answer *consistently* for a given endpoint: either always definitive or always
+/// `Unsupported`. The tracker stops its liveness loop once it sees a definitive answer, so a
+/// transport that flipped from definitive to `Unsupported` would not resume ping/pong.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+pub enum Reachability {
+    /// The transport knows the endpoint is reachable.
+    Reachable,
+    /// The transport knows the endpoint is not reachable.
+    Unreachable,
+    /// The transport does not support reachability; fall back to ping/pong liveness.
+    Unsupported,
+}
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
@@ -26,6 +55,19 @@ pub trait CommunicationBackend: Send + Sync + 'static {
         &self,
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send + Sync;
+
+    /// Query the transport-native reachability of `endpoint`.
+    ///
+    /// The default implementation returns [`Reachability::Unsupported`], which makes reachability
+    /// fall back entirely to ping/pong liveness. Backends that can answer authoritatively (e.g. by
+    /// inspecting a connected port) should override this — and must do so consistently per endpoint
+    /// (see [`Reachability`]).
+    fn reachability(
+        &self,
+        _endpoint: &Endpoint,
+    ) -> impl std::future::Future<Output = Reachability> + Send + Sync {
+        async { Reachability::Unsupported }
+    }
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.
@@ -114,6 +156,9 @@ pub(crate) mod test_support {
         outgoing: Arc<RwLock<Vec<OutgoingMessage>>>,
         incoming_tx: Sender<IncomingMessage>,
         incoming_rx: Receiver<IncomingMessage>,
+        /// Transport-native reachability reported for every endpoint. Defaults to `Reachable` so
+        /// tests that assume a connected peer work unchanged; set it to exercise gating.
+        reachability: Arc<RwLock<Reachability>>,
     }
 
     impl Clone for TestCommunicationBackend {
@@ -124,6 +169,7 @@ pub(crate) mod test_support {
                 outgoing: self.outgoing.clone(),
                 incoming_tx: self.incoming_tx.clone(),
                 incoming_rx: self.incoming_rx.resubscribe(),
+                reachability: self.reachability.clone(),
             }
         }
     }
@@ -149,6 +195,7 @@ pub(crate) mod test_support {
                 outgoing: Arc::new(RwLock::new(Vec::new())),
                 incoming_tx,
                 incoming_rx,
+                reachability: Arc::new(RwLock::new(Reachability::Reachable)),
             }
         }
 
@@ -157,6 +204,11 @@ pub(crate) mod test_support {
             self.incoming_tx
                 .send(message)
                 .expect("Failed to send incoming message");
+        }
+
+        /// Set the reachability this backend reports for every endpoint.
+        pub async fn set_reachability(&self, reachability: Reachability) {
+            *self.reachability.write().await = reachability;
         }
 
         /// Get a copy of all the outgoing messages that have been sent.
@@ -181,6 +233,10 @@ pub(crate) mod test_support {
 
         async fn subscribe(&self) -> Self::Receiver {
             TestCommunicationBackendReceiver(RwLock::new(self.incoming_rx.resubscribe()))
+        }
+
+        async fn reachability(&self, _endpoint: &Endpoint) -> Reachability {
+            *self.reachability.read().await
         }
     }
 
