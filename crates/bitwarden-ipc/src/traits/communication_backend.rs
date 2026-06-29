@@ -147,6 +147,9 @@ pub(crate) mod test_support {
         outgoing: Arc<RwLock<Vec<OutgoingMessage>>>,
         incoming_tx: Sender<IncomingMessage>,
         incoming_rx: Receiver<IncomingMessage>,
+        /// Transport-native reachability reported for every endpoint. Defaults to `Reachable` so
+        /// tests that assume a connected peer work unchanged; set it to exercise gating.
+        reachability: Arc<RwLock<Reachability>>,
     }
 
     impl Clone for TestCommunicationBackend {
@@ -157,6 +160,7 @@ pub(crate) mod test_support {
                 outgoing: self.outgoing.clone(),
                 incoming_tx: self.incoming_tx.clone(),
                 incoming_rx: self.incoming_rx.resubscribe(),
+                reachability: self.reachability.clone(),
             }
         }
     }
@@ -182,6 +186,7 @@ pub(crate) mod test_support {
                 outgoing: Arc::new(RwLock::new(Vec::new())),
                 incoming_tx,
                 incoming_rx,
+                reachability: Arc::new(RwLock::new(Reachability::Reachable)),
             }
         }
 
@@ -190,6 +195,11 @@ pub(crate) mod test_support {
             self.incoming_tx
                 .send(message)
                 .expect("Failed to send incoming message");
+        }
+
+        /// Set the reachability this backend reports for every endpoint.
+        pub async fn set_reachability(&self, reachability: Reachability) {
+            *self.reachability.write().await = reachability;
         }
 
         /// Get a copy of all the outgoing messages that have been sent.
@@ -214,6 +224,10 @@ pub(crate) mod test_support {
 
         async fn subscribe(&self) -> Self::Receiver {
             TestCommunicationBackendReceiver(RwLock::new(self.incoming_rx.resubscribe()))
+        }
+
+        async fn reachability(&self, _endpoint: &Endpoint) -> Reachability {
+            *self.reachability.read().await
         }
     }
 

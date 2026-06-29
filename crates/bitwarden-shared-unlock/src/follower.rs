@@ -1,7 +1,12 @@
-use std::{ops::Add, sync::Arc};
+use std::{
+    ops::Add,
+    sync::{Arc, Mutex},
+};
 
 use bitwarden_error::bitwarden_error;
-use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
+use bitwarden_ipc::{
+    Endpoint, IpcClient, IpcClientExt, ReachabilityHandle, SubscribeError, TypedIncomingMessage,
+};
 use bitwarden_threading::{cancellation_token, time::sleep};
 use thiserror::Error;
 
@@ -28,6 +33,9 @@ impl<L: SharedUnlockDriver> Clone for Follower<L> {
 struct InnerFollower<D: SharedUnlockDriver> {
     driver: D,
     ipc_client: Arc<dyn IpcClient>,
+    /// Reachability handle for the discovered leader, tracked lazily on first use and held for the
+    /// follower's lifetime so its ping loop keeps running between heartbeats.
+    leader_reachability: Mutex<Option<ReachabilityHandle>>,
 }
 
 impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
@@ -36,17 +44,44 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
     /// During startup, a `StartSession` message is sent per user so the leader can reconcile
     /// initial lock state.
     pub fn create(driver: L, ipc_client: Arc<dyn IpcClient>) -> Self {
-        Self(Arc::new(InnerFollower { driver, ipc_client }))
+        Self(Arc::new(InnerFollower {
+            driver,
+            ipc_client,
+            leader_reachability: Mutex::new(None),
+        }))
+    }
+
+    /// Discover the leader and return a reachability handle for it.
+    ///
+    /// The handle is tracked on first use and cached, so a single ping loop is kept alive for the
+    /// follower's lifetime (dropping it per call would restart the loop and lose accumulated
+    /// liveness). Returns `None` when there is no leader to talk to.
+    async fn leader_handle(&self) -> Option<(Endpoint, ReachabilityHandle)> {
+        let leader = self.0.driver.discover_leader().await?;
+        let handle = self
+            .0
+            .leader_reachability
+            .lock()
+            .expect("leader reachability mutex poisoned")
+            .get_or_insert_with(|| self.0.ipc_client.reachability().track(leader.clone()))
+            .clone();
+        Some((leader, handle))
     }
 
     pub(crate) async fn start_sessions(&self) {
+        let Some((leader, reachability)) = self.leader_handle().await else {
+            return;
+        };
+
+        // Don't start sessions against a leader that isn't reachable: this is what avoids the Noise
+        // handshake churn (and the resulting error spam) when the leader is absent. A leader whose
+        // transport answers Unknown becomes reachable once the ping/pong round trip lands.
+        if !reachability.is_reachable().await {
+            tracing::debug!("Leader not reachable; not starting shared unlock sessions");
+            return;
+        }
+
         let users: Vec<bitwarden_core::UserId> = self.0.driver.list_users().await;
-        let leader = self
-            .0
-            .driver
-            .discover_leader()
-            .await
-            .expect("leader discovery should return a leader");
 
         if !users.is_empty() {
             tracing::info!("Starting shared unlock sessions for users: {:?}", users);
@@ -121,7 +156,13 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                         break;
                     }
                     _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
-                        if let Some(leader) = follower.0.driver.discover_leader().await {
+                        if let Some((leader, reachability)) = follower.leader_handle().await {
+                            // Skip the heartbeat against an unreachable leader so we don't trigger a
+                            // Noise handshake (and reconnect churn) every interval while it is absent.
+                            if !reachability.is_reachable().await {
+                                tracing::debug!("Leader not reachable; skipping heartbeat");
+                                continue;
+                            }
                             // For all users that are logged in, send a heartbeat message to the leader.
                             for user_id in follower.0.driver.list_users().await {
                                 let message = FollowerMessage::HeartBeat { user_id };
