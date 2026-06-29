@@ -102,7 +102,7 @@ where
     pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
         let backend = Arc::new(communication);
         let reachability = Arc::new(ReachabilityTracker::from_backend(backend.clone()));
-        let communication = ControlSplitter::new(backend, reachability.clone());
+        let communication = ControlSplitter::new(backend);
         Self {
             inner: Arc::new(IpcClientInner {
                 crypto,
@@ -140,11 +140,13 @@ where
             .expect("Failed to lock cancellation token mutex")
             .replace(cancellation_token.clone());
 
-        // Start the single reachability control-frame handler (auto-pong + liveness recording).
-        // It shares the client's cancellation token so it stops on shutdown rather than leaking.
+        // Feed the reachability tracker from the control-frame stream (auto-pong + liveness
+        // recording). It shares the client's cancellation token so it stops on shutdown rather than
+        // leaking, and runs even when nothing is tracked so passive peers still answer pings.
+        let control_receiver = self.inner.communication.subscribe_control().await;
         self.inner
-            .communication
-            .spawn_control_handler(cancellation_token.clone());
+            .reachability
+            .start(control_receiver, cancellation_token.clone());
 
         let com_receiver = self.inner.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);

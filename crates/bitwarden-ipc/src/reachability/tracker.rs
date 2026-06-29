@@ -1,115 +1,25 @@
-//! Reachability tracking: a transport-authoritative signal with a ping/pong liveness fallback.
-//!
-//! A consumer that cares whether a peer is reachable (e.g. the shared-unlock follower) obtains a
-//! [`ReachabilityHandle`] from [`ReachabilityTracker::track`] *after* it knows the peer's endpoint.
-//! While a handle is held, the tracker keeps that endpoint's reachability fresh; when the last
-//! handle for an endpoint is dropped the per-endpoint ping loop stops on its own.
-//!
-//! Reachability resolves as follows:
-//! - the transport answers [`Reachability::Reachable`]/[`Reachability::Unreachable`] -> that wins,
-//!   and no pings are sent;
-//! - the transport answers [`Reachability::Unknown`] -> fall back to ping/pong liveness: the
-//!   endpoint is reachable while replies to its pings keep arriving (see [`PING_INTERVAL`]).
-//!
-//! Ping/pong frames travel over the raw transport under a reserved control-topic namespace and are
-//! peeled off by the `ControlSplitter` before the crypto layer ever sees them, so they never abort
-//! a handshake.
-
 use std::{
     collections::HashMap,
-    future::Future,
-    pin::Pin,
     sync::{
         Arc, Mutex, Weak,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
 };
 
+use bitwarden_threading::cancellation_token::CancellationToken;
+use tokio::select;
+
+use super::{
+    PING_INTERVAL, POLL_INTERVAL, ReachFn, Registry, SendFn, TrackerInner,
+    handle::ReachabilityHandle, prune,
+};
 use crate::{
-    control::{CONTROL_PING_TOPIC, CONTROL_PONG_TOPIC},
+    control::{ControlMessage, IncomingControlMessage},
+    control_splitter::ControlReceiver,
     endpoint::Endpoint,
-    message::{IncomingMessage, OutgoingMessage},
-    traits::{CommunicationBackend, Reachability},
+    error::IpcErrorKind,
+    traits::{CommunicationBackend, CommunicationBackendReceiver, Reachability},
 };
-
-/// Ping cadence while probing an endpoint whose transport reachability is `Unknown`. Each cycle
-/// sends a ping and, after this interval, marks the endpoint not-live unless a reply was seen — so
-/// it doubles as the liveness window. Kept clock-free (sleep-based) so it works on wasm too.
-const PING_INTERVAL: Duration = Duration::from_secs(2);
-/// Re-check cadence while the transport answers authoritatively (no pinging needed).
-const POLL_INTERVAL: Duration = Duration::from_secs(10);
-
-type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
-/// Type-erased "send this frame over the raw transport".
-type SendFn = Arc<dyn Fn(OutgoingMessage) -> BoxFuture<()> + Send + Sync>;
-/// Type-erased "ask the transport whether this endpoint is reachable".
-type ReachFn = Arc<dyn Fn(Endpoint) -> BoxFuture<Reachability> + Send + Sync>;
-
-type Registry = Mutex<HashMap<Endpoint, Weak<TrackerInner>>>;
-
-/// Remove registry entries whose handles have all been dropped (dangling weaks), keeping the map
-/// bounded to currently-tracked endpoints. Safe to call at any time: a concurrently-recreated entry
-/// for the same endpoint has a strong count >= 1 and is preserved.
-fn prune(registry: &mut HashMap<Endpoint, Weak<TrackerInner>>) {
-    registry.retain(|_, weak| weak.strong_count() > 0);
-}
-
-/// Per-endpoint tracking state, shared between the [`ReachabilityHandle`]s for that endpoint and
-/// (via a [`Weak`]) the ping loop. Dropping the last handle drops this, which both ends the loop
-/// (its weak upgrade fails) and removes the registry entry (see [`Drop`]).
-struct TrackerInner {
-    endpoint: Endpoint,
-    /// Whether the endpoint is currently live per ping/pong. Only consulted when the transport
-    /// answers `Unknown`. Set as soon as a control frame is seen; cleared by the ping loop after a
-    /// cycle with no reply.
-    live: AtomicBool,
-    /// Set whenever a control frame is seen from `endpoint`; the ping loop clears it before each
-    /// ping and reads it after the interval to detect a missed reply.
-    reply_seen: AtomicBool,
-    reach_fn: ReachFn,
-    /// Back-ref so this entry can remove itself from the owning tracker's registry on drop.
-    registry: Weak<Registry>,
-}
-
-impl Drop for TrackerInner {
-    fn drop(&mut self) {
-        // Bound the registry to live entries. Removing by `retain(strong > 0)` rather than by key
-        // is race-safe: if a concurrent `track()` already replaced our (now-dead) entry with a new
-        // live one, that new entry has a strong count >= 1 and is preserved.
-        if let Some(registry) = self.registry.upgrade()
-            && let Ok(mut map) = registry.lock()
-        {
-            prune(&mut map);
-        }
-    }
-}
-
-/// A scoped reachability subscription for a single endpoint. Holding it keeps that endpoint's
-/// reachability fresh; dropping the last handle for an endpoint stops its ping loop.
-#[derive(Clone)]
-pub struct ReachabilityHandle {
-    inner: Arc<TrackerInner>,
-}
-
-impl ReachabilityHandle {
-    /// Whether the tracked endpoint is currently reachable.
-    ///
-    /// Pulls the transport-native signal on demand; only when that is [`Reachability::Unknown`]
-    /// does it fall back to the ping/pong liveness window.
-    pub async fn is_reachable(&self) -> bool {
-        match (self.inner.reach_fn)(self.inner.endpoint.clone()).await {
-            Reachability::Reachable => true,
-            Reachability::Unreachable => false,
-            Reachability::Unknown => self.is_live(),
-        }
-    }
-
-    /// Raw ping/pong liveness: whether a reply was seen within the last [`PING_INTERVAL`] cycle.
-    fn is_live(&self) -> bool {
-        self.inner.live.load(Ordering::Relaxed)
-    }
-}
 
 /// Tracks whether peer endpoints are reachable, so a caller can avoid sending to an absent peer.
 ///
@@ -121,7 +31,7 @@ impl ReachabilityHandle {
 /// Reachability is resolved by asking the transport first ([`Reachability::Reachable`] /
 /// [`Reachability::Unreachable`] are taken at face value); only when the transport answers
 /// [`Reachability::Unknown`] does the tracker fall back to a ping/pong liveness window, emitting
-/// pings to that endpoint and treating it as reachable while a reply was seen recently.
+/// pings to that endpoint and treating it as reachable while replies keep arriving.
 pub struct ReachabilityTracker {
     registry: Arc<Registry>,
     send_fn: SendFn,
@@ -187,10 +97,39 @@ impl ReachabilityTracker {
         ReachabilityHandle { inner }
     }
 
-    /// Process an inbound control frame: record liveness for the source (if it is tracked) and, for
-    /// a ping, answer with a pong. Called by the `ControlSplitter`.
-    pub async fn handle_inbound(&self, message: IncomingMessage) {
-        let source = message.source.to_endpoint();
+    /// Start consuming the inbound control stream: record liveness for every control frame and
+    /// answer pings with a pong. Runs until `cancellation_token` is cancelled.
+    ///
+    /// Call this once when the client starts. It is required even when the tracker is not actively
+    /// tracking anything, so a passive peer (e.g. the desktop leader) still answers pings.
+    pub(crate) fn start<R: CommunicationBackendReceiver>(
+        self: &Arc<Self>,
+        control: ControlReceiver<R>,
+        cancellation_token: CancellationToken,
+    ) {
+        let tracker = self.clone();
+        let future = async move {
+            loop {
+                select! {
+                    _ = cancellation_token.cancelled() => break,
+                    received = control.receive() => match received {
+                        Ok(incoming) => tracker.handle_inbound(incoming).await,
+                        Err(error) if error.is_fatal() => break,
+                        Err(_) => {}
+                    },
+                }
+            }
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(future);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(future);
+    }
+
+    /// Record liveness for the source (if it is tracked) and, for a ping, answer with a pong.
+    async fn handle_inbound(&self, incoming: IncomingControlMessage) {
+        let source = incoming.source.to_endpoint();
 
         if let Some(inner) = self
             .registry
@@ -205,13 +144,8 @@ impl ReachabilityTracker {
             inner.reply_seen.store(true, Ordering::Relaxed);
         }
 
-        if message.topic.as_deref() == Some(CONTROL_PING_TOPIC) {
-            (self.send_fn)(OutgoingMessage {
-                payload: Vec::new(),
-                destination: source,
-                topic: Some(CONTROL_PONG_TOPIC.to_owned()),
-            })
-            .await;
+        if incoming.message == ControlMessage::Ping {
+            (self.send_fn)(ControlMessage::Pong.to_outgoing(source)).await;
         }
     }
 }
@@ -236,12 +170,7 @@ fn spawn_ping_loop(
                 // Probe: clear the reply flag, ping, and let the interval below act as the window
                 // in which a reply must arrive.
                 inner.reply_seen.store(false, Ordering::Relaxed);
-                (send_fn)(OutgoingMessage {
-                    payload: Vec::new(),
-                    destination: endpoint.clone(),
-                    topic: Some(CONTROL_PING_TOPIC.to_owned()),
-                })
-                .await;
+                (send_fn)(ControlMessage::Ping.to_outgoing(endpoint.clone())).await;
                 PING_INTERVAL
             } else {
                 // The transport answered authoritatively; no ping needed. Keep polling at the
@@ -274,15 +203,20 @@ fn spawn_ping_loop(
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
-    use crate::endpoint::{HostId, Source};
+    use crate::{
+        endpoint::{HostId, Source},
+        message::OutgoingMessage,
+    };
 
     const ENDPOINT: Endpoint = Endpoint::DesktopMain;
 
     /// Builds a tracker whose transport answers `reach` and records every outgoing frame.
     fn mock_tracker(
         reach: Reachability,
-    ) -> (ReachabilityTracker, Arc<Mutex<Vec<OutgoingMessage>>>) {
+    ) -> (Arc<ReachabilityTracker>, Arc<Mutex<Vec<OutgoingMessage>>>) {
         let sent = Arc::new(Mutex::new(Vec::new()));
         let sent_clone = sent.clone();
         let send_fn: SendFn = Arc::new(move |message| {
@@ -292,16 +226,11 @@ mod tests {
             })
         });
         let reach_fn: ReachFn = Arc::new(move |_| Box::pin(async move { reach }));
-        (ReachabilityTracker::new(send_fn, reach_fn), sent)
+        (Arc::new(ReachabilityTracker::new(send_fn, reach_fn)), sent)
     }
 
-    fn incoming(source: Source, topic: Option<&str>) -> IncomingMessage {
-        IncomingMessage {
-            payload: Vec::new(),
-            destination: ENDPOINT,
-            source,
-            topic: topic.map(ToOwned::to_owned),
-        }
+    fn incoming(source: Source, message: ControlMessage) -> IncomingControlMessage {
+        IncomingControlMessage { message, source }
     }
 
     #[tokio::test]
@@ -317,7 +246,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unknown_falls_back_to_liveness_window() {
+    async fn unknown_falls_back_to_liveness() {
         let (tracker, _sent) = mock_tracker(Reachability::Unknown);
         let handle = tracker.track(ENDPOINT);
 
@@ -326,7 +255,7 @@ mod tests {
 
         // An inbound control frame from the tracked endpoint marks it live.
         tracker
-            .handle_inbound(incoming(Source::DesktopMain, Some(CONTROL_PONG_TOPIC)))
+            .handle_inbound(incoming(Source::DesktopMain, ControlMessage::Pong))
             .await;
         assert!(handle.is_reachable().await);
     }
@@ -341,12 +270,12 @@ mod tests {
         };
 
         tracker
-            .handle_inbound(incoming(web, Some(CONTROL_PING_TOPIC)))
+            .handle_inbound(incoming(web, ControlMessage::Ping))
             .await;
 
         let sent = sent.lock().unwrap();
         assert!(sent.iter().any(|m| {
-            m.topic.as_deref() == Some(CONTROL_PONG_TOPIC)
+            m.topic.as_deref() == Some(ControlMessage::Pong.topic())
                 && m.destination
                     == (Endpoint::Web {
                         tab_id: 7,
@@ -396,7 +325,7 @@ mod tests {
             sent.lock()
                 .unwrap()
                 .iter()
-                .any(|m| m.topic.as_deref() == Some(CONTROL_PING_TOPIC)),
+                .any(|m| m.topic.as_deref() == Some(ControlMessage::Ping.topic())),
             "an Unknown transport should be probed with a ping"
         );
 
