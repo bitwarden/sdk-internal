@@ -15,8 +15,11 @@ use crate::{
 /// content script that may or may not exist), it returns [`Reachability::Unknown`] and reachability
 /// falls back to the ping/pong liveness window tracked by the `ReachabilityTracker`.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
-#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub enum Reachability {
     /// The transport knows the endpoint is reachable.
     Reachable,

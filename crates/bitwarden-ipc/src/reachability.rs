@@ -26,22 +26,11 @@ use std::{
 use web_time::Instant;
 
 use crate::{
+    control::{CONTROL_PING_TOPIC, CONTROL_PONG_TOPIC},
     endpoint::Endpoint,
     message::{IncomingMessage, OutgoingMessage},
     traits::{CommunicationBackend, Reachability},
 };
-
-/// Reserved topic namespace for transport control frames that bypass the crypto channel.
-pub(crate) const CONTROL_TOPIC_PREFIX: &str = "$bw.control.";
-/// Topic marking a plaintext reachability ping.
-pub(crate) const CONTROL_PING_TOPIC: &str = "$bw.control.ping";
-/// Topic marking a plaintext reachability pong (the reply to a ping).
-pub(crate) const CONTROL_PONG_TOPIC: &str = "$bw.control.pong";
-
-/// Whether `topic` belongs to the reserved control-topic namespace and must bypass crypto.
-pub(crate) fn is_control_topic(topic: Option<&str>) -> bool {
-    topic.is_some_and(|t| t.starts_with(CONTROL_TOPIC_PREFIX))
-}
 
 /// An endpoint is considered live (when the transport can't tell) while a control frame was seen
 /// from it within this window.
@@ -58,6 +47,13 @@ type SendFn = Arc<dyn Fn(OutgoingMessage) -> BoxFuture<()> + Send + Sync>;
 type ReachFn = Arc<dyn Fn(Endpoint) -> BoxFuture<Reachability> + Send + Sync>;
 
 type Registry = Mutex<HashMap<Endpoint, Weak<TrackerInner>>>;
+
+/// Remove registry entries whose handles have all been dropped (dangling weaks), keeping the map
+/// bounded to currently-tracked endpoints. Safe to call at any time: a concurrently-recreated entry
+/// for the same endpoint has a strong count >= 1 and is preserved.
+fn prune(registry: &mut HashMap<Endpoint, Weak<TrackerInner>>) {
+    registry.retain(|_, weak| weak.strong_count() > 0);
+}
 
 /// Per-endpoint tracking state, shared between the [`ReachabilityHandle`]s for that endpoint and
 /// (via a [`Weak`]) the ping loop. Dropping the last handle drops this, which both ends the loop
@@ -80,7 +76,7 @@ impl Drop for TrackerInner {
         if let Some(registry) = self.registry.upgrade()
             && let Ok(mut map) = registry.lock()
         {
-            map.retain(|_, weak| weak.strong_count() > 0);
+            prune(&mut map);
         }
     }
 }
@@ -118,8 +114,17 @@ impl ReachabilityHandle {
     }
 }
 
-/// Tracks reachability of endpoints on behalf of consumers. Owned by the `IpcClient`; reachability
-/// pings and the auto-pong responder run over the transport this tracker was built from.
+/// Tracks whether peer endpoints are reachable, so a caller can avoid sending to an absent peer.
+///
+/// Obtain one from [`IpcClient::reachability`](crate::IpcClient::reachability) and call
+/// [`track`](Self::track) with a peer's endpoint to get a [`ReachabilityHandle`]; query the handle
+/// with [`ReachabilityHandle::is_reachable`]. A handle is a live subscription — hold it for as long
+/// as you care about the endpoint and drop it to stop tracking.
+///
+/// Reachability is resolved by asking the transport first ([`Reachability::Reachable`] /
+/// [`Reachability::Unreachable`] are taken at face value); only when the transport answers
+/// [`Reachability::Unknown`] does the tracker fall back to a ping/pong liveness window, emitting
+/// pings to that endpoint and treating it as reachable while a reply was seen recently.
 pub struct ReachabilityTracker {
     registry: Arc<Registry>,
     send_fn: SendFn,
@@ -160,7 +165,7 @@ impl ReachabilityTracker {
             .lock()
             .expect("reachability registry poisoned");
         // Opportunistically drop dangling entries left by handles that have since been freed.
-        map.retain(|_, weak| weak.strong_count() > 0);
+        prune(&mut map);
 
         if let Some(inner) = map.get(&endpoint).and_then(Weak::upgrade) {
             return ReachabilityHandle { inner };
@@ -311,15 +316,6 @@ mod tests {
             Some(Instant::now() - (ACTIVE_WINDOW + Duration::from_secs(1))),
             ACTIVE_WINDOW
         ));
-    }
-
-    #[test]
-    fn is_control_topic_matches_namespace() {
-        assert!(is_control_topic(Some(CONTROL_PING_TOPIC)));
-        assert!(is_control_topic(Some(CONTROL_PONG_TOPIC)));
-        assert!(is_control_topic(Some("$bw.control.future")));
-        assert!(!is_control_topic(Some("some-rpc-topic")));
-        assert!(!is_control_topic(None));
     }
 
     #[tokio::test]

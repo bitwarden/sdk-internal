@@ -11,11 +11,15 @@
 
 use std::sync::Arc;
 
+use bitwarden_threading::cancellation_token::CancellationToken;
+use tokio::select;
+
 use crate::{
+    control::is_control_topic,
     endpoint::Endpoint,
     error::IpcErrorKind,
     message::{IncomingMessage, OutgoingMessage},
-    reachability::{ReachabilityTracker, is_control_topic},
+    reachability::ReachabilityTracker,
     traits::{CommunicationBackend, CommunicationBackendReceiver, Reachability},
 };
 
@@ -34,21 +38,25 @@ impl<Com: CommunicationBackend> ControlSplitter<Com> {
 
     /// Spawn the single task that consumes control frames from the raw transport and drives the
     /// tracker. Spawned once when the client starts, so there is exactly one auto-pong responder
-    /// regardless of how many crypto receivers exist.
-    pub(crate) fn spawn_control_handler(&self) {
+    /// regardless of how many crypto receivers exist. The task stops when `cancellation_token` is
+    /// cancelled (i.e. when the client stops), so it does not leak across a stop/restart.
+    pub(crate) fn spawn_control_handler(&self, cancellation_token: CancellationToken) {
         let backend = self.backend.clone();
         let tracker = self.tracker.clone();
         let future = async move {
             let receiver = backend.subscribe().await;
             loop {
-                match receiver.receive().await {
-                    Ok(message) if is_control_topic(message.topic.as_deref()) => {
-                        tracker.handle_inbound(message).await;
-                    }
-                    // Data frames are delivered to the crypto layer's own receivers; ignore them.
-                    Ok(_) => {}
-                    Err(error) if error.is_fatal() => break,
-                    Err(_) => {}
+                select! {
+                    _ = cancellation_token.cancelled() => break,
+                    received = receiver.receive() => match received {
+                        Ok(message) if is_control_topic(message.topic.as_deref()) => {
+                            tracker.handle_inbound(message).await;
+                        }
+                        // Data frames are delivered to the crypto layer's own receivers; ignore them.
+                        Ok(_) => {}
+                        Err(error) if error.is_fatal() => break,
+                        Err(_) => {}
+                    },
                 }
             }
         };
