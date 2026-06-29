@@ -1,9 +1,30 @@
 use std::fmt::Debug;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
+    endpoint::Endpoint,
     error::IpcErrorKind,
     message::{IncomingMessage, OutgoingMessage},
 };
+
+/// A transport-native answer to "is this endpoint reachable right now?".
+///
+/// The transport answers authoritatively when it can (e.g. a native-messaging port is either
+/// connected or not). When it has no synchronous way to tell (e.g. a `postMessage` relay to a
+/// content script that may or may not exist), it returns [`Reachability::Unknown`] and reachability
+/// falls back to the ping/pong liveness window tracked by the `ReachabilityTracker`.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub enum Reachability {
+    /// The transport knows the endpoint is reachable.
+    Reachable,
+    /// The transport knows the endpoint is not reachable.
+    Unreachable,
+    /// The transport cannot tell; fall back to ping/pong liveness.
+    Unknown,
+}
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
@@ -26,6 +47,18 @@ pub trait CommunicationBackend: Send + Sync + 'static {
         &self,
         message: OutgoingMessage,
     ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send + Sync;
+
+    /// Query the transport-native reachability of `endpoint`.
+    ///
+    /// The default implementation returns [`Reachability::Unknown`], which makes reachability fall
+    /// back entirely to ping/pong liveness. Backends that can answer authoritatively (e.g. by
+    /// inspecting a connected port) should override this.
+    fn reachability(
+        &self,
+        _endpoint: &Endpoint,
+    ) -> impl std::future::Future<Output = Reachability> + Send + Sync {
+        async { Reachability::Unknown }
+    }
 
     /// Subscribe to receive messages. This function will return a receiver that can be used to
     /// receive messages asynchronously.

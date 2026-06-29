@@ -34,7 +34,7 @@ pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};
 pub use traits::NoEncryptionCryptoProvider;
 #[cfg(any(test, feature = "test-support"))]
 pub use traits::TestCommunicationBackend;
-pub use traits::{InMemorySessionRepository, NoopCommunicationBackend};
+pub use traits::{InMemorySessionRepository, NoopCommunicationBackend, Reachability};
 
 // Test configuration of the IPC client, always available in test and test-support contexts.
 #[cfg(any(test, feature = "test-support"))]
