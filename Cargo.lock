@@ -723,6 +723,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-crypto-cipher-suite"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-encoding"
 version = "3.0.0"
 dependencies = [
@@ -943,7 +954,9 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "ciborium",
  "serde",
+ "serde_json",
  "subtle",
  "thiserror 2.0.18",
  "tsify",
@@ -988,6 +1001,7 @@ dependencies = [
  "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-crypto-cipher-suite",
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
