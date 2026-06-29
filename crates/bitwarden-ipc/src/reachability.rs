@@ -9,7 +9,7 @@
 //! - the transport answers [`Reachability::Reachable`]/[`Reachability::Unreachable`] -> that wins,
 //!   and no pings are sent;
 //! - the transport answers [`Reachability::Unknown`] -> fall back to ping/pong liveness: the
-//!   endpoint is reachable while a control frame was seen from it within [`ACTIVE_WINDOW`].
+//!   endpoint is reachable while replies to its pings keep arriving (see [`PING_INTERVAL`]).
 //!
 //! Ping/pong frames travel over the raw transport under a reserved control-topic namespace and are
 //! peeled off by the `ControlSplitter` before the crypto layer ever sees them, so they never abort
@@ -19,11 +19,12 @@ use std::{
     collections::HashMap,
     future::Future,
     pin::Pin,
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
-
-use web_time::Instant;
 
 use crate::{
     control::{CONTROL_PING_TOPIC, CONTROL_PONG_TOPIC},
@@ -32,13 +33,12 @@ use crate::{
     traits::{CommunicationBackend, Reachability},
 };
 
-/// An endpoint is considered live (when the transport can't tell) while a control frame was seen
-/// from it within this window.
-const ACTIVE_WINDOW: Duration = Duration::from_secs(5);
-/// Ping cadence while the peer is live. Must be `< ACTIVE_WINDOW` to sustain liveness.
-const ACTIVE_PING_INTERVAL: Duration = Duration::from_secs(2);
-/// Ping/poll cadence while the peer is not live (or the transport answers authoritatively).
-const INACTIVE_PING_INTERVAL: Duration = Duration::from_secs(10);
+/// Ping cadence while probing an endpoint whose transport reachability is `Unknown`. Each cycle
+/// sends a ping and, after this interval, marks the endpoint not-live unless a reply was seen — so
+/// it doubles as the liveness window. Kept clock-free (sleep-based) so it works on wasm too.
+const PING_INTERVAL: Duration = Duration::from_secs(2);
+/// Re-check cadence while the transport answers authoritatively (no pinging needed).
+const POLL_INTERVAL: Duration = Duration::from_secs(10);
 
 type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 /// Type-erased "send this frame over the raw transport".
@@ -60,9 +60,13 @@ fn prune(registry: &mut HashMap<Endpoint, Weak<TrackerInner>>) {
 /// (its weak upgrade fails) and removes the registry entry (see [`Drop`]).
 struct TrackerInner {
     endpoint: Endpoint,
-    /// Timestamp of the last control frame seen from `endpoint`; the liveness fallback derives
-    /// from it when the transport answers `Unknown`.
-    last_seen: Mutex<Option<Instant>>,
+    /// Whether the endpoint is currently live per ping/pong. Only consulted when the transport
+    /// answers `Unknown`. Set as soon as a control frame is seen; cleared by the ping loop after a
+    /// cycle with no reply.
+    live: AtomicBool,
+    /// Set whenever a control frame is seen from `endpoint`; the ping loop clears it before each
+    /// ping and reads it after the interval to detect a missed reply.
+    reply_seen: AtomicBool,
     reach_fn: ReachFn,
     /// Back-ref so this entry can remove itself from the owning tracker's registry on drop.
     registry: Weak<Registry>,
@@ -101,16 +105,9 @@ impl ReachabilityHandle {
         }
     }
 
-    /// Raw ping/pong liveness: whether a control frame was seen within [`ACTIVE_WINDOW`].
+    /// Raw ping/pong liveness: whether a reply was seen within the last [`PING_INTERVAL`] cycle.
     fn is_live(&self) -> bool {
-        within_window(
-            *self
-                .inner
-                .last_seen
-                .lock()
-                .expect("reachability last_seen mutex poisoned"),
-            ACTIVE_WINDOW,
-        )
+        self.inner.live.load(Ordering::Relaxed)
     }
 }
 
@@ -173,7 +170,8 @@ impl ReachabilityTracker {
 
         let inner = Arc::new(TrackerInner {
             endpoint: endpoint.clone(),
-            last_seen: Mutex::new(None),
+            live: AtomicBool::new(false),
+            reply_seen: AtomicBool::new(false),
             reach_fn: self.reach_fn.clone(),
             registry: Arc::downgrade(&self.registry),
         });
@@ -201,10 +199,10 @@ impl ReachabilityTracker {
             .get(&source)
             .and_then(Weak::upgrade)
         {
-            *inner
-                .last_seen
-                .lock()
-                .expect("reachability last_seen mutex poisoned") = Some(Instant::now());
+            // Any control frame from the endpoint proves it is alive; reflect that immediately and
+            // record the reply so the in-flight ping cycle does not clear liveness.
+            inner.live.store(true, Ordering::Relaxed);
+            inner.reply_seen.store(true, Ordering::Relaxed);
         }
 
         if message.topic.as_deref() == Some(CONTROL_PING_TOPIC) {
@@ -218,55 +216,53 @@ impl ReachabilityTracker {
     }
 }
 
-/// `true` when `last` is set and within `window` of now.
-fn within_window(last: Option<Instant>, window: Duration) -> bool {
-    matches!(last, Some(at) if at.elapsed() < window)
-}
-
 fn spawn_ping_loop(
-    inner: Weak<TrackerInner>,
+    weak: Weak<TrackerInner>,
     send_fn: SendFn,
     reach_fn: ReachFn,
     endpoint: Endpoint,
 ) {
     let future = async move {
         loop {
-            // The loop holds only a `Weak`; once the last handle is dropped this upgrade fails and
-            // the loop ends. The strong ref is released again before sleeping so a drop during the
-            // sleep is observed on the next cycle.
-            let Some(inner) = inner.upgrade() else {
+            // The loop holds only a `Weak`; once the last handle is dropped the upgrade fails and
+            // the loop ends. The strong ref is released before sleeping so a drop during the sleep
+            // is observed on the next cycle.
+            let Some(inner) = weak.upgrade() else {
                 break;
             };
 
-            let interval = match (reach_fn)(endpoint.clone()).await {
-                Reachability::Unknown => {
-                    (send_fn)(OutgoingMessage {
-                        payload: Vec::new(),
-                        destination: endpoint.clone(),
-                        topic: Some(CONTROL_PING_TOPIC.to_owned()),
-                    })
-                    .await;
-
-                    let live = within_window(
-                        *inner
-                            .last_seen
-                            .lock()
-                            .expect("reachability last_seen mutex poisoned"),
-                        ACTIVE_WINDOW,
-                    );
-                    if live {
-                        ACTIVE_PING_INTERVAL
-                    } else {
-                        INACTIVE_PING_INTERVAL
-                    }
-                }
+            let reachability = (reach_fn)(endpoint.clone()).await;
+            let interval = if reachability == Reachability::Unknown {
+                // Probe: clear the reply flag, ping, and let the interval below act as the window
+                // in which a reply must arrive.
+                inner.reply_seen.store(false, Ordering::Relaxed);
+                (send_fn)(OutgoingMessage {
+                    payload: Vec::new(),
+                    destination: endpoint.clone(),
+                    topic: Some(CONTROL_PING_TOPIC.to_owned()),
+                })
+                .await;
+                PING_INTERVAL
+            } else {
                 // The transport answered authoritatively; no ping needed. Keep polling at the
                 // backoff cadence so a later transition to `Unknown` resumes pinging.
-                Reachability::Reachable | Reachability::Unreachable => INACTIVE_PING_INTERVAL,
+                POLL_INTERVAL
             };
 
             drop(inner);
             bitwarden_threading::time::sleep(interval).await;
+
+            // After the probe window, if no reply was seen the endpoint is no longer live. A reply
+            // (handled in `handle_inbound`) sets `live` immediately, so liveness is not delayed by
+            // this cycle.
+            if reachability == Reachability::Unknown {
+                let Some(inner) = weak.upgrade() else {
+                    break;
+                };
+                if !inner.reply_seen.load(Ordering::Relaxed) {
+                    inner.live.store(false, Ordering::Relaxed);
+                }
+            }
         }
     };
 
@@ -306,16 +302,6 @@ mod tests {
             source,
             topic: topic.map(ToOwned::to_owned),
         }
-    }
-
-    #[test]
-    fn within_window_boundary() {
-        assert!(within_window(Some(Instant::now()), ACTIVE_WINDOW));
-        assert!(!within_window(None, ACTIVE_WINDOW));
-        assert!(!within_window(
-            Some(Instant::now() - (ACTIVE_WINDOW + Duration::from_secs(1))),
-            ACTIVE_WINDOW
-        ));
     }
 
     #[tokio::test]
