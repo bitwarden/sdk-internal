@@ -44,6 +44,14 @@ pub trait OrganizationUsersApi: Send + Sync {
         >,
     ) -> Result<(), Error>;
 
+    /// POST /organizations/users/invite-link/accept
+    async fn accept_invite_link<'a>(
+        &self,
+        accept_organization_invite_link_request_model: Option<
+            models::AcceptOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
     /// POST /organizations/{orgId}/users/{id}/auto-confirm
     async fn automatically_confirm_organization_user<'a>(
         &self,
@@ -186,28 +194,6 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
     ) -> Result<(), Error>;
 
-    /// PUT /organizations/{orgId}/users/{id}/recover-account
-    async fn put_recover_account<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-        target_organization_user: Option<models::OrganizationUser>,
-        organization_user_reset_password_request_model: Option<
-            models::OrganizationUserResetPasswordRequestModel,
-        >,
-    ) -> Result<(), Error>;
-
-    /// PUT /organizations/{orgId}/users/{id}/reset-password
-    async fn put_reset_password<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-        target_organization_user: Option<models::OrganizationUser>,
-        organization_user_reset_password_request_model: Option<
-            models::OrganizationUserResetPasswordRequestModel,
-        >,
-    ) -> Result<(), Error>;
-
     /// PUT /organizations/{orgId}/users/{userId}/reset-password-enrollment
     async fn put_reset_password_enrollment<'a>(
         &self,
@@ -215,6 +201,17 @@ pub trait OrganizationUsersApi: Send + Sync {
         user_id: uuid::Uuid,
         organization_user_reset_password_enrollment_request_model: Option<
             models::OrganizationUserResetPasswordEnrollmentRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
+    /// PUT /organizations/{orgId}/users/{id}/recover-account
+    async fn recover_account<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        target_organization_user: Option<models::OrganizationUser>,
+        organization_user_reset_password_request_model: Option<
+            models::OrganizationUserResetPasswordRequestModel,
         >,
     ) -> Result<(), Error>;
 
@@ -308,6 +305,30 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_accept_init_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn accept_invite_link<'a>(
+        &self,
+        accept_organization_invite_link_request_model: Option<
+            models::AcceptOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/users/invite-link/accept",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&accept_organization_invite_link_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
@@ -784,7 +805,35 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn put_recover_account<'a>(
+    async fn put_reset_password_enrollment<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        user_id: uuid::Uuid,
+        organization_user_reset_password_enrollment_request_model: Option<
+            models::OrganizationUserResetPasswordEnrollmentRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/{userId}/reset-password-enrollment",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            userId = user_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&organization_user_reset_password_enrollment_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn recover_account<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
@@ -815,69 +864,6 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_request_model);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn put_reset_password<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-        target_organization_user: Option<models::OrganizationUser>,
-        organization_user_reset_password_request_model: Option<
-            models::OrganizationUserResetPasswordRequestModel,
-        >,
-    ) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{orgId}/users/{id}/reset-password",
-            local_var_configuration.base_path,
-            orgId = org_id,
-            id = id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        if let Some(ref param_value) = target_organization_user {
-            local_var_req_builder = local_var_req_builder.query(&[(
-                "targetOrganizationUser",
-                &serde_json::to_value(param_value)?,
-            )]);
-        }
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&organization_user_reset_password_request_model);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn put_reset_password_enrollment<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        user_id: uuid::Uuid,
-        organization_user_reset_password_enrollment_request_model: Option<
-            models::OrganizationUserResetPasswordEnrollmentRequestModel,
-        >,
-    ) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{orgId}/users/{userId}/reset-password-enrollment",
-            local_var_configuration.base_path,
-            orgId = org_id,
-            userId = user_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&organization_user_reset_password_enrollment_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
