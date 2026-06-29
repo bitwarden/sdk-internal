@@ -16,6 +16,8 @@ import {
   IncomingMessage,
   OutgoingMessage,
   Source,
+  Endpoint,
+  Reachability,
   BiometricsUnlock,
   BiometricsStatus,
   SharedUnlockDriver,
@@ -229,9 +231,16 @@ export interface MockTransportRouter {
 export function makeMockTransportPair(
   firstSource: Source = "DesktopMain",
   secondSource: Source = "DesktopRenderer",
+  reachability?: Reachability,
 ): [IpcCommunicationBackend, IpcCommunicationBackend, MockTransportRouter] {
   let receiveOnFirst: (m: IncomingMessage) => void;
   let receiveOnSecond: (m: IncomingMessage) => void;
+
+  // When a reachability is given, both senders answer it natively (so the SDK trusts it and skips
+  // ping/pong); otherwise the method is absent and the SDK treats the transport as Unknown.
+  const reachabilityMethod = reachability
+    ? { reachability: async (_endpoint: Endpoint): Promise<Reachability> => reachability }
+    : {};
 
   const firstSender: IpcCommunicationBackendSender = {
     send: async (outgoing: OutgoingMessage) => {
@@ -239,6 +248,7 @@ export function makeMockTransportPair(
         new IncomingMessage(outgoing.payload, outgoing.destination, firstSource, outgoing.topic),
       );
     },
+    ...reachabilityMethod,
   };
   const secondSender: IpcCommunicationBackendSender = {
     send: async (outgoing: OutgoingMessage) => {
@@ -246,6 +256,7 @@ export function makeMockTransportPair(
         new IncomingMessage(outgoing.payload, outgoing.destination, secondSource, outgoing.topic),
       );
     },
+    ...reachabilityMethod,
   };
 
   const first = new IpcCommunicationBackend(firstSender);
@@ -393,9 +404,13 @@ export async function setupSharedUnlockPair(options: {
   // Second peer = leader (replies to DesktopMain = follower's source).
   const followerSource: Source = "DesktopMain";
   const leaderSource: Source = "DesktopRenderer";
+  // The leader is genuinely present in these tests, so the transport reports Reachable and the
+  // follower's reachability gating passes immediately (no ping/pong round trip needed). The
+  // ping/pong fallback path is covered by reachability-ipc.test.ts.
   const [followerBackend, leaderBackend, router] = makeMockTransportPair(
     followerSource,
     leaderSource,
+    "Reachable",
   );
 
   const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
@@ -455,6 +470,7 @@ export async function reloadFollower(
         new IncomingMessage(outgoing.payload, outgoing.destination, followerSource, outgoing.topic),
       );
     },
+    reachability: async (_endpoint: Endpoint): Promise<Reachability> => "Reachable",
   };
   const newFollowerBackend = new IpcCommunicationBackend(newFollowerSender);
 

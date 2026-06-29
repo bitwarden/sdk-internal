@@ -156,10 +156,19 @@ impl CommunicationBackend for JsCommunicationBackend {
 
     async fn reachability(&self, endpoint: &Endpoint) -> Reachability {
         let endpoint = endpoint.clone();
-        // A sender that does not implement `reachability` (or one whose implementation throws)
-        // rejects the call; treat any failure as Unknown so reachability falls back to ping/pong.
         self.sender
             .run_in_thread(|sender| async move {
+                // `reachability` is optional on the sender. Calling a missing async method traps
+                // (panic=abort poisons the whole instance), so feature-detect it first and fall
+                // back to Unknown when it is absent or its implementation rejects.
+                let sender_value: &JsValue = sender.as_ref();
+                let implemented =
+                    js_sys::Reflect::get(sender_value, &JsValue::from_str("reachability"))
+                        .map(|value| value.is_function())
+                        .unwrap_or(false);
+                if !implemented {
+                    return Reachability::Unknown;
+                }
                 sender
                     .reachability(endpoint)
                     .await
