@@ -2,7 +2,10 @@
 
 use bitwarden_organizations::OrganizationUserType;
 
-use crate::{PolicyType, filter::Policy};
+use crate::{
+    PolicyType,
+    enforcement::{NoData, Policy},
+};
 
 /// Master Password policy (type 1).
 ///
@@ -18,6 +21,7 @@ impl Policy for MasterPasswordPolicy {
         &[]
     }
 }
+impl NoData for MasterPasswordPolicy {}
 
 /// Password Generator policy.
 ///
@@ -33,6 +37,7 @@ impl Policy for PasswordGeneratorPolicy {
         &[]
     }
 }
+impl NoData for PasswordGeneratorPolicy {}
 
 /// Maximum Vault Timeout policy.
 ///
@@ -48,6 +53,7 @@ impl Policy for MaximumVaultTimeoutPolicy {
         &[OrganizationUserType::Owner]
     }
 }
+impl NoData for MaximumVaultTimeoutPolicy {}
 
 /// Free Families Sponsorship policy.
 ///
@@ -63,6 +69,7 @@ impl Policy for FreeFamiliesSponsorshipPolicy {
         &[]
     }
 }
+impl NoData for FreeFamiliesSponsorshipPolicy {}
 
 /// Remove Unlock with PIN policy.
 ///
@@ -78,6 +85,7 @@ impl Policy for RemoveUnlockWithPinPolicy {
         &[]
     }
 }
+impl NoData for RemoveUnlockWithPinPolicy {}
 
 /// Restricted Item Types policy.
 ///
@@ -93,6 +101,7 @@ impl Policy for RestrictedItemTypesPolicy {
         &[]
     }
 }
+impl NoData for RestrictedItemTypesPolicy {}
 
 /// Automatic User Confirmation policy.
 ///
@@ -108,6 +117,7 @@ impl Policy for AutomaticUserConfirmationPolicy {
         &[]
     }
 }
+impl NoData for AutomaticUserConfirmationPolicy {}
 
 /// Organization User Notification policy.
 ///
@@ -130,7 +140,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{OrganizationUserPolicyContext, PolicyView, filter::PolicyFilter};
+    use crate::{OrganizationUserPolicyContext, PolicyView, enforcement::PolicyFilter};
 
     fn policy_view(organization_id: Uuid, policy_type: PolicyType) -> PolicyView {
         PolicyView {
