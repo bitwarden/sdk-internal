@@ -167,14 +167,14 @@ pub(super) fn build_subtitle_passport(
         subtitle.push_str(&given_name);
     }
     if let Some(surname) = surname {
-        if subtitle.len() > 0 && surname.len() > 0 {
-            subtitle.push_str(" ");
+        if !subtitle.is_empty() && !surname.is_empty() {
+            subtitle.push(' ');
         }
         subtitle.push_str(&surname);
     }
 
     if let Some(issuing_country) = issuing_country {
-        if subtitle.len() > 0 && issuing_country.len() > 0 {
+        if !subtitle.is_empty() && !issuing_country.is_empty() {
             subtitle.push_str(", ");
         }
         subtitle.push_str(&issuing_country);

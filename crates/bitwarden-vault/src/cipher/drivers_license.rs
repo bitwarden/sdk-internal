@@ -153,14 +153,14 @@ pub(super) fn build_subtitle_drivers_license(
         subtitle.push_str(&first_name);
     }
     if let Some(last_name) = last_name {
-        if subtitle.len() > 0 && last_name.len() > 0 {
-            subtitle.push_str(" ");
+        if !subtitle.is_empty() && !last_name.is_empty() {
+            subtitle.push(' ');
         }
         subtitle.push_str(&last_name);
     }
 
     if let Some(issuing_state) = issuing_state {
-        if subtitle.len() > 0 && issuing_state.len() > 0 {
+        if !subtitle.is_empty() && !issuing_state.is_empty() {
             subtitle.push_str(", ");
         }
         subtitle.push_str(&issuing_state);
