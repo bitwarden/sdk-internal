@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -44,6 +44,18 @@ pub struct BankAccountView {
     pub swift_code: Option<String>,
     pub iban: Option<String>,
     pub bank_contact_phone: Option<String>,
+}
+
+/// Minimal BankAccountView only including the needed details for list views
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct BankAccountListView {
+    /// The account number of the bank account.
+    pub account_number: Option<String>,
+    /// The type of the bank account, e.g. Checking, Savings, etc.
+    pub account_type: Option<String>,
 }
 
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, BankAccount> for BankAccountView {
@@ -84,6 +96,34 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, BankAccountView> for BankAccoun
             swift_code: self.swift_code.decrypt(ctx, key).ok().flatten(),
             iban: self.iban.decrypt(ctx, key).ok().flatten(),
             bank_contact_phone: self.bank_contact_phone.decrypt(ctx, key).ok().flatten(),
+        })
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, BankAccountListView> for BankAccount {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<BankAccountListView, CryptoError> {
+        Ok(BankAccountListView {
+            account_number: self.account_number.decrypt(ctx, key).ok().flatten(),
+            account_type: self.account_type.decrypt(ctx, key).ok().flatten(),
+        })
+    }
+}
+
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, BankAccountListView>
+    for StrictDecrypt<&BankAccount>
+{
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<BankAccountListView, CryptoError> {
+        Ok(BankAccountListView {
+            account_number: self.0.account_number.decrypt(ctx, key)?,
+            account_type: self.0.account_type.decrypt(ctx, key)?,
         })
     }
 }
@@ -228,6 +268,29 @@ mod tests {
             .expect("BankAccount has changed in a backwards-incompatible way. Existing encrypted data must remain decryptable. If a new format is needed, create a new version instead of modifying the existing one.");
 
         assert_eq!(decrypted, test_bank_account_view());
+    }
+
+    #[test]
+    fn test_bank_account_list_view() {
+        let key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_BANK_KEY.to_string()).expect("valid test key");
+        let key_store = create_test_crypto_with_user_key(key);
+        let key_slot = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let encrypted: BankAccount =
+            serde_json::from_str(TEST_VECTOR_BANK_JSON).expect("valid test vector JSON");
+        let list_view: BankAccountListView = encrypted
+            .decrypt(&mut ctx, key_slot)
+            .expect("BankAccount should decrypt to a list view");
+
+        assert_eq!(
+            list_view,
+            BankAccountListView {
+                account_number: Some("1234567890".to_string()),
+                account_type: Some("Checking".to_string()),
+            }
+        );
     }
 
     #[test]
