@@ -15,12 +15,12 @@ use aes::cipher::{
     block_padding::{NoPadding, Pkcs7},
 };
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce, aead::Aead};
-use bitwarden_crypto::pbkdf2;
 use p256::{
     PublicKey, SecretKey,
     elliptic_curve::{Generate, sec1::ToSec1Point},
     pkcs8::{DecodePrivateKey, EncodePrivateKey},
 };
+use pbkdf2::pbkdf2_hmac_array;
 use rand::Rng;
 use rsa::{
     Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey,
@@ -280,7 +280,11 @@ pub fn decrypt_ec(data: &[u8], private_key: &[u8]) -> Result<Vec<u8>, KeeperCryp
 
 /// Derive a Keeper master key from a password using PBKDF2-HMAC-SHA256 (32-byte output).
 pub fn derive_key_v1(password: &str, salt: &[u8], iterations: u32) -> Zeroizing<[u8; 32]> {
-    Zeroizing::new(pbkdf2(password.as_bytes(), salt, iterations))
+    Zeroizing::new(pbkdf2_hmac_array::<Sha256, 32>(
+        password.as_bytes(),
+        salt,
+        iterations,
+    ))
 }
 
 /// Derive Keeper's v1 auth hash: `SHA-256(derive_key_v1(password, salt, iterations))`.

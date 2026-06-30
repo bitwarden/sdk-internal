@@ -84,6 +84,7 @@ js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.14", default-features = false }
 mockall = { version = ">=0.13.1, <0.15" }
 password-rules-parser = ">=1.1.0, <2"
+pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"

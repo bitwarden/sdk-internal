@@ -878,6 +878,7 @@ dependencies = [
  "data-encoding",
  "keepass",
  "p256 0.14.0-rc.11",
+ "pbkdf2",
  "rand 0.10.1",
  "rsa",
  "serde",

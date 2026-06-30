@@ -45,6 +45,7 @@ chrono = { workspace = true, features = ["std"] }
 data-encoding = { workspace = true }
 keepass = { workspace = true }
 p256 = { version = "=0.14.0-rc.11", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
+pbkdf2 = { workspace = true }
 rand = { workspace = true }
 rsa = { workspace = true }
 serde = { workspace = true }
