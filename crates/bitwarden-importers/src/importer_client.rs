@@ -2,9 +2,7 @@ use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    ImportError, ImportOptions, ImportSummary, import::import_kdbx, keeper::KeeperCryptoClient,
-};
+use crate::{ImportError, ImportOptions, ImportSummary, import::import_kdbx};
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -32,14 +30,6 @@ impl ImporterClient {
         options: ImportOptions,
     ) -> Result<ImportSummary, ImportError> {
         import_kdbx(&self.client, file, password, key_file, options).await
-    }
-
-    /// Keeper "direct" importer cryptography.
-    ///
-    /// Returns a stateless client exposing Keeper's wire-format crypto primitives, used by the
-    /// Keeper direct importer while its access layer is migrated from TypeScript.
-    pub fn keeper_crypto(&self) -> KeeperCryptoClient {
-        KeeperCryptoClient
     }
 }
 

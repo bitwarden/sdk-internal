@@ -74,12 +74,6 @@ pub enum KeeperCryptoError {
 ///
 /// The numeric values are part of Keeper's wire format and must not change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
 pub enum KeeperRecordKeyType {
     /// No key present; cannot be decrypted.
     NoKey = 0,
