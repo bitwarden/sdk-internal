@@ -1,7 +1,6 @@
 //! [`ApplyManagedOverride`] implementations for the generator request types.
 //!
-//! Maps the dotted-key namespace documented in
-//! `crates/bitwarden-managed-settings/DESIGN.md` onto the typed fields of
+//! Maps the dotted-key namespace onto the typed fields of
 //! [`PasswordGeneratorRequest`] and [`PassphraseGeneratorRequest`], clamping to
 //! the existing `MINIMUM_*` / `MAXIMUM_*` constants.
 //!
