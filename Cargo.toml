@@ -34,6 +34,7 @@ bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-va
 bitwarden-core = { path = "crates/bitwarden-core", version = "=3.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=3.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=3.0.0" }
+bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=3.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=3.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=3.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=3.0.0" }

@@ -784,7 +784,7 @@ mod tests {
                 folder_id: None,
                 collection_ids: vec![],
                 key: Some(wrapped_cipher_key),
-                name,
+                name: Some(name),
                 notes: None,
                 r#type: bitwarden_vault::CipherType::Login,
                 login: None,
