@@ -103,6 +103,7 @@
         "js-sys",
         "mockall",
         "password-rules-parser",
+        "pbkdf2",
         "proc-macro2",
         "quote",
         "rand",
