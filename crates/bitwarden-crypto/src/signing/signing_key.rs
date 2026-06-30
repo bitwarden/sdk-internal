@@ -83,13 +83,13 @@ impl SigningKey {
             SignatureAlgorithm::Ed25519 => SigningKey {
                 id: KeyId::make(),
                 inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
-                    &mut rand::rng(),
+                    &mut bitwarden_random::rng(),
                 ))),
             },
             SignatureAlgorithm::MlDsa44 => {
                 // This is heap allocated from the start, so will be zeroized on drop
                 let mut seed = Box::pin(Array::from([0u8; 32]));
-                rand::rng().fill_bytes(&mut seed);
+                bitwarden_random::rng().fill_bytes(&mut seed);
 
                 let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
                 SigningKey {
@@ -133,7 +133,7 @@ impl SigningKey {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
             RawSigningKey::MlDsa44 { signing_key, .. } => signing_key
-                .sign_randomized(data, &[], &mut rand::rng())
+                .sign_randomized(data, &[], &mut bitwarden_random::rng())
                 .expect("Empty ML-DSA context must be accepted")
                 .encode()
                 .as_slice()

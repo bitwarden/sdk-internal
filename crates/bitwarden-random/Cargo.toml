@@ -1,0 +1,47 @@
+[package]
+name = "bitwarden-random"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["getrandom4"] # Only used to enable WASM support, not used directly
+
+[features]
+# Provides a snow (Noise) CryptoResolver + `snow::types::Random` impl for `SdkRngImpl`.
+snow = ["dep:snow"]
+# Allows constructing a deterministic, seeded ChaCha-based `SdkRngImpl`. NEVER enable in production
+# code paths — only in tests/benches that need reproducible randomness.
+dangerous-seeded-rng-for-testing = ["dep:rand_chacha"]
+uniffi = ["dep:uniffi"]                                # Uniffi bindings
+wasm = ["getrandom4/wasm_js", "dep:wasm-bindgen"]      # WASM support
+
+[dependencies]
+# We don't use this directly (it's used by rand and uuid), but we need it here to enable WASM
+# support for the getrandom version they pull in.
+getrandom4 = { package = "getrandom", version = "0.4", optional = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true, optional = true }
+snow = { version = "0.10.0", default-features = false, features = [
+    "default-resolver",
+    "default-resolver-crypto",
+], optional = true }
+uniffi = { workspace = true, optional = true }
+uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = { workspace = true }
+
+[lints]
+workspace = true

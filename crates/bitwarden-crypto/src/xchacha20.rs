@@ -43,7 +43,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    let rng = rand::rng();
+    let rng = bitwarden_random::rng();
     encrypt_xchacha20_poly1305_internal(rng, key, plaintext_secret_data, associated_data)
 }
 
