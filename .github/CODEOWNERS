@@ -30,6 +30,7 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
 # Claude related files
 .claude/ @bitwarden/team-ai-sme
+.claude/skills/create-testvectors/ @bitwarden/team-ai-sme @bitwarden/team-key-management-dev
 .github/workflows/respond.yml @bitwarden/team-ai-sme
 .github/workflows/review-code.yml @bitwarden/team-ai-sme
 
@@ -40,9 +41,12 @@ crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
+crates/bitwarden-importers/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-organization-crypto/** @bitwarden/team-key-management-dev
+crates/bitwarden-organization-invite-link/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev
+crates/bitwarden-sensitive-value/** @bitwarden/team-key-management-dev
 crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
@@ -51,6 +55,8 @@ crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
+crates/bitwarden-wasm-internal/integration-tests/tests/invite/** @bitwarden/team-admin-console-dev
+crates/bitwarden-wasm-internal/integration-tests/tests/unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management-dev
 crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-platform-dev
 crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-dev

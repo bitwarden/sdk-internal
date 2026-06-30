@@ -53,6 +53,34 @@ pub struct PasswordGeneratorRequest {
     /// The minimum number of special characters in the generated password.
     /// When set, the value must be between 1 and 9. This value is ignored if special is false.
     pub min_special: Option<u8>,
+
+    /// Custom characters that must each be available to the generator and from which at least
+    /// one character is guaranteed to appear in the output. Each character of the string is
+    /// treated as a member of the custom required set. Non-ASCII-printable characters are
+    /// silently dropped during validation.
+    ///
+    /// This is primarily used by the HTML `passwordrules` parser to honor custom required
+    /// character classes (e.g. `required: [!#$]`).
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub custom_required_chars: Option<String>,
+    /// Custom characters that are added to the overall pool of allowed characters, but are not
+    /// required to appear. Each character of the string is treated as a member of the custom
+    /// allowed set. Non-ASCII-printable characters are silently dropped during validation.
+    ///
+    /// This is primarily used by the HTML `passwordrules` parser to honor custom allowed
+    /// character classes (e.g. `allowed: [-_.]`).
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub custom_allowed_chars: Option<String>,
+
+    /// The maximum number of consecutive identical characters allowed in the generated password,
+    /// as expressed by the HTML `passwordrules` `max-consecutive` property. `None` disables
+    /// the check; `Some(0)` is invalid and rejected at request validation. Enforced via
+    /// re-shuffle with a single-pass repair fallback for degenerate pool sizes.
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub max_consecutive: Option<u8>,
 }
 
 const DEFAULT_PASSWORD_LENGTH: u8 = 16;
@@ -81,8 +109,21 @@ impl Default for PasswordGeneratorRequest {
             min_uppercase: None,
             min_number: None,
             min_special: None,
+            custom_required_chars: None,
+            custom_allowed_chars: None,
+            max_consecutive: None,
         }
     }
+}
+
+/// Filters the characters of `s` down to ASCII-printable, non-whitespace, deduplicated
+/// characters, preserving relative order on first occurrence.
+fn sanitize_custom_chars(s: &str) -> Vec<char> {
+    let mut seen = BTreeSet::new();
+    s.chars()
+        .filter(|c| c.is_ascii_graphic())
+        .filter(|c| seen.insert(*c))
+        .collect()
 }
 
 const UPPER_CHARS_AMBIGUOUS: &[char] = &['I', 'O'];
@@ -143,13 +184,21 @@ impl Distribution<char> for CharSet {
 /// To get an instance of it, use
 /// [`PasswordGeneratorRequest::validate_options`](PasswordGeneratorRequest::validate_options)
 struct PasswordGeneratorOptions {
-    pub(super) lower: (CharSet, usize),
-    pub(super) upper: (CharSet, usize),
-    pub(super) number: (CharSet, usize),
-    pub(super) special: (CharSet, usize),
-    pub(super) all: (CharSet, usize),
+    lower: (CharSet, usize),
+    upper: (CharSet, usize),
+    number: (CharSet, usize),
+    special: (CharSet, usize),
+    /// Custom required characters from `passwordrules` `required: [...]` entries. At least one
+    /// char from this set is guaranteed to appear in the output when the set is non-empty.
+    custom: (CharSet, usize),
+    all: (CharSet, usize),
 
-    pub(super) length: usize,
+    length: usize,
+
+    /// Maximum number of consecutive identical characters allowed in the output. `None`
+    /// disables the check. Validated to be `>= 1` in
+    /// [`PasswordGeneratorRequest::validate_options`].
+    max_consecutive: Option<usize>,
 }
 
 impl PasswordGeneratorRequest {
@@ -158,8 +207,27 @@ impl PasswordGeneratorRequest {
     fn validate_options(self) -> Result<PasswordGeneratorOptions, PasswordError> {
         // TODO: Add password generator policy checks
 
-        // We always have to have at least one character set enabled
-        if !self.lowercase && !self.uppercase && !self.numbers && !self.special {
+        // Sanitize custom char lists defensively: the parser already filters non-printable
+        // characters, but the request type is `pub` so callers can construct it directly.
+        let custom_required = self
+            .custom_required_chars
+            .as_deref()
+            .map(sanitize_custom_chars)
+            .unwrap_or_default();
+        let custom_allowed: Vec<char> = self
+            .custom_allowed_chars
+            .as_deref()
+            .map(sanitize_custom_chars)
+            .unwrap_or_default();
+
+        // We always have to have at least one character set enabled (standard or custom).
+        if !self.lowercase
+            && !self.uppercase
+            && !self.numbers
+            && !self.special
+            && custom_required.is_empty()
+            && custom_allowed.is_empty()
+        {
             return Err(PasswordError::NoCharacterSetEnabled);
         }
 
@@ -182,9 +250,10 @@ impl PasswordGeneratorRequest {
         let min_uppercase = get_minimum(self.min_uppercase, self.uppercase);
         let min_number = get_minimum(self.min_number, self.numbers);
         let min_special = get_minimum(self.min_special, self.special);
+        let min_custom = if custom_required.is_empty() { 0 } else { 1 };
 
         // Check that the minimum lengths aren't larger than the password length
-        let minimum_length = min_lowercase + min_uppercase + min_number + min_special;
+        let minimum_length = min_lowercase + min_uppercase + min_number + min_special + min_custom;
         if minimum_length > length {
             return Err(PasswordError::InvalidLength);
         }
@@ -215,22 +284,40 @@ impl PasswordGeneratorRequest {
             min_special,
         );
 
+        let custom = (
+            CharSet::default().include(custom_required.iter().copied()),
+            min_custom,
+        );
+
         let all = (
             CharSet::default()
                 .include(&lower.0)
                 .include(&upper.0)
                 .include(&number.0)
-                .include(&special.0),
+                .include(&special.0)
+                .include(&custom.0)
+                .include(custom_allowed.iter().copied()),
             length - minimum_length,
         );
+
+        // A `max_consecutive` of 0 would forbid every output (no character can appear once
+        // without exceeding a run of 0). Reject it up front so the generator can assume any
+        // populated `Some(_)` is `>= 1`.
+        let max_consecutive = match self.max_consecutive {
+            None => None,
+            Some(0) => return Err(PasswordError::InvalidLength),
+            Some(n) => Some(n as usize),
+        };
 
         Ok(PasswordGeneratorOptions {
             lower,
             upper,
             number,
             special,
+            custom,
             all,
             length,
+            max_consecutive,
         })
     }
 }
@@ -239,6 +326,17 @@ impl PasswordGeneratorRequest {
 pub(crate) fn password(input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
     let options = input.validate_options()?;
     Ok(password_with_rng(rand::rng(), options))
+}
+
+/// Test-only helper that validates a request and runs the generator with a caller-supplied RNG.
+/// Lets the `passwordrules` test module exercise the end-to-end generator path deterministically.
+#[cfg(test)]
+pub(crate) fn password_with_rng_for_test(
+    rng: impl Rng,
+    input: PasswordGeneratorRequest,
+) -> Result<String, PasswordError> {
+    let options = input.validate_options()?;
+    Ok(password_with_rng(rng, options))
 }
 
 fn password_with_rng(mut rng: impl Rng, options: PasswordGeneratorOptions) -> String {
@@ -250,6 +348,7 @@ fn password_with_rng(mut rng: impl Rng, options: PasswordGeneratorOptions) -> St
         &options.lower,
         &options.number,
         &options.special,
+        &options.custom,
     ];
     for (set, qty) in opts {
         buf.extend(set.sample_iter(&mut rng).take(*qty));
@@ -257,7 +356,79 @@ fn password_with_rng(mut rng: impl Rng, options: PasswordGeneratorOptions) -> St
 
     buf.shuffle(&mut rng);
 
+    if let Some(limit) = options.max_consecutive {
+        // For realistic inputs (length up to 128, charset size > limit) a re-shuffle clears
+        // the violation in a few rounds. The repair-pass fallback handles pathological cases
+        // (small charset, large length) where re-shuffles wouldn't terminate quickly.
+        const MAX_RESHUFFLES: u8 = 16;
+        let mut tries = 0;
+        while violates_max_consecutive(&buf, limit) && tries < MAX_RESHUFFLES {
+            buf.shuffle(&mut rng);
+            tries += 1;
+        }
+        if violates_max_consecutive(&buf, limit) {
+            repair_consecutive(&mut buf, limit);
+        }
+    }
+
     buf.iter().collect()
+}
+
+/// Returns `true` if `buf` contains a run of identical characters longer than `limit`.
+fn violates_max_consecutive(buf: &[char], limit: usize) -> bool {
+    if limit == 0 || buf.len() <= limit {
+        return false;
+    }
+    let mut run = 1usize;
+    for w in buf.windows(2) {
+        if w[0] == w[1] {
+            run += 1;
+            if run > limit {
+                return true;
+            }
+        } else {
+            run = 1;
+        }
+    }
+    false
+}
+
+/// Single-pass repair: scans `buf` and, whenever a run grows past `limit`, swaps the
+/// offending character with the next non-matching character ahead in the buffer. Used
+/// only when re-shuffling fails to clear the constraint (typically when the available
+/// pool is degenerately small relative to the requested length).
+fn repair_consecutive(buf: &mut [char], limit: usize) {
+    if limit == 0 || buf.len() <= limit {
+        return;
+    }
+    let mut run = 1usize;
+    let mut i = 1;
+    while i < buf.len() {
+        if buf[i] == buf[i - 1] {
+            run += 1;
+            if run > limit {
+                // Find any later position with a character that breaks both the current
+                // run and the trailing run (so we don't extend a different violation).
+                let target = (i + 1..buf.len())
+                    .find(|&k| buf[k] != buf[i] && (k + 1 == buf.len() || buf[k + 1] != buf[i]));
+                match target {
+                    Some(j) => {
+                        buf.swap(i, j);
+                        run = 1;
+                    }
+                    None => {
+                        // No feasible swap target; leave the constraint partially satisfied
+                        // rather than looping. For realistic inputs (any charset of size >=2
+                        // with charset_size >> length / limit) this branch is unreachable.
+                        return;
+                    }
+                }
+            }
+        } else {
+            run = 1;
+        }
+        i += 1;
+    }
 }
 
 #[cfg(test)]
@@ -394,6 +565,7 @@ mod test {
             min_uppercase: Some(5),
             min_number: Some(5),
             min_special: Some(5),
+            ..Default::default()
         }
         .validate_options()
         .unwrap();
@@ -410,5 +582,263 @@ mod test {
 
         let pass = password_with_rng(&mut rng, options);
         assert_eq!(pass, "t&c0L73*D*G%aak7goq!N2T4");
+    }
+
+    fn longest_run(s: &str) -> usize {
+        let mut longest = 0usize;
+        let mut run = 0usize;
+        let mut prev: Option<char> = None;
+        for c in s.chars() {
+            if prev == Some(c) {
+                run += 1;
+            } else {
+                run = 1;
+                prev = Some(c);
+            }
+            longest = longest.max(run);
+        }
+        longest
+    }
+
+    #[test]
+    fn test_password_gen_honors_max_consecutive() {
+        // 64 attempts at length 64 across ascii-printable: even ignoring our enforcement,
+        // ambient runs of 4 should be vanishingly rare. With the constraint enforced
+        // (max_consecutive: 2) every iteration must satisfy run-length <= 2.
+        for seed_byte in 0u8..64 {
+            let mut rng = rand_chacha::ChaCha8Rng::from_seed([seed_byte; 32]);
+            let options = PasswordGeneratorRequest {
+                lowercase: true,
+                uppercase: true,
+                numbers: true,
+                special: true,
+                avoid_ambiguous: false,
+                length: 64,
+                max_consecutive: Some(2),
+                ..Default::default()
+            }
+            .validate_options()
+            .unwrap();
+            let pass = password_with_rng(&mut rng, options);
+            let run = longest_run(&pass);
+            assert!(
+                run <= 2,
+                "seed={seed_byte}: produced {pass:?} with run of length {run} (>2)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_password_gen_max_consecutive_one_breaks_pairs() {
+        // The tightest meaningful constraint: no two adjacent characters may be equal.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([7u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            length: 32,
+            max_consecutive: Some(1),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            longest_run(&pass) <= 1,
+            "produced {pass:?} with adjacent duplicate"
+        );
+    }
+
+    #[test]
+    fn test_password_gen_max_consecutive_zero_is_rejected() {
+        let result = PasswordGeneratorRequest {
+            lowercase: true,
+            length: 14,
+            max_consecutive: Some(0),
+            ..Default::default()
+        }
+        .validate_options();
+        assert!(
+            matches!(result, Err(PasswordError::InvalidLength)),
+            "expected InvalidLength for max_consecutive=Some(0)"
+        );
+    }
+
+    #[test]
+    fn test_password_gen_max_consecutive_none_is_unconstrained() {
+        // Sanity: explicit None and Default's None should behave identically (no constraint).
+        let mut rng_a = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let mut rng_b = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let opts_a = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+        let opts_b = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            max_consecutive: None,
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+        assert_eq!(
+            password_with_rng(&mut rng_a, opts_a),
+            password_with_rng(&mut rng_b, opts_b)
+        );
+    }
+
+    #[test]
+    fn test_custom_required_chars_appear_in_output() {
+        // The generator allocates one slot from the custom-required set up front, so at least
+        // one of the supplied chars is guaranteed to appear in the output.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: true,
+            uppercase: true,
+            numbers: true,
+            special: true,
+            avoid_ambiguous: false,
+            length: 32,
+            custom_required_chars: Some("!@#".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        // Required-custom contributes 1 to the minimum-count.
+        assert_eq!(options.custom.1, 1);
+        assert_eq!(to_set(&options.custom.0), BTreeSet::from(['!', '@', '#']));
+
+        let pass = password_with_rng(&mut rng, options);
+        let any = pass.chars().any(|c| matches!(c, '!' | '@' | '#'));
+        assert!(any, "expected at least one of !@# in {pass:?}");
+    }
+
+    #[test]
+    fn test_custom_allowed_chars_extend_pool_without_requirement() {
+        // `custom_allowed_chars` should join the overall pool but not force any specific char
+        // to appear. With no standard classes enabled, the output should consist exclusively
+        // of the allowed-custom chars.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 16,
+            custom_allowed_chars: Some("XYZ".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        // The `custom` slot covers required chars only — empty here.
+        assert!(to_set(&options.custom.0).is_empty());
+        assert_eq!(options.custom.1, 0);
+        // The `all` pool is the union of every enabled set — just XYZ in this case.
+        assert_eq!(to_set(&options.all.0), BTreeSet::from(['X', 'Y', 'Z']));
+
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            pass.chars().all(|c| matches!(c, 'X' | 'Y' | 'Z')),
+            "expected output to consist only of XYZ, got {pass:?}"
+        );
+        assert_eq!(pass.chars().count(), 16);
+    }
+
+    #[test]
+    fn test_custom_required_is_sole_charset_when_no_standards_enabled() {
+        // Only `custom_required_chars` set, no standard classes, no allowed extension:
+        // the request must validate, and the output must be drawn exclusively from those chars.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 8,
+            custom_required_chars: Some("abc".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        assert_eq!(options.custom.1, 1);
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            pass.chars().all(|c| matches!(c, 'a' | 'b' | 'c')),
+            "expected output to consist only of abc, got {pass:?}"
+        );
+        assert_eq!(pass.chars().count(), 8);
+    }
+
+    #[test]
+    fn test_custom_chars_are_sanitized() {
+        // `sanitize_custom_chars` keeps ASCII-graphic chars, drops whitespace, and dedupes.
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 8,
+            custom_required_chars: Some(" a\tbb!@\n".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        // Whitespace ( , \t, \n) dropped; the doubled 'b' deduplicated.
+        assert_eq!(
+            to_set(&options.custom.0),
+            BTreeSet::from(['a', 'b', '!', '@'])
+        );
+    }
+
+    #[test]
+    fn test_custom_required_and_allowed_compose() {
+        // Required chars must appear (1 slot reserved); allowed chars contribute to the pool
+        // but aren't forced; the total pool is the union of all custom sets.
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let options = PasswordGeneratorRequest {
+            lowercase: false,
+            uppercase: false,
+            numbers: false,
+            special: false,
+            avoid_ambiguous: false,
+            length: 16,
+            custom_required_chars: Some("!".to_string()),
+            custom_allowed_chars: Some("abc".to_string()),
+            ..Default::default()
+        }
+        .validate_options()
+        .unwrap();
+
+        assert_eq!(to_set(&options.custom.0), BTreeSet::from(['!']));
+        assert_eq!(options.custom.1, 1);
+        assert_eq!(to_set(&options.all.0), BTreeSet::from(['!', 'a', 'b', 'c']));
+
+        let pass = password_with_rng(&mut rng, options);
+        assert!(
+            pass.contains('!'),
+            "expected required ! to appear in {pass:?}"
+        );
+        assert!(
+            pass.chars().all(|c| matches!(c, '!' | 'a' | 'b' | 'c')),
+            "expected output to consist only of !abc, got {pass:?}"
+        );
     }
 }

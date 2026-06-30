@@ -1,5 +1,5 @@
 use bitwarden_collections::collection::Collection;
-use bitwarden_core::{Client, key_management::KeySlotIds};
+use bitwarden_core::{Client, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
 use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
 
@@ -69,11 +69,17 @@ pub(crate) fn export_cxf(
     Ok(build_cxf(account, ciphers)?)
 }
 
-fn encrypt_import(
+/// Encrypts a parsed/imported cipher for the user's vault, or for an organization when
+/// `organization_id` is set. Shared by the importers (`import_kdbx`) and by CXF import; lives here
+/// alongside the `ImportingCipher` interchange model and the `From<ImportingCipher> for CipherView`
+/// bridge.
+pub fn encrypt_import(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     cipher: ImportingCipher,
+    organization_id: Option<OrganizationId>,
 ) -> Result<Cipher, ExportError> {
     let mut view: CipherView = cipher.clone().into();
+    view.organization_id = organization_id;
 
     // Get passkey from cipher if cipher is type login
     let passkey = match cipher.r#type {
@@ -100,7 +106,7 @@ pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>
     let ciphers = parse_cxf(payload)?;
     let ciphers: Result<Vec<Cipher>, _> = ciphers
         .into_iter()
-        .map(|c| encrypt_import(&mut ctx, c))
+        .map(|c| encrypt_import(&mut ctx, c, None))
         .collect();
 
     ciphers

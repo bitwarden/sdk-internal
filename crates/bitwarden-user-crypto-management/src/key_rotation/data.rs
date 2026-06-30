@@ -10,7 +10,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStoreContext};
 use bitwarden_send::SendView;
 use bitwarden_vault::{CipherView, EncryptionContext, FolderView};
-use tracing::{debug, debug_span, instrument};
+use tracing::{debug, debug_span};
 use uuid::Uuid;
 
 use super::RotateUserKeysError;
@@ -52,7 +52,7 @@ pub(super) fn check_for_old_attachments(
 /// Re-encrypts all user data (folders, ciphers, sends) with the new user key for the purpose of
 /// key-rotation. Note: Ciphers must be filtered to just contain the user's ciphers, not
 /// organization ciphers.
-#[instrument(name = "reencrypt_data", skip(folders, ciphers, sends, ctx))]
+#[bitwarden_logging::instrument(name = "reencrypt_data", fields(current_user_key_id = ?current_user_key_id, new_user_key_id = ?new_user_key_id))]
 pub(super) fn reencrypt_data(
     folders: &[bitwarden_vault::Folder],
     ciphers: &[bitwarden_vault::Cipher],
@@ -98,7 +98,7 @@ pub(super) fn reencrypt_data(
     })
 }
 
-#[instrument(name = "reencrypt_folders", skip(folders, ctx))]
+#[bitwarden_logging::instrument(name = "reencrypt_folders", fields(current_key = ?current_key, new_key = ?new_key))]
 fn reencrypt_folders(
     folders: &[bitwarden_vault::Folder],
     current_key: SymmetricKeySlotId,
@@ -119,7 +119,7 @@ fn reencrypt_folders(
         .collect::<Result<Vec<bitwarden_vault::Folder>, DataReencryptionError>>()
 }
 
-#[instrument(name = "reencrypt_ciphers", skip(ciphers, ctx))]
+#[bitwarden_logging::instrument(name = "reencrypt_ciphers", fields(current_key = ?current_key, new_key = ?new_key))]
 fn reencrypt_ciphers(
     ciphers: &[bitwarden_vault::Cipher],
     current_key: SymmetricKeySlotId,
@@ -156,7 +156,7 @@ fn reencrypt_ciphers(
         .collect::<Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError>>()
 }
 
-#[instrument(name = "reencrypt_sends", skip(sends, ctx))]
+#[bitwarden_logging::instrument(name = "reencrypt_sends", fields(current_key = ?current_key, new_key = ?new_key))]
 fn reencrypt_sends(
     sends: &[bitwarden_send::Send],
     current_key: SymmetricKeySlotId,
@@ -197,7 +197,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_ENC_STRING.parse().unwrap(),
+            name: Some(TEST_ENC_STRING.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,

@@ -2,7 +2,7 @@ use bitwarden_core::key_management::{
     V2UpgradeToken,
     crypto::{
         DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
-        InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
+        InitUserCryptoRequest, ReinitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
     },
 };
 use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
@@ -26,6 +26,13 @@ impl CryptoClient {
     /// `initialize_user_crypto` but before any other crypto operations.
     pub async fn initialize_org_crypto(&self, req: InitOrgCryptoRequest) -> Result<()> {
         Ok(self.0.initialize_org_crypto(req).await?)
+    }
+
+    /// Re-initialize the user's cryptographic state during an unlock session for handling a synced
+    /// v2 upgrade token. Requires the SDK to be unlocked. See
+    /// [`bitwarden_core::key_management::CryptoClient::reinit_user_crypto`].
+    pub async fn reinit_user_crypto(&self, req: ReinitUserCryptoRequest) -> Result<()> {
+        Ok(self.0.reinit_user_crypto(req).await?)
     }
 
     /// Get the uses's decrypted encryption key. Note: It's very important
