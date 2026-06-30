@@ -142,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_missing_salt() {
+    fn test_try_from_missing_salt_falls_back_to_email() {
         let kdf_settings = KdfSettings {
             kdf_type: KdfType::PBKDF2_SHA256,
             iterations: 100000,
@@ -159,9 +159,33 @@ mod tests {
             salt: None, // Missing salt
         };
 
-        let result = PasswordPreloginResponse::try_from((response, TEST_EMAIL));
+        let result = PasswordPreloginResponse::try_from((response, TEST_EMAIL)).unwrap();
 
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MissingFieldError { .. }));
+        // When the salt is null, we fall back to the normalized email.
+        assert_eq!(result.salt, TEST_EMAIL);
+    }
+
+    #[test]
+    fn test_try_from_missing_salt_normalizes_email() {
+        let kdf_settings = KdfSettings {
+            kdf_type: KdfType::PBKDF2_SHA256,
+            iterations: 100000,
+            memory: None,
+            parallelism: None,
+        };
+
+        let response = PasswordPreloginResponseModel {
+            kdf: None,
+            kdf_iterations: None,
+            kdf_memory: None,
+            kdf_parallelism: None,
+            kdf_settings: Some(Box::new(kdf_settings)),
+            salt: None, // Missing salt
+        };
+
+        // The email fallback is trimmed and lowercased before being used as the salt.
+        let result = PasswordPreloginResponse::try_from((response, "  USER@Test.Dev  ")).unwrap();
+
+        assert_eq!(result.salt, TEST_EMAIL);
     }
 }
