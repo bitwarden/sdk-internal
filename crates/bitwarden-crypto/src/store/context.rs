@@ -455,7 +455,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         match (wrapping_key_instance, key_to_wrap_instance) {
             (
                 Aes256CbcHmacKey(_),
-                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_),
+                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_) | Aes256GcmKey(_),
             ) => self.encrypt_data_with_symmetric_key(
                 wrapping_key,
                 key_to_wrap_instance
