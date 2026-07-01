@@ -180,10 +180,7 @@ impl PartialEq for XChaCha20Poly1305Key {
     }
 }
 
-/// [Aes256GcmKey] is a symmetric AEAD key consisting of one 256-bit key, and contains a key id.
-/// Like [XChaCha20Poly1305Key], it is used to create CoseEncrypt0 messages, but with the
-/// FIPS-approved AES-256-GCM algorithm. It is currently only used as the content-encryption key
-/// for FIPS [`DataEnvelope`](crate::safe::DataEnvelope)s.
+/// [Aes256GcmKey] is a symmetric AEAD key consisting of one 256-bit key
 #[derive(Zeroize, Clone)]
 pub struct Aes256GcmKey {
     pub(crate) key_id: KeyId,
