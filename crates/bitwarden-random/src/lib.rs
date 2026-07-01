@@ -8,7 +8,7 @@ use rand::TryRng;
 uniffi::setup_scaffolding!();
 
 mod ffi;
-pub use ffi::SdkRandomNumberClient;
+pub use ffi::{GenBytesError, GenRangeError, SdkRandomNumberClient};
 
 #[cfg(feature = "dangerous-seeded-rng-for-testing")]
 mod seeded;

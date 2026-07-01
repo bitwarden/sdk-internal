@@ -12,16 +12,22 @@ use wasm_bindgen_test::*;
 #[wasm_bindgen_test]
 fn gen_bytes_returns_requested_length() {
     let client = SdkRandomNumberClient::new();
-    assert_eq!(client.gen_bytes(0).len(), 0);
-    assert_eq!(client.gen_bytes(32).len(), 32);
-    // 1 KiB is the documented maximum and must not panic.
-    assert_eq!(client.gen_bytes(1024).len(), 1024);
+    assert_eq!(client.gen_bytes(0).unwrap().len(), 0);
+    assert_eq!(client.gen_bytes(32).unwrap().len(), 32);
+    // 1 KiB is the documented maximum and must succeed.
+    assert_eq!(client.gen_bytes(1024).unwrap().len(), 1024);
+}
+
+#[wasm_bindgen_test]
+fn gen_bytes_errors_above_1_kib() {
+    // Over the 1 KiB limit returns an error instead of trapping.
+    assert!(SdkRandomNumberClient::new().gen_bytes(1025).is_err());
 }
 
 #[wasm_bindgen_test]
 fn gen_bytes_is_random() {
     let client = SdkRandomNumberClient::new();
-    assert_ne!(client.gen_bytes(32), client.gen_bytes(32));
+    assert_ne!(client.gen_bytes(32).unwrap(), client.gen_bytes(32).unwrap());
 }
 
 #[wasm_bindgen_test]
@@ -42,8 +48,10 @@ fn gen_uuid_is_distinct() {
 fn gen_range_stays_within_inclusive_bounds() {
     let client = SdkRandomNumberClient::new();
     for _ in 0..1000 {
-        let n = client.gen_range(10, 20);
+        let n = client.gen_range(10, 20).unwrap();
         assert!((10..=20).contains(&n));
     }
-    assert_eq!(client.gen_range(7, 7), 7);
+    assert_eq!(client.gen_range(7, 7).unwrap(), 7);
+    // An inverted range returns an error instead of trapping.
+    assert!(client.gen_range(20, 10).is_err());
 }

@@ -1048,10 +1048,12 @@ dependencies = [
 name = "bitwarden-random"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-error",
  "getrandom 0.4.2",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
  "snow",
+ "thiserror 1.0.69",
  "uniffi",
  "uuid",
  "wasm-bindgen",

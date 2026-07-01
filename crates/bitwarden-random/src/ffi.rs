@@ -1,10 +1,38 @@
 //! Cross-platform (WASM / UniFFI) bindings for random-number generation.
 
+use bitwarden_error::bitwarden_error;
 use rand::{Rng, RngExt};
+use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::rng;
+
+/// Error returned by [`SdkRandomNumberClient::gen_bytes`].
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum GenBytesError {
+    /// More than 1 KiB of randomness was requested.
+    #[error("gen_bytes() is limited to 1KiB; requested {requested} bytes")]
+    TooManyBytes {
+        /// The number of bytes that was requested.
+        requested: u32,
+    },
+}
+
+/// Error returned by [`SdkRandomNumberClient::gen_range`].
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum GenRangeError {
+    /// `min` was greater than `max`, so the range is empty.
+    #[error("Invalid range: min ({min}) must not exceed max ({max})")]
+    InvalidRange {
+        /// The requested lower bound.
+        min: u32,
+        /// The requested upper bound.
+        max: u32,
+    },
+}
 
 /// Client exposing random-number generation to cross-platform bindings.
 #[derive(Default)]
@@ -27,17 +55,16 @@ impl SdkRandomNumberClient {
 
     /// Generate `len` cryptographically-secure random bytes.
     ///
-    /// WARNING: This panics over 1KiB. If you want over 1KiB of randomness, please reconsider.
-    pub fn gen_bytes(&self, len: u32) -> Vec<u8> {
+    /// Returns [`GenBytesError::TooManyBytes`] if `len` exceeds 1 KiB. If you want over 1KiB of
+    /// randomness, please reconsider your design.
+    pub fn gen_bytes(&self, len: u32) -> Result<Vec<u8>, GenBytesError> {
         if len > 1024 {
-            panic!(
-                "gen_bytes() is limited to 1KiB; please reconsider your design if you need more randomness"
-            );
+            return Err(GenBytesError::TooManyBytes { requested: len });
         }
 
         let mut buf = vec![0u8; len as usize];
         rng().fill_bytes(&mut buf);
-        buf
+        Ok(buf)
     }
 
     /// Generate a random v4 UUID, sampled from a CRNG
@@ -55,9 +82,12 @@ impl SdkRandomNumberClient {
 
     /// Generate a cryptographically-secure random number in the range `[min, max]` (inclusive).
     ///
-    /// WARNING: Panics if `min > max`.
-    pub fn gen_range(&self, min: u32, max: u32) -> u32 {
-        rng().random_range(min..=max)
+    /// Returns [`GenRangeError::InvalidRange`] if `min > max`.
+    pub fn gen_range(&self, min: u32, max: u32) -> Result<u32, GenRangeError> {
+        if min > max {
+            return Err(GenRangeError::InvalidRange { min, max });
+        }
+        Ok(rng().random_range(min..=max))
     }
 }
 
@@ -70,24 +100,27 @@ mod tests {
     #[test]
     fn gen_bytes_returns_requested_length() {
         let client = SdkRandomNumberClient::new();
-        assert_eq!(client.gen_bytes(0).len(), 0);
-        assert_eq!(client.gen_bytes(1).len(), 1);
-        assert_eq!(client.gen_bytes(32).len(), 32);
-        // 1 KiB is the documented maximum and must not panic.
-        assert_eq!(client.gen_bytes(1024).len(), 1024);
+        assert_eq!(client.gen_bytes(0).unwrap().len(), 0);
+        assert_eq!(client.gen_bytes(1).unwrap().len(), 1);
+        assert_eq!(client.gen_bytes(32).unwrap().len(), 32);
+        // 1 KiB is the documented maximum and must succeed.
+        assert_eq!(client.gen_bytes(1024).unwrap().len(), 1024);
     }
 
     #[test]
     fn gen_bytes_is_random() {
         let client = SdkRandomNumberClient::new();
         // Two independent draws differ with overwhelming probability.
-        assert_ne!(client.gen_bytes(32), client.gen_bytes(32));
+        assert_ne!(client.gen_bytes(32).unwrap(), client.gen_bytes(32).unwrap());
     }
 
     #[test]
-    #[should_panic(expected = "1KiB")]
-    fn gen_bytes_panics_above_1_kib() {
-        SdkRandomNumberClient::new().gen_bytes(1025);
+    fn gen_bytes_errors_above_1_kib() {
+        let err = SdkRandomNumberClient::new().gen_bytes(1025).unwrap_err();
+        assert!(matches!(
+            err,
+            GenBytesError::TooManyBytes { requested: 1025 }
+        ));
     }
 
     #[test]
@@ -108,7 +141,7 @@ mod tests {
     fn gen_range_stays_within_inclusive_bounds() {
         let client = SdkRandomNumberClient::new();
         for _ in 0..1000 {
-            let n = client.gen_range(10, 20);
+            let n = client.gen_range(10, 20).unwrap();
             assert!((10..=20).contains(&n));
         }
     }
@@ -116,12 +149,15 @@ mod tests {
     #[test]
     fn gen_range_with_single_value_is_that_value() {
         let client = SdkRandomNumberClient::new();
-        assert_eq!(client.gen_range(7, 7), 7);
+        assert_eq!(client.gen_range(7, 7).unwrap(), 7);
     }
 
     #[test]
-    #[should_panic]
-    fn gen_range_panics_when_min_exceeds_max() {
-        SdkRandomNumberClient::new().gen_range(20, 10);
+    fn gen_range_errors_when_min_exceeds_max() {
+        let err = SdkRandomNumberClient::new().gen_range(20, 10).unwrap_err();
+        assert!(matches!(
+            err,
+            GenRangeError::InvalidRange { min: 20, max: 10 }
+        ));
     }
 }

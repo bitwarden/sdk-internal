@@ -25,6 +25,7 @@ Monorepo crates organized in **four architectural layers**:
   marker)
 - **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport
 - **bitwarden-error**: Error handling across platforms (basic/flat/full modes via proc macro)
+- **bitwarden-random**: Single CRNG source for the SDK (`rng()` / `SdkRngImpl`); Use this instead of `rand::rng()` directly.
 - **bitwarden-encoding**, **bitwarden-uuid**: Encoding and UUID utilities
 
 ### 2. Core Infrastructure

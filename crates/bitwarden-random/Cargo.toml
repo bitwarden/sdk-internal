@@ -23,10 +23,17 @@ snow = ["dep:snow"]
 # Allows constructing a deterministic, seeded ChaCha-based `SdkRngImpl`. NEVER enable in production
 # code paths — only in tests/benches that need reproducible randomness.
 dangerous-seeded-rng-for-testing = ["dep:rand_chacha"]
-uniffi = ["dep:uniffi"]                                # Uniffi bindings
-wasm = ["getrandom4/wasm_js", "dep:wasm-bindgen"]      # WASM support
+uniffi = [
+    "dep:uniffi",
+]                                                    # Uniffi bindings
+wasm = [
+    "bitwarden-error/wasm",
+    "getrandom4/wasm_js",
+    "dep:wasm-bindgen",
+] # WASM support
 
 [dependencies]
+bitwarden-error = { workspace = true }
 # We don't use this directly (it's used by rand and uuid), but we need it here to enable WASM
 # support for the getrandom version they pull in.
 getrandom4 = { package = "getrandom", version = "0.4", optional = true }
@@ -36,6 +43,7 @@ snow = { version = "0.10.0", default-features = false, features = [
     "default-resolver",
     "default-resolver-crypto",
 ], optional = true }
+thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
