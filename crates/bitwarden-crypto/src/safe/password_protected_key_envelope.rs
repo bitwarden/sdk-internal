@@ -75,8 +75,8 @@ impl PasswordProtectedKeyEnvelope {
         let key_ref = ctx
             .get_symmetric_key(key_to_seal)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissing)?;
-        let (kdf, algorithm) = suite_algorithms(ctx.cipher_suite());
-        Self::seal_ref_with_settings(key_ref, password, &kdf, algorithm, namespace)
+        let kdf = suite_kdf(ctx.cipher_suite());
+        Self::seal_ref_with_settings(key_ref, password, &kdf, namespace)
     }
 
     /// Seals a key reference with a password, using the standard cipher suite (Argon2id +
@@ -88,8 +88,8 @@ impl PasswordProtectedKeyEnvelope {
         password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
-        let (kdf, algorithm) = suite_algorithms(CipherSuite::Standard);
-        Self::seal_ref_with_settings(key_to_seal, password, &kdf, algorithm, namespace)
+        let kdf = suite_kdf(CipherSuite::Standard);
+        Self::seal_ref_with_settings(key_to_seal, password, &kdf, namespace)
     }
 
     /// Seals a key reference with a password, KDF settings, and content-encryption algorithm. This
@@ -99,7 +99,6 @@ impl PasswordProtectedKeyEnvelope {
         key_to_seal: &SymmetricCryptoKey,
         password: &str,
         kdf: &EnvelopeKdf,
-        algorithm: CoseContentEncryptionAlgorithm,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         // Cose does not yet have a standardized way to protect a key using a password.
@@ -145,7 +144,7 @@ impl PasswordProtectedKeyEnvelope {
         });
 
         let cose_encrypt = encrypt_cose(
-            algorithm,
+            CoseContentEncryptionAlgorithm::Aes256Gcm,
             builder,
             protected_header,
             &key_to_seal_bytes,
@@ -235,9 +234,9 @@ impl PasswordProtectedKeyEnvelope {
     /// Re-seals the key with new KDF parameters (updated settings, salt), and a new password. The
     /// KDF family of the existing envelope is preserved (Argon2id stays Argon2id, PBKDF2 stays
     /// PBKDF2), while the content-encryption algorithm is always AES-256-GCM.
-    /// 
+    ///
     /// Note:
-    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope therefore upgrades it to Argon2id 
+    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope therefore upgrades it to Argon2id
     /// + AES-256-GCM and the encrypt path never uses XChaCha20-Poly1305.
     pub fn reseal(
         &self,
@@ -258,19 +257,14 @@ impl PasswordProtectedKeyEnvelope {
                     "Invalid number of recipients".to_string(),
                 )
             })?;
-        let (kdf, algorithm) = match EnvelopeKdf::try_from(recipient)? {
-            EnvelopeKdf::Argon2id(_) => (
-                EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
-                CoseContentEncryptionAlgorithm::Aes256Gcm,
-            ),
-            EnvelopeKdf::Pbkdf2(_) => (
-                EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings::local_kdf_settings()),
-                CoseContentEncryptionAlgorithm::Aes256Gcm,
-            ),
-        };
 
         let unsealed = self.unseal_ref(password, namespace)?;
-        Self::seal_ref_with_settings(&unsealed, new_password, &kdf, algorithm, namespace)
+        Self::seal_ref_with_settings(
+            &unsealed,
+            new_password,
+            &EnvelopeKdf::try_from(recipient)?,
+            namespace,
+        )
     }
 
     /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
@@ -434,18 +428,11 @@ impl TryFrom<&coset::CoseRecipient> for EnvelopeKdf {
     }
 }
 
-/// Returns the KDF (with fresh local settings) and content-encryption algorithm to use for a new
-/// envelope under the given [`CipherSuite`].
-fn suite_algorithms(suite: CipherSuite) -> (EnvelopeKdf, CoseContentEncryptionAlgorithm) {
+/// Returns the KDF settings for the given cipher suite.
+fn suite_kdf(suite: CipherSuite) -> EnvelopeKdf {
     match suite {
-        CipherSuite::Standard => (
-            EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
-            CoseContentEncryptionAlgorithm::Aes256Gcm,
-        ),
-        CipherSuite::Fips => (
-            EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings::local_kdf_settings()),
-            CoseContentEncryptionAlgorithm::Aes256Gcm,
-        ),
+        CipherSuite::Standard => EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
+        CipherSuite::Fips => EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings::local_kdf_settings()),
     }
 }
 
@@ -1296,7 +1283,6 @@ mod tests {
                 iterations: 5000,
                 salt: [7u8; ENVELOPE_ARGON2_SALT_SIZE],
             }),
-            CoseContentEncryptionAlgorithm::Aes256Gcm,
             PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
         )
         .unwrap();
