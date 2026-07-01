@@ -21,6 +21,13 @@ uniffi::custom_type!(Uuid, String, {
     lower: |obj| obj.to_string(),
 });
 
+type NaiveDate = chrono::NaiveDate;
+uniffi::custom_type!(NaiveDate, String, {
+    remote,
+    try_lift: |val| convert_result(NaiveDate::from_str(&val)),
+    lower: |obj| obj.to_string(),
+});
+
 // Uniffi doesn't emit unused types, this is a dummy record to ensure that the custom type
 // converters are emitted
 #[allow(dead_code)]
@@ -28,6 +35,7 @@ uniffi::custom_type!(Uuid, String, {
 struct UniffiConverterDummyRecord {
     uuid: Uuid,
     date: DateTime,
+    naive_date: NaiveDate,
 }
 
 uniffi::custom_type!(SignedSecurityState, String, {

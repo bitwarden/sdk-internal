@@ -4,6 +4,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
     PrimitiveEncryptable,
 };
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -38,12 +39,12 @@ pub struct DriversLicenseView {
     pub first_name: Option<String>,
     pub middle_name: Option<String>,
     pub last_name: Option<String>,
-    pub date_of_birth: Option<String>,
+    pub date_of_birth: Option<NaiveDate>,
     pub license_number: Option<String>,
     pub issuing_country: Option<String>,
     pub issuing_state: Option<String>,
-    pub issue_date: Option<String>,
-    pub expiration_date: Option<String>,
+    pub issue_date: Option<NaiveDate>,
+    pub expiration_date: Option<NaiveDate>,
     pub issuing_authority: Option<String>,
     pub license_class: Option<String>,
 }
@@ -58,12 +59,18 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, DriversLicense> for Dr
             first_name: self.first_name.encrypt(ctx, key)?,
             middle_name: self.middle_name.encrypt(ctx, key)?,
             last_name: self.last_name.encrypt(ctx, key)?,
-            date_of_birth: self.date_of_birth.encrypt(ctx, key)?,
+            date_of_birth: self
+                .date_of_birth
+                .map(|d| d.to_string())
+                .encrypt(ctx, key)?,
             license_number: self.license_number.encrypt(ctx, key)?,
             issuing_country: self.issuing_country.encrypt(ctx, key)?,
             issuing_state: self.issuing_state.encrypt(ctx, key)?,
-            issue_date: self.issue_date.encrypt(ctx, key)?,
-            expiration_date: self.expiration_date.encrypt(ctx, key)?,
+            issue_date: self.issue_date.map(|d| d.to_string()).encrypt(ctx, key)?,
+            expiration_date: self
+                .expiration_date
+                .map(|d| d.to_string())
+                .encrypt(ctx, key)?,
             issuing_authority: self.issuing_authority.encrypt(ctx, key)?,
             license_class: self.license_class.encrypt(ctx, key)?,
         })
@@ -80,12 +87,27 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, DriversLicenseView> for Drivers
             first_name: self.first_name.decrypt(ctx, key).ok().flatten(),
             middle_name: self.middle_name.decrypt(ctx, key).ok().flatten(),
             last_name: self.last_name.decrypt(ctx, key).ok().flatten(),
-            date_of_birth: self.date_of_birth.decrypt(ctx, key).ok().flatten(),
+            date_of_birth: self
+                .date_of_birth
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
             license_number: self.license_number.decrypt(ctx, key).ok().flatten(),
             issuing_country: self.issuing_country.decrypt(ctx, key).ok().flatten(),
             issuing_state: self.issuing_state.decrypt(ctx, key).ok().flatten(),
-            issue_date: self.issue_date.decrypt(ctx, key).ok().flatten(),
-            expiration_date: self.expiration_date.decrypt(ctx, key).ok().flatten(),
+            issue_date: self
+                .issue_date
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
+            expiration_date: self
+                .expiration_date
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
             issuing_authority: self.issuing_authority.decrypt(ctx, key).ok().flatten(),
             license_class: self.license_class.decrypt(ctx, key).ok().flatten(),
         })
@@ -200,12 +222,12 @@ mod tests {
             first_name: Some("John".to_string()),
             middle_name: Some("Michael".to_string()),
             last_name: Some("Doe".to_string()),
-            date_of_birth: Some("1985-06-15".to_string()),
+            date_of_birth: NaiveDate::from_ymd_opt(1985, 6, 15),
             license_number: Some("DL-987654".to_string()),
             issuing_country: Some("US".to_string()),
             issuing_state: Some("NY".to_string()),
-            issue_date: Some("2020-01-01".to_string()),
-            expiration_date: Some("2028-01-01".to_string()),
+            issue_date: NaiveDate::from_ymd_opt(2020, 1, 1),
+            expiration_date: NaiveDate::from_ymd_opt(2028, 1, 1),
             issuing_authority: Some("NY DMV".to_string()),
             license_class: Some("D".to_string()),
         }
