@@ -232,9 +232,7 @@ impl PasswordProtectedKeyEnvelope {
         .map_err(|_| PasswordProtectedKeyEnvelopeError::Parsing("Failed to decode key".to_string()))
     }
 
-    /// Re-seals the key with new KDF parameters (updated settings, salt), and a new password. The
-    /// KDF family of the existing envelope is preserved (Argon2id stays Argon2id, PBKDF2 stays
-    /// PBKDF2), while the content-encryption algorithm is always AES-256-GCM.
+    /// Re-seals the envelope for a new password, but the same KDF settings.
     ///
     /// Note:
     /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope upgrades it to Argon2id +
