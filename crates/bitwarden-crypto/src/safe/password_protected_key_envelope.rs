@@ -236,8 +236,8 @@ impl PasswordProtectedKeyEnvelope {
     /// PBKDF2), while the content-encryption algorithm is always AES-256-GCM.
     ///
     /// Note:
-    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope upgrades it to Argon2id + AES-256-GCM
-    /// and the encrypt path never uses XChaCha20-Poly1305.
+    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope upgrades it to Argon2id +
+    /// AES-256-GCM and the encrypt path never uses XChaCha20-Poly1305.
     pub fn reseal(
         &self,
         password: &str,
