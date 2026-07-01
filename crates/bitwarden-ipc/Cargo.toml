@@ -36,6 +36,7 @@ snow = { version = "0.10.0", default-features = false, features = [
     "default-resolver",
     "default-resolver-crypto",
     "risky-raw-split",
+    "use-p256",
 ] }
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
