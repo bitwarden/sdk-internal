@@ -19,5 +19,5 @@ solely for reproducible tests.
 the current thread. NEVER enable it in a production code path, since it makes all randomness
 predictable.
 
-**Implements standard traits**: The crate implements standard traits for the `SdkRngImpl`. It
-can be dropped in and used for all external libraries that accept an RNG.
+**Implements standard traits**: The crate implements standard traits for the `SdkRngImpl`. It can be
+dropped in and used for all external libraries that accept an RNG.
