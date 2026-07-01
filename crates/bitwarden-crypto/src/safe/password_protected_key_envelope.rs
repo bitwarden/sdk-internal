@@ -236,8 +236,8 @@ impl PasswordProtectedKeyEnvelope {
     /// PBKDF2), while the content-encryption algorithm is always AES-256-GCM.
     ///
     /// Note:
-    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope therefore upgrades it to Argon2id
-    /// + AES-256-GCM and the encrypt path never uses XChaCha20-Poly1305.
+    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope upgrades it to Argon2id + AES-256-GCM
+    /// and the encrypt path never uses XChaCha20-Poly1305.
     pub fn reseal(
         &self,
         password: &str,
@@ -581,11 +581,7 @@ fn derive_key(
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
     match kdf {
         EnvelopeKdf::Argon2id(settings) => derive_argon2_key(settings, password),
-        EnvelopeKdf::Pbkdf2(settings) => Ok(crate::util::pbkdf2(
-            password.as_bytes(),
-            &settings.salt,
-            settings.iterations,
-        )),
+        EnvelopeKdf::Pbkdf2(settings) => derive_pbkdf2_key(settings, password),
     }
 }
 
@@ -605,6 +601,17 @@ fn derive_argon2_key(
     .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
     Ok(hash)
+}
+
+fn derive_pbkdf2_key(
+    pbkdf2_settings: &Pbkdf2RawSettings,
+    password: &str,
+) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
+    Ok(crate::util::pbkdf2(
+        password.as_bytes(),
+        &pbkdf2_settings.salt,
+        pbkdf2_settings.iterations,
+    ))
 }
 
 /// Errors that can occur when sealing or unsealing a key with the `PasswordProtectedKeyEnvelope`.
@@ -841,9 +848,8 @@ mod tests {
                 &mut ctx,
             )
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
@@ -865,14 +871,51 @@ mod tests {
                 &mut ctx,
             )
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
             TEST_UNSEALED_LEGACYKEY_ENCODED
         );
+    }
+
+    #[test]
+    #[ignore = "Manual test to generate a FIPS (PBKDF2 + AES-GCM) test vector"]
+    fn generate_fips_test_vector() {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let envelope = PasswordProtectedKeyEnvelope::seal_ref_with_settings(
+            &key,
+            TESTVECTOR_PASSWORD,
+            &EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings {
+                // Low iteration count keeps the test vector cheap to verify.
+                iterations: 5000,
+                salt: [7u8; ENVELOPE_ARGON2_SALT_SIZE],
+            }),
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+        )
+        .unwrap();
+        println!(
+            "const TEST_UNSEALED_FIPS_ENCODED: &[u8] = &{:?};",
+            key.to_encoded().to_vec()
+        );
+        println!(
+            "const TESTVECTOR_FIPS_ENVELOPE: &[u8] = &{:?};",
+            Vec::<u8>::from(&envelope)
+        );
+    }
+
+    #[test]
+    fn test_testvector_fips() {
+        let envelope = PasswordProtectedKeyEnvelope::try_from(&TESTVECTOR_FIPS_ENVELOPE.to_vec())
+            .expect("Key envelope should be valid");
+        let key = envelope
+            .unseal_ref(
+                TESTVECTOR_PASSWORD,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            )
+            .expect("Unsealing should succeed");
+        assert_eq!(key.to_encoded().to_vec(), TEST_UNSEALED_FIPS_ENCODED);
     }
 
     #[test]
@@ -905,14 +948,12 @@ mod tests {
             .unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let key_before_sealing = ctx
-            .dangerous_get_symmetric_key(test_key)
+            .get_symmetric_key(test_key)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key, key_before_sealing);
@@ -948,14 +989,12 @@ mod tests {
             .unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let key_before_sealing = ctx
-            .dangerous_get_symmetric_key(test_key)
+            .get_symmetric_key(test_key)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key, key_before_sealing);
@@ -1086,12 +1125,7 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        #[allow(deprecated)]
-        let key_id = ctx
-            .dangerous_get_symmetric_key(test_key)
-            .unwrap()
-            .key_id()
-            .unwrap();
+        let key_id = ctx.get_symmetric_key(test_key).unwrap().key_id().unwrap();
 
         let password = "test_password";
 
@@ -1196,10 +1230,8 @@ mod tests {
                 &mut ctx,
             )
             .unwrap();
-        #[allow(deprecated)]
-        let unsealed_key = ctx.dangerous_get_symmetric_key(unsealed).unwrap();
-        #[allow(deprecated)]
-        let original = ctx.dangerous_get_symmetric_key(key_id).unwrap();
+        let unsealed_key = ctx.get_symmetric_key(unsealed).unwrap();
+        let original = ctx.get_symmetric_key(key_id).unwrap();
         assert_eq!(unsealed_key, original);
     }
 
@@ -1269,43 +1301,5 @@ mod tests {
             unsealed,
             SymmetricCryptoKey::XChaCha20Poly1305Key(_)
         ));
-    }
-
-    #[test]
-    #[ignore = "Manual test to generate a FIPS (PBKDF2 + AES-GCM) test vector"]
-    fn generate_fips_test_vector() {
-        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        let envelope = PasswordProtectedKeyEnvelope::seal_ref_with_settings(
-            &key,
-            TESTVECTOR_PASSWORD,
-            &EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings {
-                // Low iteration count keeps the test vector cheap to verify.
-                iterations: 5000,
-                salt: [7u8; ENVELOPE_ARGON2_SALT_SIZE],
-            }),
-            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
-        )
-        .unwrap();
-        println!(
-            "const TEST_UNSEALED_FIPS_ENCODED: &[u8] = &{:?};",
-            key.to_encoded().to_vec()
-        );
-        println!(
-            "const TESTVECTOR_FIPS_ENVELOPE: &[u8] = &{:?};",
-            Vec::<u8>::from(&envelope)
-        );
-    }
-
-    #[test]
-    fn test_testvector_fips() {
-        let envelope = PasswordProtectedKeyEnvelope::try_from(&TESTVECTOR_FIPS_ENVELOPE.to_vec())
-            .expect("Key envelope should be valid");
-        let key = envelope
-            .unseal_ref(
-                TESTVECTOR_PASSWORD,
-                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
-            )
-            .expect("Unsealing should succeed");
-        assert_eq!(key.to_encoded().to_vec(), TEST_UNSEALED_FIPS_ENCODED);
     }
 }
