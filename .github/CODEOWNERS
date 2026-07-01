@@ -65,7 +65,7 @@ crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-d
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev
 crates/bw/src/auth/** @bitwarden/team-auth-dev
 crates/bw/src/key_management/** @bitwarden/team-key-management-dev
-crates/bw/src/tools/** @bitwarden/team-platform-dev
+crates/bw/src/tools/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bw/src/vault/** @bitwarden/team-vault-dev
 
 # BRE for publish workflow changes

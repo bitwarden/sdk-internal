@@ -140,7 +140,7 @@ async fn process_commands(command: Commands, session: Option<SessionKey>) -> Com
         }
         Commands::Import(_args) => todo!(),
         Commands::Export(_args) => todo!(),
-        Commands::Send(_args) => todo!(),
+        Commands::Send(args) => args.dispatch(ctx).await,
         Commands::Receive(_args) => todo!(),
 
         // Server commands

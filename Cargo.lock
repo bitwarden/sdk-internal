@@ -1592,6 +1592,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-generators",
  "bitwarden-pm",
+ "bitwarden-send",
  "bitwarden-state",
  "bitwarden-sync",
  "bitwarden-test",
