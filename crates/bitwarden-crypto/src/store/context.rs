@@ -684,6 +684,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
                 Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305)
             }
+            SymmetricCryptoKey::Aes256GcmKey(_) => Ok(SymmetricKeyAlgorithm::Aes256Gcm),
         }
     }
 
@@ -792,6 +793,9 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 }
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
+            SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
+            )),
         }
     }
 
