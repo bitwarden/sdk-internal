@@ -44,6 +44,7 @@ use crate::{
 const ENVELOPE_ARGON2_SALT_SIZE: usize = 16;
 /// 32 is chosen to match the size of an XChaCha20-Poly1305 key
 const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
+const ENVELOPE_PBKDF2_SALT_SIZE: usize = 16;
 
 /// A password-protected key envelope can seal a symmetric key, and protect it with a password. It
 /// does so by using a Key Derivation Function (KDF), to increase the difficulty of brute-forcing
@@ -452,6 +453,9 @@ impl Argon2RawSettings {
     /// Creates default Argon2 settings based on the device. This currently is a static preset
     /// based on the target os
     fn local_kdf_settings() -> Self {
+        let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
+        rand::rng().fill_bytes(&mut salt);
+
         // iOS has memory limitations in the auto-fill context. So, the memory is halved
         // but the iterations are doubled
         if cfg!(target_os = "ios") {
@@ -460,7 +464,7 @@ impl Argon2RawSettings {
                 iterations: 6,
                 memory: 32 * 1024, // 32 MiB
                 parallelism: 4,
-                salt: make_salt(),
+                salt,
             }
         } else {
             // The SECOND RECOMMENDED option from: https://datatracker.ietf.org/doc/rfc9106/
@@ -470,7 +474,7 @@ impl Argon2RawSettings {
                 iterations: 3,
                 memory: 64 * 1024, // 64 MiB
                 parallelism: 4,
-                salt: make_salt(),
+                salt,
             }
         }
     }
@@ -534,9 +538,12 @@ struct Pbkdf2RawSettings {
 impl Pbkdf2RawSettings {
     /// Creates default PBKDF2 settings with a random salt.
     fn local_kdf_settings() -> Self {
+        let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
+        rand::rng().fill_bytes(&mut salt);
+
         Self {
             iterations: ENVELOPE_PBKDF2_ITERATIONS,
-            salt: make_salt(),
+            salt,
         }
     }
 }
@@ -566,12 +573,6 @@ impl TryInto<Pbkdf2RawSettings> for &Header {
                 })?,
         })
     }
-}
-
-fn make_salt() -> [u8; ENVELOPE_ARGON2_SALT_SIZE] {
-    let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
-    rand::rng().fill_bytes(&mut salt);
-    salt
 }
 
 /// Derives the envelope key from the password using the configured KDF.
