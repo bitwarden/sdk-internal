@@ -26,16 +26,16 @@ use thiserror::Error;
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
-    KEY_ID_SIZE, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KEY_ID_SIZE,
+    KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
         CONTAINED_KEY_ID, ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
         extract_integer,
+        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
     },
     keys::KeyId,
     safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
-    xchacha20,
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:
@@ -68,9 +68,8 @@ impl PasswordProtectedKeyEnvelope {
         namespace: PasswordProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
-        #[allow(deprecated)]
         let key_ref = ctx
-            .dangerous_get_symmetric_key(key_to_seal)
+            .get_symmetric_key(key_to_seal)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissing)?;
         Self::seal_ref(key_ref, password, namespace)
     }
@@ -116,39 +115,39 @@ impl PasswordProtectedKeyEnvelope {
             EncodedSymmetricKey::CoseKey(key_bytes) => (ContentFormat::CoseKey, key_bytes.to_vec()),
         };
 
-        let mut nonce = [0u8; crate::xchacha20::NONCE_SIZE];
+        let protected_header = {
+            let mut hdr = HeaderBuilder::from(content_format);
+            if let Some(key_id) = key_to_seal.key_id() {
+                hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
+            }
+            let mut header = hdr.build();
+            set_safe_namespaces(
+                &mut header,
+                SafeObjectNamespace::PasswordProtectedKeyEnvelope,
+                namespace,
+            );
+            header
+        };
 
-        // The message is constructed by placing the KDF settings in a recipient struct's
+        // The message is constructed by placing the KDF settings in a single recipient struct's
         // unprotected headers. They do not need to live in the protected header, since to
         // authenticate the protected header, the settings must be correct.
-        let mut cose_encrypt = coset::CoseEncryptBuilder::new()
-            .add_recipient({
-                let mut recipient = coset::CoseRecipientBuilder::new()
-                    .unprotected(kdf_settings.into())
-                    .build();
-                recipient.protected.header.alg = Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13));
-                recipient
-            })
-            .protected({
-                let mut hdr = HeaderBuilder::from(content_format);
-                if let Some(key_id) = key_to_seal.key_id() {
-                    hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
-                }
-                let mut header = hdr.build();
-                set_safe_namespaces(
-                    &mut header,
-                    SafeObjectNamespace::PasswordProtectedKeyEnvelope,
-                    namespace,
-                );
-                header
-            })
-            .create_ciphertext(&key_to_seal_bytes, &[], |data, aad| {
-                let ciphertext = xchacha20::encrypt_xchacha20_poly1305(&envelope_key, data, aad);
-                nonce.copy_from_slice(&ciphertext.nonce());
-                ciphertext.encrypted_bytes().to_vec()
-            })
-            .build();
-        cose_encrypt.unprotected.iv = nonce.into();
+        let builder = coset::CoseEncryptBuilder::new().add_recipient({
+            let mut recipient = coset::CoseRecipientBuilder::new()
+                .unprotected(kdf_settings.into())
+                .build();
+            recipient.protected.header.alg = Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13));
+            recipient
+        });
+
+        let cose_encrypt = encrypt_cose(
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            builder,
+            protected_header,
+            &key_to_seal_bytes,
+            &envelope_key,
+        )
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
         Ok(PasswordProtectedKeyEnvelope { cose_encrypt })
     }
@@ -204,24 +203,18 @@ impl PasswordProtectedKeyEnvelope {
             })?;
         let envelope_key = derive_key(&kdf_settings, password)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
-        let nonce: [u8; crate::xchacha20::NONCE_SIZE] = self
-            .cose_encrypt
-            .unprotected
-            .iv
-            .clone()
-            .try_into()
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::Parsing("Invalid IV".to_string()))?;
 
-        let key_bytes = self
-            .cose_encrypt
-            .decrypt_ciphertext(
-                &[],
-                || CryptoError::MissingField("ciphertext"),
-                |data, aad| xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad),
-            )
-            // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
-            // since the KDF parameters & salt are guaranteed to be correct
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
+        // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
+        // since the KDF parameters & salt are guaranteed to be correct. Envelopes sealed before the
+        // content-encryption algorithm was written to the protected header omit it, so
+        // XChaCha20-Poly1305 (the only algorithm this envelope has ever used) is supplied as the
+        // decryption fallback.
+        let key_bytes = decrypt_cose(
+            &self.cose_encrypt,
+            Some(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+            &envelope_key,
+        )
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
 
         SymmetricCryptoKey::try_from(
             match ContentFormat::try_from(&self.cose_encrypt.protected.header).map_err(|_| {
