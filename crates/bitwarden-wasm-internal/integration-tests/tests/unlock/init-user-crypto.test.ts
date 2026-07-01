@@ -8,7 +8,7 @@ import {
   TEST_KDF_PARAMS,
   TEST_PASSWORD,
   TEST_PIN,
-} from "./utils";
+} from "../utils";
 
 const encstring = (s: string) => s as unknown as never;
 

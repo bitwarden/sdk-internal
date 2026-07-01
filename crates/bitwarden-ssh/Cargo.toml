@@ -16,7 +16,6 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-ecdsa-keys = [] # ECDSA key generation and import
 wasm = [
     "bitwarden-error/wasm",
     "dep:tsify",
