@@ -47,6 +47,7 @@ bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-organization-invite-link = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
+bitwarden-random = { workspace = true, features = ["wasm"] }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }
 bitwarden-shared-unlock = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
