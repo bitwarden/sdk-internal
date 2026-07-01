@@ -26,6 +26,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
+    bank_account::BankAccountListView,
     blob::{decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
     card,
     card::CardListView,
@@ -484,7 +485,7 @@ pub enum CipherListViewType {
     Card(CardListView),
     Identity,
     SshKey,
-    BankAccount,
+    BankAccount(BankAccountListView),
     Passport,
     DriversLicense,
 }
@@ -1119,7 +1120,16 @@ impl CipherView {
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = self
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(BankAccountListView {
+                    account_number: bank_account.account_number.clone(),
+                    account_type: bank_account.account_type.clone(),
+                })
+            }
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
             CipherType::Passport => CipherListViewType::Passport,
         };
@@ -1208,13 +1218,20 @@ impl CipherView {
                     drivers_license::build_subtitle_drivers_license(
                         d.first_name.clone(),
                         d.last_name.clone(),
+                        d.issuing_state.clone(),
                     )
                 })
                 .unwrap_or_default(),
             CipherType::Passport => self
                 .passport
                 .as_ref()
-                .map(|p| passport::build_subtitle_passport(p.given_name.clone(), p.surname.clone()))
+                .map(|p| {
+                    passport::build_subtitle_passport(
+                        p.given_name.clone(),
+                        p.surname.clone(),
+                        p.issuing_country.clone(),
+                    )
+                })
                 .unwrap_or_default(),
         }
     }
@@ -1414,7 +1431,13 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = cipher
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(bank_account.decrypt(ctx, ciphers_key)?)
+            }
             CipherType::Passport => CipherListViewType::Passport,
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
         },
@@ -1686,7 +1709,15 @@ fn strict_decrypt_cipher_list_view(
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = cipher
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(
+                    StrictDecrypt(bank_account).decrypt(ctx, ciphers_key)?,
+                )
+            }
             CipherType::Passport => CipherListViewType::Passport,
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
         },
@@ -3844,7 +3875,13 @@ mod tests {
                 let list_view = decrypt_blob_list_view(&key_store, view);
                 assert_eq!(list_view.name, "My Bank Account");
                 assert_eq!(list_view.subtitle, "Some Bank");
-                assert!(matches!(list_view.r#type, CipherListViewType::BankAccount));
+                assert_eq!(
+                    list_view.r#type,
+                    CipherListViewType::BankAccount(BankAccountListView {
+                        account_number: Some("123456".to_string()),
+                        account_type: None,
+                    })
+                );
                 assert_eq!(
                     list_view.copyable_fields,
                     vec![
