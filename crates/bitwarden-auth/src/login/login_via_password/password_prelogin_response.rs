@@ -23,6 +23,7 @@ pub struct PasswordPreloginResponse {
     pub salt: String,
 }
 
+// TODO: PM-28143: tuple is a work around for the time being until PM-28143 removes the fallback
 impl TryFrom<(PasswordPreloginResponseModel, &str)> for PasswordPreloginResponse {
     type Error = MissingFieldError;
 
