@@ -38,22 +38,21 @@ mod move_many;
 mod restore;
 mod share_cipher;
 
-/// Returns `true` when cipher data for the given scope should be written in the
-/// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
-/// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
+/// Returns `true` when cipher data for the given scope should be written in the blob-encrypted
+/// format, based on the client's current security state version. Individual-vault ciphers qualify
+/// once the security state has reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is
+/// tracked in PM-32430.
 pub(crate) fn should_use_blob_encryption(
     client: &Client,
     organization_id: Option<OrganizationId>,
 ) -> bool {
-    if organization_id.is_some() {
-        return false;
-    }
-    client
-        .internal
-        .get_key_store()
-        .context()
-        .get_security_state_version()
-        >= BLOB_SECURITY_VERSION
+    organization_id.is_none()
+        && client
+            .internal
+            .get_key_store()
+            .context()
+            .get_security_state_version()
+            >= BLOB_SECURITY_VERSION
 }
 
 #[allow(missing_docs)]
