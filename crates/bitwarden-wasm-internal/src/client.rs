@@ -127,6 +127,11 @@ impl PasswordManagerClient {
     pub fn invite_link(&self) -> InviteLinkClient {
         self.0.invite_link()
     }
+
+    /// Crypto cipher suite operations.
+    pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
+        self.0.crypto_cipher_suite()
+    }
 }
 
 #[bitwarden_error(basic)]
