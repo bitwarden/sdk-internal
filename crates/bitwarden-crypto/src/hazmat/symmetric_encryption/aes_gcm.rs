@@ -131,6 +131,7 @@ impl From<Vec<u8>> for Aes256GcmCiphertext {
     }
 }
 
+#[cfg(test)]
 mod tests {
     #[cfg(test)]
     use super::*;
