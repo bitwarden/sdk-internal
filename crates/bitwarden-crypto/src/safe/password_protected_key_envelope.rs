@@ -3,8 +3,8 @@
 //!
 //! It is implemented by using a KDF combined with secret key encryption. The KDF prevents
 //! brute-force by requiring work to be done to derive the key from the password. The algorithms
-//! depend on the key store's [`CipherSuite`]: the standard suite uses Argon2id +
-//! XChaCha20-Poly1305, while the FIPS suite uses the FIPS-approved PBKDF2 + AES-256-GCM.
+//! depend on the key store's [`CipherSuite`]: the standard suite uses Argon2id + AES-256-GCM,
+//! while the FIPS suite uses the FIPS-approved PBKDF2 + AES-256-GCM.
 //!
 //! For the consumer, the output is an opaque blob that can be later unsealed with the same
 //! password. The KDF parameters and salt are contained in the envelope, and don't need to be
@@ -53,9 +53,9 @@ const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
 /// be provided.
 ///
 /// The algorithms used depend on the key store's [`CipherSuite`]: the standard suite uses Argon2id
-/// as the KDF and XChaCha20-Poly1305 to encrypt the key, while the FIPS suite uses PBKDF2 and
-/// AES-256-GCM. The KDF and content-encryption algorithms are recorded in the envelope, so
-/// unsealing does not need to know the suite up front.
+/// as the KDF, while the FIPS suite uses PBKDF2. Both suites encrypt the key with AES-256-GCM; the
+/// KDF and content-encryption algorithms are recorded in the envelope, so unsealing does not need
+/// to know the suite up front.
 #[derive(Clone)]
 pub struct PasswordProtectedKeyEnvelope {
     cose_encrypt: coset::CoseEncrypt,
@@ -80,7 +80,7 @@ impl PasswordProtectedKeyEnvelope {
     }
 
     /// Seals a key reference with a password, using the standard cipher suite (Argon2id +
-    /// XChaCha20-Poly1305). This function is not public since callers are expected to only work
+    /// AES-256-GCM). This function is not public since callers are expected to only work
     /// with key store references.
     #[cfg(test)]
     fn seal_ref(
@@ -233,16 +233,21 @@ impl PasswordProtectedKeyEnvelope {
     }
 
     /// Re-seals the key with new KDF parameters (updated settings, salt), and a new password. The
-    /// algorithm suite (KDF family and content-encryption algorithm) of the existing envelope is
-    /// preserved, so resealing never downgrades or changes the cryptographic algorithms.
+    /// KDF family of the existing envelope is preserved (Argon2id stays Argon2id, PBKDF2 stays
+    /// PBKDF2), while the content-encryption algorithm is always AES-256-GCM.
+    /// 
+    /// Note:
+    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope therefore upgrades it to Argon2id 
+    /// + AES-256-GCM and the encrypt path never uses XChaCha20-Poly1305.
     pub fn reseal(
         &self,
         password: &str,
         new_password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
-        // Determine the existing envelope's algorithm suite from its single recipient, so the
-        // resealed envelope keeps the same KDF family and content-encryption algorithm.
+        // Determine the existing envelope's KDF family from its single recipient, so the resealed
+        // envelope keeps the same KDF family. The content-encryption algorithm is always
+        // AES-256-GCM, so resealing never uses XChaCha20-Poly1305.
         let recipient = self
             .cose_encrypt
             .recipients
@@ -256,7 +261,7 @@ impl PasswordProtectedKeyEnvelope {
         let (kdf, algorithm) = match EnvelopeKdf::try_from(recipient)? {
             EnvelopeKdf::Argon2id(_) => (
                 EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
-                CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+                CoseContentEncryptionAlgorithm::Aes256Gcm,
             ),
             EnvelopeKdf::Pbkdf2(_) => (
                 EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings::local_kdf_settings()),
@@ -382,8 +387,7 @@ impl Serialize for PasswordProtectedKeyEnvelope {
     }
 }
 
-/// Default PBKDF2-HMAC-SHA256 iteration count for FIPS envelopes. Matches the account default
-/// ([`crate::Kdf::default_pbkdf2`]).
+/// Default PBKDF2-HMAC-SHA256 iteration count for FIPS envelopes
 const ENVELOPE_PBKDF2_ITERATIONS: u32 = 600_000;
 
 /// The KDF used to derive the envelope key from the password. The variant, and thus the algorithm,
@@ -436,7 +440,7 @@ fn suite_algorithms(suite: CipherSuite) -> (EnvelopeKdf, CoseContentEncryptionAl
     match suite {
         CipherSuite::Standard => (
             EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
-            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            CoseContentEncryptionAlgorithm::Aes256Gcm,
         ),
         CipherSuite::Fips => (
             EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings::local_kdf_settings()),
@@ -992,6 +996,18 @@ mod tests {
                 PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
             )
             .expect("Resealing should work");
+
+        // Resealing keeps the Argon2id KDF but always writes AES-256-GCM content, never
+        // XChaCha20-Poly1305.
+        assert_eq!(
+            envelope.cose_encrypt.recipients[0].protected.header.alg,
+            Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13))
+        );
+        assert_eq!(
+            envelope.cose_encrypt.protected.header.alg,
+            Some(coset::Algorithm::Assigned(coset::iana::Algorithm::A256GCM))
+        );
+
         let unsealed = envelope
             .unseal_ref(
                 new_password,
@@ -1132,7 +1148,7 @@ mod tests {
     }
 
     #[test]
-    fn test_standard_suite_uses_argon2_and_xchacha20() {
+    fn test_standard_suite_uses_argon2_and_aes_gcm() {
         let key_store = key_store_with_suite(CipherSuite::Standard);
         let mut ctx = key_store.context_mut();
         let test_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
@@ -1146,16 +1162,14 @@ mod tests {
         )
         .unwrap();
 
-        // Recipient declares Argon2id, content is XChaCha20-Poly1305.
+        // Recipient declares Argon2id, content is AES-256-GCM (never XChaCha20-Poly1305).
         assert_eq!(
             envelope.cose_encrypt.recipients[0].protected.header.alg,
             Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13))
         );
         assert_eq!(
             envelope.cose_encrypt.protected.header.alg,
-            Some(coset::Algorithm::PrivateUse(
-                crate::cose::XCHACHA20_POLY1305
-            ))
+            Some(coset::Algorithm::Assigned(coset::iana::Algorithm::A256GCM))
         );
     }
 
