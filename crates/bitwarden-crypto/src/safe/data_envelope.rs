@@ -10,7 +10,7 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     Aes256GcmKey, CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CoseKeyView, CryptoError, EncString,
-    EncodingError, KeySlotIds, SerializedMessage, SymmetricCryptoKey,
+    EncodingError, KeyId, KeySlotIds, SerializedMessage, SymmetricCryptoKey,
     cose::{
         ContentNamespace, SafeObjectNamespace,
         symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
@@ -276,6 +276,9 @@ impl std::fmt::Debug for DataEnvelope {
         let mut s = f.debug_struct("DataEnvelope");
         if let Ok(msg) = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref()) {
             debug_fmt::<DataEnvelopeNamespace>(&mut s, &msg.protected.header);
+            if let Ok(encrypted_by) = KeyId::try_from(msg.protected.header.key_id.as_slice()) {
+                s.field("encrypted_by", &encrypted_by);
+            }
         }
         s.finish()
     }

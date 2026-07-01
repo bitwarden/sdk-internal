@@ -532,13 +532,13 @@ impl TryInto<Argon2RawSettings> for &Header {
 /// fixed size and randomly generated, and lives in the envelope alongside the iteration count.
 struct Pbkdf2RawSettings {
     iterations: u32,
-    salt: [u8; ENVELOPE_ARGON2_SALT_SIZE],
+    salt: [u8; ENVELOPE_PBKDF2_SALT_SIZE],
 }
 
 impl Pbkdf2RawSettings {
     /// Creates default PBKDF2 settings with a random salt.
     fn local_kdf_settings() -> Self {
-        let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
+        let mut salt = [0u8; ENVELOPE_PBKDF2_SALT_SIZE];
         rand::rng().fill_bytes(&mut salt);
 
         Self {
@@ -891,7 +891,7 @@ mod tests {
             &EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings {
                 // Low iteration count keeps the test vector cheap to verify.
                 iterations: 5000,
-                salt: [7u8; ENVELOPE_ARGON2_SALT_SIZE],
+                salt: [7u8; ENVELOPE_PBKDF2_SALT_SIZE],
             }),
             PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
         )
