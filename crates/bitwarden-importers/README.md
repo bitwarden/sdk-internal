@@ -9,6 +9,19 @@ Exposes `client.importers()` ([`ImporterClient`]) with:
   encrypts the entries for the user's personal vault or a given organization, and submits them to
   the server's import endpoint. Returns per-type counts.
 
+## Keeper direct importer
+
+The Keeper "direct" importer logs into Keeper's API and decrypts the vault on-device. Its access
+layer is being ported from TypeScript (`clients` repo) into the [`keeper`] module incrementally
+(strangler-fig). The first piece, [`keeper::crypto`], implements **Keeper's** competitor wire
+formats — unauthenticated AES-CBC ("aes-v1"), AES-GCM with a prepended nonce ("aes-v2"), RSA PKCS#1
+v1.5, an ECDH-P256 → SHA-256 → AES-GCM scheme, and Keeper's custom `encryptionParams` blob. These
+are **not** Bitwarden cryptography and deliberately do not live in `bitwarden-crypto`; Use the
+RustCrypto crates. The crypto is currently internal Rust with no WASM / UniFFI bindings — the
+low-level primitives are deliberately not exposed across the FFI boundary. Platform bindings will be
+created once the structured access layer (records, folders, the `sync-down` protobuf) is ported, so
+the exposed surface can be record/folder-level operations rather than raw byte arrays.
+
 ## Architecture
 
 The shared "interchange" model (`ImportingCipher`, `CipherType`, `Login`/`Card`/…, and the

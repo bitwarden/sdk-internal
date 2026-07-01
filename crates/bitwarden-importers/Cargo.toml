@@ -31,6 +31,8 @@ wasm = [
 ]
 
 [dependencies]
+aes = { workspace = true }
+aes-gcm = { version = "0.11.0-rc.4", features = ["zeroize"] }
 bitwarden-api-api = { workspace = true }
 bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true }
@@ -38,10 +40,17 @@ bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true }
 bitwarden-vault = { workspace = true }
+cbc = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 data-encoding = { workspace = true }
 keepass = { workspace = true }
+p256 = { version = "=0.14.0-rc.11", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
+pbkdf2 = { workspace = true }
+rand = { workspace = true }
+rsa = { workspace = true }
 serde = { workspace = true }
+sha2 = { workspace = true }
+subtle = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
