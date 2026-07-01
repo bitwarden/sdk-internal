@@ -13,7 +13,10 @@ use wasm_bindgen::convert::FromWasmAbi;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeySlotIds,
     KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
-    cose::{CONTAINED_KEY_ID, ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
+    cose::{
+        CONTAINED_KEY_ID, ContentNamespace, SafeObjectNamespace,
+        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
+    },
     keys::KeyId,
     safe::helpers::{
         debug_fmt, extract_contained_key_id, set_safe_namespaces, validate_safe_namespaces,
@@ -97,14 +100,16 @@ impl SymmetricKeyEnvelope {
             SafeObjectNamespace::SymmetricKeyEnvelope,
             namespace,
         );
-        protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
         protected_header.key_id = wrapping_key.key_id.as_slice().into();
 
-        let cose_encrypt0 = crate::cose::encrypt_cose(
-            CoseEncrypt0Builder::new().protected(protected_header),
+        let cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            CoseEncrypt0Builder::new(),
+            protected_header,
             &key_bytes,
-            wrapping_key,
-        );
+            wrapping_key.enc_key.as_slice(),
+        )
+        .map_err(|_| SymmetricKeyEnvelopeError::WrongKeyType)?;
 
         Ok(SymmetricKeyEnvelope { cose_encrypt0 })
     }
@@ -142,9 +147,12 @@ impl SymmetricKeyEnvelope {
                 SymmetricKeyEnvelopeError::Parsing("Invalid content format".to_string())
             })?;
 
-        // Decrypt the key bytes
-        let key_bytes = crate::cose::decrypt_cose(&self.cose_encrypt0, wrapping_key_inner)
-            .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;
+        let key_bytes = decrypt_cose0(
+            &self.cose_encrypt0,
+            None,
+            wrapping_key_inner.enc_key.as_slice(),
+        )
+        .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;
 
         // Reconstruct the encoded symmetric key from the content format
         let encoded_key = match content_format {

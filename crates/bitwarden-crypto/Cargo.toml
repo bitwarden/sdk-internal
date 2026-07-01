@@ -32,6 +32,7 @@ test-utils = []
 
 [dependencies]
 aes = { workspace = true }
+aes-gcm = { version = "0.11.0-rc.4", features = ["zeroize"] }
 argon2 = { version = "=0.6.0-rc.8", features = [
     "kdf",
     "zeroize",
