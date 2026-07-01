@@ -294,6 +294,29 @@ mod tests {
     }
 
     #[test]
+    fn test_bank_account_list_view_strict() {
+        let key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_BANK_KEY.to_string()).expect("valid test key");
+        let key_store = create_test_crypto_with_user_key(key);
+        let key_slot = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let encrypted: BankAccount =
+            serde_json::from_str(TEST_VECTOR_BANK_JSON).expect("valid test vector JSON");
+        let list_view: BankAccountListView = StrictDecrypt(&encrypted)
+            .decrypt(&mut ctx, key_slot)
+            .expect("BankAccount should strictly decrypt to a list view");
+
+        assert_eq!(
+            list_view,
+            BankAccountListView {
+                account_number: Some("1234567890".to_string()),
+                account_type: Some("Checking".to_string()),
+            }
+        );
+    }
+
+    #[test]
     fn test_subtitle_bank_account() {
         let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
         let key_store = create_test_crypto_with_user_key(key);

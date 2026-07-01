@@ -327,6 +327,91 @@ mod tests {
     }
 
     #[test]
+    fn test_subtitle_passport_with_issuing_country() {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let given_name_encrypted = "Jane".to_owned().encrypt(&mut ctx, key).unwrap();
+        let surname_encrypted = "Doe".to_owned().encrypt(&mut ctx, key).unwrap();
+        let issuing_country_encrypted = "US".to_owned().encrypt(&mut ctx, key).unwrap();
+
+        let passport = Passport {
+            surname: Some(surname_encrypted),
+            given_name: Some(given_name_encrypted),
+            date_of_birth: None,
+            sex: None,
+            birth_place: None,
+            nationality: None,
+            issuing_country: Some(issuing_country_encrypted),
+            passport_number: None,
+            passport_type: None,
+            national_identification_number: None,
+            issuing_authority: None,
+            issue_date: None,
+            expiration_date: None,
+        };
+
+        assert_eq!(
+            passport.decrypt_subtitle(&mut ctx, key).unwrap(),
+            "Jane Doe, US".to_string()
+        );
+    }
+
+    #[test]
+    fn test_build_subtitle_passport() {
+        // All fields present
+        assert_eq!(
+            build_subtitle_passport(
+                Some("Jane".to_string()),
+                Some("Doe".to_string()),
+                Some("US".to_string()),
+            ),
+            "Jane Doe, US"
+        );
+
+        // Names only, no issuing country
+        assert_eq!(
+            build_subtitle_passport(Some("Jane".to_string()), Some("Doe".to_string()), None),
+            "Jane Doe"
+        );
+
+        // Issuing country only
+        assert_eq!(
+            build_subtitle_passport(None, None, Some("US".to_string())),
+            "US"
+        );
+
+        // Surname and issuing country, no given name
+        assert_eq!(
+            build_subtitle_passport(None, Some("Doe".to_string()), Some("US".to_string())),
+            "Doe, US"
+        );
+
+        // Empty strings are treated as absent for separators
+        assert_eq!(
+            build_subtitle_passport(
+                Some("".to_string()),
+                Some("".to_string()),
+                Some("US".to_string()),
+            ),
+            "US"
+        );
+        assert_eq!(
+            build_subtitle_passport(
+                Some("Jane".to_string()),
+                Some("".to_string()),
+                Some("US".to_string()),
+            ),
+            "Jane, US"
+        );
+
+        // Nothing present
+        assert_eq!(build_subtitle_passport(None, None, None), "");
+    }
+
+    #[test]
     fn test_get_copyable_fields_passport() {
         let enc_str: EncString = "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap();
 

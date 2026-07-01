@@ -301,6 +301,89 @@ mod tests {
     }
 
     #[test]
+    fn test_subtitle_drivers_license_with_issuing_state() {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let first_name_encrypted = "John".to_owned().encrypt(&mut ctx, key).unwrap();
+        let last_name_encrypted = "Doe".to_owned().encrypt(&mut ctx, key).unwrap();
+        let issuing_state_encrypted = "NY".to_owned().encrypt(&mut ctx, key).unwrap();
+
+        let dl = DriversLicense {
+            first_name: Some(first_name_encrypted),
+            middle_name: None,
+            last_name: Some(last_name_encrypted),
+            date_of_birth: None,
+            license_number: None,
+            issuing_country: None,
+            issuing_state: Some(issuing_state_encrypted),
+            issue_date: None,
+            expiration_date: None,
+            issuing_authority: None,
+            license_class: None,
+        };
+
+        assert_eq!(
+            dl.decrypt_subtitle(&mut ctx, key).unwrap(),
+            "John Doe, NY".to_string()
+        );
+    }
+
+    #[test]
+    fn test_build_subtitle_drivers_license() {
+        // All fields present
+        assert_eq!(
+            build_subtitle_drivers_license(
+                Some("John".to_string()),
+                Some("Doe".to_string()),
+                Some("NY".to_string()),
+            ),
+            "John Doe, NY"
+        );
+
+        // Names only, no issuing state
+        assert_eq!(
+            build_subtitle_drivers_license(Some("John".to_string()), Some("Doe".to_string()), None),
+            "John Doe"
+        );
+
+        // Issuing state only
+        assert_eq!(
+            build_subtitle_drivers_license(None, None, Some("NY".to_string())),
+            "NY"
+        );
+
+        // Last name and issuing state, no first name
+        assert_eq!(
+            build_subtitle_drivers_license(None, Some("Doe".to_string()), Some("NY".to_string())),
+            "Doe, NY"
+        );
+
+        // Empty strings are treated as absent for separators
+        assert_eq!(
+            build_subtitle_drivers_license(
+                Some("".to_string()),
+                Some("".to_string()),
+                Some("NY".to_string()),
+            ),
+            "NY"
+        );
+        assert_eq!(
+            build_subtitle_drivers_license(
+                Some("John".to_string()),
+                Some("".to_string()),
+                Some("NY".to_string()),
+            ),
+            "John, NY"
+        );
+
+        // Nothing present
+        assert_eq!(build_subtitle_drivers_license(None, None, None), "");
+    }
+
+    #[test]
     fn test_get_copyable_fields_drivers_license() {
         let enc_str: EncString = "2.tMIugb6zQOL+EuOizna1wQ==|W5dDLoNJtajN68yeOjrr6w==|qS4hwJB0B0gNLI0o+jxn+sKMBmvtVgJCRYNEXBZoGeE=".parse().unwrap();
 
