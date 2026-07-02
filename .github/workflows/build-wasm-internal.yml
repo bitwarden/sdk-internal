@@ -151,6 +151,7 @@ jobs:
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           task: publish-sdk-internal-npm
+          data: '{"run-id": "${{ github.run_id }}", "sha": "${{ github.event.pull_request.head.sha || github.sha }}"}'
           description: "Triggered by sdk-internal build on main"
 
   trigger-breaking-change-check:
