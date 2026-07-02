@@ -70,7 +70,7 @@ impl HighEntropySecret {
         }
 
         let mut secret = Zeroizing::new(vec![0u8; desired_size]);
-        rand::rng().fill_bytes(secret.as_mut_slice());
+        bitwarden_random::rng().fill_bytes(secret.as_mut_slice());
         Ok(Self { secret })
     }
 
