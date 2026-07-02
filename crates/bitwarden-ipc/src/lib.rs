@@ -18,7 +18,9 @@ mod traits;
 pub mod wasm;
 
 pub use endpoint::{Endpoint, HostId, Source};
-pub use error::{ReceiveError, RequestError, SendError, SubscribeError, TypedReceiveError};
+pub use error::{
+    IpcErrorKind, ReceiveError, RequestError, SendError, SubscribeError, TypedReceiveError,
+};
 pub use ipc_client::{IpcClientImpl, IpcClientSubscription, IpcClientTypedSubscription};
 pub use ipc_client_ext::IpcClientExt;
 pub use ipc_client_trait::IpcClient;
