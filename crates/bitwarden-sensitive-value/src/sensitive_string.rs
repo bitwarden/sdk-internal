@@ -114,9 +114,8 @@ uniffi::custom_type!(SensitiveString, String, {
 #[cfg(feature = "wasm")]
 const _: () = {
     use wasm_bindgen::{
-        JsValue,
+        JsValue, UnwrapThrowExt,
         convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi, OptionIntoWasmAbi},
-        describe::WasmDescribe,
         prelude::wasm_bindgen,
     };
 
@@ -125,38 +124,65 @@ const _: () = {
 export type SensitiveString = Tagged<string, "SensitiveString">;
 "#;
 
-    impl WasmDescribe for SensitiveString {
+    // The value still crosses the WASM boundary as a plain JS string, but we describe it as a
+    // named externref so generated `.d.ts` signatures read `SensitiveString` instead of the bare
+    // `string` produced when delegating to `String::describe`. The name must match the type alias
+    // declared in `TS_CUSTOM_TYPES` above.
+    impl wasm_bindgen::describe::WasmDescribe for SensitiveString {
         fn describe() {
-            <String as WasmDescribe>::describe();
+            use wasm_bindgen::describe::*;
+            // wasm-bindgen's descriptor interpreter only understands a flat sequence of constant
+            // `inform` calls (no loops or comparisons), so the name "SensitiveString" is emitted
+            // one character at a time. This must match the type alias in `TS_CUSTOM_TYPES` above.
+            inform(NAMED_EXTERNREF);
+            inform(15); // "SensitiveString".len()
+            inform('S' as u32);
+            inform('e' as u32);
+            inform('n' as u32);
+            inform('s' as u32);
+            inform('i' as u32);
+            inform('t' as u32);
+            inform('i' as u32);
+            inform('v' as u32);
+            inform('e' as u32);
+            inform('S' as u32);
+            inform('t' as u32);
+            inform('r' as u32);
+            inform('i' as u32);
+            inform('n' as u32);
+            inform('g' as u32);
         }
     }
 
     impl FromWasmAbi for SensitiveString {
-        type Abi = <String as FromWasmAbi>::Abi;
+        type Abi = <JsValue as FromWasmAbi>::Abi;
 
         unsafe fn from_abi(abi: Self::Abi) -> Self {
-            let string = unsafe { String::from_abi(abi) };
+            let value = unsafe { JsValue::from_abi(abi) };
+            let string = value
+                .as_string()
+                .expect_throw("SensitiveString JsValue is not a string");
             SensitiveString::from(string)
         }
     }
 
     impl OptionFromWasmAbi for SensitiveString {
         fn is_none(abi: &Self::Abi) -> bool {
-            <String as OptionFromWasmAbi>::is_none(abi)
+            <JsValue as OptionFromWasmAbi>::is_none(abi)
         }
     }
 
     impl IntoWasmAbi for SensitiveString {
-        type Abi = <String as IntoWasmAbi>::Abi;
+        type Abi = <JsValue as IntoWasmAbi>::Abi;
 
         fn into_abi(self) -> Self::Abi {
-            self.expose_owned().into_abi()
+            JsValue::from(self.expose_owned()).into_abi()
         }
     }
 
     impl OptionIntoWasmAbi for SensitiveString {
         fn none() -> Self::Abi {
-            <String as OptionIntoWasmAbi>::none()
+            <JsValue as OptionIntoWasmAbi>::none()
         }
     }
 
