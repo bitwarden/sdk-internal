@@ -165,9 +165,10 @@ impl NoiseCryptoProvider {
     /// Encrypts `payload` under the existing session for `destination`, stamps it with
     /// `message_id` and sends it as a transport frame.
     ///
-    /// Preconditions: the caller holds the provider's crypto-state guard and a session for `destination`
-    /// exists (established by a preceding handshake under the same guard). Takes no lock itself
-    /// so it can be shared by `send` and the retransmit recovery path without double-locking.
+    /// Preconditions: the caller holds the provider's crypto-state guard and a session for
+    /// `destination` exists (established by a preceding handshake under the same guard). Takes
+    /// no lock itself so it can be shared by `send` and the retransmit recovery path without
+    /// double-locking.
     ///
     /// Returns the id of the session the frame was sent under, so callers can tag retransmit
     /// buffer entries.
@@ -1036,8 +1037,7 @@ mod tests {
         );
 
         // The lost message is retransmitted under the new session with its original message id.
-        let Frame::TransportFrame(retransmitted) = peer_receive_frame(&peer_receiver).await
-        else {
+        let Frame::TransportFrame(retransmitted) = peer_receive_frame(&peer_receiver).await else {
             panic!("Expected the lost message to be retransmitted as a TransportFrame");
         };
         assert_eq!(
@@ -1119,8 +1119,7 @@ mod tests {
         let mut new_peer_session = peer_answer_handshake(&peer_backend, &peer_receiver).await;
 
         // Only "b" is retransmitted: "establish" and "a" were confirmed by the echoed id.
-        let Frame::TransportFrame(retransmitted) = peer_receive_frame(&peer_receiver).await
-        else {
+        let Frame::TransportFrame(retransmitted) = peer_receive_frame(&peer_receiver).await else {
             panic!("Expected the lost message to be retransmitted as a TransportFrame");
         };
         assert_eq!(retransmitted.message_id, frame_b.message_id);

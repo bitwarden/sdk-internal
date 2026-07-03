@@ -240,7 +240,7 @@ fn get_cipher_with_key(
 pub(crate) struct TransportFrame {
     pub(crate) payload: ByteBuf,
     pub(crate) nonce: u64,
-    // The sender's session identifier. 
+    // The sender's session identifier.
     #[serde(default)]
     pub(crate) session_id: SessionId,
     // Increment-only per-message identifier assigned by the sender
