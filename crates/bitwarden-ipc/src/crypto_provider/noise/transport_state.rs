@@ -8,6 +8,9 @@ use crate::crypto_provider::noise::NOISE_MAX_MESSAGE_LEN;
 // Ref: http://noiseprotocol.org/noise.html#message-format
 const KEY_SIZE: usize = 32;
 
+/// Size of a [`SessionId`] in bytes.
+pub(super) const SESSION_ID_SIZE: usize = 16;
+
 /// Supported ciphers for the transport mode of noise.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub(crate) enum TransportCipher {
@@ -27,10 +30,28 @@ impl std::fmt::Debug for SymmetricKey {
     }
 }
 
+/// Identifies a single noise session. The initiator of a handshake decides the identifier and
+/// transmits it in the handshake start message, so both peers of a session hold the same one.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub(crate) struct SessionId(#[serde(with = "serde_bytes")] pub(crate) [u8; SESSION_ID_SIZE]);
+
+impl SessionId {
+    /// Generates a new random session identifier.
+    pub(crate) fn generate() -> Self {
+        Self(uuid::Uuid::new_v4().into_bytes())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PersistentTransportState {
     // The symmetric algorithm used for transport encryption
     transport_cipher: TransportCipher,
+
+    // Identifies this session. Stamped on outgoing transport frames so that session-reset
+    // signals ([`Frame::CryptoInvalidated`](super::crypto_provider::Frame)) can be bound to the
+    // session they were generated for.
+    #[serde(default)]
+    session_id: SessionId,
 
     // Noise has two keys, the initiator to responder key (i2r) and the responder to initiator key
     // (r2i).
@@ -51,20 +72,27 @@ pub(crate) struct PersistentTransportState {
 }
 
 impl PersistentTransportState {
-    /// Create a new transport state with the given keys and cipher.
+    /// Create a new transport state with the given keys, cipher and session identifier.
     pub(crate) fn new(
         send_key: SymmetricKey,
         receive_key: SymmetricKey,
         transport_cipher: TransportCipher,
+        session_id: SessionId,
     ) -> Self {
         Self {
             transport_cipher,
+            session_id,
             send_key,
             receive_key,
             send_nonce: 0,
             receive_nonce: 0,
             last_handshake_time: current_epoch_secs(),
         }
+    }
+
+    /// Returns the identifier of this session.
+    pub(crate) fn session_id(&self) -> &SessionId {
+        &self.session_id
     }
 
     pub(crate) fn should_rehandshake(&self, rehandshake_interval_secs: u64) -> bool {
@@ -100,7 +128,10 @@ impl AsRef<[u8]> for Payload {
 impl PersistentTransportState {
     /// Encrypts the message, mutates the state and returns the transport frame to be sent over
     /// IPC.
-    pub(crate) fn send(&mut self, payload: Payload) -> Result<TransportFrame, ()> {
+    ///
+    /// `message_id` is the delivery-layer identity assigned by the caller (see
+    /// [`TransportFrame::message_id`])
+    pub(crate) fn send(&mut self, payload: Payload, message_id: u64) -> Result<TransportFrame, ()> {
         // Increase nonce. WARNING: Re-used nonces lead to catastrophic
         // crypto failure. Ensure this increases always. It is impossible to send 2^64 messages
         // within the lifetime of a session. Nonetheless, the cryptographic guarantees are
@@ -116,6 +147,8 @@ impl PersistentTransportState {
         Ok(TransportFrame {
             payload: encrypted_message.into(),
             nonce: self.send_nonce,
+            session_id: self.session_id.clone(),
+            message_id,
         })
     }
 
@@ -207,6 +240,12 @@ fn get_cipher_with_key(
 pub(crate) struct TransportFrame {
     pub(crate) payload: ByteBuf,
     pub(crate) nonce: u64,
+    // The sender's session identifier. 
+    #[serde(default)]
+    pub(crate) session_id: SessionId,
+    // Increment-only per-message identifier assigned by the sender
+    #[serde(default)]
+    pub(crate) message_id: u64,
 }
 
 #[cfg(test)]
@@ -216,6 +255,15 @@ pub(crate) fn assert_matching_pair(
 ) {
     assert_eq!(state_1.send_key.0, state_2.receive_key.0);
     assert_eq!(state_1.receive_key.0, state_2.send_key.0);
+    assert_eq!(
+        state_1.session_id, state_2.session_id,
+        "both peers of a session must derive the same session id"
+    );
+    assert_ne!(
+        state_1.session_id,
+        SessionId::default(),
+        "a freshly established session must not have the all-zero sentinel id"
+    );
 }
 
 #[cfg(test)]
@@ -228,16 +276,47 @@ mod tests {
         (send_key, receive_key)
     }
 
+    fn test_session_id() -> SessionId {
+        SessionId([3u8; SESSION_ID_SIZE])
+    }
+
     fn make_pair() -> (PersistentTransportState, PersistentTransportState) {
         let (send_key, receive_key) = test_keys();
         let sender = PersistentTransportState::new(
             send_key.clone(),
             receive_key.clone(),
             TransportCipher::default(),
+            test_session_id(),
         );
-        let receiver =
-            PersistentTransportState::new(receive_key, send_key, TransportCipher::default());
+        let receiver = PersistentTransportState::new(
+            receive_key,
+            send_key,
+            TransportCipher::default(),
+            test_session_id(),
+        );
         (sender, receiver)
+    }
+
+    #[test]
+    fn test_send_stamps_frames_with_the_session_id() {
+        let (mut sender, _) = make_pair();
+
+        let frame = sender
+            .send(b"ping".to_vec().into(), 1)
+            .expect("send should succeed");
+
+        assert_eq!(frame.session_id, test_session_id());
+    }
+
+    #[test]
+    fn test_send_stamps_frames_with_the_message_id() {
+        let (mut sender, _) = make_pair();
+
+        let frame = sender
+            .send(b"ping".to_vec().into(), 42)
+            .expect("send should succeed");
+
+        assert_eq!(frame.message_id, 42);
     }
 
     #[test]
@@ -245,7 +324,7 @@ mod tests {
         let (mut sender, mut receiver) = make_pair();
 
         let payload: Payload = b"ping".to_vec().into();
-        let frame = sender.send(payload).expect("send should succeed");
+        let frame = sender.send(payload, 1).expect("send should succeed");
         let received = receiver.receive(&frame).expect("receive should succeed");
 
         assert_eq!(received.as_ref(), b"ping");
@@ -257,7 +336,7 @@ mod tests {
 
         for i in 0..5 {
             let payload: Payload = format!("msg-{i}").into_bytes().into();
-            let frame = sender.send(payload).expect("send should succeed");
+            let frame = sender.send(payload, i + 1).expect("send should succeed");
             let received = receiver.receive(&frame).expect("receive should succeed");
             assert_eq!(received.as_ref(), format!("msg-{i}").as_bytes());
         }
@@ -268,7 +347,7 @@ mod tests {
         let (mut sender, mut receiver) = make_pair();
 
         let payload: Payload = b"first".to_vec().into();
-        let frame = sender.send(payload).expect("send should succeed");
+        let frame = sender.send(payload, 1).expect("send should succeed");
 
         // First receive succeeds
         let replayed_frame = frame.clone();
@@ -288,8 +367,8 @@ mod tests {
         // Send two messages
         let msg1: Payload = b"first".to_vec().into();
         let msg2: Payload = b"second".to_vec().into();
-        let frame1 = sender.send(msg1).expect("send should succeed");
-        let frame2 = sender.send(msg2).expect("send should succeed");
+        let frame1 = sender.send(msg1, 1).expect("send should succeed");
+        let frame2 = sender.send(msg2, 2).expect("send should succeed");
 
         // Receive the second message first (higher nonce)
         receiver.receive(&frame2).expect("receive should succeed");
@@ -304,7 +383,7 @@ mod tests {
         let (mut sender, mut receiver) = make_pair();
 
         let payload: Payload = b"important".to_vec().into();
-        let mut frame = sender.send(payload).expect("send should succeed");
+        let mut frame = sender.send(payload, 1).expect("send should succeed");
 
         // Tamper with the ciphertext
         frame.payload[0] ^= 0xFF;

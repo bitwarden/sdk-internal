@@ -65,7 +65,7 @@ impl JsIpcClient {
     ) -> JsIpcClient {
         JsIpcClient {
             client: Arc::new(IpcClientImpl::new(
-                NoiseCryptoProvider,
+                NoiseCryptoProvider::new(),
                 communication_provider.clone(),
                 GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
                     HashMap::new(),
@@ -84,7 +84,7 @@ impl JsIpcClient {
     ) -> JsIpcClient {
         JsIpcClient {
             client: Arc::new(IpcClientImpl::new(
-                NoiseCryptoProvider,
+                NoiseCryptoProvider::new(),
                 communication_provider.clone(),
                 GenericSessionRepository::JsSessionRepository(Arc::new(JsSessionRepository::new(
                     session_repository,

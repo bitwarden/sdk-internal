@@ -592,3 +592,78 @@ async fn test_non_web_source_skips_origin_validation() {
         LockState::Unlocked { user_key: key }
     );
 }
+
+/// Drains a leader IPC backend's outgoing queue and decodes the messages without delivering
+/// them (used to inspect what a leader emitted).
+async fn drain_leader_messages(backend: &TestCommunicationBackend) -> Vec<LeaderMessage> {
+    backend
+        .drain_outgoing()
+        .await
+        .into_iter()
+        .map(|outgoing| {
+            let incoming = IncomingMessage {
+                payload: outgoing.payload,
+                destination: outgoing.destination,
+                source: Source::DesktopMain,
+                topic: outgoing.topic,
+            };
+            TypedIncomingMessage::<LeaderMessage>::try_from(incoming)
+                .expect("Failed to decode leader message")
+                .payload
+        })
+        .collect()
+}
+
+/// A heartbeat from an unknown endpoint should make the leader ask for a session start once,
+/// then record the endpoint so later heartbeats are answered with a `HeartBeat` echo. Without
+/// that, a lost `StartSession` reply leaves the endpoint unknown and every heartbeat re-triggers
+/// `RequestSessionStart`, churning indefinitely.
+#[tokio::test]
+async fn heartbeat_from_unknown_follower_does_not_churn_request_session_start() {
+    let user = user_a();
+
+    // A freshly reloaded leader: it knows the user is locked but has an empty session table.
+    let leader_lock = MockDriver::new(HashMap::from([(user, LockState::Locked)]));
+    let leader_ipc_backend = TestCommunicationBackend::new();
+    let leader_ipc_client: Arc<dyn IpcClient> = Arc::new(TestIpcClient::new(
+        NoEncryptionCryptoProvider,
+        leader_ipc_backend.clone(),
+        InMemorySessionRepository::new(HashMap::new()),
+    ));
+    let leader = Leader::create(leader_lock, leader_ipc_client);
+
+    // Send several heartbeats from the same endpoint without ever delivering a StartSession
+    // reply back to it. Desired behavior: at most the first heartbeat asks for a session start;
+    // once the leader knows the endpoint, later heartbeats are answered with a HeartBeat echo,
+    // not another RequestSessionStart.
+    for iteration in 0..5 {
+        leader
+            .receive_message(TypedIncomingMessage {
+                payload: FollowerMessage::HeartBeat { user_id: user },
+                destination: LEADER_ENDPOINT,
+                source: follower_source(),
+            })
+            .await
+            .unwrap();
+
+        let emitted = drain_leader_messages(&leader_ipc_backend).await;
+        if iteration == 0 {
+            // A single session-start request on first contact is acceptable.
+            continue;
+        }
+        assert!(
+            emitted
+                .iter()
+                .any(|m| matches!(m, LeaderMessage::HeartBeat { .. })),
+            "after first contact the leader must recognize the endpoint and echo the heartbeat, \
+             but it emitted {emitted:?}"
+        );
+        assert!(
+            !emitted
+                .iter()
+                .any(|m| matches!(m, LeaderMessage::RequestSessionStart { .. })),
+            "repeated heartbeats from a known endpoint must not keep re-triggering \
+             RequestSessionStart (got {emitted:?})"
+        );
+    }
+}

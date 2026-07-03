@@ -70,4 +70,5 @@ const NOISE_MAX_MESSAGE_LEN: usize = 65535;
 
 pub mod crypto_provider;
 pub(super) mod handshake;
+mod retransmit_buffer;
 mod transport_state;

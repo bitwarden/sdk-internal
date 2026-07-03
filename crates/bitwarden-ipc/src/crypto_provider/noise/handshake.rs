@@ -17,7 +17,7 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::crypto_provider::noise::transport_state::{
-    PersistentTransportState, SymmetricKey, TransportCipher,
+    PersistentTransportState, SessionId, SymmetricKey, TransportCipher,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
@@ -62,6 +62,11 @@ impl Display for CipherSuite {
 pub(crate) struct HandshakeStartMessage {
     pub(super) ciphersuite: CipherSuite,
     pub(super) noise_frame: Vec<u8>,
+    // The session identifier decided by the initiator; the responder adopts it for the session
+    // established by this handshake. `serde(default)` keeps start messages from peers that
+    // predate this field parseable; they get the all-zero sentinel.
+    #[serde(default)]
+    pub(super) session_id: SessionId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +78,7 @@ pub(crate) struct HandshakeFinishMessage {
 pub(crate) struct HandshakeInitiator {
     ciphersuite: CipherSuite,
     state: snow::HandshakeState,
+    session_id: SessionId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +101,8 @@ impl HandshakeInitiator {
         Self {
             ciphersuite: *ciphersuite,
             state: handshake_state,
+            // The initiator decides the identifier of the session this handshake establishes.
+            session_id: SessionId::generate(),
         }
     }
 
@@ -107,6 +115,7 @@ impl HandshakeInitiator {
         Ok(HandshakeStartMessage {
             ciphersuite: self.ciphersuite,
             noise_frame: buf[..len].to_vec(),
+            session_id: self.session_id.clone(),
         })
     }
 
@@ -129,6 +138,7 @@ impl From<&mut HandshakeInitiator> for PersistentTransportState {
             SymmetricKey(i2r),
             SymmetricKey(r2i),
             initiator.ciphersuite.transport_cipher(),
+            initiator.session_id.clone(),
         )
     }
 }
@@ -136,6 +146,8 @@ impl From<&mut HandshakeInitiator> for PersistentTransportState {
 pub(crate) struct HandshakeResponder {
     ciphersuite: CipherSuite,
     state: snow::HandshakeState,
+    // The session identifier decided by the initiator, adopted from the handshake start message.
+    session_id: Option<SessionId>,
 }
 
 impl HandshakeResponder {
@@ -152,6 +164,7 @@ impl HandshakeResponder {
         Self {
             ciphersuite: *ciphersuite,
             state: handshake_state,
+            session_id: None,
         }
     }
 
@@ -163,6 +176,7 @@ impl HandshakeResponder {
         self.state
             .read_message(&message.noise_frame, &mut buf)
             .map_err(|_| ReadError)?;
+        self.session_id = Some(message.session_id.clone());
         Ok(())
     }
 
@@ -180,11 +194,16 @@ impl HandshakeResponder {
 
 impl From<&mut HandshakeResponder> for PersistentTransportState {
     fn from(responder: &mut HandshakeResponder) -> Self {
+        let session_id = responder
+            .session_id
+            .clone()
+            .expect("The handshake start message has been read before deriving transport keys");
         let (i2r, r2i) = responder.state.dangerously_get_raw_split();
         PersistentTransportState::new(
             SymmetricKey(r2i),
             SymmetricKey(i2r),
             responder.ciphersuite.transport_cipher(),
+            session_id,
         )
     }
 }
@@ -194,7 +213,9 @@ mod tests {
     use super::*;
     use crate::crypto_provider::noise::transport_state::assert_matching_pair;
 
-    fn run_handshake(ciphersuite: &CipherSuite) {
+    fn run_handshake(
+        ciphersuite: &CipherSuite,
+    ) -> (PersistentTransportState, PersistentTransportState) {
         let mut initiator = HandshakeInitiator::new(ciphersuite);
         let mut responder = HandshakeResponder::new(ciphersuite);
 
@@ -203,9 +224,10 @@ mod tests {
         let response_message = responder.write_response_message().unwrap();
         initiator.read_response_message(&response_message).unwrap();
 
-        let initiator_transport_state = (&mut initiator).into();
-        let responder_transport_state = (&mut responder).into();
+        let initiator_transport_state: PersistentTransportState = (&mut initiator).into();
+        let responder_transport_state: PersistentTransportState = (&mut responder).into();
         assert_matching_pair(&initiator_transport_state, &responder_transport_state);
+        (initiator_transport_state, responder_transport_state)
     }
 
     #[test]
@@ -217,5 +239,17 @@ mod tests {
         ] {
             run_handshake(&ciphersuite);
         }
+    }
+
+    #[test]
+    fn test_distinct_handshakes_yield_distinct_session_ids() {
+        let (first, _) = run_handshake(&CipherSuite::default());
+        let (second, _) = run_handshake(&CipherSuite::default());
+
+        assert_ne!(
+            first.session_id(),
+            second.session_id(),
+            "each handshake must produce a unique session id"
+        );
     }
 }

@@ -77,6 +77,32 @@ describe("shared unlock ipc", () => {
     expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
   });
 
+  it("delivers the follower's first message after a leader reload", async () => {
+    const pair = await setupSharedUnlockPair({
+      leader: { initialStates: USER_A_UNLOCKED_STATE },
+      follower: { initialStates: USER_A_UNLOCKED_STATE },
+    });
+    await sleep(20);
+    expect(pair.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
+    expect(pair.followerDriver.getUserKey(USER_A)).toBe(USER_KEY);
+
+    // The leader reloads and comes back locked with no crypto sessions. The
+    // follower is untouched: it stays unlocked and still holds the pre-reload
+    // crypto session. Leader (locked) and follower (unlocked) are now out of
+    // sync, so a follower unlock event should propagate to the leader.
+    const reloaded = await reloadLeader(pair, {
+      leader: { initialStates: USER_A_LOCKED_STATE },
+    });
+
+    // First contact after the reload is encrypted with the now-stale session.
+    // Desired behavior: the unlock still reaches the leader (transparent
+    // re-handshake + retry). FAILS today — the reloaded leader replies
+    // `CryptoInvalidated` and drops the payload, so the leader stays locked.
+    await reloaded.follower.handle_device_event(UNLOCK_EVENT);
+    await sleep(50);
+    expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
+  }, 15000);
+
   it("reconnects after process-reloading the leader", async () => {
     const pair = await setupSharedUnlockPair({
       leader: { initialStates: USER_A_UNLOCKED_STATE },
