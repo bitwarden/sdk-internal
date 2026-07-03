@@ -96,8 +96,7 @@ describe("shared unlock ipc", () => {
 
     // First contact after the reload is encrypted with the now-stale session.
     // Desired behavior: the unlock still reaches the leader (transparent
-    // re-handshake + retry). FAILS today — the reloaded leader replies
-    // `CryptoInvalidated` and drops the payload, so the leader stays locked.
+    // re-handshake + retry). 
     await reloaded.follower.handle_device_event(UNLOCK_EVENT);
     await sleep(50);
     expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
