@@ -21,7 +21,6 @@ use crate::{
 };
 
 /// Noise-based crypto provider for IPC.
-
 #[derive(Default)]
 pub struct NoiseCryptoProvider {
     // Serializes all crypto-state access of this provider (its session repository): concurrent
@@ -776,18 +775,6 @@ mod tests {
     /// must not destroy a *freshly established* session. `CryptoInvalidated` echoes the session
     /// id of the offending transport frame, and the receiver ignores invalidations that do not
     /// match its current session.
-    ///
-    /// This ordering is realistic even over an in-order transport, because the client consumes
-    /// the incoming frame stream through two independent subscribers (the main receive loop and
-    /// the per-handshake subscription in `perform_handshake`): the main loop can process a stale
-    /// `CryptoInvalidated` *after* the handshake subscription has already completed a new
-    /// handshake.
-    ///
-    /// Sequence: peer restarts (loses its session) → client's msg1 (old session S1) is answered
-    /// with `CryptoInvalidated{S1}` → client immediately re-handshakes and retransmits msg1
-    /// under fresh S2, then delivers msg2 on the same session → a second, delayed
-    /// `CryptoInvalidated{S1}` (for another stale-session message) arrives and must be ignored,
-    /// keeping S2 intact.
     #[tokio::test]
     async fn delayed_crypto_invalidated_does_not_destroy_fresh_session() {
         let (client, peer_backend, peer_receiver) = client_with_scripted_peer().await;

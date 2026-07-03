@@ -96,7 +96,7 @@ describe("shared unlock ipc", () => {
 
     // First contact after the reload is encrypted with the now-stale session.
     // Desired behavior: the unlock still reaches the leader (transparent
-    // re-handshake + retry). 
+    // re-handshake + retry).
     await reloaded.follower.handle_device_event(UNLOCK_EVENT);
     await sleep(50);
     expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
@@ -114,15 +114,10 @@ describe("shared unlock ipc", () => {
     const reloaded = await reloadLeader(pair, {
       leader: { initialStates: USER_A_LOCKED_STATE },
     });
-    // Wait for heartbeat
-    // Note: Currently, there is two heartbeats necessary; Basically:
-    // - Leader reloads, has no crypto state, follower still has crypto session A
-    // - Follower sends heartbeat 1 with session A, leader doesn't recognize session A, sends crypto state invalidated back
-    // - Follower performs handshake, now both follower and leader have crypto session B
-    // - Follower sends heartbeat 2 with session B, leader sets up unlock sharing session
-    // - As of here, a unlock event will work.
-    //
-    // This could be fixed differently on the crypto layer in the future
+    // Wait for a heartbeat. A single heartbeat suffices: the leader answers the
+    // stale-session heartbeat with `CryptoInvalidated`, and the follower's crypto
+    // layer transparently re-handshakes and retransmits the heartbeat, so the
+    // leader sets up the unlock sharing session right away.
     await sleep(5000);
 
     expect(reloaded.leaderDriver.getUserKey(USER_A)).toBe(USER_KEY);
