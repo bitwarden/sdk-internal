@@ -288,10 +288,10 @@ impl SessionManager {
                 _ => {}
             }
             // resolve_retry: if the token already changed, reuse the new one.
-            if let Some(current) = &guard.bearer {
-                if current != stale {
-                    return Ok(current.clone());
-                }
+            if let Some(current) = &guard.bearer
+                && current != stale
+            {
+                return Ok(current.clone());
             }
         }
 
@@ -348,7 +348,7 @@ impl SessionManager {
                 SessionPhase::Closed => return Err(SessionError::Lost(SessionLost::Closed)),
                 // Coalescing: a concurrent renewer already completed.
                 // Skip on the first attempt when `force=true` (401 path).
-                SessionPhase::Active if !(force && first_attempt) && !guard.needs_renewal() => {
+                SessionPhase::Active if !(guard.needs_renewal() || force && first_attempt) => {
                     return Ok(());
                 }
                 _ => {}
