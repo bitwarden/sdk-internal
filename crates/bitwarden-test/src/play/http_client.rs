@@ -17,9 +17,7 @@ pub(crate) struct PlayHttpClient {
 impl PlayHttpClient {
     /// Create a new HTTP client with the given play_id
     pub(crate) fn new(play_id: String, config: PlayConfig) -> Self {
-        let client = Client::builder()
-            .build()
-            .expect("Failed to build HTTP client");
+        let client = bitwarden_api_api::new_http_client();
 
         Self {
             client,

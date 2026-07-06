@@ -1,4 +1,3 @@
-use bitwarden_core::key_management::MasterPasswordError;
 use serde::Deserialize;
 
 #[derive(Deserialize, PartialEq, Eq, Debug)]
@@ -126,20 +125,8 @@ pub enum LoginErrorApiResponse {
 }
 
 // This is just a utility function so that the ? operator works correctly without manual mapping
-impl From<reqwest::Error> for LoginErrorApiResponse {
-    fn from(value: reqwest::Error) -> Self {
-        Self::UnexpectedError(format!("{value:?}"))
-    }
-}
-
-impl From<reqwest_middleware::Error> for LoginErrorApiResponse {
-    fn from(value: reqwest_middleware::Error) -> Self {
-        Self::UnexpectedError(format!("{value:?}"))
-    }
-}
-
-impl From<MasterPasswordError> for LoginErrorApiResponse {
-    fn from(value: MasterPasswordError) -> Self {
+impl<T: std::error::Error> From<T> for LoginErrorApiResponse {
+    fn from(value: T) -> Self {
         Self::UnexpectedError(format!("{value:?}"))
     }
 }

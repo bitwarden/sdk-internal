@@ -14,13 +14,25 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+uniffi = ["dep:bitwarden-uniffi-error", "dep:uniffi"]
+
 [dependencies]
+bitwarden-uniffi-error = { workspace = true, optional = true }
 http = ">=1.4.0, <2"
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+uniffi = { workspace = true, optional = true }
 url = ">=2.5, <3"
+
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+# By default, we use rustls as the TLS stack and rustls-platform-verifier to support user-installed root certificates
+# The only exception is WASM, as it just uses the browsers/node fetch
+reqwest = { workspace = true, features = ["rustls-no-provider"] }
+rustls = { workspace = true }
+rustls-platform-verifier = { workspace = true }
 
 [lints]
 workspace = true

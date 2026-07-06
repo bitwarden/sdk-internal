@@ -51,6 +51,7 @@ pub(crate) async fn generate(
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_api_base::new_http_client;
     use serde_json::json;
 
     use crate::username::UsernameError;
@@ -116,7 +117,7 @@ mod tests {
             .await;
 
         let address = super::generate(
-            &reqwest::Client::new(),
+            &new_http_client(),
             "MY_TOKEN".into(),
             "myemail.com".into(),
             format!("http://{}", server.address()),
@@ -126,7 +127,7 @@ mod tests {
         .unwrap();
 
         let fake_token_error = super::generate(
-            &reqwest::Client::new(),
+            &new_http_client(),
             "MY_FAKE_TOKEN".into(),
             "myemail.com".into(),
             format!("http://{}", server.address()),
@@ -141,7 +142,7 @@ mod tests {
         );
 
         let fake_domain_error = super::generate(
-            &reqwest::Client::new(),
+            &new_http_client(),
             "MY_TOKEN".into(),
             "gmail.com".into(),
             format!("http://{}", server.address()),

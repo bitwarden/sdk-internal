@@ -44,11 +44,11 @@ pub async fn restore_as_admin(
         .await?
         .merge_with_cipher(None)?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -57,6 +57,7 @@ pub async fn restore_many_as_admin(
     org_id: OrganizationId,
     api_client: &ApiClient,
     key_store: &KeyStore<KeySlotIds>,
+    use_strict_decryption: bool,
 ) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
@@ -72,10 +73,19 @@ pub async fn restore_many_as_admin(
         .map(|c| c.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-    Ok(DecryptCipherListResult {
-        successes,
-        failures: failures.into_iter().cloned().collect(),
+    Ok(if use_strict_decryption {
+        let wrapped: Vec<StrictDecrypt<Cipher>> = ciphers.into_iter().map(StrictDecrypt).collect();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+        }
+    } else {
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+        DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
     })
 }
 
@@ -106,7 +116,14 @@ impl CipherAdminClient {
         let api_client = &self.api_configurations.api_client;
         let key_store = &self.key_store;
 
-        restore_many_as_admin(cipher_ids, org_id, api_client, key_store).await
+        restore_many_as_admin(
+            cipher_ids,
+            org_id,
+            api_client,
+            key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
 }
 
@@ -117,7 +134,7 @@ mod tests {
         models::{CipherMiniResponseModel, CipherMiniResponseModelListResponseModel},
     };
     use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use chrono::Utc;
 
     use super::*;
@@ -130,7 +147,7 @@ mod tests {
     fn generate_test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
+            name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap()),
             r#type: crate::CipherType::Login,
             notes: Default::default(),
             organization_id: Default::default(),
@@ -183,7 +200,7 @@ mod tests {
                     .returning(move |_model| {
                         Ok(CipherMiniResponseModel {
                             id: Some(TEST_CIPHER_ID.try_into().unwrap()),
-                            name: Some(cipher.name.to_string()),
+                            name: cipher.name.as_ref().map(ToString::to_string),
                             r#type: Some(cipher.r#type.into()),
                             creation_date: Some(cipher.creation_date.to_string()),
                             revision_date: Some(Utc::now().to_rfc3339()),
@@ -198,7 +215,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
         let start_time = Utc::now();
         let updated_cipher =
@@ -231,7 +248,7 @@ mod tests {
                         data: Some(vec![
                             CipherMiniResponseModel {
                                 id: cipher_1.id.map(|id| id.into()),
-                                name: Some(cipher_1.name.to_string()),
+                                name: cipher_1.name.as_ref().map(ToString::to_string),
                                 r#type: Some(cipher_1.r#type.into()),
                                 login: cipher_1.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_1.creation_date.to_string().into(),
@@ -241,7 +258,7 @@ mod tests {
                             },
                             CipherMiniResponseModel {
                                 id: cipher_2.id.map(|id| id.into()),
-                                name: Some(cipher_2.name.to_string()),
+                                name: cipher_2.name.as_ref().map(ToString::to_string),
                                 r#type: Some(cipher_2.r#type.into()),
                                 login: cipher_2.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_2.creation_date.to_string().into(),
@@ -258,7 +275,7 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let start_time = Utc::now();
@@ -270,6 +287,7 @@ mod tests {
             TEST_ORG_ID.parse().unwrap(),
             &api_client,
             &store,
+            false,
         )
         .await
         .unwrap();

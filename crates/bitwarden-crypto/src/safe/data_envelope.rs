@@ -11,10 +11,12 @@ use wasm_bindgen::convert::FromWasmAbi;
 use crate::{
     CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeySlotIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
-    cose::{ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
+    cose::{
+        ContentNamespace, SafeObjectNamespace,
+        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
+    },
     safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     utils::pad_bytes,
-    xchacha20,
 };
 
 pub(crate) const DATA_ENVELOPE_PADDING_SIZE: usize = 64;
@@ -124,20 +126,18 @@ impl DataEnvelope {
             SafeObjectNamespace::DataEnvelope,
             namespace,
         );
-        protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
-        // Encrypt the message
-        let mut nonce = [0u8; xchacha20::NONCE_SIZE];
-        let encrypt0 = coset::CoseEncrypt0Builder::new()
-            .protected(protected_header)
-            .create_ciphertext(&serialized_and_padded_message, &[], |data, aad| {
-                let ciphertext =
-                    crate::xchacha20::encrypt_xchacha20_poly1305(&(*cek.enc_key).into(), data, aad);
-                nonce = ciphertext.nonce();
-                ciphertext.encrypted_bytes().to_vec()
-            })
-            .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
-            .build();
+        // Encrypt the message. `encrypt_cose0` declares the content-encryption algorithm
+        // (XChaCha20-Poly1305) in the protected header and stores a fresh nonce in the unprotected
+        // `iv` header.
+        let encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            coset::CoseEncrypt0Builder::new(),
+            protected_header,
+            &serialized_and_padded_message,
+            cek.enc_key.as_slice(),
+        )
+        .map_err(|_| DataEnvelopeError::Encoding)?;
 
         // Serialize the COSE message
         let envelope_data = encrypt0
@@ -205,12 +205,6 @@ impl DataEnvelope {
             content_format(&msg.protected).map_err(|_| DataEnvelopeError::Decoding)?;
 
         // Validate the message
-        if !matches!(
-            msg.protected.header.alg,
-            Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305)),
-        ) {
-            return Err(DataEnvelopeError::Decryption);
-        }
         if msg.protected.header.key_id != cek.key_id.as_slice() {
             return Err(DataEnvelopeError::WrongKey);
         }
@@ -226,23 +220,10 @@ impl DataEnvelope {
             return Err(DataEnvelopeError::UnsupportedContentFormat);
         }
 
-        // Decrypt the message
-        let decrypted_message = msg
-            .decrypt_ciphertext(
-                &[],
-                || CryptoError::MissingField("ciphertext"),
-                |data, aad| {
-                    let nonce = msg.unprotected.iv.as_slice();
-                    crate::xchacha20::decrypt_xchacha20_poly1305(
-                        nonce
-                            .try_into()
-                            .map_err(|_| CryptoError::InvalidNonceLength)?,
-                        &(*cek.enc_key).into(),
-                        data,
-                        aad,
-                    )
-                },
-            )
+        // Decrypt the message. `decrypt_cose0` validates that the protected header declares the
+        // XChaCha20-Poly1305 content-encryption algorithm before attempting decryption. The
+        // envelope always declares the algorithm, so no decryption fallback is needed.
+        let decrypted_message = decrypt_cose0(&msg, None, cek.enc_key.as_slice())
             .map_err(|_| DataEnvelopeError::Decryption)?;
 
         let unpadded_message =
