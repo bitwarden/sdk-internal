@@ -8,15 +8,15 @@
 //!
 //! Entering `Revoked` or `Closed` drops the bearer and clears the key store.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use bitwarden_access_token::AccessToken;
 use bitwarden_core::{OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
-use tokio::{
-    sync::{Mutex, watch},
-    time::Instant,
-};
+use tokio::sync::{Mutex, watch};
 
 use crate::{
     auth::identity::{AuthError, AuthSuccess, IdentityClient},
@@ -202,8 +202,6 @@ impl SessionManager {
         self.state.lock().await.phase
     }
 
-    /// Test accessor for the held key store.
-    #[cfg(test)]
     pub(crate) async fn key_store(&self) -> KeyStore<KeySlotIds> {
         self.state.lock().await.key_store.clone()
     }
