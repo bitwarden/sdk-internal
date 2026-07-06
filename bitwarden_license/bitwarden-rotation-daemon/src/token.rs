@@ -4,7 +4,7 @@
 //! `0.daemon.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`
 //!
 //! The encryption key is derived via [`bitwarden_crypto::derive_shareable_key`] using the
-//! constants [`DERIVE_NAME`] and [`DERIVE_INFO`].
+//! constants `DERIVE_NAME` and `DERIVE_INFO`.
 
 use std::{fmt, str::FromStr};
 

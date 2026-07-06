@@ -5,7 +5,7 @@
 //! The daemon token string contains the encryption key for the org key.  It is
 //! **never** accepted as a CLI argument because `argv` is visible via `ps` and
 //! `/proc/<pid>/cmdline`.  Supply it via the `BWRD_TOKEN` environment variable
-//! or `--token-file` instead.  See [`Config::from_cli`] for the intake logic.
+//! or `--token-file` instead.  See [`crate::config::Config::from_cli`] for the intake logic.
 
 use std::path::PathBuf;
 
