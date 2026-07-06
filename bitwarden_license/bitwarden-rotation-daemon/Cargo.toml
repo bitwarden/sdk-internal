@@ -23,9 +23,11 @@ bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-threading = { workspace = true }
+anyhow = "1"
 async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"] }
+http = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde = { workspace = true }
@@ -39,6 +41,7 @@ uuid = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
+tempfile = "3"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }
 

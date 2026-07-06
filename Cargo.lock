@@ -1029,6 +1029,7 @@ dependencies = [
 name = "bitwarden-rotation-daemon"
 version = "3.0.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-base",
@@ -1039,10 +1040,12 @@ dependencies = [
  "bitwarden-threading",
  "chrono",
  "clap",
+ "http",
  "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
