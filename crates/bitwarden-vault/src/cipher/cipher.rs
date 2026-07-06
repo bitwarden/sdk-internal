@@ -26,7 +26,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
-    blob::{BlobEncryptionError, decrypt_blob_cipher, is_blob_encrypted},
+    blob::{decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -146,7 +146,11 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher.name.to_string(),
+            name: cipher
+                .name
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_default(),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -191,7 +195,7 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
             passport: cipher.passport.map(|p| Box::new(p.into())),
-            data: None, // TODO: Consume this instead of the individual fields above.
+            data: cipher.data,
             last_known_revision_date: Some(
                 cipher
                     .revision_date
@@ -219,7 +223,11 @@ impl From<EncryptionContext> for CipherRequestModel {
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher.name.to_string(),
+            name: cipher
+                .name
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_default(),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -264,7 +272,7 @@ impl From<EncryptionContext> for CipherRequestModel {
             bank_account: cipher.bank_account.map(|b| Box::new(b.into())),
             drivers_license: cipher.drivers_license.map(|d| Box::new(d.into())),
             passport: cipher.passport.map(|p| Box::new(p.into())),
-            data: None, // TODO: Consume this instead of the individual fields above.
+            data: cipher.data,
             last_known_revision_date: Some(
                 cipher
                     .revision_date
@@ -291,7 +299,9 @@ pub struct Cipher {
     /// Cipher.
     pub key: Option<EncString>,
 
-    pub name: EncString,
+    /// Encrypted item name. `None` for blob-encrypted ciphers, where the name lives inside
+    /// the sealed `data` blob; required on the legacy field-level format.
+    pub name: Option<EncString>,
     pub notes: Option<EncString>,
 
     pub r#type: CipherType,
@@ -391,7 +401,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
             favorite: Some(c.favorite),
             reprompt: Some(c.reprompt.into()),
             key: c.key.map(|k| k.to_string()),
-            name: c.name.to_string(),
+            name: c.name.as_ref().map(ToString::to_string).unwrap_or_default(),
             notes: c.notes.map(|n| n.to_string()),
             login: c.login.map(|v| Box::new(v.into())),
             card: c.card.map(|v| Box::new(v.into())),
@@ -648,7 +658,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
             key: cipher_view.key,
-            name: cipher_view.name.encrypt(ctx, ciphers_key)?,
+            name: Some(cipher_view.name.encrypt(ctx, ciphers_key)?),
             notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
             r#type: cipher_view.r#type,
             login: cipher_view.login.encrypt_composite(ctx, ciphers_key)?,
@@ -716,8 +726,8 @@ pub(crate) fn lenient_decrypt_cipher_view(
         key: cipher.key.clone(),
         name: cipher
             .name
-            .decrypt(ctx, ciphers_key)
-            .ok()
+            .as_ref()
+            .and_then(|n| n.decrypt(ctx, ciphers_key).ok())
             .unwrap_or_default(),
         notes: cipher.notes.decrypt(ctx, ciphers_key).ok().flatten(),
         r#type: cipher.r#type,
@@ -1379,8 +1389,8 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
         key: cipher.key.clone(),
         name: cipher
             .name
-            .decrypt(ctx, ciphers_key)
-            .ok()
+            .as_ref()
+            .and_then(|n| n.decrypt(ctx, ciphers_key).ok())
             .unwrap_or_default(),
         subtitle: cipher
             .decrypt_subtitle(ctx, ciphers_key)
@@ -1469,10 +1479,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
-        if is_blob_encrypted(self) {
-            decrypt_blob_cipher(self, ctx).map_err(blob_err_to_crypto)
-        } else {
-            lenient_decrypt_cipher_view(self, ctx, key)
+        match try_parse_blob(self) {
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx).map_err(CryptoError::from),
+            None => lenient_decrypt_cipher_view(self, ctx, key),
         }
     }
 }
@@ -1483,11 +1492,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
-        if is_blob_encrypted(self) {
-            let view = decrypt_blob_cipher(self, ctx).map_err(blob_err_to_crypto)?;
-            view.to_list_view(ctx, key)
-        } else {
-            lenient_decrypt_cipher_list_view(self, ctx, key)
+        match try_parse_blob(self) {
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx)?.to_list_view(ctx, key),
+            None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
 }
@@ -1533,10 +1540,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
-        if is_blob_encrypted(&self.0) {
-            decrypt_blob_cipher(&self.0, ctx).map_err(blob_err_to_crypto)
-        } else {
-            strict_decrypt_cipher_view(&self.0, ctx, key)
+        match try_parse_blob(&self.0) {
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx).map_err(CryptoError::from),
+            None => strict_decrypt_cipher_view(&self.0, ctx, key),
         }
     }
 }
@@ -1564,7 +1570,11 @@ fn strict_decrypt_cipher_view(
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
         key: cipher.key.clone(),
-        name: cipher.name.decrypt(ctx, ciphers_key)?,
+        name: cipher
+            .name
+            .as_ref()
+            .ok_or(CryptoError::MissingField("name"))?
+            .decrypt(ctx, ciphers_key)?,
         notes: cipher.notes.decrypt(ctx, ciphers_key)?,
         r#type: cipher.r#type,
         login: cipher
@@ -1630,11 +1640,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
-        if is_blob_encrypted(&self.0) {
-            let view = decrypt_blob_cipher(&self.0, ctx).map_err(blob_err_to_crypto)?;
-            view.to_list_view(ctx, key)
-        } else {
-            strict_decrypt_cipher_list_view(&self.0, ctx, key)
+        match try_parse_blob(&self.0) {
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx)?.to_list_view(ctx, key),
+            None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }
 }
@@ -1654,7 +1662,11 @@ fn strict_decrypt_cipher_list_view(
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
         key: cipher.key.clone(),
-        name: cipher.name.decrypt(ctx, ciphers_key)?,
+        name: cipher
+            .name
+            .as_ref()
+            .ok_or(CryptoError::MissingField("name"))?
+            .decrypt(ctx, ciphers_key)?,
         subtitle: cipher.decrypt_subtitle(ctx, ciphers_key)?,
         r#type: match cipher.r#type {
             CipherType::Login => {
@@ -1732,15 +1744,48 @@ fn strict_decrypt_cipher_list_view(
     })
 }
 
-/// Maps the blob module's error type onto [`CryptoError`] for the [`Decryptable`]
-/// impls. The `NoBlobData` variant is unreachable here because dispatch is gated
-/// by [`is_blob_encrypted`]; format and envelope errors collapse to
-/// [`CryptoError::Decrypt`] since callers only need to know "decryption failed".
-fn blob_err_to_crypto(err: BlobEncryptionError) -> CryptoError {
-    match err {
-        BlobEncryptionError::Crypto(c) => c,
-        BlobEncryptionError::SealedBlob(_) | BlobEncryptionError::NoBlobData => {
-            CryptoError::Decrypt
+/// Selects between blob and legacy encryption paths. The variant is chosen at
+/// the [`CiphersClient`] layer via [`should_use_blob_encryption`].
+///
+///
+/// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
+/// [`should_use_blob_encryption`]: crate::cipher::cipher_client::CiphersClient::should_use_blob_encryption
+pub(crate) enum EncryptMode<T> {
+    Blob(T),
+    Legacy(T),
+}
+
+impl<T> EncryptMode<T> {
+    pub(crate) fn inner(&self) -> &T {
+        match self {
+            Self::Blob(t) | Self::Legacy(t) => t,
+        }
+    }
+}
+
+impl<T> IdentifyKey<SymmetricKeySlotId> for EncryptMode<T>
+where
+    T: IdentifyKey<SymmetricKeySlotId>,
+{
+    fn key_identifier(&self) -> SymmetricKeySlotId {
+        self.inner().key_identifier()
+    }
+}
+
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMode<CipherView> {
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<Cipher, CryptoError> {
+        match self {
+            Self::Blob(view) => {
+                // `encrypt_blob_cipher` takes `&mut CipherView` because it may
+                // generate a cipher key; so we operate on a local clone.
+                let mut owned = view.clone();
+                encrypt_blob_cipher(&mut owned, ctx).map_err(CryptoError::from)
+            }
+            Self::Legacy(view) => view.encrypt_composite(ctx, key),
         }
     }
 }
@@ -1759,7 +1804,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .into_iter()
                 .map(CollectionId::new)
                 .collect(),
-            name: require!(EncString::try_from_optional(cipher.name)?),
+            name: EncString::try_from_optional(cipher.name)?,
             notes: EncString::try_from_optional(cipher.notes)?,
             r#type: require!(cipher.r#type).try_into()?,
             login: cipher.login.map(|l| (*l).try_into()).transpose()?,
@@ -1891,7 +1936,7 @@ impl PartialCipher for CipherResponseModel {
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             folder_id: self.folder_id.map(FolderId::new),
-            name: require!(self.name).parse()?,
+            name: self.name.map(|n| n.parse()).transpose()?,
             notes: EncString::try_from_optional(self.notes)?,
             r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
@@ -1941,7 +1986,7 @@ impl PartialCipher for CipherMiniResponseModel {
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
-            name: require!(EncString::try_from_optional(self.name)?),
+            name: EncString::try_from_optional(self.name)?,
             notes: EncString::try_from_optional(self.notes)?,
             r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
@@ -1988,7 +2033,7 @@ impl PartialCipher for CipherMiniResponseModel {
             permissions: cipher.map_or(Default::default(), |c| c.permissions),
             view_password: cipher.is_none_or(|c| c.view_password),
             local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
-            data: cipher.map_or(Default::default(), |c| c.data.clone()),
+            data: self.data,
             collection_ids: cipher.map_or(Default::default(), |c| c.collection_ids.clone()),
         })
     }
@@ -2001,7 +2046,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
-            name: require!(EncString::try_from_optional(self.name)?),
+            name: EncString::try_from_optional(self.name)?,
             notes: EncString::try_from_optional(self.notes)?,
             r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
@@ -2157,7 +2202,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: Some(Login {
@@ -2250,6 +2295,46 @@ mod tests {
         )
     }
 
+    fn blob_cipher() -> Cipher {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+        let cipher: Cipher = key_store
+            .encrypt(EncryptMode::Blob(generate_cipher()))
+            .unwrap();
+        assert!(cipher.data.is_some(), "expected a blob-shaped cipher");
+        cipher
+    }
+
+    #[test]
+    fn test_encryption_context_to_cipher_with_id_request_preserves_data() {
+        let cipher = blob_cipher();
+        let expected = cipher.data.clone();
+
+        let request: CipherWithIdRequestModel = EncryptionContext {
+            encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            cipher,
+        }
+        .try_into()
+        .unwrap();
+
+        assert_eq!(request.data, expected);
+    }
+
+    #[test]
+    fn test_encryption_context_to_cipher_request_preserves_data() {
+        let cipher = blob_cipher();
+        let expected = cipher.data.clone();
+
+        let request: CipherRequestModel = EncryptionContext {
+            encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            cipher,
+        }
+        .into();
+
+        assert_eq!(request.data, expected);
+    }
+
     #[test]
     fn test_decrypt_cipher_fails_with_invalid_name() {
         let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
@@ -2259,7 +2344,7 @@ mod tests {
         // Encrypt a valid cipher, then swap name with an EncString from a different key
         let cipher = key_store.encrypt(generate_cipher()).unwrap();
         let cipher = Cipher {
-            name: TEST_CIPHER_NAME.parse().unwrap(), // encrypted with a different key
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()), // encrypted with a different key
             ..cipher
         };
 
@@ -2782,7 +2867,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
@@ -2831,7 +2916,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::SecureNote,
             login: None,
@@ -2874,7 +2959,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Card,
             login: None,
@@ -2941,7 +3026,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Identity,
             login: None,
@@ -3101,7 +3186,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::SshKey,
             login: None,
@@ -3151,7 +3236,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
@@ -3194,7 +3279,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
@@ -3255,7 +3340,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: None,
@@ -4033,6 +4118,126 @@ mod tests {
                 blob_list.has_old_attachments,
                 legacy_list.has_old_attachments,
             );
+        }
+    }
+
+    // ---------- EncryptMode ----------
+
+    mod encrypt_mode {
+        use bitwarden_crypto::{IdentifyKey, KeyStore};
+
+        use super::*;
+
+        fn make_key_store() -> KeyStore<KeySlotIds> {
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ))
+        }
+
+        fn base_login_view() -> CipherView {
+            let mut view = generate_cipher();
+            view.name = "Round Trip".to_string();
+            view.login = Some(LoginView {
+                username: Some("alice@example.com".to_string()),
+                password: Some("hunter2".to_string()),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            });
+            view
+        }
+
+        /// Blob variant produces a blob-shaped cipher: sealed `data`, placeholder
+        /// `name`, and every per-type sensitive field cleared.
+        #[test]
+        fn blob_variant_produces_blob_shaped_cipher() {
+            let key_store = make_key_store();
+            let mode = EncryptMode::Blob(base_login_view());
+
+            let cipher: Cipher = key_store.encrypt(mode).unwrap();
+
+            assert!(try_parse_blob(&cipher).is_some());
+            assert!(cipher.data.is_some());
+            assert!(cipher.login.is_none());
+            assert!(cipher.card.is_none());
+            assert!(cipher.identity.is_none());
+            assert!(cipher.secure_note.is_none());
+            assert!(cipher.ssh_key.is_none());
+            assert!(cipher.bank_account.is_none());
+            assert!(cipher.fields.is_none());
+            assert!(cipher.password_history.is_none());
+            assert!(cipher.notes.is_none());
+        }
+
+        /// Legacy variant produces a legacy-shaped cipher: `data` empty, and the
+        /// matching per-type field populated.
+        #[test]
+        fn legacy_variant_produces_legacy_shaped_cipher() {
+            let key_store = make_key_store();
+            let mode = EncryptMode::Legacy(base_login_view());
+
+            let cipher: Cipher = key_store.encrypt(mode).unwrap();
+
+            assert!(try_parse_blob(&cipher).is_none());
+            assert!(cipher.data.is_none());
+            assert!(cipher.login.is_some());
+        }
+
+        /// Blob variant round-trips through decryption
+        #[test]
+        fn blob_variant_round_trips_through_decrypt() {
+            let key_store = make_key_store();
+            let original = base_login_view();
+            let mode = EncryptMode::Blob(original.clone());
+
+            let cipher: Cipher = key_store.encrypt(mode).unwrap();
+            let restored: CipherView = key_store.decrypt(&cipher).unwrap();
+
+            assert_eq!(restored.name, original.name);
+            let login = restored.login.expect("round-trip should restore login");
+            assert_eq!(login.username, original.login.as_ref().unwrap().username);
+            assert_eq!(login.password, original.login.as_ref().unwrap().password);
+        }
+
+        /// `key_identifier` must delegate to the inner view so `encrypt_list`
+        /// selects the correct scope key.
+        #[test]
+        fn key_identifier_delegates_to_inner_view() {
+            let view = base_login_view();
+            let expected = view.key_identifier();
+            let mode = EncryptMode::Blob(view);
+            assert_eq!(mode.key_identifier(), expected);
+        }
+
+        /// A mixed-batch `encrypt_list` preserves input order and produces a
+        /// cipher shaped per-variant.
+        #[test]
+        fn mixed_batch_encrypt_list_preserves_per_item_shape() {
+            let key_store = make_key_store();
+            let mut legacy_view = base_login_view();
+            legacy_view.name = "Legacy".to_string();
+            let mut blob_view = base_login_view();
+            blob_view.name = "Blob".to_string();
+
+            let modes = vec![
+                EncryptMode::Legacy(legacy_view),
+                EncryptMode::Blob(blob_view),
+            ];
+            let ciphers: Vec<Cipher> = key_store.encrypt_list(&modes).unwrap();
+
+            assert_eq!(ciphers.len(), 2);
+            assert!(
+                try_parse_blob(&ciphers[0]).is_none(),
+                "first item should be legacy"
+            );
+            assert!(
+                try_parse_blob(&ciphers[1]).is_some(),
+                "second item should be blob"
+            );
+            assert!(ciphers[0].login.is_some());
+            assert!(ciphers[1].login.is_none());
         }
     }
 }

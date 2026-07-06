@@ -94,16 +94,8 @@ impl Client {
             .map_err(RehydrationError::State)?
             .ok_or_else(|| RehydrationError::MissingState("USER_ID".to_string()))?;
 
-        let platform = get_host_platform_info();
-        let settings = crate::ClientSettings {
-            identity_url: base_urls.identity_url,
-            api_url: base_urls.api_url,
-            user_agent: platform.user_agent.clone(),
-            device_type: platform.device_type,
-            device_identifier: platform.device_identifier.clone(),
-            bitwarden_client_version: platform.bitwarden_client_version.clone(),
-            bitwarden_package_type: platform.bitwarden_package_type.clone(),
-        };
+        let settings =
+            get_host_platform_info().to_client_settings(base_urls.api_url, base_urls.identity_url);
 
         let client = ClientBuilder::new()
             .with_settings(settings)

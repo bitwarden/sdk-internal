@@ -33,6 +33,7 @@ bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-va
 bitwarden-core = { path = "crates/bitwarden-core", version = "=3.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=3.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=3.0.0" }
+bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=3.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=3.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=3.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=3.0.0" }
@@ -201,3 +202,9 @@ opt-level = 3
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
+
+# crypto-bigint 0.7.0-0.7.4 were yanked and 0.7.5 has not yet propagated to the sparse index,
+# so `rsa`/`ssh-key` (which require `^0.7`) cannot be resolved from crates.io. Pin to the 0.7.5
+# tag until the registry index catches up, then remove this patch.
+[patch.crates-io]
+crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint", tag = "v0.7.5" }
