@@ -174,8 +174,10 @@ mod tests {
     use std::str::FromStr;
 
     use bitwarden_sensitive_value::ExposeSensitive as _;
-    use wiremock::matchers::{body_string_contains, method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_string_contains, method, path},
+    };
 
     use super::{AuthError, IdentityClient};
     use crate::token::DaemonToken;

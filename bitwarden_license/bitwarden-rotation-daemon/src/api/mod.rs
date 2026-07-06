@@ -2,36 +2,40 @@
 //!
 //! This module provides:
 //!
-//! - [`DaemonAuthMiddleware`]: a [`reqwest_middleware::Middleware`] that attaches the
-//!   daemon bearer token to outgoing requests, retries once on 401 with a forced
-//!   [`crate::auth::session::SessionManager::force_refresh`], and converts session-loss
-//!   into a hard middleware error rather than soft-failing.
-//! - [`build_api_client`]: assembles the full HTTP + middleware + generated-client
-//!   stack from a `base_url` string and a [`crate::auth::session::SessionManager`].
-//! - [`RotationApi`]: a thin wrapper over the generated
-//!   [`bitwarden_api_api::apis::ApiClient`] that maps every generated call into local
-//!   domain types and [`models::ApiError`] variants, bumping the connectivity watch on
-//!   every successful response.
+//! - [`DaemonAuthMiddleware`]: a [`reqwest_middleware::Middleware`] that attaches the daemon bearer
+//!   token to outgoing requests, retries once on 401 with a forced
+//!   [`crate::auth::session::SessionManager::force_refresh`], and converts session-loss into a hard
+//!   middleware error rather than soft-failing.
+//! - [`build_api_client`]: assembles the full HTTP + middleware + generated-client stack from a
+//!   `base_url` string and a [`crate::auth::session::SessionManager`].
+//! - [`RotationApi`]: a thin wrapper over the generated [`bitwarden_api_api::apis::ApiClient`] that
+//!   maps every generated call into local domain types and [`models::ApiError`] variants, bumping
+//!   the connectivity watch on every successful response.
 
 pub(crate) mod models;
 
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use bitwarden_api_api::apis::ApiClient;
-use bitwarden_api_api::apis::AuthRequired;
-use bitwarden_api_api::models::{
-    ReportRotationFailedRequestModel, ReportRotationSucceededRequestModel,
-    SubmitCipherUpdateRequestModel,
+use bitwarden_api_api::{
+    apis::{ApiClient, AuthRequired},
+    models::{
+        ReportRotationFailedRequestModel, ReportRotationSucceededRequestModel,
+        SubmitCipherUpdateRequestModel,
+    },
 };
 use bitwarden_api_base::Configuration;
+use models::{ApiError, JobRef, RotationCipher, TargetKind, WorkSnapshot};
 use reqwest_middleware::{ClientBuilder, Middleware, Next};
 use tokio::sync::watch;
 use uuid::Uuid;
 
-use crate::auth::session::{SessionLost, SessionManager};
-use crate::error::{FailureCode, SafeDetail, SessionTermination, SyncState};
-use models::{ApiError, JobRef, RotationCipher, TargetKind, WorkSnapshot};
+use crate::{
+    auth::session::{SessionLost, SessionManager},
+    error::{FailureCode, SafeDetail, SessionTermination, SyncState},
+};
 
 // ---------------------------------------------------------------------------
 // DaemonAuthMiddleware
@@ -63,7 +67,7 @@ use models::{ApiError, JobRef, RotationCipher, TargetKind, WorkSnapshot};
 /// Unlike bitwarden-auth's middleware (which soft-fails by sending the request
 /// without a token when renewal fails), this middleware **hard-fails** with a
 /// middleware error if a bearer token cannot be obtained.  A
-/// [`SessionError::Lost`] propagates as
+/// [`crate::auth::session::SessionError::Lost`] propagates as
 /// [`reqwest_middleware::Error::Middleware`] backed by an `anyhow` error; the
 /// executor can then consult `session.phase()` to decide on `CredentialRefused`
 /// vs reconnect.
@@ -161,9 +165,8 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
 ///
 /// Uses [`bitwarden_api_base::new_http_client_builder`] to get a `reqwest`
 /// client with rustls + platform-certificate-verifier + https-only (release)
-/// + Bitwarden user-agent headers.  A 30 s per-request timeout is applied so
-///   that a black-holed connection cannot starve the heartbeat past
-///   `DaemonOfflineAfter` (2 minutes).
+/// + Bitwarden user-agent headers.  A 30 s per-request timeout is applied so that a black-holed
+///   connection cannot starve the heartbeat past `DaemonOfflineAfter` (2 minutes).
 ///
 /// The [`DaemonAuthMiddleware`] is layered on top to handle token attachment
 /// and 401 refresh.
@@ -213,8 +216,7 @@ pub(crate) fn build_api_client(
 /// See [`ApiError`] for the full taxonomy.  The classification follows the rules
 /// in the plan §4:
 ///
-/// - Post-retry 401 → consult `session.phase()`: terminal → `SessionLost`, else
-///   `Transient`.
+/// - Post-retry 401 → consult `session.phase()`: terminal → `SessionLost`, else `Transient`.
 /// - 404 on poll/claim (daemon/job routes) → `NotEligible`.
 /// - 404 on attempt routes → `UnknownAttempt`.
 /// - 409 → `Rejected` (or `Ok(None)` for the claim endpoint).
@@ -331,10 +333,9 @@ impl RotationApi {
     /// Write the re-encrypted cipher data back to the server.
     ///
     /// - Returns `Ok(())` on success.
-    /// - Returns `Err(ApiError::Rejected { status: 409 })` on revision-drift /
-    ///   capability-lost (409).
-    /// - Returns `Err(ApiError::UnknownAttempt)` if the attempt is not found
-    ///   (404).
+    /// - Returns `Err(ApiError::Rejected { status: 409 })` on revision-drift / capability-lost
+    ///   (409).
+    /// - Returns `Err(ApiError::UnknownAttempt)` if the attempt is not found (404).
     pub(crate) async fn put_cipher(
         &self,
         attempt_id: Uuid,
@@ -635,21 +636,22 @@ fn failure_code_string(code: FailureCode) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use std::time::Instant;
-
-    use tokio::sync::watch;
-    use wiremock::matchers::{header, method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use std::{sync::Arc, time::Instant};
 
     use bitwarden_api_api::models::PamPasswordPolicyResponseModel;
     use bitwarden_api_base::Configuration;
     use reqwest_middleware::ClientBuilder;
+    use tokio::sync::watch;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{header, method, path},
+    };
 
     use super::*;
-    use crate::auth::identity::IdentityClient;
-    use crate::auth::session::SessionManager;
-    use crate::error::{FailureCode, SafeDetail, SyncState};
+    use crate::{
+        auth::{identity::IdentityClient, session::SessionManager},
+        error::{FailureCode, SafeDetail, SyncState},
+    };
 
     // ── Shared test helpers ────────────────────────────────────────────────
 
@@ -1262,8 +1264,7 @@ mod tests {
 
     #[tokio::test]
     async fn middleware_refreshes_once_on_401_and_retries() {
-        use bitwarden_crypto::SymmetricCryptoKey;
-        use bitwarden_crypto::SymmetricKeyAlgorithm;
+        use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
         let identity_server = MockServer::start().await;
         let api_server = MockServer::start().await;

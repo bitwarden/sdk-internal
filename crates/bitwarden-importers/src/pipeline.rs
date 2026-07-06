@@ -141,6 +141,7 @@ pub(crate) async fn submit_import(
                             groups: None,
                             users: None,
                             id: collection.id.map(Into::into),
+                            access_rule_id: None,
                         };
                         (vec![model], relationships)
                     }

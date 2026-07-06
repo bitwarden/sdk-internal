@@ -3,14 +3,15 @@
 //! Wire DTOs come from `bitwarden_api_api::models`; only the stripped-down
 //! daemon-local types live here.
 
+use bitwarden_api_api::models::{PamPasswordPolicyResponseModel, PamTargetSystemKind};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use bitwarden_api_api::models::{PamPasswordPolicyResponseModel, PamTargetSystemKind};
-
-use crate::auth::session::SessionLost;
-use crate::error::{SessionTermination, SyncState};
-use crate::policy::PasswordPolicy;
+use crate::{
+    auth::session::SessionLost,
+    error::{SessionTermination, SyncState},
+    policy::PasswordPolicy,
+};
 
 // ---------------------------------------------------------------------------
 // TargetKind
@@ -154,7 +155,7 @@ pub(crate) struct RotationCipher {
 // Report conversion helpers
 // ---------------------------------------------------------------------------
 
-/// Convert the daemon's [`SessionTermination`] into the generated
+/// Convert the daemon's `SessionTermination` into the generated
 /// [`bitwarden_api_api::models::PamSessionTerminationOutcome`] integer enum.
 impl From<SessionTermination> for bitwarden_api_api::models::PamSessionTerminationOutcome {
     fn from(t: SessionTermination) -> Self {
@@ -172,7 +173,7 @@ impl From<SessionTermination> for bitwarden_api_api::models::PamSessionTerminati
     }
 }
 
-/// Convert the daemon's [`SyncState`] into the generated
+/// Convert the daemon's `SyncState` into the generated
 /// [`bitwarden_api_api::models::PamRotationSyncState`] integer enum.
 impl From<SyncState> for bitwarden_api_api::models::PamRotationSyncState {
     fn from(s: SyncState) -> Self {

@@ -84,6 +84,7 @@
     {
       matchManagers: ["cargo"],
       matchPackageNames: [
+        "anyhow",
         "async-trait",
         "cargo-dylint",
         "cargo-sort",
