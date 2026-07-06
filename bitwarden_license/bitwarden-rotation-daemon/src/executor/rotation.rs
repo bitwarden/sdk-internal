@@ -3,7 +3,7 @@
 //! # Overview
 //!
 //! [`execute`] runs a single rotation attempt from start to finish following the
-//! seven-step [`ExecuteRotation`] spec rule.  Each step either advances or
+//! seven-step `ExecuteRotation` spec rule.  Each step either advances or
 //! terminates the attempt, producing an [`ExecutionResult`].
 //!
 //! # Proof tokens (compile-time VerifiedBeforeSuccess)
@@ -31,21 +31,26 @@
 //! spec (lines 306–321) endorses this; the server's success-wins semantics
 //! release keys on heartbeat staleness AND lease expiry, not only on lease expiry.
 
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use chrono::Utc;
 
-use crate::api::RotationApi;
-use crate::api::models::{ApiError, WorkSnapshot};
-use crate::auth::session::{SessionLost, SessionManager, SessionPhase};
-use crate::crypto::{DaemonKeyStore, encrypt_cipher_password};
-use crate::error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState};
-use crate::integrations::{Integration, IntegrationRegistry, RotateContext, TargetEffect};
-use crate::policy;
-use crate::resolver::{CredentialResolver, ResolveError};
-
 use super::retry::{GatedOutcome, RetryCfg, with_retries, with_retries_gated};
+use crate::{
+    api::{
+        RotationApi,
+        models::{ApiError, WorkSnapshot},
+    },
+    auth::session::{SessionLost, SessionManager, SessionPhase},
+    crypto::{DaemonKeyStore, encrypt_cipher_password},
+    error::{ErrorClass, FailureCode, SafeDetail, SessionTermination, SyncState},
+    integrations::{Integration, IntegrationRegistry, RotateContext, TargetEffect},
+    policy,
+    resolver::{CredentialResolver, ResolveError},
+};
 
 // ---------------------------------------------------------------------------
 // AbortReason
@@ -135,8 +140,8 @@ pub(crate) struct ExecutionContext {
 ///
 /// 0. Phase check — if `Revoked`/`Closed`, best-effort failure report then stop.
 /// 1. Resolve credentials — failure → `credentials_unresolved` / `target_unchanged`.
-/// 2. Generate password + registry lookup — failure → `invalid_policy` or
-///    `unsupported_kind` / `target_unchanged`.
+/// 2. Generate password + registry lookup — failure → `invalid_policy` or `unsupported_kind` /
+///    `target_unchanged`.
 /// 3. Rotate (target-side, gated retries) — maps `TargetEffect` to `SyncState`.
 /// 4. Verify (target-side, gated retries) — failure always → `target_updated`.
 /// 5. Cipher write (server-side, ungated) — reads, encrypts, writes.
@@ -552,8 +557,15 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
     // demands proof tokens for steps 4 (Verified) and 5 (CipherWritten), making
     // it a compile-time error to call it without completing both steps in order.
     let termination = termination_result;
-    let report_result =
-        report_success_inner(&ctx.api, &ctx.retry_cfg, attempt_id, termination, verified, cipher_written).await;
+    let report_result = report_success_inner(
+        &ctx.api,
+        &ctx.retry_cfg,
+        attempt_id,
+        termination,
+        verified,
+        cipher_written,
+    )
+    .await;
 
     match report_result {
         Ok(()) => ExecutionResult::Reported,
@@ -614,8 +626,8 @@ async fn report_success_inner(
 /// 1. `now >= execute_by` → `LeaseExpired`
 /// 2. cancellation token cancelled → `Cancelled`
 /// 3. phase `Revoked`/`Closed` → `SessionLost`
-/// 4. phase `Expired`/`Authenticating` → pause: call `session.bearer(execute_by)`,
-///    then re-loop; if `Lost` → `SessionLost`; if transient / deadline → `LeaseExpired`
+/// 4. phase `Expired`/`Authenticating` → pause: call `session.bearer(execute_by)`, then re-loop; if
+///    `Lost` → `SessionLost`; if transient / deadline → `LeaseExpired`
 /// 5. phase `Active` but connectivity stale → wait until recovered or `execute_by`
 fn make_gate(
     session: Arc<SessionManager>,
@@ -778,16 +790,19 @@ use std::future::Future;
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
 
     use async_trait::async_trait;
 
-    use crate::error::{FailureCode, SafeDetail};
-    use crate::integrations::{Integration, IntegrationError, RotateContext, TargetEffect};
-    use crate::resolver::ResolvedCredentials;
-
     use super::*;
+    use crate::{
+        error::{FailureCode, SafeDetail},
+        integrations::{Integration, IntegrationError, RotateContext, TargetEffect},
+        resolver::ResolvedCredentials,
+    };
 
     // ── datetime_to_instant ────────────────────────────────────────────────
 
@@ -815,17 +830,22 @@ mod tests {
 
     #[tokio::test]
     async fn gate_lease_expired_aborts() {
-        use crate::auth::identity::IdentityClient;
-        use crate::auth::session::SessionManager;
-        use crate::token::DaemonToken;
+        use std::str::FromStr;
+
         use bitwarden_crypto::{
             KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
         };
         use bitwarden_encoding::B64;
-        use std::str::FromStr;
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
         use zeroize::Zeroizing;
+
+        use crate::{
+            auth::{identity::IdentityClient, session::SessionManager},
+            token::DaemonToken,
+        };
 
         let server = MockServer::start().await;
 
@@ -889,17 +909,22 @@ mod tests {
 
     #[tokio::test]
     async fn gate_cancelled_aborts() {
-        use crate::auth::identity::IdentityClient;
-        use crate::auth::session::SessionManager;
-        use crate::token::DaemonToken;
+        use std::str::FromStr;
+
         use bitwarden_crypto::{
             KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
         };
         use bitwarden_encoding::B64;
-        use std::str::FromStr;
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
         use zeroize::Zeroizing;
+
+        use crate::{
+            auth::{identity::IdentityClient, session::SessionManager},
+            token::DaemonToken,
+        };
 
         let server = MockServer::start().await;
 
@@ -971,7 +996,6 @@ mod tests {
                 rotate_calls: Arc::new(Mutex::new(0)),
             }
         }
-
     }
 
     #[async_trait]
@@ -1084,26 +1108,32 @@ mod tests {
     /// `syncState == 1` (TargetUpdated).
     #[tokio::test]
     async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
+        use std::str::FromStr;
+
         use bitwarden_crypto::{
             KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
         };
         use bitwarden_encoding::B64;
         use chrono::Utc;
-        use std::str::FromStr;
         use tokio::sync::watch;
-        use wiremock::matchers::{method, path};
-        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
         use zeroize::Zeroizing;
 
-        use crate::api::models::{TargetKind, WorkSnapshot};
-        use crate::api::{RotationApi, build_api_client};
-        use crate::auth::identity::IdentityClient;
-        use crate::auth::session::SessionManager;
-        use crate::crypto::DaemonKeyStore;
-        use crate::integrations::IntegrationRegistry;
-        use crate::policy::PasswordPolicy;
-        use crate::resolver::{CredentialResolver, ResolveError, ResolvedCredentials};
-        use crate::token::DaemonToken;
+        use crate::{
+            api::{
+                RotationApi, build_api_client,
+                models::{TargetKind, WorkSnapshot},
+            },
+            auth::{identity::IdentityClient, session::SessionManager},
+            crypto::DaemonKeyStore,
+            integrations::IntegrationRegistry,
+            policy::PasswordPolicy,
+            resolver::{CredentialResolver, ResolveError, ResolvedCredentials},
+            token::DaemonToken,
+        };
 
         // ── Build minimal key material ──────────────────────────────────────
         let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
