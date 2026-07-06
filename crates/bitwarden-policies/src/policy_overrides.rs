@@ -2,7 +2,7 @@
 
 use bitwarden_organizations::OrganizationUserType;
 
-use crate::filter::{Policy, PolicyType};
+use crate::{PolicyType, filter::Policy};
 
 /// Master Password policy (type 1).
 ///
@@ -11,7 +11,7 @@ pub struct MasterPasswordPolicy;
 
 impl Policy for MasterPasswordPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType(1)
+        PolicyType::MasterPassword
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -19,14 +19,14 @@ impl Policy for MasterPasswordPolicy {
     }
 }
 
-/// Password Generator policy (type 2).
+/// Password Generator policy.
 ///
 /// Applies to **everyone**, including Owners and Admins.
 pub struct PasswordGeneratorPolicy;
 
 impl Policy for PasswordGeneratorPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType(2)
+        PolicyType::PasswordGenerator
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -34,14 +34,14 @@ impl Policy for PasswordGeneratorPolicy {
     }
 }
 
-/// Maximum Vault Timeout policy (type 9).
+/// Maximum Vault Timeout policy.
 ///
 /// Applies to everyone **except Owners**. Admins are not exempt.
 pub struct MaximumVaultTimeoutPolicy;
 
 impl Policy for MaximumVaultTimeoutPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType(9)
+        PolicyType::MaximumVaultTimeout
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -49,14 +49,14 @@ impl Policy for MaximumVaultTimeoutPolicy {
     }
 }
 
-/// Free Families Sponsorship policy (type 13).
+/// Free Families Sponsorship policy.
 ///
 /// Applies to **everyone**, including Owners and Admins.
 pub struct FreeFamiliesSponsorshipPolicy;
 
 impl Policy for FreeFamiliesSponsorshipPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType(13)
+        PolicyType::FreeFamiliesSponsorship
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -64,14 +64,14 @@ impl Policy for FreeFamiliesSponsorshipPolicy {
     }
 }
 
-/// Remove Unlock with PIN policy (type 14).
+/// Remove Unlock with PIN policy.
 ///
 /// Applies to **everyone**, including Owners and Admins.
 pub struct RemoveUnlockWithPinPolicy;
 
 impl Policy for RemoveUnlockWithPinPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType(14)
+        PolicyType::RemoveUnlockWithPin
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -79,14 +79,14 @@ impl Policy for RemoveUnlockWithPinPolicy {
     }
 }
 
-/// Restricted Item Types policy (type 15).
+/// Restricted Item Types policy.
 ///
 /// Applies to **everyone**, including Owners and Admins.
 pub struct RestrictedItemTypesPolicy;
 
 impl Policy for RestrictedItemTypesPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType(15)
+        PolicyType::RestrictedItemTypes
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -94,14 +94,29 @@ impl Policy for RestrictedItemTypesPolicy {
     }
 }
 
-/// Automatic User Confirmation policy (type 18).
+/// Automatic User Confirmation policy.
 ///
 /// Applies to **everyone**, including Owners and Admins.
 pub struct AutomaticUserConfirmationPolicy;
 
 impl Policy for AutomaticUserConfirmationPolicy {
     fn policy_type(&self) -> PolicyType {
-        PolicyType(18)
+        PolicyType::AutomaticUserConfirmation
+    }
+
+    fn exempt_roles(&self) -> &[OrganizationUserType] {
+        &[]
+    }
+}
+
+/// Organization User Notification policy.
+///
+/// Applies to **everyone**, including Owners and Admins.
+pub struct OrganizationUserNotificationPolicy;
+
+impl Policy for OrganizationUserNotificationPolicy {
+    fn policy_type(&self) -> PolicyType {
+        PolicyType::OrganizationUserNotification
     }
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
@@ -111,32 +126,31 @@ impl Policy for AutomaticUserConfirmationPolicy {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_organizations::{
-        OrganizationUserStatusType, OrganizationUserType, ProfileOrganization,
-    };
+    use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
     use uuid::Uuid;
 
     use super::*;
-    use crate::filter::{PolicyFilter, PolicyView};
+    use crate::{OrganizationUserPolicyContext, PolicyView, filter::PolicyFilter};
 
-    fn policy_view(organization_id: Uuid, policy_type: u8) -> PolicyView {
+    fn policy_view(organization_id: Uuid, policy_type: PolicyType) -> PolicyView {
         PolicyView {
             id: Uuid::new_v4(),
             organization_id,
-            r#type: PolicyType(policy_type),
+            r#type: policy_type,
             data: None,
             enabled: true,
+            revision_date: Default::default(),
         }
     }
 
-    fn org(id: Uuid, user_type: OrganizationUserType) -> ProfileOrganization {
-        ProfileOrganization {
+    fn org(id: Uuid, user_type: OrganizationUserType) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
-            r#type: user_type,
+            role: user_type,
             status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
             use_policies: true,
             is_provider_user: false,
-            ..Default::default()
         }
     }
 
@@ -145,7 +159,7 @@ mod tests {
     #[test]
     fn master_password_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(MasterPasswordPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -153,7 +167,7 @@ mod tests {
     #[test]
     fn master_password_applies_to_admin() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword)];
         let orgs = [org(org_id, OrganizationUserType::Admin)];
         assert_eq!(MasterPasswordPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -163,7 +177,7 @@ mod tests {
     #[test]
     fn password_generator_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 2)];
+        let policies = [policy_view(org_id, PolicyType::PasswordGenerator)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(PasswordGeneratorPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -171,7 +185,7 @@ mod tests {
     #[test]
     fn password_generator_applies_to_admin() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 2)];
+        let policies = [policy_view(org_id, PolicyType::PasswordGenerator)];
         let orgs = [org(org_id, OrganizationUserType::Admin)];
         assert_eq!(PasswordGeneratorPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -181,7 +195,7 @@ mod tests {
     #[test]
     fn maximum_vault_timeout_exempts_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 9)];
+        let policies = [policy_view(org_id, PolicyType::MaximumVaultTimeout)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert!(
             MaximumVaultTimeoutPolicy
@@ -193,7 +207,7 @@ mod tests {
     #[test]
     fn maximum_vault_timeout_applies_to_admin() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 9)];
+        let policies = [policy_view(org_id, PolicyType::MaximumVaultTimeout)];
         let orgs = [org(org_id, OrganizationUserType::Admin)];
         assert_eq!(MaximumVaultTimeoutPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -201,7 +215,7 @@ mod tests {
     #[test]
     fn maximum_vault_timeout_applies_to_user() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 9)];
+        let policies = [policy_view(org_id, PolicyType::MaximumVaultTimeout)];
         let orgs = [org(org_id, OrganizationUserType::User)];
         assert_eq!(MaximumVaultTimeoutPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -211,7 +225,7 @@ mod tests {
     #[test]
     fn free_families_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 13)];
+        let policies = [policy_view(org_id, PolicyType::FreeFamiliesSponsorship)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(
             FreeFamiliesSponsorshipPolicy.filter(&policies, &orgs).len(),
@@ -224,7 +238,7 @@ mod tests {
     #[test]
     fn remove_unlock_with_pin_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 14)];
+        let policies = [policy_view(org_id, PolicyType::RemoveUnlockWithPin)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(RemoveUnlockWithPinPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -234,7 +248,7 @@ mod tests {
     #[test]
     fn restricted_item_types_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 15)];
+        let policies = [policy_view(org_id, PolicyType::RestrictedItemTypes)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(RestrictedItemTypesPolicy.filter(&policies, &orgs).len(), 1);
     }
@@ -244,10 +258,44 @@ mod tests {
     #[test]
     fn automatic_user_confirmation_applies_to_owner() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 18)];
+        let policies = [policy_view(org_id, PolicyType::AutomaticUserConfirmation)];
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(
             AutomaticUserConfirmationPolicy
+                .filter(&policies, &orgs)
+                .len(),
+            1
+        );
+    }
+
+    // --- OrganizationUserNotificationPolicy ---
+
+    #[test]
+    fn organization_user_notification_applies_to_owner() {
+        let org_id = Uuid::new_v4();
+        let policies = [policy_view(
+            org_id,
+            PolicyType::OrganizationUserNotification,
+        )];
+        let orgs = [org(org_id, OrganizationUserType::Owner)];
+        assert_eq!(
+            OrganizationUserNotificationPolicy
+                .filter(&policies, &orgs)
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn organization_user_notification_applies_to_admin() {
+        let org_id = Uuid::new_v4();
+        let policies = [policy_view(
+            org_id,
+            PolicyType::OrganizationUserNotification,
+        )];
+        let orgs = [org(org_id, OrganizationUserType::Admin)];
+        assert_eq!(
+            OrganizationUserNotificationPolicy
                 .filter(&policies, &orgs)
                 .len(),
             1

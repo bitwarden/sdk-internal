@@ -8,7 +8,7 @@ use bitwarden_crypto::{
     Decryptable, EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
     OctetStreamBytes, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, PrivateKey, PublicKey,
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
-    SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
+    SpkiPublicKeyBytes, SymmetricCryptoKey, SymmetricKeyAlgorithm, UnsignedSharedKey, VerifyingKey,
 };
 use rand::RngExt;
 use rsa::{
@@ -139,13 +139,13 @@ impl PureCrypto {
     }
 
     pub fn make_user_key_aes256_cbc_hmac() -> Vec<u8> {
-        SymmetricCryptoKey::make_aes256_cbc_hmac_key()
+        SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac)
             .to_encoded()
             .to_vec()
     }
 
     pub fn make_user_key_xchacha20_poly1305() -> Vec<u8> {
-        SymmetricCryptoKey::make_xchacha20_poly1305_key()
+        SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305)
             .to_encoded()
             .to_vec()
     }
@@ -418,6 +418,12 @@ impl PureCrypto {
         let _span = tracing::info_span!("PureCrypto::random_number").entered();
         let mut rng = rand::rng();
         rng.random_range(min..=max)
+    }
+
+    /// Generates a new v4 UUID using a cryptographically secure random number generator
+    pub fn new_guid() -> String {
+        let _span = tracing::info_span!("PureCrypto::new_guid").entered();
+        uuid::Uuid::new_v4().to_string()
     }
 }
 
@@ -800,5 +806,15 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let encrypted_data = PureCrypto::rsa_encrypt_data(plain_data.clone(), public_key).unwrap();
         let decrypted_data = PureCrypto::rsa_decrypt_data(encrypted_data, private_key).unwrap();
         assert_eq!(plain_data, decrypted_data);
+    }
+
+    #[test]
+    fn test_new_guid_is_v4_and_unique() {
+        let first = PureCrypto::new_guid();
+        let second = PureCrypto::new_guid();
+
+        let parsed = uuid::Uuid::parse_str(&first).expect("new_guid output must parse as a UUID");
+        assert_eq!(parsed.get_version_num(), 4);
+        assert_ne!(first, second);
     }
 }

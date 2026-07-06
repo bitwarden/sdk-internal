@@ -11,7 +11,6 @@ use wasm_bindgen::prelude::*;
 
 mod create;
 mod delete;
-mod delete_attachment;
 mod edit;
 mod get;
 mod restore;
@@ -44,10 +43,6 @@ impl FromClient for CipherAdminClient {
 #[allow(deprecated)]
 impl CipherAdminClient {
     async fn is_strict_decrypt(&self) -> bool {
-        self.client
-            .internal
-            .get_flags()
-            .await
-            .strict_cipher_decryption
+        self.client.flags().get().await.strict_cipher_decryption
     }
 }

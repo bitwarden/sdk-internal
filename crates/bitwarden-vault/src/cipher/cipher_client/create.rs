@@ -7,6 +7,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -17,7 +18,8 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
+    cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -59,6 +61,8 @@ pub struct CipherCreateRequest {
     pub reprompt: CipherRepromptType,
     pub r#type: CipherViewType,
     pub fields: Vec<FieldView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archived_date: Option<DateTime<Utc>>,
 }
 
 /// Internal helper to convert a [`CipherCreateRequest`] into a [`CipherView`]
@@ -102,7 +106,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
         creation_date: now,
         deleted_date: None,
         revision_date: now,
-        archived_date: None,
+        archived_date: r.archived_date,
     }
 }
 
@@ -112,10 +116,16 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     view: CipherView,
+    use_strict_decryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let collection_ids = view.collection_ids.clone();
-
-    let cipher: Cipher = key_store.encrypt(view)?;
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -142,7 +152,11 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
 
-    Ok(key_store.decrypt(&cipher)?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
+    } else {
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
@@ -167,16 +181,12 @@ impl CiphersClient {
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
-        if self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption
-        {
+        if self.client.flags().get().await.enable_cipher_key_encryption {
             let key = view.key_identifier();
             view.generate_cipher_key(&mut key_store.context(), key)?;
         }
+
+        let use_blob = self.should_use_blob_encryption(view.organization_id);
 
         create_cipher(
             key_store,
@@ -184,6 +194,8 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             view,
+            self.is_strict_decrypt().await,
+            use_blob,
         )
         .await
     }
@@ -224,6 +236,7 @@ mod tests {
             reprompt: Default::default(),
             fields: Default::default(),
             collection_ids: vec![],
+            archived_date: None,
         }
     }
 
@@ -295,6 +308,8 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
+            false,
         )
         .await
         .unwrap();
@@ -351,6 +366,8 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
+            false,
         )
         .await;
 
@@ -411,6 +428,7 @@ mod tests {
                 fido2_credentials: None,
             }),
             fields: vec![],
+            archived_date: None,
         };
 
         let response = create_cipher(
@@ -419,6 +437,8 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
+            false,
         )
         .await
         .unwrap();

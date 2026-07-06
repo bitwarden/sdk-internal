@@ -33,6 +33,7 @@ bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-va
 bitwarden-core = { path = "crates/bitwarden-core", version = "=3.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=3.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=3.0.0" }
+bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=3.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=3.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=3.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=3.0.0" }
@@ -41,12 +42,17 @@ bitwarden-ffi = { path = "crates/bitwarden-ffi", version = "=3.0.0" }
 bitwarden-ffi-macro = { path = "crates/bitwarden-ffi-macro", version = "=3.0.0" }
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=3.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=3.0.0" }
+bitwarden-importers = { path = "crates/bitwarden-importers", version = "=3.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=3.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=3.0.0" }
+bitwarden-logging-macro = { path = "crates/bitwarden-logging-macro", version = "=3.0.0" }
+bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=3.0.0" }
+bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=3.0.0" }
+bitwarden-sensitive-value = { path = "crates/bitwarden-sensitive-value", version = "=3.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=3.0.0" }
 bitwarden-shared-unlock = { path = "crates/bitwarden-shared-unlock", version = "=3.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=3.0.0" }
@@ -57,6 +63,7 @@ bitwarden-test = { path = "crates/bitwarden-test", version = "=3.0.0" }
 bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=3.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=3.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=3.0.0" }
+bitwarden-unlock = { path = "crates/bitwarden-unlock", version = "=3.0.0" }
 bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-management", version = "=3.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=3.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=3.0.0" }
@@ -68,26 +75,39 @@ chrono = { version = ">=0.4.26, <0.5", features = [
 ], default-features = false }
 ciborium = ">=0.2.2, <0.3"
 data-encoding = ">=2.0, <3"
-ed25519-dalek = { version = "3.0.0-pre.6" }
+ed25519-dalek = { version = "3.0.0-pre.7" }
 futures = ">=0.3.31, <0.4"
 hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
 js-sys = { version = ">=0.3.72, <0.4" }
+keepass = { version = ">=0.13.7, <0.14", default-features = false }
 mockall = { version = ">=0.13.1, <0.15" }
+password-rules-parser = ">=1.1.0, <2"
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"
 rand_chacha = ">=0.10.0, <0.11"
-reqwest = { version = "0.12.28", features = [
+reqwest = { version = "0.13.3", features = [
     "json",
     "multipart",
     "http2",
+    "form",
+    "query",
 ], default-features = false }
-reqwest-middleware = { version = "0.4.2", features = [
+reqwest-middleware = { version = "0.5.1", features = [
     "json",
     "multipart",
+    "form",
+    "query",
 ] }
 rsa = "0.10.0-rc.17"
+rustls = { version = "0.23.27", default-features = false, features = [
+    "std",
+    "tls12",
+    "logging",
+    "ring",
+] }
+rustls-platform-verifier = "0.6.2"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde-wasm-bindgen = ">=0.6.0, <0.7"
@@ -134,10 +154,27 @@ print_stderr = "warn"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(feature, values("uniffi", "wasm"))',
+    'cfg(dylint_lib, values("bitwarden_lints"))',
 ] }
 
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]
+
+# Pinned binary cargo tools used by CI and `scripts/lint.sh`.
+# Install the runner once with `cargo install cargo-run-bin --locked`, then
+# invoke any tool via `cargo bin <tool> <args>`. See README for details.
+[workspace.metadata.bin]
+cargo-sort = { version = "2.0.2", locked = true }
+cargo-udeps = { version = "0.1.57", locked = true }
+cargo-hack = { version = "0.6.33", locked = true }
+cargo-llvm-cov = { version = "0.5.38", locked = true }
+cargo-release = { version = "0.25.20", locked = true }
+cargo-edit = { version = "0.13.6", locked = true, bins = ["cargo-set-version"] }
+cargo-dylint = { version = "5.0.0", locked = true }
+dylint-link = { version = "5.0.0", locked = true }
+cross = { version = "0.2.5", git = "https://github.com/cross-rs/cross.git", rev = "185398b1b885820515a212de720a306b08e2c8c9", locked = true }
+clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
+sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out
@@ -165,3 +202,9 @@ opt-level = 3
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
+
+# crypto-bigint 0.7.0-0.7.4 were yanked and 0.7.5 has not yet propagated to the sparse index,
+# so `rsa`/`ssh-key` (which require `^0.7`) cannot be resolved from crates.io. Pin to the 0.7.5
+# tag until the registry index catches up, then remove this patch.
+[patch.crates-io]
+crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint", tag = "v0.7.5" }

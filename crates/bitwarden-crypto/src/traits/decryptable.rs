@@ -1,5 +1,3 @@
-use tracing::instrument;
-
 use crate::{CryptoError, EncString, KeySlotId, KeySlotIds, store::KeyStoreContext};
 
 /// A decryption operation that takes the input value and decrypts it into the output value.
@@ -11,7 +9,7 @@ pub trait Decryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
 }
 
 impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -22,7 +20,7 @@ impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
 }
 
 impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,

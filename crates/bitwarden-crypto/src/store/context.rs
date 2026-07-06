@@ -5,10 +5,9 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
-use tracing::instrument;
 use zeroize::Zeroizing;
 
-use super::KeyStoreInner;
+use super::{CipherSuite, KeyStoreInner};
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeySlotId, KeySlotIds, LocalId,
@@ -86,6 +85,8 @@ pub struct KeyStoreContext<'a, Ids: KeySlotIds> {
 
     pub(super) security_state_version: u64,
 
+    pub(super) cipher_suite: CipherSuite,
+
     // Make sure the context is !Send & !Sync
     pub(super) _phantom: std::marker::PhantomData<(Cell<()>, RwLockReadGuard<'static, ()>)>,
 }
@@ -146,6 +147,12 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.security_state_version
     }
 
+    /// Returns the [CipherSuite] this context operates under, which determines the algorithms
+    /// operations are allowed to use in the current environment.
+    pub fn cipher_suite(&self) -> CipherSuite {
+        self.cipher_suite
+    }
+
     /// Remove all symmetric keys from the context for which the predicate returns false
     /// This will also remove the keys from the global store if this context has write access
     pub fn retain_symmetric_keys(&mut self, f: fn(Ids::Symmetric) -> bool) {
@@ -164,7 +171,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         self.local_private_keys.retain(f);
     }
 
-    fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
+    /// Drop a symmetric key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
         if key_id.is_local() {
             self.local_symmetric_keys.remove(key_id);
         } else {
@@ -173,7 +183,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    fn drop_private_key(&mut self, key_id: Ids::Private) -> Result<()> {
+    /// Drop a private key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_private_key(&mut self, key_id: Ids::Private) -> Result<()> {
         if key_id.is_local() {
             self.local_private_keys.remove(key_id);
         } else {
@@ -182,7 +195,10 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    fn drop_signing_key(&mut self, key_id: Ids::Signing) -> Result<()> {
+    /// Drop a signing key from the context by its identifier.
+    /// This will also remove the key from the global store if this context has write access and the
+    /// key is not local.
+    pub fn drop_signing_key(&mut self, key_id: Ids::Signing) -> Result<()> {
         if key_id.is_local() {
             self.local_signing_keys.remove(key_id);
         } else {
@@ -203,7 +219,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
-    #[instrument(skip(self, wrapped_key), err)]
+    #[bitwarden_logging::instrument(err, fields(wrapping_key = ?wrapping_key))]
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -228,10 +244,11 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(
-                    &CoseEncrypt0Bytes::from(data.clone()),
-                    key,
-                )?;
+                let (content_bytes, content_format) =
+                    crate::cose::symmetric::decrypt_xchacha20_poly1305(
+                        &CoseEncrypt0Bytes::from(data.clone()),
+                        key,
+                    )?;
                 match content_format {
                     ContentFormat::BitwardenLegacyKey => {
                         SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
@@ -359,7 +376,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Errors
     /// Returns an error if decryption or parsing fails.
-    #[instrument(skip(self, wrapped_key), err)]
+    #[bitwarden_logging::instrument(err, fields(wrapping_key = ?wrapping_key))]
     pub fn unwrap_private_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -670,6 +687,13 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         }
     }
 
+    /// Returns `true` if the given symmetric key uses V1 (Aes256CbcHmac) encryption.
+    #[bitwarden_logging::instrument(err, fields(key_id = ?key_id))]
+    pub fn is_v1_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<bool> {
+        let algorithm = self.get_symmetric_key_algorithm(key_id)?;
+        Ok(algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac)
+    }
+
     /// Set a private key in the context.
     ///
     /// # Errors
@@ -714,7 +738,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         key_id
     }
 
-    #[instrument(skip(self, data), err)]
+    #[bitwarden_logging::instrument(err, fields(key = ?key))]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,
@@ -737,7 +761,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(
+                let (data, _) = crate::cose::symmetric::decrypt_xchacha20_poly1305(
                     &CoseEncrypt0Bytes::from(data.clone()),
                     key,
                 )?;

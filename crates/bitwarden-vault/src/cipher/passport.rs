@@ -122,23 +122,41 @@ impl CipherKind for Passport {
             .as_ref()
             .map(|s| s.decrypt(ctx, key))
             .transpose()?;
-        let parts: Vec<String> = [given_name, surname]
-            .into_iter()
-            .flatten()
-            .filter(|s| !s.is_empty())
-            .collect();
-        Ok(parts.join(" "))
+        Ok(build_subtitle_passport(given_name, surname))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
-        [self
-            .passport_number
-            .as_ref()
-            .map(|_| CopyableCipherFields::PassportPassportNumber)]
+        [
+            self.given_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportGivenName),
+            self.surname
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportSurname),
+            self.passport_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportPassportNumber),
+            self.national_identification_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::PassportNationalIdentificationNumber),
+        ]
         .into_iter()
         .flatten()
         .collect()
     }
+}
+
+/// Builds the subtitle for a passport cipher
+pub(super) fn build_subtitle_passport(
+    given_name: Option<String>,
+    surname: Option<String>,
+) -> String {
+    [given_name, surname]
+        .into_iter()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 impl TryFrom<CipherPassportModel> for Passport {
@@ -190,7 +208,7 @@ impl From<Passport> for CipherPassportModel {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::cipher::cipher::CopyableCipherFields;
@@ -220,7 +238,7 @@ mod tests {
     #[test]
     #[ignore]
     fn generate_test_vector() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_b64 = key.to_base64();
         let key_store = create_test_crypto_with_user_key(key);
         let key_slot = SymmetricKeySlotId::User;
@@ -307,7 +325,12 @@ mod tests {
         let copyable_fields = passport.get_copyable_fields(None);
         assert_eq!(
             copyable_fields,
-            vec![CopyableCipherFields::PassportPassportNumber,]
+            vec![
+                CopyableCipherFields::PassportGivenName,
+                CopyableCipherFields::PassportSurname,
+                CopyableCipherFields::PassportPassportNumber,
+                CopyableCipherFields::PassportNationalIdentificationNumber,
+            ]
         );
     }
 }

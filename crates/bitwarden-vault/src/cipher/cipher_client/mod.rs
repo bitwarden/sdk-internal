@@ -17,11 +17,14 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
+    cipher::cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
 #[cfg(feature = "wasm")]
-use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
+use crate::{
+    Fido2CredentialFullView,
+    cipher::{blob::encrypt_blob_cipher_with_wrapping_key, cipher::DecryptCipherResult},
+};
 
 mod admin;
 mod bulk_update_collections;
@@ -29,12 +32,29 @@ mod bulk_update_collections;
 pub use admin::GetAssignedOrgCiphersAdminError;
 mod create;
 mod delete;
-mod delete_attachment;
 mod edit;
 mod get;
 mod move_many;
 mod restore;
 mod share_cipher;
+
+/// Returns `true` when cipher data for the given scope should be written in the
+/// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
+/// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
+pub(crate) fn should_use_blob_encryption(
+    client: &Client,
+    organization_id: Option<OrganizationId>,
+) -> bool {
+    if organization_id.is_some() {
+        return false;
+    }
+    client
+        .internal
+        .get_key_store()
+        .context()
+        .get_security_state_version()
+        >= BLOB_SECURITY_VERSION
+}
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -64,23 +84,11 @@ impl FromClient for CiphersClient {
 #[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Returns `true` when cipher data for the given scope should be written in the
-    /// blob-encrypted format. Individual-vault ciphers qualify once the user's security state has
-    /// reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in PM-32430.
-    #[allow(dead_code)] // Consumed by the encrypt/decrypt wiring ticket.
     pub(crate) fn should_use_blob_encryption(
         &self,
         organization_id: Option<OrganizationId>,
     ) -> bool {
-        if organization_id.is_some() {
-            return false;
-        }
-        self.client
-            .internal
-            .get_key_store()
-            .context()
-            .get_security_state_version()
-            >= BLOB_SECURITY_VERSION
+        should_use_blob_encryption(&self.client, organization_id)
     }
 
     #[allow(missing_docs)]
@@ -97,19 +105,18 @@ impl CiphersClient {
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
-        if cipher_view.key.is_none()
-            && self
-                .client
-                .internal
-                .get_flags()
-                .await
-                .enable_cipher_key_encryption
+        if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        let cipher = key_store.encrypt(cipher_view)?;
+        let mode = if self.should_use_blob_encryption(cipher_view.organization_id) {
+            EncryptMode::Blob(cipher_view)
+        } else {
+            EncryptMode::Legacy(cipher_view)
+        };
+        let cipher = key_store.encrypt(mode)?;
         Ok(EncryptionContext {
             cipher,
             encrypted_for: user_id,
@@ -139,12 +146,8 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let enable_cipher_key_encryption = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key_encryption =
+            self.client.flags().get().await.enable_cipher_key_encryption;
 
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -158,7 +161,19 @@ impl CiphersClient {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
-        let cipher = cipher_view.encrypt_composite(&mut ctx, new_key_id)?;
+        let cipher = if self.should_use_blob_encryption(cipher_view.organization_id) {
+            // Rotation installs the new key under a `Local` slot id (`new_key_id`),
+            // not under the view's natural `User`/`Organization` slot — so we must
+            // pass it explicitly as the outer wrapping key.
+            encrypt_blob_cipher_with_wrapping_key(&mut cipher_view, &mut ctx, new_key_id).map_err(
+                |err| {
+                    tracing::warn!(%err, "blob rotation encryption failed");
+                    EncryptError::from(err)
+                },
+            )?
+        } else {
+            cipher_view.encrypt_composite(&mut ctx, new_key_id)?
+        };
 
         Ok(EncryptionContext {
             cipher,
@@ -181,27 +196,27 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let enable_cipher_key = self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption;
+        let enable_cipher_key = self.client.flags().get().await.enable_cipher_key_encryption;
 
         let mut ctx = key_store.context();
 
-        let prepared_views: Vec<CipherView> = cipher_views
+        let prepared_modes: Vec<EncryptMode<CipherView>> = cipher_views
             .into_iter()
             .map(|mut cv| {
                 if cv.key.is_none() && enable_cipher_key {
                     let key = cv.key_identifier();
                     cv.generate_cipher_key(&mut ctx, key)?;
                 }
-                Ok(cv)
+                let mode = if self.should_use_blob_encryption(cv.organization_id) {
+                    EncryptMode::Blob(cv)
+                } else {
+                    EncryptMode::Legacy(cv)
+                };
+                Ok(mode)
             })
             .collect::<Result<Vec<_>, bitwarden_crypto::CryptoError>>()?;
 
-        let ciphers: Vec<Cipher> = key_store.encrypt_list(&prepared_views)?;
+        let ciphers: Vec<Cipher> = key_store.encrypt_list(&prepared_modes)?;
 
         Ok(ciphers
             .into_iter()
@@ -215,11 +230,11 @@ impl CiphersClient {
     #[allow(missing_docs)]
     pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+        Ok(if self.is_strict_decrypt().await {
+            key_store.decrypt(&StrictDecrypt(cipher))?
         } else {
-            Ok(key_store.decrypt(&cipher)?)
-        }
+            key_store.decrypt(&cipher)?
+        })
     }
 
     #[allow(missing_docs)]
@@ -228,13 +243,13 @@ impl CiphersClient {
         ciphers: Vec<Cipher>,
     ) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+        Ok(if self.is_strict_decrypt().await {
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            Ok(key_store.decrypt_list(&strict)?)
+            key_store.decrypt_list(&wrapped)?
         } else {
-            Ok(key_store.decrypt_list(&ciphers)?)
-        }
+            key_store.decrypt_list(&ciphers)?
+        })
     }
 
     /// Decrypt cipher list with failures
@@ -245,9 +260,9 @@ impl CiphersClient {
     ) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
             DecryptCipherListResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
@@ -270,19 +285,19 @@ impl CiphersClient {
     ) -> DecryptCipherResult {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt().await {
-            let strict: Vec<StrictDecrypt<Cipher>> =
+            let wrapped: Vec<StrictDecrypt<Cipher>> =
                 ciphers.into_iter().map(StrictDecrypt).collect();
-            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
-            return DecryptCipherResult {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&wrapped);
+            DecryptCipherResult {
                 successes,
                 failures: failures.into_iter().map(|f| f.0.clone()).collect(),
-            };
-        }
-        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-
-        DecryptCipherResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
@@ -350,11 +365,7 @@ impl CiphersClient {
     }
 
     async fn is_strict_decrypt(&self) -> bool {
-        self.client
-            .internal
-            .get_flags()
-            .await
-            .strict_cipher_decryption
+        self.client.flags().get().await.strict_cipher_decryption
     }
 }
 
@@ -363,10 +374,13 @@ mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
     #[cfg(feature = "wasm")]
-    use bitwarden_crypto::CryptoError;
+    use bitwarden_crypto::{CryptoError, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
+    use crate::{
+        Attachment, CipherRepromptType, CipherType, Login, VaultClientExt,
+        cipher::blob::try_parse_blob,
+    };
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -375,7 +389,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: "2.+oPT8B4xJhyhQRe1VkIx0A==|PBtC/bZkggXR+fSnL/pG7g==|UkjRD0VpnUYkjRC/05ZLdEBAmRbr3qWRyJey2bUvR9w=".parse().unwrap(),
+            name: Some("2.+oPT8B4xJhyhQRe1VkIx0A==|PBtC/bZkggXR+fSnL/pG7g==|UkjRD0VpnUYkjRC/05ZLdEBAmRbr3qWRyJey2bUvR9w=".parse().unwrap()),
             notes: None,
             r#type: CipherType::Login,
             login: Some(Login{
@@ -493,7 +507,7 @@ mod tests {
                 folder_id: None,
                 collection_ids: vec!["66c5ca57-0868-4c7e-902f-b181009709c0".parse().unwrap()],
                 key: None,
-                name: "2.RTdUGVWYl/OZHUMoy68CMg==|sCaT5qHx8i0rIvzVrtJKww==|jB8DsRws6bXBtXNfNXUmFJ0JLDlB6GON6Y87q0jgJ+0=".parse().unwrap(),
+                name: Some("2.RTdUGVWYl/OZHUMoy68CMg==|sCaT5qHx8i0rIvzVrtJKww==|jB8DsRws6bXBtXNfNXUmFJ0JLDlB6GON6Y87q0jgJ+0=".parse().unwrap()),
                 notes: None,
                 r#type: CipherType::Login,
                 login: Some(Login{
@@ -815,7 +829,7 @@ mod tests {
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
-        let new_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let new_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         let cipher_view = test_cipher_view();
         let new_key_b64 = new_key.to_base64();
@@ -947,5 +961,88 @@ mod tests {
                 .ciphers()
                 .should_use_blob_encryption(Some(org_id))
         );
+    }
+
+    /// At `BLOB_SECURITY_VERSION`, personal ciphers encrypt through the blob
+    /// path, producing a blob-shaped `Cipher`.
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn encrypt_produces_blob_shape_at_blob_version() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        let ctx = client
+            .vault()
+            .ciphers()
+            .encrypt(test_cipher_view())
+            .await
+            .unwrap();
+
+        assert!(try_parse_blob(&ctx.cipher).is_some());
+        assert!(ctx.cipher.login.is_none());
+    }
+
+    /// `encrypt_list` at blob version, mixing a personal (blob-eligible) view
+    /// with an organization-owned (legacy-only) view
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn encrypt_list_mixed_personal_and_organization() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        let personal_view = test_cipher_view();
+        let mut org_view = test_cipher_view();
+        org_view.organization_id = Some("1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap());
+
+        let contexts = client
+            .vault()
+            .ciphers()
+            .encrypt_list(vec![personal_view, org_view])
+            .await
+            .unwrap();
+
+        assert_eq!(contexts.len(), 2);
+        assert!(
+            try_parse_blob(&contexts[0].cipher).is_some(),
+            "personal cipher at blob version should be blob-shaped",
+        );
+        assert!(
+            try_parse_blob(&contexts[1].cipher).is_none(),
+            "organization cipher should stay legacy-shaped",
+        );
+    }
+
+    /// Rotation at blob version must produce a blob-shaped cipher wrapped
+    /// under the new key, not under the view's original scope slot.
+    #[cfg(feature = "wasm")]
+    #[tokio::test]
+    async fn encrypt_cipher_for_rotation_blob_path() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        client
+            .internal
+            .get_key_store()
+            .set_security_state_version(BLOB_SECURITY_VERSION);
+
+        let new_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_key_b64 = new_key.to_base64();
+
+        let ctx = client
+            .vault()
+            .ciphers()
+            .encrypt_cipher_for_rotation(test_cipher_view(), new_key_b64)
+            .await
+            .unwrap();
+
+        assert!(try_parse_blob(&ctx.cipher).is_some());
+        assert!(ctx.cipher.key.is_some());
+        // Decrypting with the current key store (which has the old user key)
+        // fails because the cipher is now wrapped under the new key.
+        assert!(client.vault().ciphers().decrypt(ctx.cipher).await.is_err());
     }
 }

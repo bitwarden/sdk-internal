@@ -108,23 +108,41 @@ impl CipherKind for DriversLicense {
             .as_ref()
             .map(|l| l.decrypt(ctx, key))
             .transpose()?;
-        let parts: Vec<String> = [first_name, last_name]
-            .into_iter()
-            .flatten()
-            .filter(|s| !s.is_empty())
-            .collect();
-        Ok(parts.join(" "))
+        Ok(build_subtitle_drivers_license(first_name, last_name))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
-        [self
-            .license_number
-            .as_ref()
-            .map(|_| CopyableCipherFields::DriversLicenseLicenseNumber)]
+        [
+            self.first_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseFirstName),
+            self.middle_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseMiddleName),
+            self.last_name
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseLastName),
+            self.license_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::DriversLicenseLicenseNumber),
+        ]
         .into_iter()
         .flatten()
         .collect()
     }
+}
+
+/// Builds the subtitle for a driver's license cipher
+pub(super) fn build_subtitle_drivers_license(
+    first_name: Option<String>,
+    last_name: Option<String>,
+) -> String {
+    [first_name, last_name]
+        .into_iter()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 impl TryFrom<CipherDriversLicenseModel> for DriversLicense {
@@ -168,7 +186,7 @@ impl From<DriversLicense> for CipherDriversLicenseModel {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::cipher::cipher::CopyableCipherFields;
@@ -196,7 +214,7 @@ mod tests {
     #[test]
     #[ignore]
     fn generate_test_vector() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_b64 = key.to_base64();
         let key_store = create_test_crypto_with_user_key(key);
         let key_slot = SymmetricKeySlotId::User;
@@ -279,7 +297,12 @@ mod tests {
         let copyable_fields = dl.get_copyable_fields(None);
         assert_eq!(
             copyable_fields,
-            vec![CopyableCipherFields::DriversLicenseLicenseNumber,]
+            vec![
+                CopyableCipherFields::DriversLicenseFirstName,
+                CopyableCipherFields::DriversLicenseMiddleName,
+                CopyableCipherFields::DriversLicenseLastName,
+                CopyableCipherFields::DriversLicenseLicenseNumber,
+            ]
         );
     }
 }

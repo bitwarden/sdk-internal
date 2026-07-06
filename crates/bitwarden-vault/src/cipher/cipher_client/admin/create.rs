@@ -11,10 +11,12 @@ use wasm_bindgen::prelude::*;
 use crate::{
     Cipher, CipherView, VaultParseError,
     cipher::{
-        cipher::{PartialCipher, StrictDecrypt},
+        cipher::{EncryptMode, PartialCipher, StrictDecrypt},
         cipher_client::create::convert_request_to_cipher_view,
     },
-    cipher_client::{admin::CipherAdminClient, create::CipherCreateRequest},
+    cipher_client::{
+        admin::CipherAdminClient, create::CipherCreateRequest, should_use_blob_encryption,
+    },
 };
 
 #[allow(missing_docs)]
@@ -46,6 +48,7 @@ async fn create_cipher(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, CreateCipherAdminError> {
     let collection_ids = view.collection_ids.clone();
     // CipherMiniResponseModel does not include folder_id, favorite, or edit — save them from
@@ -53,7 +56,17 @@ async fn create_cipher(
     let folder_id = view.folder_id;
     let favorite = view.favorite;
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    // Admin endpoints operate on organization-owned ciphers, which aren't
+    // expected to use blob encryption yet — `should_use_blob_encryption`
+    // returns `false` for any `Some(org)` today. Routing through the same
+    // dispatcher means org blob support (PM-32430) flips on automatically
+    // here when the helper learns to return `true` for orgs.
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -72,11 +85,11 @@ async fn create_cipher(
     cipher.edit = true;
     cipher.view_password = true;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
@@ -101,16 +114,12 @@ impl CipherAdminClient {
 
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
-        if self
-            .client
-            .internal
-            .get_flags()
-            .await
-            .enable_cipher_key_encryption
-        {
+        if self.client.flags().get().await.enable_cipher_key_encryption {
             let key = view.key_identifier();
             view.generate_cipher_key(&mut key_store.context(), key)?;
         }
+
+        let use_blob = should_use_blob_encryption(&self.client, view.organization_id);
 
         create_cipher(
             view,
@@ -118,6 +127,7 @@ impl CipherAdminClient {
             &config.api_client,
             key_store,
             self.is_strict_decrypt().await,
+            use_blob,
         )
         .await
     }
@@ -127,7 +137,7 @@ impl CipherAdminClient {
 mod tests {
     use bitwarden_api_api::models::CipherMiniResponseModel;
     use bitwarden_core::{OrganizationId, key_management::SymmetricKeySlotId};
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use chrono::Utc;
 
     use super::*;
@@ -169,12 +179,12 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeySlotId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap()),
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
         );
 
         let test_folder_id: crate::FolderId =
@@ -200,6 +210,7 @@ mod tests {
                 fido2_credentials: None,
             }),
             fields: vec![],
+            archived_date: None,
         });
 
         let response = create_cipher(
@@ -207,6 +218,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             &api_client,
             &store,
+            false,
             false,
         )
         .await

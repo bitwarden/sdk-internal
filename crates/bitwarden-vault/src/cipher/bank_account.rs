@@ -104,18 +104,27 @@ impl CipherKind for BankAccount {
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
         [
+            self.name_on_account
+                .as_ref()
+                .map(|_| CopyableCipherFields::BankAccountNameOnAccount),
             self.account_number
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountAccountNumber),
             self.routing_number
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountRoutingNumber),
+            self.branch_number
+                .as_ref()
+                .map(|_| CopyableCipherFields::BankAccountBranchNumber),
             self.pin
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountPin),
             self.iban
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountIban),
+            self.swift_code
+                .as_ref()
+                .map(|_| CopyableCipherFields::BankAccountSwift),
         ]
         .into_iter()
         .flatten()
@@ -162,7 +171,7 @@ impl From<BankAccount> for CipherBankAccountModel {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::cipher::cipher::CopyableCipherFields;
@@ -189,7 +198,7 @@ mod tests {
     #[test]
     #[ignore]
     fn generate_test_vector() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_b64 = key.to_base64();
         let key_store = create_test_crypto_with_user_key(key);
         let key_slot = SymmetricKeySlotId::User;
@@ -271,10 +280,13 @@ mod tests {
         assert_eq!(
             copyable_fields,
             vec![
+                CopyableCipherFields::BankAccountNameOnAccount,
                 CopyableCipherFields::BankAccountAccountNumber,
                 CopyableCipherFields::BankAccountRoutingNumber,
+                CopyableCipherFields::BankAccountBranchNumber,
                 CopyableCipherFields::BankAccountPin,
                 CopyableCipherFields::BankAccountIban,
+                CopyableCipherFields::BankAccountSwift,
             ]
         );
     }

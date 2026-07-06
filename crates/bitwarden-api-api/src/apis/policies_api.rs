@@ -61,14 +61,6 @@ pub trait PoliciesApi: Send + Sync {
         r#type: models::PolicyType,
         save_policy_request: Option<models::SavePolicyRequest>,
     ) -> Result<models::PolicyResponseModel, Error>;
-
-    /// PUT /organizations/{orgId}/policies/{type}/vnext
-    async fn put_v_next<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        r#type: models::PolicyType,
-        save_policy_request: Option<models::SavePolicyRequest>,
-    ) -> Result<models::PolicyResponseModel, Error>;
 }
 
 pub struct PoliciesApiClient {
@@ -191,26 +183,6 @@ impl PoliciesApi for PoliciesApiClient {
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}", local_var_configuration.base_path, orgId=org_id, type=r#type.to_string());
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&save_policy_request);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn put_v_next<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        r#type: models::PolicyType,
-        save_policy_request: Option<models::SavePolicyRequest>,
-    ) -> Result<models::PolicyResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}/vnext", local_var_configuration.base_path, orgId=org_id, type=r#type.to_string());
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 

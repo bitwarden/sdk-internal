@@ -8,6 +8,7 @@ pub mod client_settings;
 #[allow(missing_docs)]
 pub mod encryption_settings;
 mod from_client_part;
+mod gov_mode;
 #[allow(missing_docs)]
 pub mod internal;
 pub use from_client_part::{FromClient, FromClientPart};
@@ -22,6 +23,10 @@ pub(crate) use login_method::UserLoginMethod;
 #[cfg(feature = "internal")]
 mod flags;
 #[cfg(feature = "internal")]
+mod flags_client;
+#[cfg(feature = "internal")]
+pub use flags_client::{FetchFlagsError, FlagsClient};
+#[cfg(feature = "internal")]
 pub mod persisted_state;
 #[cfg(feature = "internal")]
 mod rehydration;
@@ -31,7 +36,7 @@ pub use rehydration::{RehydrationError, SaveStateData};
 pub mod tracing_middleware;
 
 pub use builder::ClientBuilder;
-pub(crate) use builder::{build_default_headers, new_http_client_builder};
+pub(crate) use builder::build_default_headers;
 pub use client::Client;
 pub use client_settings::{
     ClientName, ClientSettings, DeviceType, HostPlatformInfo, get_host_platform_info,
