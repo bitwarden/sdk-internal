@@ -174,6 +174,24 @@ impl SafeDetail {
         Self(Self::truncate(format!("timed out after {secs}s")))
     }
 
+    /// Build a detail from an HTTP status code and an optional Graph `error.code`
+    /// string.
+    ///
+    /// Only the status code (an integer) and the Graph error code (a static-safe
+    /// server-assigned string like `"Request_ResourceNotFound"`) are included.
+    /// The Graph `error.message` field is **never** included because it can echo
+    /// user-supplied content (e.g. account identities, policy text).
+    pub(crate) fn from_http_status_and_graph_code(
+        status: u16,
+        graph_code: Option<&str>,
+    ) -> Self {
+        let s = match graph_code {
+            Some(code) => format!("HTTP {status} ({code})"),
+            None => format!("HTTP {status}"),
+        };
+        Self(Self::truncate(s))
+    }
+
     /// Returns the detail string as a `&str`.
     pub(crate) fn as_str(&self) -> &str {
         &self.0
