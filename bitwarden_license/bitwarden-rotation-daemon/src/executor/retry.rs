@@ -4,14 +4,12 @@
 //!
 //! Two variants of retry loop are provided:
 //!
-//! - [`with_retries`]: unconditional exponential-backoff loop up to a total try
-//!   count (optionally deadline-capped).  Used for server-side steps where no
-//!   session gate check is needed.
-//! - [`with_retries_gated`]: same loop but awaits a caller-supplied `gate`
-//!   closure **before every try including the first**.  Used for target-side
-//!   steps 3 (rotate), 4 (verify), and 6 (terminate) so that session loss or
-//!   `execute_by` expiry aborts before the next target-side action is initiated,
-//!   not mid-call.
+//! - [`with_retries`]: unconditional exponential-backoff loop up to a total try count (optionally
+//!   deadline-capped).  Used for server-side steps where no session gate check is needed.
+//! - [`with_retries_gated`]: same loop but awaits a caller-supplied `gate` closure **before every
+//!   try including the first**.  Used for target-side steps 3 (rotate), 4 (verify), and 6
+//!   (terminate) so that session loss or `execute_by` expiry aborts before the next target-side
+//!   action is initiated, not mid-call.
 //!
 //! # Total-try semantics
 //!
@@ -36,8 +34,7 @@
 //! loop stops immediately with the last error.  This ensures the loop never
 //! overshoots `execute_by`.
 
-use std::future::Future;
-use std::time::Duration;
+use std::{future::Future, time::Duration};
 
 use tokio::time::Instant;
 
@@ -99,9 +96,8 @@ pub(crate) enum GatedOutcome<T, E, A> {
 ///
 /// - [`ErrorClass::Fatal`] errors short-circuit immediately.
 /// - [`ErrorClass::Transient`] errors are retried up to the total-try limit.
-/// - If `deadline` is `Some` and sleeping would cross it, the sleep is
-///   truncated; if the deadline is already past when checking, the loop stops
-///   with the last error.
+/// - If `deadline` is `Some` and sleeping would cross it, the sleep is truncated; if the deadline
+///   is already past when checking, the loop stops with the last error.
 ///
 /// Returns `Ok(T)` on the first success, or `Err(E)` after the last failed
 /// attempt.
@@ -245,8 +241,10 @@ fn cap_to_deadline(delay: Duration, deadline: Option<Instant>) -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
 
     use tokio::time::Instant;
 
