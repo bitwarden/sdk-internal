@@ -136,12 +136,13 @@ impl SafeDetail {
         if s.len() <= Self::MAX_LEN {
             s
         } else {
-            // Truncate on a char boundary.
+            // Truncate on a char boundary: walk back from MAX_LEN until we land on one.
             let mut end = Self::MAX_LEN;
             while !s.is_char_boundary(end) {
                 end -= 1;
             }
-            s[..end].to_owned()
+            // end is now a verified char boundary, so str::get is guaranteed to return Some.
+            s.get(..end).unwrap_or_default().to_owned()
         }
     }
 
