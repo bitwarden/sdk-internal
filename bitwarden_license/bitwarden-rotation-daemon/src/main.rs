@@ -23,7 +23,9 @@ use bitwarden_rotation_daemon::{
 };
 use bitwarden_threading::cancellation_token::CancellationToken;
 use clap::Parser;
-use tracing_subscriber::{EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _};
+use tracing_subscriber::{
+    EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
+};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {

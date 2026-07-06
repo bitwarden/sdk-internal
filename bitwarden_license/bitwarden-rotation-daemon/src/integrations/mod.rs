@@ -25,14 +25,13 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
+/// Re-export [`TargetKind`] so resolver and integration modules can import from
+/// a single location.
+pub(crate) use crate::api::models::TargetKind;
 use crate::{
     error::{ErrorClass, FailureCode, SafeDetail},
     resolver::ResolvedCredentials,
 };
-
-/// Re-export [`TargetKind`] so resolver and integration modules can import from
-/// a single location.
-pub(crate) use crate::api::models::TargetKind;
 
 // ---------------------------------------------------------------------------
 // TargetEffect
@@ -60,8 +59,7 @@ pub(crate) enum TargetEffect {
 /// An error returned by any [`Integration`] operation.
 ///
 /// Carries all the information the executor needs to build a failure report:
-/// - `class`: whether retry would help ([`ErrorClass::Transient`]) or not
-///   ([`ErrorClass::Fatal`]).
+/// - `class`: whether retry would help ([`ErrorClass::Transient`]) or not ([`ErrorClass::Fatal`]).
 /// - `effect`: the synchronisation state of the target at the time of failure.
 /// - `code`: the failure reason code reported to the server.
 /// - `detail`: a bounded, zero-knowledge detail string (never contains secrets).
