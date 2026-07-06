@@ -3,7 +3,6 @@
 use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor};
-use ciborium::Value;
 use coset::{CborSerializable, CoseEncrypt0Builder, HeaderBuilder};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -11,15 +10,17 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeySlotIds,
-    KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
+    XChaCha20Poly1305Key,
     cose::{
-        CONTAINED_KEY_ID, ContentNamespace, SafeObjectNamespace,
+        ContentNamespace, SafeObjectNamespace,
         symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
     },
     keys::KeyId,
-    safe::helpers::{
-        debug_fmt, extract_contained_key_id, set_safe_namespaces, validate_safe_namespaces,
+    safe::{
+        DecodeSealedKeyError, decode_sealed_symmetric_key, extract_key_id,
+        helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
+        set_contained_key_id,
     },
 };
 
@@ -86,15 +87,10 @@ impl SymmetricKeyEnvelope {
             EncodedSymmetricKey::CoseKey(key_bytes) => (ContentFormat::CoseKey, key_bytes.to_vec()),
         };
 
-        let mut header_builder = HeaderBuilder::from(content_format);
+        let mut protected_header = HeaderBuilder::from(content_format).build();
 
-        // Only set the contained key ID if the key has one
-        if let Some(key_id) = key_to_seal.key_id() {
-            header_builder =
-                header_builder.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
-        }
+        set_contained_key_id(&mut protected_header, key_to_seal.key_id());
 
-        let mut protected_header = header_builder.build();
         set_safe_namespaces(
             &mut protected_header,
             SafeObjectNamespace::SymmetricKeyEnvelope,
@@ -141,12 +137,9 @@ impl SymmetricKeyEnvelope {
         )
         .map_err(|_| SymmetricKeyEnvelopeError::InvalidNamespace)?;
 
-        // Validate the content format
-        let content_format = ContentFormat::try_from(&self.cose_encrypt0.protected.header)
-            .map_err(|_| {
-                SymmetricKeyEnvelopeError::Parsing("Invalid content format".to_string())
-            })?;
-
+        // Decrypt the key bytes. `decrypt_cose0` also validates that the declared
+        // content-encryption algorithm matches the cipher before attempting decryption. The
+        // envelope always declares the algorithm, so no decryption fallback is needed.
         let key_bytes = decrypt_cose0(
             &self.cose_encrypt0,
             None,
@@ -154,26 +147,21 @@ impl SymmetricKeyEnvelope {
         )
         .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;
 
-        // Reconstruct the encoded symmetric key from the content format
-        let encoded_key = match content_format {
-            ContentFormat::BitwardenLegacyKey => {
-                EncodedSymmetricKey::BitwardenLegacyKey(BitwardenLegacyKeyBytes::from(key_bytes))
-            }
-            ContentFormat::CoseKey => EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes)),
-            _ => {
-                return Err(SymmetricKeyEnvelopeError::WrongKeyType);
-            }
-        };
-
-        let key = SymmetricCryptoKey::try_from(encoded_key)
-            .map_err(|_| SymmetricKeyEnvelopeError::WrongKeyType)?;
+        let key = decode_sealed_symmetric_key(&self.cose_encrypt0.protected.header, key_bytes)
+            .map_err(|e| match e {
+                DecodeSealedKeyError::InvalidContentFormat => {
+                    SymmetricKeyEnvelopeError::Parsing("Invalid content format".to_string())
+                }
+                DecodeSealedKeyError::UnsupportedContentFormat
+                | DecodeSealedKeyError::InvalidKey => SymmetricKeyEnvelopeError::WrongKeyType,
+            })?;
 
         Ok(ctx.add_local_symmetric_key(key))
     }
 
     /// Get the key ID of the contained key.
     pub fn contained_key_id(&self) -> Result<Option<KeyId>, SymmetricKeyEnvelopeError> {
-        extract_contained_key_id(&self.cose_encrypt0.protected.header)
+        extract_key_id(&self.cose_encrypt0.protected.header)
             .map_err(|_| SymmetricKeyEnvelopeError::Parsing("Invalid contained key id".to_string()))
     }
 }
