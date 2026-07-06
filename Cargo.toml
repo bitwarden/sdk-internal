@@ -170,8 +170,8 @@ cargo-hack = { version = "0.6.33", locked = true }
 cargo-llvm-cov = { version = "0.5.38", locked = true }
 cargo-release = { version = "0.25.20", locked = true }
 cargo-edit = { version = "0.13.6", locked = true, bins = ["cargo-set-version"] }
-cargo-dylint = { version = "5.0.0", locked = true }
-dylint-link = { version = "5.0.0", locked = true }
+cargo-dylint = { version = "6.0.0", locked = true }
+dylint-link = { version = "6.0.0", locked = true }
 cross = { version = "0.2.5", git = "https://github.com/cross-rs/cross.git", rev = "185398b1b885820515a212de720a306b08e2c8c9", locked = true }
 clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
