@@ -673,11 +673,14 @@ mod tests {
     #[tokio::test]
     async fn no_password_in_argv_or_env() {
         // Set BWRD_TOKEN in the parent env to verify .env_clear() strips it.
-        let _guard = ENV_LOCK.lock().unwrap();
-        // SAFETY: protected by ENV_LOCK; single-threaded for this scope.
-        unsafe {
-            std::env::set_var("BWRD_TOKEN", "SENTINEL_TOKEN_MUST_NOT_LEAK");
-        }
+        // The guard is held only while we mutate env, then dropped before the await.
+        {
+            let _guard = ENV_LOCK.lock().unwrap();
+            // SAFETY: protected by ENV_LOCK; single-threaded for this scope.
+            unsafe {
+                std::env::set_var("BWRD_TOKEN", "SENTINEL_TOKEN_MUST_NOT_LEAK");
+            }
+        } // guard dropped here — no lock held across await
 
         let mut creds = ResolvedCredentials::new();
         creds.insert(
@@ -691,9 +694,12 @@ mod tests {
         let result = integ.rotate(&ctx).await;
 
         // Clean up regardless of test outcome.
-        // SAFETY: protected by ENV_LOCK.
-        unsafe {
-            std::env::remove_var("BWRD_TOKEN");
+        {
+            let _guard = ENV_LOCK.lock().unwrap();
+            // SAFETY: protected by ENV_LOCK.
+            unsafe {
+                std::env::remove_var("BWRD_TOKEN");
+            }
         }
 
         result.unwrap();

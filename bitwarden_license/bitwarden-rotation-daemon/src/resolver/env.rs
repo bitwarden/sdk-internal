@@ -82,10 +82,10 @@ impl CredentialResolver for EnvCredentialResolver {
 
         // Collect ALL matching env vars into the map.
         for (name, value) in std::env::vars() {
-            if let Some(suffix) = name.strip_prefix(&prefix) {
-                if !suffix.is_empty() {
-                    creds.insert(suffix.to_string(), value);
-                }
+            if let Some(suffix) = name.strip_prefix(&prefix)
+                && !suffix.is_empty()
+            {
+                creds.insert(suffix.to_string(), value);
             }
         }
 

@@ -162,8 +162,8 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
 /// Uses [`bitwarden_api_base::new_http_client_builder`] to get a `reqwest`
 /// client with rustls + platform-certificate-verifier + https-only (release)
 /// + Bitwarden user-agent headers.  A 30 s per-request timeout is applied so
-/// that a black-holed connection cannot starve the heartbeat past
-/// `DaemonOfflineAfter` (2 minutes).
+///   that a black-holed connection cannot starve the heartbeat past
+///   `DaemonOfflineAfter` (2 minutes).
 ///
 /// The [`DaemonAuthMiddleware`] is layered on top to handle token attachment
 /// and 401 refresh.
@@ -479,7 +479,7 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
                     // non-terminal case.  For the terminal case, the middleware error
                     // path (get_bearer → Lost) takes precedence and this branch is
                     // not reached.
-                    ApiError::Transient(format!("HTTP 401 (post-retry)"))
+                    ApiError::Transient("HTTP 401 (post-retry)".to_string())
                 }
                 404 => match route {
                     Route::DaemonOrJob => ApiError::NotEligible,
