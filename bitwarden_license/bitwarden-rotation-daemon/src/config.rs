@@ -1,8 +1,8 @@
 //! Configuration loading and validation for the rotation daemon.
 //!
-//! [`Config::from_cli`] reads and validates all configuration from the parsed
-//! CLI arguments and the process environment, producing the [`Config`] struct
-//! that is passed to [`crate::executor::run`].
+//! [`crate::config::Config::from_cli`] reads and validates all configuration from the parsed
+//! CLI arguments and the process environment, producing the `Config` struct
+//! that is passed to `crate::executor::run`.
 //!
 //! # Token intake
 //!
@@ -11,8 +11,9 @@
 //! 1. `BWRD_TOKEN` environment variable (read via [`std::env::var`]).
 //! 2. `--token-file <path>` (file contents are trimmed).
 //!
-//! Supplying both or neither is a hard error ([`RotationDaemonError::InvalidConfig`]).
-//! The token string is **never echoed** in error messages.
+//! Supplying both or neither is a hard error
+//! ([`crate::error::RotationDaemonError::InvalidConfig`]). The token string is **never echoed** in
+//! error messages.
 //!
 //! On Unix, if `--token-file` is used, the file permissions are checked; a
 //! `warn!` is emitted if the file is group- or world-readable (mode bits
@@ -180,8 +181,7 @@ fn check_token_file_permissions(path: &std::path::PathBuf) {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
-    use std::sync::Mutex;
+    use std::{io::Write, sync::Mutex};
 
     use super::*;
 
@@ -259,7 +259,10 @@ mod tests {
         }
 
         let result = Config::from_cli(args);
-        assert!(result.is_ok(), "token file whitespace was not trimmed: {result:?}");
+        assert!(
+            result.is_ok(),
+            "token file whitespace was not trimmed: {result:?}"
+        );
     }
 
     #[test]
@@ -360,7 +363,10 @@ mod tests {
         unsafe {
             std::env::remove_var("BWRD_TOKEN");
         }
-        assert!(result.is_ok(), "poll_interval=15 should be valid: {result:?}");
+        assert!(
+            result.is_ok(),
+            "poll_interval=15 should be valid: {result:?}"
+        );
     }
 
     #[test]

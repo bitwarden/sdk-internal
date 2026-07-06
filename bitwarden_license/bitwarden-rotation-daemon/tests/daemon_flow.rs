@@ -14,10 +14,7 @@
 //! the environment acquires a process-wide mutex (ENV_LOCK) before touching
 //! any env vars.
 
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::Mutex;
-use std::time::Duration;
+use std::{path::PathBuf, str::FromStr, sync::Mutex, time::Duration};
 
 use bitwarden_crypto::{KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm};
 use bitwarden_encoding::B64;
@@ -27,8 +24,10 @@ use bitwarden_rotation_daemon::{
 };
 use bitwarden_threading::cancellation_token::CancellationToken;
 use uuid::Uuid;
-use wiremock::matchers::{method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::{
+    Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
+};
 use zeroize::Zeroizing;
 
 // ---------------------------------------------------------------------------
@@ -53,8 +52,7 @@ fn test_token() -> DaemonToken {
 fn token_encryption_key() -> SymmetricCryptoKey {
     use bitwarden_crypto::derive_shareable_key;
     let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().expect("valid b64");
-    let seed: Zeroizing<[u8; 16]> =
-        Zeroizing::new(b64.as_bytes().try_into().expect("16 bytes"));
+    let seed: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().expect("16 bytes"));
     SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
         seed,
         "accesstoken",
@@ -209,13 +207,7 @@ async fn happy_path_rotate_and_report_success() {
         .and(path(format!("/rotation/jobs/{job_id}/claim")))
         .respond_with(
             ResponseTemplate::new(200)
-                .set_body_json(claim_body(
-                    attempt_id,
-                    job_id,
-                    target_id,
-                    cipher_id,
-                    false,
-                ))
+                .set_body_json(claim_body(attempt_id, job_id, target_id, cipher_id, false))
                 .insert_header("content-type", "application/json"),
         )
         .mount(&api)
@@ -268,9 +260,8 @@ async fn happy_path_rotate_and_report_success() {
     let cancel_clone = cancel.clone();
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
-    let handle = tokio::spawn(async move {
-        bitwarden_rotation_daemon::run(cfg, cancel_clone).await
-    });
+    let handle =
+        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
 
     // Wait for the success report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
@@ -301,7 +292,10 @@ async fn happy_path_rotate_and_report_success() {
         .iter()
         .filter(|r| r.url.path().contains("/success"))
         .collect();
-    assert!(!success_reqs.is_empty(), "success report must have been sent");
+    assert!(
+        !success_reqs.is_empty(),
+        "success report must have been sent"
+    );
 
     let body: serde_json::Value =
         serde_json::from_slice(&success_reqs[0].body).expect("success body is JSON");
@@ -396,9 +390,8 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let cancel_clone = cancel.clone();
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
-    let handle = tokio::spawn(async move {
-        bitwarden_rotation_daemon::run(cfg, cancel_clone).await
-    });
+    let handle =
+        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
 
     // Wait for failure report, then cancel.
     tokio::time::sleep(Duration::from_millis(3000)).await;
@@ -422,7 +415,10 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         .iter()
         .filter(|r| r.method.as_str() == "PUT")
         .collect();
-    assert!(put_reqs.is_empty(), "PUT cipher must NOT be called when rotate fails");
+    assert!(
+        put_reqs.is_empty(),
+        "PUT cipher must NOT be called when rotate fails"
+    );
 
     // Failure report must have been sent.
     let failure_reqs: Vec<_> = all_reqs
@@ -490,9 +486,8 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let cancel_clone = cancel.clone();
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
-    let handle = tokio::spawn(async move {
-        bitwarden_rotation_daemon::run(cfg, cancel_clone).await
-    });
+    let handle =
+        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
 
     // Let it poll a few times, then cancel.
     tokio::time::sleep(Duration::from_millis(300)).await;
@@ -505,9 +500,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let all_reqs = api.received_requests().await.expect("requests");
     let report_reqs: Vec<_> = all_reqs
         .iter()
-        .filter(|r| {
-            r.url.path().contains("/success") || r.url.path().contains("/failure")
-        })
+        .filter(|r| r.url.path().contains("/success") || r.url.path().contains("/failure"))
         .collect();
     assert!(
         report_reqs.is_empty(),
@@ -616,10 +609,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(claim_body(
-                    attempt_id,
-                    job_id,
-                    target_id,
-                    cipher_id,
+                    attempt_id, job_id, target_id, cipher_id,
                     true, // terminate_sessions = true
                 ))
                 .insert_header("content-type", "application/json"),
@@ -667,9 +657,8 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let cancel_clone = cancel.clone();
     let cfg = make_cfg(api.uri(), identity.uri(), None);
 
-    let handle = tokio::spawn(async move {
-        bitwarden_rotation_daemon::run(cfg, cancel_clone).await
-    });
+    let handle =
+        tokio::spawn(async move { bitwarden_rotation_daemon::run(cfg, cancel_clone).await });
 
     tokio::time::sleep(Duration::from_millis(4000)).await;
     cancel.cancel();
