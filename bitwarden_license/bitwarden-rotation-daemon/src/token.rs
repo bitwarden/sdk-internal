@@ -18,12 +18,16 @@ use zeroize::Zeroizing;
 /// CONTRACT ITEM C1 — key-derivation name constant.
 ///
 /// Provisionally SM-identical; pinned in e2e (see plan §1, C1).
-const DERIVE_NAME: &str = "accesstoken";
+/// Published so the registration helper (`examples/register.rs`) can use the
+/// same derivation path without duplicating the string literals.
+pub const DERIVE_NAME: &str = "accesstoken";
 
 /// CONTRACT ITEM C1 — key-derivation info constant.
 ///
 /// Provisionally SM-identical; pinned in e2e (see plan §1, C1).
-const DERIVE_INFO: &str = "sm-access-token";
+/// Published so the registration helper (`examples/register.rs`) can use the
+/// same derivation path without duplicating the string literals.
+pub const DERIVE_INFO: &str = "sm-access-token";
 
 /// Errors that can occur while parsing a [`DaemonToken`] from its string representation.
 #[allow(missing_docs)]
