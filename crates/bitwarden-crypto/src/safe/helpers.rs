@@ -2,13 +2,9 @@ use std::fmt::DebugStruct;
 
 use ciborium::Value;
 
-use crate::{
-    KEY_ID_SIZE,
-    cose::{
-        CONTAINED_KEY_ID, ContentNamespace, SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE,
-        SafeObjectNamespace, extract_bytes, extract_integer,
-    },
-    keys::KeyId,
+use crate::cose::{
+    ContentNamespace, SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace,
+    extract_integer,
 };
 
 #[derive(Debug)]
@@ -51,7 +47,7 @@ pub(super) fn debug_fmt<C: ContentNamespace>(
     }
 }
 
-fn set_header_value(header: &mut coset::Header, label: i64, value: Value) {
+pub(super) fn set_header_value(header: &mut coset::Header, label: i64, value: Value) {
     if let Some((_, existing_value)) =
         header
             .rest
@@ -110,18 +106,6 @@ pub(super) fn validate_safe_namespaces<T: ContentNamespace>(
         // If the namespace is present but invalid (e.g., not an integer or out of range), return an
         // error.
         Err(ExtractionError::InvalidNamespace) => Err(ExtractionError::InvalidNamespace),
-    }
-}
-
-/// Extract the contained key ID from a COSE header, if present.
-pub(super) fn extract_contained_key_id(header: &coset::Header) -> Result<Option<KeyId>, ()> {
-    let key_id_bytes = extract_bytes(header, CONTAINED_KEY_ID, "key id");
-
-    if let Ok(bytes) = key_id_bytes {
-        let key_id_array: [u8; KEY_ID_SIZE] = bytes.as_slice().try_into().map_err(|_| ())?;
-        Ok(Some(KeyId::from(key_id_array)))
-    } else {
-        Ok(None)
     }
 }
 
