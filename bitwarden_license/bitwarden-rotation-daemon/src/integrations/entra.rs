@@ -93,8 +93,10 @@ pub(crate) struct EntraIntegration {
 impl EntraIntegration {
     /// Build a new `EntraIntegration` using the production Microsoft endpoints.
     pub(crate) fn new(verify_probe: bool) -> Self {
+        // Do not follow redirects: a cross-host redirect could leak the bearer token.
         let http = bitwarden_api_base::new_http_client_builder()
             .timeout(HTTP_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("Entra HTTP client build should not fail");
         Self {
@@ -350,10 +352,28 @@ fn network_error_after_send(e: reqwest::Error, pre_send_effect: TargetEffect) ->
 /// Parse Graph `error.code` from a JSON error body without consuming secrets.
 ///
 /// `error.message` is deliberately ignored — it can echo user-supplied content.
+///
+/// The returned code is validated against `^[A-Za-z0-9_]{1,64}$`.  A code that
+/// fails validation (e.g. contains control characters, punctuation, or is too
+/// long) is treated as absent — the caller includes only the HTTP status.  This
+/// prevents log-injection or unexpected detail strings from attacker-influenced
+/// server responses.
 async fn read_graph_error_code(response: reqwest::Response) -> Option<String> {
     let body = response.bytes().await.ok()?;
     let parsed: GraphError = serde_json::from_slice(&body).ok()?;
-    parsed.error.code
+    let code = parsed.error.code?;
+    if validate_graph_error_code(&code) {
+        Some(code)
+    } else {
+        None
+    }
+}
+
+/// Returns `true` if `code` matches `^[A-Za-z0-9_]{1,64}$`.
+fn validate_graph_error_code(code: &str) -> bool {
+    !code.is_empty()
+        && code.len() <= 64
+        && code.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 // ---------------------------------------------------------------------------
@@ -1407,5 +1427,78 @@ mod tests {
             "detail must name the missing suffix: {}",
             err.detail
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // Fix-6: Graph error.code validation
+    // -----------------------------------------------------------------------
+
+    /// Hostile `error.code` values (control chars, punctuation, >64 chars)
+    /// must be rejected and the detail must not include the hostile code.
+    #[tokio::test]
+    async fn hostile_graph_error_code_is_omitted_from_detail() {
+        let login = MockServer::start().await;
+        let graph = MockServer::start().await;
+        let tenant = "t1";
+
+        mount_token_ok(&login, tenant, "tok").await;
+
+        // Hostile code: contains newline + very long + special chars.
+        let hostile_code = "Inject\r\nEvil: value\x00\x01".repeat(5); // >64 chars with control chars
+        Mock::given(method("PATCH"))
+            .and(path("/v1.0/users/some-user"))
+            .respond_with(
+                ResponseTemplate::new(404).set_body_json(serde_json::json!({
+                    "error": {
+                        "code": hostile_code,
+                        "message": "some message"
+                    }
+                })),
+            )
+            .mount(&graph)
+            .await;
+
+        let creds = make_creds(tenant, "cid", "csecret");
+        let ctx = make_ctx(creds, "some-user", "P@ss1");
+        let integ = integration(&login, &graph, false);
+        let err = integ.rotate(&ctx).await.unwrap_err();
+
+        let detail = err.detail.as_str();
+        // Status must appear.
+        assert!(
+            detail.contains("404"),
+            "detail must contain status code: {detail}"
+        );
+        // Hostile code must NOT appear in the detail.
+        assert!(
+            !detail.contains("Inject"),
+            "hostile graph error.code must not appear in detail: {detail}"
+        );
+    }
+
+    /// A valid `error.code` (alphanumeric + underscores, ≤64 chars) must be
+    /// included in the detail.
+    #[test]
+    fn valid_graph_error_code_passes_validation() {
+        assert!(super::validate_graph_error_code("Request_ResourceNotFound"));
+        assert!(super::validate_graph_error_code("A"));
+        assert!(super::validate_graph_error_code(&"x".repeat(64)));
+    }
+
+    /// Invalid `error.code` values must be rejected.
+    #[test]
+    fn invalid_graph_error_codes_are_rejected() {
+        // Too long (65 chars)
+        assert!(!super::validate_graph_error_code(&"x".repeat(65)));
+        // Empty string
+        assert!(!super::validate_graph_error_code(""));
+        // Contains newline
+        assert!(!super::validate_graph_error_code("Code\nInjection"));
+        // Contains colon
+        assert!(!super::validate_graph_error_code("Bad:Code"));
+        // Contains null byte
+        assert!(!super::validate_graph_error_code("Code\x00bad"));
+        // Contains space
+        assert!(!super::validate_graph_error_code("Bad Code"));
     }
 }

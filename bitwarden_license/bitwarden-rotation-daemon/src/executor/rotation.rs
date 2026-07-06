@@ -9,9 +9,11 @@
 //! # Proof tokens (compile-time VerifiedBeforeSuccess)
 //!
 //! [`Verified`] and [`CipherWritten`] are zero-size unit structs whose
-//! constructors are private to this module.  The success-report helper
-//! [`report_success_inner`] takes them by value, making it a compile-time error
-//! to call it without completing steps 4 and 5 in order.
+//! constructors are private to this module (their inner `()` field is not
+//! `pub`).  [`report_success_inner`] is the **only** function that calls
+//! `api.report_success`; it takes `Verified` and `CipherWritten` by value,
+//! making it a compile-time error to report success without completing both
+//! steps 4 and 5.
 //!
 //! # Divergences from the spec
 //!
@@ -97,19 +99,6 @@ pub(crate) enum ExecutionResult {
 }
 
 // ---------------------------------------------------------------------------
-// ConnectivityStatus
-// ---------------------------------------------------------------------------
-
-/// Whether the connectivity monitor considers the daemon connected.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ConnectivityStatus {
-    /// The last successful API call was recent enough (within `offline_grace`).
-    Connected,
-    /// No successful API call has been observed within `offline_grace`.
-    Stale,
-}
-
-// ---------------------------------------------------------------------------
 // Shared execution context
 // ---------------------------------------------------------------------------
 
@@ -155,6 +144,14 @@ pub(crate) struct ExecutionContext {
 /// 7. Report outcome (transient-absorbed).
 pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> ExecutionResult {
     let attempt_id = snapshot.attempt_id;
+
+    tracing::debug!(
+        attempt_id = %attempt_id,
+        job_id = %snapshot.job_id,
+        cipher_id = %snapshot.cipher_id,
+        target_system_name = %snapshot.target_system_name,
+        "starting rotation execution"
+    );
 
     // ── Step 0: terminal-session check (D1 divergence documented above) ────
     {
@@ -303,7 +300,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
     }
 
     // ── Step 4: verify (target-side, gated retries) ────────────────────────
-    let _verified = {
+    let verified = {
         let gate = make_gate(
             Arc::clone(&ctx.session),
             execute_by_instant,
@@ -350,7 +347,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
     // ── Step 5: cipher write (server-side, ungated) ────────────────────────
     // execute_by does NOT bound this step (D4).  We use with_retries with no
     // deadline, relying on the session's bearer-refresh to handle token expiry.
-    let _cipher_written = {
+    let cipher_written = {
         // Sub-step 5a: get cipher (with retries).
         let cipher = {
             let api = Arc::clone(&ctx.api);
@@ -386,13 +383,25 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                     return ExecutionResult::Unreported(AbortReason::SessionLost(l));
                 }
                 Err(_) => {
-                    // Any other fatal error on get_cipher is treated as unknown-attempt.
-                    return ExecutionResult::Unreported(AbortReason::SessionLost(
-                        SessionLost::Closed,
-                    ));
+                    // Any other fatal error on get_cipher (e.g. Protocol, exhausted
+                    // Transient) must be reported as target_updated.  The rotation
+                    // (step 3) already changed the target credential; silently dropping
+                    // this error would leave the server unaware of the updated state.
+                    let _ = ctx
+                        .api
+                        .report_failure(
+                            attempt_id,
+                            FailureCode::Internal,
+                            None,
+                            SyncState::TargetUpdated,
+                        )
+                        .await;
+                    return ExecutionResult::Reported;
                 }
             }
         };
+
+        tracing::debug!(attempt_id = %attempt_id, cipher_id = %cipher.cipher_id, "cipher fetched");
 
         // Sub-step 5b: encrypt new password into cipher data.
         let mut data = cipher.data.clone();
@@ -477,7 +486,18 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
             }
             Err(_) => {
-                return ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed));
+                // Unexpected put_cipher error after the rotation succeeded.
+                // Report target_updated so the server knows the credential was changed.
+                let _ = ctx
+                    .api
+                    .report_failure(
+                        attempt_id,
+                        FailureCode::Internal,
+                        None,
+                        SyncState::TargetUpdated,
+                    )
+                    .await;
+                return ExecutionResult::Reported;
             }
         }
     };
@@ -528,18 +548,48 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
     };
 
     // ── Step 7: report success (transient-absorbed) ────────────────────────
-    let api = Arc::clone(&ctx.api);
+    // `report_success_inner` is the ONLY caller of `api.report_success`.  It
+    // demands proof tokens for steps 4 (Verified) and 5 (CipherWritten), making
+    // it a compile-time error to call it without completing both steps in order.
     let termination = termination_result;
-    let report_result = with_retries(&ctx.retry_cfg, None, || {
-        let api = Arc::clone(&api);
+    let report_result =
+        report_success_inner(&ctx.api, &ctx.retry_cfg, attempt_id, termination, verified, cipher_written).await;
+
+    match report_result {
+        Ok(()) => ExecutionResult::Reported,
+        Err(ApiError::SessionLost(l)) => ExecutionResult::Unreported(AbortReason::SessionLost(l)),
+        Err(_) => ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed)),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// report_success_inner — the ONLY caller of api.report_success
+// ---------------------------------------------------------------------------
+
+/// Report a successful rotation, requiring compile-time proof that steps 4 and 5
+/// completed.
+///
+/// `_verified` and `_cipher_written` are zero-size proof tokens whose
+/// constructors are private to this module.  Passing them by value here means
+/// the compiler statically rejects any success-report that bypasses the verify
+/// or cipher-write steps.
+async fn report_success_inner(
+    api: &RotationApi,
+    retry_cfg: &super::retry::RetryCfg,
+    attempt_id: uuid::Uuid,
+    termination: crate::error::SessionTermination,
+    _verified: Verified,
+    _cipher_written: CipherWritten,
+) -> Result<(), ApiError> {
+    with_retries(retry_cfg, None, || {
+        let api_ref = api;
         async move {
-            match api.report_success(attempt_id, termination).await {
+            match api_ref.report_success(attempt_id, termination).await {
                 Ok(()) => Ok(()),
                 Err(ApiError::Transient(s)) => Err((ErrorClass::Transient, ApiError::Transient(s))),
                 Err(ApiError::SessionLost(l)) => Err((ErrorClass::Fatal, ApiError::SessionLost(l))),
                 // 409/404 on report is FINAL — treat as reported.
                 Err(ApiError::Rejected { .. }) | Err(ApiError::UnknownAttempt) => {
-                    // Warn without detail — server audited its own rejection.
                     tracing::warn!(
                         attempt_id = %attempt_id,
                         "success report rejected/unknown by server; treating as reported"
@@ -550,13 +600,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
             }
         }
     })
-    .await;
-
-    match report_result {
-        Ok(()) => ExecutionResult::Reported,
-        Err(ApiError::SessionLost(l)) => ExecutionResult::Unreported(AbortReason::SessionLost(l)),
-        Err(_) => ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed)),
-    }
+    .await
 }
 
 // ---------------------------------------------------------------------------
@@ -735,10 +779,8 @@ mod tests {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use tokio::time::Instant;
 
-    use crate::api::models::TargetKind;
-    use crate::error::{ErrorClass, FailureCode, SafeDetail};
+    use crate::error::{FailureCode, SafeDetail};
     use crate::integrations::{Integration, IntegrationError, RotateContext, TargetEffect};
     use crate::resolver::ResolvedCredentials;
 
@@ -1038,6 +1080,193 @@ mod tests {
         let code = FailureCode::UnsupportedKind;
         let s = serde_json::to_string(&code).unwrap();
         assert_eq!(s, r#""unsupported_kind""#);
+    }
+
+    // ── Fix-5: get_cipher Protocol error → target_updated failure reported ──
+
+    /// After a successful rotate (step 3), a Protocol error from get_cipher
+    /// must produce a `target_updated` failure report rather than being silently
+    /// dropped.  The test verifies the failure endpoint receives a request with
+    /// `syncState == 1` (TargetUpdated).
+    #[tokio::test]
+    async fn get_cipher_protocol_error_after_rotate_reports_target_updated() {
+        use bitwarden_crypto::{
+            KeyEncryptable, SymmetricCryptoKey, SymmetricKeyAlgorithm, derive_shareable_key,
+        };
+        use bitwarden_encoding::B64;
+        use chrono::Utc;
+        use std::str::FromStr;
+        use tokio::sync::watch;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        use zeroize::Zeroizing;
+
+        use crate::api::models::{TargetKind, WorkSnapshot};
+        use crate::api::{RotationApi, build_api_client};
+        use crate::auth::identity::IdentityClient;
+        use crate::auth::session::SessionManager;
+        use crate::crypto::DaemonKeyStore;
+        use crate::integrations::IntegrationRegistry;
+        use crate::policy::PasswordPolicy;
+        use crate::resolver::{CredentialResolver, ResolveError, ResolvedCredentials};
+        use crate::token::DaemonToken;
+
+        // ── Build minimal key material ──────────────────────────────────────
+        let b64: B64 = "X8vbvA0bduihIDe/qrzIQQ==".parse().unwrap();
+        let key_bytes: Zeroizing<[u8; 16]> = Zeroizing::new(b64.as_bytes().try_into().unwrap());
+        let token_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(
+            key_bytes,
+            "accesstoken",
+            Some("sm-access-token"),
+        ));
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key_bytes = org_key.to_encoded();
+        let b64_str: String = B64::from(org_key_bytes.as_ref()).into();
+        let payload_json = format!(r#"{{"encryptionKey":"{b64_str}"}}"#);
+        let payload = payload_json
+            .as_str()
+            .encrypt_with_key(&token_key)
+            .unwrap()
+            .to_string();
+
+        // ── Identity + API mock servers ─────────────────────────────────────
+        let identity_server = MockServer::start().await;
+        let api_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(format!(
+                        r#"{{"access_token":"tok","expires_in":3600,"encryptedPayload":"{payload}"}}"#
+                    ))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&identity_server)
+            .await;
+
+        // get_cipher returns malformed body → Protocol error.
+        let attempt_id = uuid::Uuid::new_v4();
+        let job_id = uuid::Uuid::new_v4();
+        let target_system_id = uuid::Uuid::new_v4();
+
+        Mock::given(method("GET"))
+            .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string("NOT JSON")
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&api_server)
+            .await;
+
+        // Failure report endpoint — capture it.
+        Mock::given(method("POST"))
+            .and(path(format!("/rotation/attempts/{attempt_id}/failure")))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&api_server)
+            .await;
+
+        // ── SessionManager ───────────────────────────────────────────────────
+        let token = DaemonToken::from_str(
+            "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
+        ).unwrap();
+        let identity = IdentityClient::new(identity_server.uri()).unwrap();
+        let session = SessionManager::new(identity, token).await.unwrap();
+        let session = Arc::new(session);
+
+        // ── Build RotationApi ────────────────────────────────────────────────
+        let (tx, _rx) = watch::channel(std::time::Instant::now());
+        let client = build_api_client(api_server.uri(), Arc::clone(&session));
+        let api = Arc::new(RotationApi::new(client, tx));
+
+        // ── Credential resolver: always-ok ───────────────────────────────────
+        struct AlwaysOkResolver;
+        #[async_trait::async_trait]
+        impl CredentialResolver for AlwaysOkResolver {
+            async fn resolve(
+                &self,
+                _id: uuid::Uuid,
+                _kind: TargetKind,
+            ) -> Result<ResolvedCredentials, ResolveError> {
+                Ok(ResolvedCredentials::new())
+            }
+        }
+
+        // ── Integration: rotate succeeds, verify succeeds ────────────────────
+        let integ = MockIntegration::always_ok();
+        let mut registry = IntegrationRegistry::new();
+        registry.register(TargetKind::CustomScript, Arc::new(integ));
+
+        // ── DaemonKeyStore ───────────────────────────────────────────────────
+        let key_store = Arc::new(DaemonKeyStore::default());
+
+        // ── ExecutionContext ─────────────────────────────────────────────────
+        let last_ok_time = Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
+        let last_ok_clone = Arc::clone(&last_ok_time);
+        let exec_ctx = ExecutionContext {
+            api: Arc::clone(&api),
+            session: Arc::clone(&session),
+            integrations: Arc::new(registry),
+            resolver: Arc::new(AlwaysOkResolver),
+            key_store,
+            retry_cfg: crate::executor::retry::RetryCfg {
+                max_retry_attempts: 1,
+                retry_base_delay: std::time::Duration::from_millis(0),
+            },
+            offline_grace: std::time::Duration::from_secs(60),
+            last_ok: Arc::new(move || *last_ok_clone.lock().unwrap()),
+            cancel: bitwarden_threading::cancellation_token::CancellationToken::new(),
+        };
+
+        // ── WorkSnapshot ─────────────────────────────────────────────────────
+        let snapshot = WorkSnapshot {
+            attempt_id,
+            job_id,
+            target_system_id,
+            target_system_name: "test".to_owned(),
+            kind: TargetKind::CustomScript,
+            password_policy: PasswordPolicy {
+                min_length: Some(12),
+                max_length: Some(64),
+                include_uppercase: true,
+                include_lowercase: true,
+                include_digits: true,
+                include_symbols: false,
+            },
+            cipher_id: uuid::Uuid::new_v4(),
+            account_identity: "user@example.com".to_owned(),
+            terminate_sessions: false,
+            execute_by: Utc::now() + chrono::Duration::minutes(5),
+        };
+
+        let result = execute(snapshot, &exec_ctx).await;
+
+        // Must be Reported (not Unreported) — a failure was reported.
+        assert!(
+            matches!(result, ExecutionResult::Reported),
+            "expected Reported, got {result:?}"
+        );
+
+        // Verify the failure report was sent with syncState = 1 (TargetUpdated).
+        let requests = api_server.received_requests().await.unwrap();
+        let failure_reqs: Vec<_> = requests
+            .iter()
+            .filter(|r| r.url.path().ends_with("/failure"))
+            .collect();
+        assert_eq!(
+            failure_reqs.len(),
+            1,
+            "expected exactly one failure report, got {}",
+            failure_reqs.len()
+        );
+        let body: serde_json::Value =
+            serde_json::from_slice(&failure_reqs[0].body).expect("parse failure body");
+        assert_eq!(
+            body["syncState"],
+            serde_json::json!(1),
+            "syncState must be 1 (TargetUpdated) for get_cipher protocol error: {body}"
+        );
     }
 }
 

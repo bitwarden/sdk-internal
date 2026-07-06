@@ -27,7 +27,7 @@ bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-threading = { workspace = true }
-anyhow = "1"
+anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"] }

@@ -230,11 +230,6 @@ impl SessionManager {
         self.state.lock().await.phase
     }
 
-    /// Returns a watch receiver that tracks phase changes.
-    pub(crate) async fn phase_watch(&self) -> watch::Receiver<SessionPhase> {
-        self.state.lock().await.phase_tx.subscribe()
-    }
-
     /// Returns a reference to the shared key store.
     pub(crate) async fn key_store(&self) -> Arc<DaemonKeyStore> {
         Arc::clone(&self.state.lock().await.key_store)
