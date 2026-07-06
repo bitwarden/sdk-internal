@@ -322,8 +322,11 @@ impl PasswordGeneratorRequest {
     }
 }
 
-/// Implementation of the random password generator.
-pub(crate) fn password(input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
+/// Generate a random password from the given request options.
+///
+/// Returns an error if the request is invalid (no character classes enabled,
+/// length out of range, etc.).
+pub fn password(input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
     let options = input.validate_options()?;
     Ok(password_with_rng(rand::rng(), options))
 }
