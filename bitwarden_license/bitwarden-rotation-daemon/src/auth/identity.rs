@@ -71,7 +71,13 @@ impl IdentityClient {
     /// Uses [`new_http_client_builder`] (rustls + platform verifier + `https_only`
     /// in release) — the workspace `reqwest` has no TLS backend built in.
     pub(crate) fn new(identity_url: String) -> Result<Self, reqwest::Error> {
-        let http = new_http_client_builder().timeout(REQUEST_TIMEOUT).build()?;
+        let http = new_http_client_builder()
+            .timeout(REQUEST_TIMEOUT)
+            // Disable automatic redirect following: the identity server never
+            // legitimately redirects credential posts; following a redirect would
+            // send the client_secret to an unexpected endpoint.
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
         Ok(Self { http, identity_url })
     }
 
