@@ -27,21 +27,26 @@
 pub(crate) mod retry;
 pub(crate) mod rotation;
 
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use bitwarden_threading::cancellation_token::CancellationToken;
-use tokio::sync::watch;
-use tokio::time::{MissedTickBehavior, interval};
-
-use crate::api::{RotationApi, build_api_client, models::ApiError};
-use crate::auth::session::{SessionLost, SessionManager};
-use crate::crypto::DaemonKeyStore;
-use crate::integrations::IntegrationRegistry;
-use crate::resolver::CredentialResolver;
-
 use retry::RetryCfg;
 use rotation::{AbortReason, ExecutionContext, ExecutionResult, execute};
+use tokio::{
+    sync::watch,
+    time::{MissedTickBehavior, interval},
+};
+
+use crate::{
+    api::{RotationApi, build_api_client, models::ApiError},
+    auth::session::{SessionLost, SessionManager},
+    crypto::DaemonKeyStore,
+    integrations::IntegrationRegistry,
+    resolver::CredentialResolver,
+};
 
 // ---------------------------------------------------------------------------
 // ConnectivityMonitor (gate arm 5 — not yet wired into the poll loop)
@@ -499,18 +504,23 @@ async fn handle_not_eligible(session: &SessionManager, api: &RotationApi) -> Not
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
+    use std::{
+        sync::{Arc, Mutex},
+        time::{Duration, Instant},
+    };
 
     use tokio::sync::watch;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
 
     use super::*;
-    use crate::api::{RotationApi, build_api_client};
-    use crate::auth::identity::IdentityClient;
-    use crate::auth::session::SessionManager;
-    use crate::token::DaemonToken;
+    use crate::{
+        api::{RotationApi, build_api_client},
+        auth::{identity::IdentityClient, session::SessionManager},
+        token::DaemonToken,
+    };
 
     const VALID_TOKEN_STR: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 

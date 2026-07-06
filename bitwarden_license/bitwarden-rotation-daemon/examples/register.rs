@@ -9,20 +9,19 @@
 //! Emulates the ADMIN-side wrap that the web client will eventually perform when
 //! registering a new rotation daemon. It:
 //!
-//! 1. Reads the organisation key from `BWRD_ORG_KEY_B64` or stdin (never argv
-//!    — command-line arguments are visible in process listings).
+//! 1. Reads the organisation key from `BWRD_ORG_KEY_B64` or stdin (never argv — command-line
+//!    arguments are visible in process listings).
 //! 2. Generates a fresh random 16-byte `encryption_key` seed.
-//! 3. Derives the full symmetric key via the C1 constants (same derivation as
-//!    the daemon token parser — [`bitwarden_rotation_daemon::token::DERIVE_NAME`]
-//!    / [`bitwarden_rotation_daemon::token::DERIVE_INFO`]).
-//! 4. Builds `encryptedPayload` — `{"encryptionKey":"<org-key-b64>"}` encrypted
-//!    under the derived key (mirrors the identity-server's auth response).
-//! 5. Builds `key` (CONTRACT C4) — the raw 16-byte seed's base64 string,
-//!    encrypted under the organisation key as an EncString.  The server stores
-//!    this opaquely alongside the daemon registration.
-//! 6. Prints a JSON object to **stdout only** (`name`, `encryptedPayload`, `key`)
-//!    ready to paste into the register API call, plus a `token template` line
-//!    showing where the operator must substitute the API-response values.
+//! 3. Derives the full symmetric key via the C1 constants (same derivation as the daemon token
+//!    parser — `DERIVE_NAME` / `DERIVE_INFO`).
+//! 4. Builds `encryptedPayload` — `{"encryptionKey":"<org-key-b64>"}` encrypted under the derived
+//!    key (mirrors the identity-server's auth response).
+//! 5. Builds `key` (CONTRACT C4) — the raw 16-byte seed's base64 string, encrypted under the
+//!    organisation key as an EncString.  The server stores this opaquely alongside the daemon
+//!    registration.
+//! 6. Prints a JSON object to **stdout only** (`name`, `encryptedPayload`, `key`) ready to paste
+//!    into the register API call, plus a `token template` line showing where the operator must
+//!    substitute the API-response values.
 //!
 //! The organisation key and the generated `encryption_key` seed are **never**
 //! written to any log or trace output.
@@ -39,11 +38,15 @@
 //!   cargo run -p bitwarden-rotation-daemon --example register -- --name my-daemon
 //! ```
 
+// This is a CLI tool whose entire purpose is to emit the registration payload to stdout and
+// operator guidance to stderr, so print macros are expected here.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::io::{self, BufRead};
 
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, EncString, KeyEncryptable, SymmetricCryptoKey,
-    derive_shareable_key, generate_random_bytes,
+    BitwardenLegacyKeyBytes, EncString, KeyEncryptable, SymmetricCryptoKey, derive_shareable_key,
+    generate_random_bytes,
 };
 use bitwarden_encoding::B64;
 use bitwarden_rotation_daemon::token::{DERIVE_INFO, DERIVE_NAME};
@@ -59,7 +62,10 @@ use zeroize::Zeroizing;
 /// Prints a JSON registration payload and token template to stdout.
 /// The organisation key is read from BWRD_ORG_KEY_B64 or stdin — never argv.
 #[derive(Parser)]
-#[command(name = "register", about = "TEST-ONLY: generate a daemon registration payload")]
+#[command(
+    name = "register",
+    about = "TEST-ONLY: generate a daemon registration payload"
+)]
 struct Cli {
     /// Display name for the daemon (sent in the registration request).
     #[arg(long, default_value = "test-daemon")]
@@ -103,8 +109,8 @@ impl std::fmt::Debug for RegisterPayload {
 ///
 /// # Parameters
 ///
-/// - `org_key_b64`: the organisation's symmetric key encoded as standard base64.
-///   This is the crown-jewel key — it must never appear in logs.
+/// - `org_key_b64`: the organisation's symmetric key encoded as standard base64. This is the
+///   crown-jewel key — it must never appear in logs.
 /// - `name`: the daemon display name.
 ///
 /// # Errors
@@ -231,9 +237,7 @@ fn main() {
         "token template: 0.daemon.<apiKeyId>.<clientSecret>:{}",
         payload.encryption_key_b64.as_str()
     );
-    println!(
-        "(substitute <apiKeyId> and <clientSecret> from the register API response)"
-    );
+    println!("(substitute <apiKeyId> and <clientSecret> from the register API response)");
 }
 
 // ---------------------------------------------------------------------------
@@ -242,16 +246,14 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{
-        KeyDecryptable, KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm,
-    };
+    use bitwarden_crypto::{KeyDecryptable, KeyStore, SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_encoding::B64;
-
-    use super::generate_registration_payload;
     use bitwarden_rotation_daemon::{
         crypto::{DaemonKeyStore, DaemonSymmSlotId, unwrap_org_key},
         token::DaemonToken,
     };
+
+    use super::generate_registration_payload;
 
     fn make_test_org_key_b64() -> (SymmetricCryptoKey, String) {
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -320,7 +322,10 @@ mod tests {
         assert!(result.is_err(), "expected error for invalid base64");
         let msg = result.unwrap_err();
         // Must not echo the key material.
-        assert!(!msg.contains("!!!"), "error message echoed key material: {msg}");
+        assert!(
+            !msg.contains("!!!"),
+            "error message echoed key material: {msg}"
+        );
     }
 
     /// Confirm generating two payloads produces different encryption_key seeds.

@@ -1,11 +1,11 @@
 //! Cryptographic helpers used by the rotation daemon.
 //!
-//! This module owns the daemon's [`DaemonKeyStore`] slot definitions and two
+//! This module owns the daemon's [`crate::crypto::DaemonKeyStore`] slot definitions and two
 //! operations built on top of it:
 //!
-//! * [`unwrap_org_key`] — install the org key delivered in the identity-server
-//!   auth payload.
-//! * [`encrypt_cipher_password`] — encrypt a new plaintext password into the
+//! * [`crate::crypto::unwrap_org_key`] — install the org key delivered in the identity-server auth
+//!   payload.
+//! * [`crate::crypto::encrypt_cipher_password`] — encrypt a new plaintext password into the
 //!   cipher's opaque `data` JSON blob, optionally via a per-item cipher key.
 
 use bitwarden_crypto::{
@@ -152,20 +152,18 @@ const CIPHER_PASSWORD_JSON_POINTER: &str = "/Password";
 
 /// Encrypt `new_password` and replace the password field in `data`.
 ///
-/// * If `cipher_key` is `Some`, it is an EncString (per-item cipher key)
-///   wrapped under the org key; it is unwrapped into a local slot and used to
-///   encrypt the password.
-/// * If `cipher_key` is `None`, the org key (Organisation slot) is used
-///   directly.
+/// * If `cipher_key` is `Some`, it is an EncString (per-item cipher key) wrapped under the org key;
+///   it is unwrapped into a local slot and used to encrypt the password.
+/// * If `cipher_key` is `None`, the org key (Organisation slot) is used directly.
 ///
 /// `data` is modified in place: only the value at
-/// [`CIPHER_PASSWORD_JSON_POINTER`] is replaced; all sibling fields are
+/// `CIPHER_PASSWORD_JSON_POINTER` is replaced; all sibling fields are
 /// preserved byte-for-byte.
 ///
 /// Returns `Err(CipherDataShape)` when the pointer's parent object is missing
 /// in `data`, without echoing any content.
 ///
-/// The [`KeyStoreContext`] is never held across an await point — this function
+/// The `KeyStoreContext` is never held across an await point — this function
 /// is synchronous.
 pub fn encrypt_cipher_password(
     store: &DaemonKeyStore,
