@@ -12,9 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// ProviderUserBulkResponseModelListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ProviderUserBulkResponseModelListResponseModel {
+pub struct AccessRuleResponseModelListResponseModel {
     #[serde(
         rename = "object",
         alias = "Object",
@@ -26,7 +25,7 @@ pub struct ProviderUserBulkResponseModelListResponseModel {
         alias = "Data",
         skip_serializing_if = "Option::is_none"
     )]
-    pub data: Option<Vec<models::ProviderUserBulkResponseModel>>,
+    pub data: Option<Vec<models::AccessRuleResponseModel>>,
     #[serde(
         rename = "continuationToken",
         alias = "ContinuationToken",
@@ -35,10 +34,9 @@ pub struct ProviderUserBulkResponseModelListResponseModel {
     pub continuation_token: Option<String>,
 }
 
-impl ProviderUserBulkResponseModelListResponseModel {
-    /// A paginated list response wrapper.
-    pub fn new() -> ProviderUserBulkResponseModelListResponseModel {
-        ProviderUserBulkResponseModelListResponseModel {
+impl AccessRuleResponseModelListResponseModel {
+    pub fn new() -> AccessRuleResponseModelListResponseModel {
+        AccessRuleResponseModelListResponseModel {
             object: None,
             data: None,
             continuation_token: None,
