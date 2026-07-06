@@ -4,8 +4,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     PassphraseError, PassphraseGeneratorRequest, PasswordError, PasswordGeneratorRequest,
-    UsernameError, UsernameGeneratorRequest, passphrase::passphrase, password::password,
-    username::username,
+    PasswordRulesError, UsernameError, UsernameGeneratorRequest, passphrase::passphrase,
+    password::password, passwordrules::parse_password_rules, username::username,
 };
 
 #[allow(missing_docs)]
@@ -45,6 +45,17 @@ impl GeneratorClient {
     /// ```
     pub fn password(&self, input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
         password(input)
+    }
+
+    /// Parses an HTML `passwordrules` attribute string into a [`PasswordGeneratorRequest`].
+    ///
+    /// The returned request can be passed to [`GeneratorClient::password`] to produce a
+    /// password that satisfies the website's declared constraints.
+    pub fn password_rules(
+        &self,
+        rules: String,
+    ) -> Result<PasswordGeneratorRequest, PasswordRulesError> {
+        parse_password_rules(&rules)
     }
 
     /// Generates a random passphrase.

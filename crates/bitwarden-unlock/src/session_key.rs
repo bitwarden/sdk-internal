@@ -1,5 +1,7 @@
+use std::{fmt::Display, str::FromStr};
+
 use bitwarden_crypto::{
-    KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
+    CryptoError, KeySlotIds, KeyStoreContext, SymmetricCryptoKey, SymmetricKeyAlgorithm,
     safe::{SymmetricKeyEnvelope, SymmetricKeyEnvelopeError, SymmetricKeyEnvelopeNamespace},
 };
 
@@ -11,13 +13,15 @@ use bitwarden_crypto::{
 /// the SDK (e.g. the OS keychain) and providing it back to
 /// [`UnlockClient::unlock`](crate::UnlockClient::unlock) when reconstructing
 /// the client.
-#[derive(PartialEq)] // This is ok because SymmetricCryptoKey implements PartialEq with constant-time equality checks.
+#[derive(PartialEq, Clone)] // This is ok because SymmetricCryptoKey implements PartialEq with constant-time equality checks.
 pub struct SessionKey(pub(crate) SymmetricCryptoKey);
 
 impl SessionKey {
     /// Mint a new random session key.
     pub fn make() -> Self {
-        Self(SymmetricCryptoKey::make_xchacha20_poly1305_key())
+        Self(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::XChaCha20Poly1305,
+        ))
     }
 
     /// Mint a new session key, seal `key_to_seal` (already present in `ctx`)
@@ -50,5 +54,39 @@ impl SessionKey {
             SymmetricKeyEnvelopeNamespace::SessionKey,
             ctx,
         )
+    }
+}
+
+impl FromStr for SessionKey {
+    type Err = CryptoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(SessionKey(s.parse()?))
+    }
+}
+
+impl Display for SessionKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.to_base64().fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_str_roundtrip_recovers_session_key() {
+        let original = SessionKey::make();
+        let encoded = original.0.to_base64().to_string();
+
+        let parsed: SessionKey = encoded.parse().unwrap();
+        assert!(parsed == original);
+    }
+
+    #[test]
+    fn from_str_rejects_invalid_base64() {
+        let result: Result<SessionKey, _> = "not-a-valid-key".parse();
+        assert!(matches!(result, Err(CryptoError::InvalidKey)));
     }
 }

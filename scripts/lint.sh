@@ -59,13 +59,16 @@ should_run() {
   [[ -z "$ONLY" || "$ONLY" == "$1" ]]
 }
 
-require_tool() {
-  local tool="$1" install_hint="$2"
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "Required tool not found on PATH: $tool" >&2
-    echo "Install with: $install_hint" >&2
+require_cargo_bin() {
+  if ! command -v cargo-bin >/dev/null 2>&1; then
+    echo "Required tool not found on PATH: cargo-bin" >&2
+    echo "Install with: cargo install cargo-run-bin --locked" >&2
+    echo "(Binary tool versions are pinned in Cargo.toml under [workspace.metadata.bin].)" >&2
     exit 1
   fi
+  # Guard against cargo-run-bin falling through to cargo-binstall. Source installs
+  # only; see VULN-613.
+  "$REPO_ROOT/scripts/check-no-binstall.sh"
 }
 
 run_fmt() {
@@ -85,22 +88,47 @@ run_clippy() {
 }
 
 run_sort() {
-  require_tool cargo-sort "cargo install cargo-sort --locked"
+  require_cargo_bin
   if (( FIX )); then
-    cargo sort --workspace --grouped
+    cargo bin cargo-sort --workspace --grouped
   else
-    cargo sort --workspace --grouped --check
+    cargo bin cargo-sort --workspace --grouped --check
   fi
 }
 
 run_udeps() {
-  require_tool cargo-udeps "cargo install cargo-udeps --locked"
-  cargo "+$RUST_NIGHTLY_TOOLCHAIN" udeps --workspace --all-features
+  require_cargo_bin
+  cargo "+$RUST_NIGHTLY_TOOLCHAIN" bin cargo-udeps --workspace --all-features
 }
 
 run_dylint() {
-  require_tool cargo-dylint "cargo install cargo-dylint dylint-link --locked"
-  cargo dylint --all -- --all-features --all-targets
+  require_cargo_bin
+  # cargo-dylint invokes `dylint-link` as rustc's linker, found by name on PATH.
+  # Running cargo-dylint through `cargo bin` doesn't work: cargo-run-bin prepends
+  # a shim directory to PATH whose dylint-link shim re-runs `cargo bin
+  # dylint-link`, which fails from the directories rustc links in (support/lints
+  # and each dependency's source dir, none of which declare
+  # [workspace.metadata.bin]). So build the tools and invoke cargo-dylint
+  # directly with the real dylint-link binary on PATH, using an absolute path so
+  # it resolves no matter which directory cargo-dylint links from.
+  #
+  # Build only the two tools dylint needs rather than `cargo bin --install`,
+  # which builds every pinned tool (including some that don't compile on this
+  # toolchain, e.g. cross). `cargo bin` builds a tool on first use; the throwaway
+  # invocations below just trigger those builds (dylint-link has no safe no-op
+  # invocation, so its run is allowed to fail; the builds are verified by the
+  # `find`s that follow).
+  cargo bin cargo-dylint --help >/dev/null
+  cargo bin dylint-link --help >/dev/null 2>&1 || true
+
+  local cargo_dylint dylint_link
+  cargo_dylint="$(find "$REPO_ROOT/.bin" -type f -name cargo-dylint -not -path '*/.shims/*' -print -quit)"
+  dylint_link="$(find "$REPO_ROOT/.bin" -type f -name dylint-link -not -path '*/.shims/*' -print -quit)"
+  if [[ -z "$cargo_dylint" || -z "$dylint_link" ]]; then
+    echo "Could not find cargo-dylint/dylint-link under .bin (build failed?)" >&2
+    exit 1
+  fi
+  PATH="$(dirname "$dylint_link"):$PATH" "$cargo_dylint" dylint --all -- --all-features --all-targets
 }
 
 run_doc() {

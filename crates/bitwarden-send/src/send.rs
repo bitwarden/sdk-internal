@@ -87,7 +87,7 @@ pub struct SendTextView {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum SendType {
     /// Text-based send
     Text = 0,
@@ -99,7 +99,7 @@ pub enum SendType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum AuthType {
     /// Email-based OTP authentication
     Email = 0,
@@ -120,10 +120,21 @@ pub enum AuthType {
 pub enum SendAuthType {
     /// No authentication required
     None,
-    /// Password-based authentication
+    /// Password-based authentication. The SDK derives the wire-format `keyB64` via PBKDF2
+    /// over the send key.
     Password {
-        /// The password required to access the Send
+        /// The plaintext password the recipient will enter to access the Send.
         password: String,
+    },
+    /// Pre-derived password. The caller has already run PBKDF2 client-side and supplies the
+    /// resulting base64-encoded hash; the SDK forwards it verbatim. Use this when the
+    /// hashing happens outside the SDK (e.g. the legacy TypeScript clients that derive in
+    /// `SendService.encrypt`). For new code that holds a plaintext password, use
+    /// `Password { ... }` and let the SDK do the derivation.
+    HashedPassword {
+        /// Base64-encoded PBKDF2 output (`keyB64`) ready for the wire.
+        #[serde(rename = "keyB64")]
+        key_b64: String,
     },
     /// Email-based OTP authentication
     Emails {
@@ -133,11 +144,26 @@ pub enum SendAuthType {
 }
 
 impl SendAuthType {
+    /// Construct a `Password` variant from a plaintext password. The SDK will run PBKDF2
+    /// during encryption.
+    pub fn from_plaintext_password(password: String) -> Self {
+        SendAuthType::Password { password }
+    }
+
+    /// Construct a `HashedPassword` variant from an already-derived `keyB64`. The SDK
+    /// forwards it verbatim — no further derivation. Misuse (passing plaintext here)
+    /// produces an unsatisfiable server-side hash.
+    pub fn from_hashed_password(key_b64: String) -> Self {
+        SendAuthType::HashedPassword { key_b64 }
+    }
+
     /// Returns the AuthType discriminant for this authentication method
     pub fn auth_type(&self) -> AuthType {
         match self {
             SendAuthType::None => AuthType::None,
-            SendAuthType::Password { .. } => AuthType::Password,
+            SendAuthType::Password { .. } | SendAuthType::HashedPassword { .. } => {
+                AuthType::Password
+            }
             SendAuthType::Emails { .. } => AuthType::Email,
         }
     }
@@ -153,14 +179,16 @@ impl SendAuthType {
         Ok(())
     }
 
-    /// Returns the password if this is a Password variant, emails if this is an Emails variant, or
-    /// None otherwise
+    /// Returns `(password, emails)` for the wire request. For `Password`, runs PBKDF2 over
+    /// the plaintext using `k` as the salt. For `HashedPassword`, forwards the supplied
+    /// `keyB64` verbatim — `k` is unused on that branch.
     pub(crate) fn auth_data(&self, k: &[u8]) -> (Option<String>, Option<String>) {
         match self {
             SendAuthType::Password { password } => {
                 let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), k, SEND_ITERATIONS);
                 (Some(B64::from(hashed.as_slice()).to_string()), None)
             }
+            SendAuthType::HashedPassword { key_b64 } => (Some(key_b64.clone()), None),
             SendAuthType::Emails { emails } => {
                 let emails_str = if emails.is_empty() {
                     None
@@ -1054,5 +1082,117 @@ mod tests {
         let text = model.text.unwrap();
         assert_eq!(text.text.as_deref(), Some(text_value));
         assert_eq!(text.hidden, Some(true));
+    }
+
+    #[test]
+    fn auth_data_hashed_password_returns_key_b64_verbatim() {
+        // `HashedPassword` is the wire-form contract: the caller supplies the already-
+        // derived base64 hash and the SDK must NOT run PBKDF2 again. We assert by
+        // checking that the returned password equals the input byte-for-byte, including
+        // for inputs that wouldn't be valid base64 (proves no decode/re-encode happens).
+        let key_b64 = "pretend-this-is-a-pbkdf2-output==".to_string();
+        let auth = SendAuthType::HashedPassword {
+            key_b64: key_b64.clone(),
+        };
+
+        let (password, emails) = auth.auth_data(b"any-send-key-bytes-here");
+
+        assert_eq!(password, Some(key_b64));
+        assert_eq!(emails, None);
+    }
+
+    #[test]
+    fn auth_data_hashed_and_plaintext_diverge_for_same_input() {
+        // Sanity check: passing the same string through `Password` and `HashedPassword`
+        // produces different wire outputs, so a mis-routed caller (plaintext into
+        // `HashedPassword`) fails loudly server-side rather than silently producing the
+        // same hash as the plaintext path would.
+        let same_string = "abc123".to_string();
+        let send_key = b"send-key-salt-bytes";
+
+        let (plaintext_out, _) = SendAuthType::Password {
+            password: same_string.clone(),
+        }
+        .auth_data(send_key);
+        let (hashed_out, _) = SendAuthType::HashedPassword {
+            key_b64: same_string,
+        }
+        .auth_data(send_key);
+
+        assert_ne!(
+            plaintext_out, hashed_out,
+            "Plaintext path must run PBKDF2; HashedPassword path must not"
+        );
+    }
+
+    #[test]
+    fn auth_type_for_hashed_password_maps_to_password() {
+        // Both `Password` and `HashedPassword` produce `authType = Password` on the wire;
+        // the server doesn't distinguish.
+        assert_eq!(
+            SendAuthType::Password {
+                password: "p".to_string()
+            }
+            .auth_type(),
+            AuthType::Password,
+        );
+        assert_eq!(
+            SendAuthType::HashedPassword {
+                key_b64: "k".to_string()
+            }
+            .auth_type(),
+            AuthType::Password,
+        );
+    }
+
+    /// Pins the wire shape of `SendAuthType` including the new `HashedPassword` variant
+    /// (`"type": "hashedPassword"` under camelCase rename). Same pattern as the existing
+    /// regression tests that pin internally-tagged serde enums.
+    #[test]
+    fn send_auth_type_round_trips_through_json() {
+        let cases = [
+            (SendAuthType::None, serde_json::json!({"type": "none"})),
+            (
+                SendAuthType::Password {
+                    password: "hunter2".to_string(),
+                },
+                serde_json::json!({"type": "password", "password": "hunter2"}),
+            ),
+            (
+                SendAuthType::HashedPassword {
+                    key_b64: "deadbeef==".to_string(),
+                },
+                serde_json::json!({"type": "hashedPassword", "keyB64": "deadbeef=="}),
+            ),
+            (
+                SendAuthType::Emails {
+                    emails: vec!["a@b.com".to_string()],
+                },
+                serde_json::json!({"type": "emails", "emails": ["a@b.com"]}),
+            ),
+        ];
+        for (value, expected) in cases {
+            let serialized = serde_json::to_value(&value).expect("serialize");
+            assert_eq!(serialized, expected, "wire shape mismatch for {value:?}");
+            let deserialized: SendAuthType =
+                serde_json::from_value(serialized).expect("round-trip");
+            assert_eq!(deserialized, value, "round-trip mismatch for {value:?}");
+        }
+    }
+
+    #[test]
+    fn typed_constructors_produce_expected_variants() {
+        assert_eq!(
+            SendAuthType::from_plaintext_password("hunter2".to_string()),
+            SendAuthType::Password {
+                password: "hunter2".to_string()
+            },
+        );
+        assert_eq!(
+            SendAuthType::from_hashed_password("deadbeef==".to_string()),
+            SendAuthType::HashedPassword {
+                key_b64: "deadbeef==".to_string()
+            },
+        );
     }
 }

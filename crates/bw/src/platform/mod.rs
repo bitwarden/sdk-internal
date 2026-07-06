@@ -1,11 +1,13 @@
 use clap::Args;
 
+pub(crate) mod appdata;
 mod completion;
 mod config;
 mod encode;
 mod serve;
 mod sync;
 
+pub(crate) use appdata::appdata_dir;
 pub(crate) use completion::CompletionArgs;
 pub(crate) use config::ConfigCommand;
 pub(crate) use encode::EncodeArgs;

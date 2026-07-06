@@ -95,7 +95,7 @@ mod tests {
     use bitwarden_core::{
         OrganizationId, client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
     };
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
 
@@ -108,7 +108,7 @@ mod tests {
     fn generate_test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
+            name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap()),
             r#type: crate::CipherType::Login,
             notes: Default::default(),
             organization_id: Default::default(),
@@ -145,9 +145,9 @@ mod tests {
         let repository = Arc::new(MemoryRepository::<Cipher>::default());
         #[allow(deprecated)]
         let client = CiphersClient {
-            key_store: create_test_crypto_with_user_key(
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            ),
+            key_store: create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            )),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
             repository: Some(repository.clone() as Arc<dyn Repository<Cipher>>),
             client: bitwarden_core::Client::new_test(None),

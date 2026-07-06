@@ -21,7 +21,7 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
 };
 
@@ -165,6 +165,10 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
     }
 }
 
+// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
+// short-lived feature-rollout flags that will be removed once their migrations
+// complete, at which point the argument count drops back under the limit.
+#[allow(clippy::too_many_arguments)]
 async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -173,6 +177,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     request: CipherEditRequest,
     use_strict_decryption: bool,
     enable_cipher_key_encryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
@@ -193,7 +198,13 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         view.generate_cipher_key(&mut key_store.context(), key)?;
     }
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -206,11 +217,11 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 /// Update only the cipher fields available to users without edit permissions
@@ -240,11 +251,11 @@ async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    Ok(if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(cipher))?
     } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+        key_store.decrypt(&cipher)?
+    })
 }
 
 #[allow(deprecated)]
@@ -265,6 +276,8 @@ impl CiphersClient {
         let enable_cipher_key_encryption =
             self.client.flags().get().await.enable_cipher_key_encryption;
 
+        let use_blob = self.should_use_blob_encryption(request.organization_id);
+
         edit_cipher(
             key_store,
             &config.api_client,
@@ -273,6 +286,7 @@ impl CiphersClient {
             request,
             self.is_strict_decrypt().await,
             enable_cipher_key_encryption,
+            use_blob,
         )
         .await
     }
@@ -424,7 +438,7 @@ mod tests {
                 folder_id: None,
                 collection_ids: vec![],
                 key: None,
-                name: name.encrypt(&mut ctx, SymmetricKeySlotId::User).unwrap(),
+                name: Some(name.encrypt(&mut ctx, SymmetricKeySlotId::User).unwrap()),
                 notes: None,
                 r#type: CipherType::Login,
                 login: Some(Login {
@@ -548,6 +562,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
             false,
             false,
         )
@@ -689,6 +704,7 @@ mod tests {
             request,
             false,
             false,
+            false,
         )
         .await;
 
@@ -729,6 +745,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
             false,
             false,
         )
@@ -862,5 +879,62 @@ mod tests {
         assert_eq!(history[2].password, "old_password_1");
         assert_eq!(history[3].password, "old_password_2");
         assert_eq!(history[4].password, "old_password_3");
+    }
+
+    mod blob_encrypt {
+        use bitwarden_core::key_management::create_test_crypto_with_user_key;
+        use bitwarden_crypto::SymmetricCryptoKey;
+
+        use super::*;
+        use crate::cipher::blob::try_parse_blob;
+
+        /// `EncryptMode::Blob(CipherView)` clears `password_history` from the
+        /// wire-shaped `Cipher` — history must travel inside the sealed blob,
+        /// not as a top-level encrypted field.
+        #[test]
+        fn password_history_lives_inside_blob_not_on_wire() {
+            let store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ));
+
+            let original = create_test_login_cipher("old_password");
+            let mut view = create_test_login_cipher("new_password");
+            view.update_password_history(&original);
+            // Sanity: the in-flight view captured the old password.
+            assert_eq!(view.password_history.as_ref().unwrap().len(), 1);
+
+            let cipher: Cipher = store.encrypt(EncryptMode::Blob(view)).unwrap();
+
+            assert!(try_parse_blob(&cipher).is_some());
+            assert!(
+                cipher.password_history.is_none(),
+                "password history must live inside the blob, not on the wire",
+            );
+            assert!(cipher.login.is_none());
+            assert!(cipher.notes.is_none());
+        }
+
+        /// End-to-end: a password change picked up by `update_password_history`
+        /// is sealed inside the blob and unsealed back out by
+        /// `BlobAwareDecrypt`.
+        #[test]
+        fn password_history_round_trips_through_the_blob() {
+            let store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ));
+
+            let original = create_test_login_cipher("old_password");
+            let mut view = create_test_login_cipher("new_password");
+            view.update_password_history(&original);
+
+            let cipher: Cipher = store.encrypt(EncryptMode::Blob(view)).unwrap();
+            let restored: CipherView = store.decrypt(&cipher).unwrap();
+
+            let history = restored
+                .password_history
+                .expect("history should round-trip through the blob");
+            assert_eq!(history.len(), 1);
+            assert_eq!(history[0].password, "old_password");
+        }
     }
 }

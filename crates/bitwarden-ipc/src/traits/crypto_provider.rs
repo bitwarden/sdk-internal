@@ -3,7 +3,10 @@ use std::fmt::Debug;
 #[cfg(any(test, feature = "test-support"))]
 use super::CommunicationBackendReceiver;
 use super::{CommunicationBackend, SessionRepository};
-use crate::message::{IncomingMessage, OutgoingMessage};
+use crate::{
+    error::IpcErrorKind,
+    message::{IncomingMessage, OutgoingMessage},
+};
 
 pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
 where
@@ -11,8 +14,8 @@ where
     Ses: SessionRepository<Self::Session>,
 {
     type Session: Send + Sync + 'static;
-    type SendError: Debug + Send + Sync + 'static;
-    type ReceiveError: Debug + Send + Sync + 'static;
+    type SendError: Debug + Send + Sync + 'static + IpcErrorKind;
+    type ReceiveError: Debug + Send + Sync + 'static + IpcErrorKind;
 
     /// Send a message.
     ///
@@ -21,9 +24,11 @@ where
     /// session, the function may first send a message to establish a session and then send the
     /// original message. The implementation of this function should handle this logic.
     ///
-    /// An error should only be returned for fatal and unrecoverable errors e.g. if the session
-    /// storage is full or cannot be accessed. Returning an error will cause the IPC client to
-    /// stop processing messages.
+    /// Both recoverable and fatal errors may be returned, classified via
+    /// [`IpcErrorKind::is_fatal()`]. A recoverable error (e.g. a handshake timeout or a transient
+    /// transport failure) is logged and the IPC client keeps running; a fatal error (e.g. the
+    /// session storage being inaccessible) stops the client from processing any further messages.
+    /// Ambiguous cases should be classified as recoverable.
     fn send(
         &self,
         communication: &Com,
@@ -39,9 +44,11 @@ where
     /// re-request the original message. The implementation of this function should handle this
     /// logic.
     ///
-    /// An error should only be returned for fatal and unrecoverable errors e.g. if the session
-    /// storage is full or cannot be accessed. Returning an error will cause the IPC client to
-    /// stop processing messages.
+    /// Both recoverable and fatal errors may be returned, classified via
+    /// [`IpcErrorKind::is_fatal()`]. A recoverable error (e.g. a malformed frame from one peer or a
+    /// transient transport failure) is logged and the IPC client's processing loop continues; a
+    /// fatal error (e.g. the session storage being inaccessible) stops the loop. Ambiguous cases
+    /// should be classified as recoverable.
     fn receive(
         &self,
         receiver: &Com::Receiver,

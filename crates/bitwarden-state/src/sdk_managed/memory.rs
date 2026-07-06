@@ -19,12 +19,32 @@ use crate::{
 ///
 /// All data is lost when the instance is dropped.
 #[derive(Clone)]
-pub struct MemoryDatabase(Arc<Mutex<HashMap<TypeId, HashMap<String, String>>>>);
+pub struct MemoryDatabase(Arc<Mutex<Option<Store>>>);
+
+type Store = HashMap<TypeId, HashMap<String, String>>;
 
 impl MemoryDatabase {
     /// Create a new, empty in-memory database.
     pub fn new() -> Self {
-        MemoryDatabase(Arc::new(Mutex::new(HashMap::new())))
+        MemoryDatabase(Arc::new(Mutex::new(Some(HashMap::new()))))
+    }
+
+    fn with_store<R>(
+        &self,
+        f: impl FnOnce(&Store) -> Result<R, DatabaseError>,
+    ) -> Result<R, DatabaseError> {
+        let guard = self.0.lock().expect("Mutex is not poisoned");
+        let store = guard.as_ref().ok_or(DatabaseError::Closed)?;
+        f(store)
+    }
+
+    fn with_store_mut<R>(
+        &self,
+        f: impl FnOnce(&mut Store) -> Result<R, DatabaseError>,
+    ) -> Result<R, DatabaseError> {
+        let mut guard = self.0.lock().expect("Mutex is not poisoned");
+        let store = guard.as_mut().ok_or(DatabaseError::Closed)?;
+        f(store)
     }
 }
 
@@ -43,19 +63,18 @@ impl Database for MemoryDatabase {
         &self,
         key: &str,
     ) -> Result<Option<T>, DatabaseError> {
-        let store = self.0.lock().expect("Mutex is not poisoned");
-        let type_map = store.get(&TypeId::of::<T>());
-        match type_map.and_then(|m| m.get(key)) {
-            Some(json) => Ok(Some(serde_json::from_str(json)?)),
-            None => Ok(None),
-        }
+        self.with_store(
+            |store| match store.get(&TypeId::of::<T>()).and_then(|m| m.get(key)) {
+                Some(json) => Ok(Some(serde_json::from_str(json)?)),
+                None => Ok(None),
+            },
+        )
     }
 
     async fn list<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
     ) -> Result<Vec<T>, DatabaseError> {
-        let store = self.0.lock().expect("Mutex is not poisoned");
-        match store.get(&TypeId::of::<T>()) {
+        self.with_store(|store| match store.get(&TypeId::of::<T>()) {
             None => Ok(vec![]),
             Some(type_map) => {
                 let mut results = Vec::with_capacity(type_map.len());
@@ -64,7 +83,7 @@ impl Database for MemoryDatabase {
                 }
                 Ok(results)
             }
-        }
+        })
     }
 
     async fn set<T: Serialize + DeserializeOwned + RepositoryItem>(
@@ -73,56 +92,66 @@ impl Database for MemoryDatabase {
         value: T,
     ) -> Result<(), DatabaseError> {
         let json = serde_json::to_string(&value)?;
-        let mut store = self.0.lock().expect("Mutex is not poisoned");
-        store
-            .entry(TypeId::of::<T>())
-            .or_default()
-            .insert(key.to_string(), json);
-        Ok(())
+        self.with_store_mut(|store| {
+            store
+                .entry(TypeId::of::<T>())
+                .or_default()
+                .insert(key.to_string(), json);
+            Ok(())
+        })
     }
 
     async fn set_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
         values: Vec<(String, T)>,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().expect("Mutex is not poisoned");
-        let type_map = store.entry(TypeId::of::<T>()).or_default();
-        for (key, value) in values {
-            let json = serde_json::to_string(&value)?;
-            type_map.insert(key, json);
-        }
-        Ok(())
+        self.with_store_mut(|store| {
+            let type_map = store.entry(TypeId::of::<T>()).or_default();
+            for (key, value) in values {
+                let json = serde_json::to_string(&value)?;
+                type_map.insert(key, json);
+            }
+            Ok(())
+        })
     }
 
     async fn remove<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
         key: &str,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().expect("Mutex is not poisoned");
-        if let Some(type_map) = store.get_mut(&TypeId::of::<T>()) {
-            type_map.remove(key);
-        }
-        Ok(())
+        self.with_store_mut(|store| {
+            if let Some(type_map) = store.get_mut(&TypeId::of::<T>()) {
+                type_map.remove(key);
+            }
+            Ok(())
+        })
     }
 
     async fn remove_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
         keys: Vec<String>,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().expect("Mutex is not poisoned");
-        if let Some(type_map) = store.get_mut(&TypeId::of::<T>()) {
-            for key in keys {
-                type_map.remove(&key);
+        self.with_store_mut(|store| {
+            if let Some(type_map) = store.get_mut(&TypeId::of::<T>()) {
+                for key in keys {
+                    type_map.remove(&key);
+                }
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     async fn remove_all<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().expect("Mutex is not poisoned");
-        store.remove(&TypeId::of::<T>());
+        self.with_store_mut(|store| {
+            store.remove(&TypeId::of::<T>());
+            Ok(())
+        })
+    }
+
+    async fn wipe(&self) -> Result<(), DatabaseError> {
+        *self.0.lock().expect("Mutex is not poisoned") = None;
         Ok(())
     }
 }
@@ -251,6 +280,28 @@ mod tests {
             db.get::<TypeA>("k").await.unwrap(),
             Some(TypeA("v".to_string()))
         );
+    }
+
+    #[tokio::test]
+    async fn test_memory_database_wipe_disconnects_clones() {
+        let db = MemoryDatabase::new();
+        let clone = db.clone();
+        db.set("k", TypeA("v".to_string())).await.unwrap();
+
+        db.wipe().await.unwrap();
+
+        assert!(matches!(
+            db.get::<TypeA>("k").await,
+            Err(DatabaseError::Closed)
+        ));
+        assert!(matches!(
+            clone.get::<TypeA>("k").await,
+            Err(DatabaseError::Closed)
+        ));
+        assert!(matches!(
+            clone.set("k", TypeA("v".to_string())).await,
+            Err(DatabaseError::Closed)
+        ));
     }
 
     #[tokio::test]
