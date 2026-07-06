@@ -44,7 +44,8 @@ pub(crate) mod auth;
 pub mod cli;
 /// Configuration loading and validation (exposed for `main.rs`).
 pub mod config;
-pub(crate) mod crypto;
+/// Cryptographic helpers (exposed for integration tests and `examples/register.rs`).
+pub mod crypto;
 /// Top-level error types (exposed for `main.rs`).
 pub mod error;
 /// Daemon run-loop and exit variants (exposed for `main.rs`).
@@ -52,7 +53,8 @@ pub mod executor;
 pub(crate) mod integrations;
 pub(crate) mod policy;
 pub(crate) mod resolver;
-pub(crate) mod token;
+/// Token parsing, key derivation, and C1 constants (exposed for `examples/register.rs`).
+pub mod token;
 
 // ---------------------------------------------------------------------------
 // Public run surface
