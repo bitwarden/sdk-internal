@@ -1,0 +1,1 @@
+//! Core rotation execution pipeline.
