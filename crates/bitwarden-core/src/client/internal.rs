@@ -11,7 +11,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
-use tracing::{debug, info, instrument};
+use tracing::{debug, info};
 
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
@@ -247,7 +247,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn initialize_user_crypto_key_connector_key(
         &self,
         master_key: MasterKey,
@@ -260,7 +260,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip_all, fields(user_id = ?self.get_user_id()))]
+    #[bitwarden_logging::instrument(err, fields(user_id = ?self.get_user_id()))]
     pub fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
@@ -308,7 +308,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn initialize_user_crypto_pin(
         &self,
         pin_key: PinKey,
@@ -325,7 +325,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn initialize_user_crypto_pin_envelope(
         &self,
         pin: String,
@@ -374,7 +374,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     pub(crate) fn initialize_user_crypto_master_password_unlock(
         &self,
         password: String,

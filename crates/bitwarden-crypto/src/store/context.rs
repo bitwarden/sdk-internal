@@ -5,10 +5,9 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
-use tracing::instrument;
 use zeroize::Zeroizing;
 
-use super::KeyStoreInner;
+use super::{CipherSuite, KeyStoreInner};
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeySlotId, KeySlotIds, LocalId,
@@ -86,6 +85,8 @@ pub struct KeyStoreContext<'a, Ids: KeySlotIds> {
 
     pub(super) security_state_version: u64,
 
+    pub(super) cipher_suite: CipherSuite,
+
     // Make sure the context is !Send & !Sync
     pub(super) _phantom: std::marker::PhantomData<(Cell<()>, RwLockReadGuard<'static, ()>)>,
 }
@@ -144,6 +145,12 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// safely.
     pub fn get_security_state_version(&self) -> u64 {
         self.security_state_version
+    }
+
+    /// Returns the [CipherSuite] this context operates under, which determines the algorithms
+    /// operations are allowed to use in the current environment.
+    pub fn cipher_suite(&self) -> CipherSuite {
+        self.cipher_suite
     }
 
     /// Remove all symmetric keys from the context for which the predicate returns false
@@ -212,7 +219,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
-    #[instrument(skip(self, wrapped_key), err)]
+    #[bitwarden_logging::instrument(err, fields(wrapping_key = ?wrapping_key))]
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -237,10 +244,11 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(
-                    &CoseEncrypt0Bytes::from(data.clone()),
-                    key,
-                )?;
+                let (content_bytes, content_format) =
+                    crate::cose::symmetric::decrypt_xchacha20_poly1305(
+                        &CoseEncrypt0Bytes::from(data.clone()),
+                        key,
+                    )?;
                 match content_format {
                     ContentFormat::BitwardenLegacyKey => {
                         SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
@@ -368,7 +376,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Errors
     /// Returns an error if decryption or parsing fails.
-    #[instrument(skip(self, wrapped_key), err)]
+    #[bitwarden_logging::instrument(err, fields(wrapping_key = ?wrapping_key))]
     pub fn unwrap_private_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -680,7 +688,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Returns `true` if the given symmetric key uses V1 (Aes256CbcHmac) encryption.
-    #[instrument(skip(self), err)]
+    #[bitwarden_logging::instrument(err, fields(key_id = ?key_id))]
     pub fn is_v1_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<bool> {
         let algorithm = self.get_symmetric_key_algorithm(key_id)?;
         Ok(algorithm == SymmetricKeyAlgorithm::Aes256CbcHmac)
@@ -730,7 +738,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         key_id
     }
 
-    #[instrument(skip(self, data), err)]
+    #[bitwarden_logging::instrument(err, fields(key = ?key))]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,
@@ -753,7 +761,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(
+                let (data, _) = crate::cose::symmetric::decrypt_xchacha20_poly1305(
                     &CoseEncrypt0Bytes::from(data.clone()),
                     key,
                 )?;

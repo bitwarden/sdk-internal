@@ -11,7 +11,6 @@ use bitwarden_crypto::{
     Decryptable, EncString, KeySlotIds, KeyStoreContext, SymmetricKeyAlgorithm,
 };
 use thiserror::Error;
-use tracing::instrument;
 
 /// Holds both V1 and V2 user keys, each wrapped by the other.
 #[cfg_attr(
@@ -41,7 +40,7 @@ impl V2UpgradeToken {
     /// Creates a new [`V2UpgradeToken`] from `v1_key_id` (Aes256CbcHmac) and `v2_key_id`
     /// (XChaCha20Poly1305) in the KeyStore. Type-checks both keys, then wraps V1 with V2 and
     /// V2 with V1.
-    #[instrument(skip(ctx))]
+    #[bitwarden_logging::instrument(fields(v1_key_id = ?v1_key_id, v2_key_id = ?v2_key_id))]
     pub fn create<Ids: KeySlotIds>(
         v1_key_id: Ids::Symmetric,
         v2_key_id: Ids::Symmetric,
@@ -82,7 +81,7 @@ impl V2UpgradeToken {
 
     /// Unwraps `wrapped_user_key_1` using `v2_key_id`, validates the result can unwrap
     /// `wrapped_user_key_2`, then adds the V1 key to the KeyStore and returns its key ID.
-    #[instrument(skip(self, ctx))]
+    #[bitwarden_logging::instrument(fields(v2_key_id = ?v2_key_id))]
     pub fn unwrap_v1<Ids: KeySlotIds>(
         &self,
         v2_key_id: Ids::Symmetric,
@@ -104,7 +103,7 @@ impl V2UpgradeToken {
 
     /// Unwraps `wrapped_user_key_2` using `v1_key_id`, validates the result can unwrap
     /// `wrapped_user_key_1`, then adds the V2 key to the KeyStore and returns its key ID.
-    #[instrument(skip(self, ctx))]
+    #[bitwarden_logging::instrument(fields(v1_key_id = ?v1_key_id))]
     pub fn unwrap_v2<Ids: KeySlotIds>(
         &self,
         v1_key_id: Ids::Symmetric,
