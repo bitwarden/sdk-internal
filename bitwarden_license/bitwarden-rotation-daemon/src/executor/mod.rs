@@ -129,6 +129,40 @@ pub struct DaemonConfig {
     pub(crate) entra_verify_probe: bool,
 }
 
+impl DaemonConfig {
+    /// Build a [`DaemonConfig`] for integration tests, bypassing the CLI
+    /// validation layer (e.g. poll-interval minimum).
+    ///
+    /// Intentionally `pub` so that integration tests in `tests/` can use it.
+    /// The `#[doc(hidden)]` attribute keeps it out of the published docs; the
+    /// name signals that this is test infrastructure and must not be used in
+    /// production code.
+    #[doc(hidden)]
+    pub fn new_for_test(
+        api_url: String,
+        identity_url: String,
+        token: crate::token::DaemonToken,
+        poll_interval: Duration,
+        script_root: Option<std::path::PathBuf>,
+    ) -> Self {
+        Self {
+            api_url,
+            identity_url,
+            token,
+            poll_interval,
+            heartbeat_interval: Duration::from_millis(500),
+            offline_grace: Duration::from_secs(60),
+            retry_cfg: RetryCfg {
+                max_retry_attempts: 2,
+                retry_base_delay: Duration::from_millis(10),
+            },
+            script_root,
+            script_timeout: Duration::from_secs(10),
+            entra_verify_probe: false,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // run
 // ---------------------------------------------------------------------------
@@ -663,13 +697,10 @@ mod tests {
         let mut claimed = 0;
         let mut snapshot = None;
         for job in &jobs {
-            match api.claim(job.id).await.unwrap() {
-                Some(s) => {
-                    snapshot = Some(s);
-                    claimed += 1;
-                    break;
-                }
-                None => {}
+            if let Some(s) = api.claim(job.id).await.unwrap() {
+                snapshot = Some(s);
+                claimed += 1;
+                break;
             }
         }
 

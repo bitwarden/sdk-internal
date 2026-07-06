@@ -769,6 +769,9 @@ async fn _report_failure_absorb(
     }
 }
 
+// Re-export Future for use in make_gate's return type.
+use std::future::Future;
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -861,7 +864,7 @@ mod tests {
 
         let cancel = bitwarden_threading::cancellation_token::CancellationToken::new();
         let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
-            Arc::new(|| std::time::Instant::now());
+            Arc::new(std::time::Instant::now);
 
         // Set execute_by to 1 ms in the past.
         let execute_by = std::time::Instant::now()
@@ -936,7 +939,7 @@ mod tests {
 
         let execute_by = std::time::Instant::now() + Duration::from_secs(300);
         let last_ok: Arc<dyn Fn() -> std::time::Instant + Send + Sync> =
-            Arc::new(|| std::time::Instant::now());
+            Arc::new(std::time::Instant::now);
 
         let mut gate = make_gate(
             Arc::clone(&session),
@@ -969,15 +972,6 @@ mod tests {
             }
         }
 
-        fn with_rotate_result(mut self, result: Result<(), IntegrationError>) -> Self {
-            self.rotate_result = result;
-            self
-        }
-
-        fn with_verify_result(mut self, result: Result<(), IntegrationError>) -> Self {
-            self.verify_result = result;
-            self
-        }
     }
 
     #[async_trait]
@@ -1269,6 +1263,3 @@ mod tests {
         );
     }
 }
-
-// Re-export Future for use in make_gate's return type.
-use std::future::Future;
