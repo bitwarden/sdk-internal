@@ -122,6 +122,11 @@ impl Client {
         AuthClient(self.0.0.clone())
     }
 
+    /// Whether the client is in Gov Mode.
+    pub fn gov_mode(&self) -> bool {
+        self.0.0.gov_mode()
+    }
+
     /// Policy operations
     pub fn policies(&self) -> policies::PoliciesClient {
         use bitwarden_policies::PoliciesClientExt;

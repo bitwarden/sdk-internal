@@ -16,8 +16,12 @@ pub struct ResponseContent {
 }
 
 /// Errors that can occur during API operations.
+///
+/// This type is intentionally not exposed over UniFFI. It is always wrapped into
+/// `bitwarden_core::ApiError` before crossing the FFI boundary, and that type carries the
+/// `uniffi::Error` derive. Deriving `uniffi::Error` here as well would export a second error type
+/// named `Error`, which collides with the `Swift.Error` protocol in the generated Swift bindings.
 #[derive(Debug)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum Error<T = ()> {
     /// Error from the reqwest HTTP client.
     Reqwest(reqwest::Error),
