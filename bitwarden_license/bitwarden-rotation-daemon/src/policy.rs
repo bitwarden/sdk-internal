@@ -70,9 +70,9 @@ const DEFAULT_POLICY_PASSWORD_LENGTH: u32 = 64;
 /// # Errors
 ///
 /// - [`PolicyError::NoCharacterClasses`] — all four `include_*` flags are `false`.
-/// - [`PolicyError::InvalidBounds`] — `min_length > max_length` (when both are `Some`),
-///   or the effective floor (after applying the generator minimum of 5) exceeds the
-///   generator maximum of 128.
+/// - [`PolicyError::InvalidBounds`] — `min_length > max_length` (when both are `Some`), or the
+///   effective floor (after applying the generator minimum of 5) exceeds the generator maximum of
+///   128.
 pub(crate) fn to_generator_request(
     policy: &PasswordPolicy,
 ) -> Result<PasswordGeneratorRequest, PolicyError> {

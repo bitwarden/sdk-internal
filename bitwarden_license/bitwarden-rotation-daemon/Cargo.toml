@@ -15,11 +15,9 @@ keywords.workspace = true
 name = "bw-rotation-daemon"
 path = "src/main.rs"
 
-[[example]]
-name = "register"
-path = "examples/register.rs"
-
 [dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-base = { workspace = true }
 bitwarden-crypto = { workspace = true }
@@ -27,8 +25,6 @@ bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-threading = { workspace = true }
-anyhow = { workspace = true }
-async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { version = "4.5", features = ["derive", "env"] }
 http = { workspace = true }
@@ -48,6 +44,10 @@ zeroize = { workspace = true }
 tempfile = "3"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }
+
+[[example]]
+name = "register"
+path = "examples/register.rs"
 
 [lints]
 workspace = true

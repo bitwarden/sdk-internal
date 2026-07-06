@@ -1,13 +1,12 @@
 //! Error taxonomy for the rotation daemon.
 //!
 //! This module defines:
-//! - [`FailureCode`]: failure reason codes reported to the server on a failed rotation attempt.
-//! - [`SyncState`]: vault-to-target synchronisation state at the time of a failure report.
-//! - [`SessionTermination`]: outcome of the best-effort session-termination step.
-//! - [`ErrorClass`]: transient vs. fatal classification used by the retry helpers.
-//! - [`SafeDetail`]: a bounded, zero-knowledge detail string constructible only from vetted
-//!   scalars.
-//! - [`RotationDaemonError`]: top-level CLI/startup errors.
+//! - `FailureCode`: failure reason codes reported to the server on a failed rotation attempt.
+//! - `SyncState`: vault-to-target synchronisation state at the time of a failure report.
+//! - `SessionTermination`: outcome of the best-effort session-termination step.
+//! - `ErrorClass`: transient vs. fatal classification used by the retry helpers.
+//! - `SafeDetail`: a bounded, zero-knowledge detail string constructible only from vetted scalars.
+//! - [`crate::error::RotationDaemonError`]: top-level CLI/startup errors.
 
 use thiserror::Error;
 
@@ -183,10 +182,7 @@ impl SafeDetail {
     /// server-assigned string like `"Request_ResourceNotFound"`) are included.
     /// The Graph `error.message` field is **never** included because it can echo
     /// user-supplied content (e.g. account identities, policy text).
-    pub(crate) fn from_http_status_and_graph_code(
-        status: u16,
-        graph_code: Option<&str>,
-    ) -> Self {
+    pub(crate) fn from_http_status_and_graph_code(status: u16, graph_code: Option<&str>) -> Self {
         let s = match graph_code {
             Some(code) => format!("HTTP {status} ({code})"),
             None => format!("HTTP {status}"),
