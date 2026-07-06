@@ -15,6 +15,10 @@ keywords.workspace = true
 name = "bw-rotation-daemon"
 path = "src/main.rs"
 
+[[example]]
+name = "register"
+path = "examples/register.rs"
+
 [dependencies]
 bitwarden-api-api = { workspace = true }
 bitwarden-api-base = { workspace = true }
