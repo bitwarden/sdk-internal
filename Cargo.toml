@@ -23,6 +23,7 @@ keywords = ["bitwarden"]
 # External crates that are expected to maintain a consistent version across all crates
 aes = { version = "0.9.0", features = ["zeroize"] }
 aes-gcm = { version = "0.11.0", features = ["zeroize"] }
+anyhow = ">=1.0, <2.0"
 async-trait = ">=0.1.80, <0.2"
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=3.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=3.0.0" }
