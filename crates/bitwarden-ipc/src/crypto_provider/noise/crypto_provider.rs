@@ -30,12 +30,12 @@ pub enum NoiseCryptoProviderError {
     Timeout,
     /// The destination could not be reached (the underlying transport is not connected).
     TransportUnreachable,
-    /// Could not send via the underlying transport. `fatal` is derived from the underlying
-    /// backend error's [`IpcErrorKind`] classification.
-    TransportSend { fatal: bool },
-    /// Could not receive via the underlying transport. `fatal` is derived from the underlying
-    /// backend error's [`IpcErrorKind`] classification.
-    TransportReceive { fatal: bool },
+    /// Could not send via the underlying transport. `kind` is the underlying backend error's
+    /// [`IpcErrorKind`] classification.
+    TransportSend { kind: ErrorKind },
+    /// Could not receive via the underlying transport. `kind` is the underlying backend error's
+    /// [`IpcErrorKind`] classification.
+    TransportReceive { kind: ErrorKind },
     /// A cryptographic error. In most cases, such messages are just dropped.
     DecryptionFailure,
 }
@@ -53,14 +53,8 @@ impl IpcErrorKind for NoiseCryptoProviderError {
             // An unreachable destination; the message simply could not be delivered.
             NoiseCryptoProviderError::TransportUnreachable => ErrorKind::Unreachable,
             // Defer to the underlying backend's classification, captured at construction.
-            NoiseCryptoProviderError::TransportSend { fatal }
-            | NoiseCryptoProviderError::TransportReceive { fatal } => {
-                if *fatal {
-                    ErrorKind::Fatal
-                } else {
-                    ErrorKind::Other
-                }
-            }
+            NoiseCryptoProviderError::TransportSend { kind }
+            | NoiseCryptoProviderError::TransportReceive { kind } => *kind,
         }
     }
 }
@@ -71,8 +65,7 @@ impl IpcErrorKind for NoiseCryptoProviderError {
 fn transport_send_error<E: IpcErrorKind>(e: E) -> NoiseCryptoProviderError {
     match e.kind() {
         ErrorKind::Unreachable => NoiseCryptoProviderError::TransportUnreachable,
-        ErrorKind::Fatal => NoiseCryptoProviderError::TransportSend { fatal: true },
-        ErrorKind::Other => NoiseCryptoProviderError::TransportSend { fatal: false },
+        kind => NoiseCryptoProviderError::TransportSend { kind },
     }
 }
 
@@ -112,11 +105,10 @@ impl NoiseCryptoProvider {
         // Wait for the handshake response (with timeout)
         timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
             loop {
-                let incoming = receiver.receive().await.map_err(|e| {
-                    NoiseCryptoProviderError::TransportReceive {
-                        fatal: matches!(e.kind(), ErrorKind::Fatal),
-                    }
-                })?;
+                let incoming = receiver
+                    .receive()
+                    .await
+                    .map_err(|e| NoiseCryptoProviderError::TransportReceive { kind: e.kind() })?;
 
                 // For concurrent handshakes, ignore messages
                 if incoming.source.to_endpoint() != destination {
@@ -316,11 +308,10 @@ where
         sessions: &Ses,
     ) -> Result<IncomingMessage, Self::ReceiveError> {
         loop {
-            let message = receiver.receive().await.map_err(|e| {
-                NoiseCryptoProviderError::TransportReceive {
-                    fatal: matches!(e.kind(), ErrorKind::Fatal),
-                }
-            })?;
+            let message = receiver
+                .receive()
+                .await
+                .map_err(|e| NoiseCryptoProviderError::TransportReceive { kind: e.kind() })?;
 
             // Ensure session exists
             let source_endpoint: crate::endpoint::Endpoint = message.source.clone().into();
