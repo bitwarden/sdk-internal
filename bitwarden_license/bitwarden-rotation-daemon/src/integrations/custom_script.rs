@@ -208,8 +208,13 @@ async fn invoke(
     //   - stdout: null (script output may echo credentials; piped+unread deadlocks)
     //   - stderr: null (same reason)
     //   - kill_on_drop: true (guard against timeout leaving a zombie)
+    // Clear the inherited environment before spawning the script.
+    // Secrets (including any residual BWRD_TOKEN) must not reach child processes;
+    // credentials arrive via stdin instead.  The script path is already
+    // canonicalized (absolute), so PATH is not needed for exec resolution.
     let mut child = Command::new(script_path)
         .arg(operation)
+        .env_clear()
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -662,8 +667,18 @@ mod tests {
     // No-leak (argv + env)
     // -----------------------------------------------------------------------
 
+    /// Serialise tests that mutate BWRD_TOKEN to prevent concurrent env mutation.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[tokio::test]
     async fn no_password_in_argv_or_env() {
+        // Set BWRD_TOKEN in the parent env to verify .env_clear() strips it.
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; single-threaded for this scope.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", "SENTINEL_TOKEN_MUST_NOT_LEAK");
+        }
+
         let mut creds = ResolvedCredentials::new();
         creds.insert(
             "SCRIPT".to_string(),
@@ -671,8 +686,17 @@ mod tests {
         );
         let ctx = make_ctx_with_creds(creds);
         let integ = integration(None, 10);
-        // no_leak.sh exits 0 only if the sentinel does NOT appear in argv or env.
-        integ.rotate(&ctx).await.unwrap();
+        // no_leak.sh exits 0 only if the sentinel does NOT appear in argv or env,
+        // and BWRD_TOKEN is absent from the script environment.
+        let result = integ.rotate(&ctx).await;
+
+        // Clean up regardless of test outcome.
+        // SAFETY: protected by ENV_LOCK.
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+
+        result.unwrap();
     }
 
     // -----------------------------------------------------------------------

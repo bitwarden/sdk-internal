@@ -146,6 +146,7 @@ impl SafeDetail {
     }
 
     /// Build a detail from an HTTP status code.
+    #[cfg(test)]
     pub(crate) fn from_status(status: u16) -> Self {
         Self(Self::truncate(format!("HTTP {status}")))
     }
