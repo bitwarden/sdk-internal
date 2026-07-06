@@ -59,7 +59,18 @@ impl Config {
     /// cannot be parsed.  Error messages never echo secret values.
     pub fn from_cli(args: RunArgs) -> Result<Self, RotationDaemonError> {
         // ── Token intake (exactly one source) ─────────────────────────────
+        // SAFETY: This code runs during single-threaded daemon startup before
+        // the async runtime and any additional threads are spawned.  Mutating
+        // the process environment here is sound because no other thread can
+        // concurrently observe or mutate BWRD_TOKEN at this point.  The
+        // variable is removed immediately after reading to prevent child
+        // processes (e.g. custom scripts) from inheriting the token value.
         let env_token = std::env::var("BWRD_TOKEN").ok();
+        if env_token.is_some() {
+            unsafe {
+                std::env::remove_var("BWRD_TOKEN");
+            }
+        }
         let file_token = args.token_file.as_ref().map(read_token_file).transpose()?;
 
         let token_str: String = match (env_token, file_token) {
@@ -390,6 +401,27 @@ mod tests {
         assert!(
             result.is_ok(),
             "heartbeat_interval=119 should be valid: {result:?}"
+        );
+    }
+
+    #[test]
+    fn env_token_removed_from_environment_after_config_load() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; no other thread mutates BWRD_TOKEN concurrently.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+        }
+        // Verify the var is present before the call.
+        assert!(
+            std::env::var("BWRD_TOKEN").is_ok(),
+            "BWRD_TOKEN must be present before from_cli"
+        );
+        let result = Config::from_cli(base_args());
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+        // BWRD_TOKEN must have been removed inside from_cli.
+        assert!(
+            std::env::var("BWRD_TOKEN").is_err(),
+            "BWRD_TOKEN must be absent from environment after from_cli consumes it"
         );
     }
 }
