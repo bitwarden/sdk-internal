@@ -26,16 +26,18 @@ use thiserror::Error;
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
-    KEY_ID_SIZE, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
+    ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
-        CONTAINED_KEY_ID, ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
-        extract_integer,
+        ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes, extract_integer,
+        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
     },
     keys::KeyId,
-    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
-    xchacha20,
+    safe::{
+        DecodeSealedKeyError, decode_sealed_symmetric_key, extract_key_id,
+        helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
+        set_contained_key_id,
+    },
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:
@@ -68,9 +70,8 @@ impl PasswordProtectedKeyEnvelope {
         namespace: PasswordProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
-        #[allow(deprecated)]
         let key_ref = ctx
-            .dangerous_get_symmetric_key(key_to_seal)
+            .get_symmetric_key(key_to_seal)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissing)?;
         Self::seal_ref(key_ref, password, namespace)
     }
@@ -116,39 +117,36 @@ impl PasswordProtectedKeyEnvelope {
             EncodedSymmetricKey::CoseKey(key_bytes) => (ContentFormat::CoseKey, key_bytes.to_vec()),
         };
 
-        let mut nonce = [0u8; crate::xchacha20::NONCE_SIZE];
+        let protected_header = {
+            let mut header = HeaderBuilder::from(content_format).build();
+            set_contained_key_id(&mut header, key_to_seal.key_id());
+            set_safe_namespaces(
+                &mut header,
+                SafeObjectNamespace::PasswordProtectedKeyEnvelope,
+                namespace,
+            );
+            header
+        };
 
-        // The message is constructed by placing the KDF settings in a recipient struct's
+        // The message is constructed by placing the KDF settings in a single recipient struct's
         // unprotected headers. They do not need to live in the protected header, since to
         // authenticate the protected header, the settings must be correct.
-        let mut cose_encrypt = coset::CoseEncryptBuilder::new()
-            .add_recipient({
-                let mut recipient = coset::CoseRecipientBuilder::new()
-                    .unprotected(kdf_settings.into())
-                    .build();
-                recipient.protected.header.alg = Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13));
-                recipient
-            })
-            .protected({
-                let mut hdr = HeaderBuilder::from(content_format);
-                if let Some(key_id) = key_to_seal.key_id() {
-                    hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
-                }
-                let mut header = hdr.build();
-                set_safe_namespaces(
-                    &mut header,
-                    SafeObjectNamespace::PasswordProtectedKeyEnvelope,
-                    namespace,
-                );
-                header
-            })
-            .create_ciphertext(&key_to_seal_bytes, &[], |data, aad| {
-                let ciphertext = xchacha20::encrypt_xchacha20_poly1305(&envelope_key, data, aad);
-                nonce.copy_from_slice(&ciphertext.nonce());
-                ciphertext.encrypted_bytes().to_vec()
-            })
-            .build();
-        cose_encrypt.unprotected.iv = nonce.into();
+        let builder = coset::CoseEncryptBuilder::new().add_recipient({
+            let mut recipient = coset::CoseRecipientBuilder::new()
+                .unprotected(kdf_settings.into())
+                .build();
+            recipient.protected.header.alg = Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13));
+            recipient
+        });
+
+        let cose_encrypt = encrypt_cose(
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            builder,
+            protected_header,
+            &key_to_seal_bytes,
+            &envelope_key,
+        )
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
         Ok(PasswordProtectedKeyEnvelope { cose_encrypt })
     }
@@ -204,43 +202,34 @@ impl PasswordProtectedKeyEnvelope {
             })?;
         let envelope_key = derive_key(&kdf_settings, password)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
-        let nonce: [u8; crate::xchacha20::NONCE_SIZE] = self
-            .cose_encrypt
-            .unprotected
-            .iv
-            .clone()
-            .try_into()
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::Parsing("Invalid IV".to_string()))?;
 
-        let key_bytes = self
-            .cose_encrypt
-            .decrypt_ciphertext(
-                &[],
-                || CryptoError::MissingField("ciphertext"),
-                |data, aad| xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad),
-            )
-            // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
-            // since the KDF parameters & salt are guaranteed to be correct
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
-
-        SymmetricCryptoKey::try_from(
-            match ContentFormat::try_from(&self.cose_encrypt.protected.header).map_err(|_| {
-                PasswordProtectedKeyEnvelopeError::Parsing("Invalid content format".to_string())
-            })? {
-                ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
-                    BitwardenLegacyKeyBytes::from(key_bytes),
-                ),
-                ContentFormat::CoseKey => {
-                    EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes))
-                }
-                _ => {
-                    return Err(PasswordProtectedKeyEnvelopeError::Parsing(
-                        "Unknown or unsupported content format".to_string(),
-                    ));
-                }
-            },
+        // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
+        // since the KDF parameters & salt are guaranteed to be correct. Envelopes sealed before the
+        // content-encryption algorithm was written to the protected header omit it, so
+        // XChaCha20-Poly1305 (the only algorithm this envelope has ever used) is supplied as the
+        // decryption fallback.
+        let key_bytes = decrypt_cose(
+            &self.cose_encrypt,
+            Some(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+            &envelope_key,
         )
-        .map_err(|_| PasswordProtectedKeyEnvelopeError::Parsing("Failed to decode key".to_string()))
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
+
+        decode_sealed_symmetric_key(&self.cose_encrypt.protected.header, key_bytes).map_err(|e| {
+            match e {
+                DecodeSealedKeyError::InvalidContentFormat => {
+                    PasswordProtectedKeyEnvelopeError::Parsing("Invalid content format".to_string())
+                }
+                DecodeSealedKeyError::UnsupportedContentFormat => {
+                    PasswordProtectedKeyEnvelopeError::Parsing(
+                        "Unknown or unsupported content format".to_string(),
+                    )
+                }
+                DecodeSealedKeyError::InvalidKey => {
+                    PasswordProtectedKeyEnvelopeError::Parsing("Failed to decode key".to_string())
+                }
+            }
+        })
     }
 
     /// Re-seals the key with new KDF parameters (updated settings, salt), and a new password
@@ -257,20 +246,8 @@ impl PasswordProtectedKeyEnvelope {
     /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
     /// Only COSE keys have a key ID, legacy keys do not.
     pub fn contained_key_id(&self) -> Result<Option<KeyId>, PasswordProtectedKeyEnvelopeError> {
-        let key_id_bytes = extract_bytes(
-            &self.cose_encrypt.protected.header,
-            CONTAINED_KEY_ID,
-            "key id",
-        );
-
-        if let Ok(bytes) = key_id_bytes {
-            let key_id_array: [u8; KEY_ID_SIZE] = bytes.as_slice().try_into().map_err(|_| {
-                PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
-            })?;
-            Ok(Some(KeyId::from(key_id_array)))
-        } else {
-            Ok(None)
-        }
+        extract_key_id(&self.cose_encrypt.protected.header)
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string()))
     }
 }
 
@@ -687,9 +664,8 @@ mod tests {
                 &mut ctx,
             )
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
@@ -711,9 +687,8 @@ mod tests {
                 &mut ctx,
             )
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
@@ -751,14 +726,12 @@ mod tests {
             .unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let key_before_sealing = ctx
-            .dangerous_get_symmetric_key(test_key)
+            .get_symmetric_key(test_key)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key, key_before_sealing);
@@ -794,14 +767,12 @@ mod tests {
             .unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(key)
+            .get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let key_before_sealing = ctx
-            .dangerous_get_symmetric_key(test_key)
+            .get_symmetric_key(test_key)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key, key_before_sealing);
@@ -920,12 +891,7 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        #[allow(deprecated)]
-        let key_id = ctx
-            .dangerous_get_symmetric_key(test_key)
-            .unwrap()
-            .key_id()
-            .unwrap();
+        let key_id = ctx.get_symmetric_key(test_key).unwrap().key_id().unwrap();
 
         let password = "test_password";
 
