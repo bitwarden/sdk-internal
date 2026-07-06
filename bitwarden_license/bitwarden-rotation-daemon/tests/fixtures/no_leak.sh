@@ -39,4 +39,10 @@ if env | grep -qF "$password"; then
     exit 1
 fi
 
+# Verify that the daemon token is not inherited by child processes.
+if env | grep -q '^BWRD_TOKEN='; then
+    echo "no_leak.sh: BWRD_TOKEN found in environment" >&2
+    exit 1
+fi
+
 exit 0
