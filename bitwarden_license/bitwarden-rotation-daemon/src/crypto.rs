@@ -25,29 +25,29 @@ use thiserror::Error;
 // keys, but the macro requires all three slot enum types.
 key_slot_ids! {
     #[symmetric]
-    pub(crate) enum DaemonSymmSlotId {
+    pub enum DaemonSymmSlotId {
         Organization,
         #[local]
         Local(LocalId),
     }
 
     #[private]
-    pub(crate) enum DaemonPrivateSlotId {
+    pub enum DaemonPrivateSlotId {
         #[local]
         Local(LocalId),
     }
 
     #[signing]
-    pub(crate) enum DaemonSigningSlotId {
+    pub enum DaemonSigningSlotId {
         #[local]
         Local(LocalId),
     }
 
-    pub(crate) DaemonKeySlotIds => DaemonSymmSlotId, DaemonPrivateSlotId, DaemonSigningSlotId;
+    pub DaemonKeySlotIds => DaemonSymmSlotId, DaemonPrivateSlotId, DaemonSigningSlotId;
 }
 
 /// The key store used throughout the daemon.
-pub(crate) type DaemonKeyStore = KeyStore<DaemonKeySlotIds>;
+pub type DaemonKeyStore = KeyStore<DaemonKeySlotIds>;
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -55,7 +55,7 @@ pub(crate) type DaemonKeyStore = KeyStore<DaemonKeySlotIds>;
 
 /// Errors produced by the cryptographic helpers in this module.
 #[derive(Debug, Error)]
-pub(crate) enum CryptoModuleError {
+pub enum CryptoModuleError {
     /// The encrypted payload could not be decoded or decrypted.
     #[error("org-key payload is invalid")]
     InvalidPayload,
@@ -94,7 +94,7 @@ pub(crate) enum CryptoModuleError {
 /// function and are never returned to callers.
 ///
 /// Errors carry no payload content.
-pub(crate) fn unwrap_org_key(
+pub fn unwrap_org_key(
     store: &DaemonKeyStore,
     token_key: &SymmetricCryptoKey,
     encrypted_payload: &str,
@@ -167,7 +167,7 @@ const CIPHER_PASSWORD_JSON_POINTER: &str = "/Password";
 ///
 /// The [`KeyStoreContext`] is never held across an await point — this function
 /// is synchronous.
-pub(crate) fn encrypt_cipher_password(
+pub fn encrypt_cipher_password(
     store: &DaemonKeyStore,
     cipher_key: Option<&str>,
     data: &mut serde_json::Value,
