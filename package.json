@@ -23,7 +23,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@openapitools/openapi-generator-cli": "2.31.0",
+    "@openapitools/openapi-generator-cli": "2.39.0",
     "@types/node": "25.9.1",
     "husky": "9.1.7",
     "json5": "2.2.3",
