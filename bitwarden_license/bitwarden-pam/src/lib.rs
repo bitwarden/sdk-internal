@@ -33,9 +33,7 @@ pub use access_rules::{
     AccessCondition, AccessRuleAddEditRequest, AccessRuleError, AccessRuleValidationError,
     AccessRuleView, AccessRulesClient, is_valid_cidr,
 };
-pub use approvals::{
-    AccessDecisionRequest, AccessRequestRevokeRequest, ApprovalError, ApprovalsClient,
-};
+pub use approvals::{AccessDecisionRequest, ApprovalError, ApprovalsClient};
 pub use error::PamDecodeError;
 pub use leases::{
     AccessLeaseError, AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseStatus,
@@ -45,13 +43,12 @@ pub use pam_client::{PamClient, PamClientExt};
 pub use rotation::{
     AccessConnector, AccessConnectorDetail, AccessConnectorRegistrationResponse,
     AccessConnectorStatus, AccessConnectorsClient, PasswordPolicy, QuartzSchedulePreset,
-    RotationAttempt, RotationAttemptStatus, RotationCipherError, RotationClient,
-    RotationConfigActions, RotationConfigCreateRequest, RotationConfigDetailView,
-    RotationConfigSealedFields, RotationConfigView, RotationConfigsClient, RotationError,
-    RotationFailureCode, RotationJob, RotationJobStatus, RotationScheduleClient, RotationSource,
-    RotationSyncState, RotationValidationError, SealRejection, SessionTerminationOutcome,
-    TargetSystemCreateError, TargetSystemCreateRequest, TargetSystemKind, TargetSystemMethod,
-    TargetSystemSealedFields, TargetSystemStatus, TargetSystemView, TargetSystemsClient,
-    VerifiedJob, WorkSnapshot, WorkSnapshotError, cipher_has_password, is_likely_quartz_cron,
-    preset_for_cron, rotate_cipher_password, rotation_config_actions,
+    RotationAttempt, RotationAttemptStatus, RotationClient, RotationConfigActions,
+    RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigSealedFields,
+    RotationConfigView, RotationConfigsClient, RotationError, RotationFailureCode, RotationJob,
+    RotationJobStatus, RotationScheduleClient, RotationSource, RotationSyncState,
+    RotationValidationError, SealRejection, SessionTerminationOutcome, TargetSystemCreateError,
+    TargetSystemCreateRequest, TargetSystemKind, TargetSystemMethod, TargetSystemSealedFields,
+    TargetSystemStatus, TargetSystemView, TargetSystemsClient, VerifiedJob, WorkSnapshot,
+    WorkSnapshotError, is_likely_quartz_cron, preset_for_cron, rotation_config_actions,
 };

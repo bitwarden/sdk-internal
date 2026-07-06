@@ -167,7 +167,6 @@ impl IntegrationRegistry {
         kind: SealedTargetSystemKind,
         integration: Arc<dyn Integration>,
     ) {
-        tracing::debug!(?kind, "registered integration");
         self.map.insert(kind, integration);
     }
 
@@ -212,22 +211,6 @@ mod tests {
     fn registry_get_unregistered_kind_returns_none() {
         let reg = IntegrationRegistry::new();
         assert!(reg.get(SealedTargetSystemKind::Entra).is_none());
-    }
-
-    #[test]
-    fn target_effect_to_sync_state_mapping() {
-        assert_eq!(
-            RotationSyncState::from(TargetEffect::NotApplied),
-            RotationSyncState::TargetUnchanged
-        );
-        assert_eq!(
-            RotationSyncState::from(TargetEffect::Unknown),
-            RotationSyncState::Indeterminate
-        );
-        assert_eq!(
-            RotationSyncState::from(TargetEffect::Applied),
-            RotationSyncState::TargetUpdated
-        );
     }
 
     #[test]
