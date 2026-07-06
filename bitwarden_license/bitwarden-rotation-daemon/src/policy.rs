@@ -86,10 +86,10 @@ pub(crate) fn to_generator_request(
     }
 
     // Validate explicit bounds before computing the target length.
-    if let (Some(min), Some(max)) = (policy.min_length, policy.max_length) {
-        if min > max {
-            return Err(PolicyError::InvalidBounds);
-        }
+    if let (Some(min), Some(max)) = (policy.min_length, policy.max_length)
+        && min > max
+    {
+        return Err(PolicyError::InvalidBounds);
     }
 
     // Generator minimum: MINIMUM_PASSWORD_LENGTH = 5 (u8).
