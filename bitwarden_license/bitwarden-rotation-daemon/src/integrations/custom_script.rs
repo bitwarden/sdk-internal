@@ -6,16 +6,15 @@
 //!
 //! # Security contract (documented in README)
 //!
-//! - Secrets are delivered **only** via stdin as a single JSON document — never
-//!   via argv or process environment variables.  (`/proc/<pid>/cmdline` and
-//!   `ps` can expose argv; env can be read by child processes.)
-//! - `stdout` and `stderr` are always redirected to `/dev/null` (i.e.
-//!   `Stdio::null()`).  Script output can echo credentials; piping it unread
-//!   would also deadlock a chatty script.
-//! - The `SCRIPT` credential is excluded from the `credentials` map forwarded
-//!   to the script (the script already knows its own path).
-//! - If `script_root` is set, the canonicalized script path must be under the
-//!   canonicalized root, preventing `../` traversal and symlink escapes.
+//! - Secrets are delivered **only** via stdin as a single JSON document — never via argv or process
+//!   environment variables.  (`/proc/<pid>/cmdline` and `ps` can expose argv; env can be read by
+//!   child processes.)
+//! - `stdout` and `stderr` are always redirected to `/dev/null` (i.e. `Stdio::null()`).  Script
+//!   output can echo credentials; piping it unread would also deadlock a chatty script.
+//! - The `SCRIPT` credential is excluded from the `credentials` map forwarded to the script (the
+//!   script already knows its own path).
+//! - If `script_root` is set, the canonicalized script path must be under the canonicalized root,
+//!   preventing `../` traversal and symlink escapes.
 //!
 //! # Payload shape (stdin)
 //!
@@ -181,8 +180,7 @@ async fn invoke(
     timeout: Duration,
 ) -> Result<Option<i32>, InvokeError> {
     use bitwarden_sensitive_value::ExposeSensitive as _;
-    use tokio::io::AsyncWriteExt as _;
-    use tokio::process::Command;
+    use tokio::{io::AsyncWriteExt as _, process::Command};
 
     // Build the credentials map — exclude SCRIPT.
     let mut credentials: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();

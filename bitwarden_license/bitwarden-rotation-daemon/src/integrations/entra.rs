@@ -23,18 +23,18 @@
 //! # Secret handling
 //!
 //! - The Graph bearer token, client secret, and new password are **never** logged.
-//! - `EntraIntegration` wraps the `reqwest::Client` (which holds no secrets) and
-//!   the `verify_probe` flag only.  Secrets are extracted from `ctx.creds` at
-//!   use-time, used briefly in a form body or `Authorization` header, then
-//!   dropped.
-//! - The `Debug` impl on `reqwest::Client` does not emit credentials; the struct
-//!   fields are safe to print.
+//! - `EntraIntegration` wraps the `reqwest::Client` (which holds no secrets) and the `verify_probe`
+//!   flag only.  Secrets are extracted from `ctx.creds` at use-time, used briefly in a form body or
+//!   `Authorization` header, then dropped.
+//! - The `Debug` impl on `reqwest::Client` does not emit credentials; the struct fields are safe to
+//!   print.
+
+use std::time::Duration;
 
 use async_trait::async_trait;
 use bitwarden_sensitive_value::ExposeSensitive as _;
 use reqwest::Client;
 use serde::Deserialize;
-use std::time::Duration;
 use url::Url;
 
 use super::{Integration, IntegrationError, RotateContext, TargetEffect};
@@ -167,12 +167,14 @@ async fn fetch_graph_token(
         detail: SafeDetail::from_kind("InvalidLoginBase"),
     })?;
     {
-        let mut segments = token_url.path_segments_mut().map_err(|_| IntegrationError {
-            class: ErrorClass::Fatal,
-            effect: TargetEffect::NotApplied,
-            code: FailureCode::TargetUnreachable,
-            detail: SafeDetail::from_kind("InvalidLoginBase"),
-        })?;
+        let mut segments = token_url
+            .path_segments_mut()
+            .map_err(|_| IntegrationError {
+                class: ErrorClass::Fatal,
+                effect: TargetEffect::NotApplied,
+                code: FailureCode::TargetUnreachable,
+                detail: SafeDetail::from_kind("InvalidLoginBase"),
+            })?;
         segments.push(tenant_id);
         segments.push("oauth2");
         segments.push("v2.0");
@@ -397,9 +399,14 @@ impl Integration for EntraIntegration {
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
         let client_secret = get_cred(&ctx.creds, "CLIENT_SECRET")?;
 
-        let bearer =
-            fetch_graph_token(&self.http, &self.login_base, tenant_id, client_id, client_secret)
-                .await?;
+        let bearer = fetch_graph_token(
+            &self.http,
+            &self.login_base,
+            tenant_id,
+            client_id,
+            client_secret,
+        )
+        .await?;
 
         let url = build_graph_user_url(&self.graph_base, &ctx.account_identity, &[])?;
 
@@ -464,14 +471,19 @@ impl Integration for EntraIntegration {
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
         let client_secret = get_cred(&ctx.creds, "CLIENT_SECRET")?;
 
-        let bearer =
-            fetch_graph_token(&self.http, &self.login_base, tenant_id, client_id, client_secret)
-                .await
-                .map_err(|mut e| {
-                    // Rotation already applied; re-classify effect to Applied.
-                    e.effect = TargetEffect::Applied;
-                    e
-                })?;
+        let bearer = fetch_graph_token(
+            &self.http,
+            &self.login_base,
+            tenant_id,
+            client_id,
+            client_secret,
+        )
+        .await
+        .map_err(|mut e| {
+            // Rotation already applied; re-classify effect to Applied.
+            e.effect = TargetEffect::Applied;
+            e
+        })?;
 
         // GET /v1.0/users/{identity}?$select=lastPasswordChangeDateTime
         let mut url = build_graph_user_url(&self.graph_base, &ctx.account_identity, &[])?;
@@ -579,9 +591,14 @@ impl Integration for EntraIntegration {
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
         let client_secret = get_cred(&ctx.creds, "CLIENT_SECRET")?;
 
-        let bearer =
-            fetch_graph_token(&self.http, &self.login_base, tenant_id, client_id, client_secret)
-                .await?;
+        let bearer = fetch_graph_token(
+            &self.http,
+            &self.login_base,
+            tenant_id,
+            client_id,
+            client_secret,
+        )
+        .await?;
 
         let url = build_graph_user_url(
             &self.graph_base,
@@ -606,8 +623,7 @@ impl Integration for EntraIntegration {
         }
 
         let graph_code = read_graph_error_code(response).await;
-        let detail =
-            SafeDetail::from_http_status_and_graph_code(status_u16, graph_code.as_deref());
+        let detail = SafeDetail::from_http_status_and_graph_code(status_u16, graph_code.as_deref());
 
         if status_u16 == 429 || status_u16 >= 500 {
             Err(IntegrationError {
@@ -756,8 +772,10 @@ fn get_cred<'a>(
 mod tests {
     use chrono::Utc;
     use uuid::Uuid;
-    use wiremock::matchers::{body_string_contains, method, path, query_param};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_string_contains, method, path, query_param},
+    };
     use zeroize::Zeroizing;
 
     use super::*;
@@ -816,11 +834,7 @@ mod tests {
             .await;
     }
 
-    fn integration(
-        login: &MockServer,
-        graph: &MockServer,
-        verify_probe: bool,
-    ) -> EntraIntegration {
+    fn integration(login: &MockServer, graph: &MockServer, verify_probe: bool) -> EntraIntegration {
         EntraIntegration::new_with_bases(verify_probe, login.uri(), graph.uri())
     }
 
@@ -925,14 +939,12 @@ mod tests {
 
         Mock::given(method("PATCH"))
             .and(path("/v1.0/users/missing-user"))
-            .respond_with(
-                ResponseTemplate::new(404).set_body_json(serde_json::json!({
-                    "error": {
-                        "code": "Request_ResourceNotFound",
-                        "message": "Resource does not exist"
-                    }
-                })),
-            )
+            .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
+                "error": {
+                    "code": "Request_ResourceNotFound",
+                    "message": "Resource does not exist"
+                }
+            })))
             .mount(&graph)
             .await;
 
@@ -1240,8 +1252,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/v1.0/users/user@example.com/revokeSignInSessions"))
             .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(serde_json::json!({"value": true})),
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({"value": true})),
             )
             .mount(&graph)
             .await;
@@ -1311,20 +1322,21 @@ mod tests {
 
     #[test]
     fn hostile_identity_slash_encoded() {
-        let url =
-            build_graph_user_url("https://graph.microsoft.com", "a/b", &[]).unwrap();
+        let url = build_graph_user_url("https://graph.microsoft.com", "a/b", &[]).unwrap();
         let path = url.path();
         assert!(
             path.contains("a%2Fb") || path.contains("a%2fb"),
             "slash must be percent-encoded: {path}"
         );
-        assert!(!path.ends_with("/b"), "raw slash must not split path: {path}");
+        assert!(
+            !path.ends_with("/b"),
+            "raw slash must not split path: {path}"
+        );
     }
 
     #[test]
     fn hostile_identity_dotdot_does_not_traverse() {
-        let url =
-            build_graph_user_url("https://graph.microsoft.com", "..", &[]).unwrap();
+        let url = build_graph_user_url("https://graph.microsoft.com", "..", &[]).unwrap();
         assert!(
             !url.as_str().contains("/../"),
             "dotdot must not appear as a path traversal: {url}"
@@ -1333,8 +1345,7 @@ mod tests {
 
     #[test]
     fn hostile_identity_query_char_encoded() {
-        let url =
-            build_graph_user_url("https://graph.microsoft.com", "x?$filter=1", &[]).unwrap();
+        let url = build_graph_user_url("https://graph.microsoft.com", "x?$filter=1", &[]).unwrap();
         let path = url.path();
         assert!(
             path.contains("x%3F") || path.contains("x%3f"),
@@ -1348,8 +1359,7 @@ mod tests {
 
     #[test]
     fn hostile_identity_percent_encoded_dotdot_not_decoded() {
-        let url =
-            build_graph_user_url("https://graph.microsoft.com", "%2e%2e", &[]).unwrap();
+        let url = build_graph_user_url("https://graph.microsoft.com", "%2e%2e", &[]).unwrap();
         assert!(
             !url.as_str().contains("/../"),
             "percent-encoded dotdot must not resolve to traversal: {url}"
@@ -1371,14 +1381,12 @@ mod tests {
         let sensitive_message = "super-secret-account-name-that-must-not-leak";
         Mock::given(method("PATCH"))
             .and(path("/v1.0/users/some-user"))
-            .respond_with(
-                ResponseTemplate::new(404).set_body_json(serde_json::json!({
-                    "error": {
-                        "code": "Request_ResourceNotFound",
-                        "message": sensitive_message
-                    }
-                })),
-            )
+            .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
+                "error": {
+                    "code": "Request_ResourceNotFound",
+                    "message": sensitive_message
+                }
+            })))
             .mount(&graph)
             .await;
 
@@ -1447,14 +1455,12 @@ mod tests {
         let hostile_code = "Inject\r\nEvil: value\x00\x01".repeat(5); // >64 chars with control chars
         Mock::given(method("PATCH"))
             .and(path("/v1.0/users/some-user"))
-            .respond_with(
-                ResponseTemplate::new(404).set_body_json(serde_json::json!({
-                    "error": {
-                        "code": hostile_code,
-                        "message": "some message"
-                    }
-                })),
-            )
+            .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
+                "error": {
+                    "code": hostile_code,
+                    "message": "some message"
+                }
+            })))
             .mount(&graph)
             .await;
 

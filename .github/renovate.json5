@@ -100,6 +100,7 @@
       matchManagers: ["cargo"],
       matchPackageNames: [
         "aes",
+        "anyhow",
         "async-trait",
         "cargo-dylint",
         "cargo-sort",
