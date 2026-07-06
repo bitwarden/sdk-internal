@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-/// A [`CryptoProvider`] that encrypts IPC traffic using the Noise protocol.
+/// A `CryptoProvider` that encrypts IPC traffic using the Noise protocol.
 pub struct NoiseCryptoProvider;
 
 #[derive(Debug)]
