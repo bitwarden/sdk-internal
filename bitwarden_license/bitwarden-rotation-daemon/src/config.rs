@@ -2,12 +2,25 @@
 //!
 //! [`crate::config::Config::from_cli`] resolves configuration from three layers in priority order:
 //!
-//! 1. **Environment variables** — `BWRD_API_URL` / `BWRD_IDENTITY_URL` override the config file's
-//!    URLs.  Empty or whitespace-only values are treated as unset.
-//! 2. **Config file** — a TOML file specified with `--config <PATH>` or `BWRD_CONFIG`.  Every key
-//!    is optional; unknown keys (including `token`) are a hard startup error.
-//! 3. **Built-in defaults** — see the `Default` impl on the private `FileConfig` struct in this
-//!    module.
+//! 1. **Environment variables** — `BWRD_API_URL` / `BWRD_IDENTITY_URL` override everything in the
+//!    config file.  Empty or whitespace-only values are treated as unset.
+//! 2. **Config file** — a TOML file specified with `--config <PATH>` or `BWRD_CONFIG`.  Server URLs
+//!    come from the `[environment]` section.  Every key is optional; unknown keys (including
+//!    `token`) are a hard startup error (`deny_unknown_fields`).
+//! 3. **Derivation from `[environment].base`** — if `api` or `identity` is absent from
+//!    `[environment]`, it is derived from `base` as `{base}/api` or `{base}/identity` (trailing
+//!    slashes on `base` are stripped before joining).
+//! 4. **Built-in defaults** — see the `Default` impl on the private `FileConfig` struct in this
+//!    module (tunables only; no URL defaults).
+//!
+//! **Full URL precedence** (highest to lowest):
+//!
+//! ```text
+//! BWRD_API_URL / BWRD_IDENTITY_URL
+//!   → [environment].api / [environment].identity
+//!     → derived from [environment].base
+//!       → error (InvalidConfig)
+//! ```
 //!
 //! # Token intake
 //!
@@ -35,26 +48,70 @@ const MIN_POLL_INTERVAL_SECS: u64 = 15;
 const MAX_HEARTBEAT_INTERVAL_SECS: u64 = 120;
 
 // ---------------------------------------------------------------------------
-// On-disk config file struct
+// On-disk config file structs
 // ---------------------------------------------------------------------------
 
+/// Server environment configuration from the `[environment]` TOML section.
+///
+/// All three fields are optional strings.  Final URL resolution (per URL):
+///
+/// ```text
+/// env var (BWRD_API_URL / BWRD_IDENTITY_URL)
+///   → [environment].api / [environment].identity
+///     → derived from [environment].base  (strips trailing '/', appends "/api" or "/identity")
+///       → InvalidConfig error
+/// ```
+///
+/// Supplying neither `base` nor the specific field, and no matching env var, is a hard startup
+/// error naming all three ways to supply the URL.
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct EnvironmentConfig {
+    /// Base self-hosted URL (e.g. `https://bitwarden.example.com`).  Used to derive `api` and
+    /// `identity` when those fields are absent.  Trailing slashes are stripped before derivation.
+    base: Option<String>,
+    /// Bitwarden API server URL.  Overrides a `base`-derived value.
+    api: Option<String>,
+    /// Bitwarden identity server URL.  Overrides a `base`-derived value.
+    identity: Option<String>,
+}
+
+impl EnvironmentConfig {
+    /// Derive the API URL: explicit `api` wins, otherwise `{base}/api`.
+    fn derive_api(&self) -> Option<String> {
+        self.api.clone().or_else(|| {
+            self.base
+                .as_deref()
+                .map(|b| format!("{}/api", b.trim_end_matches('/')))
+        })
+    }
+
+    /// Derive the identity URL: explicit `identity` wins, otherwise `{base}/identity`.
+    fn derive_identity(&self) -> Option<String> {
+        self.identity.clone().or_else(|| {
+            self.base
+                .as_deref()
+                .map(|b| format!("{}/identity", b.trim_end_matches('/')))
+        })
+    }
+}
+
 /// On-disk daemon configuration (TOML).  Every key is optional; the `BWRD_API_URL` /
-/// `BWRD_IDENTITY_URL` environment variables override the file's URLs.
+/// `BWRD_IDENTITY_URL` environment variables override the `[environment]` section's URLs.
 ///
 /// Keys missing from the file are filled in from [`FileConfig::default`] (the daemon's
 /// built-in defaults) via `#[serde(default)]`, so the tunable fields are concrete values.
-/// `api_url`, `identity_url`, and `script_root` have no built-in default and stay `Option`.
+/// `script_root` has no built-in default and stays `Option`.
+///
+/// Server URLs live in the `[environment]` section (see [`EnvironmentConfig`]).
 ///
 /// The daemon token **cannot** be supplied via this file — any `token` key is a hard startup
 /// error (`deny_unknown_fields`).  Use the `BWRD_TOKEN` environment variable instead.
 #[derive(Debug, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct FileConfig {
-    /// Bitwarden API server URL.  No built-in default; required from `BWRD_API_URL` or this file.
-    api_url: Option<String>,
-    /// Bitwarden identity server URL.  No built-in default; required from `BWRD_IDENTITY_URL` or
-    /// this file.
-    identity_url: Option<String>,
+    /// Server environment (API and identity URLs / base URL).
+    environment: EnvironmentConfig,
     /// Poll interval in seconds.
     poll_interval: u64,
     /// Heartbeat interval in seconds.
@@ -74,12 +131,11 @@ struct FileConfig {
 }
 
 /// The daemon's built-in defaults — the lowest-priority configuration layer
-/// (env URLs > config file > these values).
+/// (env URLs > config file `[environment]` > base derivation > error).
 impl Default for FileConfig {
     fn default() -> Self {
         Self {
-            api_url: None,
-            identity_url: None,
+            environment: EnvironmentConfig::default(),
             poll_interval: 15,
             heartbeat_interval: 30,
             offline_grace: 60,
@@ -144,8 +200,15 @@ impl Config {
     /// Build a validated [`Config`] from the parsed CLI arguments.
     ///
     /// Loads an optional TOML config file if `args.config` is set.  The `BWRD_API_URL` /
-    /// `BWRD_IDENTITY_URL` environment variables override the file's URLs; all other
-    /// settings come from the file, falling back to built-in defaults.
+    /// `BWRD_IDENTITY_URL` environment variables override all file-level URL settings; all
+    /// other settings come from the file, falling back to built-in defaults.
+    ///
+    /// URL resolution per endpoint (highest to lowest priority):
+    ///
+    /// 1. `BWRD_API_URL` / `BWRD_IDENTITY_URL` env vars (empty/whitespace = unset)
+    /// 2. `[environment].api` / `[environment].identity` in the config file
+    /// 3. Derived from `[environment].base` as `{base}/api` or `{base}/identity`
+    /// 4. Error — [`RotationDaemonError::InvalidConfig`] naming all supply methods
     ///
     /// # Errors
     ///
@@ -194,23 +257,31 @@ impl Config {
             None => FileConfig::default(),
         };
 
-        // ── URL intake: env > file ─────────────────────────────────────────
+        // ── URL intake: env > file [environment] > base derivation ─────────
         // BWRD_API_URL / BWRD_IDENTITY_URL are not secrets: plain reads, and
         // the variables are left in the environment.  Empty or whitespace-only
         // values are treated as unset, consistent with BWRD_TOKEN.
         let env_url = |name: &str| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
 
-        let api_url = env_url("BWRD_API_URL").or(file.api_url).ok_or_else(|| {
-            RotationDaemonError::InvalidConfig(
-                "api_url must be supplied via the BWRD_API_URL environment variable or the config file".into(),
-            )
-        })?;
+        let api_url = env_url("BWRD_API_URL")
+            .or_else(|| file.environment.derive_api())
+            .ok_or_else(|| {
+                RotationDaemonError::InvalidConfig(
+                    "api URL must be supplied via the BWRD_API_URL environment variable, \
+                     [environment].api, or [environment].base in the config file"
+                        .into(),
+                )
+            })?;
 
         let identity_url = env_url("BWRD_IDENTITY_URL")
-            .or(file.identity_url)
-            .ok_or_else(|| RotationDaemonError::InvalidConfig(
-                "identity_url must be supplied via the BWRD_IDENTITY_URL environment variable or the config file".into(),
-            ))?;
+            .or_else(|| file.environment.derive_identity())
+            .ok_or_else(|| {
+                RotationDaemonError::InvalidConfig(
+                    "identity URL must be supplied via the BWRD_IDENTITY_URL environment \
+                     variable, [environment].identity, or [environment].base in the config file"
+                        .into(),
+                )
+            })?;
 
         // ── Interval validations ───────────────────────────────────────────
         // Tunables come straight from the config file; keys missing from the
@@ -413,9 +484,11 @@ mod tests {
 
         // poll_interval is below the 15 s minimum.
         let toml = r#"
-api_url = "https://api.example.com"
-identity_url = "https://identity.example.com"
 poll_interval = 14
+
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
@@ -442,9 +515,11 @@ poll_interval = 14
         }
 
         let toml = r#"
-api_url = "https://api.example.com"
-identity_url = "https://identity.example.com"
 poll_interval = 15
+
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
@@ -471,9 +546,11 @@ poll_interval = 15
 
         // heartbeat_interval must be STRICTLY less than 120.
         let toml = r#"
-api_url = "https://api.example.com"
-identity_url = "https://identity.example.com"
 heartbeat_interval = 120
+
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
@@ -500,9 +577,11 @@ heartbeat_interval = 120
         }
 
         let toml = r#"
-api_url = "https://api.example.com"
-identity_url = "https://identity.example.com"
 heartbeat_interval = 119
+
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
@@ -516,7 +595,7 @@ heartbeat_interval = 119
         );
     }
 
-    // ── URL resolution (env > file) ──────────────────────────────────────────
+    // ── URL resolution (env > file [environment] > base derivation) ──────────
 
     #[test]
     fn env_urls_without_file_are_used() {
@@ -551,8 +630,9 @@ heartbeat_interval = 119
         }
 
         let toml = r#"
-api_url = "https://api.file.example.com"
-identity_url = "https://identity.file.example.com"
+[environment]
+api      = "https://api.file.example.com"
+identity = "https://identity.file.example.com"
 "#;
         let f = write_toml(toml);
 
@@ -582,8 +662,9 @@ identity_url = "https://identity.file.example.com"
         }
 
         let toml = r#"
-api_url = "https://api.file.example.com"
-identity_url = "https://identity.file.example.com"
+[environment]
+api      = "https://api.file.example.com"
+identity = "https://identity.file.example.com"
 "#;
         let f = write_toml(toml);
 
@@ -611,9 +692,10 @@ identity_url = "https://identity.file.example.com"
             std::env::remove_var("BWRD_IDENTITY_URL");
         }
 
-        // File only has identity_url; api_url is missing everywhere.
+        // File only has identity; api is missing from all layers.
         let toml = r#"
-identity_url = "https://identity.example.com"
+[environment]
+identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
 
@@ -626,11 +708,11 @@ identity_url = "https://identity.example.com"
         match result {
             Err(RotationDaemonError::InvalidConfig(msg)) => {
                 assert!(
-                    msg.contains("api_url"),
-                    "error should mention the missing field 'api_url'; got: {msg}"
+                    msg.contains("api URL"),
+                    "error should mention the missing 'api URL'; got: {msg}"
                 );
             }
-            other => panic!("expected InvalidConfig for missing api_url, got {other:?}"),
+            other => panic!("expected InvalidConfig for missing api URL, got {other:?}"),
         }
     }
 
@@ -645,9 +727,10 @@ identity_url = "https://identity.example.com"
             std::env::remove_var("BWRD_IDENTITY_URL");
         }
 
-        // File only has api_url; identity_url is missing everywhere.
+        // File only has api; identity is missing from all layers.
         let toml = r#"
-api_url = "https://api.example.com"
+[environment]
+api = "https://api.example.com"
 "#;
         let f = write_toml(toml);
 
@@ -660,11 +743,11 @@ api_url = "https://api.example.com"
         match result {
             Err(RotationDaemonError::InvalidConfig(msg)) => {
                 assert!(
-                    msg.contains("identity_url"),
-                    "error should mention the missing field 'identity_url'; got: {msg}"
+                    msg.contains("identity URL"),
+                    "error should mention the missing 'identity URL'; got: {msg}"
                 );
             }
-            other => panic!("expected InvalidConfig for missing identity_url, got {other:?}"),
+            other => panic!("expected InvalidConfig for missing identity URL, got {other:?}"),
         }
     }
 
@@ -682,15 +765,17 @@ api_url = "https://api.example.com"
         }
 
         let toml = r#"
-api_url = "https://api.file.example.com"
-identity_url = "https://identity.file.example.com"
-poll_interval = 30
+poll_interval      = 30
 heartbeat_interval = 45
-offline_grace = 90
+offline_grace      = 90
 max_retry_attempts = 3
-retry_base_delay = 2
-script_timeout = 120
+retry_base_delay   = 2
+script_timeout     = 120
 entra_verify_probe = true
+
+[environment]
+api      = "https://api.file.example.com"
+identity = "https://identity.file.example.com"
 "#;
         let f = write_toml(toml);
 
@@ -726,8 +811,9 @@ entra_verify_probe = true
 
         // Only provide required fields; everything else should fall to defaults.
         let toml = r#"
-api_url = "https://api.example.com"
-identity_url = "https://identity.example.com"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
 
@@ -778,9 +864,11 @@ identity_url = "https://identity.example.com"
         let token_value = "0.x.y:z";
         let toml = format!(
             r#"
-api_url = "https://api.example.com"
-identity_url = "https://identity.example.com"
 token = "{token_value}"
+
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
 "#
         );
         let f = write_toml(&toml);
@@ -840,9 +928,11 @@ token = "{token_value}"
         }
 
         let toml = r#"
-api_url = "https://api.example.com"
-identity_url = "https://identity.example.com"
 entra_verify_probe = true
+
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
 "#;
         let f = write_toml(toml);
 
@@ -858,5 +948,204 @@ entra_verify_probe = true
             inner.entra_verify_probe,
             "entra_verify_probe from file should be true"
         );
+    }
+
+    // ── New [environment] section behaviour ──────────────────────────────────
+
+    #[test]
+    fn base_only_derives_api_and_identity() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            // Defensive: leaked URL env vars must not override the config file under test.
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+
+        let toml = r#"
+[environment]
+base = "https://bitwarden.example.com"
+"#;
+        let f = write_toml(toml);
+
+        let result = Config::from_cli(file_args(&f));
+        // SAFETY: same guard.
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+
+        let inner = result
+            .expect("base-only config should succeed")
+            .into_daemon_config();
+        assert_eq!(inner.api_url, "https://bitwarden.example.com/api");
+        assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
+    }
+
+    #[test]
+    fn base_with_trailing_slash_derives_clean_urls() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+
+        let toml = r#"
+[environment]
+base = "https://bitwarden.example.com/"
+"#;
+        let f = write_toml(toml);
+
+        let result = Config::from_cli(file_args(&f));
+        // SAFETY: same guard.
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+
+        let inner = result
+            .expect("trailing-slash base should succeed")
+            .into_daemon_config();
+        // Must not produce "https://bitwarden.example.com//api"
+        assert_eq!(inner.api_url, "https://bitwarden.example.com/api");
+        assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
+    }
+
+    #[test]
+    fn explicit_api_overrides_base_while_identity_derives() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+
+        // Mixed case: explicit api, identity falls back to base derivation.
+        let toml = r#"
+[environment]
+base = "https://bitwarden.example.com"
+api  = "https://custom-api.example.com/v2"
+"#;
+        let f = write_toml(toml);
+
+        let result = Config::from_cli(file_args(&f));
+        // SAFETY: same guard.
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+
+        let inner = result
+            .expect("mixed explicit+base config should succeed")
+            .into_daemon_config();
+        assert_eq!(inner.api_url, "https://custom-api.example.com/v2");
+        assert_eq!(inner.identity_url, "https://bitwarden.example.com/identity");
+    }
+
+    #[test]
+    fn env_vars_override_explicit_environment_section() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::set_var("BWRD_API_URL", "https://override.env.example.com/api");
+            std::env::set_var(
+                "BWRD_IDENTITY_URL",
+                "https://override.env.example.com/identity",
+            );
+        }
+
+        // File has explicit urls that must lose to env vars.
+        let toml = r#"
+[environment]
+base     = "https://bitwarden.example.com"
+api      = "https://api.file.example.com"
+identity = "https://identity.file.example.com"
+"#;
+        let f = write_toml(toml);
+
+        let result = Config::from_cli(file_args(&f));
+        // SAFETY: same guard.
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+
+        let inner = result
+            .expect("env override should succeed")
+            .into_daemon_config();
+        assert_eq!(inner.api_url, "https://override.env.example.com/api");
+        assert_eq!(
+            inner.identity_url,
+            "https://override.env.example.com/identity"
+        );
+    }
+
+    #[test]
+    fn old_top_level_api_url_key_is_rejected() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+
+        // Old-format top-level key — must be rejected as unknown field.
+        let toml = r#"
+api_url      = "https://api.example.com"
+identity_url = "https://identity.example.com"
+"#;
+        let f = write_toml(toml);
+
+        let result = Config::from_cli(file_args(&f));
+        // SAFETY: same guard.
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+
+        assert!(
+            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            "top-level api_url/identity_url must be rejected as unknown fields, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn no_environment_section_and_no_env_vars_is_invalid_config() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: protected by ENV_LOCK; no other thread mutates the environment concurrently.
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            // Ensure no URL env vars are set.
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+
+        // Config file with no [environment] section and no URL env vars.
+        let toml = r#"
+poll_interval = 15
+"#;
+        let f = write_toml(toml);
+
+        let result = Config::from_cli(file_args(&f));
+        // SAFETY: same guard.
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+
+        match result {
+            Err(RotationDaemonError::InvalidConfig(msg)) => {
+                // Error message should name the supply methods for api URL.
+                assert!(
+                    msg.contains("BWRD_API_URL") && msg.contains("[environment]"),
+                    "error should name how to supply the api URL; got: {msg}"
+                );
+            }
+            other => panic!(
+                "expected InvalidConfig for no environment section and no env vars, got {other:?}"
+            ),
+        }
     }
 }
