@@ -30,15 +30,12 @@ use tracing_subscriber::{
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     // ── Tracing ────────────────────────────────────────────────────────────
-    // Mirror crates/bw/src/main.rs: RUST_LOG at runtime overrides compile-time
-    // default; fall back to "info".
+    // `from_env_lossy` reads the RUST_LOG environment variable at runtime,
+    // parsing full filter strings (including comma-separated directive lists)
+    // leniently.  When RUST_LOG is unset or empty it falls back to the INFO
+    // default directive below.
     let filter = EnvFilter::builder()
-        .with_default_directive(
-            option_env!("RUST_LOG")
-                .unwrap_or("info")
-                .parse()
-                .expect("should provide valid log level at compile time."),
-        )
+        .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
         .from_env_lossy();
 
     tracing_subscriber::registry()
