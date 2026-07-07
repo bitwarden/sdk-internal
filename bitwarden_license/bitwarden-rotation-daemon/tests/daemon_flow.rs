@@ -79,7 +79,7 @@ fn make_org_key_and_payload() -> (SymmetricCryptoKey, String) {
 /// Mount a permanent identity success mock.
 async fn mount_identity_ok(server: &MockServer, encrypted_payload: &str) {
     let body = format!(
-        r#"{{"access_token":"test-bearer","expires_in":3600,"encryptedPayload":"{encrypted_payload}"}}"#
+        r#"{{"access_token":"test-bearer","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
     );
     Mock::given(method("POST"))
         .and(path("/connect/token"))
