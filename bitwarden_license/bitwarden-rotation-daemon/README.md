@@ -47,8 +47,12 @@ The daemon is configured from a TOML file. Specify the file with `--config <PATH
 `BWRD_CONFIG` environment variable. The server URLs may additionally be overridden with the
 `BWRD_API_URL` / `BWRD_IDENTITY_URL` environment variables.
 
-**Precedence**: environment variables (`BWRD_API_URL` / `BWRD_IDENTITY_URL`) > config file >
-built-in defaults.
+**Precedence** (highest to lowest):
+
+1. `BWRD_API_URL` / `BWRD_IDENTITY_URL` environment variables
+2. `[environment].api` / `[environment].identity` in the config file
+3. Derived from `[environment].base` as `{base}/api` / `{base}/identity`
+4. Error — startup fails with a message naming all three supply methods
 
 The daemon token **cannot** be supplied via the config file. Any config file that contains a `token`
 key is rejected at startup. Use `BWRD_TOKEN` only.
@@ -57,9 +61,6 @@ key is rejected at startup. Use `BWRD_TOKEN` only.
 
 ```toml
 # All fields are optional; omitted fields fall back to built-in defaults.
-
-api_url      = "https://api.bitwarden.com"
-identity_url = "https://identity.bitwarden.com"
 
 poll_interval      = 15   # seconds; minimum 15
 heartbeat_interval = 30   # seconds; must be < 120
@@ -71,6 +72,13 @@ script_timeout     = 60   # seconds
 # script_root = "/opt/scripts"   # uncomment to restrict custom script paths
 
 entra_verify_probe = false   # set true only with MFA exemption for the service principal
+
+[environment]
+# Supply a base URL and let the daemon derive /api and /identity automatically:
+base     = "https://bitwarden.example.com"
+# Or override individual URLs (takes precedence over base-derived values):
+# api      = "https://api.bitwarden.com"
+# identity = "https://identity.bitwarden.com"
 ```
 
 ### Logging
