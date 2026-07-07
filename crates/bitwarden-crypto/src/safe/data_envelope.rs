@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
-use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
+use bitwarden_encoding::{B64, NotB64EncodedError};
 #[allow(unused_imports)]
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
@@ -290,25 +290,6 @@ impl From<DataEnvelope> for String {
     fn from(val: DataEnvelope) -> Self {
         let serialized: Vec<u8> = (&val).into();
         B64::from(serialized).to_string()
-    }
-}
-
-impl<'de> Deserialize<'de> for DataEnvelope {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_str(FromStrVisitor::new())
-    }
-}
-
-impl Serialize for DataEnvelope {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let serialized: Vec<u8> = self.into();
-        serializer.serialize_str(&B64::from(serialized).to_string())
     }
 }
 
