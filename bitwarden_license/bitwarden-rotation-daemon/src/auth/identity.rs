@@ -150,7 +150,7 @@ impl IdentityClient {
         struct TokenResponse {
             access_token: String,
             expires_in: u64,
-            #[serde(rename = "encryptedPayload")]
+            // The identity server emits this field as snake_case `encrypted_payload`.
             encrypted_payload: String,
         }
 
@@ -194,7 +194,7 @@ mod tests {
 
     fn success_body(access_token: &str, expires_in: u64) -> String {
         format!(
-            r#"{{"access_token":"{access_token}","expires_in":{expires_in},"encryptedPayload":"2.abc==|def==|ghi=="}}"#
+            r#"{{"access_token":"{access_token}","expires_in":{expires_in},"encrypted_payload":"2.abc==|def==|ghi=="}}"#
         )
     }
 
@@ -369,6 +369,35 @@ mod tests {
         assert!(
             matches!(err, AuthError::Protocol),
             "expected Protocol, got {err:?}"
+        );
+    }
+
+    /// Regression guard: the old camelCase field name (`encryptedPayload`) must no
+    /// longer be accepted — the real identity server now emits `encrypted_payload`.
+    /// A response that only carries the camelCase variant must yield `Protocol`.
+    #[tokio::test]
+    async fn camel_case_encrypted_payload_gives_protocol() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(
+                        r#"{"access_token":"tok","expires_in":3600,"encryptedPayload":"2.abc==|def==|ghi=="}"#,
+                    )
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&server)
+            .await;
+
+        let err = client(&server)
+            .authenticate(&test_token())
+            .await
+            .expect_err("should fail");
+
+        assert!(
+            matches!(err, AuthError::Protocol),
+            "expected Protocol for camelCase field, got {err:?}"
         );
     }
 

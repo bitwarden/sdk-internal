@@ -298,6 +298,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             Ok(jobs) => {
                 // Reset transient backoff on success.
                 poll_backoff = Duration::from_secs(1);
+                tracing::debug!(claimable_jobs = jobs.len(), "poll tick");
                 jobs
             }
             Err(ApiError::SessionLost(SessionLost::Revoked)) => {
@@ -354,6 +355,11 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         for job in jobs {
             match api.claim(job.id).await {
                 Ok(Some(s)) => {
+                    tracing::info!(
+                        job_id = %s.job_id,
+                        target_system_name = %s.target_system_name,
+                        "claimed rotation job"
+                    );
                     snapshot = Some(s);
                     break; // at most one claim per tick
                 }
@@ -427,6 +433,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             cancel: cancel.clone(),
         };
 
+        let attempt_id = snap.attempt_id;
         let result = execute(snap, &exec_ctx).await;
 
         // Cancel the heartbeat.
@@ -435,7 +442,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
 
         match result {
             ExecutionResult::Reported => {
-                tracing::debug!("rotation attempt reported");
+                tracing::info!(attempt_id = %attempt_id, "rotation attempt reported");
             }
             ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Revoked)) => {
                 tracing::error!(
@@ -560,7 +567,7 @@ mod tests {
     fn identity_ok(bearer: &str, encrypted_payload: &str) -> ResponseTemplate {
         ResponseTemplate::new(200)
             .set_body_string(format!(
-                r#"{{"access_token":"{bearer}","expires_in":3600,"encryptedPayload":"{encrypted_payload}"}}"#
+                r#"{{"access_token":"{bearer}","expires_in":3600,"encrypted_payload":"{encrypted_payload}"}}"#
             ))
             .insert_header("content-type", "application/json")
     }
