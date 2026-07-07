@@ -665,8 +665,9 @@ mod tests {
     // No-leak (argv + env)
     // -----------------------------------------------------------------------
 
-    /// Serialise tests that mutate BWRD_TOKEN to prevent concurrent env mutation.
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// Use the process-wide env lock so custom_script tests and config tests
+    /// serialise all `BWRD_TOKEN` mutations across modules.
+    use crate::TEST_ENV_LOCK as ENV_LOCK;
 
     #[tokio::test]
     async fn no_password_in_argv_or_env() {

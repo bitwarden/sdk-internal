@@ -82,7 +82,8 @@ pub(crate) struct EntraIntegration {
     /// Whether to attempt an ROPC verify probe after directory confirmation.
     ///
     /// Disabled by default because MFA / Conditional Access blocks it in most
-    /// production tenants.  Enable with `--entra-verify-probe`.
+    /// production tenants.  Enable with `entra_verify_probe = true` in the
+    /// config file.
     verify_probe: bool,
     /// Base URL for the Microsoft login (token) endpoint.  Overrideable in tests.
     login_base: String,
