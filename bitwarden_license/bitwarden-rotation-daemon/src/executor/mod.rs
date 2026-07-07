@@ -132,6 +132,8 @@ pub struct DaemonConfig {
     pub(crate) script_timeout: Duration,
     /// Whether to enable the Entra verify probe (ROPC-based; off by default).
     pub(crate) entra_verify_probe: bool,
+    /// Per-target credential overrides from the `[targets]` config section.
+    pub(crate) targets: std::collections::HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
 }
 
 impl DaemonConfig {
@@ -164,6 +166,7 @@ impl DaemonConfig {
             script_root,
             script_timeout: Duration::from_secs(10),
             entra_verify_probe: false,
+            targets: std::collections::HashMap::new(),
         }
     }
 }
@@ -209,6 +212,16 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             return RunExit::CredentialRefused;
         }
     };
+
+    // Log startup configuration (URLs only — never the token).
+    tracing::info!(
+        api_url = %cfg.api_url,
+        identity_url = %cfg.identity_url,
+        poll_interval_secs = cfg.poll_interval.as_secs(),
+        heartbeat_interval_secs = cfg.heartbeat_interval.as_secs(),
+        configured_targets = cfg.targets.len(),
+        "daemon starting"
+    );
 
     // SessionManager::new performs its own backoff internally (up to
     // NO_DEADLINE_MAX_TRIES=3 on transient errors).  We wrap the call in a
@@ -262,10 +275,20 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     registry.register(crate::api::models::TargetKind::Entra, entra);
 
     let integrations = Arc::new(registry);
+    tracing::debug!(
+        kinds = ?[
+            crate::api::models::TargetKind::CustomScript,
+            crate::api::models::TargetKind::Entra,
+        ],
+        "registered integration kinds"
+    );
 
     // ── Credential resolver ────────────────────────────────────────────────
-    let resolver: Arc<dyn CredentialResolver> =
-        Arc::new(crate::resolver::env::EnvCredentialResolver);
+    // ConfigCredentialResolver layers config-file overrides on top of env-var fallbacks.
+    // When targets is empty the behaviour is identical to the plain EnvCredentialResolver.
+    let resolver: Arc<dyn CredentialResolver> = Arc::new(
+        crate::resolver::config::ConfigCredentialResolver::new(cfg.targets),
+    );
 
     // ── Key store (shared with session via the session's key_store()) ──────
     let key_store: Arc<DaemonKeyStore> = session.key_store().await;
@@ -365,6 +388,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
                 }
                 Ok(None) => {
                     // 409: lost the race; try the next job.
+                    tracing::debug!(job_id = %job.id, "claim race lost (409); trying next job");
                 }
                 Err(ApiError::SessionLost(SessionLost::Revoked)) => {
                     tracing::error!(
@@ -413,6 +437,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
                         _ = heartbeat_cancel.cancelled() => break,
                         _ = ticker.tick() => {
                             // Only the connectivity bump matters; ignore the result.
+                            tracing::debug!("heartbeat tick");
                             let _ = heartbeat_api.poll_jobs().await;
                         }
                     }
@@ -442,7 +467,9 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
 
         match result {
             ExecutionResult::Reported => {
-                tracing::info!(attempt_id = %attempt_id, "rotation attempt reported");
+                // Outcome was logged per-site in rotation.rs (success → info,
+                // failure → warn); this is a lower-level bookkeeping line.
+                tracing::debug!(attempt_id = %attempt_id, "rotation attempt reported");
             }
             ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Revoked)) => {
                 tracing::error!(
