@@ -1,168 +1,86 @@
-# Bitwarden Internal SDK
+# CLAUDE.md
 
-Cross-platform Rust SDK implementing Bitwarden's core business logic.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+repository.
 
-**Rust Edition:** The SDK targets the
-[2024](https://doc.rust-lang.org/nightly/edition-guide/rust-2024/index.html) edition of Rust.
+## What this repo is
 
-**Crate documentation**: Before working in any crate, read available documentation: `CLAUDE.md` for
-critical rules, `README.md` for architecture, `examples/` for usage patterns, and `tests/` for
-integration tests. **Before making changes or reviewing code, review relevant examples and tests for
-the specific functionality you're modifying.**
+Bitwarden's internal cross-platform SDK: core business logic in Rust (edition 2024), consumed by web
+and desktop clients through WASM bindings and by mobile through UniFFI. Not for public use — the API
+is unstable and changes without warning. Two license zones: `crates/` (OSS) and `bitwarden_license/`
+(commercial: `bitwarden-sm`, `bitwarden-commercial-vault`, `bitwarden-rotation-daemon`).
 
-## Architecture Overview
+Path-scoped rules live in `.claude/rules/` and load automatically when you touch matching files
+(crypto crates, generated API crates, binding crates, repo-wide Rust conventions). Several crates
+also carry their own `CLAUDE.md` and substantive `README.md` (e.g. `bitwarden-state`,
+`bitwarden-exporters`, `bitwarden-importers`, `bitwarden-ipc`, `bitwarden-threading`) — read the
+crate's docs, `examples/`, and `tests/` before changing it.
 
-Monorepo crates organized in **four architectural layers**:
+## Commands
 
-### 1. Foundation Layer
+Toolchain: stable is pinned in `rust-toolchain.toml`; fmt, udeps, and dylint use the nightly pinned
+there as `nightly-channel`. CLI tools (cargo-sort, cargo-dylint, cargo-udeps, …) are version-pinned
+in `[workspace.metadata.bin]` and invoked via `cargo bin <tool>` (cargo-run-bin; source installs
+only, no binstall).
 
-- **bitwarden-crypto**: Cryptographic primitives and protocols, key store for securely working with
-  keys held in memory.
-- **bitwarden-organization-crypto**: Cryptographic primitives and protocols related to organizations
-  and sharing.
-- **bitwarden-state**: Type-safe Repository pattern for SDK state (client-managed vs SDK-managed)
-- **bitwarden-threading**: ThreadBoundRunner for !Send types in WASM/GUI contexts (uses PhantomData
-  marker)
-- **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport
-- **bitwarden-error**: Error handling across platforms (basic/flat/full modes via proc macro)
-- **bitwarden-encoding**, **bitwarden-uuid**: Encoding and UUID utilities
+Build & test:
 
-### 2. Core Infrastructure
+- `cargo check --all-features --all-targets` — quick validation
+- `cargo test --workspace --all-features` — full suite (what CI runs)
+- `cargo test -p <crate> --all-features <filter>` — single crate / single test
+- `cargo test --target wasm32-unknown-unknown -p bitwarden-wasm-internal -p bitwarden-threading -p bitwarden-error -p bitwarden-uuid --all-features`
+  — WASM suite (matches CI; the test runner is wired up in `.cargo/config.toml`). Browser-dependent
+  tests:
+  `cargo test --target wasm32-unknown-unknown -p bitwarden-state --features wasm,browser-tests`
+  (needs chromedriver).
 
-- **bitwarden-core**: Base Client struct extended by feature crates via extension traits. **DO NOT
-  add functionality here - use feature crates instead.**
-  - **bitwarden-api-api**, **bitwarden-api-identity**: Auto-generated API clients (**DO NOT edit -
-    regenerate from OpenAPI specs**)
+Lint & format:
 
-### 3. Feature Implementations
+- `npm run lint` — every check CI runs (fmt, clippy, sort, udeps, dylint, doc, prettier,
+  dep-ownership, cargo-lock); `npm run lint:fix` auto-fixes; `npm run lint -- --only <check>` runs
+  one. Backed by `scripts/lint.sh`.
+- **Never run bare `cargo fmt`** — `rustfmt.toml` uses nightly-only options that stable rustfmt
+  silently ignores. Use `npm run lint:fix -- --only fmt`.
+- Custom dylint lints live in `support/lints/` (not a workspace member).
+- Husky pre-commit runs prettier, clippy, and dylint on staged files (plus udeps and sort when
+  `Cargo.toml` changes) — commits are slow and can fail on lint.
 
-- **bitwarden-pm**: PasswordManagerClient wrapping core Client, exposes sub-clients: `auth()`,
-  `vault()`, `crypto()`, `sends()`, `generators()`, `exporters()`
-  - Lifecycle: Init → Lock/Unlock → Logout (drops instance)
-  - Storage: Apps use `HashMap<UserId, PasswordManagerClient>`
-- **bitwarden-vault**: Vault item models, encryption/decryption and management
-- **bitwarden-collections**: Collection models, encryption/decryption and management
-- **bitwarden-auth**: Authentication (send access tokens)
-- **bitwarden-send**: Encrypted temporary secret sharing
-- **bitwarden-generators**: Password/passphrase generators
-- **bitwarden-ssh**: SSH key generation/import
-- **bitwarden-exporters**: Vault export/import with multiple formats
-- **bitwarden-fido**: FIDO2 two-factor authentication
+Generated code:
 
-### 4. Cross-Platform Bindings
+- `bitwarden-api-api` / `bitwarden-api-identity` are generated from the server's OpenAPI specs —
+  never edit by hand. Regenerate with `./support/build-api.sh` (expects a sibling `server` checkout)
+  or the "Update API Bindings" GitHub workflow.
+- WASM npm packages (`@bitwarden/sdk-internal`, `@bitwarden/commercial-sdk-internal`) build via
+  `crates/bitwarden-wasm-internal/build.sh` (`-r` release, `-b` commercial).
 
-- **bitwarden-uniffi**: Mobile bindings (Swift/Kotlin) via UniFFI
-  - Structs: `#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]`
-  - Enums: `#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]`
-  - Include `uniffi::setup_scaffolding!()` in lib.rs
-- **bitwarden-wasm-internal**: WebAssembly bindings (**thin bindings only - no business logic**)
-  - Structs: `#[derive(Serialize, Deserialize)]` with
-    `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`
+## Architecture
 
-## Critical Patterns & Rules
+Four layers; dependencies point strictly downward:
 
-### Cryptography (bitwarden-crypto, bitwarden-organization-crypto)
+1. **Foundation** — `bitwarden-crypto`, `bitwarden-organization-crypto`, `bitwarden-state`,
+   `bitwarden-threading`, `bitwarden-ipc`, `bitwarden-error`, plus small utilities. These must not
+   depend on `bitwarden-core` or anything that does.
+2. **Core** — `bitwarden-core` defines `Client`, a dependency-injection container (user identity,
+   key store, API configuration, state). **Do not add features here** — feature crates extend
+   `Client` via extension traits.
+3. **Features** — one crate per domain (`bitwarden-vault`, `bitwarden-auth`, `bitwarden-send`,
+   `bitwarden-generators`, `bitwarden-exporters`, `bitwarden-importers`, `bitwarden-sync`,
+   `bitwarden-policies`, …). `bitwarden-pm` assembles them into `PasswordManagerClient`, the facade
+   apps consume — one instance per user (`HashMap<UserId, PasswordManagerClient>`), lifecycle init →
+   lock/unlock → logout (drop). The current sub-client list is in `crates/bitwarden-pm/src/lib.rs`.
+4. **Bindings** — `bitwarden-uniffi` (Swift/Kotlin) and `bitwarden-wasm-internal`
+   (TypeScript/JavaScript). Thin bindings only — no business logic.
 
-- **DO NOT modify** without careful consideration - backward compatibility is critical
-- **KeyStoreContext**: Never hold across await points
-- Naming: `derive_` for deterministic key derivation, `make_` for non-deterministic generation
-- Use `bitwarden_crypto::safe` module first (password-protected key envelope, data envelope) instead
-  of more low-level primitives
-- IMPORTANT: Use constant time equality checks
-- Do not expose low-level / hazmat functions from the crypto crate.
-- Do not expose key material from the crypto crate, use key references in the key store instead
-- These are foundational crates, **not** client crates, and _shall not_ depend on `bitwarden-core`
-  or any `bitwarden-core` dependendents.
+## API breaking changes
 
-### State Management (bitwarden-state)
-
-- **Client-managed**: App and SDK share data pool (requires manual setup)
-- **SDK-managed**: SDK exclusively handles storage (migration-based, ordering is critical)
-- Register types with `register_repository_item!` macro
-- Type safety via TypeId-based type erasure with runtime downcast checks
-
-### Threading (bitwarden-threading)
-
-- Use ThreadBoundRunner for !Send types (WASM contexts, GUI handles, Rc<T>)
-- Pins state to thread via spawn_local, tasks via mpsc channel
-- PhantomData<\*const ()> for !Send marker (zero-cost)
-- **Do not use `#[async_trait(?Send)]` in hand-written code.** Wrap `!Send` types (e.g. JS
-  `extern "C"` bindings holding `JsValue`) in `ThreadBoundRunner` instead, which is `Send + Sync`.
-  This keeps the SDK compatible with external crates (e.g. `passkey-rs`) that require `Send`
-  upstream and avoids future refactors. Exceptions: the `bitwarden-api-*` crates (auto-generated
-  from OpenAPI specs) and `impl`s of `reqwest_middleware::Middleware`, whose trait declaration
-  applies `?Send` on `wasm32` upstream so impls must mirror it.
-
-### Error Handling (bitwarden-error-macro)
-
-- Three modes: **basic** (string), **flat** (variant), **full** (structure)
-- Generates FlatError trait, WASM bindings, TypeScript interfaces, UniFFI errors
-- Conditional code generation via cfg! for WASM
-
-### Security Requirements
-
-- **Never log** keys, passwords, or vault data in logs or error paths
-- **Redact sensitive data** in all error messages
-- **Unsafe blocks** require comments explaining safety and invariants
-- **Encryption/decryption changes** must maintain backward compatibility (existing encrypted data
-  must remain decryptable)
-- **Breaking serialization** strongly discouraged - users must decrypt vaults from older versions
-
-### API Changes
-
-- **Breaking changes**: Automated detection via cross-repo workflow (see commit 9574dcc1)
-- TypeScript compilation tested against `clients` repo on PR
-- Document migration path for clients
-
-### Data Model Conventions
-
-The SDK uses distinct model layers; use the correct type for the context. See the
-[data models docs](https://contributing.bitwarden.com/architecture/sdk/data-models) for the full
-picture.
-
-| Suffix     | Role                                                                              | Example                  |
-| ---------- | --------------------------------------------------------------------------------- | ------------------------ |
-| _(none)_   | Server/storage-layer model — prefer `View`/`Request`/`Response` at API boundaries | `Cipher`, `Send`         |
-| `View`     | Decrypted DTO returned to clients                                                 | `CipherView`, `SendView` |
-| `Request`  | Public input DTO from client into SDK                                             | `CipherCreateRequest`    |
-| `Response` | Public output DTO from SDK to client                                              | `LoginResponse`          |
-
-**Create vs. Edit requests**: When the fields for creating and editing an item differ (e.g. edit
-requires an `id`, `revision_date`, or fields that are immutable after creation), use **separate**
-`*CreateRequest` and `*EditRequest` structs.
-
-**Variant data**: When a model has a type discriminant with per-variant associated data (e.g. a send
-is either a file or text, never both), use an enum with associated data rather than a bare
-discriminant field alongside multiple `Option` fields. The mapping from server wire format (numeric
-discriminant + optional fields) belongs at the API→domain boundary.
-
-## Development Workflow
-
-**Build & Test:**
-
-- `cargo check --all-features --all-targets` - Quick validation
-- `cargo test --workspace --all-features` - Full test suite
-
-**Format & Lint:**
-
-- `npm run lint` - Run every formatting/linting check CI runs (fmt, clippy, sort, udeps, dylint,
-  doc, prettier, dep-ownership, cargo-lock). Matches `.github/workflows/lint.yml`.
-- `npm run lint:fix` - Same set, auto-fixing where the tool supports it.
-- `npm run lint -- --only <check>` - Run a single check (e.g. `--only clippy`).
-- Underlying script: `scripts/lint.sh`.
-
-**WASM Testing:**
-
-- `cargo test --target wasm32-unknown-unknown --features wasm -p bitwarden-error -p bitwarden-threading -p bitwarden-uuid` -
-  WASM-specific tests
+A cross-repo workflow flags breaking API changes on every PR, and TypeScript compilation is tested
+against the `clients` repo. If you merge a breaking change, prepare the corresponding `clients` PR
+immediately — unresolved breaks block other SDK integrations.
 
 ## References
 
-- [SDK Architecture](https://contributing.bitwarden.com/architecture/sdk/)
-- [Architectural Decision Records (ADRs)](https://contributing.bitwarden.com/architecture/adr/)
-- [Contributing Guidelines](https://contributing.bitwarden.com/contributing/)
-- [Setup Guide](https://contributing.bitwarden.com/getting-started/sdk/internal/)
-- [Code Style](https://contributing.bitwarden.com/contributing/code-style/)
-- [Security Whitepaper](https://bitwarden.com/help/bitwarden-security-white-paper/)
-- [Security Definitions](https://contributing.bitwarden.com/architecture/security/definitions)
-- [Rust 2024 Edition Guide](https://doc.rust-lang.org/edition-guide/rust-2024/)
+- [SDK architecture](https://contributing.bitwarden.com/architecture/sdk/) ·
+  [data models](https://contributing.bitwarden.com/architecture/sdk/data-models) ·
+  [ADRs](https://contributing.bitwarden.com/architecture/adr/) ·
+  [code style](https://contributing.bitwarden.com/contributing/code-style/) ·
+  [security definitions](https://contributing.bitwarden.com/architecture/security/definitions)
