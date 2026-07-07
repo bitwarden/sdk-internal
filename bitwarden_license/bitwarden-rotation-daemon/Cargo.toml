@@ -26,7 +26,7 @@ bitwarden-generators = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-threading = { workspace = true }
 chrono = { workspace = true }
-clap = { version = "4.5", features = ["derive", "env"] }
+clap = { workspace = true, features = ["env"] }
 http = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
@@ -34,6 +34,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "process", "time", "signal", "sync"] }
+toml = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 url = { workspace = true }

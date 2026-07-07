@@ -10,42 +10,68 @@ optionally terminate sessions → report outcome), and then returning to the pol
 ## Usage
 
 ```
-bw-rotation-daemon run [OPTIONS] --api-url <API_URL> --identity-url <IDENTITY_URL>
+bw-rotation-daemon run [--config <PATH>]
 ```
+
+All daemon settings live in the TOML configuration file (see
+[Configuration file](#configuration-file)); they are **not** individual CLI flags.
 
 ### Environment variables
 
-| Variable            | Purpose                                                                     |
-| ------------------- | --------------------------------------------------------------------------- |
-| `BWRD_API_URL`      | Bitwarden API server URL (overridden by `--api-url`)                        |
-| `BWRD_IDENTITY_URL` | Bitwarden identity server URL (overridden by `--identity-url`)              |
-| `BWRD_TOKEN`        | Daemon access token (exactly one of `BWRD_TOKEN` / `--token-file` required) |
-| `RUST_LOG`          | Log filter directives; default `info` (e.g. `RUST_LOG=debug`)               |
+| Variable            | Purpose                                                        |
+| ------------------- | -------------------------------------------------------------- |
+| `BWRD_TOKEN`        | Daemon access token (required)                                 |
+| `BWRD_CONFIG`       | Path to the TOML configuration file (equivalent to `--config`) |
+| `BWRD_API_URL`      | Bitwarden API server URL (overrides the config file)           |
+| `BWRD_IDENTITY_URL` | Bitwarden identity server URL (overrides the config file)      |
+| `RUST_LOG`          | Log filter directives; default `info` (e.g. `RUST_LOG=debug`)  |
 
 ### Flags and options
 
-| Flag / option                 | Default | Minimum | Description                                                 |
-| ----------------------------- | ------- | ------- | ----------------------------------------------------------- |
-| `--api-url <URL>`             | —       | —       | Bitwarden API server URL                                    |
-| `--identity-url <URL>`        | —       | —       | Bitwarden identity server URL                               |
-| `--token-file <PATH>`         | —       | —       | File containing the daemon token (trimmed)                  |
-| `--poll-interval <SECS>`      | `15`    | `15`    | How often to poll for new jobs                              |
-| `--heartbeat-interval <SECS>` | `30`    | —       | Heartbeat frequency during an executing rotation (< 120)    |
-| `--offline-grace <SECS>`      | `60`    | —       | Max time without server contact before pausing target steps |
-| `--max-retry-attempts <N>`    | `5`     | —       | Total tries per retryable step (incl. first attempt)        |
-| `--retry-base-delay <SECS>`   | `1`     | —       | Base for exponential backoff between retries                |
-| `--script-root <DIR>`         | —       | —       | Restrict custom script paths to this directory              |
-| `--script-timeout <SECS>`     | `60`    | —       | Kill a custom script after this many seconds                |
-| `--entra-verify-probe`        | off     | —       | Enable ROPC verify probe for Entra (requires MFA exemption) |
+| Flag / option     | Description                         |
+| ----------------- | ----------------------------------- |
+| `--config <PATH>` | Path to the TOML configuration file |
 
 ### Token security
 
 The daemon token contains the org-key encryption key. It is **never** accepted as a plain `--token`
-argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via `BWRD_TOKEN` or
-`--token-file` only.
+argument — argv is visible via `ps`/`/proc/<pid>/cmdline`. Supply it via the `BWRD_TOKEN`
+environment variable only.
 
-On Unix, if `--token-file` is used and the file is group- or world-readable (mode `0o044`), a
-warning is logged. Restrict permissions with `chmod 600`.
+After reading `BWRD_TOKEN` at startup, the daemon removes it from the process environment so that
+child processes (e.g. custom scripts) cannot inherit the token value.
+
+### Configuration file
+
+The daemon is configured from a TOML file. Specify the file with `--config <PATH>` or the
+`BWRD_CONFIG` environment variable. The server URLs may additionally be overridden with the
+`BWRD_API_URL` / `BWRD_IDENTITY_URL` environment variables.
+
+**Precedence**: environment variables (`BWRD_API_URL` / `BWRD_IDENTITY_URL`) > config file >
+built-in defaults.
+
+The daemon token **cannot** be supplied via the config file. Any config file that contains a `token`
+key is rejected at startup. Use `BWRD_TOKEN` only.
+
+#### Example configuration file
+
+```toml
+# All fields are optional; omitted fields fall back to built-in defaults.
+
+api_url      = "https://api.bitwarden.com"
+identity_url = "https://identity.bitwarden.com"
+
+poll_interval      = 15   # seconds; minimum 15
+heartbeat_interval = 30   # seconds; must be < 120
+offline_grace      = 60   # seconds
+max_retry_attempts = 5    # total attempts per retryable step
+retry_base_delay   = 1    # seconds (exponential backoff base)
+script_timeout     = 60   # seconds
+
+# script_root = "/opt/scripts"   # uncomment to restrict custom script paths
+
+entra_verify_probe = false   # set true only with MFA exemption for the service principal
+```
 
 ### Logging
 
@@ -53,8 +79,8 @@ Log output is written to stderr. The log level is controlled by the `RUST_LOG` e
 (same syntax as `tracing-subscriber`'s `EnvFilter`):
 
 ```sh
-RUST_LOG=debug bw-rotation-daemon run --api-url ... --identity-url ...
-RUST_LOG=bitwarden_rotation_daemon=trace,info bw-rotation-daemon run ...
+RUST_LOG=debug bw-rotation-daemon run --config /etc/bwrd/config.toml
+RUST_LOG=bitwarden_rotation_daemon=trace,info bw-rotation-daemon run --config /etc/bwrd/config.toml
 ```
 
 ### Exit codes
@@ -120,9 +146,9 @@ environment).
    `/proc/<pid>/cmdline`, and child process inheritance cannot expose them.
 2. **stdout/stderr suppressed** — both are redirected to `/dev/null`. Script output can echo
    credentials; piping unread output would also deadlock a chatty script.
-3. **Script-root restriction** — if `--script-root` is set, the canonicalized script path must be
-   under the canonicalized root. `../` traversal and symlink escapes are rejected before the script
-   is executed.
+3. **Script-root restriction** — if `script_root` is set in the config file, the canonicalized
+   script path must be under the canonicalized root. `../` traversal and symlink escapes are
+   rejected before the script is executed.
 4. **RotationByAdministrativeReset** — the stdin payload never contains the current password.
    Scripts **must** perform an administrative (force) reset. A change-password script is
    incompatible with retry convergence: if the first attempt successfully changes the target
@@ -183,7 +209,7 @@ Notes:
 
 ### Timeout behaviour
 
-If the script does not exit within `--script-timeout` (default 60 s) the daemon kills it (`SIGKILL`)
+If the script does not exit within `script_timeout` (default 60 s) the daemon kills it (`SIGKILL`)
 and maps the outcome per operation:
 
 | Operation   | Timeout outcome (failure code `script_timeout`)                   |

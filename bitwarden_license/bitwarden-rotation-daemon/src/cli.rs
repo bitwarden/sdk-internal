@@ -1,15 +1,26 @@
 //! Command-line interface argument parsing for the rotation daemon.
 //!
+//! The CLI is intentionally minimal: daemon settings live in the TOML
+//! configuration file (located with `--config <PATH>` or `BWRD_CONFIG`) and are
+//! **not** exposed as individual CLI flags.  Two kinds of overrides come from
+//! the environment instead:
+//!
+//! - `BWRD_API_URL` / `BWRD_IDENTITY_URL` override the config file's URLs.
+//! - `BWRD_TOKEN` supplies the daemon token (environment-only; see below).
+//!
+//! Precedence: environment URLs > config file > built-in defaults.  See
+//! [`crate::config::Config::from_cli`] for the resolution logic.
+//!
 //! # Security note on token intake
 //!
 //! The daemon token string contains the encryption key for the org key.  It is
 //! **never** accepted as a CLI argument because `argv` is visible via `ps` and
-//! `/proc/<pid>/cmdline`.  Supply it via the `BWRD_TOKEN` environment variable
-//! or `--token-file` instead.  See [`crate::config::Config::from_cli`] for the intake logic.
+//! `/proc/<pid>/cmdline`, and it is **never** accepted in the config file either.
+//! Supply it via the `BWRD_TOKEN` environment variable only.
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 /// Bitwarden PAM credential rotation daemon.
 #[derive(Debug, Parser)]
@@ -28,60 +39,11 @@ pub enum Command {
 }
 
 /// Arguments for the `run` subcommand.
-#[derive(Debug, Parser)]
+#[derive(Debug, Args)]
 pub struct RunArgs {
-    /// Bitwarden API server URL.
-    #[arg(long, env = "BWRD_API_URL")]
-    pub api_url: String,
-
-    /// Bitwarden identity server URL.
-    #[arg(long, env = "BWRD_IDENTITY_URL")]
-    pub identity_url: String,
-
-    /// Path to a file containing the daemon token (alternative to `BWRD_TOKEN`).
-    ///
-    /// The file contents are trimmed of leading and trailing whitespace.
-    /// On Unix the file permissions are checked; a warning is logged if the
-    /// file is group- or world-readable.
-    #[arg(long, value_name = "PATH")]
-    pub token_file: Option<PathBuf>,
-
-    /// How often the daemon polls for new rotation jobs (seconds, minimum 15).
-    #[arg(long, default_value_t = 15, value_name = "SECS")]
-    pub poll_interval: u64,
-
-    /// How often the heartbeat fires during an executing rotation (seconds, must
-    /// be less than 120).
-    #[arg(long, default_value_t = 30, value_name = "SECS")]
-    pub heartbeat_interval: u64,
-
-    /// Maximum time without a successful server contact before target-side steps
-    /// are paused (seconds).
-    #[arg(long, default_value_t = 60, value_name = "SECS")]
-    pub offline_grace: u64,
-
-    /// Total number of attempts for each retryable rotation step (not extra
-    /// retries — e.g. 5 means four backoff sleeps).
-    #[arg(long, default_value_t = 5, value_name = "N")]
-    pub max_retry_attempts: u32,
-
-    /// Base delay for exponential backoff between retry attempts (seconds).
-    #[arg(long, default_value_t = 1, value_name = "SECS")]
-    pub retry_base_delay: u64,
-
-    /// Root directory for custom scripts.  If set, script paths must resolve
-    /// within this directory (symlink-safe via `canonicalize`).
-    #[arg(long, value_name = "DIR")]
-    pub script_root: Option<PathBuf>,
-
-    /// Maximum execution time for a custom script (seconds).
-    #[arg(long, default_value_t = 60, value_name = "SECS")]
-    pub script_timeout: u64,
-
-    /// Enable the Entra ROPC verify probe (off by default; requires MFA
-    /// exclusion or conditional-access exemption for the service principal).
-    #[arg(long, default_value_t = false)]
-    pub entra_verify_probe: bool,
+    /// Path to the TOML configuration file.
+    #[arg(long, env = "BWRD_CONFIG", value_name = "PATH")]
+    pub config: Option<PathBuf>,
 }
 
 // ---------------------------------------------------------------------------
@@ -93,76 +55,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cli_run_parses_minimal_required_args() {
-        let cli = Cli::try_parse_from([
-            "bw-rotation-daemon",
-            "run",
-            "--api-url",
-            "https://api.example.com",
-            "--identity-url",
-            "https://identity.example.com",
-        ])
-        .expect("should parse with required args");
+    fn cli_run_parses_with_no_flags() {
+        let cli =
+            Cli::try_parse_from(["bw-rotation-daemon", "run"]).expect("should parse with no flags");
 
         let Command::Run(args) = cli.command;
-        assert_eq!(args.api_url, "https://api.example.com");
-        assert_eq!(args.identity_url, "https://identity.example.com");
-        assert!(args.token_file.is_none());
-        assert_eq!(args.poll_interval, 15);
-        assert_eq!(args.heartbeat_interval, 30);
-        assert_eq!(args.offline_grace, 60);
-        assert_eq!(args.max_retry_attempts, 5);
-        assert_eq!(args.retry_base_delay, 1);
-        assert!(args.script_root.is_none());
-        assert_eq!(args.script_timeout, 60);
-        assert!(!args.entra_verify_probe);
+        assert!(args.config.is_none());
     }
 
     #[test]
-    fn cli_run_parses_all_optional_args() {
+    fn cli_config_path_parses() {
         let cli = Cli::try_parse_from([
             "bw-rotation-daemon",
             "run",
-            "--api-url",
-            "https://api.example.com",
-            "--identity-url",
-            "https://identity.example.com",
-            "--token-file",
-            "/run/secrets/daemon-token",
-            "--poll-interval",
-            "30",
-            "--heartbeat-interval",
-            "45",
-            "--offline-grace",
-            "120",
-            "--max-retry-attempts",
-            "3",
-            "--retry-base-delay",
-            "2",
-            "--script-root",
-            "/opt/scripts",
-            "--script-timeout",
-            "90",
-            "--entra-verify-probe",
+            "--config",
+            "/etc/bwrd/config.toml",
         ])
-        .expect("should parse all optional args");
+        .expect("should parse --config");
 
         let Command::Run(args) = cli.command;
         assert_eq!(
-            args.token_file,
-            Some(std::path::PathBuf::from("/run/secrets/daemon-token"))
+            args.config,
+            Some(std::path::PathBuf::from("/etc/bwrd/config.toml"))
         );
-        assert_eq!(args.poll_interval, 30);
-        assert_eq!(args.heartbeat_interval, 45);
-        assert_eq!(args.offline_grace, 120);
-        assert_eq!(args.max_retry_attempts, 3);
-        assert_eq!(args.retry_base_delay, 2);
-        assert_eq!(
-            args.script_root,
-            Some(std::path::PathBuf::from("/opt/scripts"))
-        );
-        assert_eq!(args.script_timeout, 90);
-        assert!(args.entra_verify_probe);
     }
 
     #[test]
@@ -171,10 +86,6 @@ mod tests {
         let result = Cli::try_parse_from([
             "bw-rotation-daemon",
             "run",
-            "--api-url",
-            "https://api.example.com",
-            "--identity-url",
-            "https://identity.example.com",
             "--token",
             "0.daemon.some-id.secret:key==",
         ]);
@@ -182,5 +93,42 @@ mod tests {
             result.is_err(),
             "--token must not be an accepted arg; got: {result:?}"
         );
+    }
+
+    #[test]
+    fn cli_rejects_unknown_token_file_arg() {
+        // `--token-file` must not be accepted either; the token is env-only.
+        let result = Cli::try_parse_from([
+            "bw-rotation-daemon",
+            "run",
+            "--token-file",
+            "/etc/bwrd/token",
+        ]);
+        assert!(
+            result.is_err(),
+            "--token-file must not be an accepted arg; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn cli_rejects_removed_settings_flags() {
+        // Per-setting flags were removed; settings live in the config file only.
+        for args in [
+            ["bw-rotation-daemon", "run", "--poll-interval", "30"].as_slice(),
+            [
+                "bw-rotation-daemon",
+                "run",
+                "--api-url",
+                "https://api.example.com",
+            ]
+            .as_slice(),
+            ["bw-rotation-daemon", "run", "--entra-verify-probe"].as_slice(),
+        ] {
+            let result = Cli::try_parse_from(args.iter().copied());
+            assert!(
+                result.is_err(),
+                "removed settings flag must not parse: {args:?}"
+            );
+        }
     }
 }

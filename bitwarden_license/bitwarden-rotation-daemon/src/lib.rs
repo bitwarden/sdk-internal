@@ -73,3 +73,18 @@ pub async fn run(
 ) -> executor::RunExit {
     executor::run(cfg, cancel).await
 }
+
+// ---------------------------------------------------------------------------
+// Test utilities
+// ---------------------------------------------------------------------------
+
+/// Shared mutex that serialises all tests mutating process-environment variables.
+///
+/// `std::env::set_var` / `remove_var` are `unsafe` in Rust 2024 because
+/// concurrent mutation is UB in a multi-threaded process.  Tests that read or
+/// write *any* environment variable (e.g. `BWRD_TOKEN`) must hold this lock for
+/// the duration of the mutable window.  Different test modules (`config::tests`,
+/// `integrations::custom_script::tests`) share this process-wide lock so they
+/// can coordinate even when the test harness runs them on separate threads.
+#[cfg(test)]
+pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
