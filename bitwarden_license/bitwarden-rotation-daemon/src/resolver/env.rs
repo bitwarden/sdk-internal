@@ -34,7 +34,7 @@ use super::{CredentialResolver, ResolveError, ResolvedCredentials};
 use crate::api::models::TargetKind;
 
 /// Environment variable suffixes required per target kind.
-fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
+pub(crate) fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
     match kind {
         TargetKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
         TargetKind::CustomScript => &["SCRIPT"],
@@ -65,6 +65,11 @@ pub(crate) fn prefix_for(id: Uuid) -> String {
 /// A credential resolver that reads values from the process environment.
 ///
 /// Thread-safe; constructed once and shared behind an `Arc`.
+///
+/// In production the active resolver is [`super::config::ConfigCredentialResolver`], which
+/// falls back to env vars for any key not set in the config file.  This struct is kept as
+/// a testable standalone implementation and as a reference for the env-var naming scheme.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EnvCredentialResolver;
 
 #[async_trait]
