@@ -87,7 +87,7 @@ pub enum CryptoModuleError {
 /// Install the organisation encryption key into `store`.
 ///
 /// `token_key` is the 16-byte derived key from the daemon access token.
-/// `encrypted_payload` is the `encryptedPayload` EncString returned by the
+/// `encrypted_payload` is the `encrypted_payload` EncString returned by the
 /// identity server on authentication.
 ///
 /// The plaintext org-key bytes exist only transiently inside this synchronous
