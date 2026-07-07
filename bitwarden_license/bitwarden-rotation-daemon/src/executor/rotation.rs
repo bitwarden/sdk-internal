@@ -871,7 +871,7 @@ mod tests {
         Mock::given(method("POST")).and(path("/connect/token"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encryptedPayload":"{payload}"}}"#))
+                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#))
                     .insert_header("content-type", "application/json")
             )
             .mount(&server).await;
@@ -948,7 +948,7 @@ mod tests {
         Mock::given(method("POST")).and(path("/connect/token"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encryptedPayload":"{payload}"}}"#))
+                    .set_body_string(format!(r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#))
                     .insert_header("content-type", "application/json")
             )
             .mount(&server).await;
@@ -1162,7 +1162,7 @@ mod tests {
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_string(format!(
-                        r#"{{"access_token":"tok","expires_in":3600,"encryptedPayload":"{payload}"}}"#
+                        r#"{{"access_token":"tok","expires_in":3600,"encrypted_payload":"{payload}"}}"#
                     ))
                     .insert_header("content-type", "application/json"),
             )
