@@ -22,6 +22,16 @@
 //!       → error (InvalidConfig)
 //! ```
 //!
+//! # Per-target credential configuration (`[targets]`)
+//!
+//! The optional `[targets]` TOML section accepts UUID keys, each mapping to a
+//! [`crate::resolver::config::TargetEntry`].  Config-file values take precedence over
+//! environment variables on a per-key basis; the env var is the fallback for any key not set in
+//! the config file.  Missing-key errors always report the **env var name** as the actionable hint.
+//!
+//! `client_secret` is deliberately absent from [`crate::resolver::config::TargetEntry`] and is
+//! rejected as an unknown field.  Secrets must be supplied via environment variables only.
+//!
 //! # Token intake
 //!
 //! The daemon token is consumed from the `BWRD_TOKEN` environment variable
@@ -32,7 +42,7 @@
 //! The daemon token **cannot** be supplied via the config file.  Any config file containing a
 //! `token` key will be rejected at parse time (`deny_unknown_fields`).
 
-use std::{path::PathBuf, time::Duration};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use crate::{
     cli::RunArgs,
@@ -128,6 +138,9 @@ struct FileConfig {
     script_timeout: u64,
     /// Whether the Entra ROPC verify probe is enabled.
     entra_verify_probe: bool,
+    /// Per-target credential overrides from the `[targets]` section.
+    #[serde(default)]
+    targets: HashMap<uuid::Uuid, crate::resolver::config::TargetEntry>,
 }
 
 /// The daemon's built-in defaults — the lowest-priority configuration layer
@@ -144,6 +157,7 @@ impl Default for FileConfig {
             script_root: None,
             script_timeout: 60,
             entra_verify_probe: false,
+            targets: HashMap::new(),
         }
     }
 }
@@ -316,6 +330,7 @@ impl Config {
                 script_root: file.script_root,
                 script_timeout: Duration::from_secs(file.script_timeout),
                 entra_verify_probe: file.entra_verify_probe,
+                targets: file.targets,
             },
         })
     }
@@ -1147,5 +1162,161 @@ poll_interval = 15
                 "expected InvalidConfig for no environment section and no env vars, got {other:?}"
             ),
         }
+    }
+
+    // ── [targets] section ───────────────────────────────────────────────────
+
+    #[test]
+    fn targets_script_entry_parsed() {
+        // Parse a [targets.<uuid>] with a script key.
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+        let toml = r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = "/opt/scripts/rotate.sh"
+"#;
+        let f = write_toml(toml);
+        let result = Config::from_cli(file_args(&f));
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+        let cfg = result
+            .expect("targets section should parse")
+            .into_daemon_config();
+        let uuid: uuid::Uuid = "85808642-baba-4b8e-8c34-b48000d60a0a".parse().unwrap();
+        assert!(cfg.targets.contains_key(&uuid));
+        assert_eq!(
+            cfg.targets[&uuid].script.as_deref(),
+            Some("/opt/scripts/rotate.sh")
+        );
+    }
+
+    #[test]
+    fn targets_entra_entry_parsed() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+        let toml = r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+
+[targets.00000000-0000-0000-0000-000000000001]
+tenant_id = "my-tenant"
+client_id = "my-client"
+"#;
+        let f = write_toml(toml);
+        let result = Config::from_cli(file_args(&f));
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+        let cfg = result
+            .expect("entra target entry should parse")
+            .into_daemon_config();
+        let uuid: uuid::Uuid = "00000000-0000-0000-0000-000000000001".parse().unwrap();
+        assert_eq!(cfg.targets[&uuid].tenant_id.as_deref(), Some("my-tenant"));
+        assert_eq!(cfg.targets[&uuid].client_id.as_deref(), Some("my-client"));
+    }
+
+    #[test]
+    fn targets_client_secret_in_file_is_rejected_and_does_not_echo_value() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+        let secret_value = "supersecret";
+        let toml = format!(
+            r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+
+[targets.00000000-0000-0000-0000-000000000001]
+client_secret = "{secret_value}"
+"#
+        );
+        let f = write_toml(&toml);
+        let result = Config::from_cli(file_args(&f));
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+        match result {
+            Err(RotationDaemonError::InvalidConfig(msg)) => {
+                assert!(
+                    !msg.contains(secret_value),
+                    "error must not echo secret value; got: {msg}"
+                );
+            }
+            other => {
+                panic!("expected InvalidConfig for client_secret in targets entry, got {other:?}")
+            }
+        }
+    }
+
+    #[test]
+    fn targets_invalid_uuid_key_is_rejected() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+        let toml = r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+
+[targets.not-a-uuid]
+script = "/some/script.sh"
+"#;
+        let f = write_toml(toml);
+        let result = Config::from_cli(file_args(&f));
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+        assert!(
+            matches!(result, Err(RotationDaemonError::InvalidConfig(_))),
+            "non-UUID key in [targets] must be rejected, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn targets_absent_defaults_to_empty_map() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+        let toml = r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+"#;
+        let f = write_toml(toml);
+        let result = Config::from_cli(file_args(&f));
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+        let cfg = result
+            .expect("no targets section should be fine")
+            .into_daemon_config();
+        assert!(
+            cfg.targets.is_empty(),
+            "absent [targets] section must default to empty map"
+        );
     }
 }
