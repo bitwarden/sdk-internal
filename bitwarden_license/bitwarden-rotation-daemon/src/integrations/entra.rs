@@ -59,6 +59,12 @@ const HTTP_TIMEOUT: Duration = Duration::from_secs(30);
 /// Clock-slack tolerance for `lastPasswordChangeDateTime` freshness check (5 minutes).
 const VERIFY_CLOCK_SLACK: chrono::Duration = chrono::Duration::seconds(300);
 
+/// Maximum time spent polling Graph for a fresh `lastPasswordChangeDateTime` (1 minute).
+const VERIFY_MAX_WAIT: Duration = Duration::from_secs(60);
+
+/// Interval between directory poll attempts inside `verify` (5 seconds).
+const VERIFY_POLL_INTERVAL: Duration = Duration::from_secs(5);
+
 // ---------------------------------------------------------------------------
 // EntraIntegration
 // ---------------------------------------------------------------------------
@@ -89,6 +95,14 @@ pub(crate) struct EntraIntegration {
     login_base: String,
     /// Base URL for the Graph API.  Overrideable in tests.
     graph_base: String,
+    /// Maximum time to wait for Graph to replicate the new `lastPasswordChangeDateTime`.
+    ///
+    /// Set to `Duration::ZERO` in tests so verify never blocks.
+    verify_max_wait: Duration,
+    /// Interval between directory poll retries inside `verify`.
+    ///
+    /// Set to `Duration::ZERO` in tests so verify is single-shot.
+    verify_poll_interval: Duration,
 }
 
 impl EntraIntegration {
@@ -105,6 +119,8 @@ impl EntraIntegration {
             verify_probe,
             login_base: DEFAULT_LOGIN_BASE.to_owned(),
             graph_base: DEFAULT_GRAPH_BASE.to_owned(),
+            verify_max_wait: VERIFY_MAX_WAIT,
+            verify_poll_interval: VERIFY_POLL_INTERVAL,
         }
     }
 
@@ -129,6 +145,38 @@ impl EntraIntegration {
             verify_probe,
             login_base,
             graph_base,
+            verify_max_wait: Duration::ZERO,
+            verify_poll_interval: Duration::ZERO,
+        }
+    }
+
+    /// Build a `EntraIntegration` with injectable base URLs AND custom settle timing (test helper).
+    ///
+    /// Use this constructor when you need to test the polling behavior of `verify` with
+    /// non-zero `verify_max_wait` / `verify_poll_interval` values.  The wiremock servers
+    /// receive the same treatment as in `new_with_bases`.
+    #[cfg(test)]
+    fn new_with_bases_and_settle(
+        verify_probe: bool,
+        login_base: String,
+        graph_base: String,
+        verify_max_wait: Duration,
+        verify_poll_interval: Duration,
+    ) -> Self {
+        let _ = bitwarden_api_base::new_http_client_builder()
+            .build()
+            .expect("provider install client");
+        let http = reqwest::Client::builder()
+            .timeout(HTTP_TIMEOUT)
+            .build()
+            .expect("test HTTP client build should not fail");
+        Self {
+            http,
+            verify_probe,
+            login_base,
+            graph_base,
+            verify_max_wait,
+            verify_poll_interval,
         }
     }
 }
@@ -137,6 +185,8 @@ impl std::fmt::Debug for EntraIntegration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EntraIntegration")
             .field("verify_probe", &self.verify_probe)
+            .field("verify_max_wait", &self.verify_max_wait)
+            .field("verify_poll_interval", &self.verify_poll_interval)
             .finish_non_exhaustive()
     }
 }
@@ -456,17 +506,29 @@ impl Integration for EntraIntegration {
         }
     }
 
-    /// Verify that the rotation applied via directory confirmation.
+    /// Verify that the rotation applied via directory confirmation and optional ROPC probe.
     ///
     /// `GET /v1.0/users/{identity}?$select=lastPasswordChangeDateTime`
     ///
-    /// `lastPasswordChangeDateTime` must be present and >= `rotation_started_at`
-    /// minus 5 minutes of clock slack.  If `verify_probe` is set, an ROPC grant
-    /// is also attempted; `AADSTS50076` / `AADSTS50079` (MFA required — password
-    /// accepted) count as verified; `AADSTS50126` → verification_failed.
+    /// # Probe-first ordering
     ///
-    /// Verify failures carry `Applied` because the rotation step has already
-    /// succeeded by the time verify runs.
+    /// When `verify_probe` is set, the ROPC probe runs **before** the directory
+    /// read.  The probe is authoritative and not subject to Graph replication lag,
+    /// so running it first avoids waiting on eventual-consistency propagation when
+    /// the probe already answers definitively.
+    ///
+    /// # Eventual-consistency polling
+    ///
+    /// Graph's `lastPasswordChangeDateTime` can lag the administrative password
+    /// reset by seconds-to-minutes.  A single-shot read immediately after rotation
+    /// can therefore return the *previous* timestamp and falsely fail.  `verify`
+    /// polls for up to `verify_max_wait` (60 s in production, zero in tests) before
+    /// giving up with `StalePasswordChangeTimestamp`.
+    ///
+    /// HTTP errors and body-parse failures return immediately (not retried).
+    ///
+    /// All errors carry `Applied` because rotation has already succeeded by the
+    /// time verify runs.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let tenant_id = get_cred(&ctx.creds, "TENANT_ID")?;
         let client_id = get_cred(&ctx.creds, "CLIENT_ID")?;
@@ -486,62 +548,8 @@ impl Integration for EntraIntegration {
             e
         })?;
 
-        // GET /v1.0/users/{identity}?$select=lastPasswordChangeDateTime
-        let mut url = build_graph_user_url(&self.graph_base, &ctx.account_identity, &[])?;
-        url.set_query(Some("$select=lastPasswordChangeDateTime"));
-
-        let response = self
-            .http
-            .get(url.as_str())
-            .bearer_auth(&bearer)
-            .send()
-            .await
-            .map_err(|_| IntegrationError {
-                // Network error during verify: password was already changed.
-                class: ErrorClass::Transient,
-                effect: TargetEffect::Applied,
-                code: FailureCode::TargetUnreachable,
-                detail: SafeDetail::from_kind("NetworkError"),
-            })?;
-
-        let status = response.status();
-        let status_u16 = status.as_u16();
-
-        if !status.is_success() {
-            let graph_code = read_graph_error_code(response).await;
-            let detail =
-                SafeDetail::from_http_status_and_graph_code(status_u16, graph_code.as_deref());
-            // 429 / 5xx → Transient; 4xx → Fatal; all carry Applied.
-            let class = if status_u16 == 429 || status_u16 >= 500 {
-                ErrorClass::Transient
-            } else {
-                ErrorClass::Fatal
-            };
-            return Err(IntegrationError {
-                class,
-                effect: TargetEffect::Applied,
-                code: FailureCode::TargetUnreachable,
-                detail,
-            });
-        }
-
-        let user: UserResource = response.json().await.map_err(|_| IntegrationError {
-            class: ErrorClass::Fatal,
-            effect: TargetEffect::Applied,
-            code: FailureCode::VerificationFailed,
-            detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
-        })?;
-
-        // Directory-based verification: lastPasswordChangeDateTime must be fresh.
-        let directory_ok = match user.last_password_change_date_time {
-            Some(changed_at) => {
-                let earliest_acceptable = ctx.rotation_started_at - VERIFY_CLOCK_SLACK;
-                changed_at >= earliest_acceptable
-            }
-            None => false,
-        };
-
-        // ROPC probe (optional).
+        // ROPC probe first (optional) — authoritative and not subject to directory
+        // replication lag.  A definitive result short-circuits the directory poll.
         if self.verify_probe {
             let probe_result = ropc_probe(
                 &self.http,
@@ -564,20 +572,88 @@ impl Integration for EntraIntegration {
                     });
                 }
                 ProbeResult::Inconclusive => {
-                    // Fall through to directory result.
+                    // Fall through to directory poll.
                 }
             }
         }
 
-        if directory_ok {
-            Ok(())
-        } else {
-            Err(IntegrationError {
+        // Directory poll — tolerates Graph eventual-consistency lag.
+        let mut url = build_graph_user_url(&self.graph_base, &ctx.account_identity, &[])?;
+        url.set_query(Some("$select=lastPasswordChangeDateTime"));
+
+        let deadline = tokio::time::Instant::now() + self.verify_max_wait;
+
+        loop {
+            let response = self
+                .http
+                .get(url.as_str())
+                .bearer_auth(&bearer)
+                .send()
+                .await
+                .map_err(|_| IntegrationError {
+                    // Network error during verify: password was already changed.
+                    class: ErrorClass::Transient,
+                    effect: TargetEffect::Applied,
+                    code: FailureCode::TargetUnreachable,
+                    detail: SafeDetail::from_kind("NetworkError"),
+                })?;
+
+            let status = response.status();
+            let status_u16 = status.as_u16();
+
+            if !status.is_success() {
+                let graph_code = read_graph_error_code(response).await;
+                let detail =
+                    SafeDetail::from_http_status_and_graph_code(status_u16, graph_code.as_deref());
+                // 429 / 5xx → Transient; 4xx → Fatal; all carry Applied.
+                // HTTP failures are not retried by the poll loop.
+                let class = if status_u16 == 429 || status_u16 >= 500 {
+                    ErrorClass::Transient
+                } else {
+                    ErrorClass::Fatal
+                };
+                return Err(IntegrationError {
+                    class,
+                    effect: TargetEffect::Applied,
+                    code: FailureCode::TargetUnreachable,
+                    detail,
+                });
+            }
+
+            let user: UserResource = response.json().await.map_err(|_| IntegrationError {
                 class: ErrorClass::Fatal,
                 effect: TargetEffect::Applied,
                 code: FailureCode::VerificationFailed,
-                detail: SafeDetail::from_kind("StalePasswordChangeTimestamp"),
-            })
+                detail: SafeDetail::from_http_status_and_graph_code(status_u16, None),
+            })?;
+
+            // Freshness check: lastPasswordChangeDateTime must be recent enough.
+            let is_fresh = match user.last_password_change_date_time {
+                Some(changed_at) => {
+                    let earliest_acceptable = ctx.rotation_started_at - VERIFY_CLOCK_SLACK;
+                    changed_at >= earliest_acceptable
+                }
+                None => false,
+            };
+
+            if is_fresh {
+                return Ok(());
+            }
+
+            // Timestamp stale or missing: retry if still within the budget.
+            let now = tokio::time::Instant::now();
+            if now >= deadline {
+                // Budget exhausted (or verify_max_wait was zero → single check).
+                return Err(IntegrationError {
+                    class: ErrorClass::Fatal,
+                    effect: TargetEffect::Applied,
+                    code: FailureCode::VerificationFailed,
+                    detail: SafeDetail::from_kind("StalePasswordChangeTimestamp"),
+                });
+            }
+            let remaining = deadline - now;
+            let sleep_for = self.verify_poll_interval.min(remaining);
+            tokio::time::sleep(sleep_for).await;
         }
     }
 
@@ -1507,5 +1583,106 @@ mod tests {
         assert!(!super::validate_graph_error_code("Code\x00bad"));
         // Contains space
         assert!(!super::validate_graph_error_code("Bad Code"));
+    }
+
+    // -----------------------------------------------------------------------
+    // verify: polling waits for Graph to propagate the new timestamp
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn verify_polls_until_timestamp_fresh() {
+        let login = MockServer::start().await;
+        let graph = MockServer::start().await;
+        let tenant = "t1";
+
+        mount_token_ok(&login, tenant, "tok").await;
+
+        let now = Utc::now();
+        let stale_at = (now - chrono::Duration::minutes(10)).to_rfc3339();
+        let fresh_at = (now + chrono::Duration::seconds(1)).to_rfc3339();
+
+        // First request returns stale; matched with up_to_n_times(1) so only
+        // fires once.  Higher-priority mounts take precedence in wiremock when
+        // mounted first.
+        Mock::given(method("GET"))
+            .and(path("/v1.0/users/user@example.com"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "lastPasswordChangeDateTime": stale_at
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .up_to_n_times(1)
+            .mount(&graph)
+            .await;
+
+        // Subsequent requests return fresh.
+        Mock::given(method("GET"))
+            .and(path("/v1.0/users/user@example.com"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "lastPasswordChangeDateTime": fresh_at
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&graph)
+            .await;
+
+        let creds = make_creds(tenant, "cid", "csecret");
+        let ctx = make_ctx_started_at(creds, "user@example.com", "P@ss1", now);
+        // Inject tiny timing: max_wait 500 ms, poll_interval 10 ms — fast test, non-zero.
+        let integ = EntraIntegration::new_with_bases_and_settle(
+            false,
+            login.uri(),
+            graph.uri(),
+            Duration::from_millis(500),
+            Duration::from_millis(10),
+        );
+        assert!(integ.verify(&ctx).await.is_ok());
+    }
+
+    // -----------------------------------------------------------------------
+    // verify: times out when timestamp stays stale
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn verify_times_out_when_timestamp_stays_stale() {
+        let login = MockServer::start().await;
+        let graph = MockServer::start().await;
+        let tenant = "t1";
+
+        mount_token_ok(&login, tenant, "tok").await;
+
+        let now = Utc::now();
+        let stale_at = (now - chrono::Duration::minutes(10)).to_rfc3339();
+
+        Mock::given(method("GET"))
+            .and(path("/v1.0/users/user@example.com"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({
+                        "lastPasswordChangeDateTime": stale_at
+                    }))
+                    .insert_header("content-type", "application/json"),
+            )
+            .mount(&graph)
+            .await;
+
+        let creds = make_creds(tenant, "cid", "csecret");
+        let ctx = make_ctx_started_at(creds, "user@example.com", "P@ss1", now);
+        // Tiny timing: max_wait 100 ms, poll_interval 10 ms.
+        let integ = EntraIntegration::new_with_bases_and_settle(
+            false,
+            login.uri(),
+            graph.uri(),
+            Duration::from_millis(100),
+            Duration::from_millis(10),
+        );
+        let err = integ.verify(&ctx).await.unwrap_err();
+        assert_eq!(err.class, ErrorClass::Fatal);
+        assert_eq!(err.effect, TargetEffect::Applied);
+        assert_eq!(err.code, FailureCode::VerificationFailed);
     }
 }
