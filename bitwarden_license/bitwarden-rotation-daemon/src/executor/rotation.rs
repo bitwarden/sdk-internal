@@ -150,7 +150,7 @@ pub(crate) struct ExecutionContext {
 pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> ExecutionResult {
     let attempt_id = snapshot.attempt_id;
 
-    tracing::debug!(
+    tracing::info!(
         attempt_id = %attempt_id,
         job_id = %snapshot.job_id,
         cipher_id = %snapshot.cipher_id,
@@ -163,15 +163,14 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         let phase = ctx.session.phase().await;
         if matches!(phase, SessionPhase::Revoked | SessionPhase::Closed) {
             // Best-effort failure report: session is terminal, report may fail.
-            let _ = ctx
-                .api
-                .report_failure(
-                    attempt_id,
-                    FailureCode::NoActiveSession,
-                    None,
-                    SyncState::TargetUnchanged,
-                )
-                .await;
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::NoActiveSession,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
             return ExecutionResult::Reported;
         }
     }
@@ -188,32 +187,32 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         Ok(c) => c,
         Err(ResolveError::Missing(names)) => {
             let detail = SafeDetail::from_missing_vars(&names);
-            let _ = ctx
-                .api
-                .report_failure(
-                    attempt_id,
-                    FailureCode::CredentialsUnresolved,
-                    Some(detail),
-                    SyncState::TargetUnchanged,
-                )
-                .await;
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::CredentialsUnresolved,
+                Some(detail),
+                SyncState::TargetUnchanged,
+            )
+            .await;
             return ExecutionResult::Reported;
         }
     };
+
+    tracing::info!(attempt_id = %attempt_id, "step 1: credentials resolved");
 
     // ── Step 2: generate password + registry lookup ────────────────────────
     let gen_req = match policy::to_generator_request(&snapshot.password_policy) {
         Ok(r) => r,
         Err(_) => {
-            let _ = ctx
-                .api
-                .report_failure(
-                    attempt_id,
-                    FailureCode::InvalidPolicy,
-                    None,
-                    SyncState::TargetUnchanged,
-                )
-                .await;
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::InvalidPolicy,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
             return ExecutionResult::Reported;
         }
     };
@@ -221,33 +220,33 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
     let new_password = match bitwarden_generators::password(gen_req) {
         Ok(p) => zeroize::Zeroizing::new(p),
         Err(_) => {
-            let _ = ctx
-                .api
-                .report_failure(
-                    attempt_id,
-                    FailureCode::InvalidPolicy,
-                    None,
-                    SyncState::TargetUnchanged,
-                )
-                .await;
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::InvalidPolicy,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
             return ExecutionResult::Reported;
         }
     };
+
+    tracing::info!(attempt_id = %attempt_id, "step 2: password generated");
 
     let rotation_started_at = Utc::now();
 
     let integration: Arc<dyn Integration> = match ctx.integrations.get(snapshot.kind) {
         Some(i) => i,
         None => {
-            let _ = ctx
-                .api
-                .report_failure(
-                    attempt_id,
-                    FailureCode::UnsupportedKind,
-                    None,
-                    SyncState::TargetUnchanged,
-                )
-                .await;
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::UnsupportedKind,
+                None,
+                SyncState::TargetUnchanged,
+            )
+            .await;
             return ExecutionResult::Reported;
         }
     };
@@ -285,7 +284,13 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         .await;
 
         match outcome {
-            GatedOutcome::Ok(()) => {}
+            GatedOutcome::Ok(()) => {
+                tracing::info!(
+                    attempt_id = %attempt_id,
+                    kind = ?snapshot.kind,
+                    "step 3: target rotate succeeded"
+                );
+            }
             GatedOutcome::Aborted(reason) => {
                 return ExecutionResult::Unreported(reason);
             }
@@ -295,9 +300,7 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                     TargetEffect::Unknown => SyncState::Indeterminate,
                     TargetEffect::Applied => SyncState::TargetUpdated,
                 };
-                let _ = ctx
-                    .api
-                    .report_failure(attempt_id, err.code, Some(err.detail), sync_state)
+                report_failure_absorb(&ctx.api, attempt_id, err.code, Some(err.detail), sync_state)
                     .await;
                 return ExecutionResult::Reported;
             }
@@ -329,21 +332,23 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         .await;
 
         match outcome {
-            GatedOutcome::Ok(()) => Verified(()),
+            GatedOutcome::Ok(()) => {
+                tracing::info!(attempt_id = %attempt_id, "step 4: verify succeeded");
+                Verified(())
+            }
             GatedOutcome::Aborted(reason) => {
                 return ExecutionResult::Unreported(reason);
             }
             GatedOutcome::Failed(err) => {
                 // Verify failure: target was updated (rotation applied), vault not written.
-                let _ = ctx
-                    .api
-                    .report_failure(
-                        attempt_id,
-                        err.code,
-                        Some(err.detail),
-                        SyncState::TargetUpdated,
-                    )
-                    .await;
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    err.code,
+                    Some(err.detail),
+                    SyncState::TargetUpdated,
+                )
+                .await;
                 return ExecutionResult::Reported;
             }
         }
@@ -392,15 +397,14 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
                     // Transient) must be reported as target_updated.  The rotation
                     // (step 3) already changed the target credential; silently dropping
                     // this error would leave the server unaware of the updated state.
-                    let _ = ctx
-                        .api
-                        .report_failure(
-                            attempt_id,
-                            FailureCode::Internal,
-                            None,
-                            SyncState::TargetUpdated,
-                        )
-                        .await;
+                    report_failure_absorb(
+                        &ctx.api,
+                        attempt_id,
+                        FailureCode::Internal,
+                        None,
+                        SyncState::TargetUpdated,
+                    )
+                    .await;
                     return ExecutionResult::Reported;
                 }
             }
@@ -415,15 +419,14 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
             encrypt_cipher_password(&store, cipher.key.as_deref(), &mut data, &new_password);
 
         if let Err(_e) = encrypt_result {
-            let _ = ctx
-                .api
-                .report_failure(
-                    attempt_id,
-                    FailureCode::CipherEncryptFailed,
-                    None,
-                    SyncState::TargetUpdated,
-                )
-                .await;
+            report_failure_absorb(
+                &ctx.api,
+                attempt_id,
+                FailureCode::CipherEncryptFailed,
+                None,
+                SyncState::TargetUpdated,
+            )
+            .await;
             return ExecutionResult::Reported;
         }
 
@@ -431,15 +434,14 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         let data_str = match serde_json::to_string(&data) {
             Ok(s) => s,
             Err(_) => {
-                let _ = ctx
-                    .api
-                    .report_failure(
-                        attempt_id,
-                        FailureCode::CipherEncryptFailed,
-                        None,
-                        SyncState::TargetUpdated,
-                    )
-                    .await;
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::CipherEncryptFailed,
+                    None,
+                    SyncState::TargetUpdated,
+                )
+                .await;
                 return ExecutionResult::Reported;
             }
         };
@@ -471,17 +473,23 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         .await;
 
         match result {
-            Ok(()) => CipherWritten(()),
+            Ok(()) => {
+                tracing::info!(
+                    attempt_id = %attempt_id,
+                    cipher_id = %cipher.cipher_id,
+                    "step 5: cipher written"
+                );
+                CipherWritten(())
+            }
             Err(ApiError::Rejected { .. }) => {
-                let _ = ctx
-                    .api
-                    .report_failure(
-                        attempt_id,
-                        FailureCode::CipherWriteRejected,
-                        None,
-                        SyncState::TargetUpdated,
-                    )
-                    .await;
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::CipherWriteRejected,
+                    None,
+                    SyncState::TargetUpdated,
+                )
+                .await;
                 return ExecutionResult::Reported;
             }
             Err(ApiError::UnknownAttempt) => {
@@ -493,15 +501,14 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
             Err(_) => {
                 // Unexpected put_cipher error after the rotation succeeded.
                 // Report target_updated so the server knows the credential was changed.
-                let _ = ctx
-                    .api
-                    .report_failure(
-                        attempt_id,
-                        FailureCode::Internal,
-                        None,
-                        SyncState::TargetUpdated,
-                    )
-                    .await;
+                report_failure_absorb(
+                    &ctx.api,
+                    attempt_id,
+                    FailureCode::Internal,
+                    None,
+                    SyncState::TargetUpdated,
+                )
+                .await;
                 return ExecutionResult::Reported;
             }
         }
@@ -538,17 +545,31 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
         .await;
 
         match outcome {
-            GatedOutcome::Ok(()) => SessionTermination::Terminated,
+            GatedOutcome::Ok(()) => {
+                tracing::info!(attempt_id = %attempt_id, "step 6: session termination succeeded");
+                SessionTermination::Terminated
+            }
             GatedOutcome::Aborted(AbortReason::SessionLost(l)) => {
                 // Session is lost — the success report cannot be sent.
                 return ExecutionResult::Unreported(AbortReason::SessionLost(l));
             }
-            GatedOutcome::Aborted(_) => {
+            GatedOutcome::Aborted(reason) => {
                 // Lease expired or cancelled during termination (D3 widening):
                 // report success with term_failed.
+                tracing::warn!(
+                    attempt_id = %attempt_id,
+                    abort_reason = ?reason,
+                    "step 6: session termination aborted (reporting term_failed)"
+                );
                 SessionTermination::TermFailed
             }
-            GatedOutcome::Failed(_) => SessionTermination::TermFailed,
+            GatedOutcome::Failed(err) => {
+                tracing::warn!(
+                    attempt_id = %attempt_id,
+                    "step 6: session termination failed: {err}; reporting term_failed"
+                );
+                SessionTermination::TermFailed
+            }
         }
     };
 
@@ -568,7 +589,14 @@ pub(crate) async fn execute(snapshot: WorkSnapshot, ctx: &ExecutionContext) -> E
     .await;
 
     match report_result {
-        Ok(()) => ExecutionResult::Reported,
+        Ok(()) => {
+            tracing::info!(
+                attempt_id = %attempt_id,
+                termination = ?termination,
+                "step 7: rotation succeeded and reported"
+            );
+            ExecutionResult::Reported
+        }
         Err(ApiError::SessionLost(l)) => ExecutionResult::Unreported(AbortReason::SessionLost(l)),
         Err(_) => ExecutionResult::Unreported(AbortReason::SessionLost(SessionLost::Closed)),
     }
@@ -762,17 +790,27 @@ fn datetime_to_instant(dt: chrono::DateTime<chrono::Utc>) -> Instant {
 // Helper: report a failure, absorbing report errors
 // ---------------------------------------------------------------------------
 
-/// Report a failure attempt and log any report error.
+/// Report a rotation failure, logging the outcome and absorbing any report error.
 ///
-/// A failed report does not change the rotation outcome (the attempt is
-/// considered `Reported` as long as we tried).
-async fn _report_failure_absorb(
+/// Emits a `warn` with the attempt id, failure code, sync state, and optional
+/// safe detail so that every failure has exactly one operator-visible log line.
+/// A second `warn` is emitted if the report itself fails (network / server error),
+/// but the rotation is still considered `Reported` as long as we tried.
+async fn report_failure_absorb(
     api: &RotationApi,
     attempt_id: uuid::Uuid,
     code: FailureCode,
     detail: Option<SafeDetail>,
     sync_state: SyncState,
 ) {
+    // One warn per failure, regardless of whether the network report succeeds.
+    tracing::warn!(
+        attempt_id = %attempt_id,
+        failure_code = ?code,
+        sync_state = ?sync_state,
+        detail = detail.as_ref().map(SafeDetail::as_str).unwrap_or(""),
+        "rotation failed"
+    );
     if let Err(e) = api
         .report_failure(attempt_id, code, detail, sync_state)
         .await
