@@ -129,6 +129,7 @@
         "syn",
         "thiserror",
         "tokio",
+        "toml",
         "tracing",
         "tracing-subscriber",
         "tsify",
