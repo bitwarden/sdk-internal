@@ -1,9 +1,18 @@
 //! Secret and configuration value resolution from various sources.
 //!
 //! The [`CredentialResolver`] trait abstracts the mechanism by which per-target
-//! credentials (e.g. service-principal secrets, script paths) are obtained.  The
-//! default implementation reads from environment variables; future implementations
-//! can read from config files or the Bitwarden Secrets Manager.
+//! credentials (e.g. service-principal secrets, script paths) are obtained.
+//!
+//! # Two-layer resolution
+//!
+//! The active resolver is [`config::ConfigCredentialResolver`], which layers a TOML
+//! config-file source on top of the environment-variable fallback:
+//!
+//! 1. **Config file** (`[targets.<uuid>]` in the daemon's TOML) — wins per key.
+//! 2. **Environment variable** — fallback for any key not set in the config file.
+//!
+//! Missing-key errors always report the **env var name** as the actionable hint,
+//! regardless of which source was expected to provide the value.
 //!
 //! # Resolver contract
 //!
@@ -16,6 +25,7 @@
 //! [`bitwarden_sensitive_value::Sensitive`] so that they are wiped from memory
 //! when dropped.  Variable **names** are safe to log/report; values never are.
 
+pub(crate) mod config;
 pub(crate) mod env;
 
 use std::collections::HashMap;

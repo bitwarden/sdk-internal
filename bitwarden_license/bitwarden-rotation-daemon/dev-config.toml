@@ -22,3 +22,21 @@
 base = "https://localhost:8080"
 # api      = "https://localhost:8080/api"       # optional, overrides base-derived
 # identity = "https://localhost:8080/identity"  # optional, overrides base-derived
+
+# Per-target credential overrides (optional). UUID keys; bare TOML allows hyphens.
+# Config values take precedence over env vars on a per-key basis; env is the fallback.
+# Secrets (client_secret) are env-only and cannot be set here.
+#
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = "/tmp/bwrd-dev-rotate.sh"
+
+[targets.9375152d-7684-4d27-a09c-b48000ce83b4]
+script = "/tmp/bwrd-dev-rotate.sh"
+
+[targets.88fd2942-ffa0-471a-ae83-b48000cfa5e7]
+script = "/tmp/bwrd-dev-rotate.sh"
+
+#
+# [targets.00000000-0000-0000-0000-000000000001]
+# tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
