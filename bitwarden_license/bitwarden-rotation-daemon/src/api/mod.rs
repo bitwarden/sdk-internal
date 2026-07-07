@@ -698,7 +698,7 @@ mod tests {
         encrypted_payload: &str,
     ) -> ResponseTemplate {
         let body = format!(
-            r#"{{"access_token":"{bearer}","expires_in":{expires_in},"encryptedPayload":"{encrypted_payload}"}}"#
+            r#"{{"access_token":"{bearer}","expires_in":{expires_in},"encrypted_payload":"{encrypted_payload}"}}"#
         );
         ResponseTemplate::new(200)
             .set_body_string(body)
