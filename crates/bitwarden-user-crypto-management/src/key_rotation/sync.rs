@@ -314,6 +314,7 @@ mod tests {
             organization_id: None,
             r#type: Some(bitwarden_api_api::models::CipherType::Login),
             data: None,
+            partial_data: None,
             name: Some(TEST_ENC_STRING.to_string()),
             notes: None,
             login: None,

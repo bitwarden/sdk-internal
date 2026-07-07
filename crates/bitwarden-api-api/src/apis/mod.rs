@@ -122,14 +122,17 @@ struct ApiClientReal {
     leases_api: leases_api::LeasesApiClient,
     licenses_api: licenses_api::LicensesApiClient,
     notifications_api: notifications_api::NotificationsApiClient,
-    organization_auth_requests_api: organization_auth_requests_api::OrganizationAuthRequestsApiClient,
+    organization_auth_requests_api:
+        organization_auth_requests_api::OrganizationAuthRequestsApiClient,
     organization_billing_api: organization_billing_api::OrganizationBillingApiClient,
-    organization_billing_v_next_api: organization_billing_v_next_api::OrganizationBillingVNextApiClient,
+    organization_billing_v_next_api:
+        organization_billing_v_next_api::OrganizationBillingVNextApiClient,
     organization_connections_api: organization_connections_api::OrganizationConnectionsApiClient,
     organization_domain_api: organization_domain_api::OrganizationDomainApiClient,
     organization_export_api: organization_export_api::OrganizationExportApiClient,
     organization_integration_api: organization_integration_api::OrganizationIntegrationApiClient,
-    organization_integration_configuration_api: organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient,
+    organization_integration_configuration_api:
+        organization_integration_configuration_api::OrganizationIntegrationConfigurationApiClient,
     organization_invite_links_api: organization_invite_links_api::OrganizationInviteLinksApiClient,
     organization_reports_api: organization_reports_api::OrganizationReportsApiClient,
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
@@ -140,7 +143,8 @@ struct ApiClientReal {
     pam_rotation_daemon_jobs_api: pam_rotation_daemon_jobs_api::PamRotationDaemonJobsApiClient,
     pam_rotation_daemons_api: pam_rotation_daemons_api::PamRotationDaemonsApiClient,
     pam_rotation_jobs_api: pam_rotation_jobs_api::PamRotationJobsApiClient,
-    pam_rotation_target_systems_api: pam_rotation_target_systems_api::PamRotationTargetSystemsApiClient,
+    pam_rotation_target_systems_api:
+        pam_rotation_target_systems_api::PamRotationTargetSystemsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
     preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient,
@@ -159,10 +163,14 @@ struct ApiClientReal {
     secrets_manager_events_api: secrets_manager_events_api::SecretsManagerEventsApiClient,
     secrets_manager_porting_api: secrets_manager_porting_api::SecretsManagerPortingApiClient,
     security_task_api: security_task_api::SecurityTaskApiClient,
-    self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient,
-    self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient,
-    self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient,
-    self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApiClient,
+    self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient,
+    self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient,
+    self_hosted_organization_licenses_api:
+        self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient,
+    self_hosted_organization_sponsorships_api:
+        self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApiClient,
     sends_api: sends_api::SendsApiClient,
     service_accounts_api: service_accounts_api::ServiceAccountsApiClient,
     settings_api: settings_api::SettingsApiClient,
@@ -205,17 +213,22 @@ pub struct ApiClientMock {
     pub leases_api: leases_api::MockLeasesApi,
     pub licenses_api: licenses_api::MockLicensesApi,
     pub notifications_api: notifications_api::MockNotificationsApi,
-    pub organization_auth_requests_api: organization_auth_requests_api::MockOrganizationAuthRequestsApi,
+    pub organization_auth_requests_api:
+        organization_auth_requests_api::MockOrganizationAuthRequestsApi,
     pub organization_billing_api: organization_billing_api::MockOrganizationBillingApi,
-    pub organization_billing_v_next_api: organization_billing_v_next_api::MockOrganizationBillingVNextApi,
+    pub organization_billing_v_next_api:
+        organization_billing_v_next_api::MockOrganizationBillingVNextApi,
     pub organization_connections_api: organization_connections_api::MockOrganizationConnectionsApi,
     pub organization_domain_api: organization_domain_api::MockOrganizationDomainApi,
     pub organization_export_api: organization_export_api::MockOrganizationExportApi,
     pub organization_integration_api: organization_integration_api::MockOrganizationIntegrationApi,
-    pub organization_integration_configuration_api: organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi,
-    pub organization_invite_links_api: organization_invite_links_api::MockOrganizationInviteLinksApi,
+    pub organization_integration_configuration_api:
+        organization_integration_configuration_api::MockOrganizationIntegrationConfigurationApi,
+    pub organization_invite_links_api:
+        organization_invite_links_api::MockOrganizationInviteLinksApi,
     pub organization_reports_api: organization_reports_api::MockOrganizationReportsApi,
-    pub organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi,
+    pub organization_sponsorships_api:
+        organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_users_api: organization_users_api::MockOrganizationUsersApi,
     pub organizations_api: organizations_api::MockOrganizationsApi,
     pub pam_rotation_attempts_api: pam_rotation_attempts_api::MockPamRotationAttemptsApi,
@@ -223,7 +236,8 @@ pub struct ApiClientMock {
     pub pam_rotation_daemon_jobs_api: pam_rotation_daemon_jobs_api::MockPamRotationDaemonJobsApi,
     pub pam_rotation_daemons_api: pam_rotation_daemons_api::MockPamRotationDaemonsApi,
     pub pam_rotation_jobs_api: pam_rotation_jobs_api::MockPamRotationJobsApi,
-    pub pam_rotation_target_systems_api: pam_rotation_target_systems_api::MockPamRotationTargetSystemsApi,
+    pub pam_rotation_target_systems_api:
+        pam_rotation_target_systems_api::MockPamRotationTargetSystemsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
     pub preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi,
@@ -242,10 +256,14 @@ pub struct ApiClientMock {
     pub secrets_manager_events_api: secrets_manager_events_api::MockSecretsManagerEventsApi,
     pub secrets_manager_porting_api: secrets_manager_porting_api::MockSecretsManagerPortingApi,
     pub security_task_api: security_task_api::MockSecurityTaskApi,
-    pub self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi,
-    pub self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi,
-    pub self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi,
-    pub self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::MockSelfHostedOrganizationSponsorshipsApi,
+    pub self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi,
+    pub self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi,
+    pub self_hosted_organization_licenses_api:
+        self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi,
+    pub self_hosted_organization_sponsorships_api:
+        self_hosted_organization_sponsorships_api::MockSelfHostedOrganizationSponsorshipsApi,
     pub sends_api: sends_api::MockSendsApi,
     pub service_accounts_api: service_accounts_api::MockServiceAccountsApi,
     pub settings_api: settings_api::MockSettingsApi,
@@ -455,7 +473,9 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.access_rules_api,
         }
     }
-    pub fn account_billing_v_next_api(&self) -> &dyn account_billing_v_next_api::AccountBillingVNextApi {
+    pub fn account_billing_v_next_api(
+        &self,
+    ) -> &dyn account_billing_v_next_api::AccountBillingVNextApi {
         match self {
             ApiClient::Real(real) => &real.account_billing_v_next_api,
             #[cfg(feature = "mockall")]
@@ -476,7 +496,9 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.accounts_billing_api,
         }
     }
-    pub fn accounts_key_management_api(&self) -> &dyn accounts_key_management_api::AccountsKeyManagementApi {
+    pub fn accounts_key_management_api(
+        &self,
+    ) -> &dyn accounts_key_management_api::AccountsKeyManagementApi {
         match self {
             ApiClient::Real(real) => &real.accounts_key_management_api,
             #[cfg(feature = "mockall")]
@@ -616,28 +638,36 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.notifications_api,
         }
     }
-    pub fn organization_auth_requests_api(&self) -> &dyn organization_auth_requests_api::OrganizationAuthRequestsApi {
+    pub fn organization_auth_requests_api(
+        &self,
+    ) -> &dyn organization_auth_requests_api::OrganizationAuthRequestsApi {
         match self {
             ApiClient::Real(real) => &real.organization_auth_requests_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_auth_requests_api,
         }
     }
-    pub fn organization_billing_api(&self) -> &dyn organization_billing_api::OrganizationBillingApi {
+    pub fn organization_billing_api(
+        &self,
+    ) -> &dyn organization_billing_api::OrganizationBillingApi {
         match self {
             ApiClient::Real(real) => &real.organization_billing_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_billing_api,
         }
     }
-    pub fn organization_billing_v_next_api(&self) -> &dyn organization_billing_v_next_api::OrganizationBillingVNextApi {
+    pub fn organization_billing_v_next_api(
+        &self,
+    ) -> &dyn organization_billing_v_next_api::OrganizationBillingVNextApi {
         match self {
             ApiClient::Real(real) => &real.organization_billing_v_next_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_billing_v_next_api,
         }
     }
-    pub fn organization_connections_api(&self) -> &dyn organization_connections_api::OrganizationConnectionsApi {
+    pub fn organization_connections_api(
+        &self,
+    ) -> &dyn organization_connections_api::OrganizationConnectionsApi {
         match self {
             ApiClient::Real(real) => &real.organization_connections_api,
             #[cfg(feature = "mockall")]
@@ -658,35 +688,46 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.organization_export_api,
         }
     }
-    pub fn organization_integration_api(&self) -> &dyn organization_integration_api::OrganizationIntegrationApi {
+    pub fn organization_integration_api(
+        &self,
+    ) -> &dyn organization_integration_api::OrganizationIntegrationApi {
         match self {
             ApiClient::Real(real) => &real.organization_integration_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_integration_api,
         }
     }
-    pub fn organization_integration_configuration_api(&self) -> &dyn organization_integration_configuration_api::OrganizationIntegrationConfigurationApi {
+    pub fn organization_integration_configuration_api(
+        &self,
+    ) -> &dyn organization_integration_configuration_api::OrganizationIntegrationConfigurationApi
+    {
         match self {
             ApiClient::Real(real) => &real.organization_integration_configuration_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_integration_configuration_api,
         }
     }
-    pub fn organization_invite_links_api(&self) -> &dyn organization_invite_links_api::OrganizationInviteLinksApi {
+    pub fn organization_invite_links_api(
+        &self,
+    ) -> &dyn organization_invite_links_api::OrganizationInviteLinksApi {
         match self {
             ApiClient::Real(real) => &real.organization_invite_links_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_invite_links_api,
         }
     }
-    pub fn organization_reports_api(&self) -> &dyn organization_reports_api::OrganizationReportsApi {
+    pub fn organization_reports_api(
+        &self,
+    ) -> &dyn organization_reports_api::OrganizationReportsApi {
         match self {
             ApiClient::Real(real) => &real.organization_reports_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organization_reports_api,
         }
     }
-    pub fn organization_sponsorships_api(&self) -> &dyn organization_sponsorships_api::OrganizationSponsorshipsApi {
+    pub fn organization_sponsorships_api(
+        &self,
+    ) -> &dyn organization_sponsorships_api::OrganizationSponsorshipsApi {
         match self {
             ApiClient::Real(real) => &real.organization_sponsorships_api,
             #[cfg(feature = "mockall")]
@@ -707,7 +748,9 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.organizations_api,
         }
     }
-    pub fn pam_rotation_attempts_api(&self) -> &dyn pam_rotation_attempts_api::PamRotationAttemptsApi {
+    pub fn pam_rotation_attempts_api(
+        &self,
+    ) -> &dyn pam_rotation_attempts_api::PamRotationAttemptsApi {
         match self {
             ApiClient::Real(real) => &real.pam_rotation_attempts_api,
             #[cfg(feature = "mockall")]
@@ -721,7 +764,9 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.pam_rotation_configs_api,
         }
     }
-    pub fn pam_rotation_daemon_jobs_api(&self) -> &dyn pam_rotation_daemon_jobs_api::PamRotationDaemonJobsApi {
+    pub fn pam_rotation_daemon_jobs_api(
+        &self,
+    ) -> &dyn pam_rotation_daemon_jobs_api::PamRotationDaemonJobsApi {
         match self {
             ApiClient::Real(real) => &real.pam_rotation_daemon_jobs_api,
             #[cfg(feature = "mockall")]
@@ -742,7 +787,9 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.pam_rotation_jobs_api,
         }
     }
-    pub fn pam_rotation_target_systems_api(&self) -> &dyn pam_rotation_target_systems_api::PamRotationTargetSystemsApi {
+    pub fn pam_rotation_target_systems_api(
+        &self,
+    ) -> &dyn pam_rotation_target_systems_api::PamRotationTargetSystemsApi {
         match self {
             ApiClient::Real(real) => &real.pam_rotation_target_systems_api,
             #[cfg(feature = "mockall")]
@@ -784,7 +831,9 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.provider_billing_api,
         }
     }
-    pub fn provider_billing_v_next_api(&self) -> &dyn provider_billing_v_next_api::ProviderBillingVNextApi {
+    pub fn provider_billing_v_next_api(
+        &self,
+    ) -> &dyn provider_billing_v_next_api::ProviderBillingVNextApi {
         match self {
             ApiClient::Real(real) => &real.provider_billing_v_next_api,
             #[cfg(feature = "mockall")]
@@ -798,7 +847,9 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.provider_clients_api,
         }
     }
-    pub fn provider_organizations_api(&self) -> &dyn provider_organizations_api::ProviderOrganizationsApi {
+    pub fn provider_organizations_api(
+        &self,
+    ) -> &dyn provider_organizations_api::ProviderOrganizationsApi {
         match self {
             ApiClient::Real(real) => &real.provider_organizations_api,
             #[cfg(feature = "mockall")]
@@ -854,14 +905,18 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.secrets_api,
         }
     }
-    pub fn secrets_manager_events_api(&self) -> &dyn secrets_manager_events_api::SecretsManagerEventsApi {
+    pub fn secrets_manager_events_api(
+        &self,
+    ) -> &dyn secrets_manager_events_api::SecretsManagerEventsApi {
         match self {
             ApiClient::Real(real) => &real.secrets_manager_events_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.secrets_manager_events_api,
         }
     }
-    pub fn secrets_manager_porting_api(&self) -> &dyn secrets_manager_porting_api::SecretsManagerPortingApi {
+    pub fn secrets_manager_porting_api(
+        &self,
+    ) -> &dyn secrets_manager_porting_api::SecretsManagerPortingApi {
         match self {
             ApiClient::Real(real) => &real.secrets_manager_porting_api,
             #[cfg(feature = "mockall")]
@@ -875,28 +930,37 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.security_task_api,
         }
     }
-    pub fn self_hosted_account_billing_v_next_api(&self) -> &dyn self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApi {
+    pub fn self_hosted_account_billing_v_next_api(
+        &self,
+    ) -> &dyn self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApi {
         match self {
             ApiClient::Real(real) => &real.self_hosted_account_billing_v_next_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.self_hosted_account_billing_v_next_api,
         }
     }
-    pub fn self_hosted_organization_billing_v_next_api(&self) -> &dyn self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApi {
+    pub fn self_hosted_organization_billing_v_next_api(
+        &self,
+    ) -> &dyn self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApi
+    {
         match self {
             ApiClient::Real(real) => &real.self_hosted_organization_billing_v_next_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.self_hosted_organization_billing_v_next_api,
         }
     }
-    pub fn self_hosted_organization_licenses_api(&self) -> &dyn self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApi {
+    pub fn self_hosted_organization_licenses_api(
+        &self,
+    ) -> &dyn self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApi {
         match self {
             ApiClient::Real(real) => &real.self_hosted_organization_licenses_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.self_hosted_organization_licenses_api,
         }
     }
-    pub fn self_hosted_organization_sponsorships_api(&self) -> &dyn self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApi {
+    pub fn self_hosted_organization_sponsorships_api(
+        &self,
+    ) -> &dyn self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApi {
         match self {
             ApiClient::Real(real) => &real.self_hosted_organization_sponsorships_api,
             #[cfg(feature = "mockall")]
@@ -988,4 +1052,3 @@ impl ApiClient {
         }
     }
 }
-
