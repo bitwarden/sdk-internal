@@ -64,11 +64,10 @@ pub enum CryptoModuleError {
     #[error("org-key payload does not contain a valid encryption key")]
     InvalidOrgKey,
 
-    /// The cipher's `data` JSON blob does not have the expected parent at the
-    /// password pointer path (CONTRACT ITEM C2).
+    /// The cipher's `data` JSON blob is not a JSON object (CONTRACT ITEM C2).
     ///
     /// The error carries **no** blob content to avoid echoing cipher data.
-    #[error("cipher data JSON does not contain the expected password field parent")]
+    #[error("cipher data JSON is not a JSON object")]
     CipherDataShape,
 
     /// A generic cryptographic operation failed.
@@ -140,28 +139,34 @@ pub fn unwrap_org_key(
 // encrypt_cipher_password
 // ---------------------------------------------------------------------------
 
-/// JSON pointer for the login-password field inside the server's cipher `data`
-/// blob.
+/// Top-level key name for the login-password field inside the server's cipher
+/// `data` blob.
 ///
-/// CONTRACT ITEM C2 (provisional): the server's `CipherLoginData` is a
-/// flat PascalCase JSON object; the password lives at the top-level key
-/// `Password`.  This is the PascalCase top-level field of the server cipher
-/// data blob — NOT the SDK's nested camelCase client models. The pointer must
-/// be verified end-to-end before production use.
-const CIPHER_PASSWORD_JSON_POINTER: &str = "/Password";
+/// CONTRACT ITEM C2 (verified end-to-end, 2026-07-07): the server's
+/// `CipherLoginData` is serialised as a flat PascalCase JSON object — e.g.
+/// `{"Uris":[],"Username":"2.…","Name":"2.…","Fields":[]}`.  The password
+/// lives at the top-level key `"Password"`.  The server serializer **omits
+/// null/missing fields**, so a login cipher that has never had a password will
+/// have no `"Password"` key at all.  The write therefore uses insert-if-absent
+/// semantics: the key is inserted when missing and replaced when present.
+const CIPHER_PASSWORD_KEY: &str = "Password";
 
-/// Encrypt `new_password` and replace the password field in `data`.
+/// Encrypt `new_password` and insert-or-replace the password field in `data`.
 ///
 /// * If `cipher_key` is `Some`, it is an EncString (per-item cipher key) wrapped under the org key;
 ///   it is unwrapped into a local slot and used to encrypt the password.
 /// * If `cipher_key` is `None`, the org key (Organisation slot) is used directly.
 ///
-/// `data` is modified in place: only the value at
-/// `CIPHER_PASSWORD_JSON_POINTER` is replaced; all sibling fields are
-/// preserved byte-for-byte.
+/// `data` is modified in place: only the `"Password"` key at the top level of
+/// the JSON object is inserted (when absent) or replaced (when present); all
+/// other fields are preserved byte-for-byte.
 ///
-/// Returns `Err(CipherDataShape)` when the pointer's parent object is missing
-/// in `data`, without echoing any content.
+/// The server serializer omits null/missing fields, so a login cipher that has
+/// never had a password will have no `"Password"` key — this is the legitimate
+/// first-rotation case.  Insert-if-absent semantics handle it transparently.
+///
+/// Returns `Err(CipherDataShape)` when `data` is not a JSON object (array,
+/// string, number, null, …), without echoing any content.
 ///
 /// The `KeyStoreContext` is never held across an await point — this function
 /// is synchronous.
@@ -194,13 +199,18 @@ pub fn encrypt_cipher_password(
 
     let encrypted_str = encrypted.to_string();
 
-    // Replace only the password field; verify the parent exists first.
+    // Insert-or-replace the password field.
     //
-    // `pointer_mut` returns None when the parent object is absent, which we
-    // surface as CipherDataShape — no content is echoed in the error.
-    match data.pointer_mut(CIPHER_PASSWORD_JSON_POINTER) {
-        Some(target) => {
-            *target = serde_json::Value::String(encrypted_str);
+    // The server serializer omits null/missing fields, so the `"Password"` key
+    // may be absent on first rotation.  `as_object_mut` returns `None` only
+    // when `data` is not a JSON object (array, string, …), which is a real
+    // shape violation — surface that as CipherDataShape without echoing content.
+    match data.as_object_mut() {
+        Some(obj) => {
+            obj.insert(
+                CIPHER_PASSWORD_KEY.to_owned(),
+                serde_json::Value::String(encrypted_str),
+            );
             Ok(())
         }
         None => Err(CryptoModuleError::CipherDataShape),
@@ -423,20 +433,74 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // Missing pointer parent → CipherDataShape
+    // Missing "Password" key → insert it (first-rotation case, C2 verified)
     // -----------------------------------------------------------------------
 
+    /// A cipher data blob that has never had a password (server omits null fields)
+    /// must have the key inserted rather than erroring.  Sibling fields must be
+    /// byte-identical after the call.
     #[test]
-    fn encrypt_cipher_password_missing_parent_returns_cipher_data_shape() {
+    fn encrypt_cipher_password_inserts_missing_password_key() {
+        let (store, org_key) = make_store_with_org_key();
+
+        // Real-world shape: flat PascalCase object, no Password key.
+        let mut data = json!({
+            "Uris": [],
+            "Username": "2.abc==|def==|ghi==",
+            "Name": "2.jkl==|mno==|pqr==",
+            "Fields": []
+        });
+        let original_username = data["Username"].clone();
+        let original_name = data["Name"].clone();
+        let original_uris = data["Uris"].clone();
+        let original_fields = data["Fields"].clone();
+
+        encrypt_cipher_password(&store, None, &mut data, "first-rotation-secret")
+            .expect("insert must succeed even when Password key is absent");
+
+        // The Password key must now be present and parseable as an EncString.
+        let password_field = data["Password"].as_str().expect("Password is a string");
+        assert!(
+            password_field.contains('.'),
+            "expected EncString format, got: {password_field}",
+        );
+
+        // Must decrypt to the plaintext we passed in.
+        let enc: EncString = password_field.parse().expect("parse EncString");
+        let plaintext: String = enc.decrypt_with_key(&org_key).expect("decrypt");
+        assert_eq!(plaintext, "first-rotation-secret");
+
+        // All siblings must be byte-for-byte identical.
+        assert_eq!(
+            data["Username"], original_username,
+            "Username must be untouched"
+        );
+        assert_eq!(data["Name"], original_name, "Name must be untouched");
+        assert_eq!(data["Uris"], original_uris, "Uris must be untouched");
+        assert_eq!(data["Fields"], original_fields, "Fields must be untouched");
+    }
+
+    // -----------------------------------------------------------------------
+    // Non-object root → CipherDataShape
+    // -----------------------------------------------------------------------
+
+    /// A `data` value that is not a JSON object (string, array, null, …) is a
+    /// genuine shape violation and must return `CipherDataShape`.
+    #[test]
+    fn encrypt_cipher_password_non_object_root_returns_cipher_data_shape() {
         let (store, _) = make_store_with_org_key();
 
-        // Data has no "Password" key at all.
-        let mut data = json!({ "Username": "carol" });
-
-        let result = encrypt_cipher_password(&store, None, &mut data, "new");
-        assert!(
-            matches!(result, Err(CryptoModuleError::CipherDataShape)),
-            "expected CipherDataShape, got {result:?}",
-        );
+        for mut bad_root in [
+            serde_json::Value::String("not-an-object".to_owned()),
+            serde_json::json!([1, 2, 3]),
+            serde_json::Value::Null,
+            serde_json::json!(42),
+        ] {
+            let result = encrypt_cipher_password(&store, None, &mut bad_root, "pw");
+            assert!(
+                matches!(result, Err(CryptoModuleError::CipherDataShape)),
+                "expected CipherDataShape for non-object root, got {result:?}",
+            );
+        }
     }
 }
