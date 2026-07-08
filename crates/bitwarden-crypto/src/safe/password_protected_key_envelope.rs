@@ -1,9 +1,10 @@
 //! Password protected key envelope is a cryptographic building block that allows sealing a
 //! symmetric key with a low entropy secret (password, PIN, etc.).
 //!
-//! It is implemented by using a KDF (Argon2ID) combined with secret key encryption
-//! (XChaCha20-Poly1305). The KDF prevents brute-force by requiring work to be done to derive the
-//! key from the password.
+//! It is implemented by using a KDF combined with secret key encryption. The KDF prevents
+//! brute-force by requiring work to be done to derive the key from the password. The algorithms
+//! depend on the key store's [`CipherSuite`]: the standard suite uses Argon2id + AES-256-GCM,
+//! while the FIPS suite uses the FIPS-approved PBKDF2 + AES-256-GCM.
 //!
 //! For the consumer, the output is an opaque blob that can be later unsealed with the same
 //! password. The KDF parameters and salt are contained in the envelope, and don't need to be
@@ -56,7 +57,10 @@ const ENVELOPE_PBKDF2_SALT_SIZE: usize = 16;
 /// The KDF parameters such as iterations and salt are stored in the envelope and do not have to
 /// be provided.
 ///
-/// Internally, Argon2 is used as the KDF and XChaCha20-Poly1305 is used to encrypt the key.
+/// The algorithms used depend on the key store's [`CipherSuite`]: the standard suite uses Argon2id
+/// as the KDF, while the FIPS suite uses PBKDF2. Both suites encrypt the key with AES-256-GCM; the
+/// KDF and content-encryption algorithms are recorded in the envelope, so unsealing does not need
+/// to know the suite up front.
 #[derive(Clone)]
 pub struct PasswordProtectedKeyEnvelope {
     cose_encrypt: coset::CoseEncrypt,
@@ -80,8 +84,9 @@ impl PasswordProtectedKeyEnvelope {
         Self::seal_ref_with_settings(key_ref, password, &kdf, namespace)
     }
 
-    /// Seals a key reference with a password, using the standard cipher suite (Argon2id). This
-    /// function is not public since callers are expected to only work with key store references.
+    /// Seals a key reference with a password, using the standard cipher suite (Argon2id +
+    /// AES-256-GCM). This function is not public since callers are expected to only work
+    /// with key store references.
     #[cfg(test)]
     fn seal_ref(
         key_to_seal: &SymmetricCryptoKey,
@@ -92,9 +97,9 @@ impl PasswordProtectedKeyEnvelope {
         Self::seal_ref_with_settings(key_to_seal, password, &kdf, namespace)
     }
 
-    /// Seals a key reference with a password and KDF settings. This function is not public since
-    /// callers are expected to only work with key store references, and to not control the KDF
-    /// difficulty where possible.
+    /// Seals a key reference with a password, KDF settings, and content-encryption algorithm. This
+    /// function is not public since callers are expected to only work with key store references,
+    /// and to not control the KDF difficulty where possible.
     fn seal_ref_with_settings(
         key_to_seal: &SymmetricCryptoKey,
         password: &str,
@@ -141,7 +146,7 @@ impl PasswordProtectedKeyEnvelope {
         });
 
         let cose_encrypt = encrypt_cose(
-            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            CoseContentEncryptionAlgorithm::Aes256Gcm,
             builder,
             protected_header,
             &key_to_seal_bytes,
@@ -189,8 +194,8 @@ impl PasswordProtectedKeyEnvelope {
         )
         .map_err(|_| PasswordProtectedKeyEnvelopeError::InvalidNamespace)?;
 
-        // The KDF algorithm and its parameters are read from the recipient. This dispatches to the
-        // correct KDF, and errors on an unknown algorithm.
+        // The KDF algorithm and its parameters are read from the recipient. This dispatches to
+        // the correct KDF (Argon2id or PBKDF2), and errors on an unknown algorithm.
         let kdf = EnvelopeKdf::try_from(recipient)?;
         let envelope_key =
             derive_key(&kdf, password).map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
@@ -198,8 +203,9 @@ impl PasswordProtectedKeyEnvelope {
         // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
         // since the KDF parameters & salt are guaranteed to be correct. Envelopes sealed before the
         // content-encryption algorithm was written to the protected header omit it, so
-        // XChaCha20-Poly1305 (the only algorithm this envelope has ever used) is supplied as the
-        // decryption fallback.
+        // XChaCha20-Poly1305 (the only algorithm such legacy envelopes ever used) is supplied as
+        // the decryption fallback. Envelopes that declare their algorithm (including all
+        // AES-256-GCM envelopes) dispatch on the protected header regardless of this fallback.
         let key_bytes = decrypt_cose(
             &self.cose_encrypt,
             Some(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
@@ -225,6 +231,10 @@ impl PasswordProtectedKeyEnvelope {
     }
 
     /// Re-seals the envelope for a new password, but the same KDF settings.
+    ///
+    /// Note:
+    /// Resealing a legacy Argon2id + XChaCha20-Poly1305 envelope upgrades it to Argon2id +
+    /// AES-256-GCM and the encrypt path never uses XChaCha20-Poly1305.
     pub fn reseal(
         &self,
         password: &str,
@@ -232,7 +242,8 @@ impl PasswordProtectedKeyEnvelope {
         namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         // Determine the existing envelope's KDF family from its single recipient, so the resealed
-        // envelope keeps the same KDF family.
+        // envelope keeps the same KDF family. The content-encryption algorithm is always
+        // AES-256-GCM, so resealing never uses XChaCha20-Poly1305.
         let recipient = self
             .cose_encrypt
             .recipients
@@ -775,6 +786,26 @@ mod tests {
 
     const TESTVECTOR_PASSWORD: &str = "test_password";
 
+    // FIPS (PBKDF2-HMAC-SHA256 + AES-256-GCM) test vector, generated by `generate_fips_test_vector`
+    // with a low iteration count. Locks the FIPS envelope wire format for backward compatibility.
+    const TEST_UNSEALED_FIPS_ENCODED: &[u8] = &[
+        165, 1, 4, 2, 80, 40, 136, 73, 38, 113, 191, 48, 29, 141, 167, 113, 250, 16, 155, 74, 5, 3,
+        58, 0, 1, 17, 111, 4, 132, 3, 4, 5, 6, 32, 88, 32, 3, 78, 100, 122, 143, 20, 156, 26, 63,
+        89, 134, 100, 93, 32, 137, 121, 214, 98, 147, 183, 198, 61, 176, 86, 176, 65, 220, 38, 211,
+        233, 121, 100, 1,
+    ];
+    const TESTVECTOR_FIPS_ENVELOPE: &[u8] = &[
+        132, 88, 40, 165, 1, 3, 3, 24, 101, 58, 0, 1, 21, 92, 80, 40, 136, 73, 38, 113, 191, 48,
+        29, 141, 167, 113, 250, 16, 155, 74, 5, 58, 0, 1, 56, 129, 1, 58, 0, 1, 56, 128, 32, 161,
+        5, 76, 26, 141, 71, 238, 227, 209, 118, 32, 47, 159, 178, 11, 88, 84, 3, 184, 23, 73, 5,
+        232, 28, 144, 109, 242, 86, 211, 155, 157, 221, 76, 72, 122, 18, 64, 20, 190, 25, 34, 166,
+        3, 34, 125, 59, 172, 105, 238, 123, 17, 123, 55, 203, 107, 157, 37, 186, 240, 79, 103, 95,
+        160, 196, 38, 71, 202, 212, 241, 77, 159, 165, 31, 43, 163, 126, 182, 127, 90, 119, 35, 29,
+        155, 119, 121, 163, 98, 158, 18, 120, 199, 91, 197, 46, 224, 63, 215, 119, 191, 60, 21,
+        129, 131, 71, 161, 1, 58, 0, 1, 21, 97, 163, 1, 58, 0, 1, 21, 97, 58, 0, 1, 21, 98, 25, 19,
+        136, 58, 0, 1, 21, 99, 80, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 246,
+    ];
+
     #[test]
     #[ignore = "Manual test to verify debug format"]
     fn test_debug() {
@@ -832,6 +863,44 @@ mod tests {
             unsealed_key.to_encoded().to_vec(),
             TEST_UNSEALED_LEGACYKEY_ENCODED
         );
+    }
+
+    #[test]
+    #[ignore = "Manual test to generate a FIPS (PBKDF2 + AES-GCM) test vector"]
+    fn generate_fips_test_vector() {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let envelope = PasswordProtectedKeyEnvelope::seal_ref_with_settings(
+            &key,
+            TESTVECTOR_PASSWORD,
+            &EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings {
+                // Low iteration count keeps the test vector cheap to verify.
+                iterations: 5000,
+                salt: [7u8; ENVELOPE_PBKDF2_SALT_SIZE],
+            }),
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+        )
+        .unwrap();
+        println!(
+            "const TEST_UNSEALED_FIPS_ENCODED: &[u8] = &{:?};",
+            key.to_encoded().to_vec()
+        );
+        println!(
+            "const TESTVECTOR_FIPS_ENVELOPE: &[u8] = &{:?};",
+            Vec::<u8>::from(&envelope)
+        );
+    }
+
+    #[test]
+    fn test_testvector_fips() {
+        let envelope = PasswordProtectedKeyEnvelope::try_from(&TESTVECTOR_FIPS_ENVELOPE.to_vec())
+            .expect("Key envelope should be valid");
+        let key = envelope
+            .unseal_ref(
+                TESTVECTOR_PASSWORD,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            )
+            .expect("Unsealing should succeed");
+        assert_eq!(key.to_encoded().to_vec(), TEST_UNSEALED_FIPS_ENCODED);
     }
 
     #[test]
@@ -938,6 +1007,18 @@ mod tests {
                 PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
             )
             .expect("Resealing should work");
+
+        // Resealing keeps the Argon2id KDF but always writes AES-256-GCM content, never
+        // XChaCha20-Poly1305.
+        assert_eq!(
+            envelope.cose_encrypt.recipients[0].protected.header.alg,
+            Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13))
+        );
+        assert_eq!(
+            envelope.cose_encrypt.protected.header.alg,
+            Some(coset::Algorithm::Assigned(coset::iana::Algorithm::A256GCM))
+        );
+
         let unsealed = envelope
             .unseal_ref(
                 new_password,
@@ -1087,10 +1168,14 @@ mod tests {
         )
         .unwrap();
 
-        // Recipient declares Argon2id.
+        // Recipient declares Argon2id, content is AES-256-GCM (never XChaCha20-Poly1305).
         assert_eq!(
             envelope.cose_encrypt.recipients[0].protected.header.alg,
             Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13))
+        );
+        assert_eq!(
+            envelope.cose_encrypt.protected.header.alg,
+            Some(coset::Algorithm::Assigned(coset::iana::Algorithm::A256GCM))
         );
     }
 
@@ -1110,10 +1195,14 @@ mod tests {
         )
         .unwrap();
 
-        // Recipient declares PBKDF2.
+        // Recipient declares PBKDF2, content is AES-256-GCM.
         assert_eq!(
             envelope.cose_encrypt.recipients[0].protected.header.alg,
             Some(coset::Algorithm::PrivateUse(ALG_PBKDF2_SHA256))
+        );
+        assert_eq!(
+            envelope.cose_encrypt.protected.header.alg,
+            Some(coset::Algorithm::Assigned(coset::iana::Algorithm::A256GCM))
         );
 
         // Round-trips.
@@ -1177,10 +1266,14 @@ mod tests {
             )
             .unwrap();
 
-        // The resealed envelope keeps the FIPS KDF.
+        // The resealed envelope keeps the FIPS algorithm suite.
         assert_eq!(
             resealed.cose_encrypt.recipients[0].protected.header.alg,
             Some(coset::Algorithm::PrivateUse(ALG_PBKDF2_SHA256))
+        );
+        assert_eq!(
+            resealed.cose_encrypt.protected.header.alg,
+            Some(coset::Algorithm::Assigned(coset::iana::Algorithm::A256GCM))
         );
 
         let unsealed = resealed
