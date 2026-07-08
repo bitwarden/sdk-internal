@@ -83,6 +83,12 @@
     },
     {
       matchManagers: ["cargo"],
+      matchPackageNames: ["rand"],
+      commitMessagePrefix: "[deps] Key Management (cargo):",
+      reviewers: ["team:team-key-management-dev"],
+    },
+    {
+      matchManagers: ["cargo"],
       matchPackageNames: [
         "aes",
         "async-trait",
@@ -106,7 +112,6 @@
         "pbkdf2",
         "proc-macro2",
         "quote",
-        "rand",
         "rand_chacha",
         "reqwest",
         "reqwest-middleware",

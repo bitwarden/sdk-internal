@@ -626,6 +626,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-logging",
+ "bitwarden-random",
  "bitwarden-state",
  "bitwarden-state-bridge-macro",
  "bitwarden-test",
@@ -682,6 +683,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-logging",
+ "bitwarden-random",
  "bitwarden-sensitive-value",
  "bitwarden-uniffi-error",
  "cbc",
@@ -859,6 +861,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-random",
  "password-rules-parser",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
@@ -915,6 +918,7 @@ dependencies = [
  "async-trait",
  "bitwarden-error",
  "bitwarden-ffi",
+ "bitwarden-random",
  "bitwarden-threading",
  "ciborium",
  "erased-serde",
@@ -1052,6 +1056,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-random"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-error",
+ "getrandom 0.4.2",
+ "rand 0.10.1",
+ "rand_chacha 0.10.0",
+ "snow",
+ "thiserror 1.0.69",
+ "uniffi",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "bitwarden-send"
 version = "3.0.0"
 dependencies = [
@@ -1163,6 +1183,7 @@ name = "bitwarden-ssh"
 version = "3.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-random",
  "bitwarden-vault",
  "block-padding",
  "ed25519",
@@ -1299,6 +1320,7 @@ dependencies = [
  "bitwarden-organizations",
  "bitwarden-pm",
  "bitwarden-policies",
+ "bitwarden-random",
  "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-ssh",
@@ -1450,6 +1472,7 @@ dependencies = [
  "bitwarden-organization-invite-link",
  "bitwarden-pm",
  "bitwarden-policies",
+ "bitwarden-random",
  "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-shared-unlock",
