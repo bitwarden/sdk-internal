@@ -66,6 +66,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-logging = { workspace = true }
+bitwarden-random = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-state-bridge-macro = { workspace = true }
 bitwarden-test = { workspace = true, optional = true }

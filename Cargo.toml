@@ -51,6 +51,7 @@ bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-inv
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
+bitwarden-random = { path = "crates/bitwarden-random", version = "=3.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=3.0.0" }
 bitwarden-sensitive-value = { path = "crates/bitwarden-sensitive-value", version = "=3.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=3.0.0" }
