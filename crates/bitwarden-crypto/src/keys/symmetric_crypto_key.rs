@@ -229,6 +229,31 @@ impl PartialEq for Aes256GcmKey {
     }
 }
 
+/// A borrowed view over a symmetric key that is encoded as a COSE key and used as the
+/// content-encryption key for CoseEncrypt0/CoseEncrypt messages.
+#[allow(dead_code, reason = "consumed by DataEnvelope in a subsequent commit")]
+pub(crate) enum CoseKeyView<'a> {
+    Aes256Gcm(&'a Aes256GcmKey),
+    XChaCha20Poly1305(&'a XChaCha20Poly1305Key),
+}
+
+#[allow(dead_code, reason = "consumed by DataEnvelope in a subsequent commit")]
+impl CoseKeyView<'_> {
+    pub(crate) fn key_id(&self) -> &KeyId {
+        match self {
+            CoseKeyView::Aes256Gcm(k) => &k.key_id,
+            CoseKeyView::XChaCha20Poly1305(k) => &k.key_id,
+        }
+    }
+
+    pub(crate) fn key_bytes(&self) -> &[u8] {
+        match self {
+            CoseKeyView::Aes256Gcm(k) => k.enc_key.as_slice(),
+            CoseKeyView::XChaCha20Poly1305(k) => k.enc_key.as_slice(),
+        }
+    }
+}
+
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(ZeroizeOnDrop, Clone)]
 pub enum SymmetricCryptoKey {
@@ -414,6 +439,17 @@ impl SymmetricCryptoKey {
             Self::Aes256CbcHmacKey(_) => None,
             Self::XChaCha20Poly1305Key(key) => Some(key.key_id.clone()),
             Self::Aes256GcmKey(key) => Some(key.key_id.clone()),
+        }
+    }
+
+    /// Returns a [`CoseKeyView`] for the COSE-key symmetric variants (AES-256-GCM,
+    /// XChaCha20-Poly1305), or `None` for the legacy AES-CBC variants.
+    #[allow(dead_code, reason = "consumed by DataEnvelope in a subsequent commit")]
+    pub(crate) fn as_cose_key_view(&self) -> Option<CoseKeyView<'_>> {
+        match self {
+            Self::Aes256GcmKey(k) => Some(CoseKeyView::Aes256Gcm(k)),
+            Self::XChaCha20Poly1305Key(k) => Some(CoseKeyView::XChaCha20Poly1305(k)),
+            Self::Aes256CbcKey(_) | Self::Aes256CbcHmacKey(_) => None,
         }
     }
 }
