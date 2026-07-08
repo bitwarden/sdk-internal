@@ -26,7 +26,8 @@ use thiserror::Error;
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::{
-    ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
+    CipherSuite, ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext,
+    SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
         ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes, extract_integer,
@@ -73,31 +74,29 @@ impl PasswordProtectedKeyEnvelope {
         let key_ref = ctx
             .get_symmetric_key(key_to_seal)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissing)?;
-        Self::seal_ref(key_ref, password, namespace)
+        let kdf = suite_kdf(ctx.cipher_suite());
+        Self::seal_ref_with_settings(key_ref, password, &kdf, namespace)
     }
 
-    /// Seals a key reference with a password. This function is not public since callers are
-    /// expected to only work with key store references.
+    /// Seals a key reference with a password, using the standard cipher suite (Argon2id). This
+    /// function is not public since callers are expected to only work with key store references.
+    #[cfg(test)]
     fn seal_ref(
         key_to_seal: &SymmetricCryptoKey,
         password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
-        Self::seal_ref_with_settings(
-            key_to_seal,
-            password,
-            &Argon2RawSettings::local_kdf_settings(),
-            namespace,
-        )
+        let kdf = suite_kdf(CipherSuite::Standard);
+        Self::seal_ref_with_settings(key_to_seal, password, &kdf, namespace)
     }
 
-    /// Seals a key reference with a password and custom provided settings. This function is not
-    /// public since callers are expected to only work with key store references, and to not
-    /// control the KDF difficulty where possible.
+    /// Seals a key reference with a password and KDF settings. This function is not public since
+    /// callers are expected to only work with key store references, and to not control the KDF
+    /// difficulty where possible.
     fn seal_ref_with_settings(
         key_to_seal: &SymmetricCryptoKey,
         password: &str,
-        kdf_settings: &Argon2RawSettings,
+        kdf: &EnvelopeKdf,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         // Cose does not yet have a standardized way to protect a key using a password.
@@ -107,8 +106,8 @@ impl PasswordProtectedKeyEnvelope {
 
         // The envelope key is directly derived from the KDF and used as the key to encrypt the key
         // that should be sealed.
-        let envelope_key = derive_key(kdf_settings, password)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
+        let envelope_key =
+            derive_key(kdf, password).map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
         let (content_format, key_to_seal_bytes) = match key_to_seal.to_encoded_raw() {
             EncodedSymmetricKey::BitwardenLegacyKey(key_bytes) => {
@@ -133,9 +132,9 @@ impl PasswordProtectedKeyEnvelope {
         // authenticate the protected header, the settings must be correct.
         let builder = coset::CoseEncryptBuilder::new().add_recipient({
             let mut recipient = coset::CoseRecipientBuilder::new()
-                .unprotected(kdf_settings.into())
+                .unprotected(kdf.into())
                 .build();
-            recipient.protected.header.alg = Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13));
+            recipient.protected.header.alg = Some(kdf.cose_alg());
             recipient
         });
 
@@ -181,12 +180,6 @@ impl PasswordProtectedKeyEnvelope {
                 )
             })?;
 
-        if recipient.protected.header.alg != Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13)) {
-            return Err(PasswordProtectedKeyEnvelopeError::Parsing(
-                "Unknown or unsupported KDF algorithm".to_string(),
-            ));
-        }
-
         validate_safe_namespaces(
             &self.cose_encrypt.protected.header,
             SafeObjectNamespace::PasswordProtectedKeyEnvelope,
@@ -194,14 +187,11 @@ impl PasswordProtectedKeyEnvelope {
         )
         .map_err(|_| PasswordProtectedKeyEnvelopeError::InvalidNamespace)?;
 
-        let kdf_settings: Argon2RawSettings =
-            (&recipient.unprotected).try_into().map_err(|_| {
-                PasswordProtectedKeyEnvelopeError::Parsing(
-                    "Invalid or missing KDF parameters".to_string(),
-                )
-            })?;
-        let envelope_key = derive_key(&kdf_settings, password)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
+        // The KDF algorithm and its parameters are read from the recipient. This dispatches to the
+        // correct KDF, and errors on an unknown algorithm.
+        let kdf = EnvelopeKdf::try_from(recipient)?;
+        let envelope_key =
+            derive_key(&kdf, password).map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
         // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
         // since the KDF parameters & salt are guaranteed to be correct. Envelopes sealed before the
@@ -232,15 +222,33 @@ impl PasswordProtectedKeyEnvelope {
         })
     }
 
-    /// Re-seals the key with new KDF parameters (updated settings, salt), and a new password
+    /// Re-seals the envelope for a new password, but the same KDF settings.
     pub fn reseal(
         &self,
         password: &str,
         new_password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
+        // Determine the existing envelope's KDF family from its single recipient, so the resealed
+        // envelope keeps the same KDF family.
+        let recipient = self
+            .cose_encrypt
+            .recipients
+            .first()
+            .filter(|_| self.cose_encrypt.recipients.len() == 1)
+            .ok_or_else(|| {
+                PasswordProtectedKeyEnvelopeError::Parsing(
+                    "Invalid number of recipients".to_string(),
+                )
+            })?;
+
         let unsealed = self.unseal_ref(password, namespace)?;
-        Self::seal_ref(&unsealed, new_password, namespace)
+        Self::seal_ref_with_settings(
+            &unsealed,
+            new_password,
+            &EnvelopeKdf::try_from(recipient)?,
+            namespace,
+        )
     }
 
     /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
@@ -274,11 +282,14 @@ impl std::fmt::Debug for PasswordProtectedKeyEnvelope {
         let mut s = f.debug_struct("PasswordProtectedKeyEnvelope");
 
         if let Some(recipient) = self.cose_encrypt.recipients.first() {
-            let settings: Result<Argon2RawSettings, _> = (&recipient.unprotected).try_into();
-            if let Ok(settings) = settings {
-                s.field("argon2_iterations", &settings.iterations);
-                s.field("argon2_memory_kib", &settings.memory);
-                s.field("argon2_parallelism", &settings.parallelism);
+            match EnvelopeKdf::try_from(recipient) {
+                Ok(EnvelopeKdf::Argon2id(settings)) => {
+                    s.field("kdf", &"Argon2id");
+                    s.field("argon2_iterations", &settings.iterations);
+                    s.field("argon2_memory_kib", &settings.memory);
+                    s.field("argon2_parallelism", &settings.parallelism);
+                }
+                Err(_) => {}
             }
         }
 
@@ -338,6 +349,53 @@ impl Serialize for PasswordProtectedKeyEnvelope {
     }
 }
 
+/// The KDF used to derive the envelope key from the password. The variant, and thus the algorithm,
+/// is selected from the key store's [`CipherSuite`] at seal time and recorded in the envelope's
+/// recipient so unsealing can dispatch on it.
+enum EnvelopeKdf {
+    Argon2id(Argon2RawSettings),
+}
+
+impl EnvelopeKdf {
+    /// The COSE algorithm discriminant written to the recipient's protected header.
+    fn cose_alg(&self) -> coset::Algorithm {
+        match self {
+            EnvelopeKdf::Argon2id(_) => coset::Algorithm::PrivateUse(ALG_ARGON2ID13),
+        }
+    }
+}
+
+impl From<&EnvelopeKdf> for Header {
+    fn from(kdf: &EnvelopeKdf) -> Header {
+        match kdf {
+            EnvelopeKdf::Argon2id(settings) => settings.into(),
+        }
+    }
+}
+
+impl TryFrom<&coset::CoseRecipient> for EnvelopeKdf {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(recipient: &coset::CoseRecipient) -> Result<Self, Self::Error> {
+        let alg = recipient.protected.header.alg.as_ref();
+        if alg == Some(&coset::Algorithm::PrivateUse(ALG_ARGON2ID13)) {
+            Ok(EnvelopeKdf::Argon2id((&recipient.unprotected).try_into()?))
+        } else {
+            Err(PasswordProtectedKeyEnvelopeError::Parsing(
+                "Unknown or unsupported KDF algorithm".to_string(),
+            ))
+        }
+    }
+}
+
+/// Returns the KDF settings for the given cipher suite.
+fn suite_kdf(suite: CipherSuite) -> EnvelopeKdf {
+    match suite {
+        CipherSuite::Standard => EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
+        CipherSuite::Fips => EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
+    }
+}
+
 /// Raw argon2 settings differ from the [crate::keys::Kdf::Argon2id] struct defined for existing
 /// master-password unlock. The memory is represented in kibibytes (KiB) instead of mebibytes (MiB),
 /// and the salt is a fixed size of 32 bytes, and randomly generated, instead of being derived from
@@ -354,6 +412,9 @@ impl Argon2RawSettings {
     /// Creates default Argon2 settings based on the device. This currently is a static preset
     /// based on the target os
     fn local_kdf_settings() -> Self {
+        let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
+        bitwarden_random::rng().fill_bytes(&mut salt);
+
         // iOS has memory limitations in the auto-fill context. So, the memory is halved
         // but the iterations are doubled
         if cfg!(target_os = "ios") {
@@ -362,7 +423,7 @@ impl Argon2RawSettings {
                 iterations: 6,
                 memory: 32 * 1024, // 32 MiB
                 parallelism: 4,
-                salt: make_salt(),
+                salt,
             }
         } else {
             // The SECOND RECOMMENDED option from: https://datatracker.ietf.org/doc/rfc9106/
@@ -372,7 +433,7 @@ impl Argon2RawSettings {
                 iterations: 3,
                 memory: 64 * 1024, // 64 MiB
                 parallelism: 4,
-                salt: make_salt(),
+                salt,
             }
         }
     }
@@ -426,13 +487,17 @@ impl TryInto<Argon2RawSettings> for &Header {
     }
 }
 
-fn make_salt() -> [u8; ENVELOPE_ARGON2_SALT_SIZE] {
-    let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
-    bitwarden_random::rng().fill_bytes(&mut salt);
-    salt
+/// Derives the envelope key from the password using the configured KDF.
+fn derive_key(
+    kdf: &EnvelopeKdf,
+    password: &str,
+) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
+    match kdf {
+        EnvelopeKdf::Argon2id(settings) => derive_argon2_key(settings, password),
+    }
 }
 
-fn derive_key(
+fn derive_argon2_key(
     argon2_settings: &Argon2RawSettings,
     password: &str,
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
