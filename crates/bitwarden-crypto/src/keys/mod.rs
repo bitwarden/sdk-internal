@@ -6,6 +6,7 @@ pub use master_key::{HashPurpose, MasterKey};
 mod shareable_key;
 pub use shareable_key::derive_shareable_key;
 mod symmetric_crypto_key;
+pub(crate) use symmetric_crypto_key::CoseKeyView;
 #[cfg(test)]
 pub use symmetric_crypto_key::derive_symmetric_key;
 pub use symmetric_crypto_key::{

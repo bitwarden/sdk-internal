@@ -9,8 +9,8 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeySlotIds,
-    SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CoseKeyView, CryptoError, EncString,
+    EncodingError, KeySlotIds, SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{
         ContentNamespace, SafeObjectNamespace,
         symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
@@ -167,10 +167,13 @@ impl DataEnvelope {
             .get_symmetric_key(cek_keyslot)
             .map_err(|_| DataEnvelopeError::KeyStore)?;
 
-        match cek {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(T::NAMESPACE, key),
-            _ => Err(DataEnvelopeError::UnsupportedContentFormat),
-        }
+        // Both AES-256-GCM (current) and XChaCha20-Poly1305 (legacy) content-encryption keys are
+        // accepted so existing envelopes keep decrypting. The actual algorithm is recovered from
+        // the envelope's protected header during decryption.
+        let view = cek
+            .as_cose_key_view()
+            .ok_or(DataEnvelopeError::UnsupportedContentFormat)?;
+        self.unseal_ref(T::NAMESPACE, view)
     }
 
     /// Unseals the data from the encrypted blob and wrapped content-encryption-key.
@@ -189,11 +192,12 @@ impl DataEnvelope {
         self.unseal(cek, ctx)
     }
 
-    /// Unseals the data from the encrypted blob using the provided content-encryption-key.
+    /// Unseals the data from the encrypted blob using the provided content-encryption-key, which
+    /// may be either an AES-256-GCM or a legacy XChaCha20-Poly1305 key.
     fn unseal_ref<T>(
         &self,
         namespace: DataEnvelopeNamespace,
-        cek: &XChaCha20Poly1305Key,
+        cek: CoseKeyView,
     ) -> Result<T, DataEnvelopeError>
     where
         T: DeserializeOwned + SealableVersionedData,
@@ -205,7 +209,7 @@ impl DataEnvelope {
             content_format(&msg.protected).map_err(|_| DataEnvelopeError::Decoding)?;
 
         // Validate the message
-        if msg.protected.header.key_id != cek.key_id.as_slice() {
+        if msg.protected.header.key_id != cek.key_id().as_slice() {
             return Err(DataEnvelopeError::WrongKey);
         }
 
@@ -220,10 +224,9 @@ impl DataEnvelope {
             return Err(DataEnvelopeError::UnsupportedContentFormat);
         }
 
-        // Decrypt the message. `decrypt_cose0` validates that the protected header declares the
-        // XChaCha20-Poly1305 content-encryption algorithm before attempting decryption. The
-        // envelope always declares the algorithm, so no decryption fallback is needed.
-        let decrypted_message = decrypt_cose0(&msg, None, cek.enc_key.as_slice())
+        // Decrypt the message. `decrypt_cose0` recovers the content-encryption algorithm from the
+        // protected header, so no decryption fallback is needed.
+        let decrypted_message = decrypt_cose0(&msg, None, cek.key_bytes())
             .map_err(|_| DataEnvelopeError::Decryption)?;
 
         let unpadded_message =
@@ -562,7 +565,10 @@ mod tests {
         let (envelope, cek) =
             DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace,
+                CoseKeyView::XChaCha20Poly1305(&cek),
+            )
             .unwrap();
         assert_eq!(unsealed_data, data);
         println!(
@@ -585,7 +591,10 @@ mod tests {
 
         let envelope: DataEnvelope = TEST_VECTOR_ENVELOPE.parse().unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace,
+                CoseKeyView::XChaCha20Poly1305(&cek),
+            )
             .unwrap();
         assert_eq!(unsealed_data, TestDataV1 { field: 123 }.into());
     }
@@ -599,7 +608,10 @@ mod tests {
         let (envelope, cek) =
             DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace,
+                CoseKeyView::XChaCha20Poly1305(&cek),
+            )
             .unwrap();
 
         // Verify that the unsealed data matches the original data
@@ -614,7 +626,10 @@ mod tests {
         let (envelope1, cek1) =
             DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let unsealed_data1: TestData = envelope1
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace,
+                CoseKeyView::XChaCha20Poly1305(&cek1),
+            )
             .unwrap();
         assert_eq!(unsealed_data1, data);
 
@@ -622,7 +637,10 @@ mod tests {
         let (envelope2, cek2) =
             DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace2).unwrap();
         let unsealed_data2: TestData = envelope2
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace2,
+                CoseKeyView::XChaCha20Poly1305(&cek2),
+            )
             .unwrap();
         assert_eq!(unsealed_data2, data);
     }
@@ -636,13 +654,18 @@ mod tests {
             DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
 
         // Try to unseal with wrong namespace - should fail
-        let result: Result<TestData, DataEnvelopeError> =
-            envelope.unseal_ref(DataEnvelopeNamespace::ExampleNamespace2, &cek);
+        let result: Result<TestData, DataEnvelopeError> = envelope.unseal_ref(
+            DataEnvelopeNamespace::ExampleNamespace2,
+            CoseKeyView::XChaCha20Poly1305(&cek),
+        );
         assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
 
         // Verify correct namespace still works
         let unsealed_data: TestData = envelope
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace,
+                CoseKeyView::XChaCha20Poly1305(&cek),
+            )
             .unwrap();
         assert_eq!(unsealed_data, data);
     }
@@ -681,22 +704,34 @@ mod tests {
 
         // Verify each envelope only opens with its correct namespace
         let unsealed1: TestData = envelope1
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace,
+                CoseKeyView::XChaCha20Poly1305(&cek1),
+            )
             .unwrap();
         assert_eq!(unsealed1, data1);
 
         let unsealed2: TestData = envelope2
-            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unseal_ref(
+                DataEnvelopeNamespace::ExampleNamespace2,
+                CoseKeyView::XChaCha20Poly1305(&cek2),
+            )
             .unwrap();
         assert_eq!(unsealed2, data2);
 
         // Cross-unsealing should fail
         assert!(matches!(
-            envelope1.unseal_ref::<TestData>(DataEnvelopeNamespace::ExampleNamespace2, &cek1),
+            envelope1.unseal_ref::<TestData>(
+                DataEnvelopeNamespace::ExampleNamespace2,
+                CoseKeyView::XChaCha20Poly1305(&cek1)
+            ),
             Err(DataEnvelopeError::InvalidNamespace)
         ));
         assert!(matches!(
-            envelope2.unseal_ref::<TestData>(DataEnvelopeNamespace::ExampleNamespace, &cek2),
+            envelope2.unseal_ref::<TestData>(
+                DataEnvelopeNamespace::ExampleNamespace,
+                CoseKeyView::XChaCha20Poly1305(&cek2)
+            ),
             Err(DataEnvelopeError::InvalidNamespace)
         ));
     }
