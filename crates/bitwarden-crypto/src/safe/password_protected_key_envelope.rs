@@ -29,8 +29,9 @@ use crate::{
     CipherSuite, ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext,
     SymmetricCryptoKey,
     cose::{
-        ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
-        ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes, extract_integer,
+        ALG_ARGON2ID13, ALG_PBKDF2_SHA256, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM,
+        ARGON2_SALT, ContentNamespace, CoseExtractError, PBKDF2_ITERATIONS, PBKDF2_SALT,
+        SafeObjectNamespace, extract_bytes, extract_integer,
         symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
     },
     keys::KeyId,
@@ -46,6 +47,7 @@ use crate::{
 const ENVELOPE_ARGON2_SALT_SIZE: usize = 16;
 /// 32 is chosen to match the size of an XChaCha20-Poly1305 key
 const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
+const ENVELOPE_PBKDF2_SALT_SIZE: usize = 16;
 
 /// A password-protected key envelope can seal a symmetric key, and protect it with a password. It
 /// does so by using a Key Derivation Function (KDF), to increase the difficulty of brute-forcing
@@ -289,6 +291,10 @@ impl std::fmt::Debug for PasswordProtectedKeyEnvelope {
                     s.field("argon2_memory_kib", &settings.memory);
                     s.field("argon2_parallelism", &settings.parallelism);
                 }
+                Ok(EnvelopeKdf::Pbkdf2(settings)) => {
+                    s.field("kdf", &"PBKDF2-HMAC-SHA256");
+                    s.field("pbkdf2_iterations", &settings.iterations);
+                }
                 Err(_) => {}
             }
         }
@@ -349,11 +355,15 @@ impl Serialize for PasswordProtectedKeyEnvelope {
     }
 }
 
+/// Default PBKDF2-HMAC-SHA256 iteration count for FIPS envelopes
+const ENVELOPE_PBKDF2_ITERATIONS: u32 = 600_000;
+
 /// The KDF used to derive the envelope key from the password. The variant, and thus the algorithm,
 /// is selected from the key store's [`CipherSuite`] at seal time and recorded in the envelope's
 /// recipient so unsealing can dispatch on it.
 enum EnvelopeKdf {
     Argon2id(Argon2RawSettings),
+    Pbkdf2(Pbkdf2RawSettings),
 }
 
 impl EnvelopeKdf {
@@ -361,6 +371,7 @@ impl EnvelopeKdf {
     fn cose_alg(&self) -> coset::Algorithm {
         match self {
             EnvelopeKdf::Argon2id(_) => coset::Algorithm::PrivateUse(ALG_ARGON2ID13),
+            EnvelopeKdf::Pbkdf2(_) => coset::Algorithm::PrivateUse(ALG_PBKDF2_SHA256),
         }
     }
 }
@@ -369,6 +380,7 @@ impl From<&EnvelopeKdf> for Header {
     fn from(kdf: &EnvelopeKdf) -> Header {
         match kdf {
             EnvelopeKdf::Argon2id(settings) => settings.into(),
+            EnvelopeKdf::Pbkdf2(settings) => settings.into(),
         }
     }
 }
@@ -380,6 +392,8 @@ impl TryFrom<&coset::CoseRecipient> for EnvelopeKdf {
         let alg = recipient.protected.header.alg.as_ref();
         if alg == Some(&coset::Algorithm::PrivateUse(ALG_ARGON2ID13)) {
             Ok(EnvelopeKdf::Argon2id((&recipient.unprotected).try_into()?))
+        } else if alg == Some(&coset::Algorithm::PrivateUse(ALG_PBKDF2_SHA256)) {
+            Ok(EnvelopeKdf::Pbkdf2((&recipient.unprotected).try_into()?))
         } else {
             Err(PasswordProtectedKeyEnvelopeError::Parsing(
                 "Unknown or unsupported KDF algorithm".to_string(),
@@ -392,7 +406,7 @@ impl TryFrom<&coset::CoseRecipient> for EnvelopeKdf {
 fn suite_kdf(suite: CipherSuite) -> EnvelopeKdf {
     match suite {
         CipherSuite::Standard => EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
-        CipherSuite::Fips => EnvelopeKdf::Argon2id(Argon2RawSettings::local_kdf_settings()),
+        CipherSuite::Fips => EnvelopeKdf::Pbkdf2(Pbkdf2RawSettings::local_kdf_settings()),
     }
 }
 
@@ -487,6 +501,53 @@ impl TryInto<Argon2RawSettings> for &Header {
     }
 }
 
+/// Raw PBKDF2-HMAC-SHA256 settings for FIPS envelopes. Like [`Argon2RawSettings`], the salt is a
+/// fixed size and randomly generated, and lives in the envelope alongside the iteration count.
+struct Pbkdf2RawSettings {
+    iterations: u32,
+    salt: [u8; ENVELOPE_PBKDF2_SALT_SIZE],
+}
+
+impl Pbkdf2RawSettings {
+    /// Creates default PBKDF2 settings with a random salt.
+    fn local_kdf_settings() -> Self {
+        let mut salt = [0u8; ENVELOPE_PBKDF2_SALT_SIZE];
+        bitwarden_random::rng().fill_bytes(&mut salt);
+
+        Self {
+            iterations: ENVELOPE_PBKDF2_ITERATIONS,
+            salt,
+        }
+    }
+}
+
+impl From<&Pbkdf2RawSettings> for Header {
+    fn from(settings: &Pbkdf2RawSettings) -> Header {
+        let builder = HeaderBuilder::new()
+            .value(PBKDF2_ITERATIONS, Integer::from(settings.iterations).into())
+            .value(PBKDF2_SALT, Value::from(settings.salt.to_vec()));
+
+        let mut header = builder.build();
+        header.alg = Some(coset::Algorithm::PrivateUse(ALG_PBKDF2_SHA256));
+        header
+    }
+}
+
+impl TryInto<Pbkdf2RawSettings> for &Header {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_into(self) -> Result<Pbkdf2RawSettings, PasswordProtectedKeyEnvelopeError> {
+        Ok(Pbkdf2RawSettings {
+            iterations: extract_integer(self, PBKDF2_ITERATIONS, "iterations")?.try_into()?,
+            salt: extract_bytes(self, PBKDF2_SALT, "salt")?
+                .try_into()
+                .map_err(|_| {
+                    PasswordProtectedKeyEnvelopeError::Parsing("Invalid PBKDF2 salt".to_string())
+                })?,
+        })
+    }
+}
+
 /// Derives the envelope key from the password using the configured KDF.
 fn derive_key(
     kdf: &EnvelopeKdf,
@@ -494,6 +555,7 @@ fn derive_key(
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
     match kdf {
         EnvelopeKdf::Argon2id(settings) => derive_argon2_key(settings, password),
+        EnvelopeKdf::Pbkdf2(settings) => derive_pbkdf2_key(settings, password),
     }
 }
 
@@ -513,6 +575,17 @@ fn derive_argon2_key(
     .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
     Ok(hash)
+}
+
+fn derive_pbkdf2_key(
+    pbkdf2_settings: &Pbkdf2RawSettings,
+    password: &str,
+) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
+    Ok(crate::util::pbkdf2(
+        password.as_bytes(),
+        &pbkdf2_settings.salt,
+        pbkdf2_settings.iterations,
+    ))
 }
 
 /// Errors that can occur when sealing or unsealing a key with the `PasswordProtectedKeyEnvelope`.
@@ -990,5 +1063,135 @@ mod tests {
         .unwrap();
         let contained_key_id = envelope.contained_key_id().unwrap();
         assert_eq!(None, contained_key_id);
+    }
+
+    /// Builds a key store configured with the given cipher suite.
+    fn key_store_with_suite(suite: CipherSuite) -> KeyStore<TestIds> {
+        let key_store = KeyStore::<TestIds>::default();
+        key_store.set_cipher_suite(suite);
+        key_store
+    }
+
+    #[test]
+    fn test_standard_suite_uses_argon2_and_aes_gcm() {
+        let key_store = key_store_with_suite(CipherSuite::Standard);
+        let mut ctx = key_store.context_mut();
+        let test_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let key_id = ctx.add_local_symmetric_key(test_key);
+
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            key_id,
+            "test_password",
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        // Recipient declares Argon2id.
+        assert_eq!(
+            envelope.cose_encrypt.recipients[0].protected.header.alg,
+            Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13))
+        );
+    }
+
+    #[test]
+    fn test_fips_suite_uses_pbkdf2_and_aes_gcm() {
+        let key_store = key_store_with_suite(CipherSuite::Fips);
+        let mut ctx = key_store.context_mut();
+        let test_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let key_id = ctx.add_local_symmetric_key(test_key);
+
+        let password = "test_password";
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            key_id,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        // Recipient declares PBKDF2.
+        assert_eq!(
+            envelope.cose_encrypt.recipients[0].protected.header.alg,
+            Some(coset::Algorithm::PrivateUse(ALG_PBKDF2_SHA256))
+        );
+
+        // Round-trips.
+        let serialized: Vec<u8> = (&envelope).into();
+        let deserialized = PasswordProtectedKeyEnvelope::try_from(&serialized).unwrap();
+        let unsealed = deserialized
+            .unseal(
+                password,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
+            .unwrap();
+        let unsealed_key = ctx.get_symmetric_key(unsealed).unwrap();
+        let original = ctx.get_symmetric_key(key_id).unwrap();
+        assert_eq!(unsealed_key, original);
+    }
+
+    #[test]
+    fn test_fips_wrong_password() {
+        let key_store = key_store_with_suite(CipherSuite::Fips);
+        let mut ctx = key_store.context_mut();
+        let key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            key_id,
+            "test_password",
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            envelope.unseal(
+                "wrong_password",
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            ),
+            Err(PasswordProtectedKeyEnvelopeError::WrongPassword)
+        ));
+    }
+
+    #[test]
+    fn test_reseal_preserves_fips_suite() {
+        let key_store = key_store_with_suite(CipherSuite::Fips);
+        let mut ctx = key_store.context_mut();
+        let key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            key_id,
+            "test_password",
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        let resealed = envelope
+            .reseal(
+                "test_password",
+                "new_password",
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            )
+            .unwrap();
+
+        // The resealed envelope keeps the FIPS KDF.
+        assert_eq!(
+            resealed.cose_encrypt.recipients[0].protected.header.alg,
+            Some(coset::Algorithm::PrivateUse(ALG_PBKDF2_SHA256))
+        );
+
+        let unsealed = resealed
+            .unseal_ref(
+                "new_password",
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            )
+            .unwrap();
+        assert!(matches!(
+            unsealed,
+            SymmetricCryptoKey::XChaCha20Poly1305Key(_)
+        ));
     }
 }
