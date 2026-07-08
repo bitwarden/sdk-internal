@@ -9,8 +9,8 @@ mod symmetric_crypto_key;
 #[cfg(test)]
 pub use symmetric_crypto_key::derive_symmetric_key;
 pub use symmetric_crypto_key::{
-    Aes256CbcHmacKey, Aes256CbcKey, EncodedSymmetricKey, SymmetricCryptoKey, SymmetricKeyAlgorithm,
-    XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, Aes256CbcKey, Aes256GcmKey, EncodedSymmetricKey, SymmetricCryptoKey,
+    SymmetricKeyAlgorithm, XChaCha20Poly1305Key,
 };
 mod public_key_encryption;
 pub use public_key_encryption::{PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm};
