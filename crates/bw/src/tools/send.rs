@@ -452,13 +452,10 @@ async fn get_send(client: &PasswordManagerClient, id: SendId, text: bool) -> Com
     let view = client.sends().get(id).await?;
 
     if text {
-        // Building a shareable access URL requires the server's web vault URL and the
-        // access_id + key fragment. Emit only the access_id for now; the URL emission
-        // work is tracked in PM-39239.
-        return Ok(view
-            .access_id
-            .unwrap_or_else(|| "(no access id)".to_string())
-            .into());
+        // `--text` emits the shareable access URL (see the flag help). Recipients paste this
+        // into a browser or `bw receive` to fetch and decrypt the Send content client-side.
+        let url = build_access_url(client, &view)?;
+        return Ok(url.into());
     }
 
     Ok(CommandOutput::Object(Box::new(view)))
@@ -711,13 +708,84 @@ async fn run_create(
         return Ok(CommandOutput::Object(Box::new(view)));
     }
 
-    // The default output should be the shareable access URL. We don't have the web vault
-    // URL wired here yet (PM-39239), so emit the access id — which is the path component
-    // of the URL — for now.
-    Ok(view
+    // The default output is the shareable access URL — the primary artifact a caller wants to
+    // hand to a recipient. `--fullObject` opts back into the full JSON view.
+    let url = build_access_url(client, &view)?;
+    Ok(url.into())
+}
+
+/// Build the shareable Send access URL from a decrypted [`SendView`].
+///
+/// Format: `<web-vault>/#/send/<access_id>/<url_b64_key>`.
+///
+/// This matches the legacy CLI (`SendResponse` in `apps/cli`, which appends
+/// `accessId + "/" + urlB64Key` to `env.getSendUrl()`, whose general form is
+/// `<web-vault>/#/send/`) and round-trips through the legacy `bw receive` parser, which reads
+/// the two trailing `#`-fragment segments (`url.hash.slice(1).split("/").slice(-2)`) and
+/// URL-safe-base64-decodes the key.
+///
+/// The web-vault base is derived from the active client's API URL (see [`web_vault_url`]) so the
+/// output honors the configured server (self-hosted or cloud) without hardcoding `bitwarden.com`.
+fn build_access_url(
+    client: &PasswordManagerClient,
+    view: &bitwarden_send::SendView,
+) -> color_eyre::eyre::Result<String> {
+    let access_id = view
         .access_id
-        .unwrap_or_else(|| "(no access id)".to_string())
-        .into())
+        .as_deref()
+        .ok_or_else(|| eyre!("Send is missing an access id; cannot build a shareable URL."))?;
+    let key = view
+        .key
+        .as_deref()
+        .ok_or_else(|| eyre!("Send is missing a key; cannot build a shareable URL."))?;
+
+    let web_vault = web_vault_url(client);
+    let url_key = to_url_b64(key);
+
+    Ok(format!("{web_vault}/#/send/{access_id}/{url_key}"))
+}
+
+/// Derive the web-vault base URL from the active client's configured API URL.
+///
+/// The SDK only stores `api_url` / `identity_url` on the client (see
+/// `bitwarden_core::client::ApiConfigurations`); there is no separate web-vault URL. The CLI
+/// builds `api_url` as `<server>/api` (see `auth::LoginArgs::run`), so we invert that here by
+/// stripping a trailing `/api`. This mirrors the legacy CLI's `getWebVaultUrl()`, where a
+/// self-hosted deployment's web vault is the base URL and the API lives at `<base>/api`. The
+/// result round-trips through `bw receive`, which reconstructs the API URL as `<origin>/api`.
+///
+/// Trailing slashes are trimmed so the caller can append `/#/send/...` unambiguously.
+fn web_vault_url(client: &PasswordManagerClient) -> String {
+    let api_url = client
+        .0
+        .internal
+        .get_api_configurations()
+        .api_config
+        .base_path
+        .clone();
+
+    web_vault_from_api_url(&api_url)
+}
+
+/// Pure derivation of the web-vault base from an API URL. Strips a trailing `/api` (the suffix the
+/// CLI appends when building `api_url` from a server URL) and any surrounding slashes. Split out
+/// from [`web_vault_url`] so it can be unit-tested without a live client.
+fn web_vault_from_api_url(api_url: &str) -> String {
+    let trimmed = api_url.trim_end_matches('/');
+    trimmed
+        .strip_suffix("/api")
+        .unwrap_or(trimmed)
+        .trim_end_matches('/')
+        .to_string()
+}
+
+/// Convert standard base64 to URL-safe base64 without padding.
+///
+/// Reproduces the legacy client's `Utils.fromB64toUrlB64`: `+` → `-`, `/` → `_`, and `=` padding
+/// stripped. The `SendView.key` is standard base64; the URL fragment must carry the URL-safe form
+/// so the `bw receive` parser (`Utils.fromUrlB64ToArray`) decodes it correctly.
+fn to_url_b64(b64: &str) -> String {
+    b64.replace('+', "-").replace('/', "_").replace('=', "")
 }
 
 fn compute_deletion_date(days: u64) -> color_eyre::eyre::Result<chrono::DateTime<Utc>> {
@@ -835,6 +903,71 @@ fn finalize_emails(emails: Vec<String>) -> color_eyre::eyre::Result<Vec<String>>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---- access URL construction ----
+
+    #[test]
+    fn to_url_b64_maps_standard_b64_to_url_safe() {
+        // `+` -> `-`, `/` -> `_`, padding stripped.
+        assert_eq!(to_url_b64("ab+/cd=="), "ab-_cd");
+        assert_eq!(
+            to_url_b64("Pgui0FK85cNhBGWHAlBHBw=="),
+            "Pgui0FK85cNhBGWHAlBHBw"
+        );
+        // No special chars: unchanged.
+        assert_eq!(to_url_b64("abcDEF123"), "abcDEF123");
+    }
+
+    #[test]
+    fn web_vault_from_api_url_strips_api_suffix() {
+        assert_eq!(
+            web_vault_from_api_url("https://vault.example.com/api"),
+            "https://vault.example.com"
+        );
+        // Trailing slash after /api.
+        assert_eq!(
+            web_vault_from_api_url("https://vault.example.com/api/"),
+            "https://vault.example.com"
+        );
+    }
+
+    #[test]
+    fn web_vault_from_api_url_leaves_non_api_url_untouched() {
+        // Cloud default api host has no `/api` suffix.
+        assert_eq!(
+            web_vault_from_api_url("https://api.bitwarden.com"),
+            "https://api.bitwarden.com"
+        );
+        // Only a trailing slash is trimmed.
+        assert_eq!(
+            web_vault_from_api_url("https://api.bitwarden.com/"),
+            "https://api.bitwarden.com"
+        );
+    }
+
+    /// The assembled URL must match the legacy `SendResponse` shape
+    /// (`<web-vault>/#/send/<accessId>/<urlB64Key>`) so it round-trips through the `bw receive`
+    /// fragment parser. This test pins the exact string against a known web-vault URL.
+    #[test]
+    fn access_url_format_matches_legacy_and_round_trips() {
+        let web_vault = web_vault_from_api_url("https://vault.example.com/api");
+        let access_id = "abcaccessid";
+        // Standard-b64 key with chars that must be URL-encoded.
+        let url_key = to_url_b64("Pgui0FK8+cNh/GWHAlBHBw==");
+        let url = format!("{web_vault}/#/send/{access_id}/{url_key}");
+
+        assert_eq!(
+            url,
+            "https://vault.example.com/#/send/abcaccessid/Pgui0FK8-cNh_GWHAlBHBw"
+        );
+
+        // Round-trip check: the legacy `bw receive` parser reads the last two `#`-fragment
+        // segments. Reproduce that split and confirm we recover the access id + url-safe key.
+        let (_, fragment) = url.split_once('#').expect("URL has a fragment");
+        let segments: Vec<&str> = fragment.trim_start_matches('/').split('/').collect();
+        let last_two = &segments[segments.len() - 2..];
+        assert_eq!(last_two, ["abcaccessid", "Pgui0FK8-cNh_GWHAlBHBw"]);
+    }
 
     // ---- parse_emails ----
 

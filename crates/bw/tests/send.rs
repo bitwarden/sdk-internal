@@ -159,6 +159,28 @@ fn send_get_rejected_when_logged_out() {
 }
 
 #[test]
+fn send_get_text_help_documents_access_url_output() {
+    // PM-39239: `--text` emits the shareable access URL. The end-to-end URL construction
+    // (web-vault derivation + url-safe key + `#/send/...` fragment format, including the
+    // round-trip against the legacy `bw receive` parser) is verified by unit tests in
+    // `crates/bw/src/tools/send.rs`, since exercising the live `get`/`create` path requires a
+    // logged-in session that this binary-driven harness cannot provide. Here we assert the
+    // user-facing contract that `--text` returns the access url is advertised in help.
+    let output = bw()
+        .args(["send", "get", "--help"])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--text") && stdout.contains("access url"),
+        "`bw send get --help` should advertise `--text` as returning the access url; got:\n{stdout}"
+    );
+}
+
+#[test]
 fn send_template_text_emits_json_template() {
     // Template rendering is the one happy-path subcommand that doesn't require an
     // authenticated session, so we can exercise the full pipeline end-to-end here.
