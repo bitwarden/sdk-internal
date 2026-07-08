@@ -17,6 +17,23 @@ include:
 Internally, the module uses a KDF to protect against brute-forcing, but it does not expose this to
 the consumer. The consumer only provides a password and key.
 
+## Secret-protected key envelope
+
+Use the secret-protected key envelope to protect a symmetric key with a **high-entropy** secret of
+arbitrary length. Examples include:
+
+- protecting a send's key with a random URL-fragment secret
+- protecting a key with PRF output
+- protecting a key with a key-connector-stored-secret
+- protecting a key with a biometric-derived-secret
+
+Because the secret is assumed to be high-entropy and not brute-forceable, this envelope uses a cheap
+KDF (HKDF) rather than the slow, memory-hard KDF used by the password-protected key envelope. The
+consumer only provides a secret and a key; the salt is stored in the envelope.
+
+Use the [password-protected key envelope](#password-protected-key-envelope) instead when the secret
+is low-entropy (a PIN or password).
+
 ## Data envelope
 
 Use the data envelope to protect a struct (document) of data. Examples include:

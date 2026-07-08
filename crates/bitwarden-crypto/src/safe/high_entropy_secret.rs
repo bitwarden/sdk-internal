@@ -1,6 +1,6 @@
 //! A high-entropy secret is a wrapper around secret bytes that are guaranteed to be high-entropy,
 //! and therefore safe to use as input keying material for a cheap KDF (such as the one used by the
-//! `SecretProtectedKeyEnvelope`).
+//! [crate::safe::SecretProtectedKeyEnvelope]).
 //!
 //! Examples of high-entropy secrets are a random URL-fragment secret, a derived key, or random
 //! bytes. They are unlike low-entropy secrets such as PINs or passwords, which can be brute-forced
