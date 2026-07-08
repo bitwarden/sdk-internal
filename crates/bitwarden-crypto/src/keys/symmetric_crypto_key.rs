@@ -166,11 +166,6 @@ impl XChaCha20Poly1305Key {
             ],
         }
     }
-
-    pub(crate) fn disable_key_operation(&mut self, op: KeyOperation) -> &mut Self {
-        self.supported_operations.retain(|k| *k != op);
-        self
-    }
 }
 
 impl ConstantTimeEq for XChaCha20Poly1305Key {
@@ -215,6 +210,11 @@ impl Aes256GcmKey {
             ],
         }
     }
+
+    pub(crate) fn disable_key_operation(&mut self, op: KeyOperation) -> &mut Self {
+        self.supported_operations.retain(|k| *k != op);
+        self
+    }
 }
 
 impl ConstantTimeEq for Aes256GcmKey {
@@ -235,6 +235,7 @@ pub(crate) enum CoseKeyView<'a> {
     Aes256Gcm(&'a Aes256GcmKey),
     XChaCha20Poly1305(&'a XChaCha20Poly1305Key),
 }
+
 impl CoseKeyView<'_> {
     pub(crate) fn key_id(&self) -> &KeyId {
         match self {
