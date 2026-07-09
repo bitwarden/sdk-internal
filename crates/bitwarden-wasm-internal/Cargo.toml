@@ -21,7 +21,11 @@ normal = [
 crate-type = ["cdylib"]
 
 [features]
-bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
+bitwarden-license = [
+    "bitwarden-pm/bitwarden-license",
+    "dep:bitwarden-commercial-vault",
+    "dep:bitwarden-pam",
+]
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
@@ -45,6 +49,7 @@ bitwarden-logging = { workspace = true, features = ["wasm"] }
 # See [package.metadata.cargo-udeps.ignore] above for more.
 bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-organization-invite-link = { workspace = true, features = ["wasm"] }
+bitwarden-pam = { workspace = true, optional = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
 bitwarden-random = { workspace = true, features = ["wasm"] }
