@@ -1,0 +1,49 @@
+[package]
+name = "bitwarden-pam"
+description = """
+Internal commercial crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE_SDK.txt"
+keywords.workspace = true
+
+[features]
+wasm = [
+    "bitwarden-collections/wasm",
+    "bitwarden-core/wasm",
+    "bitwarden-error/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+]
+
+[dependencies]
+bitwarden-api-api = { workspace = true }
+bitwarden-collections = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-error = { workspace = true }
+bitwarden-uuid = { workspace = true }
+chrono = { workspace = true }
+ipnet = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tsify = { workspace = true, optional = true }
+uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
+tokio = { workspace = true, features = ["rt"] }
+
+[lints]
+workspace = true

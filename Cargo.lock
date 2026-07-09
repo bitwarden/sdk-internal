@@ -998,6 +998,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-pam"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-collections",
+ "bitwarden-core",
+ "bitwarden-error",
+ "bitwarden-uuid",
+ "chrono",
+ "ipnet",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "3.0.0"
 dependencies = [
@@ -1012,6 +1034,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-importers",
  "bitwarden-organization-invite-link",
+ "bitwarden-pam",
  "bitwarden-policies",
  "bitwarden-send",
  "bitwarden-server-communication-config",
@@ -1461,6 +1484,7 @@ dependencies = [
  "bitwarden-logging",
  "bitwarden-organization-crypto",
  "bitwarden-organization-invite-link",
+ "bitwarden-pam",
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-random",
