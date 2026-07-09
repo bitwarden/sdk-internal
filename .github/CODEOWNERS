@@ -54,6 +54,7 @@ crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
+bitwarden_license/bitwarden-pam/** @bitwarden/team-pam-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
 crates/bitwarden-wasm-internal/integration-tests/tests/invite/** @bitwarden/team-admin-console-dev
