@@ -1175,7 +1175,6 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-random",
- "bitwarden-vault",
  "block-padding",
  "ed25519",
  "ed25519-dalek",
@@ -1418,6 +1417,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-logging",
+ "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-sync",
  "bitwarden-test",

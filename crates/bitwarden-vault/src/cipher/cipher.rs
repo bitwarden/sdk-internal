@@ -3224,8 +3224,8 @@ mod tests {
         assert!(cipher.ssh_key.is_some());
         let ssh_key = cipher.ssh_key.unwrap();
         assert_eq!(ssh_key.private_key.to_string(), TEST_ENC_STRING_1);
-        assert_eq!(ssh_key.public_key.to_string(), TEST_ENC_STRING_2);
-        assert_eq!(ssh_key.fingerprint.to_string(), TEST_ENC_STRING_3);
+        assert_eq!(ssh_key.public_key.unwrap().to_string(), TEST_ENC_STRING_2);
+        assert_eq!(ssh_key.fingerprint.unwrap().to_string(), TEST_ENC_STRING_3);
     }
 
     #[test]

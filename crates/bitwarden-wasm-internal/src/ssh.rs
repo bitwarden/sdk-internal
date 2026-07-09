@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 pub fn generate_ssh_key(
     key_algorithm: bitwarden_ssh::generator::KeyAlgorithm,
 ) -> Result<SshKeyView, bitwarden_ssh::error::KeyGenerationError> {
-    bitwarden_ssh::generator::generate_sshkey(key_algorithm)
+    bitwarden_ssh::generator::generate_sshkey(key_algorithm).map(Into::into)
 }
 
 /// Convert a PCKS8 or OpenSSH encrypted or unencrypted private key
@@ -34,5 +34,5 @@ pub fn import_ssh_key(
     imported_key: &str,
     password: Option<String>,
 ) -> Result<SshKeyView, bitwarden_ssh::error::SshKeyImportError> {
-    bitwarden_ssh::import::import_key(imported_key.to_string(), password)
+    bitwarden_ssh::import::import_key(imported_key.to_string(), password).map(Into::into)
 }
