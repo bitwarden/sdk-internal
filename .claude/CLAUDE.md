@@ -1,14 +1,9 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this
-repository.
-
-## What this repo is
+# Bitwarden Internal SDK
 
 Bitwarden's internal cross-platform SDK: core business logic in Rust (edition 2024), consumed by web
 and desktop clients through WASM bindings and by mobile through UniFFI. Not for public use — the API
 is unstable and changes without warning. Two license zones: `crates/` (OSS) and `bitwarden_license/`
-(commercial: `bitwarden-sm`, `bitwarden-commercial-vault`, `bitwarden-rotation-daemon`).
+(commercial: `bitwarden-sm`, `bitwarden-commercial-vault`).
 
 Path-scoped rules live in `.claude/rules/` and load automatically when you touch matching files
 (crypto crates, generated API crates, binding crates, repo-wide Rust conventions). Several crates
@@ -70,12 +65,6 @@ Four layers; dependencies point strictly downward:
    lock/unlock → logout (drop). The current sub-client list is in `crates/bitwarden-pm/src/lib.rs`.
 4. **Bindings** — `bitwarden-uniffi` (Swift/Kotlin) and `bitwarden-wasm-internal`
    (TypeScript/JavaScript). Thin bindings only — no business logic.
-
-## API breaking changes
-
-A cross-repo workflow flags breaking API changes on every PR, and TypeScript compilation is tested
-against the `clients` repo. If you merge a breaking change, prepare the corresponding `clients` PR
-immediately — unresolved breaks block other SDK integrations.
 
 ## References
 
