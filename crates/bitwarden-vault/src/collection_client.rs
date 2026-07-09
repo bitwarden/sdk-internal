@@ -225,6 +225,61 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_decrypt_list_with_failures_all_success() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client
+            .vault()
+            .collections()
+            .decrypt_list_with_failures(vec![test_collection()]);
+
+        assert_eq!(result.successes.len(), 1);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].name, "Default collection");
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_mixed_results() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let valid_collection = test_collection();
+        let mut invalid_collection = test_collection();
+        // No organization key exists in the test account's key store for this id, so
+        // decryption of this single item must fail without affecting the others.
+        invalid_collection.organization_id =
+            "00000000-0000-0000-0000-000000000000".parse().unwrap();
+
+        let collections = vec![valid_collection, invalid_collection.clone()];
+
+        let result = client
+            .vault()
+            .collections()
+            .decrypt_list_with_failures(collections);
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].name, "Default collection");
+
+        assert_eq!(result.failures.len(), 1);
+        // The failed item must be returned unchanged (still ciphertext) — decryption
+        // failures must never leak partially-decrypted or plaintext data.
+        assert_eq!(result.failures[0].id, invalid_collection.id);
+        assert_eq!(result.failures[0].name, invalid_collection.name);
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_empty_list() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client
+            .vault()
+            .collections()
+            .decrypt_list_with_failures(vec![]);
+
+        assert!(result.successes.is_empty());
+        assert!(result.failures.is_empty());
+    }
+
+    #[tokio::test]
     async fn test_encrypt_decrypt_roundtrip() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
