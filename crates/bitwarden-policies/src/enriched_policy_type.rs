@@ -15,14 +15,11 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{
-    MasterPasswordPolicyResponse,
-    policy_data::{
-        AutomaticAppLoginPolicyData, MaximumSessionTimeoutPolicyData,
-        OrganizationDataOwnershipPolicyData, OrganizationUserNotificationPolicyData,
-        PasswordGeneratorPolicyData, ResetPasswordPolicyData, SendControlsPolicyData,
-        SendOptionsPolicyData, UriMatchDefaultPolicyData,
-    },
+use crate::policy_definitions::{
+    AutomaticAppLoginPolicy, MasterPasswordPolicy, MaximumSessionTimeoutPolicy,
+    OrganizationDataOwnershipPolicy, OrganizationUserNotificationPolicy,
+    PasswordGeneratorPolicy, ResetPasswordPolicy, SendControlsPolicy, SendOptionsPolicy,
+    UriMatchDefaultPolicy,
 };
 
 /// A [`PolicyType`](crate::PolicyType) paired with its strongly-typed
@@ -39,29 +36,29 @@ pub enum EnrichedPolicyType {
     /// Requires members to have two-step login enabled on their account.
     TwoFactorAuthentication,
     /// Sets minimum requirements for members' master passwords.
-    MasterPassword(MasterPasswordPolicyResponse),
+    MasterPassword(MasterPasswordPolicy),
     /// Sets minimum requirements for the password generator.
-    PasswordGenerator(PasswordGeneratorPolicyData),
+    PasswordGenerator(PasswordGeneratorPolicy),
     /// Restricts members to being part of a single organization.
     SingleOrg,
     /// Requires members to authenticate with single sign-on.
     RequireSso,
     /// Forces newly added or cloned items to be owned by the organization.
-    OrganizationDataOwnership(OrganizationDataOwnershipPolicyData),
+    OrganizationDataOwnership(OrganizationDataOwnershipPolicy),
     /// Disables the ability to create and edit Bitwarden Sends.
     DisableSend,
     /// Sets restrictions or defaults for Bitwarden Sends.
-    SendOptions(SendOptionsPolicyData),
+    SendOptions(SendOptionsPolicy),
     /// Allows administrators to recover member accounts.
-    ResetPassword(ResetPasswordPolicyData),
+    ResetPassword(ResetPasswordPolicy),
     /// Sets the maximum allowed vault timeout for members.
-    MaximumVaultTimeout(MaximumSessionTimeoutPolicyData),
+    MaximumVaultTimeout(MaximumSessionTimeoutPolicy),
     /// Disables members' ability to export their personal vault.
     DisablePersonalVaultExport,
     /// Activates autofill on page load in the browser extension.
     ActivateAutofill,
     /// Automatically logs members into apps using single sign-on.
-    AutomaticAppLogIn(AutomaticAppLoginPolicyData),
+    AutomaticAppLogIn(AutomaticAppLoginPolicy),
     /// Removes members' access to the free Bitwarden Families sponsorship benefit.
     FreeFamiliesSponsorship,
     /// Prevents members from unlocking the app with a PIN.
@@ -69,7 +66,7 @@ pub enum EnrichedPolicyType {
     /// Restricts the item types that members can create.
     RestrictedItemTypes,
     /// Sets the default URI match detection strategy for autofill.
-    UriMatchDefaults(UriMatchDefaultPolicyData),
+    UriMatchDefaults(UriMatchDefaultPolicy),
     /// Sets the default behavior for the autotype feature.
     AutotypeDefaultSetting,
     /// Automatically confirms invited users into the organization.
@@ -77,8 +74,8 @@ pub enum EnrichedPolicyType {
     /// Blocks account creation for users with email addresses on claimed domains.
     BlockClaimedDomainAccountCreation,
     /// Displays an organization-configured banner message to members.
-    OrganizationUserNotification(OrganizationUserNotificationPolicyData),
+    OrganizationUserNotification(OrganizationUserNotificationPolicy),
     /// Configures Send-related behavior (disabling Sends, email visibility,
     /// access controls, Send types, and deletion).
-    SendControls(SendControlsPolicyData),
+    SendControls(SendControlsPolicy),
 }

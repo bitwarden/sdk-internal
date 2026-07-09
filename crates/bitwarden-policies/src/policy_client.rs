@@ -5,20 +5,20 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    OrganizationUserPolicyContext, PolicyType, PolicyView, policy_overrides::*,
+    OrganizationUserPolicyContext, PolicyType, PolicyView,
+    policy_definitions::{
+        AutomaticUserConfirmationPolicy, FreeFamiliesSponsorshipPolicy,
+        RemoveUnlockWithPinPolicy, RestrictedItemTypesPolicy,
+    },
     registry::PolicyRegistry,
 };
 
 fn build_policy_registry() -> PolicyRegistry {
     PolicyRegistry::builder()
-        .register(MasterPasswordPolicy)
-        .register(PasswordGeneratorPolicy)
-        .register(MaximumVaultTimeoutPolicy)
         .register(FreeFamiliesSponsorshipPolicy)
         .register(RemoveUnlockWithPinPolicy)
         .register(RestrictedItemTypesPolicy)
         .register(AutomaticUserConfirmationPolicy)
-        .register(OrganizationUserNotificationPolicy)
         .build()
 }
 
