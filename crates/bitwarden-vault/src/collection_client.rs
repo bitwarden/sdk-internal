@@ -14,6 +14,24 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{DecryptError, EncryptError};
 
+/// Represents the result of decrypting a list of collections.
+///
+/// This struct contains two vectors: `successes` and `failures`.
+/// `successes` contains the decrypted `CollectionView` objects,
+/// while `failures` contains the original `Collection` objects that failed to decrypt.
+#[cfg_attr(
+    feature = "wasm",
+    derive(Tsify, Serialize, Deserialize),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct DecryptCollectionListResult {
+    /// The decrypted `CollectionView` objects.
+    pub successes: Vec<CollectionView>,
+    /// The original `Collection` objects that failed to decrypt.
+    pub failures: Vec<Collection>,
+}
+
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Clone)]
@@ -56,6 +74,22 @@ impl CollectionsClient {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&collections)?;
         Ok(views)
+    }
+
+    /// Decrypts a list of collections, returning successes and failures separately.
+    ///
+    /// Unlike [decrypt_list], a single collection that fails to decrypt (e.g. due to a missing
+    /// organization key) does not abort the entire batch — it is returned in `failures` instead.
+    pub fn decrypt_list_with_failures(
+        &self,
+        collections: Vec<Collection>,
+    ) -> DecryptCollectionListResult {
+        let key_store = self.client.internal.get_key_store();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&collections);
+        DecryptCollectionListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
     }
 
     ///
