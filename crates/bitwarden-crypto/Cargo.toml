@@ -41,6 +41,7 @@ bitwarden-api-key-connector = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-logging = { workspace = true }
+bitwarden-random = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 cbc = { version = "0.2.0", features = ["alloc", "zeroize"] }

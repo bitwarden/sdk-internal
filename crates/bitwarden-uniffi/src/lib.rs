@@ -117,6 +117,11 @@ impl Client {
         SshClient()
     }
 
+    /// Random-number generation operations
+    pub fn random(&self) -> bitwarden_random::SdkRandomNumberClient {
+        bitwarden_random::SdkRandomNumberClient::new()
+    }
+
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
         AuthClient(self.0.0.clone())

@@ -4,7 +4,7 @@ use ciborium::Value;
 
 use crate::cose::{
     ContentNamespace, SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace,
-    extract_integer,
+    extract_integer, symmetric::CoseContentEncryptionAlgorithm,
 };
 
 #[derive(Debug)]
@@ -44,6 +44,16 @@ pub(super) fn debug_fmt<C: ContentNamespace>(
     }
     if let Ok(content_namespace) = extract_safe_content_namespace::<C>(header) {
         debug_struct.field("content_namespace", &content_namespace);
+    }
+    if let Some(algorithm) = header.alg.as_ref()
+        && let Ok(content_encryption_algorithm) =
+            CoseContentEncryptionAlgorithm::try_from(algorithm)
+    {
+        let label = match content_encryption_algorithm {
+            CoseContentEncryptionAlgorithm::Aes256Gcm => "AES-256-GCM",
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => "XChaCha20-Poly1305",
+        };
+        debug_struct.field("content_encryption_algorithm", &label);
     }
 }
 

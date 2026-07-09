@@ -30,7 +30,7 @@ pub enum KeyAlgorithm {
 pub fn generate_sshkey(
     key_algorithm: KeyAlgorithm,
 ) -> Result<SshKeyView, error::KeyGenerationError> {
-    let mut rng = rand::rng();
+    let mut rng = bitwarden_random::rng();
     generate_sshkey_internal(key_algorithm, &mut rng)
 }
 

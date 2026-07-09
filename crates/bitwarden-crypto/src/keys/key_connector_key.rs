@@ -18,7 +18,7 @@ pub struct KeyConnectorKey(pub(super) Pin<Box<Array<u8, U32>>>);
 impl KeyConnectorKey {
     /// Make a new random key for KeyConnector.
     pub fn make() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         let mut key = Box::pin(Array::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
