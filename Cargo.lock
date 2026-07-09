@@ -1470,7 +1470,6 @@ dependencies = [
  "bitwarden-logging",
  "bitwarden-organization-crypto",
  "bitwarden-organization-invite-link",
- "bitwarden-pam",
  "bitwarden-pm",
  "bitwarden-policies",
  "bitwarden-random",

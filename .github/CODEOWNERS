@@ -35,6 +35,7 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 .github/workflows/review-code.yml @bitwarden/team-ai-sme
 
 # Team-owned crates
+bitwarden_license/bitwarden-pam/** @bitwarden/team-pam-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
@@ -54,7 +55,6 @@ crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
-bitwarden_license/bitwarden-pam/** @bitwarden/team-pam-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
 crates/bitwarden-wasm-internal/integration-tests/tests/invite/** @bitwarden/team-admin-console-dev
