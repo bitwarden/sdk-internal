@@ -34,6 +34,7 @@ bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-va
 bitwarden-core = { path = "crates/bitwarden-core", version = "=3.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=3.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=3.0.0" }
+bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=3.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=3.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=3.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=3.0.0" }
@@ -51,6 +52,7 @@ bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-inv
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
+bitwarden-random = { path = "crates/bitwarden-random", version = "=3.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=3.0.0" }
 bitwarden-sensitive-value = { path = "crates/bitwarden-sensitive-value", version = "=3.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=3.0.0" }
@@ -172,8 +174,8 @@ cargo-hack = { version = "0.6.33", locked = true }
 cargo-llvm-cov = { version = "0.5.38", locked = true }
 cargo-release = { version = "0.25.20", locked = true }
 cargo-edit = { version = "0.13.6", locked = true, bins = ["cargo-set-version"] }
-cargo-dylint = { version = "5.0.0", locked = true }
-dylint-link = { version = "5.0.0", locked = true }
+cargo-dylint = { version = "6.0.0", locked = true }
+dylint-link = { version = "6.0.0", locked = true }
 cross = { version = "0.2.5", git = "https://github.com/cross-rs/cross.git", rev = "185398b1b885820515a212de720a306b08e2c8c9", locked = true }
 clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
@@ -204,3 +206,9 @@ opt-level = 3
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
+
+# crypto-bigint 0.7.0-0.7.4 were yanked and 0.7.5 has not yet propagated to the sparse index,
+# so `rsa`/`ssh-key` (which require `^0.7`) cannot be resolved from crates.io. Pin to the 0.7.5
+# tag until the registry index catches up, then remove this patch.
+[patch.crates-io]
+crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint", tag = "v0.7.5" }

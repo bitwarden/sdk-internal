@@ -1,11 +1,14 @@
 use std::{num::NonZeroU32, str::FromStr};
 
+use bitwarden_sensitive_value::ExposeSensitive;
 use bitwarden_uniffi_error::convert_result;
 
 use crate::{
     CryptoError, EncString, EncodingError, PublicKey, SignedPublicKey, SymmetricCryptoKey,
     UnsignedSharedKey,
-    safe::{DataEnvelope, PasswordProtectedKeyEnvelope},
+    safe::{
+        DataEnvelope, HighEntropySecret, PasswordProtectedKeyEnvelope, SecretProtectedKeyEnvelope,
+    },
 };
 
 uniffi::custom_type!(NonZeroU32, u32, {
@@ -62,4 +65,18 @@ uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
     remote,
     try_lift: |val| convert_result(PasswordProtectedKeyEnvelope::from_str(&val)),
     lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(SecretProtectedKeyEnvelope, String, {
+    remote,
+    try_lift: |val| convert_result(SecretProtectedKeyEnvelope::from_str(&val)),
+    lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(HighEntropySecret, Vec<u8>, {
+    try_lift: |val| Ok(HighEntropySecret::from_internal(&val)),
+    // EXPOSE: the UniFFI lowering needs the raw bytes to cross the FFI boundary; this round-trips
+    // the same secret the caller provided. The Uniffi implementation is responsible for making
+    // sure the secret is not logged.
+    lower: |obj| obj.as_bytes().expose_owned().to_vec(),
 });

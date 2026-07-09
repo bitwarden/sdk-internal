@@ -328,7 +328,7 @@ impl PasswordGeneratorRequest {
 /// length out of range, etc.).
 pub fn password(input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
     let options = input.validate_options()?;
-    Ok(password_with_rng(rand::rng(), options))
+    Ok(password_with_rng(bitwarden_random::rng(), options))
 }
 
 /// Test-only helper that validates a request and runs the generator with a caller-supplied RNG.
