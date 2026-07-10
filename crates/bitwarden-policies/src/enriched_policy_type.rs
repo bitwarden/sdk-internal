@@ -25,8 +25,9 @@ use crate::{
 /// Helper function to parse policy data.
 fn parse_data<T: serde::de::DeserializeOwned + Default>(data: Option<&str>) -> T {
     match data {
-        Some(d) => serde_json::from_str(d).unwrap_or_default(), // TODO: log deserialization failures
-        None => T::default()
+        Some(d) => serde_json::from_str(d).unwrap_or_default(), /* TODO: log deserialization */
+        // failures
+        None => T::default(),
     }
 }
 
