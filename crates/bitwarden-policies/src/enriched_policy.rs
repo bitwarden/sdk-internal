@@ -42,7 +42,7 @@ impl EnrichedPolicy {
             organization_id: view.organization_id,
             enabled: view.enabled,
             revision_date: view.revision_date,
-            r#type: EnrichedPolicyType::from_policy_type(view.r#type, view.data.clone()),
+            r#type: EnrichedPolicyType::from_policy_type(view.r#type, view.data.as_deref()),
         }
     }
 
