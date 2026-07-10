@@ -2,9 +2,10 @@ use bitwarden_vault::SshKeyView;
 use ed25519;
 use pem_rfc7468::PemLabel;
 use pkcs8::{DecodePrivateKey, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5};
-use ssh_key::private::{Ed25519Keypair, RsaKeypair};
-#[cfg(feature = "ecdsa-keys")]
-use ssh_key::sec1;
+use ssh_key::{
+    private::{Ed25519Keypair, RsaKeypair},
+    sec1,
+};
 
 use crate::{error::SshKeyImportError, ssh_private_key_to_view};
 
@@ -136,7 +137,6 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImpo
                 RsaKeypair::try_from(private_key).map_err(|_| SshKeyImportError::Parsing)?,
             )
         }
-        #[cfg(feature = "ecdsa-keys")]
         sec1::ALGORITHM_OID => import_ecdsa_pkcs8_der(encoded_key)?,
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
@@ -165,21 +165,9 @@ fn import_openssh_key(
         private_key
     };
 
-    reject_ecdsa_import(&private_key)?;
-
     ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::Parsing)
 }
 
-fn reject_ecdsa_import(key: &ssh_key::PrivateKey) -> Result<(), SshKeyImportError> {
-    #[cfg(not(feature = "ecdsa-keys"))]
-    if matches!(key.key_data(), ssh_key::private::KeypairData::Ecdsa(_)) {
-        return Err(SshKeyImportError::UnsupportedKeyType);
-    }
-    let _ = key;
-    Ok(())
-}
-
-#[cfg(feature = "ecdsa-keys")]
 fn import_ecdsa_pkcs8_der(encoded_key: &[u8]) -> Result<ssh_key::PrivateKey, SshKeyImportError> {
     use pkcs8::DecodePrivateKey as _;
 
@@ -316,15 +304,6 @@ mod tests {
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }
 
-    #[cfg(not(feature = "ecdsa-keys"))]
-    #[test]
-    fn import_ecdsa_blocked() {
-        let private_key = include_str!("../resources/import/ecdsa_openssh_unencrypted");
-        let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
-    }
-
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn import_ecdsa_p256_openssh_unencrypted() {
         let private_key = include_str!("../resources/import/ecdsa_openssh_unencrypted");
@@ -333,7 +312,6 @@ mod tests {
         assert_eq!(result.public_key, public_key);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn import_ecdsa_p384_openssh_unencrypted() {
         let private_key = include_str!("../resources/import/ecdsa_p384_openssh_unencrypted");
@@ -343,7 +321,6 @@ mod tests {
         assert_eq!(result.public_key, public_key);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn import_ecdsa_p521_openssh_unencrypted() {
         let private_key = include_str!("../resources/import/ecdsa_p521_openssh_unencrypted");

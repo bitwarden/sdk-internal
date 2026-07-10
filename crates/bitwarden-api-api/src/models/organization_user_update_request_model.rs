@@ -40,6 +40,18 @@ pub struct OrganizationUserUpdateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub groups: Option<Vec<uuid::Uuid>>,
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub email: Option<String>,
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub name: Option<String>,
 }
 
 impl OrganizationUserUpdateRequestModel {
@@ -50,6 +62,8 @@ impl OrganizationUserUpdateRequestModel {
             permissions: None,
             collections: None,
             groups: None,
+            email: None,
+            name: None,
         }
     }
 }

@@ -2,6 +2,7 @@
 pub use bitwarden_api_base::*;
 
 pub mod access_policies_api;
+pub mod access_rules_api;
 pub mod account_billing_v_next_api;
 pub mod accounts_api;
 pub mod accounts_billing_api;
@@ -86,6 +87,7 @@ pub enum ApiClient {
 
 struct ApiClientReal {
     access_policies_api: access_policies_api::AccessPoliciesApiClient,
+    access_rules_api: access_rules_api::AccessRulesApiClient,
     account_billing_v_next_api: account_billing_v_next_api::AccountBillingVNextApiClient,
     accounts_api: accounts_api::AccountsApiClient,
     accounts_billing_api: accounts_billing_api::AccountsBillingApiClient,
@@ -165,6 +167,7 @@ struct ApiClientReal {
 #[cfg(feature = "mockall")]
 pub struct ApiClientMock {
     pub access_policies_api: access_policies_api::MockAccessPoliciesApi,
+    pub access_rules_api: access_rules_api::MockAccessRulesApi,
     pub account_billing_v_next_api: account_billing_v_next_api::MockAccountBillingVNextApi,
     pub accounts_api: accounts_api::MockAccountsApi,
     pub accounts_billing_api: accounts_billing_api::MockAccountsBillingApi,
@@ -247,6 +250,7 @@ impl ApiClient {
     pub fn new(configuration: &Arc<bitwarden_api_base::Configuration>) -> Self {
         Self::Real(ApiClientReal {
             access_policies_api: access_policies_api::AccessPoliciesApiClient::new(configuration.clone()),
+            access_rules_api: access_rules_api::AccessRulesApiClient::new(configuration.clone()),
             account_billing_v_next_api: account_billing_v_next_api::AccountBillingVNextApiClient::new(configuration.clone()),
             accounts_api: accounts_api::AccountsApiClient::new(configuration.clone()),
             accounts_billing_api: accounts_billing_api::AccountsBillingApiClient::new(configuration.clone()),
@@ -321,6 +325,7 @@ impl ApiClient {
     pub fn new_mocked(func: impl FnOnce(&mut ApiClientMock)) -> Self {
         let mut mock = ApiClientMock {
             access_policies_api: access_policies_api::MockAccessPoliciesApi::new(),
+            access_rules_api: access_rules_api::MockAccessRulesApi::new(),
             account_billing_v_next_api: account_billing_v_next_api::MockAccountBillingVNextApi::new(),
             accounts_api: accounts_api::MockAccountsApi::new(),
             accounts_billing_api: accounts_billing_api::MockAccountsBillingApi::new(),
@@ -400,6 +405,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.access_policies_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.access_policies_api,
+        }
+    }
+    pub fn access_rules_api(&self) -> &dyn access_rules_api::AccessRulesApi {
+        match self {
+            ApiClient::Real(real) => &real.access_rules_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.access_rules_api,
         }
     }
     pub fn account_billing_v_next_api(
