@@ -39,7 +39,7 @@ wasm = [
     "bitwarden-generators/wasm",
     "bitwarden-importers/wasm",
     "bitwarden-organization-invite-link/wasm",
-    "bitwarden-pam/wasm",
+    "bitwarden-pam?/wasm",
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
     "bitwarden-state/wasm",
