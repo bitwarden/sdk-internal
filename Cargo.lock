@@ -2152,16 +2152,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9dd111b7b7f7d55b72c0a6ae361660ee5853c9af73f70c3c2ef6858b950e2e51"
 dependencies = [
  "crossbeam-epoch",
- "crossbeam-utils",
+ "crossbeam-utils 0.8.21",
 ]
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
+version = "0.9.20"
+source = "git+https://github.com/crossbeam-rs/crossbeam?tag=crossbeam-epoch-0.9.20#239bae00257967a109911b9ebe7c0554d6333501"
 dependencies = [
- "crossbeam-utils",
+ "crossbeam-utils 0.8.22",
 ]
 
 [[package]]
@@ -2169,6 +2168,11 @@ name = "crossbeam-utils"
 version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
+
+[[package]]
+name = "crossbeam-utils"
+version = "0.8.22"
+source = "git+https://github.com/crossbeam-rs/crossbeam?tag=crossbeam-epoch-0.9.20#239bae00257967a109911b9ebe7c0554d6333501"
 
 [[package]]
 name = "crossterm"
@@ -4921,7 +4925,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
- "crossbeam-utils",
+ "crossbeam-utils 0.8.21",
 ]
 
 [[package]]
@@ -5157,7 +5161,7 @@ dependencies = [
  "base64 0.22.1",
  "blake2b_simd",
  "constant_time_eq",
- "crossbeam-utils",
+ "crossbeam-utils 0.8.21",
 ]
 
 [[package]]
