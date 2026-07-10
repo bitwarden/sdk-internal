@@ -3,8 +3,6 @@
 //! These are the inputs to the policy filtering API and are exposed across the
 //! FFI boundary.
 
-use std::collections::HashMap;
-
 use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -12,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use uuid::Uuid;
 
-use crate::{EnrichedPolicyType, filter::DefaultPolicyDefinition, policy_type::PolicyType};
+use crate::policy_type::PolicyType;
 
-/// An organization policy.
+/// An organization policy - raw format that comes over the wire, with untyped json data.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -32,59 +30,6 @@ pub struct PolicyView {
     pub enabled: bool,
     /// When the policy was last modified.
     pub revision_date: Option<DateTime<Utc>>,
-}
-
-/// An organization policy.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct EnrichedPolicy {
-    /// The policy's unique ID.
-    pub id: Uuid,
-    /// The organization this policy belongs to.
-    pub organization_id: Uuid,
-    /// The type of policy, with its policy definition if applicable.
-    pub r#type: EnrichedPolicyType,
-    /// Whether the policy is enabled.
-    pub enabled: bool,
-    /// When the policy was last modified.
-    pub revision_date: Option<DateTime<Utc>>,
-}
-
-impl EnrichedPolicy {
-    pub fn from_policy_view(view: &PolicyView) -> EnrichedPolicy {
-        EnrichedPolicy {
-            id: view.id,
-            organization_id: view.organization_id,
-            enabled: view.enabled,
-            revision_date: view.revision_date,
-            r#type: EnrichedPolicyType::from_policy_type(view.r#type, view.data.clone()),
-        }
-    }
-
-    pub fn enforced(
-        &self,
-        organization_user_policy_contexts: HashMap<&Uuid, &OrganizationUserPolicyContext>,
-    ) -> bool {
-        let org = organization_user_policy_contexts.get(&self.organization_id);
-        let definition = self
-            .r#type
-            .to_policy_definition()
-            .unwrap_or(Box::new(DefaultPolicyDefinition));
-
-        self.enabled
-            && match org {
-                Some(org) => {
-                    org.enabled
-                        && org.use_policies
-                        && definition.applicable_statuses().contains(&org.status)
-                        && !definition.exempt_roles().contains(&org.role)
-                        && !(org.is_provider_user && definition.exempt_providers())
-                }
-                None => true, // Unknown org: enforce by default
-            }
-    }
 }
 
 /// A minimal set of data for a user in an organization. This provides

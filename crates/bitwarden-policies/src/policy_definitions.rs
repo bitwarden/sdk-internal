@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::filter::PolicyDefinition;
+use crate::policy_definition::PolicyDefinition;
 
 impl FromStr for MasterPasswordPolicy {
     type Err = serde_json::Error;
@@ -27,25 +27,6 @@ impl FromStr for MasterPasswordPolicy {
 // =============================================================================
 // Supporting enums
 // =============================================================================
-
-/// The action to take when the maximum session timeout elapses, used by
-/// [`MaximumSessionTimeoutPolicy`].
-///
-/// Serialized as a camelCase string to match the server's wire format.
-// TODO: The variant set (`Lock`/`LogOut`) and their camelCase serialization are
-// assumed to mirror the client `VaultTimeoutAction`. Verify against the server's
-// wire format before relying on it.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Copy, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub enum SessionTimeoutAction {
-    /// Lock the vault, requiring the user to unlock again.
-    #[default]
-    Lock,
-    /// Log the user out entirely.
-    LogOut,
-}
 
 // =============================================================================
 // Policy type 0: TwoFactorAuthentication (no data)
@@ -243,6 +224,25 @@ pub struct ResetPasswordPolicy {
 // =============================================================================
 // Policy type 9: MaximumVaultTimeout
 // =============================================================================
+
+/// The action to take when the maximum session timeout elapses, used by
+/// [`MaximumSessionTimeoutPolicy`].
+///
+/// Serialized as a camelCase string to match the server's wire format.
+// TODO: The variant set (`Lock`/`LogOut`) and their camelCase serialization are
+// assumed to mirror the client `VaultTimeoutAction`. Verify against the server's
+// wire format before relying on it.
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Copy, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum SessionTimeoutAction {
+    /// Lock the vault, requiring the user to unlock again.
+    #[default]
+    Lock,
+    /// Log the user out entirely.
+    LogOut,
+}
 
 /// `policy.data` for the maximum session timeout policy.
 ///

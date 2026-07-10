@@ -7,7 +7,7 @@ use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{OrganizationUserPolicyContext, PolicyType, PolicyView, models::EnrichedPolicy};
+use crate::{EnrichedPolicy, OrganizationUserPolicyContext, PolicyType, PolicyView};
 
 /// Client for policy domain operations.
 ///
@@ -17,9 +17,14 @@ pub struct PolicyClient {}
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl PolicyClient {
+    /// Create a new PolicyClient instance.
+    pub fn new() -> Self {
+        Self {}
+    }
+
     /// Filter policies of the given type for the current user.
     /// POC code path that uses an enum to wrap strongly typed data and the policy definition.
-    pub fn filter_new(
+    pub fn filter(
         &self,
         policies: Vec<PolicyView>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
@@ -92,7 +97,7 @@ mod tests {
         let orgs = vec![organization(org_id)];
 
         let client = PolicyClient::new();
-        let result = client.filter_new(policies, orgs, PolicyType::MasterPassword);
+        let result = client.filter(policies, orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
         assert!(matches!(
@@ -102,19 +107,19 @@ mod tests {
     }
 
     #[test]
-    fn filter_new_returns_empty_for_no_match() {
+    fn filter_returns_empty_for_no_match() {
         let org_id = Uuid::new_v4();
         let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = vec![organization(org_id)];
 
         let client = PolicyClient::new();
-        let result = client.filter_new(policies, orgs, PolicyType::TwoFactorAuthentication);
+        let result = client.filter(policies, orgs, PolicyType::TwoFactorAuthentication);
 
         assert!(result.is_empty());
     }
 
     #[test]
-    fn filter_new_does_not_exempt_owner_from_master_password() {
+    fn filter_does_not_exempt_owner_from_master_password() {
         let org_id = Uuid::new_v4();
         // Master Password applies to everyone (its definition has no exempt roles),
         // so an Owner is still enforced.
@@ -129,7 +134,7 @@ mod tests {
         }];
 
         let client = PolicyClient::new();
-        let result = client.filter_new(policies, orgs, PolicyType::MasterPassword);
+        let result = client.filter(policies, orgs, PolicyType::MasterPassword);
 
         assert_eq!(result.len(), 1);
     }
