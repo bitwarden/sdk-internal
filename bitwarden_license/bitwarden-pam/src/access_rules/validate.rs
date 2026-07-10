@@ -22,6 +22,10 @@ pub enum AccessRuleValidationError {
     /// positive.
     #[error("A positive max extension duration is required when extensions are allowed")]
     MissingMaxExtensionDuration,
+    /// `default_lease_duration_seconds` or `max_lease_duration_seconds` was present but not
+    /// positive.
+    #[error("Lease durations must be positive")]
+    InvalidLeaseDuration,
     /// More than 10 conditions were provided.
     #[error("A rule may have at most {MAX_CONDITIONS} conditions")]
     TooManyConditions,
@@ -40,7 +44,7 @@ pub fn validate_request(
     request: &AccessRuleAddEditRequest,
 ) -> Result<(), AccessRuleValidationError> {
     let trimmed_name = request.name.trim();
-    if trimmed_name.is_empty() || trimmed_name.chars().count() > MAX_NAME_LENGTH {
+    if trimmed_name.is_empty() || trimmed_name.encode_utf16().count() > MAX_NAME_LENGTH {
         return Err(AccessRuleValidationError::InvalidName);
     }
 
@@ -50,6 +54,14 @@ pub fn validate_request(
             .is_none_or(|seconds| seconds <= 0)
     {
         return Err(AccessRuleValidationError::MissingMaxExtensionDuration);
+    }
+
+    if request
+        .default_lease_duration_seconds
+        .is_some_and(|d| d <= 0)
+        || request.max_lease_duration_seconds.is_some_and(|m| m <= 0)
+    {
+        return Err(AccessRuleValidationError::InvalidLeaseDuration);
     }
 
     if request.conditions.len() > MAX_CONDITIONS {
@@ -81,6 +93,10 @@ pub fn validate_request(
 /// stricter than .NET 10's `IPNetwork.TryParse`, which silently truncates host bits and interprets
 /// leading-zero octets as octal. Rejecting ambiguous input here avoids a client/server
 /// disagreement about which network a rule matches.
+///
+/// IPv4-mapped IPv6 addresses (e.g. `::ffff:10.0.0.0/104`) are also rejected as ambiguous:
+/// client and server may disagree about whether such a range overlaps the equivalent native IPv4
+/// CIDR. Use the native IPv4 form (e.g. `10.0.0.0/8`) instead.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn is_valid_cidr(value: &str) -> bool {
     let Some((addr, prefix)) = value.split_once('/') else {
@@ -95,13 +111,26 @@ pub fn is_valid_cidr(value: &str) -> bool {
     };
     match addr.parse::<IpAddr>() {
         Ok(IpAddr::V4(ip)) => prefix <= 32 && no_host_bits(u32::from(ip).into(), prefix, 32),
-        Ok(IpAddr::V6(ip)) => prefix <= 128 && no_host_bits(ip.into(), prefix, 128),
+        Ok(IpAddr::V6(ip)) => {
+            // Reject IPv4-mapped IPv6 addresses (::ffff:a.b.c.d). Use to_ipv4_mapped() rather
+            // than to_ipv4() because to_ipv4() also matches the deprecated IPv4-compatible range
+            // (::a.b.c.d), which would wrongly reject ::/0 and ::1.
+            ip.to_ipv4_mapped().is_none() && prefix <= 128 && no_host_bits(ip.into(), prefix, 128)
+        }
         Err(_) => false,
     }
 }
 
 /// Returns true when the low `width - prefix` host bits of `addr` are all zero.
+///
+/// # Preconditions
+///
+/// Callers **must** ensure `prefix <= width`. The `host_bits == 0` branch is not merely an
+/// optimisation: it is load-bearing for panic-safety. When `prefix == width`, `host_bits` is `0`
+/// and we return early, avoiding the expression `u128::MAX >> 128`, which would panic due to
+/// Rust's overflow checks on shift amounts.
 fn no_host_bits(addr: u128, prefix: u8, width: u8) -> bool {
+    debug_assert!(prefix <= width);
     let host_bits = width - prefix;
     host_bits == 0 || addr & (u128::MAX >> (128 - u32::from(host_bits))) == 0
 }
@@ -373,5 +402,88 @@ mod tests {
     #[test]
     fn ipv6_zone_id_is_invalid() {
         assert!(!is_valid_cidr("fe80::1%1/64"));
+    }
+
+    // --- Change 1: IPv4-mapped IPv6 CIDRs are rejected ---
+
+    #[test]
+    fn ipv4_mapped_ipv6_is_invalid() {
+        // ::ffff:10.0.0.0/104 is the IPv4-mapped IPv6 form of 10.0.0.0/8; reject it as
+        // ambiguous so client and server always agree on which network a rule matches.
+        assert!(!is_valid_cidr("::ffff:10.0.0.0/104"));
+    }
+
+    #[test]
+    fn ipv6_loopback_is_not_treated_as_mapped() {
+        // ::1 has a small numeric value but is NOT an IPv4-mapped address; it must still be
+        // accepted. Regression guard for the to_ipv4_mapped() vs to_ipv4() distinction.
+        assert!(is_valid_cidr("::1/128"));
+    }
+
+    // --- Change 2: name length is measured in UTF-16 code units ---
+
+    #[test]
+    fn name_with_supplementary_chars_measured_in_utf16() {
+        // U+1D538 MATHEMATICAL DOUBLE-STRUCK CAPITAL A encodes as a surrogate pair in UTF-16
+        // (2 code units). 128 such chars = 256 UTF-16 units → valid; 129 = 258 units → invalid.
+        let base_char = '𝔸';
+        let mut request = base_request();
+
+        request.name = base_char.to_string().repeat(128);
+        assert_eq!(validate_request(&request), Ok(()));
+
+        request.name = base_char.to_string().repeat(129);
+        assert_eq!(
+            validate_request(&request),
+            Err(AccessRuleValidationError::InvalidName)
+        );
+    }
+
+    // --- Change 4: lease durations must be positive when provided ---
+
+    #[test]
+    fn negative_default_lease_duration_is_invalid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(-1);
+        assert_eq!(
+            validate_request(&request),
+            Err(AccessRuleValidationError::InvalidLeaseDuration)
+        );
+    }
+
+    #[test]
+    fn zero_default_lease_duration_is_invalid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(0);
+        assert_eq!(
+            validate_request(&request),
+            Err(AccessRuleValidationError::InvalidLeaseDuration)
+        );
+    }
+
+    #[test]
+    fn negative_max_lease_duration_is_invalid() {
+        let mut request = base_request();
+        request.max_lease_duration_seconds = Some(-1);
+        assert_eq!(
+            validate_request(&request),
+            Err(AccessRuleValidationError::InvalidLeaseDuration)
+        );
+    }
+
+    #[test]
+    fn positive_lease_durations_are_valid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(300);
+        request.max_lease_duration_seconds = Some(3600);
+        assert_eq!(validate_request(&request), Ok(()));
+    }
+
+    #[test]
+    fn none_lease_durations_are_valid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = None;
+        request.max_lease_duration_seconds = None;
+        assert_eq!(validate_request(&request), Ok(()));
     }
 }

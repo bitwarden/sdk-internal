@@ -127,16 +127,16 @@ impl TryFrom<AccessRuleResponseModel> for AccessRuleView {
     }
 }
 
-impl From<AccessRuleAddEditRequest> for AccessRuleRequestModel {
-    fn from(request: AccessRuleAddEditRequest) -> Self {
-        // The server requires `conditions` to always be present; send an empty array rather
-        // than omitting the field when there are no conditions.
-        let conditions = serde_json::to_value(&request.conditions)
-            .unwrap_or_else(|_| serde_json::Value::Array(Vec::new()));
+impl TryFrom<AccessRuleAddEditRequest> for AccessRuleRequestModel {
+    type Error = AccessRuleError;
 
-        Self {
-            // Trimmed to match what validation measured, mirroring how bitwarden-sm
-            // trims name/key fields before they reach the wire.
+    fn try_from(request: AccessRuleAddEditRequest) -> Result<Self, Self::Error> {
+        // The server requires `conditions` to always be present; an empty vec serializes to
+        // the empty array it expects.
+        let conditions = serde_json::to_value(&request.conditions)
+            .map_err(|e| AccessRuleError::InvalidConditions(e.to_string()))?;
+
+        Ok(Self {
             name: request.name.trim().to_string(),
             description: request.description,
             enabled: Some(request.enabled),
@@ -151,7 +151,7 @@ impl From<AccessRuleAddEditRequest> for AccessRuleRequestModel {
                 .into_iter()
                 .map(uuid::Uuid::from)
                 .collect(),
-        }
+        })
     }
 }
 
@@ -163,22 +163,23 @@ mod tests {
     use super::*;
 
     fn full_response() -> AccessRuleResponseModel {
-        let mut response = AccessRuleResponseModel::new();
-        response.id = Some(Uuid::new_v4());
-        response.organization_id = Some(Uuid::new_v4());
-        response.name = Some("My rule".to_string());
-        response.description = Some("A description".to_string());
-        response.enabled = Some(false);
-        response.conditions = Some(serde_json::json!([{ "kind": "human_approval" }]));
-        response.single_active_lease = Some(true);
-        response.default_lease_duration_seconds = Some(60);
-        response.max_lease_duration_seconds = Some(120);
-        response.allows_extensions = Some(true);
-        response.max_extension_duration_seconds = Some(30);
-        response.collections = Some(vec![Uuid::new_v4()]);
-        response.creation_date = Some("2025-01-01T00:00:00Z".to_string());
-        response.revision_date = Some("2025-01-02T00:00:00Z".to_string());
-        response
+        AccessRuleResponseModel {
+            id: Some(Uuid::new_v4()),
+            organization_id: Some(Uuid::new_v4()),
+            name: Some("My rule".to_string()),
+            description: Some("A description".to_string()),
+            enabled: Some(false),
+            conditions: Some(serde_json::json!([{ "kind": "human_approval" }])),
+            single_active_lease: Some(true),
+            default_lease_duration_seconds: Some(60),
+            max_lease_duration_seconds: Some(120),
+            allows_extensions: Some(true),
+            max_extension_duration_seconds: Some(30),
+            collections: Some(vec![Uuid::new_v4()]),
+            creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+            revision_date: Some("2025-01-02T00:00:00Z".to_string()),
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -190,20 +191,24 @@ mod tests {
 
         let view = AccessRuleView::try_from(response).unwrap();
 
-        assert_eq!(view.id, AccessRuleId::new(expected_id));
-        assert_eq!(view.organization_id, OrganizationId::new(expected_org_id));
-        assert_eq!(view.name, "My rule");
-        assert_eq!(view.description, Some("A description".to_string()));
-        assert!(!view.enabled);
-        assert_eq!(view.conditions, vec![AccessCondition::HumanApproval]);
-        assert!(view.single_active_lease);
-        assert_eq!(view.default_lease_duration_seconds, Some(60));
-        assert_eq!(view.max_lease_duration_seconds, Some(120));
-        assert!(view.allows_extensions);
-        assert_eq!(view.max_extension_duration_seconds, Some(30));
         assert_eq!(
-            view.collections,
-            vec![CollectionId::new(expected_collection_id)]
+            view,
+            AccessRuleView {
+                id: AccessRuleId::new(expected_id),
+                organization_id: OrganizationId::new(expected_org_id),
+                name: "My rule".to_string(),
+                description: Some("A description".to_string()),
+                enabled: false,
+                conditions: vec![AccessCondition::HumanApproval],
+                single_active_lease: true,
+                default_lease_duration_seconds: Some(60),
+                max_lease_duration_seconds: Some(120),
+                allows_extensions: true,
+                max_extension_duration_seconds: Some(30),
+                collections: vec![CollectionId::new(expected_collection_id)],
+                creation_date: "2025-01-01T00:00:00Z".parse().unwrap(),
+                revision_date: "2025-01-02T00:00:00Z".parse().unwrap(),
+            }
         );
     }
 
@@ -262,7 +267,7 @@ mod tests {
             collections: Vec::new(),
         };
 
-        let model = AccessRuleRequestModel::from(request);
+        let model = AccessRuleRequestModel::try_from(request).unwrap();
 
         assert_eq!(model.conditions, Some(serde_json::json!([])));
     }
@@ -282,7 +287,7 @@ mod tests {
             collections: Vec::new(),
         };
 
-        let model = AccessRuleRequestModel::from(request);
+        let model = AccessRuleRequestModel::try_from(request).unwrap();
 
         assert_eq!(model.name, "My rule");
     }

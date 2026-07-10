@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use bitwarden_api_api::apis::ApiClient;
-use bitwarden_core::{FromClient, OrganizationId, client::ApiConfigurations};
+use bitwarden_core::{ApiError, FromClient, OrganizationId, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    error::{AccessRuleError, map_api_error},
+    error::AccessRuleError,
     models::{AccessRuleAddEditRequest, AccessRuleView},
     validate::validate_request,
 };
@@ -19,83 +18,6 @@ pub struct AccessRulesClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-async fn list(
-    api_client: &ApiClient,
-    organization_id: OrganizationId,
-) -> Result<Vec<AccessRuleView>, AccessRuleError> {
-    let response = api_client
-        .access_rules_api()
-        .get_all(organization_id.into())
-        .await
-        .map_err(map_api_error)?;
-
-    response
-        .data
-        .unwrap_or_default()
-        .into_iter()
-        .map(AccessRuleView::try_from)
-        .collect()
-}
-
-async fn get(
-    api_client: &ApiClient,
-    organization_id: OrganizationId,
-    id: AccessRuleId,
-) -> Result<AccessRuleView, AccessRuleError> {
-    let response = api_client
-        .access_rules_api()
-        .get(organization_id.into(), id.into())
-        .await
-        .map_err(map_api_error)?;
-
-    AccessRuleView::try_from(response)
-}
-
-async fn create(
-    api_client: &ApiClient,
-    organization_id: OrganizationId,
-    request: AccessRuleAddEditRequest,
-) -> Result<AccessRuleView, AccessRuleError> {
-    validate_request(&request)?;
-
-    let response = api_client
-        .access_rules_api()
-        .post(organization_id.into(), request.into())
-        .await
-        .map_err(map_api_error)?;
-
-    AccessRuleView::try_from(response)
-}
-
-async fn update(
-    api_client: &ApiClient,
-    organization_id: OrganizationId,
-    id: AccessRuleId,
-    request: AccessRuleAddEditRequest,
-) -> Result<AccessRuleView, AccessRuleError> {
-    validate_request(&request)?;
-
-    let response = api_client
-        .access_rules_api()
-        .put(organization_id.into(), id.into(), request.into())
-        .await
-        .map_err(map_api_error)?;
-
-    AccessRuleView::try_from(response)
-}
-
-async fn delete(
-    api_client: &ApiClient,
-    organization_id: OrganizationId,
-    id: AccessRuleId,
-) -> Result<(), AccessRuleError> {
-    api_client
-        .access_rules_api()
-        .delete(organization_id.into(), id.into())
-        .await
-        .map_err(map_api_error)
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AccessRulesClient {
     /// Lists all access rules for an organization.
@@ -103,7 +25,20 @@ impl AccessRulesClient {
         &self,
         organization_id: OrganizationId,
     ) -> Result<Vec<AccessRuleView>, AccessRuleError> {
-        list(&self.api_configurations.api_client, organization_id).await
+        let response = self
+            .api_configurations
+            .api_client
+            .access_rules_api()
+            .get_all(organization_id.into())
+            .await
+            .map_err(ApiError::from)?;
+
+        response
+            .data
+            .unwrap_or_default()
+            .into_iter()
+            .map(AccessRuleView::try_from)
+            .collect()
     }
 
     /// Retrieves a single access rule by ID.
@@ -112,7 +47,15 @@ impl AccessRulesClient {
         organization_id: OrganizationId,
         id: AccessRuleId,
     ) -> Result<AccessRuleView, AccessRuleError> {
-        get(&self.api_configurations.api_client, organization_id, id).await
+        let response = self
+            .api_configurations
+            .api_client
+            .access_rules_api()
+            .get(organization_id.into(), id.into())
+            .await
+            .map_err(ApiError::from)?;
+
+        AccessRuleView::try_from(response)
     }
 
     /// Validates and creates a new access rule.
@@ -121,12 +64,17 @@ impl AccessRulesClient {
         organization_id: OrganizationId,
         request: AccessRuleAddEditRequest,
     ) -> Result<AccessRuleView, AccessRuleError> {
-        create(
-            &self.api_configurations.api_client,
-            organization_id,
-            request,
-        )
-        .await
+        validate_request(&request)?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .access_rules_api()
+            .post(organization_id.into(), request.try_into()?)
+            .await
+            .map_err(ApiError::from)?;
+
+        AccessRuleView::try_from(response)
     }
 
     /// Validates and updates an existing access rule.
@@ -136,13 +84,17 @@ impl AccessRulesClient {
         id: AccessRuleId,
         request: AccessRuleAddEditRequest,
     ) -> Result<AccessRuleView, AccessRuleError> {
-        update(
-            &self.api_configurations.api_client,
-            organization_id,
-            id,
-            request,
-        )
-        .await
+        validate_request(&request)?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .access_rules_api()
+            .put(organization_id.into(), id.into(), request.try_into()?)
+            .await
+            .map_err(ApiError::from)?;
+
+        AccessRuleView::try_from(response)
     }
 
     /// Deletes an access rule.
@@ -151,7 +103,14 @@ impl AccessRulesClient {
         organization_id: OrganizationId,
         id: AccessRuleId,
     ) -> Result<(), AccessRuleError> {
-        delete(&self.api_configurations.api_client, organization_id, id).await
+        self.api_configurations
+            .api_client
+            .access_rules_api()
+            .delete(organization_id.into(), id.into())
+            .await
+            .map_err(ApiError::from)?;
+
+        Ok(())
     }
 }
 
@@ -169,6 +128,12 @@ mod tests {
 
     fn rule_id() -> AccessRuleId {
         AccessRuleId::new(uuid!("22222222-2222-2222-2222-222222222222"))
+    }
+
+    fn client(api_client: ApiClient) -> AccessRulesClient {
+        AccessRulesClient {
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+        }
     }
 
     fn sample_response(id: uuid::Uuid, organization_id: uuid::Uuid) -> AccessRuleResponseModel {
@@ -215,7 +180,7 @@ mod tests {
                 .once();
         });
 
-        let result = list(&api_client, organization_id).await.unwrap();
+        let result = client(api_client).list(organization_id).await.unwrap();
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, rule);
@@ -234,13 +199,13 @@ mod tests {
                 .once();
         });
 
-        let result = get(&api_client, organization_id, rule).await.unwrap();
+        let result = client(api_client).get(organization_id, rule).await.unwrap();
 
         assert_eq!(result.id, rule);
     }
 
     #[tokio::test]
-    async fn get_not_found_maps_to_not_found_error() {
+    async fn get_surfaces_api_error() {
         let organization_id = org_id();
         let rule = rule_id();
 
@@ -258,9 +223,9 @@ mod tests {
                 .once();
         });
 
-        let result = get(&api_client, organization_id, rule).await;
+        let result = client(api_client).get(organization_id, rule).await;
 
-        assert!(matches!(result, Err(AccessRuleError::NotFound)));
+        assert!(matches!(result, Err(AccessRuleError::Api(_))));
     }
 
     #[tokio::test]
@@ -273,7 +238,7 @@ mod tests {
             mock.access_rules_api.expect_post().never();
         });
 
-        let result = create(&api_client, organization_id, request).await;
+        let result = client(api_client).create(organization_id, request).await;
 
         assert!(matches!(result, Err(AccessRuleError::Validation(_))));
     }
@@ -291,7 +256,8 @@ mod tests {
                 .once();
         });
 
-        let result = create(&api_client, organization_id, sample_request())
+        let result = client(api_client)
+            .create(organization_id, sample_request())
             .await
             .unwrap();
 
@@ -299,30 +265,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_bad_request_maps_to_bad_request_error() {
+    async fn create_surfaces_api_error() {
         let organization_id = org_id();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.access_rules_api
                 .expect_post()
                 .returning(move |_org_id, _request| {
-                    let body = serde_json::json!({ "message": "Invalid rule" }).to_string();
                     Err(bitwarden_api_api::apis::Error::Response(
                         bitwarden_api_api::apis::ResponseContent {
                             status: reqwest::StatusCode::BAD_REQUEST,
-                            message: body,
+                            message: "Invalid rule".to_string(),
                         },
                     ))
                 })
                 .once();
         });
 
-        let result = create(&api_client, organization_id, sample_request()).await;
+        let result = client(api_client)
+            .create(organization_id, sample_request())
+            .await;
 
-        assert!(matches!(
-            result,
-            Err(AccessRuleError::BadRequest { message }) if message == "Invalid rule"
-        ));
+        assert!(matches!(result, Err(AccessRuleError::Api(_))));
     }
 
     #[tokio::test]
@@ -338,7 +302,8 @@ mod tests {
                 .once();
         });
 
-        let result = update(&api_client, organization_id, rule, sample_request())
+        let result = client(api_client)
+            .update(organization_id, rule, sample_request())
             .await
             .unwrap();
 
@@ -357,7 +322,7 @@ mod tests {
                 .once();
         });
 
-        let result = delete(&api_client, organization_id, rule).await;
+        let result = client(api_client).delete(organization_id, rule).await;
 
         assert!(result.is_ok());
     }
