@@ -95,20 +95,18 @@ impl EnrichedPolicyType {
     ///
     /// Policies with custom rules return their own definition; policies without custom rules fall
     /// back to [`DefaultPolicyDefinition`].
-    pub fn to_policy_definition(&self) -> Box<dyn PolicyDefinition> {
+    pub fn to_policy_definition(&self) -> &dyn PolicyDefinition {
         match self {
-            EnrichedPolicyType::MasterPassword(p) => Box::new(p.clone()),
-            EnrichedPolicyType::PasswordGenerator(p) => Box::new(p.clone()),
-            EnrichedPolicyType::MaximumVaultTimeout(p) => Box::new(p.clone()),
-            EnrichedPolicyType::FreeFamiliesSponsorship => Box::new(FreeFamiliesSponsorshipPolicy),
-            EnrichedPolicyType::RemoveUnlockWithPin => Box::new(RemoveUnlockWithPinPolicy),
-            EnrichedPolicyType::RestrictedItemTypes => Box::new(RestrictedItemTypesPolicy),
-            EnrichedPolicyType::AutomaticUserConfirmation => {
-                Box::new(AutomaticUserConfirmationPolicy)
-            }
-            EnrichedPolicyType::OrganizationUserNotification(p) => Box::new(p.clone()),
+            EnrichedPolicyType::MasterPassword(p) => p,
+            EnrichedPolicyType::PasswordGenerator(p) => p,
+            EnrichedPolicyType::MaximumVaultTimeout(p) => p,
+            EnrichedPolicyType::FreeFamiliesSponsorship => &FreeFamiliesSponsorshipPolicy,
+            EnrichedPolicyType::RemoveUnlockWithPin => &RemoveUnlockWithPinPolicy,
+            EnrichedPolicyType::RestrictedItemTypes => &RestrictedItemTypesPolicy,
+            EnrichedPolicyType::AutomaticUserConfirmation => &AutomaticUserConfirmationPolicy,
+            EnrichedPolicyType::OrganizationUserNotification(p) => p,
             // Policies without custom rules use the default definition
-            _ => Box::new(DefaultPolicyDefinition),
+            _ => &DefaultPolicyDefinition,
         }
     }
 
