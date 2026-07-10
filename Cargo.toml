@@ -209,3 +209,9 @@ opt-level = 3
 # tag until the registry index catches up, then remove this patch.
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint", tag = "v0.7.5" }
+
+# crossbeam-epoch 0.9.18 (pulled in transitively via rayon) is affected by RUSTSEC-2026-0204.
+# The fix is released as crossbeam-epoch 0.9.20, but rayon has not yet published a release that
+# bumps to it. Patch to the fixed tag until rayon updates, then remove this patch.
+# https://rustsec.org/advisories/RUSTSEC-2026-0204
+crossbeam-epoch = { git = "https://github.com/crossbeam-rs/crossbeam", tag = "crossbeam-epoch-0.9.20" }

@@ -10,6 +10,7 @@ readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
 license-file.workspace = true
+license = "GPL-3.0-only"
 keywords.workspace = true
 
 [features]
