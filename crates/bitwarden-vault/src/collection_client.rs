@@ -178,6 +178,8 @@ impl CollectionViewTree {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use bitwarden_collections::collection::CollectionType;
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
 
@@ -264,6 +266,63 @@ mod tests {
         // failures must never leak partially-decrypted or plaintext data.
         assert_eq!(result.failures[0].id, invalid_collection.id);
         assert_eq!(result.failures[0].name, invalid_collection.name);
+    }
+
+    /// Speed comparison between the two decryption strategies exposed to callers (e.g. the
+    /// `DefaultCollectionEncryptionService` TS feature flag): decrypting one collection at a time
+    /// via [CollectionsClient::decrypt] (the "original"/sequential path) versus decrypting the
+    /// whole list in a single call to [CollectionsClient::decrypt_list_with_failures] (the "bulk"
+    /// path, parallelized internally via rayon). Unlike the lower-level `bitwarden_crypto`
+    /// version of this test, this one goes through the real `Collection`/`CollectionView` types
+    /// and the actual org key from a test account, so it's a closer match to what the TS clients
+    /// call into.
+    ///
+    /// Run with `cargo test speed_test_decrypt -- --nocapture` to see the numbers. Only
+    /// correctness (not speed) is asserted, so this can't flake on a slow/noisy CI runner.
+    #[tokio::test]
+    async fn speed_test_decrypt_sequential_vs_bulk() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let collections_client = client.vault().collections();
+
+        const ITEM_COUNT: usize = 5_000;
+        let collections: Vec<Collection> = (0..ITEM_COUNT).map(|_| test_collection()).collect();
+
+        // "Original" path: decrypt one collection at a time, sequentially.
+        let sequential_start = Instant::now();
+        let sequential_results: Vec<CollectionView> = collections
+            .iter()
+            .cloned()
+            .map(|c| collections_client.decrypt(c).unwrap())
+            .collect();
+        let sequential_elapsed = sequential_start.elapsed();
+
+        // "Bulk" path: decrypt the whole list in a single call.
+        let bulk_start = Instant::now();
+        let result = collections_client.decrypt_list_with_failures(collections);
+        let bulk_elapsed = bulk_start.elapsed();
+
+        assert_eq!(sequential_results.len(), ITEM_COUNT);
+        assert_eq!(result.successes.len(), ITEM_COUNT);
+        assert!(result.failures.is_empty());
+
+        let items_per_ms = |elapsed: std::time::Duration| {
+            ITEM_COUNT as f64 / elapsed.as_secs_f64().max(f64::EPSILON) / 1000.0
+        };
+        let speedup =
+            sequential_elapsed.as_secs_f64() / bulk_elapsed.as_secs_f64().max(f64::EPSILON);
+
+        let available_parallelism = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+
+        println!(
+            "\ncollection decrypt speed test ({ITEM_COUNT} items, {available_parallelism} available cores):\n  \
+             sequential (original, CollectionsClient::decrypt in a loop):   {sequential_elapsed:?} ({:.2} items/ms)\n  \
+             bulk       (decrypt_list_with_failures, parallelized):         {bulk_elapsed:?} ({:.2} items/ms)\n  \
+             speedup: {speedup:.2}x\n",
+            items_per_ms(sequential_elapsed),
+            items_per_ms(bulk_elapsed),
+        );
     }
 
     #[tokio::test]
