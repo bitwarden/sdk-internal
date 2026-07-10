@@ -39,6 +39,7 @@ wasm = [
     "bitwarden-generators/wasm",
     "bitwarden-importers/wasm",
     "bitwarden-organization-invite-link/wasm",
+    "bitwarden-pam?/wasm",
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
     "bitwarden-state/wasm",
@@ -48,7 +49,7 @@ wasm = [
     "dep:wasm-bindgen-futures",
     "dep:tsify",
 ]
-bitwarden-license = ["dep:bitwarden-commercial-vault"]
+bitwarden-license = ["dep:bitwarden-commercial-vault", "dep:bitwarden-pam"]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -62,6 +63,7 @@ bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }
 bitwarden-organization-invite-link = { workspace = true }
+bitwarden-pam = { workspace = true, optional = true }
 bitwarden-policies = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-server-communication-config = { workspace = true }

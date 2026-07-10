@@ -998,6 +998,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-pam"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-core",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "3.0.0"
 dependencies = [
@@ -1012,6 +1020,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-importers",
  "bitwarden-organization-invite-link",
+ "bitwarden-pam",
  "bitwarden-policies",
  "bitwarden-send",
  "bitwarden-server-communication-config",
