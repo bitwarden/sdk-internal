@@ -1,7 +1,7 @@
 //! Policy definitions with strongly-typed payloads and trait implementations.
 //!
 //! Each policy type is defined here with its associated data structure (if any)
-//! and its [`PolicyDefinition`](crate::filter::PolicyDefinition) trait implementation.
+//! and its [`PolicyDefinition`] trait implementation.
 //! Organized by policy type numeric value.
 
 use std::str::FromStr;

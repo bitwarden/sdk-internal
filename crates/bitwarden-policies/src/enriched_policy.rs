@@ -1,7 +1,7 @@
 //! The [`EnrichedPolicy`] model.
 //!
 //! An [`EnrichedPolicy`] is the strongly-typed counterpart to a
-//! [`PolicyView`](crate::PolicyView): it carries the deserialized `policy.data`
+//! [`PolicyView`]: it carries the deserialized `policy.data`
 //! payload (via [`EnrichedPolicyType`]) and knows how to evaluate whether it is
 //! enforced against a given user.
 

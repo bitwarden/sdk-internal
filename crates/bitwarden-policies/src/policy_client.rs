@@ -29,7 +29,24 @@ impl PolicyClient {
     }
 
     /// Filter policies of the given type for the current user.
-    /// POC code path that uses an enum to wrap strongly typed data and the policy definition.
+    /// Returns only those policies that should be enforced against the user.
+    ///
+    /// Untyped FFI path: native/WASM callers pass a runtime `policy_type` integer.
+    pub fn filter_by_type(
+        &self,
+        _policies: Vec<PolicyView>,
+        _organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
+        _policy_type: PolicyType,
+    ) -> Vec<PolicyView> {
+        todo!(
+            "Avoid breaking changes: call the new filter fn and map the result back to a PolicyView"
+        )
+    }
+
+    /// Filter policies of the given type for the current user.
+    /// Returns only those policies that should be enforced against the user.
+    ///
+    /// Includes strongly typed policy configuration data.
     pub fn filter(
         &self,
         policies: Vec<PolicyView>,

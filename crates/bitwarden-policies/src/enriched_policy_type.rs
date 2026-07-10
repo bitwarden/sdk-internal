@@ -1,6 +1,6 @@
 //! The [`EnrichedPolicyType`] enum.
 //!
-//! [`PolicyType`](crate::PolicyType) is a bare discriminant that matches the
+//! [`PolicyType`] is a bare discriminant that matches the
 //! server's numeric wire format. `EnrichedPolicyType` mirrors every variant of
 //! that enum but additionally carries the strongly-typed `policy.data` payload
 //! (see [`policy_definitions`](crate::policy_definitions)) for the policies that have one.
@@ -31,10 +31,10 @@ fn parse_data<T: serde::de::DeserializeOwned + Default>(data: Option<&str>) -> T
     }
 }
 
-/// A [`PolicyType`](crate::PolicyType) paired with its strongly-typed
+/// A [`PolicyType`] paired with its strongly-typed
 /// `policy.data` payload.
 ///
-/// Variants mirror [`PolicyType`](crate::PolicyType) one-to-one. Policies that
+/// Variants mirror [`PolicyType`] one-to-one. Policies that
 /// carry configuration wrap their payload struct; toggle-only policies (whose
 /// `data` is always `null`) are unit variants.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -90,11 +90,11 @@ pub enum EnrichedPolicyType {
 }
 
 impl EnrichedPolicyType {
-    /// Returns the [`PolicyDefinition`](crate::policy_definition::PolicyDefinition) trait
+    /// Returns the [`PolicyDefinition`] trait
     /// implementer for this policy type.
     ///
     /// Policies with custom rules return their own definition; policies without custom rules fall
-    /// back to [`DefaultPolicyDefinition`].
+    /// back to a default definition.
     pub fn to_policy_definition(&self) -> &dyn PolicyDefinition {
         match self {
             EnrichedPolicyType::MasterPassword(p) => p,
