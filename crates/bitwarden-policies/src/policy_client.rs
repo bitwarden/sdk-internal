@@ -30,17 +30,17 @@ impl PolicyClient {
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
         policy_type: PolicyType,
     ) -> Vec<EnrichedPolicy> {
-        let org_map: HashMap<&Uuid, &OrganizationUserPolicyContext> =
+        let org_map: HashMap<Uuid, OrganizationUserPolicyContext> =
             organization_user_policy_contexts
-                .iter()
-                .map(|o| (&o.id, o))
+                .into_iter()
+                .map(|o| (o.id, o))
                 .collect();
 
         policies
             .iter()
             .filter(|p| p.r#type == policy_type)
             .map(EnrichedPolicy::from_policy_view)
-            .filter(|ep| ep.enforced(org_map.clone()))
+            .filter(|ep| ep.enforced(&org_map))
             .collect()
     }
 }
@@ -53,7 +53,7 @@ pub trait PoliciesClientExt {
 
 impl PoliciesClientExt for Client {
     fn policies(&self) -> PolicyClient {
-        PolicyClient {  }
+        PolicyClient {}
     }
 }
 

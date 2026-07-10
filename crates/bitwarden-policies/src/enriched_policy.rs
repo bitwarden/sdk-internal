@@ -13,10 +13,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use uuid::Uuid;
 
-use crate::{
-    EnrichedPolicyType, OrganizationUserPolicyContext, PolicyView,
-    policy_definition::DefaultPolicyDefinition,
-};
+use crate::{EnrichedPolicyType, OrganizationUserPolicyContext, PolicyView};
 
 /// An organization policy - strongly typed with its data.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,13 +51,10 @@ impl EnrichedPolicy {
     /// and applicability rules.
     pub fn enforced(
         &self,
-        organization_user_policy_contexts: HashMap<&Uuid, &OrganizationUserPolicyContext>,
+        organization_user_policy_contexts: &HashMap<Uuid, OrganizationUserPolicyContext>,
     ) -> bool {
         let org = organization_user_policy_contexts.get(&self.organization_id);
-        let definition = self
-            .r#type
-            .to_policy_definition()
-            .unwrap_or(Box::new(DefaultPolicyDefinition));
+        let definition = self.r#type.to_policy_definition();
 
         self.enabled
             && match org {

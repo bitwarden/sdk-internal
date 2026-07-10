@@ -12,7 +12,7 @@ use tsify::Tsify;
 
 use crate::{
     PolicyType,
-    policy_definition::PolicyDefinition,
+    policy_definition::{DefaultPolicyDefinition, PolicyDefinition},
     policy_definitions::{
         AutomaticAppLoginPolicy, AutomaticUserConfirmationPolicy, FreeFamiliesSponsorshipPolicy,
         MasterPasswordPolicy, MaximumSessionTimeoutPolicy, OrganizationDataOwnershipPolicy,
@@ -81,26 +81,25 @@ pub enum EnrichedPolicyType {
 }
 
 impl EnrichedPolicyType {
-    /// Returns the [`PolicyDefinition`](crate::filter::PolicyDefinition) trait implementer for this
-    /// policy type, if one exists.
+    /// Returns the [`PolicyDefinition`](crate::policy_definition::PolicyDefinition) trait
+    /// implementer for this policy type.
     ///
-    /// Only policies with custom rules return `Some`. Policies without custom rules return `None`.
-    pub fn to_policy_definition(&self) -> Option<Box<dyn PolicyDefinition>> {
+    /// Policies with custom rules return their own definition; policies without custom rules fall
+    /// back to [`DefaultPolicyDefinition`].
+    pub fn to_policy_definition(&self) -> Box<dyn PolicyDefinition> {
         match self {
-            EnrichedPolicyType::MasterPassword(p) => Some(Box::new(p.clone())),
-            EnrichedPolicyType::PasswordGenerator(p) => Some(Box::new(p.clone())),
-            EnrichedPolicyType::MaximumVaultTimeout(p) => Some(Box::new(p.clone())),
-            EnrichedPolicyType::FreeFamiliesSponsorship => {
-                Some(Box::new(FreeFamiliesSponsorshipPolicy))
-            }
-            EnrichedPolicyType::RemoveUnlockWithPin => Some(Box::new(RemoveUnlockWithPinPolicy)),
-            EnrichedPolicyType::RestrictedItemTypes => Some(Box::new(RestrictedItemTypesPolicy)),
+            EnrichedPolicyType::MasterPassword(p) => Box::new(p.clone()),
+            EnrichedPolicyType::PasswordGenerator(p) => Box::new(p.clone()),
+            EnrichedPolicyType::MaximumVaultTimeout(p) => Box::new(p.clone()),
+            EnrichedPolicyType::FreeFamiliesSponsorship => Box::new(FreeFamiliesSponsorshipPolicy),
+            EnrichedPolicyType::RemoveUnlockWithPin => Box::new(RemoveUnlockWithPinPolicy),
+            EnrichedPolicyType::RestrictedItemTypes => Box::new(RestrictedItemTypesPolicy),
             EnrichedPolicyType::AutomaticUserConfirmation => {
-                Some(Box::new(AutomaticUserConfirmationPolicy))
+                Box::new(AutomaticUserConfirmationPolicy)
             }
-            EnrichedPolicyType::OrganizationUserNotification(p) => Some(Box::new(p.clone())),
-            // Policies without custom rules return None
-            _ => None,
+            EnrichedPolicyType::OrganizationUserNotification(p) => Box::new(p.clone()),
+            // Policies without custom rules use the default definition
+            _ => Box::new(DefaultPolicyDefinition),
         }
     }
 

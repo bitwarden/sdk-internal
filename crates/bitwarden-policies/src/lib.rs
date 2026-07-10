@@ -15,8 +15,8 @@ mod policy_type;
 
 pub use enriched_policy::EnrichedPolicy;
 pub use enriched_policy_type::EnrichedPolicyType;
-pub use policy_definition::PolicyDefinition;
 pub use models::{OrganizationUserPolicyContext, PolicyView};
 pub use policy_client::{PoliciesClientExt, PolicyClient};
+pub use policy_definition::PolicyDefinition;
 pub use policy_definitions::*;
 pub use policy_type::PolicyType;
