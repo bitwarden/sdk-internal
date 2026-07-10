@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use bitwarden_api_api::models::{MasterPasswordPolicyResponseModel};
+use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
 use bitwarden_organizations::OrganizationUserType;
 use bitwarden_send::SendType;
 use bitwarden_vault::UriMatchType;
@@ -18,7 +18,7 @@ use crate::{PolicyType, filter::Policy};
 
 impl FromStr for MasterPasswordPolicy {
     type Err = serde_json::Error;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         serde_json::from_str(s)
     }

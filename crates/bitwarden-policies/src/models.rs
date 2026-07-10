@@ -32,7 +32,6 @@ pub struct PolicyView {
     pub enabled: bool,
     /// When the policy was last modified.
     pub revision_date: Option<DateTime<Utc>>,
-
 }
 
 /// An organization policy.
@@ -80,8 +79,8 @@ impl EnrichedPolicy {
         let org = organization_user_policy_contexts.get(&self.organization_id);
         let definition = self.r#type.to_policy().unwrap_or(Box::new(DefaultPolicy));
 
-        self.enabled &&
-            match org {
+        self.enabled
+            && match org {
                 Some(org) => {
                     org.enabled
                         && org.use_policies

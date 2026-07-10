@@ -8,10 +8,13 @@ use uuid::Uuid;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    OrganizationUserPolicyContext, PolicyType, PolicyView, models::EnrichedPolicy, policy_definitions::{
+    OrganizationUserPolicyContext, PolicyType, PolicyView,
+    models::EnrichedPolicy,
+    policy_definitions::{
         AutomaticUserConfirmationPolicy, FreeFamiliesSponsorshipPolicy, RemoveUnlockWithPinPolicy,
         RestrictedItemTypesPolicy,
-    }, registry::PolicyRegistry
+    },
+    registry::PolicyRegistry,
 };
 
 fn build_policy_registry() -> PolicyRegistry {
@@ -65,7 +68,8 @@ impl PolicyClient {
             .collect()
     }
 
-    /// POC new path - returns strongly typed policy data using enums to encapsulate both data and metadata
+    /// POC new path - returns strongly typed policy data using enums to encapsulate both data and
+    /// metadata
     pub fn filter_new(
         &self,
         policies: Vec<PolicyView>,

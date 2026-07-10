@@ -81,7 +81,8 @@ pub enum EnrichedPolicyType {
 }
 
 impl EnrichedPolicyType {
-    /// Returns the [`Policy`](crate::filter::Policy) trait implementer for this policy type, if one exists.
+    /// Returns the [`Policy`](crate::filter::Policy) trait implementer for this policy type, if one
+    /// exists.
     ///
     /// Only policies with custom filtering rules return `Some`. Policies without custom rules
     /// (using default filtering) return `None`.
@@ -90,7 +91,9 @@ impl EnrichedPolicyType {
             EnrichedPolicyType::MasterPassword(p) => Some(Box::new(p.clone())),
             EnrichedPolicyType::PasswordGenerator(p) => Some(Box::new(p.clone())),
             EnrichedPolicyType::MaximumVaultTimeout(p) => Some(Box::new(p.clone())),
-            EnrichedPolicyType::FreeFamiliesSponsorship => Some(Box::new(FreeFamiliesSponsorshipPolicy)),
+            EnrichedPolicyType::FreeFamiliesSponsorship => {
+                Some(Box::new(FreeFamiliesSponsorshipPolicy))
+            }
             EnrichedPolicyType::RemoveUnlockWithPin => Some(Box::new(RemoveUnlockWithPinPolicy)),
             EnrichedPolicyType::RestrictedItemTypes => Some(Box::new(RestrictedItemTypesPolicy)),
             EnrichedPolicyType::AutomaticUserConfirmation => {
