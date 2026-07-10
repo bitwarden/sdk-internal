@@ -15,6 +15,12 @@ use crate::{EnrichedPolicy, OrganizationUserPolicyContext, PolicyType, PolicyVie
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct PolicyClient {}
 
+impl Default for PolicyClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl PolicyClient {
     /// Create a new PolicyClient instance.
