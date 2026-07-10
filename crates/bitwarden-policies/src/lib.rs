@@ -11,10 +11,9 @@ mod models;
 mod policy_client;
 pub mod policy_definitions;
 mod policy_type;
-mod registry;
 
 pub use enriched_policy_type::EnrichedPolicyType;
-pub use filter::Policy;
+pub use filter::PolicyDefinition;
 pub use models::{OrganizationUserPolicyContext, PolicyView};
 pub use policy_client::{PoliciesClientExt, PolicyClient};
 pub use policy_definitions::*;

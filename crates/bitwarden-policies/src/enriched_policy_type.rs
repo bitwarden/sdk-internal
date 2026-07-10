@@ -12,7 +12,7 @@ use tsify::Tsify;
 
 use crate::{
     PolicyType,
-    filter::Policy,
+    filter::PolicyDefinition,
     policy_definitions::{
         AutomaticAppLoginPolicy, AutomaticUserConfirmationPolicy, FreeFamiliesSponsorshipPolicy,
         MasterPasswordPolicy, MaximumSessionTimeoutPolicy, OrganizationDataOwnershipPolicy,
@@ -81,12 +81,12 @@ pub enum EnrichedPolicyType {
 }
 
 impl EnrichedPolicyType {
-    /// Returns the [`Policy`](crate::filter::Policy) trait implementer for this policy type, if one
-    /// exists.
+    /// Returns the [`PolicyDefinition`](crate::filter::PolicyDefinition) trait implementer for this
+    /// policy type, if one exists.
     ///
     /// Only policies with custom filtering rules return `Some`. Policies without custom rules
     /// (using default filtering) return `None`.
-    pub fn to_policy(&self) -> Option<Box<dyn Policy>> {
+    pub fn to_policy_definition(&self) -> Option<Box<dyn PolicyDefinition>> {
         match self {
             EnrichedPolicyType::MasterPassword(p) => Some(Box::new(p.clone())),
             EnrichedPolicyType::PasswordGenerator(p) => Some(Box::new(p.clone())),

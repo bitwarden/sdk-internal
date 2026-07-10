@@ -1,7 +1,7 @@
 //! Policy definitions with strongly-typed payloads and trait implementations.
 //!
 //! Each policy type is defined here with its associated data structure (if any)
-//! and its [`Policy`](crate::filter::Policy) trait implementation.
+//! and its [`PolicyDefinition`](crate::filter::PolicyDefinition) trait implementation.
 //! Organized by policy type numeric value.
 
 use std::str::FromStr;
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{PolicyType, filter::Policy};
+use crate::filter::PolicyDefinition;
 
 impl FromStr for MasterPasswordPolicy {
     type Err = serde_json::Error;
@@ -115,11 +115,7 @@ impl From<MasterPasswordPolicyResponseModel> for MasterPasswordPolicy {
     }
 }
 
-impl Policy for MasterPasswordPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::MasterPassword
-    }
-
+impl PolicyDefinition for MasterPasswordPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[]
     }
@@ -172,11 +168,7 @@ pub struct PasswordGeneratorPolicy {
     pub include_number: Option<bool>,
 }
 
-impl Policy for PasswordGeneratorPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::PasswordGenerator
-    }
-
+impl PolicyDefinition for PasswordGeneratorPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[]
     }
@@ -272,11 +264,7 @@ pub struct MaximumSessionTimeoutPolicy {
     pub action: SessionTimeoutAction,
 }
 
-impl Policy for MaximumSessionTimeoutPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::MaximumVaultTimeout
-    }
-
+impl PolicyDefinition for MaximumSessionTimeoutPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[OrganizationUserType::Owner]
     }
@@ -318,11 +306,7 @@ pub struct AutomaticAppLoginPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct FreeFamiliesSponsorshipPolicy;
 
-impl Policy for FreeFamiliesSponsorshipPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::FreeFamiliesSponsorship
-    }
-
+impl PolicyDefinition for FreeFamiliesSponsorshipPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[]
     }
@@ -338,11 +322,7 @@ impl Policy for FreeFamiliesSponsorshipPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct RemoveUnlockWithPinPolicy;
 
-impl Policy for RemoveUnlockWithPinPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::RemoveUnlockWithPin
-    }
-
+impl PolicyDefinition for RemoveUnlockWithPinPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[]
     }
@@ -358,11 +338,7 @@ impl Policy for RemoveUnlockWithPinPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct RestrictedItemTypesPolicy;
 
-impl Policy for RestrictedItemTypesPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::RestrictedItemTypes
-    }
-
+impl PolicyDefinition for RestrictedItemTypesPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[]
     }
@@ -398,11 +374,7 @@ pub struct UriMatchDefaultPolicy {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct AutomaticUserConfirmationPolicy;
 
-impl Policy for AutomaticUserConfirmationPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::AutomaticUserConfirmation
-    }
-
+impl PolicyDefinition for AutomaticUserConfirmationPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[]
     }
@@ -440,11 +412,7 @@ pub struct OrganizationUserNotificationPolicy {
     pub show_after_every_login: Option<bool>,
 }
 
-impl Policy for OrganizationUserNotificationPolicy {
-    fn policy_type(&self) -> PolicyType {
-        PolicyType::OrganizationUserNotification
-    }
-
+impl PolicyDefinition for OrganizationUserNotificationPolicy {
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[]
     }
