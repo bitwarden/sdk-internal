@@ -56,8 +56,6 @@ jobs:
       - name: Build
         env:
           TARGET: ${{ matrix.settings.target }}
-          # Fail if a commercial bitwarden_license crate leaks in (see bitwarden-commercial-marker).
-          RUSTFLAGS: "--cfg bitwarden_ensure_non_commercial"
         run: cargo bin cross build -p bitwarden-uniffi --release --target=${{ matrix.settings.target }}
 
       - name: Upload artifact

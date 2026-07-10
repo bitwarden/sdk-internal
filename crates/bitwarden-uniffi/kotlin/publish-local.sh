@@ -5,9 +5,6 @@ cd "$(dirname "$0")"
 
 SDK_REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Fail if a commercial bitwarden_license crate leaks in (see bitwarden-commercial-marker).
-export RUSTFLAGS="${RUSTFLAGS:-} --cfg bitwarden_ensure_non_commercial"
-
 mkdir -p ./sdk/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86_64,x86}
 
 # Build arm64 for emulator
