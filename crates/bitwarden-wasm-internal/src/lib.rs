@@ -10,8 +10,6 @@ mod ssh;
 
 pub use bitwarden_ipc::wasm::*;
 pub use bitwarden_organization_invite_link::*;
-#[cfg(feature = "bitwarden-license")]
-pub use bitwarden_pam::*;
 pub use bitwarden_server_communication_config::wasm::*;
 pub use bitwarden_shared_unlock::wasm::*;
 pub use client::PasswordManagerClient;
