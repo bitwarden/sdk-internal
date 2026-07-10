@@ -1,4 +1,4 @@
 # Bitwarden PAM
 
-Commercial crate implementing Privileged Access Management (PAM) Access Rules CRUD against the
-Bitwarden server.
+Commercial crate implementing Privileged Access Management (PAM) functionality against the Bitwarden
+server.

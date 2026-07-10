@@ -1,27 +1,25 @@
-use bitwarden_core::{Client, FromClient};
+use std::sync::Arc;
+
+use bitwarden_core::{Client, FromClient, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::access_rules::AccessRulesClient;
 
 /// Entry point for Privileged Access Management (PAM) operations.
-#[derive(Clone)]
+#[derive(Clone, FromClient)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct PamClient {
-    pub(crate) client: Client,
-}
-
-impl PamClient {
-    fn new(client: Client) -> Self {
-        Self { client }
-    }
+    pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl PamClient {
     /// Access rule CRUD operations.
     pub fn access_rules(&self) -> AccessRulesClient {
-        AccessRulesClient::from_client(&self.client)
+        AccessRulesClient {
+            api_configurations: self.api_configurations.clone(),
+        }
     }
 }
 
@@ -33,6 +31,6 @@ pub trait PamClientExt {
 
 impl PamClientExt for Client {
     fn pam(&self) -> PamClient {
-        PamClient::new(self.clone())
+        PamClient::from_client(self)
     }
 }
