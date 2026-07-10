@@ -79,6 +79,13 @@ pub enum SymmetricKeyAlgorithm {
     Aes256CbcHmac,
     /// Used for V2 user keys and data envelopes
     XChaCha20Poly1305,
+    /// FIPS-approved AEAD.
+    /// Used as content encryption key in:
+    /// [`DataEnvelope`](crate::safe::DataEnvelope)s.
+    /// [`PasswordProtectedKeyEnvelope`](crate::safe::PasswordProtectedKeyEnvelope)
+    ///
+    /// May not be used for multi-device scoped keys such as the user-key or organization-key
+    Aes256Gcm,
 }
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
@@ -143,7 +150,51 @@ pub struct XChaCha20Poly1305Key {
 impl XChaCha20Poly1305Key {
     /// Creates a new XChaCha20Poly1305Key with a securely sampled cryptographic key and key id.
     pub fn make() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
+        let mut enc_key = Box::pin(Array::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        let key_id = KeyId::make();
+
+        Self {
+            enc_key,
+            key_id,
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
+        }
+    }
+}
+
+impl ConstantTimeEq for XChaCha20Poly1305Key {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.enc_key.ct_eq(&other.enc_key) & self.key_id.ct_eq(&other.key_id)
+    }
+}
+
+impl PartialEq for XChaCha20Poly1305Key {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
+/// [Aes256GcmKey] is a symmetric AEAD key consisting of one 256-bit key
+#[derive(Zeroize, Clone)]
+pub struct Aes256GcmKey {
+    pub(crate) key_id: KeyId,
+    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
+    /// Controls which key operations are allowed with this key. See
+    /// [`XChaCha20Poly1305Key::supported_operations`].
+    #[zeroize(skip)]
+    pub(crate) supported_operations: Vec<KeyOperation>,
+}
+
+impl Aes256GcmKey {
+    /// Creates a new Aes256GcmKey with a securely sampled cryptographic key and key id.
+    pub fn make() -> Self {
+        let mut rng = bitwarden_random::rng();
         let mut enc_key = Box::pin(Array::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
         let key_id = KeyId::make();
@@ -166,15 +217,38 @@ impl XChaCha20Poly1305Key {
     }
 }
 
-impl ConstantTimeEq for XChaCha20Poly1305Key {
+impl ConstantTimeEq for Aes256GcmKey {
     fn ct_eq(&self, other: &Self) -> Choice {
         self.enc_key.ct_eq(&other.enc_key) & self.key_id.ct_eq(&other.key_id)
     }
 }
 
-impl PartialEq for XChaCha20Poly1305Key {
+impl PartialEq for Aes256GcmKey {
     fn eq(&self, other: &Self) -> bool {
         self.ct_eq(other).into()
+    }
+}
+
+/// A borrowed view over a symmetric key that is encoded as a COSE key and used as the
+/// content-encryption key for CoseEncrypt0/CoseEncrypt messages.
+pub(crate) enum CoseKeyView<'a> {
+    Aes256Gcm(&'a Aes256GcmKey),
+    XChaCha20Poly1305(&'a XChaCha20Poly1305Key),
+}
+
+impl CoseKeyView<'_> {
+    pub(crate) fn key_id(&self) -> &KeyId {
+        match self {
+            CoseKeyView::Aes256Gcm(k) => &k.key_id,
+            CoseKeyView::XChaCha20Poly1305(k) => &k.key_id,
+        }
+    }
+
+    pub(crate) fn key_bytes(&self) -> &[u8] {
+        match self {
+            CoseKeyView::Aes256Gcm(k) => k.enc_key.as_slice(),
+            CoseKeyView::XChaCha20Poly1305(k) => k.enc_key.as_slice(),
+        }
     }
 }
 
@@ -188,6 +262,9 @@ pub enum SymmetricCryptoKey {
     /// Data encrypted by XChaCha20Poly1305Key keys has type
     /// [`Cose_Encrypt0_B64`](crate::EncString::Cose_Encrypt0_B64)
     XChaCha20Poly1305Key(XChaCha20Poly1305Key),
+    /// FIPS-approved AES-256-GCM key, used as the content-encryption key for FIPS
+    /// [`DataEnvelope`](crate::safe::DataEnvelope)s. Encoded as a COSE key.
+    Aes256GcmKey(Aes256GcmKey),
 }
 
 impl SymmetricCryptoKey {
@@ -216,18 +293,19 @@ impl SymmetricCryptoKey {
         match algorithm {
             SymmetricKeyAlgorithm::Aes256CbcHmac => Self::make_aes256_cbc_hmac_key(),
             SymmetricKeyAlgorithm::XChaCha20Poly1305 => Self::make_xchacha20_poly1305_key(),
+            SymmetricKeyAlgorithm::Aes256Gcm => Self::Aes256GcmKey(Aes256GcmKey::make()),
         }
     }
 
     /// Generate a new random AES256_CBC_HMAC [SymmetricCryptoKey]
     pub(crate) fn make_aes256_cbc_hmac_key() -> Self {
-        let rng = rand::rng();
+        let rng = bitwarden_random::rng();
         Self::make_aes256_cbc_hmac_key_internal(rng)
     }
 
     /// Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
     pub(crate) fn make_xchacha20_poly1305_key() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         let mut enc_key = Box::pin(Array::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
         Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
@@ -319,6 +397,23 @@ impl SymmetricCryptoKey {
                         .into(),
                 )
             }
+            Self::Aes256GcmKey(key) => {
+                let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
+                let mut cose_key = builder.key_id((&key.key_id).into());
+                for op in &key.supported_operations {
+                    cose_key = cose_key.add_key_op(*op);
+                }
+                let mut cose_key = cose_key.build();
+                cose_key.alg = Some(RegisteredLabelWithPrivate::Assigned(
+                    coset::iana::Algorithm::A256GCM,
+                ));
+                EncodedSymmetricKey::CoseKey(
+                    cose_key
+                        .to_vec()
+                        .expect("cose key serialization should not fail")
+                        .into(),
+                )
+            }
         }
     }
 
@@ -341,6 +436,17 @@ impl SymmetricCryptoKey {
             Self::Aes256CbcKey(_) => None,
             Self::Aes256CbcHmacKey(_) => None,
             Self::XChaCha20Poly1305Key(key) => Some(key.key_id.clone()),
+            Self::Aes256GcmKey(key) => Some(key.key_id.clone()),
+        }
+    }
+
+    /// Returns a [`CoseKeyView`] for the COSE-key symmetric variants (AES-256-GCM,
+    /// XChaCha20-Poly1305), or `None` for the legacy AES-CBC variants.
+    pub(crate) fn as_cose_key_view(&self) -> Option<CoseKeyView<'_>> {
+        match self {
+            Self::Aes256GcmKey(k) => Some(CoseKeyView::Aes256Gcm(k)),
+            Self::XChaCha20Poly1305Key(k) => Some(CoseKeyView::XChaCha20Poly1305(k)),
+            Self::Aes256CbcKey(_) | Self::Aes256CbcHmacKey(_) => None,
         }
     }
 }
@@ -360,6 +466,9 @@ impl ConstantTimeEq for SymmetricCryptoKey {
 
             (XChaCha20Poly1305Key(a), XChaCha20Poly1305Key(b)) => a.ct_eq(b),
             (XChaCha20Poly1305Key(_), _) => Choice::from(0),
+
+            (Aes256GcmKey(a), Aes256GcmKey(b)) => a.ct_eq(b),
+            (Aes256GcmKey(_), _) => Choice::from(0),
         }
     }
 }
@@ -450,6 +559,7 @@ impl std::fmt::Debug for SymmetricCryptoKey {
             SymmetricCryptoKey::Aes256CbcKey(key) => key.fmt(f),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => key.fmt(f),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.fmt(f),
+            SymmetricCryptoKey::Aes256GcmKey(key) => key.fmt(f),
         }
     }
 }
@@ -477,6 +587,24 @@ impl std::fmt::Debug for Aes256CbcHmacKey {
 impl std::fmt::Debug for XChaCha20Poly1305Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug_struct = f.debug_struct("SymmetricKey::XChaCha20Poly1305");
+        debug_struct.field("key_id", &self.key_id);
+        debug_struct.field(
+            "supported_operations",
+            &self
+                .supported_operations
+                .iter()
+                .map(|key_operation: &KeyOperation| cose::debug_key_operation(*key_operation))
+                .collect::<Vec<_>>(),
+        );
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
+        debug_struct.finish()
+    }
+}
+
+impl std::fmt::Debug for Aes256GcmKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256Gcm");
         debug_struct.field("key_id", &self.key_id);
         debug_struct.field(
             "supported_operations",

@@ -9,7 +9,7 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [package.metadata.cargo-udeps.ignore]
@@ -47,6 +47,7 @@ bitwarden-organization-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-organization-invite-link = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-policies = { workspace = true, features = ["wasm"] }
+bitwarden-random = { workspace = true, features = ["wasm"] }
 bitwarden-send = { workspace = true, features = ["wasm"] }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }
 bitwarden-shared-unlock = { workspace = true, features = ["wasm"] }

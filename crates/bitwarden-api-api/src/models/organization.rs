@@ -496,6 +496,13 @@ pub struct Organization {
         skip_serializing_if = "Option::is_none"
     )]
     pub use_invite_links: Option<bool>,
+    /// If true, the organization is subscribed to the Privileged Access Management (PAM) product.
+    #[serde(
+        rename = "usePam",
+        alias = "UsePam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_pam: Option<bool>,
     /// When set to true, the organization is excluded from automated billing lifecycle operations
     /// such as subscription cancellation and disabling for non-payment.
     #[serde(
@@ -575,6 +582,7 @@ impl Organization {
             use_phishing_blocker: None,
             use_my_items: None,
             use_invite_links: None,
+            use_pam: None,
             exempt_from_billing_automation: None,
         }
     }
