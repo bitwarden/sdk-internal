@@ -10,7 +10,7 @@ use bitwarden_core::{
     },
     require,
 };
-use bitwarden_policies::MasterPasswordPolicyResponse;
+use bitwarden_policies::MasterPasswordPolicy;
 use thiserror::Error;
 
 use crate::login::{api::response::LoginSuccessApiResponse, models::UserDecryptionOptionsResponse};
@@ -71,7 +71,7 @@ pub struct LoginSuccessResponse {
 
     /// If the user is subject to an organization master password policy,
     /// this field contains the requirements of that policy.
-    pub master_password_policy: Option<MasterPasswordPolicyResponse>,
+    pub master_password_policy: Option<MasterPasswordPolicy>,
 
     /// The user's account cryptographic keys (wrapped with the user key).
     pub wrapped_account_crypto_state: Option<WrappedAccountCryptographicState>,

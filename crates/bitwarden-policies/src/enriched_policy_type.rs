@@ -3,23 +3,23 @@
 //! [`PolicyType`](crate::PolicyType) is a bare discriminant that matches the
 //! server's numeric wire format. `EnrichedPolicyType` mirrors every variant of
 //! that enum but additionally carries the strongly-typed `policy.data` payload
-//! (see [`policy_data`](crate::policy_data)) for the policies that have one.
+//! (see [`policy_definitions`](crate::policy_definitions)) for the policies that have one.
 //! Toggle-only policies (whose `data` is always `null`) are unit variants.
-//!
-// TODO: There is no conversion yet from [`PolicyView`](crate::PolicyView) (whose
-// `data` is an `Option<String>` of JSON) into an [`EnrichedPolicyType`]. Add a
-// fallible `TryFrom<&PolicyView>` (or similar) that parses `data` per policy
-// type, along with round-trip tests, when this is wired into a client.
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::policy_definitions::{
-    AutomaticAppLoginPolicy, MasterPasswordPolicy, MaximumSessionTimeoutPolicy,
-    OrganizationDataOwnershipPolicy, OrganizationUserNotificationPolicy,
-    PasswordGeneratorPolicy, ResetPasswordPolicy, SendControlsPolicy, SendOptionsPolicy,
-    UriMatchDefaultPolicy,
+use crate::{
+    PolicyType,
+    filter::Policy,
+    policy_definitions::{
+        AutomaticAppLoginPolicy, AutomaticUserConfirmationPolicy, FreeFamiliesSponsorshipPolicy,
+        MasterPasswordPolicy, MaximumSessionTimeoutPolicy, OrganizationDataOwnershipPolicy,
+        OrganizationUserNotificationPolicy, PasswordGeneratorPolicy, RemoveUnlockWithPinPolicy,
+        ResetPasswordPolicy, RestrictedItemTypesPolicy, SendControlsPolicy, SendOptionsPolicy,
+        UriMatchDefaultPolicy,
+    },
 };
 
 /// A [`PolicyType`](crate::PolicyType) paired with its strongly-typed
@@ -78,4 +78,81 @@ pub enum EnrichedPolicyType {
     /// Configures Send-related behavior (disabling Sends, email visibility,
     /// access controls, Send types, and deletion).
     SendControls(SendControlsPolicy),
+}
+
+impl EnrichedPolicyType {
+    /// Returns the [`Policy`](crate::filter::Policy) trait implementer for this policy type, if one exists.
+    ///
+    /// Only policies with custom filtering rules return `Some`. Policies without custom rules
+    /// (using default filtering) return `None`.
+    pub fn to_policy(&self) -> Option<Box<dyn Policy>> {
+        match self {
+            EnrichedPolicyType::MasterPassword(p) => Some(Box::new(p.clone())),
+            EnrichedPolicyType::PasswordGenerator(p) => Some(Box::new(p.clone())),
+            EnrichedPolicyType::MaximumVaultTimeout(p) => Some(Box::new(p.clone())),
+            EnrichedPolicyType::FreeFamiliesSponsorship => Some(Box::new(FreeFamiliesSponsorshipPolicy)),
+            EnrichedPolicyType::RemoveUnlockWithPin => Some(Box::new(RemoveUnlockWithPinPolicy)),
+            EnrichedPolicyType::RestrictedItemTypes => Some(Box::new(RestrictedItemTypesPolicy)),
+            EnrichedPolicyType::AutomaticUserConfirmation => {
+                Some(Box::new(AutomaticUserConfirmationPolicy))
+            }
+            EnrichedPolicyType::OrganizationUserNotification(p) => Some(Box::new(p.clone())),
+            // Policies without custom rules return None
+            _ => None,
+        }
+    }
+
+    /// Constructs an `EnrichedPolicyType` from a `PolicyType` and optional JSON data.
+    ///
+    /// For policies with configuration data, the JSON string is deserialized into the
+    /// appropriate data structure. If deserialization fails or data is missing, the
+    /// policy defaults are used.
+    pub fn from_policy_type(policy_type: PolicyType, data: Option<String>) -> Self {
+        match policy_type {
+            PolicyType::TwoFactorAuthentication => Self::TwoFactorAuthentication,
+            PolicyType::MasterPassword => Self::MasterPassword(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::PasswordGenerator => Self::PasswordGenerator(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::SingleOrg => Self::SingleOrg,
+            PolicyType::RequireSso => Self::RequireSso,
+            PolicyType::OrganizationDataOwnership => Self::OrganizationDataOwnership(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::DisableSend => Self::DisableSend,
+            PolicyType::SendOptions => Self::SendOptions(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::ResetPassword => Self::ResetPassword(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::MaximumVaultTimeout => Self::MaximumVaultTimeout(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::DisablePersonalVaultExport => Self::DisablePersonalVaultExport,
+            PolicyType::ActivateAutofill => Self::ActivateAutofill,
+            PolicyType::AutomaticAppLogIn => Self::AutomaticAppLogIn(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::FreeFamiliesSponsorship => Self::FreeFamiliesSponsorship,
+            PolicyType::RemoveUnlockWithPin => Self::RemoveUnlockWithPin,
+            PolicyType::RestrictedItemTypes => Self::RestrictedItemTypes,
+            PolicyType::UriMatchDefaults => Self::UriMatchDefaults(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::AutotypeDefaultSetting => Self::AutotypeDefaultSetting,
+            PolicyType::AutomaticUserConfirmation => Self::AutomaticUserConfirmation,
+            PolicyType::BlockClaimedDomainAccountCreation => {
+                Self::BlockClaimedDomainAccountCreation
+            }
+            PolicyType::OrganizationUserNotification => Self::OrganizationUserNotification(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+            PolicyType::SendControls => Self::SendControls(
+                serde_json::from_str(data.as_deref().unwrap_or("")).unwrap_or_default(),
+            ),
+        }
+    }
 }

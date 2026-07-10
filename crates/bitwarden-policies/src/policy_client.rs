@@ -1,16 +1,17 @@
 //! [`PolicyClient`] and its associated extension trait.
 
+use std::collections::HashMap;
+
 use bitwarden_core::Client;
+use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    OrganizationUserPolicyContext, PolicyType, PolicyView,
-    policy_definitions::{
-        AutomaticUserConfirmationPolicy, FreeFamiliesSponsorshipPolicy,
-        RemoveUnlockWithPinPolicy, RestrictedItemTypesPolicy,
-    },
-    registry::PolicyRegistry,
+    OrganizationUserPolicyContext, PolicyType, PolicyView, models::EnrichedPolicy, policy_definitions::{
+        AutomaticUserConfirmationPolicy, FreeFamiliesSponsorshipPolicy, RemoveUnlockWithPinPolicy,
+        RestrictedItemTypesPolicy,
+    }, registry::PolicyRegistry
 };
 
 fn build_policy_registry() -> PolicyRegistry {
@@ -61,6 +62,27 @@ impl PolicyClient {
             .filter_by_type(&policies, &organization_user_policy_contexts, policy_type)
             .into_iter()
             .cloned()
+            .collect()
+    }
+
+    /// POC new path - returns strongly typed policy data using enums to encapsulate both data and metadata
+    pub fn filter_new(
+        &self,
+        policies: Vec<PolicyView>,
+        organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
+        policy_type: PolicyType,
+    ) -> Vec<EnrichedPolicy> {
+        let org_map: HashMap<&Uuid, &OrganizationUserPolicyContext> =
+            organization_user_policy_contexts
+                .iter()
+                .map(|o| (&o.id, o))
+                .collect();
+
+        policies
+            .iter()
+            .filter(|p| p.r#type == policy_type)
+            .map(|p| EnrichedPolicy::from_policy_view(p))
+            .filter(|ep| ep.enforced(org_map.clone()))
             .collect()
     }
 }

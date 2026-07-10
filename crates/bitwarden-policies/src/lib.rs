@@ -7,9 +7,9 @@ mod uniffi_support;
 
 mod enriched_policy_type;
 pub mod filter;
-pub mod policy_definitions;
 mod models;
 mod policy_client;
+pub mod policy_definitions;
 mod policy_type;
 mod registry;
 

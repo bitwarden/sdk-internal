@@ -4,78 +4,44 @@
 //! and its [`Policy`](crate::filter::Policy) trait implementation.
 //! Organized by policy type numeric value.
 
-use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
+use std::str::FromStr;
+
+use bitwarden_api_api::models::{MasterPasswordPolicyResponseModel};
 use bitwarden_organizations::OrganizationUserType;
+use bitwarden_send::SendType;
+use bitwarden_vault::UriMatchType;
 use serde::{Deserialize, Serialize};
-use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
 use crate::{PolicyType, filter::Policy};
 
+impl FromStr for MasterPasswordPolicy {
+    type Err = serde_json::Error;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
 // =============================================================================
 // Supporting enums
 // =============================================================================
-
-/// The type of a Bitwarden Send, used by [`SendControlsPolicy`].
-///
-/// The integer value matches the server's wire format.
-///
-// TODO: This duplicates `bitwarden_send::SendType` (values confirmed from that
-// crate). Kept local to avoid making this foundation crate depend on a feature
-// crate; revisit if these types should be shared instead.
-#[derive(Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Copy, Clone)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[repr(u8)]
-pub enum SendType {
-    /// A text-based Send.
-    Text = 0,
-    /// A file-based Send.
-    File = 1,
-}
-
-/// The URI match detection strategy, used by [`UriMatchDefaultPolicy`].
-///
-/// The integer value matches the server's wire format (mirrors the vault's
-/// `UriMatchType`).
-///
-// TODO: This duplicates `bitwarden_vault::UriMatchType` (values confirmed from
-// that crate). Kept local to avoid making this foundation crate depend on a
-// feature crate; revisit if these types should be shared instead.
-#[derive(Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Copy, Clone)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[repr(u8)]
-pub enum UriMatchStrategySetting {
-    /// Match by base domain.
-    Domain = 0,
-    /// Match by host (including port).
-    Host = 1,
-    /// Match when the resource URI starts with the configured URI.
-    StartsWith = 2,
-    /// Match only on an exact URI.
-    Exact = 3,
-    /// Match using a regular expression.
-    RegularExpression = 4,
-    /// Never match automatically.
-    Never = 5,
-}
 
 /// The action to take when the maximum session timeout elapses, used by
 /// [`MaximumSessionTimeoutPolicy`].
 ///
 /// Serialized as a camelCase string to match the server's wire format.
-///
 // TODO: The variant set (`Lock`/`LogOut`) and their camelCase serialization are
 // assumed to mirror the client `VaultTimeoutAction`. Verify against the server's
 // wire format before relying on it.
-#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Copy, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum SessionTimeoutAction {
     /// Lock the vault, requiring the user to unlock again.
+    #[default]
     Lock,
     /// Log the user out entirely.
     LogOut,
@@ -94,7 +60,7 @@ pub enum SessionTimeoutAction {
 /// SDK domain model for master password policy requirements.
 /// Defines the complexity requirements for a user's master password
 /// when enforced by an organization policy.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -166,7 +132,7 @@ impl Policy for MasterPasswordPolicy {
 /// `policy.data` for the password generator policy.
 ///
 /// Sets restrictions and defaults for the password/passphrase generator.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -236,7 +202,7 @@ impl Policy for PasswordGeneratorPolicy {
 ///
 /// Note: this policy also sends an encrypted `metadata.defaultUserCollectionName`
 /// separately from `policy.data`; that value is not part of this struct.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -259,7 +225,7 @@ pub struct OrganizationDataOwnershipPolicy {
 ///
 /// Superseded by [`SendControlsPolicy`] when the `pm-31885-send-controls`
 /// feature flag is active on the server.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -273,7 +239,7 @@ pub struct SendOptionsPolicy {
 // =============================================================================
 
 /// `policy.data` for the reset password (account recovery) policy.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -290,13 +256,12 @@ pub struct ResetPasswordPolicy {
 ///
 /// Backs both the v1 and v2 maximum session timeout policies (both use
 /// [`PolicyType::MaximumVaultTimeout`](crate::PolicyType::MaximumVaultTimeout)).
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct MaximumSessionTimeoutPolicy {
     /// The kind of timeout being enforced.
-    ///
     // TODO: This is the `SessionTimeoutType` discriminant, modeled as a raw
     // string until the server's enum domain is confirmed. Tighten to a dedicated
     // enum once the allowed values are known.
@@ -334,7 +299,7 @@ impl Policy for MaximumSessionTimeoutPolicy {
 // =============================================================================
 
 /// `policy.data` for the automatic app login policy.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -408,13 +373,13 @@ impl Policy for RestrictedItemTypesPolicy {
 // =============================================================================
 
 /// `policy.data` for the URI match defaults policy.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct UriMatchDefaultPolicy {
     /// The default URI match detection strategy for autofill.
-    pub uri_match_detection: UriMatchStrategySetting,
+    pub uri_match_detection: UriMatchType,
 }
 
 // =============================================================================
@@ -456,7 +421,7 @@ impl Policy for AutomaticUserConfirmationPolicy {
 /// `policy.data` for the organization user notification policy.
 ///
 /// The server returns `null` (i.e. no data) when the policy is disabled.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -494,7 +459,7 @@ impl Policy for OrganizationUserNotificationPolicy {
 /// Configures Send-related behavior. Supersedes [`SendOptionsPolicy`] (and the
 /// toggle-only `DisableSend` policy) when the `pm-31885-send-controls` feature flag
 /// is active on the server.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -503,7 +468,6 @@ pub struct SendControlsPolicy {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_send: Option<bool>,
     /// Restricts who can access created Sends.
-    ///
     // TODO: Modeled as a raw string until the server's enum domain is confirmed.
     // Tighten to a dedicated enum once the allowed values are known.
     #[serde(skip_serializing_if = "Option::is_none")]
