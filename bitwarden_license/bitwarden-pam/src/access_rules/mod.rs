@@ -33,13 +33,13 @@
 //!
 //! # Validation
 //!
-//! [`AccessRuleAddEditRequest`]s are validated locally by [`validate_request`] before being sent,
-//! so obviously-malformed requests fail fast with a typed [`AccessRuleValidationError`] instead of
-//! a round trip. This covers name length, lease-duration and extension consistency, the maximum
-//! condition count, and CIDR syntax. Unknown condition kinds are deliberately *not* validated
-//! locally - the server validates those. CIDR ranges are checked with [`is_valid_cidr`], which is
-//! intentionally stricter than the server to avoid client/server disagreement about which network a
-//! rule matches.
+//! [`AccessRuleAddEditRequest`]s are validated locally by
+//! [`validate_request`](validate::validate_request) before being sent, so obviously-malformed
+//! requests fail fast with a typed [`AccessRuleValidationError`] instead of a round trip. This
+//! covers name length, lease-duration and extension consistency, the maximum condition count, and
+//! CIDR syntax. Unknown condition kinds are deliberately *not* validated locally - the server
+//! validates those. CIDR ranges are checked with [`is_valid_cidr`], which is intentionally stricter
+//! than the server to avoid client/server disagreement about which network a rule matches.
 
 mod client;
 mod conditions;
