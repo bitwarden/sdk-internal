@@ -18,6 +18,7 @@ keywords.workspace = true
 wasm = ["bitwarden-core/wasm", "dep:wasm-bindgen"]
 
 [dependencies]
+bitwarden-commercial-marker = { workspace = true }
 bitwarden-core = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 

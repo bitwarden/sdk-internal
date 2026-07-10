@@ -598,9 +598,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-commercial-marker"
+version = "3.0.0"
+
+[[package]]
 name = "bitwarden-commercial-vault"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-commercial-marker",
  "bitwarden-core",
  "serde",
  "serde_json",
@@ -1001,6 +1006,7 @@ dependencies = [
 name = "bitwarden-pam"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-commercial-marker",
  "bitwarden-core",
  "wasm-bindgen",
 ]
@@ -1163,6 +1169,7 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-auth",
+ "bitwarden-commercial-marker",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-generators",
