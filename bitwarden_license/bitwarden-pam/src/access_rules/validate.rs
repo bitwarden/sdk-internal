@@ -1,6 +1,5 @@
-use std::str::FromStr;
+use std::net::IpAddr;
 
-use ipnet::IpNet;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -73,15 +72,38 @@ pub fn validate_request(
     Ok(())
 }
 
-/// Returns true when `value` is a valid CIDR range, matching the server's `IPNetwork.TryParse`
-/// semantics: the value must parse as a CIDR range AND have no host bits set (e.g. `10.0.0.0/8`
-/// is valid, `10.0.0.1/8` is not because the low 24 bits aren't all zero).
+/// Returns `true` when `value` is a CIDR range in canonical form: `address/prefix` where the
+/// address parses strictly (RFC dotted-quad IPv4 / RFC 4291 IPv6, no leading-zero octets, hex
+/// octets, partial addresses, or zone IDs), the prefix is a plain decimal integer in range, and
+/// no host bits are set (e.g. `10.0.0.0/8` is valid, `10.0.0.1/8` is not).
+///
+/// This is deliberately stricter than the server, which currently stores conditions verbatim, and
+/// stricter than .NET 10's `IPNetwork.TryParse`, which silently truncates host bits and interprets
+/// leading-zero octets as octal. Rejecting ambiguous input here avoids a client/server
+/// disagreement about which network a rule matches.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn is_valid_cidr(value: &str) -> bool {
-    match IpNet::from_str(value) {
-        Ok(net) => net.trunc() == net,
+    let Some((addr, prefix)) = value.split_once('/') else {
+        return false;
+    };
+    // `u8::from_str` accepts a leading `+`, which is not a valid CIDR prefix.
+    if !prefix.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    let Ok(prefix) = prefix.parse::<u8>() else {
+        return false;
+    };
+    match addr.parse::<IpAddr>() {
+        Ok(IpAddr::V4(ip)) => prefix <= 32 && no_host_bits(u32::from(ip).into(), prefix, 32),
+        Ok(IpAddr::V6(ip)) => prefix <= 128 && no_host_bits(ip.into(), prefix, 128),
         Err(_) => false,
     }
+}
+
+/// Returns true when the low `width - prefix` host bits of `addr` are all zero.
+fn no_host_bits(addr: u128, prefix: u8, width: u8) -> bool {
+    let host_bits = width - prefix;
+    host_bits == 0 || addr & (u128::MAX >> (128 - u32::from(host_bits))) == 0
 }
 
 #[cfg(test)]
@@ -240,5 +262,116 @@ mod tests {
             "kind": "time_of_day",
         }))];
         assert_eq!(validate_request(&request), Ok(()));
+    }
+
+    // --- Edge cases for is_valid_cidr ---
+
+    #[test]
+    fn zero_zero_zero_zero_slash_zero_is_valid() {
+        assert!(is_valid_cidr("0.0.0.0/0"));
+    }
+
+    #[test]
+    fn ipv6_slash_zero_is_valid() {
+        assert!(is_valid_cidr("::/0"));
+    }
+
+    #[test]
+    fn ipv4_nonzero_host_with_slash_zero_is_invalid() {
+        // 10.0.0.0/0 has host bits set because the entire address must be zero for /0
+        assert!(!is_valid_cidr("10.0.0.0/0"));
+    }
+
+    #[test]
+    fn ipv4_full_prefix_is_valid() {
+        assert!(is_valid_cidr("10.0.0.1/32"));
+    }
+
+    #[test]
+    fn ipv6_full_prefix_is_valid() {
+        assert!(is_valid_cidr("2001:db8::1/128"));
+    }
+
+    #[test]
+    fn ipv4_prefix_out_of_range_is_invalid() {
+        assert!(!is_valid_cidr("10.0.0.0/33"));
+    }
+
+    #[test]
+    fn ipv6_prefix_out_of_range_is_invalid() {
+        assert!(!is_valid_cidr("2001:db8::/129"));
+    }
+
+    #[test]
+    fn empty_prefix_is_invalid() {
+        assert!(!is_valid_cidr("10.0.0.0/"));
+    }
+
+    #[test]
+    fn empty_address_is_invalid() {
+        assert!(!is_valid_cidr("/8"));
+    }
+
+    #[test]
+    fn double_slash_prefix_is_invalid() {
+        assert!(!is_valid_cidr("10.0.0.0/8/8"));
+    }
+
+    #[test]
+    fn leading_whitespace_is_invalid() {
+        assert!(!is_valid_cidr(" 10.0.0.0/8"));
+    }
+
+    #[test]
+    fn prefix_with_leading_whitespace_is_invalid() {
+        assert!(!is_valid_cidr("10.0.0.0/ 8"));
+    }
+
+    #[test]
+    fn ipv6_prefix_300_is_invalid() {
+        assert!(!is_valid_cidr("2001:db8::/300"));
+    }
+
+    // --- Signed/non-digit prefix characters ---
+
+    #[test]
+    fn signed_positive_prefix_is_invalid() {
+        assert!(!is_valid_cidr("10.0.0.0/+8"));
+    }
+
+    #[test]
+    fn signed_negative_prefix_is_invalid() {
+        assert!(!is_valid_cidr("10.0.0.0/-8"));
+    }
+
+    // --- Leading zero in prefix (unambiguous decimal — matches .NET behaviour) ---
+
+    #[test]
+    fn prefix_with_leading_zero_is_valid() {
+        assert!(is_valid_cidr("10.0.0.0/08"));
+    }
+
+    // --- Ambiguous / non-canonical address forms ---
+
+    #[test]
+    fn leading_zero_octet_is_invalid() {
+        // .NET parses leading-zero octets as octal (`010` → `8`), so accepting this would let
+        // client and server disagree about which network the rule matches.
+        assert!(!is_valid_cidr("010.0.0.0/8"));
+    }
+
+    #[test]
+    fn hex_octet_is_invalid() {
+        assert!(!is_valid_cidr("0x0A.0.0.0/8"));
+    }
+
+    #[test]
+    fn partial_ipv4_address_is_invalid() {
+        assert!(!is_valid_cidr("1.2.3/24"));
+    }
+
+    #[test]
+    fn ipv6_zone_id_is_invalid() {
+        assert!(!is_valid_cidr("fe80::1%1/64"));
     }
 }

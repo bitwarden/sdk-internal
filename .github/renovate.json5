@@ -104,7 +104,6 @@
         "futures",
         "hmac",
         "http",
-        "ipnet",
         "js-sys",
         "mockall",
         "password-rules-parser",
