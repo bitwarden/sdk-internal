@@ -8,7 +8,7 @@ use tokio::select;
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
     error::{
-        AlreadyRunningError, IpcErrorKind, ReceiveError, SendError, SubscribeError,
+        AlreadyRunningError, ErrorKind, IpcErrorKind, ReceiveError, SendError, SubscribeError,
         TypedReceiveError,
     },
     message::{
@@ -159,7 +159,7 @@ where
                                     break;
                                 };
                             }
-                            Err(error) if error.is_fatal() => {
+                            Err(error) if matches!(error.kind(), ErrorKind::Fatal) => {
                                 tracing::error!(?error, "Fatal error receiving message, stopping IPC client");
                                 break;
                             }
@@ -209,18 +209,27 @@ where
             .await;
 
         if let Err(ref error) = result {
-            if error.is_fatal() {
-                tracing::error!(?error, "Fatal error sending message, stopping IPC client");
-                stop_inner(&self.inner);
-            } else {
-                tracing::warn!(
-                    ?error,
-                    "Recoverable error sending message, IPC client will continue running"
-                );
+            match error.kind() {
+                ErrorKind::Fatal => {
+                    tracing::error!(?error, "Fatal error sending message, stopping IPC client");
+                    stop_inner(&self.inner);
+                }
+                // An unreachable destination is an expected condition and not logged
+                ErrorKind::Unreachable => {}
+                // Every other recoverable send failure is still surfaced.
+                ErrorKind::Other => {
+                    tracing::warn!(
+                        ?error,
+                        "Recoverable error sending message, IPC client will continue running"
+                    );
+                }
             }
         }
 
-        result.map_err(|e| SendError(format!("{e:?}")))
+        result.map_err(|e| match e.kind() {
+            ErrorKind::Unreachable => SendError::Unreachable,
+            _ => SendError::Other(format!("{e:?}")),
+        })
     }
 
     async fn subscribe(
@@ -413,8 +422,12 @@ mod tests {
     }
 
     impl IpcErrorKind for TestCryptoError {
-        fn is_fatal(&self) -> bool {
-            self.fatal
+        fn kind(&self) -> ErrorKind {
+            if self.fatal {
+                ErrorKind::Fatal
+            } else {
+                ErrorKind::Other
+            }
         }
     }
 
