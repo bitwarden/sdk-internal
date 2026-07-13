@@ -16,7 +16,7 @@ use thiserror::Error;
 use typenum::U32;
 
 use crate::{
-    ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    Aes256GcmKey, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
 };
@@ -29,6 +29,9 @@ use crate::{
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
+/// PBKDF2-HMAC-SHA256 KDF algorithm discriminant, used by the password protected key envelope in
+/// the FIPS cipher suite. PBKDF2 is FIPS-approved, unlike Argon2id ([`ALG_ARGON2ID13`]).
+pub(crate) const ALG_PBKDF2_SHA256: i64 = -71010;
 
 // Custom labels for COSE headers
 // NOTE: Any label below -65536 is reserved for private use in the IANA allocations and can be used
@@ -40,6 +43,10 @@ pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 /// Indicates for any object containing a key (wrapped key, password protected key envelope) which
 /// key ID that contained key has
 pub(crate) const CONTAINED_KEY_ID: i64 = -71005;
+/// PBKDF2 iterations and salt, used by the password protected key envelope in the FIPS cipher
+/// suite.
+pub(crate) const PBKDF2_ITERATIONS: i64 = -71011;
+pub(crate) const PBKDF2_SALT: i64 = -71012;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
@@ -73,7 +80,7 @@ pub(crate) enum SafeObjectNamespace {
     //Reserved:
     //PrivateKeyEnvelope = 4,
     //SigningKeyEnvelope = 5,
-    //SecretProtectedKeyEnvelope = 6,
+    SecretProtectedKeyEnvelope = 6,
 }
 
 impl TryFrom<i128> for SafeObjectNamespace {
@@ -84,6 +91,7 @@ impl TryFrom<i128> for SafeObjectNamespace {
             1 => Ok(SafeObjectNamespace::PasswordProtectedKeyEnvelope),
             2 => Ok(SafeObjectNamespace::DataEnvelope),
             3 => Ok(SafeObjectNamespace::SymmetricKeyEnvelope),
+            6 => Ok(SafeObjectNamespace::SecretProtectedKeyEnvelope),
             _ => Err(()),
         }
     }
@@ -155,6 +163,21 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                         supported_operations: key_opts,
                     },
                 ))
+            }
+            coset::Algorithm::Assigned(iana::Algorithm::A256GCM) => {
+                let enc_key = Box::pin(
+                    Array::<u8, U32>::try_from(key_bytes).map_err(|_| CryptoError::InvalidKey)?,
+                );
+                let key_id = cose_key
+                    .key_id
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(SymmetricCryptoKey::Aes256GcmKey(Aes256GcmKey {
+                    enc_key,
+                    key_id,
+                    supported_operations: key_opts,
+                }))
             }
             _ => Err(CryptoError::InvalidKey),
         }

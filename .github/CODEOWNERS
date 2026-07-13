@@ -35,10 +35,12 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 .github/workflows/review-code.yml @bitwarden/team-ai-sme
 
 # Team-owned crates
+bitwarden_license/bitwarden-pam/** @bitwarden/team-pam-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
+crates/bitwarden-crypto-cipher-suite/** @bitwarden/team-key-management-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-importers/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev

@@ -2,7 +2,7 @@ use std::{sync::LazyLock, time::Duration};
 
 use bitwarden_threading::time::timeout;
 use serde::{Deserialize, Serialize};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     crypto_provider::noise::{
@@ -12,13 +12,14 @@ use crate::{
         },
         transport_state::{PersistentTransportState, TransportFrame},
     },
-    error::IpcErrorKind,
+    error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
     traits::{
         CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
     },
 };
 
+/// A `CryptoProvider` that encrypts IPC traffic using the Noise protocol.
 pub struct NoiseCryptoProvider;
 
 #[derive(Debug)]
@@ -27,30 +28,44 @@ pub enum NoiseCryptoProviderError {
     HandshakeProtocol,
     /// A timeout waiting for a message
     Timeout,
-    /// Could not send via the underlying transport. `fatal` is derived from the underlying
-    /// backend error's [`IpcErrorKind`] classification.
-    TransportSend { fatal: bool },
-    /// Could not receive via the underlying transport. `fatal` is derived from the underlying
-    /// backend error's [`IpcErrorKind`] classification.
-    TransportReceive { fatal: bool },
+    /// The destination could not be reached (the underlying transport is not connected).
+    TransportUnreachable,
+    /// Could not send via the underlying transport. `kind` is the underlying backend error's
+    /// [`IpcErrorKind`] classification.
+    TransportSend { kind: ErrorKind },
+    /// Could not receive via the underlying transport. `kind` is the underlying backend error's
+    /// [`IpcErrorKind`] classification.
+    TransportReceive { kind: ErrorKind },
     /// A cryptographic error. In most cases, such messages are just dropped.
     DecryptionFailure,
 }
 
 impl IpcErrorKind for NoiseCryptoProviderError {
-    fn is_fatal(&self) -> bool {
+    fn kind(&self) -> ErrorKind {
         match self {
             // A bad/missing handshake frame from one peer does not affect the shared client; the
             // peer can retry the handshake.
-            NoiseCryptoProviderError::HandshakeProtocol => false,
+            NoiseCryptoProviderError::HandshakeProtocol => ErrorKind::Other,
             // The handshake is retryable on a subsequent send.
-            NoiseCryptoProviderError::Timeout => false,
+            NoiseCryptoProviderError::Timeout => ErrorKind::Other,
             // A decryption failure only affects the offending message, which is dropped.
-            NoiseCryptoProviderError::DecryptionFailure => false,
+            NoiseCryptoProviderError::DecryptionFailure => ErrorKind::Other,
+            // An unreachable destination; the message simply could not be delivered.
+            NoiseCryptoProviderError::TransportUnreachable => ErrorKind::Unreachable,
             // Defer to the underlying backend's classification, captured at construction.
-            NoiseCryptoProviderError::TransportSend { fatal } => *fatal,
-            NoiseCryptoProviderError::TransportReceive { fatal } => *fatal,
+            NoiseCryptoProviderError::TransportSend { kind }
+            | NoiseCryptoProviderError::TransportReceive { kind } => *kind,
         }
+    }
+}
+
+/// Classify a transport send failure: an unreachable destination becomes the dedicated
+/// [`NoiseCryptoProviderError::TransportUnreachable`], while every other failure preserves the
+/// underlying backend's fatal/recoverable classification.
+fn transport_send_error<E: IpcErrorKind>(e: E) -> NoiseCryptoProviderError {
+    match e.kind() {
+        ErrorKind::Unreachable => NoiseCryptoProviderError::TransportUnreachable,
+        kind => NoiseCryptoProviderError::TransportSend { kind },
     }
 }
 
@@ -69,7 +84,7 @@ impl NoiseCryptoProvider {
         Com: CommunicationBackend,
         Ses: SessionRepository<NoiseCryptoProviderState>,
     {
-        info!("Starting noise handshake with {:?}", destination);
+        debug!("Starting noise handshake with {:?}", destination);
 
         let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
         let message = initiator
@@ -85,18 +100,15 @@ impl NoiseCryptoProvider {
                 topic: None,
             })
             .await
-            .map_err(|e| NoiseCryptoProviderError::TransportSend {
-                fatal: e.is_fatal(),
-            })?;
+            .map_err(transport_send_error)?;
 
         // Wait for the handshake response (with timeout)
         timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
             loop {
-                let incoming = receiver.receive().await.map_err(|e| {
-                    NoiseCryptoProviderError::TransportReceive {
-                        fatal: e.is_fatal(),
-                    }
-                })?;
+                let incoming = receiver
+                    .receive()
+                    .await
+                    .map_err(|e| NoiseCryptoProviderError::TransportReceive { kind: e.kind() })?;
 
                 // For concurrent handshakes, ignore messages
                 if incoming.source.to_endpoint() != destination {
@@ -204,17 +216,21 @@ where
 
         if should_handshake {
             if crypto_state.is_none() {
-                info!(
+                debug!(
                     "Noise handshake with {:?} initiated for new session establishment",
                     destination
                 );
             } else {
-                info!(
+                debug!(
                     "Noise re-handshake with {:?} due to re-handshake interval",
                     destination
                 );
             }
 
+            // Propagate every handshake failure, including an unreachable transport. The
+            // unreachable case surfaces as `NoiseCryptoProviderError::TransportUnreachable`
+            // (non-fatal), which the logging layers intentionally do not log — so it no longer
+            // needs to be swallowed here to avoid spam.
             Self::perform_handshake(communication, sessions, destination.clone()).await?;
         }
 
@@ -229,16 +245,53 @@ where
             .state
             .send(message.payload.into())
             .map_err(|_| NoiseCryptoProviderError::DecryptionFailure)?;
-        communication
+        if let Err(e) = communication
             .send(OutgoingMessage {
                 payload: Frame::TransportFrame(transport_frame).to_cbor(),
                 destination: destination.clone(),
                 topic: message.topic,
             })
             .await
-            .map_err(|e| NoiseCryptoProviderError::TransportSend {
-                fatal: e.is_fatal(),
-            })?;
+            .map_err(transport_send_error)
+        {
+            match e.kind() {
+                ErrorKind::Fatal => {
+                    error!(
+                        "{:?} fatal error sending message. Clearing cryptographic sessions.",
+                        destination
+                    );
+                    sessions
+                        .remove(destination.clone())
+                        .await
+                        .expect("Delete session should not fail");
+                    return Err(e);
+                }
+                ErrorKind::Unreachable => {
+                    // If a destination goes offline, the cryptographic session is torn down.
+                    // The next time the destination comes back online, a new handshake will be
+                    // performed. If this were not done, then the first message
+                    // would always be dropped by the destination,
+                    // after the destination process-reloads because it would not be decryptable by
+                    // the destination.
+                    info!(
+                        "{:?} is unreachable. Clearing cryptographic sessions.",
+                        destination
+                    );
+                    sessions
+                        .remove(destination.clone())
+                        .await
+                        .expect("Delete session should not fail");
+                    return Err(e);
+                }
+                // Every other recoverable send failure is still surfaced.
+                ErrorKind::Other => {
+                    error!(
+                        "Recoverable error sending message to {:?}: {:?}",
+                        destination, e
+                    );
+                }
+            }
+        }
 
         sessions
             .save(destination, crypto_state)
@@ -255,11 +308,10 @@ where
         sessions: &Ses,
     ) -> Result<IncomingMessage, Self::ReceiveError> {
         loop {
-            let message = receiver.receive().await.map_err(|e| {
-                NoiseCryptoProviderError::TransportReceive {
-                    fatal: e.is_fatal(),
-                }
-            })?;
+            let message = receiver
+                .receive()
+                .await
+                .map_err(|e| NoiseCryptoProviderError::TransportReceive { kind: e.kind() })?;
 
             // Ensure session exists
             let source_endpoint: crate::endpoint::Endpoint = message.source.clone().into();
@@ -287,9 +339,7 @@ where
                             topic: None,
                         })
                         .await
-                        .map_err(|e| NoiseCryptoProviderError::TransportSend {
-                            fatal: e.is_fatal(),
-                        })?;
+                        .map_err(transport_send_error)?;
 
                     let crypto_state = NoiseCryptoProviderState {
                         state: (&mut responder).into(),
@@ -306,7 +356,7 @@ where
                         .await
                         .expect("Get session should not fail");
                     let Some(mut state) = crypto_state else {
-                        info!("No session for {:?}, waiting for handshake", message.source);
+                        debug!("No session for {:?}, waiting for handshake", message.source);
                         let frame = Frame::CryptoInvalidated.to_cbor();
                         communication
                             .send(OutgoingMessage {
@@ -315,9 +365,7 @@ where
                                 topic: None,
                             })
                             .await
-                            .map_err(|e| NoiseCryptoProviderError::TransportSend {
-                                fatal: e.is_fatal(),
-                            })?;
+                            .map_err(transport_send_error)?;
                         continue;
                     };
 

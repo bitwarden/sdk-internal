@@ -310,6 +310,12 @@ pub struct OrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub use_invite_links: Option<bool>,
+    #[serde(
+        rename = "usePam",
+        alias = "UsePam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_pam: Option<bool>,
 }
 
 impl OrganizationResponseModel {
@@ -365,6 +371,7 @@ impl OrganizationResponseModel {
             use_phishing_blocker: None,
             use_my_items: None,
             use_invite_links: None,
+            use_pam: None,
         }
     }
 }

@@ -1,5 +1,6 @@
 README.md
 src/apis/access_policies_api.rs
+src/apis/access_rules_api.rs
 src/apis/account_billing_v_next_api.rs
 src/apis/accounts_api.rs
 src/apis/accounts_billing_api.rs
@@ -69,7 +70,11 @@ src/apis/two_factor_api.rs
 src/apis/users_api.rs
 src/apis/web_authn_api.rs
 src/lib.rs
+src/models/accept_organization_invite_link_request_model.rs
 src/models/access_policy_request.rs
+src/models/access_rule_request_model.rs
+src/models/access_rule_response_model.rs
+src/models/access_rule_response_model_list_response_model.rs
 src/models/access_token_create_request_model.rs
 src/models/access_token_creation_response_model.rs
 src/models/access_token_response_model.rs
@@ -205,6 +210,7 @@ src/models/emergency_access_update_request_model.rs
 src/models/emergency_access_view_response_model.rs
 src/models/emergency_access_with_id_request_model.rs
 src/models/environment_config_response_model.rs
+src/models/error_response_model.rs
 src/models/event_response_model.rs
 src/models/event_response_model_list_response_model.rs
 src/models/event_system_user.rs

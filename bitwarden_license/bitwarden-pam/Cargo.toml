@@ -1,0 +1,25 @@
+[package]
+name = "bitwarden-pam"
+description = """
+Internal commercial crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE_SDK.txt"
+keywords.workspace = true
+
+[features]
+wasm = ["bitwarden-core/wasm", "dep:wasm-bindgen"]
+
+[dependencies]
+bitwarden-core = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true

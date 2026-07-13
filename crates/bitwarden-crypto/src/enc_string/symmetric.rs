@@ -399,6 +399,9 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
+            SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
+            )),
         }
     }
 }
