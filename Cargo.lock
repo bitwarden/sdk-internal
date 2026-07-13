@@ -76,9 +76,9 @@ dependencies = [
 
 [[package]]
 name = "aes-gcm"
-version = "0.11.0-rc.4"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da8c919c118108f144adecad74b425b804ad075580d605d9b33c2d6d1c62a2f8"
+checksum = "fdf011db2e21ce0d575593d749db5554b47fed37aff429e4dc50bc91ac93a028"
 dependencies = [
  "aead 0.6.0",
  "aes 0.9.1",
@@ -677,7 +677,7 @@ name = "bitwarden-crypto"
 version = "3.0.0"
 dependencies = [
  "aes 0.9.1",
- "aes-gcm 0.11.0-rc.4",
+ "aes-gcm 0.11.0",
  "argon2",
  "bitwarden-api-key-connector",
  "bitwarden-encoding",
@@ -5909,17 +5909,13 @@ dependencies = [
 
 [[package]]
 name = "ssh-cipher"
-version = "0.3.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10db6f219196a8528f9ec904d9d45cdad692d65b0e57e72be4dedd1c5fddce36"
+version = "0.3.0"
 dependencies = [
  "aead 0.6.0",
  "aes 0.9.1",
- "aes-gcm 0.11.0-rc.4",
- "cbc",
+ "aes-gcm 0.11.0",
  "chacha20 0.10.0",
  "cipher 0.5.2",
- "ctr 0.10.1",
  "ctutils",
  "des",
  "poly1305 0.9.0",
@@ -5930,8 +5926,6 @@ dependencies = [
 [[package]]
 name = "ssh-encoding"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b54d0ed0498daf3f78d82e00e28c8eec9d75a067c4cfbcc7a0f7d0f4077749e"
 dependencies = [
  "base64ct",
  "crypto-bigint 0.7.5",
@@ -5943,13 +5937,12 @@ dependencies = [
 
 [[package]]
 name = "ssh-key"
-version = "0.7.0-rc.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45735ce3dea95690e4a9e414c4cfde7f79835063c3dcd35881df85a84118e74b"
+version = "0.7.0-rc.11"
 dependencies = [
  "bcrypt-pbkdf",
  "ctutils",
  "ed25519-dalek",
+ "ml-dsa",
  "p256 0.14.0-rc.11",
  "p384",
  "p521",
@@ -6085,7 +6078,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.2",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

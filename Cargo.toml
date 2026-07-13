@@ -209,3 +209,8 @@ opt-level = 3
 # tag until the registry index catches up, then remove this patch.
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint", tag = "v0.7.5" }
+
+# Local development: ML-DSA SSH key support (draft-sfluhrer-ssh-mldsa), not yet upstreamed/published.
+ssh-key = { path = "/Users/bschoolmann/projects/SSH/ssh-key" }
+ssh-cipher = { path = "/Users/bschoolmann/projects/SSH/ssh-cipher" }
+ssh-encoding = { path = "/Users/bschoolmann/projects/SSH/ssh-encoding" }

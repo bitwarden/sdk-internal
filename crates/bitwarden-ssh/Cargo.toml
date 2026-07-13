@@ -42,6 +42,7 @@ ssh-cipher = "0.3.0-rc.8"
 ssh-key = { version = "0.7.0-rc.10", features = [
     "ed25519",
     "encryption",
+    "mldsa",
     "p256",
     "p384",
     "p521",

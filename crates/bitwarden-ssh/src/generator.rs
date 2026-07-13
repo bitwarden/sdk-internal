@@ -1,7 +1,7 @@
 use bitwarden_vault::SshKeyView;
 use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
-use ssh_key::{Algorithm, EcdsaCurve};
+use ssh_key::{Algorithm, EcdsaCurve, MlDsaParams};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -20,6 +20,9 @@ pub enum KeyAlgorithm {
     EcdsaP256,
     EcdsaP384,
     EcdsaP521,
+    MlDsa44,
+    MlDsa65,
+    MlDsa87,
 }
 
 /**
@@ -61,6 +64,27 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
             rng,
             Algorithm::Ecdsa {
                 curve: EcdsaCurve::NistP521,
+            },
+        )
+        .map_err(KeyGenerationError::KeyGeneration),
+        KeyAlgorithm::MlDsa44 => ssh_key::PrivateKey::random(
+            rng,
+            Algorithm::MlDsa {
+                params: MlDsaParams::MlDsa44,
+            },
+        )
+        .map_err(KeyGenerationError::KeyGeneration),
+        KeyAlgorithm::MlDsa65 => ssh_key::PrivateKey::random(
+            rng,
+            Algorithm::MlDsa {
+                params: MlDsaParams::MlDsa65,
+            },
+        )
+        .map_err(KeyGenerationError::KeyGeneration),
+        KeyAlgorithm::MlDsa87 => ssh_key::PrivateKey::random(
+            rng,
+            Algorithm::MlDsa {
+                params: MlDsaParams::MlDsa87,
             },
         )
         .map_err(KeyGenerationError::KeyGeneration),
@@ -140,5 +164,40 @@ mod tests {
         let result = generate_sshkey_internal(key_algorithm, &mut rng);
         let target = include_str!("../resources/generator/ecdsa_p521_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
+    }
+
+    #[test]
+    fn generate_ssh_key_mldsa44() {
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::MlDsa44;
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
+        let target = include_str!("../resources/generator/mldsa44_key").replace("\r\n", "\n");
+        assert_eq!(result.unwrap().private_key, target);
+    }
+
+    #[test]
+    fn generate_ssh_key_mldsa65() {
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::MlDsa65;
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
+        let target = include_str!("../resources/generator/mldsa65_key").replace("\r\n", "\n");
+        assert_eq!(result.unwrap().private_key, target);
+    }
+
+    #[test]
+    fn generate_ssh_key_mldsa87() {
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::MlDsa87;
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
+        let target = include_str!("../resources/generator/mldsa87_key").replace("\r\n", "\n");
+        assert_eq!(result.unwrap().private_key, target);
+    }
+
+    #[test]
+    fn print_public_mldsa87_key() {
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let key_algorithm = KeyAlgorithm::MlDsa87;
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
+        println!("{}", result.unwrap().public_key);
     }
 }
