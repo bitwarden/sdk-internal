@@ -88,13 +88,8 @@ impl TryFrom<AccessRuleResponseModel> for AccessRuleView {
     fn try_from(response: AccessRuleResponseModel) -> Result<Self, Self::Error> {
         let conditions = match response.conditions {
             None => Vec::new(),
-            Some(serde_json::Value::Array(items)) => items
-                .into_iter()
-                .map(|item| {
-                    serde_json::from_value(item)
-                        .map_err(|e| AccessRuleError::InvalidConditions(e.to_string()))
-                })
-                .collect::<Result<Vec<_>, _>>()?,
+            Some(value @ serde_json::Value::Array(_)) => serde_json::from_value(value)
+                .map_err(|e| AccessRuleError::InvalidConditions(e.to_string()))?,
             Some(other) => {
                 return Err(AccessRuleError::InvalidConditions(format!(
                     "expected `conditions` to be a JSON array, got: {other}"
