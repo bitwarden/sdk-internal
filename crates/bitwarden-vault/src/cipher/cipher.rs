@@ -27,7 +27,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use super::{
     attachment, bank_account,
     bank_account::BankAccountListView,
-    blob::{decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
+    blob::{decrypt_blob_cipher, encrypt_blob_cipher_with_wrapping_key, try_parse_blob},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -367,6 +367,11 @@ impl Cipher {
             })?;
         self.key = Some(new_cipher_key);
         Ok(())
+    }
+
+    /// Returns `true` if this cipher's sensitive data is stored in the sealed-blob format.
+    pub fn is_blob_encrypted(&self) -> bool {
+        try_parse_blob(self).is_some()
     }
 }
 
@@ -1503,7 +1508,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key).map_err(CryptoError::from),
             None => lenient_decrypt_cipher_view(self, ctx, key),
         }
     }
@@ -1516,7 +1521,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
@@ -1564,7 +1569,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => {
+                decrypt_blob_cipher(&self.0, &sealed, ctx, key).map_err(CryptoError::from)
+            }
             None => strict_decrypt_cipher_view(&self.0, ctx, key),
         }
     }
@@ -1664,7 +1671,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }
@@ -1776,13 +1783,13 @@ fn strict_decrypt_cipher_list_view(
 }
 
 /// Selects between blob and legacy encryption paths. The variant is chosen at
-/// the [`CiphersClient`] layer via [`should_use_blob_encryption`].
-///
+/// the [`CiphersClient`] layer via `should_use_blob_encryption`.
 ///
 /// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
-/// [`should_use_blob_encryption`]: crate::cipher::cipher_client::CiphersClient::should_use_blob_encryption
-pub(crate) enum EncryptMode<T> {
+pub enum EncryptMode<T> {
+    /// Encrypt as a sealed blob (current format).
     Blob(T),
+    /// Encrypt using the legacy field-level format.
     Legacy(T),
 }
 
@@ -1811,10 +1818,13 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMod
     ) -> Result<Cipher, CryptoError> {
         match self {
             Self::Blob(view) => {
-                // `encrypt_blob_cipher` takes `&mut CipherView` because it may
-                // generate a cipher key; so we operate on a local clone.
+                // `encrypt_blob_cipher_with_wrapping_key` takes `&mut CipherView` because it may
+                // generate a cipher key; so we operate on a local clone. The explicit `key` is
+                // respected here so callers can target a non-`User`/`Organization` slot (e.g.
+                // a `Local` slot during key rotation).
                 let mut owned = view.clone();
-                encrypt_blob_cipher(&mut owned, ctx).map_err(CryptoError::from)
+                encrypt_blob_cipher_with_wrapping_key(&mut owned, ctx, key)
+                    .map_err(CryptoError::from)
             }
             Self::Legacy(view) => view.encrypt_composite(ctx, key),
         }
