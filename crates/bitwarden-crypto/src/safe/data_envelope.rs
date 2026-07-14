@@ -95,6 +95,35 @@ impl DataEnvelope {
         Ok((envelope, wrapped_cek))
     }
 
+    /// Seals a struct into an encrypted blob, using an existing symmetric key already present in
+    /// the key store as the content-encryption-key, instead of generating a fresh one.
+    ///
+    /// # Warning
+    /// This bypasses the guarantee that a `DataEnvelope`'s content-encryption-key is freshly
+    /// generated and used to seal exactly one envelope. The caller is responsible for ensuring
+    /// `cek` is not reused to seal more than one `DataEnvelope`. Only the AES-256-GCM algorithm is
+    /// supported for externally-provided keys. Prefer [`DataEnvelope::seal`] unless you have a
+    /// specific reason the content-encryption-key must be supplied externally.
+    #[doc(hidden)]
+    pub fn seal_with_provided_key<Ids: KeySlotIds, T>(
+        data: T,
+        cek: Ids::Symmetric,
+        ctx: &mut crate::store::KeyStoreContext<Ids>,
+    ) -> Result<Self, DataEnvelopeError>
+    where
+        T: Serialize + SealableVersionedData,
+    {
+        let key = ctx
+            .get_symmetric_key(cek)
+            .map_err(|_| DataEnvelopeError::KeyStore)?;
+        let SymmetricCryptoKey::Aes256GcmKey(key) = key else {
+            return Err(DataEnvelopeError::UnsupportedKeyAlgorithm);
+        };
+
+        let (envelope, _cek) = Self::seal_ref_with_key(&data, T::NAMESPACE, key.clone())?;
+        Ok(envelope)
+    }
+
     /// Seals a struct into an encrypted blob, and returns the encrypted blob and the
     /// content-encryption-key.
     fn seal_ref<T>(
@@ -104,8 +133,19 @@ impl DataEnvelope {
     where
         T: Serialize + SealableVersionedData,
     {
-        let mut cek = Aes256GcmKey::make();
+        Self::seal_ref_with_key(data, namespace, Aes256GcmKey::make())
+    }
 
+    /// Seals a struct into an encrypted blob using the provided content-encryption-key, and
+    /// returns the encrypted blob and the (possibly key-operation-restricted) key that was used.
+    fn seal_ref_with_key<T>(
+        data: &T,
+        namespace: DataEnvelopeNamespace,
+        mut cek: Aes256GcmKey,
+    ) -> Result<(DataEnvelope, Aes256GcmKey), DataEnvelopeError>
+    where
+        T: Serialize + SealableVersionedData,
+    {
         // Serialize the message
         let serialized_message =
             SerializedMessage::encode(&data).map_err(|_| DataEnvelopeError::Encoding)?;
@@ -359,6 +399,9 @@ pub enum DataEnvelopeError {
     /// Indicates that the wrong key was used for decryption.
     #[error("Wrong key used for decryption")]
     WrongKey,
+    /// Indicates that the provided key uses an algorithm unsupported for this operation.
+    #[error("Unsupported key algorithm")]
+    UnsupportedKeyAlgorithm,
 }
 
 #[cfg(feature = "wasm")]
@@ -695,6 +738,34 @@ mod tests {
             .unseal_with_wrapping_key(&wrapping_key, &wrapped_cek, &mut ctx)
             .unwrap();
         assert_eq!(unsealed, TestDataV1 { field: 99 }.into());
+    }
+
+    #[test]
+    fn test_data_envelope_seal_with_provided_key_roundtrip() {
+        let data: TestData = TestDataV1 { field: 55 }.into();
+        let key_store = crate::store::KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let cek_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256Gcm);
+
+        let envelope = DataEnvelope::seal_with_provided_key(data, cek_id, &mut ctx).unwrap();
+        let unsealed: TestData = envelope.unseal(cek_id, &mut ctx).unwrap();
+        assert_eq!(unsealed, TestDataV1 { field: 55 }.into());
+    }
+
+    #[test]
+    fn test_data_envelope_seal_with_provided_key_rejects_non_aes_gcm() {
+        let data: TestData = TestDataV1 { field: 56 }.into();
+        let key_store = crate::store::KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let cek_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = DataEnvelope::seal_with_provided_key(data, cek_id, &mut ctx);
+        assert!(matches!(
+            result,
+            Err(DataEnvelopeError::UnsupportedKeyAlgorithm)
+        ));
     }
 
     #[test]
