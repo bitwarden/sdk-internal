@@ -332,6 +332,7 @@ impl CoseEncryptCipher for Aes256Gcm {
             || CryptoError::MissingField("ciphertext"),
             |data, aad| {
                 Aes256Gcm::decrypt(cek, &nonce, &Aes256GcmCiphertext::from(data.to_vec()), aad)
+                    .map_err(Into::into)
             },
         )
     }
@@ -368,6 +369,7 @@ impl CoseEncryptCipher for Aes256Gcm {
             || CryptoError::MissingField("ciphertext"),
             |data, aad| {
                 Aes256Gcm::decrypt(cek, &nonce, &Aes256GcmCiphertext::from(data.to_vec()), aad)
+                    .map_err(Into::into)
             },
         )
     }
@@ -410,6 +412,7 @@ impl CoseEncryptCipher for XChaCha20Poly1305 {
                     &XChaCha20Poly1305Ciphertext::from(data.to_vec()),
                     aad,
                 )
+                .map_err(Into::into)
             },
         )
     }
@@ -451,6 +454,7 @@ impl CoseEncryptCipher for XChaCha20Poly1305 {
                     &XChaCha20Poly1305Ciphertext::from(data.to_vec()),
                     aad,
                 )
+                .map_err(Into::into)
             },
         )
     }
@@ -535,6 +539,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
                 &XChaCha20Poly1305Ciphertext::from(data.to_vec()),
                 aad,
             )
+            .map_err(Into::into)
         },
     )?;
 

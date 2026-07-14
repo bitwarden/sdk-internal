@@ -79,12 +79,13 @@ pub(crate) trait Aead {
     /// Authenticates and decrypts `ciphertext` under `key` with `nonce`, verifying
     /// `associated_data`.
     ///
-    /// Returns [`CryptoError::KeyDecrypt`] if authentication fails (including a mismatch of
-    /// `associated_data` or `nonce`) or the ciphertext is malformed.
+    /// Returns [`SymmetricEncryptionError::IntegrityCheckFailed`] if authentication fails
+    /// (including a mismatch of `associated_data` or `nonce`), or
+    /// [`SymmetricEncryptionError::FormatWrong`] if the ciphertext is malformed.
     fn decrypt(
         key: &Self::Key,
         nonce: &Self::Nonce,
         ciphertext: &Self::Ciphertext,
         associated_data: &[u8],
-    ) -> Result<Vec<u8>, CryptoError>;
+    ) -> Result<Vec<u8>, SymmetricEncryptionError>;
 }

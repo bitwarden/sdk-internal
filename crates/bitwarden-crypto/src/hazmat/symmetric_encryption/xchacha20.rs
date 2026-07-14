@@ -24,7 +24,7 @@ use chacha20poly1305::{
 use coset::{CoseEncrypt, CoseEncrypt0};
 use typenum::Unsigned;
 
-use super::Aead;
+use super::{Aead, SymmetricEncryptionError};
 use crate::CryptoError;
 
 pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305Alg as AeadCore>::NonceSize::USIZE;
@@ -63,11 +63,11 @@ impl Aead for XChaCha20Poly1305 {
         nonce: &Self::Nonce,
         ciphertext: &Self::Ciphertext,
         associated_data: &[u8],
-    ) -> Result<Vec<u8>, CryptoError> {
+    ) -> Result<Vec<u8>, SymmetricEncryptionError> {
         let mut buffer = ciphertext.encrypted_bytes().to_vec();
         XChaCha20Poly1305Alg::new(key.into())
             .decrypt_in_place(&nonce.0, associated_data, &mut buffer)
-            .map_err(|_| CryptoError::KeyDecrypt)?;
+            .map_err(|_| SymmetricEncryptionError::IntegrityCheckFailed)?;
         Ok(buffer)
     }
 }
