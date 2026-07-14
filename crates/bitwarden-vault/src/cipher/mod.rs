@@ -29,7 +29,7 @@ pub use attachment_client::{
     CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentRequest,
     CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError, EncryptFileError,
 };
-pub use bank_account::BankAccountView;
+pub use bank_account::{BankAccountListView, BankAccountView};
 pub use blob::{BlobEncryptionError, SealedCipherBlobError};
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
