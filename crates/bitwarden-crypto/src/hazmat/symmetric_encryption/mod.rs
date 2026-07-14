@@ -31,6 +31,9 @@ impl From<SymmetricEncryptionError> for CryptoError {
         CryptoError::KeyDecrypt
     }
 }
+// TODO(commit 4): drop `#[allow(dead_code)]` once callers land.
+#[allow(dead_code)]
+pub(crate) mod aes256_cbc_hmac_sha256_ad;
 pub(crate) mod aes_gcm;
 pub(crate) mod xchacha20;
 
@@ -39,6 +42,9 @@ pub(crate) use aes_gcm::Aes256Gcm;
 // TODO(commit 4): drop `#[allow(unused_imports)]` once callers land.
 #[allow(unused_imports)]
 pub(crate) use aes256_cbc::Aes256Cbc;
+// TODO(commit 4): drop `#[allow(unused_imports)]` once callers land.
+#[allow(unused_imports)]
+pub(crate) use aes256_cbc_hmac_sha256_ad::Aes256CbcHmacSha256;
 #[allow(unused_imports)]
 pub(crate) use xchacha20::XChaCha20Poly1305;
 
