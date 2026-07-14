@@ -358,6 +358,11 @@ impl RawPrivateKey {
 impl From<RawPrivateKey> for PrivateKey {
     fn from(inner: RawPrivateKey) -> Self {
         let id = inner.derive_key_id();
+        // Generating or parsing an RSA key multiplies the primes via crypto-bigint, whose
+        // Karatsuba implementation leaves copies of them in dead stack frames. Overwrite that
+        // region so the primes only live inside `inner`. The RSA-2048 arithmetic reaches ~16 KiB
+        // below the constructor's frame; 64 KiB gives ample margin.
+        crate::util::clear_stack::<{ 64 * 1024 }>();
         Self { inner, id }
     }
 }

@@ -15,6 +15,22 @@ pub(crate) type PbkdfSha256Hmac = hmac::Hmac<sha2::Sha256>;
 pub(crate) const PBKDF_SHA256_HMAC_OUT_SIZE: usize =
     <<PbkdfSha256Hmac as OutputSizeUser>::OutputSize as Unsigned>::USIZE;
 
+/// Overwrites `SIZE` bytes of the stack below the caller's frame with zeros.
+///
+/// Some dependencies perform big-integer arithmetic in stack-allocated temporaries — e.g.
+/// `crypto-bigint`'s Karatsuba multiplication copies operand limbs into fixed-size `Uint`
+/// buffers. Dead stack frames are not zeroed on return, so secrets like RSA primes can remain
+/// readable in stack memory long after the owning values were dropped (the zeroizing allocator
+/// only covers the heap). Call this right after an operation that puts secrets through such
+/// code paths, from the same stack depth as that operation.
+///
+/// `SIZE` must exceed the deepest stack usage of the scrubbed operation. This is verified for
+/// RSA key parsing by the `memory-testing` crate, which checks memory dumps for prime residue.
+#[inline(never)]
+pub(crate) fn clear_stack<const SIZE: usize>() {
+    std::hint::black_box([0u8; SIZE]);
+}
+
 #[derive(Debug)]
 pub(crate) enum HkdfExpandError {
     InvalidInputLegth,
