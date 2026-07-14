@@ -11,7 +11,7 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use super::key_encryptable::CryptoKey;
 use crate::{
-    CoseKeyThumbprint, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
+    CoseKeyThumbprint, KeyId, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
     cose::{CoseKeyThumbprintExt, thumbprint_from_required_params},
     error::{CryptoError, Result},
 };
@@ -55,11 +55,41 @@ pub(crate) enum RawPublicKey {
     RsaOaepSha1(RsaPublicKey),
 }
 
+impl From<RsaPublicKey> for RawPublicKey {
+    fn from(key: RsaPublicKey) -> Self {
+        RawPublicKey::RsaOaepSha1(key)
+    }
+}
+
+impl RawPublicKey {
+    fn derive_key_id(&self) -> KeyId {
+        match self {
+            // For RSA, the DER encoding contains no key id, so we define a determistic derivation
+            // for this key type.
+            RawPublicKey::RsaOaepSha1(_) => {
+                let thumbprint = self
+                    .thumbprint()
+                    .expect("RSA COSE key thumbprint parameters are always well-formed");
+                KeyId::try_from(&thumbprint.as_bytes()[..16])
+                    .expect("first 16 bytes of a 32-byte thumbprint always fit KeyId")
+            }
+        }
+    }
+}
+
 /// Public key of a key pair used in a public key encryption scheme. It is used for
 /// encrypting data.
 #[derive(Clone, PartialEq)]
 pub struct PublicKey {
     inner: RawPublicKey,
+    id: KeyId,
+}
+
+impl From<RawPublicKey> for PublicKey {
+    fn from(inner: RawPublicKey) -> Self {
+        let id = inner.derive_key_id();
+        Self { inner, id }
+    }
 }
 
 impl std::fmt::Debug for PublicKey {
@@ -68,6 +98,7 @@ impl std::fmt::Debug for PublicKey {
             RawPublicKey::RsaOaepSha1(_) => "RsaOaepSha1",
         };
         let mut debug_struct = f.debug_struct(format!("PublicKey::{}", key_suffix).as_str());
+        debug_struct.field("id", &self.id);
         match &self.inner {
             RawPublicKey::RsaOaepSha1(_) => {
                 if let Ok(der) = self.to_der() {
@@ -84,15 +115,19 @@ impl PublicKey {
         &self.inner
     }
 
+    /// Returns the key id of this public key, derived from the first 16 bytes of its COSE key
+    /// thumbprint.
+    pub fn key_id(&self) -> &KeyId {
+        &self.id
+    }
+
     /// Build a public key from the SubjectPublicKeyInfo DER.
     #[bitwarden_logging::instrument(err)]
     pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
-        Ok(PublicKey {
-            inner: RawPublicKey::RsaOaepSha1(
-                RsaPublicKey::from_public_key_der(der.as_ref())
-                    .map_err(|_| CryptoError::InvalidKey)?,
-            ),
-        })
+        Ok(RawPublicKey::RsaOaepSha1(
+            RsaPublicKey::from_public_key_der(der.as_ref()).map_err(|_| CryptoError::InvalidKey)?,
+        )
+        .into())
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
@@ -110,9 +145,9 @@ impl PublicKey {
     }
 }
 
-impl CoseKeyThumbprintExt for PublicKey {
+impl CoseKeyThumbprintExt for RawPublicKey {
     fn thumbprint(&self) -> Result<CoseKeyThumbprint> {
-        let params = match &self.inner {
+        let params = match self {
             RawPublicKey::RsaOaepSha1(key) => vec![
                 (
                     KeyParameter::Kty.to_i64(),
@@ -132,6 +167,12 @@ impl CoseKeyThumbprintExt for PublicKey {
             ],
         };
         Ok(thumbprint_from_required_params(params))
+    }
+}
+
+impl CoseKeyThumbprintExt for PublicKey {
+    fn thumbprint(&self) -> Result<CoseKeyThumbprint> {
+        self.inner.thumbprint()
     }
 }
 
@@ -186,6 +227,7 @@ pub(crate) enum RawPrivateKey {
 #[derive(Clone)]
 pub struct PrivateKey {
     inner: RawPrivateKey,
+    id: KeyId,
 }
 
 // Note that RsaPrivateKey already implements ZeroizeOnDrop, so we don't need to do anything
@@ -208,11 +250,10 @@ impl PrivateKey {
         rng: &mut R,
     ) -> Self {
         match algorithm {
-            PublicKeyEncryptionAlgorithm::RsaOaepSha1 => Self {
-                inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                    RsaPrivateKey::new(rng, 2048).expect("failed to generate a key"),
-                )),
-            },
+            PublicKeyEncryptionAlgorithm::RsaOaepSha1 => RawPrivateKey::RsaOaepSha1(Box::pin(
+                RsaPrivateKey::new(rng, 2048).expect("failed to generate a key"),
+            ))
+            .into(),
         }
     }
 
@@ -232,11 +273,10 @@ impl PrivateKey {
     )]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
-        Ok(Self {
-            inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                RsaPrivateKey::from_pkcs8_pem(pem).map_err(|_| CryptoError::InvalidKey)?,
-            )),
-        })
+        Ok(RawPrivateKey::RsaOaepSha1(Box::pin(
+            RsaPrivateKey::from_pkcs8_pem(pem).map_err(|_| CryptoError::InvalidKey)?,
+        ))
+        .into())
     }
 
     #[allow(missing_docs)]
@@ -251,11 +291,10 @@ impl PrivateKey {
     )]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
-        Ok(Self {
-            inner: RawPrivateKey::RsaOaepSha1(Box::pin(
-                RsaPrivateKey::from_pkcs8_der(der.as_ref()).map_err(|_| CryptoError::InvalidKey)?,
-            )),
-        })
+        Ok(RawPrivateKey::RsaOaepSha1(Box::pin(
+            RsaPrivateKey::from_pkcs8_der(der.as_ref()).map_err(|_| CryptoError::InvalidKey)?,
+        ))
+        .into())
     }
 
     #[allow(missing_docs)]
@@ -288,12 +327,38 @@ impl PrivateKey {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => PublicKey {
                 inner: RawPublicKey::RsaOaepSha1(private_key.to_public_key()),
+                id: self.id.clone(),
             },
         }
     }
 
+    /// Returns the key id of this private key
+    pub fn key_id(&self) -> &KeyId {
+        &self.id
+    }
+
     pub(crate) fn inner(&self) -> &RawPrivateKey {
         &self.inner
+    }
+}
+
+impl RawPrivateKey {
+    // Derive the key id from the public key corresponding to this private key. This
+    // should only be implemented for key types that have non-cose-key encodings
+    fn derive_key_id(&self) -> KeyId {
+        match self {
+            RawPrivateKey::RsaOaepSha1(private_key) => {
+                let public_key = RawPublicKey::RsaOaepSha1(private_key.to_public_key());
+                public_key.derive_key_id()
+            }
+        }
+    }
+}
+
+impl From<RawPrivateKey> for PrivateKey {
+    fn from(inner: RawPrivateKey) -> Self {
+        let id = inner.derive_key_id();
+        Self { inner, id }
     }
 }
 
@@ -310,6 +375,7 @@ impl std::fmt::Debug for PrivateKey {
             RawPrivateKey::RsaOaepSha1(_) => "RsaOaepSha1",
         };
         let mut debug_struct = f.debug_struct(format!("PrivateKey::{}", key_suffix).as_str());
+        debug_struct.field("id", &self.id);
         #[cfg(feature = "dangerous-crypto-debug")]
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(_) => {
@@ -592,5 +658,35 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             public_key.thumbprint().unwrap().to_hex(),
             "04fbcfa50c5805171304cc5b4794c25d77f7359d8a201828a5d7ef89162463aa"
         );
+    }
+
+    #[test]
+    fn test_key_id_private_matches_public() {
+        let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        assert_eq!(private_key.key_id(), private_key.to_public_key().key_id());
+    }
+
+    #[test]
+    fn test_key_id_is_deterministic() {
+        let private_key_bytes: B64 = RSA_PRIVATE_KEY_B64.parse().unwrap();
+        let key_a = PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes.as_bytes()))
+            .unwrap();
+        let key_b = PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes.as_bytes()))
+            .unwrap();
+        assert_eq!(key_a.key_id(), key_b.key_id());
+    }
+
+    #[test]
+    fn test_key_id_rsa_vector() {
+        let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(
+            RSA_PUBLIC_KEY_B64.parse::<B64>().unwrap().as_bytes(),
+        ))
+        .unwrap();
+
+        // Pinned against the thumbprint hex asserted in `test_thumbprint_rsa_vector` above: the
+        // key id is the first 16 bytes of the COSE key thumbprint.
+        let thumbprint_hex = "04fbcfa50c5805171304cc5b4794c25d77f7359d8a201828a5d7ef89162463aa";
+        let expected_id_bytes = hex::decode(&thumbprint_hex.as_bytes()[..32]).unwrap();
+        assert_eq!(public_key.key_id().as_slice(), expected_id_bytes.as_slice());
     }
 }
