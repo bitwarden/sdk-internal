@@ -30,6 +30,10 @@ use crate::{
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+/// AES-256-CBC-HMAC-SHA256, a composite Encrypt-then-MAC construction,
+/// and is essentially Bitwarden's AES256-CBC-HMAC-SHA256 but extended to
+/// allow AAD.
+pub(crate) const AES256_CBC_HMAC_SHA256_AEAD: i64 = -70001;
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
 /// PBKDF2-HMAC-SHA256 KDF algorithm discriminant, used by the password protected key envelope in
 /// the FIPS cipher suite. PBKDF2 is FIPS-approved, unlike Argon2id ([`ALG_ARGON2ID13`]).
