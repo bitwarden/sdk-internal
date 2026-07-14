@@ -2,6 +2,7 @@ use std::{borrow::Cow, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::{CborSerializable, iana::KeyOperation};
+use rand::RngExt;
 use serde::Deserialize;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
@@ -352,8 +353,13 @@ impl EncString {
         data_dec: &[u8],
         key: &Aes256CbcHmacKey,
     ) -> Result<EncString> {
-        let (iv, mac, data) =
-            crate::aes::encrypt_aes256_hmac(data_dec, &key.mac_key, &key.enc_key)?;
+        let mut iv = [0u8; 16];
+        bitwarden_random::rng().fill(&mut iv);
+        let (mac, data) = crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256::encrypt(
+            &iv,
+            data_dec,
+            (&*key.key).into(),
+        );
         Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
     }
 
@@ -417,8 +423,13 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
-                .map_err(|_| CryptoError::Decrypt),
+            ) => crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256::decrypt(
+                iv,
+                data,
+                mac,
+                (&*key.key).into(),
+            )
+            .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),

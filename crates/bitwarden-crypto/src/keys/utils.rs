@@ -10,11 +10,10 @@ use crate::{CryptoError, Result, util::hkdf_expand};
 /// This can be either a kdf-derived key (PIN/Master password) or
 /// a random key from key connector
 pub(super) fn stretch_key(key: &Pin<Box<Array<u8, U32>>>) -> Aes256CbcHmacKey {
-    Aes256CbcHmacKey {
-        // this is safe because the key length is always 32 bytes
-        enc_key: hkdf_expand(key, Some("enc")).expect("HKDF expand to succeed"),
-        mac_key: hkdf_expand(key, Some("mac")).expect("HKDF expand to succeed"),
-    }
+    // this is safe because the key length is always 32 bytes
+    let enc_key = hkdf_expand(key, Some("enc")).expect("HKDF expand to succeed");
+    let mac_key = hkdf_expand(key, Some("mac")).expect("HKDF expand to succeed");
+    Aes256CbcHmacKey::from_split_keys(enc_key, mac_key)
 }
 
 /// Pads bytes to a minimum length using PKCS7-like padding.
@@ -66,14 +65,14 @@ mod tests {
                 111, 31, 178, 45, 238, 152, 37, 114, 143, 215, 124, 83, 135, 173, 195, 23, 142,
                 134, 120, 249, 61, 132, 163, 182, 113, 197, 189, 204, 188, 21, 237, 96
             ],
-            stretched.enc_key.as_slice()
+            *stretched.encryption_key()
         );
         assert_eq!(
             [
                 221, 127, 206, 234, 101, 27, 202, 38, 86, 52, 34, 28, 78, 28, 185, 16, 48, 61, 127,
                 166, 209, 247, 194, 87, 232, 26, 48, 85, 193, 249, 179, 155
             ],
-            stretched.mac_key.as_slice()
+            *stretched.mac_key()
         );
     }
 

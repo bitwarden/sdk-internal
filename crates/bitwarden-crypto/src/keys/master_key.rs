@@ -172,7 +172,7 @@ pub(super) fn decrypt_user_key(
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
         EncString::Aes256Cbc_B64 { iv, ref data } => {
-            crate::aes::decrypt_aes256(&iv, data.clone(), &key.clone())
+            crate::hazmat::symmetric_encryption::Aes256Cbc::decrypt(&iv, data, (&**key).into())
                 .map_err(|_| CryptoError::Decrypt)?
         }
         EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
@@ -208,7 +208,9 @@ fn make_user_key(
 mod tests {
     use std::num::NonZeroU32;
 
+    use hybrid_array::Array;
     use rand::SeedableRng;
+    use typenum::U32;
 
     use super::{HashPurpose, Kdf, MasterKey, make_user_key};
     use crate::{
@@ -286,14 +288,14 @@ mod tests {
         };
 
         assert_eq!(
-            user_key_unwrapped.enc_key.as_slice(),
+            *user_key_unwrapped.encryption_key(),
             [
                 62, 0, 239, 47, 137, 95, 64, 214, 127, 91, 184, 232, 31, 9, 165, 161, 44, 132, 14,
                 195, 206, 154, 127, 59, 24, 27, 225, 136, 239, 113, 26, 30
             ]
         );
         assert_eq!(
-            user_key_unwrapped.mac_key.as_slice(),
+            *user_key_unwrapped.mac_key(),
             [
                 152, 76, 225, 114, 185, 33, 111, 65, 159, 68, 83, 103, 69, 109, 86, 25, 49, 74, 66,
                 163, 218, 134, 176, 1, 56, 123, 253, 184, 14, 12, 254, 66
@@ -311,7 +313,9 @@ mod tests {
 
     #[test]
     fn test_make_user_key2() {
-        let kdf_material = KdfDerivedKeyMaterial(derive_symmetric_key("test1").enc_key.clone());
+        let kdf_material = KdfDerivedKeyMaterial(Box::pin(Array::<u8, U32>::from(
+            *derive_symmetric_key("test1").encryption_key(),
+        )));
         let master_key = MasterKey::KdfKey(kdf_material);
 
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test2"));
@@ -342,14 +346,14 @@ mod tests {
         };
 
         assert_eq!(
-            decrypted.enc_key.as_slice(),
+            *decrypted.encryption_key(),
             [
                 12, 95, 151, 203, 37, 4, 236, 67, 137, 97, 90, 58, 6, 127, 242, 28, 209, 168, 125,
                 29, 118, 24, 213, 44, 117, 202, 2, 115, 132, 165, 125, 148
             ]
         );
         assert_eq!(
-            decrypted.mac_key.as_slice(),
+            *decrypted.mac_key(),
             [
                 186, 215, 234, 137, 24, 169, 227, 29, 218, 57, 180, 237, 73, 91, 189, 51, 253, 26,
                 17, 52, 226, 4, 134, 75, 194, 208, 178, 133, 128, 224, 140, 167
@@ -376,14 +380,14 @@ mod tests {
         };
 
         assert_eq!(
-            decrypted.enc_key.as_slice(),
+            *decrypted.encryption_key(),
             [
                 116, 170, 187, 43, 80, 212, 193, 202, 234, 181, 57, 66, 151, 249, 59, 47, 70, 16,
                 57, 4, 170, 78, 85, 241, 152, 232, 91, 57, 9, 87, 209, 245,
             ]
         );
         assert_eq!(
-            decrypted.mac_key.as_slice(),
+            *decrypted.mac_key(),
             [
                 40, 245, 106, 140, 2, 225, 138, 213, 98, 223, 92, 168, 135, 208, 22, 194, 31, 21,
                 178, 252, 203, 198, 35, 174, 53, 218, 254, 151, 235, 57, 7, 98,

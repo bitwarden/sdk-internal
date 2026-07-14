@@ -9,13 +9,9 @@
 //! envelope or data envelope) instead.
 
 use crate::CryptoError;
-// TODO(commit 4): drop `#[allow(dead_code)]` once callers land.
-#[allow(dead_code)]
 pub(crate) mod aes256_cbc;
 
 /// An operation of one of the low-level ciphers in this module failed.
-// TODO(commit 4): drop `#[allow(dead_code)]` once every variant is constructed by a caller.
-#[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum SymmetricEncryptionError {
     /// The input is malformed — wrong length, invalid padding, or otherwise not a valid
@@ -31,19 +27,13 @@ impl From<SymmetricEncryptionError> for CryptoError {
         CryptoError::KeyDecrypt
     }
 }
-// TODO(commit 4): drop `#[allow(dead_code)]` once callers land.
-#[allow(dead_code)]
 pub(crate) mod aes256_cbc_hmac_sha256_ad;
 pub(crate) mod aes_gcm;
 pub(crate) mod xchacha20;
 
 #[allow(unused_imports)]
 pub(crate) use aes_gcm::Aes256Gcm;
-// TODO(commit 4): drop `#[allow(unused_imports)]` once callers land.
-#[allow(unused_imports)]
 pub(crate) use aes256_cbc::Aes256Cbc;
-// TODO(commit 4): drop `#[allow(unused_imports)]` once callers land.
-#[allow(unused_imports)]
 pub(crate) use aes256_cbc_hmac_sha256_ad::Aes256CbcHmacSha256;
 #[allow(unused_imports)]
 pub(crate) use xchacha20::XChaCha20Poly1305;

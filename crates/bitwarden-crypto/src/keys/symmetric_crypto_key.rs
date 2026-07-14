@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
-use typenum::U32;
+use typenum::{U32, U64};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -121,15 +121,45 @@ impl PartialEq for Aes256CbcKey {
 /// of two 256-bit keys, one for encryption and one for MAC
 #[derive(ZeroizeOnDrop, Clone)]
 pub struct Aes256CbcHmacKey {
-    /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
-    /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-    pub(crate) mac_key: Pin<Box<Array<u8, U32>>>,
+    /// The encryption key (first 32 bytes) and MAC key (last 32 bytes), concatenated. Uses a
+    /// pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
+    pub(crate) key: Pin<Box<Array<u8, U64>>>,
+}
+
+impl Aes256CbcHmacKey {
+    /// Builds a key from its encryption and MAC halves.
+    pub(crate) fn from_split_keys(
+        encryption_key: Pin<Box<Array<u8, U32>>>,
+        mac_key: Pin<Box<Array<u8, U32>>>,
+    ) -> Self {
+        let mut key = Box::pin(Array::<u8, U64>::default());
+        key[..32].copy_from_slice(encryption_key.as_slice());
+        key[32..].copy_from_slice(mac_key.as_slice());
+        Self { key }
+    }
+
+    pub(crate) fn from_bytes(key_bytes: Pin<Box<Array<u8, U64>>>) -> Self {
+        Self { key: key_bytes }
+    }
+
+    /// Returns a view over the aes256-cbc sub-key
+    pub(crate) fn encryption_key(&self) -> &[u8; 32] {
+        self.key[..32]
+            .try_into()
+            .expect("first 32 bytes of a 64-byte key are always 32 bytes")
+    }
+
+    /// Returns a view over the hmac-sha-256 sub-key
+    pub(crate) fn mac_key(&self) -> &[u8; 32] {
+        self.key[32..]
+            .try_into()
+            .expect("last 32 bytes of a 64-byte key are always 32 bytes")
+    }
 }
 
 impl ConstantTimeEq for Aes256CbcHmacKey {
     fn ct_eq(&self, other: &Self) -> Choice {
-        self.enc_key.ct_eq(&other.enc_key) & self.mac_key.ct_eq(&other.mac_key)
+        self.key.ct_eq(&other.key)
     }
 }
 
@@ -293,7 +323,7 @@ impl SymmetricCryptoKey {
         rng.fill(enc_key.as_mut_slice());
         rng.fill(mac_key.as_mut_slice());
 
-        Self::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+        Self::Aes256CbcHmacKey(Aes256CbcHmacKey::from_split_keys(enc_key, mac_key))
     }
 
     /// Make a new [SymmetricCryptoKey] for the specified algorithm
@@ -363,7 +393,7 @@ impl SymmetricCryptoKey {
         seeded_rng.fill(enc_key.as_mut_slice());
         seeded_rng.fill(mac_key.as_mut_slice());
 
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey::from_split_keys(enc_key, mac_key))
     }
 
     /// Creates the byte representation of the key, without any padding. This should not
@@ -383,10 +413,7 @@ impl SymmetricCryptoKey {
                 EncodedSymmetricKey::BitwardenLegacyKey(key.enc_key.to_vec().into())
             }
             Self::Aes256CbcHmacKey(key) => {
-                let mut buf = Vec::with_capacity(64);
-                buf.extend_from_slice(&key.enc_key);
-                buf.extend_from_slice(&key.mac_key);
-                EncodedSymmetricKey::BitwardenLegacyKey(buf.into())
+                EncodedSymmetricKey::BitwardenLegacyKey(key.key.to_vec().into())
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
@@ -566,16 +593,11 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
             EncodedSymmetricKey::BitwardenLegacyKey(key)
                 if key.as_ref().len() == Self::AES256_CBC_HMAC_KEY_LEN =>
             {
-                let mut enc_key = Box::pin(Array::<u8, U32>::default());
-                enc_key.copy_from_slice(&key.as_ref()[..32]);
-
-                let mut mac_key = Box::pin(Array::<u8, U32>::default());
-                mac_key.copy_from_slice(&key.as_ref()[32..]);
-
-                Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                    enc_key,
-                    mac_key,
-                }))
+                let mut key_bytes = Box::pin(Array::<u8, U64>::default());
+                key_bytes.copy_from_slice(key.as_ref());
+                Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey::from_bytes(
+                    key_bytes,
+                )))
             }
             EncodedSymmetricKey::CoseKey(key) => Self::try_from_cose(key.as_ref()),
             _ => Err(CryptoError::InvalidKey),
@@ -611,8 +633,8 @@ impl std::fmt::Debug for Aes256CbcHmacKey {
         let mut debug_struct = f.debug_struct("SymmetricKey::Aes256CbcHmac");
         #[cfg(feature = "dangerous-crypto-debug")]
         debug_struct
-            .field("enc_key", &hex::encode(self.enc_key.as_slice()))
-            .field("mac_key", &hex::encode(self.mac_key.as_slice()));
+            .field("enc_key", &hex::encode(self.encryption_key()))
+            .field("mac_key", &hex::encode(self.mac_key()));
         debug_struct.finish()
     }
 }
@@ -925,18 +947,18 @@ mod tests {
 
     #[test]
     fn test_eq_variant_aes256_cbc_hmac() {
-        let key1 = Aes256CbcHmacKey {
-            enc_key: Box::pin(Array::from([1u8; 32])),
-            mac_key: Box::pin(Array::from([2u8; 32])),
-        };
-        let key2 = Aes256CbcHmacKey {
-            enc_key: Box::pin(Array::from([1u8; 32])),
-            mac_key: Box::pin(Array::from([2u8; 32])),
-        };
-        let key3 = Aes256CbcHmacKey {
-            enc_key: Box::pin(Array::from([3u8; 32])),
-            mac_key: Box::pin(Array::from([4u8; 32])),
-        };
+        let key1 = Aes256CbcHmacKey::from_split_keys(
+            Box::pin(Array::from([1u8; 32])),
+            Box::pin(Array::from([2u8; 32])),
+        );
+        let key2 = Aes256CbcHmacKey::from_split_keys(
+            Box::pin(Array::from([1u8; 32])),
+            Box::pin(Array::from([2u8; 32])),
+        );
+        let key3 = Aes256CbcHmacKey::from_split_keys(
+            Box::pin(Array::from([3u8; 32])),
+            Box::pin(Array::from([4u8; 32])),
+        );
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
     }

@@ -555,10 +555,10 @@ mod tests {
     }
 
     fn aes_key() -> SymmetricCryptoKey {
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-            enc_key: Box::pin([0u8; 32].into()),
-            mac_key: Box::pin([1u8; 32].into()),
-        })
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey::from_split_keys(
+            Box::pin([0u8; 32].into()),
+            Box::pin([1u8; 32].into()),
+        ))
     }
 
     /// Drive the encryptor to completion against an in-memory sink and return the produced wire.

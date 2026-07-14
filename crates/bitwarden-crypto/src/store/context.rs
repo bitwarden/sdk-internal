@@ -237,8 +237,13 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
-                    .map_err(|_| CryptoError::Decrypt)?,
+                crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256::decrypt(
+                    iv,
+                    data,
+                    mac,
+                    (&*key.key).into(),
+                )
+                .map_err(|_| CryptoError::Decrypt)?,
             ))?,
             (
                 EncString::Cose_Encrypt0_B64 { data },
@@ -756,8 +761,13 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
-                .map_err(|_| CryptoError::Decrypt),
+            ) => crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256::decrypt(
+                iv,
+                data,
+                mac,
+                (&*key.key).into(),
+            )
+            .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
