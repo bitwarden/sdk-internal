@@ -931,9 +931,21 @@ mod tests {
 
     #[test]
     fn test_no_key_id() {
+        use hybrid_array::Array;
+        use typenum::U32;
+
+        use crate::Aes256CbcKey;
+
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.generate_symmetric_key();
+        // Aes256CbcKey (the raw, MAC-less legacy key) is the only symmetric key type with no COSE
+        // representation, and thus no key ID to contain. `Aes256CbcHmacKey` (produced by
+        // `generate_symmetric_key`) now has a thumbprint-derived key ID, so it no longer exercises
+        // this case.
+        let test_key =
+            ctx.add_local_symmetric_key(SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
+                enc_key: Box::pin(Array::<u8, U32>::default()),
+            }));
 
         let secret = testvector_secret();
 
