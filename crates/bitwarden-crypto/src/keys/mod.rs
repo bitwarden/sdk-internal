@@ -23,6 +23,8 @@ mod device_key;
 pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
+mod salt;
+pub use salt::Salt;
 mod kdf;
 #[allow(deprecated)]
 pub use kdf::dangerous_derive_kdf_material;
