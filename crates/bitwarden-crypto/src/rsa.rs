@@ -46,6 +46,9 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
             UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
+        SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
+            UnsupportedOperationError::EncryptionNotImplementedForKey,
+        )),
     }?;
 
     Ok(RsaKeyPair {

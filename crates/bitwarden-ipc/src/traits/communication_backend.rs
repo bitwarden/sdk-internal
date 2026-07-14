@@ -9,14 +9,16 @@ use crate::{
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
 /// broadcasting.
 pub trait CommunicationBackend: Send + Sync + 'static {
+    /// Error returned by [`send`](Self::send), classified via [`IpcErrorKind`].
     type SendError: Debug + Send + Sync + 'static + IpcErrorKind;
+    /// Receiver type returned by [`subscribe`](Self::subscribe).
     type Receiver: CommunicationBackendReceiver;
 
     /// Send a message to the destination specified in the message. This function may be called
     /// from any thread at any time.
     ///
     /// Both recoverable and fatal errors may be returned, classified via
-    /// [`IpcErrorKind::is_fatal()`]. A recoverable error (e.g. a transient transport failure) is
+    /// [`IpcErrorKind::kind()`]. A recoverable error (e.g. a transient transport failure) is
     /// logged and the IPC client keeps running; a fatal error stops the client from processing any
     /// further messages. Ambiguous cases should be classified as recoverable.
     ///
@@ -44,12 +46,13 @@ pub trait CommunicationBackend: Send + Sync + 'static {
 ///       receive().
 ///     - The receiver buffers messages between calls to receive().
 pub trait CommunicationBackendReceiver: Send + Sync + 'static {
+    /// Error returned by [`receive`](Self::receive), classified via [`IpcErrorKind`].
     type ReceiveError: Debug + Send + Sync + 'static + IpcErrorKind;
 
     /// Receive a message. This function will block asynchronously until a message is received.
     ///
     /// Both recoverable and fatal errors may be returned, classified via
-    /// [`IpcErrorKind::is_fatal()`]. A recoverable error (e.g. the receiver lagging) is logged and
+    /// [`IpcErrorKind::kind()`]. A recoverable error (e.g. the receiver lagging) is logged and
     /// the IPC client's processing loop continues; a fatal error (e.g. the channel being closed)
     /// stops the loop. Ambiguous cases should be classified as recoverable.
     ///
