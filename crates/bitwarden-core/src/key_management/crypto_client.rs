@@ -343,6 +343,7 @@ impl CryptoClient {
             (SymmetricKeyAlgorithm::Aes256CbcHmac, None) => {
                 Err(CryptoClientError::UpgradeTokenRequired)
             }
+            (SymmetricKeyAlgorithm::Aes256Gcm, _) => Err(CryptoClientError::InvalidKeyType),
         }
     }
 }

@@ -244,10 +244,11 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(
-                    &CoseEncrypt0Bytes::from(data.clone()),
-                    key,
-                )?;
+                let (content_bytes, content_format) =
+                    crate::cose::symmetric::decrypt_xchacha20_poly1305(
+                        &CoseEncrypt0Bytes::from(data.clone()),
+                        key,
+                    )?;
                 match content_format {
                     ContentFormat::BitwardenLegacyKey => {
                         SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
@@ -454,7 +455,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         match (wrapping_key_instance, key_to_wrap_instance) {
             (
                 Aes256CbcHmacKey(_),
-                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_),
+                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_) | Aes256GcmKey(_),
             ) => self.encrypt_data_with_symmetric_key(
                 wrapping_key,
                 key_to_wrap_instance
@@ -683,6 +684,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
                 Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305)
             }
+            SymmetricCryptoKey::Aes256GcmKey(_) => Ok(SymmetricKeyAlgorithm::Aes256Gcm),
         }
     }
 
@@ -760,7 +762,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(
+                let (data, _) = crate::cose::symmetric::decrypt_xchacha20_poly1305(
                     &CoseEncrypt0Bytes::from(data.clone()),
                     key,
                 )?;
@@ -791,6 +793,9 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 }
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
+            SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
+            )),
         }
     }
 

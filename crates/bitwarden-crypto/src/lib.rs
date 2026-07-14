@@ -43,8 +43,8 @@ pub use cose::CoseSerializable;
 pub mod safe;
 mod signing;
 pub use signing::*;
+mod hazmat;
 mod traits;
-mod xchacha20;
 pub use traits::{
     CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds, LocalId,
     PrimitiveEncryptable,

@@ -12,11 +12,10 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-ecdsa-keys = [] # ECDSA key generation and import
 wasm = [
     "bitwarden-error/wasm",
     "dep:tsify",
@@ -26,6 +25,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 
 [dependencies]
 bitwarden-error = { workspace = true }
+bitwarden-random = { workspace = true }
 bitwarden-vault = { workspace = true }
 block-padding = { version = "=0.4.2" }
 ed25519 = { version = "3.0.0-rc.4", features = ["pkcs8"] }
