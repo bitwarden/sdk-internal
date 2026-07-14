@@ -1,6 +1,6 @@
 import { OrganizationId } from "@bitwarden/sdk-internal";
 
-import { TEST_ORGANIZATION_ID } from "../org-fixtures";
+import { ORG_WRAPPED_PRIVATE_KEY, TEST_ORGANIZATION_ID } from "../org-fixtures";
 import { makeOrgInitializedClient, makeStateBridge } from "../utils";
 
 const UNKNOWN_ORGANIZATION_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff" as unknown as OrganizationId;
@@ -9,7 +9,7 @@ describe("invite link client tests", () => {
   it("make_invite returns a non-empty invite key and sealed invite", async () => {
     const client = await makeOrgInitializedClient(makeStateBridge());
 
-    const bundle = client.invite_link().make_invite(TEST_ORGANIZATION_ID);
+    const bundle = client.invite_link().make_invite(TEST_ORGANIZATION_ID, ORG_WRAPPED_PRIVATE_KEY);
 
     expect(bundle.inviteKey as unknown as string).not.toEqual("");
     expect(bundle.invite as unknown as string).not.toEqual("");
@@ -19,7 +19,7 @@ describe("invite link client tests", () => {
     const client = await makeOrgInitializedClient(makeStateBridge());
 
     const inviteLink = client.invite_link();
-    const bundle = inviteLink.make_invite(TEST_ORGANIZATION_ID);
+    const bundle = inviteLink.make_invite(TEST_ORGANIZATION_ID, ORG_WRAPPED_PRIVATE_KEY);
     const unsealed = inviteLink.get_invite_key(TEST_ORGANIZATION_ID, bundle.invite);
 
     expect(unsealed as unknown as string).toEqual(bundle.inviteKey as unknown as string);
@@ -29,8 +29,8 @@ describe("invite link client tests", () => {
     const client = await makeOrgInitializedClient(makeStateBridge());
 
     const inviteLink = client.invite_link();
-    const first = inviteLink.make_invite(TEST_ORGANIZATION_ID);
-    const second = inviteLink.make_invite(TEST_ORGANIZATION_ID);
+    const first = inviteLink.make_invite(TEST_ORGANIZATION_ID, ORG_WRAPPED_PRIVATE_KEY);
+    const second = inviteLink.make_invite(TEST_ORGANIZATION_ID, ORG_WRAPPED_PRIVATE_KEY);
 
     expect(first.inviteKey as unknown as string).not.toEqual(second.inviteKey as unknown as string);
   });
@@ -38,7 +38,7 @@ describe("invite link client tests", () => {
   it("the sealed invite serializes as a base64 wire format that crosses the FFI boundary intact", async () => {
     const client = await makeOrgInitializedClient(makeStateBridge());
 
-    const bundle = client.invite_link().make_invite(TEST_ORGANIZATION_ID);
+    const bundle = client.invite_link().make_invite(TEST_ORGANIZATION_ID, ORG_WRAPPED_PRIVATE_KEY);
 
     // The invite is serialized as a base64-encoded CBOR structure (the
     // extendable wire format), so it must be valid, round-trippable base64.
@@ -50,14 +50,16 @@ describe("invite link client tests", () => {
   it("make_invite fails for an organization that is not in the key store", async () => {
     const client = await makeOrgInitializedClient(makeStateBridge());
 
-    expect(() => client.invite_link().make_invite(UNKNOWN_ORGANIZATION_ID)).toThrow();
+    expect(() =>
+      client.invite_link().make_invite(UNKNOWN_ORGANIZATION_ID, ORG_WRAPPED_PRIVATE_KEY),
+    ).toThrow();
   });
 
   it("get_invite_key fails when unsealing with the wrong organization", async () => {
     const client = await makeOrgInitializedClient(makeStateBridge());
 
     const inviteLink = client.invite_link();
-    const bundle = inviteLink.make_invite(TEST_ORGANIZATION_ID);
+    const bundle = inviteLink.make_invite(TEST_ORGANIZATION_ID, ORG_WRAPPED_PRIVATE_KEY);
 
     expect(() => inviteLink.get_invite_key(UNKNOWN_ORGANIZATION_ID, bundle.invite)).toThrow();
   });
