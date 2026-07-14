@@ -1,7 +1,11 @@
 use std::{pin::Pin, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
-use coset::{CborSerializable, RegisteredLabelWithPrivate, iana::KeyOperation};
+use ciborium::{Value, value::Integer};
+use coset::{
+    CborSerializable, RegisteredLabelWithPrivate,
+    iana::{EnumI64, KeyOperation, KeyParameter, KeyType, SymmetricKeyParameter},
+};
 use hybrid_array::Array;
 use rand::RngExt;
 #[cfg(test)]
@@ -18,7 +22,11 @@ use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{key_encryptable::CryptoKey, key_id::KeyId};
-use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
+use crate::{
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CoseKeyThumbprint, CryptoError, cose,
+    cose::{CoseKeyThumbprintExt, thumbprint_from_required_params},
+    error::EncodingError,
+};
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -451,6 +459,31 @@ impl SymmetricCryptoKey {
     }
 }
 
+impl CoseKeyThumbprintExt for SymmetricCryptoKey {
+    /// Computes the RFC 9679 thumbprint of this symmetric key.
+    ///
+    /// Returns an error for the legacy AES-CBC keys, which are not representable as COSE keys
+    /// currently.
+    fn thumbprint(&self) -> Result<CoseKeyThumbprint, CryptoError> {
+        let view = self
+            .as_cose_key_view()
+            .ok_or(EncodingError::UnsupportedValue(
+                "legacy AES-CBC keys are not COSE keys and have no thumbprint",
+            ))?;
+        let params = vec![
+            (
+                KeyParameter::Kty.to_i64(),
+                Value::Integer(Integer::from(KeyType::Symmetric.to_i64())),
+            ),
+            (
+                SymmetricKeyParameter::K.to_i64(),
+                Value::Bytes(view.key_bytes().to_vec()),
+            ),
+        ];
+        Ok(thumbprint_from_required_params(params))
+    }
+}
+
 impl ConstantTimeEq for SymmetricCryptoKey {
     /// Note: This is constant time with respect to comparing two keys of the same type, but not
     /// constant type with respect to the fact that different keys are compared. If two types of
@@ -726,7 +759,8 @@ mod tests {
 
     use super::{SymmetricCryptoKey, derive_symmetric_key};
     use crate::{
-        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, XChaCha20Poly1305Key,
+        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, CoseKeyThumbprintExt,
+        XChaCha20Poly1305Key,
         keys::{
             KeyId,
             symmetric_crypto_key::{pad_key, unpad_key},
@@ -970,5 +1004,61 @@ mod tests {
         let key1 = SymmetricCryptoKey::XChaCha20Poly1305Key(key1);
         let key2 = SymmetricCryptoKey::XChaCha20Poly1305Key(key2);
         assert_ne!(key1, key2);
+    }
+
+    const AES256_GCM_KEY: &str =
+        "pQEEAlACAgICAgICAgICAgICAgICAwMEhAMEBQYgWCABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
+    const AES256_GCM_KEY_THUMBPRINT: &str =
+        "3810c7275ee292caca13d938a057a94c75210087d960d3eb6868c0ffe99b5643";
+
+    const XCHACHA20_POLY1305_KEY: &str = "pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB";
+    const XCHACHA20_POLY1305_KEY_THUMBPRINT: &str =
+        "64aec2d09ef5ba8b310ef9a70346b03422443e295b6f045e38169ae97e579d85";
+
+    #[test]
+    fn test_decode_new_aes256_gcm_key() {
+        let key: B64 = AES256_GCM_KEY.parse().unwrap();
+        let key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(&key)).unwrap();
+        match key {
+            SymmetricCryptoKey::Aes256GcmKey(_) => (),
+            _ => panic!("Invalid key type"),
+        }
+    }
+
+    #[test]
+    fn test_thumbprint_aes256_gcm_vector() {
+        // A fixed AES-256-GCM COSE key.
+        let key: B64 = AES256_GCM_KEY.parse().unwrap();
+        let key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(&key)).unwrap();
+        assert_eq!(
+            key.thumbprint().unwrap().to_hex(),
+            AES256_GCM_KEY_THUMBPRINT
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_xchacha20_poly1305_vector() {
+        // A fixed XChaCha20Poly1305 COSE key.
+        let key: B64 = XCHACHA20_POLY1305_KEY.parse().unwrap();
+        let key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(&key)).unwrap();
+        assert_eq!(
+            key.thumbprint().unwrap().to_hex(),
+            XCHACHA20_POLY1305_KEY_THUMBPRINT
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_is_deterministic() {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        assert_eq!(key.thumbprint().unwrap(), key.thumbprint().unwrap());
+    }
+
+    #[test]
+    fn test_thumbprint_errors_for_legacy_aes_cbc() {
+        assert!(
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key()
+                .thumbprint()
+                .is_err()
+        );
     }
 }
