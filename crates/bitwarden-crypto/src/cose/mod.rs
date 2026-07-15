@@ -6,13 +6,15 @@
 use std::fmt::Debug;
 
 pub(crate) mod symmetric;
-
+mod thumbprint;
 use coset::{
     ContentType, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
 use hybrid_array::Array;
 use thiserror::Error;
+pub(crate) use thumbprint::thumbprint_from_required_params;
+pub use thumbprint::{CoseKeyThumbprint, CoseKeyThumbprintExt};
 use typenum::U32;
 
 use crate::{
