@@ -1,16 +1,18 @@
 use std::{fmt::Display, pin::Pin, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
-use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
+use ciborium::{Value, value::Integer};
+use coset::iana::{EnumI64, KeyParameter, KeyType, RsaKeyParameter};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use tracing::instrument;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
 
 use super::key_encryptable::CryptoKey;
 use crate::{
-    Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
+    CoseKeyThumbprint, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
+    cose::{CoseKeyThumbprintExt, thumbprint_from_required_params},
     error::{CryptoError, Result},
 };
 
@@ -83,7 +85,7 @@ impl PublicKey {
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
         Ok(PublicKey {
             inner: RawPublicKey::RsaOaepSha1(
@@ -94,7 +96,7 @@ impl PublicKey {
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn to_der(&self) -> Result<SpkiPublicKeyBytes> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
@@ -105,6 +107,31 @@ impl PublicKey {
                 .to_owned()
                 .into()),
         }
+    }
+}
+
+impl CoseKeyThumbprintExt for PublicKey {
+    fn thumbprint(&self) -> Result<CoseKeyThumbprint> {
+        let params = match &self.inner {
+            RawPublicKey::RsaOaepSha1(key) => vec![
+                (
+                    KeyParameter::Kty.to_i64(),
+                    Value::Integer(Integer::from(KeyType::RSA.to_i64())),
+                ),
+                // Per RFC 8230, `n` and `e` are unsigned big-endian byte strings with no leading
+                // zero or sign byte. `to_be_bytes_trimmed_vartime` yields exactly this minimal
+                // form; variable-time is acceptable as `n` and `e` are public.
+                (
+                    RsaKeyParameter::N.to_i64(),
+                    Value::Bytes(key.n().to_be_bytes_trimmed_vartime().into_vec()),
+                ),
+                (
+                    RsaKeyParameter::E.to_i64(),
+                    Value::Bytes(key.e().to_be_bytes_trimmed_vartime().into_vec()),
+                ),
+            ],
+        };
+        Ok(thumbprint_from_required_params(params))
     }
 }
 
@@ -173,7 +200,7 @@ impl CryptoKey for PrivateKey {}
 impl PrivateKey {
     /// Generate a random PrivateKey (RSA-2048).
     pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
-        Self::make_internal(algorithm, &mut rand::rng())
+        Self::make_internal(algorithm, &mut bitwarden_random::rng())
     }
 
     fn make_internal<R: rand::CryptoRng + rand::Rng>(
@@ -190,8 +217,19 @@ impl PrivateKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    // Under `dangerous-crypto-debug` we intentionally log key material, so this arm uses
+    // `tracing::instrument` directly (the `bitwarden_logging` wrapper enforces `skip_all`).
+    // The production arm goes through the wrapper. The `allow` only applies when the dangerous
+    // arm is active.
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -202,8 +240,15 @@ impl PrivateKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -214,8 +259,15 @@ impl PrivateKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
@@ -245,6 +297,12 @@ impl PrivateKey {
     }
 }
 
+impl CoseKeyThumbprintExt for PrivateKey {
+    fn thumbprint(&self) -> Result<CoseKeyThumbprint> {
+        self.to_public_key().thumbprint()
+    }
+}
+
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for PrivateKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -270,8 +328,8 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use crate::{
-        Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
-        SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
+        CoseKeyThumbprintExt, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey,
+        PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
         content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
     };
 
@@ -465,5 +523,74 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         // Not a string
         let result: Result<PublicKey, _> = serde_json::from_str("123");
         assert!(result.is_err());
+    }
+
+    // A fixed RSA-2048 key pair (PKCS#8 / SPKI base64), reused from the encrypt/decrypt test.
+    const RSA_PRIVATE_KEY_B64: &str = concat!(
+        "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCu9xd+vmkIPoqH",
+        "NejsFZzkd1xuCn1TqGTT7ANhAEnbI/yaVt3caI30kwUC2WIToFpNgu7Ej0x2TteY",
+        "OgrLrdcC4jy1SifmKYv/v3ZZxrd/eqttmH2k588panseRwHK3LVk7xA+URhQ/bjL",
+        "gPM59V0uR1l+z1fmooeJPFz5WSXNObc9Jqnh45FND+U/UYHXTLSomTn7jgZFxJBK",
+        "veS7q6Lat7wAnYZCF2dnPmhZoJv+SKPltA8HAGsgQGWBF1p5qxV1HrAUk8kBBnG2",
+        "paj0w8p5UM6RpDdCuvKH7j1LiuWffn3b9Z4dgzmE7jsMmvzoQtypzIKaSxhqzvFO",
+        "od9V8dJdAgMBAAECggEAGGIYjOIB1rOKkDHP4ljXutI0mCRPl3FMDemiBeppoIfZ",
+        "G/Q3qpAKmndDt0Quwh/yfcNdvZhf1kwCCTWri/uPz5fSUIyDV3TaTRu0ZWoHaBVj",
+        "Hxylg+4HRZUQj+Vi50/PWr/jQmAAVMcrMfcoTl82q2ynmP/R1vM3EsXOCjTliv5B",
+        "XlMPRjj/9PDBH0dnnVcAPDOpflzOTL2f4HTFEMlmg9/tZBnd96J/cmfhjAv9XpFL",
+        "FBAFZzs5pz0rwCNSR8QZNonnK7pngVUlGDLORK58y84tGmxZhGdne3CtCWey/sJ4",
+        "7QF0Pe8YqWBU56926IY6DcSVBuQGZ6vMCNlU7J8D2QKBgQDXyh3t2TicM/n1QBLk",
+        "zLoGmVUmxUGziHgl2dnJiGDtyOAU3+yCorPgFaCie29s5qm4b0YEGxUxPIrRrEro",
+        "h0FfKn9xmr8CdmTPTcjJW1+M7bxxq7oBoU/QzKXgIHlpeCjjnvPJt0PcNkNTjCXv",
+        "shsrINh2rENoe/x79eEfM/N5eQKBgQDPkYSmYyALoNq8zq0A4BdR+F5lb5Fj5jBH",
+        "Jk68l6Uti+0hRbJ2d1tQTLkU+eCPQLGBl6fuc1i4K5FV7v14jWtRPdD7wxrkRi3j",
+        "ilqQwLBOU6Bj3FK4DvlLF+iYTuBWj2/KcxflXECmsjitKHLK6H7kFEiuJql+NAHU",
+        "U9EFXepLBQKBgQDQ+HCnZ1bFHiiP8m7Zl9EGlvK5SwlnPV9s+F1KJ4IGhCNM09UM",
+        "ZVfgR9F5yCONyIrPiyK40ylgtwqQJlOcf281I8irUXpsfg7+Gou5Q31y0r9NLUpC",
+        "Td8niyePtqMdGjouxD2+OHXFCd+FRxFt4IMi7vnxYr0csAVAXkqWlw7PsQKBgH/G",
+        "/PnQm7GM3BrOwAGB8dksJDAddkshMScblezTDYP0V43b8firkTLliCo5iNum357/",
+        "VQmdSEhXyag07yR/Kklg3H2fpbZQ3X7tdMMXW3FcWagfwWw9C4oGtdDM/Z1Lv23J",
+        "XDR9je8QV4OBGul+Jl8RfYx3kG94ZIfo8Qt0vP5hAoGARjAzdCGYz42NwaUk8n94",
+        "W2RuKHtTV9vtjaAbfPFbZoGkT7sXNJVlrA0C+9f+H9rOTM3mX59KrjmLVzde4Vhs",
+        "avWMShuK4vpAiDQLU7GyABvi5CR6Ld+AT+LSzxHhVe0ASOQPNCA2SOz3RQvgPi7R",
+        "GDgRMUB6cL3IRVzcR0dC6cY=",
+    );
+    const RSA_PUBLIC_KEY_B64: &str = concat!(
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArvcXfr5pCD6KhzXo7BWc",
+        "5Hdcbgp9U6hk0+wDYQBJ2yP8mlbd3GiN9JMFAtliE6BaTYLuxI9Mdk7XmDoKy63X",
+        "AuI8tUon5imL/792Wca3f3qrbZh9pOfPKWp7HkcByty1ZO8QPlEYUP24y4DzOfVd",
+        "LkdZfs9X5qKHiTxc+VklzTm3PSap4eORTQ/lP1GB10y0qJk5+44GRcSQSr3ku6ui",
+        "2re8AJ2GQhdnZz5oWaCb/kij5bQPBwBrIEBlgRdaeasVdR6wFJPJAQZxtqWo9MPK",
+        "eVDOkaQ3Qrryh+49S4rln3592/WeHYM5hO47DJr86ELcqcyCmksYas7xTqHfVfHS",
+        "XQIDAQAB",
+    );
+
+    #[test]
+    fn test_thumbprint_private_matches_public() {
+        let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        assert_eq!(
+            private_key.thumbprint().unwrap(),
+            private_key.to_public_key().thumbprint().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_rsa_vector() {
+        let private_key_bytes: B64 = RSA_PRIVATE_KEY_B64.parse().unwrap();
+        let private_key =
+            PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes.as_bytes()))
+                .unwrap();
+        let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(
+            RSA_PUBLIC_KEY_B64.parse::<B64>().unwrap().as_bytes(),
+        ))
+        .unwrap();
+
+        assert_eq!(
+            private_key.thumbprint().unwrap(),
+            public_key.thumbprint().unwrap()
+        );
+        assert_eq!(
+            public_key.thumbprint().unwrap().to_hex(),
+            "04fbcfa50c5805171304cc5b4794c25d77f7359d8a201828a5d7ef89162463aa"
+        );
     }
 }

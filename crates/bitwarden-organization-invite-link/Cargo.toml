@@ -1,0 +1,39 @@
+[package]
+name = "bitwarden-organization-invite-link"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[features]
+default = []
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-crypto/wasm",
+    "bitwarden-error/wasm",
+    "bitwarden-organization-crypto/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+]
+
+[dependencies]
+bitwarden-core = { workspace = true }
+bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
+bitwarden-organization-crypto = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true

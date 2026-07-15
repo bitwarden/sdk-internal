@@ -18,7 +18,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
 };
 
@@ -111,10 +111,15 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     view: CipherView,
     use_strict_decryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let collection_ids = view.collection_ids.clone();
-
-    let cipher: Cipher = key_store.encrypt(view)?;
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -173,6 +178,8 @@ impl CiphersClient {
             view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
+        let use_blob = self.should_use_blob_encryption(view.organization_id);
+
         create_cipher(
             key_store,
             &config.api_client,
@@ -180,6 +187,7 @@ impl CiphersClient {
             user_id,
             view,
             self.is_strict_decrypt().await,
+            use_blob,
         )
         .await
     }
@@ -293,6 +301,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
             false,
+            false,
         )
         .await
         .unwrap();
@@ -349,6 +358,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
             false,
         )
         .await;
@@ -419,6 +429,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
             false,
         )
         .await

@@ -141,7 +141,7 @@ mod tests {
     fn generate_test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
+            name: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap()),
             r#type: crate::CipherType::Login,
             notes: Default::default(),
             organization_id: Default::default(),
@@ -194,7 +194,7 @@ mod tests {
                     .returning(move |_model| {
                         Ok(CipherMiniResponseModel {
                             id: Some(TEST_CIPHER_ID.try_into().unwrap()),
-                            name: Some(cipher.name.to_string()),
+                            name: cipher.name.as_ref().map(ToString::to_string),
                             r#type: Some(cipher.r#type.into()),
                             creation_date: Some(cipher.creation_date.to_string()),
                             revision_date: Some(Utc::now().to_rfc3339()),
@@ -242,7 +242,7 @@ mod tests {
                         data: Some(vec![
                             CipherMiniResponseModel {
                                 id: cipher_1.id.map(|id| id.into()),
-                                name: Some(cipher_1.name.to_string()),
+                                name: cipher_1.name.as_ref().map(ToString::to_string),
                                 r#type: Some(cipher_1.r#type.into()),
                                 login: cipher_1.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_1.creation_date.to_string().into(),
@@ -252,7 +252,7 @@ mod tests {
                             },
                             CipherMiniResponseModel {
                                 id: cipher_2.id.map(|id| id.into()),
-                                name: Some(cipher_2.name.to_string()),
+                                name: cipher_2.name.as_ref().map(ToString::to_string),
                                 r#type: Some(cipher_2.r#type.into()),
                                 login: cipher_2.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_2.creation_date.to_string().into(),

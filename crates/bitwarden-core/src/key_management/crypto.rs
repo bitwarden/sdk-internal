@@ -200,7 +200,7 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
-#[tracing::instrument(skip_all, err)]
+#[bitwarden_logging::instrument(err)]
 pub(super) async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
@@ -1186,7 +1186,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
-    let kdf = Kdf::default_argon2();
+    let kdf = ctx.cipher_suite().default_kdf_for_new_account();
 
     #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
@@ -1245,7 +1245,7 @@ pub(crate) fn make_user_password_registration(
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
-    let kdf = Kdf::default_argon2();
+    let kdf = ctx.cipher_suite().default_kdf_for_new_account();
 
     #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();

@@ -3,7 +3,6 @@ use std::{borrow::Cow, str::FromStr};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
-use tracing::instrument;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
@@ -363,7 +362,8 @@ impl EncString {
         key: &XChaCha20Poly1305Key,
         content_format: ContentFormat,
     ) -> Result<EncString> {
-        let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
+        let data =
+            crate::cose::symmetric::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
         Ok(EncString::Cose_Encrypt0_B64 {
             data: data.to_vec(),
         })
@@ -399,6 +399,9 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
+            SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
+            )),
         }
     }
 }
@@ -420,7 +423,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (decrypted_message, _) = crate::cose::decrypt_xchacha20_poly1305(
+                let (decrypted_message, _) = crate::cose::symmetric::decrypt_xchacha20_poly1305(
                     &CoseEncrypt0Bytes::from(data.as_slice()),
                     key,
                 )?;
@@ -444,7 +447,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<String> {
         let dec: Vec<u8> = self.decrypt_with_key(key)?;
         String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)

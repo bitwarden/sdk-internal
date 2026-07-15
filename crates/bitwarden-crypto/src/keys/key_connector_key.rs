@@ -4,7 +4,6 @@ use bitwarden_api_key_connector::models::user_key_response_model::UserKeyRespons
 use bitwarden_encoding::B64;
 use hybrid_array::Array;
 use rand::RngExt;
-use tracing::instrument;
 use typenum::U32;
 
 use crate::{
@@ -19,7 +18,7 @@ pub struct KeyConnectorKey(pub(super) Pin<Box<Array<u8, U32>>>);
 impl KeyConnectorKey {
     /// Make a new random key for KeyConnector.
     pub fn make() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         let mut key = Box::pin(Array::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
@@ -29,8 +28,22 @@ impl KeyConnectorKey {
     /// Wraps (encrypts) a user key from the key store using this key connector key.
     ///
     /// The user key identified by `user_key_id` is read from the context and encrypted.
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(ctx), err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    // Under `dangerous-crypto-debug` we intentionally log key material, so this arm uses
+    // `tracing::instrument` directly (the `bitwarden_logging` wrapper enforces `skip_all`).
+    // The production arm goes through the wrapper. The `allow` only applies when the dangerous
+    // arm is active.
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        tracing::instrument(skip(ctx), err)
+    )]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn wrap_user_key<Ids: KeySlotIds>(
         &self,
         user_key_id: Ids::Symmetric,
@@ -44,8 +57,18 @@ impl KeyConnectorKey {
     /// Unwraps (decrypts) a user key and stores it in the key store context.
     ///
     /// Returns the local key identifier for the unwrapped user key.
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(ctx), err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        tracing::instrument(skip(ctx), err)
+    )]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn unwrap_user_key<Ids: KeySlotIds>(
         &self,
         wrapped_user_key: EncString,
@@ -56,8 +79,15 @@ impl KeyConnectorKey {
     }
 
     /// Wraps the user key with this key connector key.
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn encrypt_user_key(
         &self,
         user_key: &SymmetricCryptoKey,
@@ -68,8 +98,15 @@ impl KeyConnectorKey {
     }
 
     /// Unwraps the user key with this key connector key.
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn decrypt_user_key(
         &self,
         user_key: EncString,

@@ -35,7 +35,7 @@ pub use platform::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
     ServerCommunicationConfigRepository, SsoCookieVendorConfig,
 };
-use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
+use tool::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
 use vault::VaultClient;
 
 #[allow(missing_docs)]
@@ -102,6 +102,11 @@ impl Client {
         ExporterClient(self.0.exporters())
     }
 
+    /// Importers
+    pub fn importers(&self) -> ImporterClient {
+        ImporterClient(self.0.importers())
+    }
+
     /// Sends operations
     pub fn sends(&self) -> SendClient {
         SendClient(self.0.sends())
@@ -112,9 +117,19 @@ impl Client {
         SshClient()
     }
 
+    /// Random-number generation operations
+    pub fn random(&self) -> bitwarden_random::SdkRandomNumberClient {
+        bitwarden_random::SdkRandomNumberClient::new()
+    }
+
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
         AuthClient(self.0.0.clone())
+    }
+
+    /// Whether the client is in Gov Mode.
+    pub fn gov_mode(&self) -> bool {
+        self.0.0.gov_mode()
     }
 
     /// Policy operations

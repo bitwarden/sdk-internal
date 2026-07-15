@@ -28,6 +28,8 @@ pub enum OrganizationUserStatusType {
     Accepted = 1,
     /// The user has been confirmed by an admin and has full access.
     Confirmed = 2,
+    /// The user has been staged for provisioning but has not yet been invited.
+    Staged = 3,
 }
 
 /// The role of a user within an organization.

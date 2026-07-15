@@ -16,8 +16,15 @@ pub struct ResponseContent {
 }
 
 /// Errors that can occur during API operations.
+///
+/// Note that the error gets renamed as `ApiError` on UniFFI, because the default `Error` name
+/// collides with the `Swift.Error` protocol in the generated Swift bindings.
 #[derive(Debug)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+#[cfg_attr(
+    feature = "uniffi",
+    derive(uniffi::Error),
+    uniffi(flat_error, name = "ApiError")
+)]
 pub enum Error {
     /// Error from the reqwest HTTP client.
     Reqwest(reqwest::Error),

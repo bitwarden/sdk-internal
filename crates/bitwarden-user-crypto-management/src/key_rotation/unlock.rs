@@ -1,24 +1,34 @@
 //! Functionality for re-encrypting unlock (decryption) methods during user key rotation.
 //! During key-rotation, a new user-key is sampled. The unlock module then creates a set of newly
 //! encrypted copies, one for each decryption/unlock method.
+use std::str::FromStr;
+
 use bitwarden_api_api::models::{
-    self, CommonUnlockDataRequestModel, EmergencyAccessWithIdRequestModel,
-    MasterPasswordUnlockAndAuthenticationDataModel, OtherDeviceKeysUpdateRequestModel,
+    self, CommonUnlockDataRequestModel, EmergencyAccessKeyDataResponseModel,
+    EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
+    OrganizationPasswordResetKeyDataResponseModel, OtherDeviceKeysUpdateRequestModel,
     ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel, V2UpgradeTokenRequestModel,
     WebAuthnLoginRotateKeyRequestModel,
 };
-use bitwarden_core::key_management::{
-    KeySlotIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeySlotId,
-    V2UpgradeToken,
+use bitwarden_core::{
+    key_management::{
+        KeySlotIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeySlotId,
+        V2UpgradeToken,
+    },
+    require,
 };
-use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey};
+use bitwarden_crypto::{
+    Kdf, KeyStoreContext, PublicKey, SpkiPublicKeyBytes, SymmetricKeyAlgorithm, UnsignedSharedKey,
+};
+use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, debug_span, error, info};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
 use crate::key_rotation::{
-    partial_rotateable_keyset::PartialRotateableKeyset, rotate_user_keys::UpgradeTokenAction,
+    KeyRotationDataParseError, partial_rotateable_keyset::PartialRotateableKeyset,
+    rotate_user_keys::UpgradeTokenAction,
 };
 
 /// The data necessary to re-share the user-key to a V1 emergency access membership. Note: The
@@ -32,6 +42,24 @@ pub struct V1EmergencyAccessMembership {
     pub public_key: PublicKey,
 }
 
+impl TryFrom<EmergencyAccessKeyDataResponseModel> for V1EmergencyAccessMembership {
+    type Error = KeyRotationDataParseError;
+
+    fn try_from(ea: EmergencyAccessKeyDataResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: require!(ea.id),
+            grantee_id: require!(ea.grantee_id),
+            // The name can be null if a user does not set a name; fall back to the email and
+            // then to "Unknown" so we always have a non-empty display name.
+            name: ea
+                .grantee_name
+                .or(ea.grantee_email)
+                .unwrap_or_else(|| "Unknown".to_string()),
+            public_key: parse_public_key(&require!(ea.public_key))?,
+        })
+    }
+}
+
 /// The data necessary to re-share the user-key to a V1 organization membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
 #[derive(Serialize, Deserialize, Clone)]
@@ -40,6 +68,24 @@ pub struct V1OrganizationMembership {
     pub organization_id: uuid::Uuid,
     pub name: String,
     pub public_key: PublicKey,
+}
+
+impl TryFrom<OrganizationPasswordResetKeyDataResponseModel> for V1OrganizationMembership {
+    type Error = KeyRotationDataParseError;
+
+    fn try_from(o: OrganizationPasswordResetKeyDataResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            organization_id: require!(o.organization_id),
+            name: require!(o.organization_name),
+            public_key: parse_public_key(&require!(o.organization_public_key))?,
+        })
+    }
+}
+
+fn parse_public_key(public_key_b64: &str) -> Result<PublicKey, KeyRotationDataParseError> {
+    Ok(PublicKey::from_der(&SpkiPublicKeyBytes::from(
+        B64::from_str(public_key_b64)?.into_bytes(),
+    ))?)
 }
 
 #[derive(Debug)]
@@ -754,6 +800,150 @@ mod tests {
             unlock_data.v2_upgrade_token.is_none(),
             "UpgradeTokenAction::CreateIfNeeded should not create a v2_upgrade_token for V2 -> V2 rotation"
         );
+    }
+
+    fn make_valid_public_key_b64() -> String {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let key_id = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        ctx.get_public_key(key_id)
+            .expect("public key exists")
+            .to_string()
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_uses_name_when_present() {
+        let id = Uuid::new_v4();
+        let grantee_id = Uuid::new_v4();
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: Some(id),
+            grantee_id: Some(grantee_id),
+            grantee_name: Some("Alice".to_string()),
+            grantee_email: Some("alice@example.com".to_string()),
+            public_key: Some(make_valid_public_key_b64()),
+            ..Default::default()
+        };
+
+        let membership = V1EmergencyAccessMembership::try_from(model).expect("should be ok");
+        assert_eq!(membership.id, id);
+        assert_eq!(membership.grantee_id, grantee_id);
+        assert_eq!(membership.name, "Alice");
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_falls_back_to_email_when_name_missing() {
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: Some(Uuid::new_v4()),
+            grantee_id: Some(Uuid::new_v4()),
+            grantee_name: None,
+            grantee_email: Some("alice@example.com".to_string()),
+            public_key: Some(make_valid_public_key_b64()),
+            ..Default::default()
+        };
+
+        let membership = V1EmergencyAccessMembership::try_from(model).expect("should be ok");
+        assert_eq!(membership.name, "alice@example.com");
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_falls_back_to_unknown_when_name_and_email_missing()
+     {
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: Some(Uuid::new_v4()),
+            grantee_id: Some(Uuid::new_v4()),
+            grantee_name: None,
+            grantee_email: None,
+            public_key: Some(make_valid_public_key_b64()),
+            ..Default::default()
+        };
+
+        let membership = V1EmergencyAccessMembership::try_from(model).expect("should be ok");
+        assert_eq!(membership.name, "Unknown");
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_missing_id_returns_error() {
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: None,
+            grantee_id: Some(Uuid::new_v4()),
+            grantee_name: Some("Alice".to_string()),
+            grantee_email: None,
+            public_key: Some(make_valid_public_key_b64()),
+            ..Default::default()
+        };
+
+        let Err(err) = V1EmergencyAccessMembership::try_from(model) else {
+            panic!("expected error")
+        };
+        assert!(matches!(err, KeyRotationDataParseError::MissingField(_)));
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_missing_grantee_id_returns_error() {
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: Some(Uuid::new_v4()),
+            grantee_id: None,
+            grantee_name: Some("Alice".to_string()),
+            grantee_email: None,
+            public_key: Some(make_valid_public_key_b64()),
+            ..Default::default()
+        };
+
+        let Err(err) = V1EmergencyAccessMembership::try_from(model) else {
+            panic!("expected error")
+        };
+        assert!(matches!(err, KeyRotationDataParseError::MissingField(_)));
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_missing_public_key_returns_error() {
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: Some(Uuid::new_v4()),
+            grantee_id: Some(Uuid::new_v4()),
+            grantee_name: Some("Alice".to_string()),
+            grantee_email: None,
+            public_key: None,
+            ..Default::default()
+        };
+
+        let Err(err) = V1EmergencyAccessMembership::try_from(model) else {
+            panic!("expected error")
+        };
+        assert!(matches!(err, KeyRotationDataParseError::MissingField(_)));
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_invalid_b64_public_key_returns_error() {
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: Some(Uuid::new_v4()),
+            grantee_id: Some(Uuid::new_v4()),
+            grantee_name: Some("Alice".to_string()),
+            grantee_email: None,
+            public_key: Some("not valid base64 !!!".to_string()),
+            ..Default::default()
+        };
+
+        let Err(err) = V1EmergencyAccessMembership::try_from(model) else {
+            panic!("expected error")
+        };
+        assert!(matches!(err, KeyRotationDataParseError::B64(_)));
+    }
+
+    #[test]
+    fn test_v1_emergency_access_membership_try_from_invalid_spki_public_key_returns_error() {
+        let model = EmergencyAccessKeyDataResponseModel {
+            id: Some(Uuid::new_v4()),
+            grantee_id: Some(Uuid::new_v4()),
+            grantee_name: Some("Alice".to_string()),
+            grantee_email: None,
+            public_key: Some(B64::from(b"not-a-real-public-key".as_slice()).to_string()),
+            ..Default::default()
+        };
+
+        let Err(err) = V1EmergencyAccessMembership::try_from(model) else {
+            panic!("expected error")
+        };
+        assert!(matches!(err, KeyRotationDataParseError::Crypto(_)));
     }
 
     #[test]

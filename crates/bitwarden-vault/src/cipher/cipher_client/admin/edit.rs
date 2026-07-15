@@ -16,8 +16,11 @@ use wasm_bindgen::prelude::*;
 use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
-    cipher_client::edit::{CipherEditRequest, convert_request_to_cipher_view},
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
+    cipher_client::{
+        edit::{CipherEditRequest, convert_request_to_cipher_view},
+        should_use_blob_encryption,
+    },
 };
 
 #[allow(missing_docs)]
@@ -44,6 +47,10 @@ pub enum EditCipherAdminError {
     Decrypt(#[from] DecryptError),
 }
 
+// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
+// short-lived feature-rollout flags that will be removed once their migrations
+// complete, at which point the argument count drops back under the limit.
+#[allow(clippy::too_many_arguments)]
 async fn edit_cipher(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -52,6 +59,7 @@ async fn edit_cipher(
     request: CipherEditRequest,
     use_strict_decryption: bool,
     enable_cipher_key_encryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let cipher_id = request.id;
     // CipherMiniResponseModel does not include folder_id or favorite — save them from the
@@ -69,11 +77,26 @@ async fn edit_cipher(
         view.generate_cipher_key(&mut key_store.context(), key)?;
     }
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    // Admin endpoints operate on organization-owned ciphers, which aren't
+    // expected to use blob encryption yet — `should_use_blob_encryption`
+    // returns `false` for any `Some(org)` today. Routing through the same
+    // dispatcher means org blob support (PM-32430) flips on automatically
+    // here when the helper learns to return `true` for orgs.
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let orig_cipher = key_store.encrypt(original_cipher_view)?;
+    let orig_mode = if use_blob {
+        EncryptMode::Blob(original_cipher_view)
+    } else {
+        EncryptMode::Legacy(original_cipher_view)
+    };
+    let orig_cipher = key_store.encrypt(orig_mode)?;
 
     let mut cipher: Cipher = api_client
         .ciphers_api()
@@ -140,6 +163,8 @@ impl CipherAdminClient {
         let enable_cipher_key_encryption =
             self.client.flags().get().await.enable_cipher_key_encryption;
 
+        let use_blob = should_use_blob_encryption(&self.client, request.organization_id);
+
         edit_cipher(
             key_store,
             &config.api_client,
@@ -148,6 +173,7 @@ impl CipherAdminClient {
             request,
             self.is_strict_decrypt().await,
             enable_cipher_key_encryption,
+            use_blob,
         )
         .await
     }
@@ -294,6 +320,7 @@ mod tests {
             request,
             false,
             false,
+            false,
         )
         .await
         .unwrap();
@@ -302,6 +329,62 @@ mod tests {
         assert_eq!(result.name, "New Cipher Name");
         // folder_id must come from the request, not from the original cipher.
         assert_eq!(result.folder_id, Some(folder_b));
+    }
+
+    /// A blob edit must use the `data` blob the server returns, not the stale
+    /// pre-edit blob re-sealed from the original view.
+    #[tokio::test]
+    async fn test_edit_cipher_blob_uses_echoed_data() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeySlotId::User,
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+        );
+
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+
+        // Echo the request's blob (`key` + `data`) back, as the server does.
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put_admin()
+                .returning(move |_id, body| {
+                    let body = body.unwrap();
+                    Ok(CipherMiniResponseModel {
+                        id: Some(cipher_id.into()),
+                        r#type: body.r#type,
+                        key: body.key,
+                        data: body.data,
+                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let original_cipher_view = generate_test_cipher();
+        let mut cipher_view = original_cipher_view.clone();
+        cipher_view.name = "New Cipher Name".to_string();
+
+        let request: CipherEditRequest = cipher_view.try_into().unwrap();
+
+        let result = edit_cipher(
+            &store,
+            &api_client,
+            TEST_USER_ID.parse().unwrap(),
+            original_cipher_view,
+            request,
+            false,
+            false,
+            true, // use_blob
+        )
+        .await
+        .unwrap();
+
+        // The edited name lives inside the blob, so recovering it proves the
+        // echoed blob was used rather than the stale original.
+        assert_eq!(result.name, "New Cipher Name");
     }
 
     #[tokio::test]
@@ -327,6 +410,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             orig_cipher_view,
             request,
+            false,
             false,
             false,
         )

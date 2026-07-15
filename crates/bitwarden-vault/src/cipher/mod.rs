@@ -22,13 +22,20 @@ pub(crate) mod ssh_key;
 pub use attachment::{
     Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
 };
-pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileError};
-pub use bank_account::BankAccountView;
+pub use attachment_client::{
+    AttachmentAdminClient, AttachmentFileUploadType, AttachmentsClient,
+    CipherAdminGetAttachmentDownloadUrlError, CipherCreateAttachmentError,
+    CipherDeleteAttachmentError, CipherGetAttachmentDownloadUrlError,
+    CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentRequest,
+    CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError, EncryptFileError,
+};
+pub use bank_account::{BankAccountListView, BankAccountView};
+pub use blob::{BlobEncryptionError, SealedCipherBlobError};
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
-    CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptionContext,
-    ListOrganizationCiphersResult,
+    CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptMode,
+    EncryptionContext, ListOrganizationCiphersResult,
 };
 pub use cipher_client::{CiphersClient, GetAssignedOrgCiphersAdminError};
 pub use cipher_view_type::CipherViewType;

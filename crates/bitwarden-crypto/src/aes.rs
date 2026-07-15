@@ -69,7 +69,7 @@ pub(crate) fn encrypt_aes256_hmac(
     mac_key: &Array<u8, U32>,
     key: &Array<u8, U32>,
 ) -> Result<([u8; 16], [u8; 32], Vec<u8>)> {
-    let rng = rand::rng();
+    let rng = bitwarden_random::rng();
     let (iv, data) = encrypt_aes256_internal(rng, data_dec, key);
     let mac = generate_mac(mac_key, &iv, &data);
 

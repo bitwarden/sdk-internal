@@ -17,9 +17,9 @@ use super::{
     verifying_key::{RawVerifyingKey, VerifyingKey},
 };
 use crate::{
-    CoseKeyBytes, CryptoKey,
+    CoseKeyBytes, CoseKeyThumbprint, CryptoError, CryptoKey,
     content_format::CoseKeyContentFormat,
-    cose::CoseSerializable,
+    cose::{CoseKeyThumbprintExt, CoseSerializable},
     error::{EncodingError, Result},
     keys::KeyId,
 };
@@ -83,13 +83,13 @@ impl SigningKey {
             SignatureAlgorithm::Ed25519 => SigningKey {
                 id: KeyId::make(),
                 inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
-                    &mut rand::rng(),
+                    &mut bitwarden_random::rng(),
                 ))),
             },
             SignatureAlgorithm::MlDsa44 => {
                 // This is heap allocated from the start, so will be zeroized on drop
                 let mut seed = Box::pin(Array::from([0u8; 32]));
-                rand::rng().fill_bytes(&mut seed);
+                bitwarden_random::rng().fill_bytes(&mut seed);
 
                 let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
                 SigningKey {
@@ -133,7 +133,7 @@ impl SigningKey {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
             RawSigningKey::MlDsa44 { signing_key, .. } => signing_key
-                .sign_randomized(data, &[], &mut rand::rng())
+                .sign_randomized(data, &[], &mut bitwarden_random::rng())
                 .expect("Empty ML-DSA context must be accepted")
                 .encode()
                 .as_slice()
@@ -213,6 +213,12 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 "COSE key type or algorithm",
             )),
         }
+    }
+}
+
+impl CoseKeyThumbprintExt for SigningKey {
+    fn thumbprint(&self) -> Result<CoseKeyThumbprint, CryptoError> {
+        self.to_verifying_key().thumbprint()
     }
 }
 
@@ -317,6 +323,44 @@ mod tests {
             verifying_key
                 .verify_raw(&signature, b"Test message")
                 .is_ok()
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_matches_verifying_key_ed25519() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        assert_eq!(
+            signing_key.thumbprint().unwrap(),
+            signing_key.to_verifying_key().thumbprint().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_matches_verifying_key_mldsa44() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::MlDsa44);
+        assert_eq!(
+            signing_key.thumbprint().unwrap(),
+            signing_key.to_verifying_key().thumbprint().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_mldsa44_vector() {
+        let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(
+            hex::decode(MLDSA44_SIGNING_KEY).unwrap(),
+        ))
+        .unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(
+            hex::decode(MLDSA44_VERIFYING_KEY).unwrap(),
+        ))
+        .unwrap();
+        assert_eq!(
+            signing_key.thumbprint().unwrap(),
+            verifying_key.thumbprint().unwrap()
+        );
+        assert_eq!(
+            signing_key.thumbprint().unwrap().to_hex(),
+            "fb932d165a6ff31caf0537ecb3c267dcbdac69773de6b739211c00e68969e233"
         );
     }
 }

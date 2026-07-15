@@ -3,6 +3,7 @@
 use bitwarden_core::{
     client::persisted_state::OrganizationSharedKey, key_management::UserKeyState,
 };
+use bitwarden_send::Send;
 use bitwarden_state::{
     SettingItem,
     repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
@@ -20,6 +21,7 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
         Add(UserKeyState::data()),
         Add(SettingItem::data()),
         Add(OrganizationSharedKey::data()),
+        Add(Send::data()),
     ])
 }
 
@@ -40,6 +42,7 @@ macro_rules! create_client_managed_repositories {
             ::bitwarden_core::key_management::LocalUserDataKeyState, LocalUserDataKeyState, local_user_data_key_state, LocalUserDataKeyStateRepository;
             ::bitwarden_core::key_management::EphemeralPinEnvelopeState, EphemeralPinEnvelopeState, ephemeral_pin_envelope_state, EphemeralPinEnvelopeStateRepository;
             ::bitwarden_core::client::persisted_state::OrganizationSharedKey, OrganizationSharedKey, organization_shared_key, OrganizationSharedKeyRepository;
+            ::bitwarden_send::Send, Send, send, SendRepository;
         }
     };
 }

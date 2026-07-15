@@ -1,19 +1,26 @@
 use std::fmt::Debug;
 
-use crate::message::{IncomingMessage, OutgoingMessage};
+use crate::{
+    error::IpcErrorKind,
+    message::{IncomingMessage, OutgoingMessage},
+};
 
 /// This trait defines the interface that will be used to send and receive messages over IPC.
 /// It is up to the platform to implement this trait and any necessary thread synchronization and
 /// broadcasting.
 pub trait CommunicationBackend: Send + Sync + 'static {
-    type SendError: Debug + Send + Sync + 'static;
+    /// Error returned by [`send`](Self::send), classified via [`IpcErrorKind`].
+    type SendError: Debug + Send + Sync + 'static + IpcErrorKind;
+    /// Receiver type returned by [`subscribe`](Self::subscribe).
     type Receiver: CommunicationBackendReceiver;
 
     /// Send a message to the destination specified in the message. This function may be called
     /// from any thread at any time.
     ///
-    /// An error should only be returned for fatal and unrecoverable errors.
-    /// Returning an error will cause the IPC client to stop processing messages.
+    /// Both recoverable and fatal errors may be returned, classified via
+    /// [`IpcErrorKind::kind()`]. A recoverable error (e.g. a transient transport failure) is
+    /// logged and the IPC client keeps running; a fatal error stops the client from processing any
+    /// further messages. Ambiguous cases should be classified as recoverable.
     ///
     /// The implementation of this trait needs to guarantee that:
     ///     - Multiple concurrent receivers and senders can coexist.
@@ -39,12 +46,15 @@ pub trait CommunicationBackend: Send + Sync + 'static {
 ///       receive().
 ///     - The receiver buffers messages between calls to receive().
 pub trait CommunicationBackendReceiver: Send + Sync + 'static {
-    type ReceiveError: Debug + Send + Sync + 'static;
+    /// Error returned by [`receive`](Self::receive), classified via [`IpcErrorKind`].
+    type ReceiveError: Debug + Send + Sync + 'static + IpcErrorKind;
 
     /// Receive a message. This function will block asynchronously until a message is received.
     ///
-    /// An error should only be returned for fatal and unrecoverable errors.
-    /// Returning an error will cause the IPC client to stop processing messages.
+    /// Both recoverable and fatal errors may be returned, classified via
+    /// [`IpcErrorKind::kind()`]. A recoverable error (e.g. the receiver lagging) is logged and
+    /// the IPC client's processing loop continues; a fatal error (e.g. the channel being closed)
+    /// stops the loop. Ambiguous cases should be classified as recoverable.
     ///
     /// Do not call this function from multiple threads at the same time. Use the subscribe function
     /// to create one receiver per thread.

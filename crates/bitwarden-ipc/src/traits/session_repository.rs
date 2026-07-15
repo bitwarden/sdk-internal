@@ -4,20 +4,28 @@ use tokio::sync::RwLock;
 
 use crate::endpoint::Endpoint;
 
+/// Persists per-destination crypto sessions so they survive across sends and, where the
+/// implementation is durable, across restarts.
 pub trait SessionRepository<Session>: Send + Sync + 'static {
+    /// Error returned when a session could not be read.
     type GetError: Debug + Send + Sync + 'static;
+    /// Error returned when a session could not be persisted.
     type SaveError: Debug + Send + Sync + 'static;
+    /// Error returned when a session could not be removed.
     type RemoveError: Debug + Send + Sync + 'static;
 
+    /// Load the session for the given destination, if one exists.
     fn get(
         &self,
         destination: Endpoint,
     ) -> impl std::future::Future<Output = Result<Option<Session>, Self::GetError>> + Send + Sync;
+    /// Store (or overwrite) the session for the given destination.
     fn save(
         &self,
         destination: Endpoint,
         session: Session,
     ) -> impl std::future::Future<Output = Result<(), Self::SaveError>> + Send + Sync;
+    /// Remove the session for the given destination, if one exists.
     fn remove(
         &self,
         destination: Endpoint,

@@ -7,12 +7,14 @@ use bitwarden_crypto::{
     generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
-#[allow(unused_imports)]
+pub use encryption::BlobEncryptionError;
+#[cfg(test)]
+pub(crate) use encryption::encrypt_blob_cipher;
 pub(crate) use encryption::{
-    BlobEncryptionError, decrypt_blob_cipher, encrypt_blob_cipher, is_blob_encrypted,
-    is_legacy_cipher,
+    decrypt_blob_cipher, encrypt_blob_cipher_with_wrapping_key, try_parse_blob,
 };
-use sealed::{SealedCipherBlob, SealedCipherBlobError};
+pub(crate) use sealed::SealedCipherBlob;
+pub use sealed::SealedCipherBlobError;
 use serde::{Deserialize, Serialize};
 use v1::CipherBlobV1;
 
