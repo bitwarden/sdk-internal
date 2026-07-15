@@ -424,7 +424,6 @@ impl SymmetricCryptoKey {
     /// represented as a byte array. When represented as a byte array, the array
     /// is padded to be larger than the byte array representation of the other
     /// aforementioned key types.
-    /// [SymmetricCryptoKey::to_encoded] function.
     pub(crate) fn to_encoded_raw(&self) -> EncodedSymmetricKey {
         match self {
             Self::Aes256CbcKey(key) => {
@@ -837,14 +836,14 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
 #[cfg(test)]
 mod tests {
     use bitwarden_encoding::B64;
-    use coset::iana::KeyOperation;
+    use coset::{CborSerializable, iana::KeyOperation};
     use hybrid_array::Array;
     use typenum::U32;
 
-    use super::{SymmetricCryptoKey, derive_symmetric_key};
+    use super::{EncodedSymmetricKey, SymmetricCryptoKey, derive_symmetric_key};
     use crate::{
         Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, CoseKeyThumbprintExt,
-        XChaCha20Poly1305Key,
+        SymmetricKeyAlgorithm, XAes256GcmKey, XChaCha20Poly1305Key,
         keys::{
             KeyId,
             symmetric_crypto_key::{pad_key, unpad_key},
@@ -1059,6 +1058,102 @@ mod tests {
         };
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
+    }
+
+    fn fixed_xaes_key_inner() -> XAes256GcmKey {
+        XAes256GcmKey {
+            enc_key: Box::pin(Array::from([
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ])),
+            key_id: KeyId::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+            supported_operations: vec![KeyOperation::Encrypt, KeyOperation::Decrypt],
+        }
+    }
+
+    fn fixed_xaes_key() -> SymmetricCryptoKey {
+        SymmetricCryptoKey::XAes256GcmKey(fixed_xaes_key_inner())
+    }
+
+    #[test]
+    fn test_make_xaes256_gcm_key() {
+        assert!(matches!(
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm),
+            SymmetricCryptoKey::XAes256GcmKey(_)
+        ));
+    }
+
+    #[test]
+    fn test_xaes256_gcm_encoding_roundtrips() {
+        const PADDED_KEY: &str = "pQEEAlAAAQIDBAUGBwgJCgsMDQ4PAzoAARF5BIIDBCBYIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fAQ==";
+
+        let key = fixed_xaes_key();
+        assert_eq!(key.to_base64().to_string(), PADDED_KEY);
+        let padded = SymmetricCryptoKey::try_from(PADDED_KEY.to_owned()).unwrap();
+        assert_eq!(padded, key);
+        let SymmetricCryptoKey::XAes256GcmKey(ref padded) = padded else {
+            panic!("expected XAES-256-GCM key");
+        };
+        assert_eq!(
+            padded.supported_operations,
+            [KeyOperation::Encrypt, KeyOperation::Decrypt]
+        );
+
+        let EncodedSymmetricKey::CoseKey(raw) = key.to_encoded_raw() else {
+            panic!("expected COSE key encoding");
+        };
+        assert_eq!(
+            SymmetricCryptoKey::try_from_cose(raw.as_ref()).unwrap(),
+            key
+        );
+
+        let cose_key = coset::CoseKey::from_slice(raw.as_ref()).unwrap();
+        assert_eq!(
+            cose_key.alg,
+            Some(coset::Algorithm::PrivateUse(crate::cose::XAES_256_GCM))
+        );
+        assert_eq!(cose_key.key_id, (0u8..16).collect::<Vec<_>>());
+        assert_eq!(cose_key.key_ops.len(), 2);
+        assert!(
+            cose_key
+                .key_ops
+                .contains(&coset::RegisteredLabel::Assigned(KeyOperation::Encrypt))
+        );
+        assert!(
+            cose_key
+                .key_ops
+                .contains(&coset::RegisteredLabel::Assigned(KeyOperation::Decrypt))
+        );
+    }
+
+    #[test]
+    fn test_xaes256_gcm_equality() {
+        let key = fixed_xaes_key();
+        let same = fixed_xaes_key();
+        assert_eq!(key, same);
+
+        let mut different_bytes = fixed_xaes_key_inner();
+        different_bytes.enc_key[0] ^= 1;
+        assert_ne!(key, SymmetricCryptoKey::XAes256GcmKey(different_bytes));
+
+        let mut different_id = fixed_xaes_key_inner();
+        different_id.key_id = KeyId::from([1; 16]);
+        assert_ne!(key, SymmetricCryptoKey::XAes256GcmKey(different_id));
+
+        for other in [
+            SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
+                enc_key: Box::pin(Array::default()),
+            }),
+            SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
+                enc_key: Box::pin(Array::default()),
+                mac_key: Box::pin(Array::default()),
+            }),
+            SymmetricCryptoKey::Aes256GcmKey(crate::Aes256GcmKey::make()),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key::make()),
+        ] {
+            assert_ne!(key, other);
+        }
     }
 
     #[test]

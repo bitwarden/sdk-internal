@@ -767,6 +767,19 @@ mod tests {
         ]
     }
 
+    fn make_xaes_key() -> XAes256GcmKey {
+        XAes256GcmKey {
+            key_id: KeyId::from(KEY_ID),
+            enc_key: Box::pin(Array::from(KEY_DATA)),
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
+        }
+    }
+
     fn make_xchacha_key() -> XChaCha20Poly1305Key {
         XChaCha20Poly1305Key {
             key_id: KeyId::from(KEY_ID),
@@ -1058,6 +1071,156 @@ mod tests {
         assert!(matches!(
             decrypt_xchacha20_poly1305(&serialized_message, &key),
             Err(CryptoError::WrongKeyType)
+        ));
+    }
+
+    fn xaes_message(content_format: ContentFormat) -> CoseEncrypt0 {
+        let encoded =
+            encrypt_xaes256_gcm(TEST_VECTOR_PLAINTEXT, &make_xaes_key(), content_format).unwrap();
+        CoseEncrypt0::from_slice(encoded.as_ref()).unwrap()
+    }
+
+    fn rebuild_xaes_message(message: CoseEncrypt0, protected: Header) -> CoseEncrypt0Bytes {
+        CoseEncrypt0Builder::new()
+            .protected(protected)
+            .unprotected(message.unprotected)
+            .ciphertext(message.ciphertext.unwrap())
+            .build()
+            .to_vec()
+            .unwrap()
+            .into()
+    }
+
+    #[test]
+    fn test_xaes256_gcm_roundtrip_content_formats() {
+        for content_format in [
+            ContentFormat::OctetStream,
+            ContentFormat::Utf8,
+            ContentFormat::Pkcs8PrivateKey,
+            ContentFormat::CoseKey,
+        ] {
+            let encrypted =
+                encrypt_xaes256_gcm(TEST_VECTOR_PLAINTEXT, &make_xaes_key(), content_format)
+                    .unwrap();
+            assert_eq!(
+                decrypt_xaes256_gcm(&encrypted, &make_xaes_key()).unwrap(),
+                (TEST_VECTOR_PLAINTEXT.to_vec(), content_format)
+            );
+        }
+    }
+
+    #[test]
+    fn test_xaes256_gcm_key_id_and_authentication_failures() {
+        let encrypted = encrypt_xaes256_gcm(
+            TEST_VECTOR_PLAINTEXT,
+            &make_xaes_key(),
+            ContentFormat::OctetStream,
+        )
+        .unwrap();
+
+        let mut wrong_bytes = make_xaes_key();
+        wrong_bytes.enc_key[0] ^= 1;
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &wrong_bytes),
+            Err(CryptoError::KeyDecrypt)
+        ));
+
+        let mut wrong_id = make_xaes_key();
+        wrong_id.key_id = KeyId::from([1; 16]);
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &wrong_id),
+            Err(CryptoError::WrongCoseKeyId)
+        ));
+    }
+
+    #[test]
+    fn test_xaes256_gcm_rejects_invalid_protected_headers() {
+        let key = make_xaes_key();
+
+        let mut message = xaes_message(ContentFormat::OctetStream);
+        message.protected.header.alg = Some(Algorithm::Assigned(iana::Algorithm::A256GCM));
+        let encrypted = rebuild_xaes_message(message.clone(), message.protected.header.clone());
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::WrongKeyType)
+        ));
+
+        message.protected.header.alg = None;
+        let encrypted = rebuild_xaes_message(message.clone(), message.protected.header.clone());
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::EncString(
+                EncStringParseError::CoseMissingAlgorithm
+            ))
+        ));
+
+        for content_type in [
+            None,
+            Some(coset::ContentType::Text("application/unsupported".into())),
+        ] {
+            message.protected.header.alg = Some(Algorithm::PrivateUse(XAES_256_GCM));
+            message.protected.header.content_type = content_type;
+            let encrypted = rebuild_xaes_message(message.clone(), message.protected.header.clone());
+            assert!(matches!(
+                decrypt_xaes256_gcm(&encrypted, &key),
+                Err(CryptoError::EncString(
+                    EncStringParseError::CoseMissingContentType
+                ))
+            ));
+        }
+    }
+
+    #[test]
+    fn test_xaes256_gcm_rejects_missing_or_malformed_fields() {
+        let key = make_xaes_key();
+        let mut message = xaes_message(ContentFormat::OctetStream);
+        message.ciphertext = None;
+        let encrypted = message.to_vec().unwrap().into();
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::MissingField("ciphertext"))
+        ));
+
+        let mut message = xaes_message(ContentFormat::OctetStream);
+        message.unprotected.iv.pop();
+        let encrypted = message.to_vec().unwrap().into();
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::InvalidNonceLength)
+        ));
+
+        assert!(matches!(
+            decrypt_xaes256_gcm(&CoseEncrypt0Bytes::from([0xff].as_slice()), &key),
+            Err(CryptoError::EncString(
+                EncStringParseError::InvalidCoseEncoding(_)
+            ))
+        ));
+    }
+
+    #[test]
+    fn test_xaes256_gcm_rejects_invalid_padding() {
+        let key = make_xaes_key();
+        let nonce = XAes256GcmNonce::make();
+        let mut protected = HeaderBuilder::from(ContentFormat::Utf8)
+            .key_id(KEY_ID.to_vec())
+            .build();
+        protected.alg = Some(Algorithm::PrivateUse(XAES_256_GCM));
+        let message = CoseEncrypt0Builder::new()
+            .protected(protected)
+            .unprotected(HeaderBuilder::new().iv(nonce.as_bytes().to_vec()).build())
+            .create_ciphertext(&[0], &[], |data, aad| {
+                XAes256Gcm::encrypt(&KEY_DATA, &nonce, data, aad)
+                    .encrypted_bytes()
+                    .to_vec()
+            })
+            .build()
+            .to_vec()
+            .unwrap()
+            .into();
+
+        assert!(matches!(
+            decrypt_xaes256_gcm(&message, &key),
+            Err(CryptoError::InvalidPadding)
         ));
     }
 }

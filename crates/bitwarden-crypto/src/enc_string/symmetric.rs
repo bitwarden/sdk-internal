@@ -504,6 +504,26 @@ mod tests {
         derive_symmetric_key,
     };
 
+    fn xaes_key(operations: Vec<KeyOperation>) -> SymmetricCryptoKey {
+        SymmetricCryptoKey::XAes256GcmKey(crate::XAes256GcmKey {
+            key_id: [0u8; KEY_ID_SIZE].into(),
+            enc_key: Box::pin([0u8; 32].into()),
+            supported_operations: operations,
+        })
+    }
+
+    fn encrypt_with_xaes(plaintext: &str) -> EncString {
+        plaintext
+            .to_owned()
+            .encrypt_with_key(&xaes_key(vec![
+                coset::iana::KeyOperation::Decrypt,
+                coset::iana::KeyOperation::Encrypt,
+                coset::iana::KeyOperation::WrapKey,
+                coset::iana::KeyOperation::UnwrapKey,
+            ]))
+            .expect("encryption works")
+    }
+
     fn encrypt_with_xchacha20(plaintext: &str) -> EncString {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
@@ -578,6 +598,70 @@ mod tests {
         let cipher = test_string.to_owned().encrypt_with_key(&key).unwrap();
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
+    fn test_xaes_encstring_string_roundtrips() {
+        let key = xaes_key(vec![
+            coset::iana::KeyOperation::Decrypt,
+            coset::iana::KeyOperation::Encrypt,
+            coset::iana::KeyOperation::WrapKey,
+            coset::iana::KeyOperation::UnwrapKey,
+        ]);
+        for plaintext in ["", "encrypted_test_string"] {
+            let encrypted = plaintext.to_owned().encrypt_with_key(&key).unwrap();
+            let decrypted: String = encrypted.decrypt_with_key(&key).unwrap();
+            assert_eq!(decrypted, plaintext);
+        }
+    }
+
+    #[test]
+    fn test_xaes_encstring_string_padding_block_sizes() {
+        // xaes-256-gcm encstrings should be padded into blocks of size 32 bytes.
+        // This test checks that the expected padding happens
+        // Input plaintext size => Expected plaintext size
+        // 0 => 32
+        // 31 => 32
+        // 32 => 64
+        // 63 => 64
+        // 64 => 96
+        let lengths = [0, 31, 32, 63, 64]
+            .map(|length| encrypt_with_xaes(&"a".repeat(length)).to_string().len());
+
+        assert_eq!(lengths[0], lengths[1]); // 32 == 32
+        assert_ne!(lengths[1], lengths[2]); // 32 != 64
+        assert_eq!(lengths[2], lengths[3]); // 64 == 64
+        assert_ne!(lengths[3], lengths[4]); // 64 != 96
+    }
+
+    #[test]
+    fn test_xaes_encryption_requires_encrypt_operation() {
+        assert!(matches!(
+            "plaintext"
+                .to_owned()
+                .encrypt_with_key(&xaes_key(vec![KeyOperation::Decrypt])),
+            Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt))
+        ));
+    }
+
+    #[test]
+    fn test_xaes_rejects_unsupported_encstring_variant() {
+        let encrypted =
+            EncString::encrypt_aes256_hmac(b"plaintext", &derive_symmetric_key("wrapping key"))
+                .unwrap();
+        let result: Result<Vec<u8>, CryptoError> =
+            encrypted.decrypt_with_key(&xaes_key(vec![KeyOperation::Encrypt]));
+        assert!(matches!(result, Err(CryptoError::WrongKeyType)));
+    }
+
+    #[test]
+    fn test_xaes_encstring_debug_is_readable() {
+        let debug = format!("{:?}", encrypt_with_xaes("plaintext"));
+        assert!(debug.contains("EncString::CoseEncrypt0"));
+        assert!(debug.contains("XAES-256-GCM"));
+        assert!(debug.contains("KeyId(00000000000000000000000000000000)"));
+        assert!(debug.contains("nonce"));
+        assert!(debug.contains("content_type"));
     }
 
     #[test]
