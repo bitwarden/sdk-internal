@@ -120,3 +120,124 @@ impl From<Vec<u8>> for XAes256GcmCiphertext {
         Self { encrypted_bytes }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use coset::{CoseEncrypt0Builder, CoseEncryptBuilder, HeaderBuilder};
+
+    use super::*;
+
+    const NONCE: &[u8; NONCE_SIZE] = b"ABCDEFGHIJKLMNOPQRSTUVWX";
+    const PLAINTEXT: &[u8] = b"XAES-256-GCM";
+
+    fn nonce(bytes: &[u8]) -> XAes256GcmNonce {
+        XAes256GcmNonce::from_cose_iv(bytes).unwrap()
+    }
+
+    #[test]
+    fn test_c2sp_vectors() {
+        // https://c2sp.org/XAES-256-GCM: the two vectors exercise both CMAC subkey branches.
+        let vectors = [
+            (
+                [1u8; KEY_SIZE],
+                b"".as_slice(),
+                "ce546ef63c9cc60765923609b33a9a1974e96e52daf2fcf7075e2271",
+            ),
+            (
+                [3u8; KEY_SIZE],
+                b"c2sp.org/XAES-256-GCM".as_slice(),
+                "986ec1832593df5443a179437fd083bf3fdb41abd740a21f71eb769d",
+            ),
+        ];
+
+        for (key, associated_data, expected_ciphertext) in vectors {
+            let encrypted = XAes256Gcm::encrypt(&key, &nonce(NONCE), PLAINTEXT, associated_data);
+            assert_eq!(
+                encrypted.encrypted_bytes(),
+                hex::decode(expected_ciphertext).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_make_nonce_has_correct_length() {
+        assert_eq!(XAes256GcmNonce::make().as_bytes().len(), 24);
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        let key = [7u8; KEY_SIZE];
+        let nonce = XAes256GcmNonce::make();
+        let associated_data = b"authenticated data";
+        let encrypted = XAes256Gcm::encrypt(&key, &nonce, PLAINTEXT, associated_data);
+
+        let decrypted = XAes256Gcm::decrypt(&key, &nonce, &encrypted, associated_data).unwrap();
+        assert_eq!(decrypted, PLAINTEXT);
+    }
+
+    #[test]
+    fn test_authentication_failures() {
+        let key = [7u8; KEY_SIZE];
+        let original_nonce = nonce(NONCE);
+        let associated_data = b"authenticated data";
+        let encrypted = XAes256Gcm::encrypt(&key, &original_nonce, PLAINTEXT, associated_data);
+
+        assert!(matches!(
+            XAes256Gcm::decrypt(
+                &[8u8; KEY_SIZE],
+                &original_nonce,
+                &encrypted,
+                associated_data,
+            ),
+            Err(CryptoError::KeyDecrypt)
+        ));
+        assert!(matches!(
+            XAes256Gcm::decrypt(
+                &key,
+                &original_nonce,
+                &encrypted,
+                b"modified authenticated data",
+            ),
+            Err(CryptoError::KeyDecrypt)
+        ));
+
+        let mut modified_ciphertext = encrypted.encrypted_bytes().to_vec();
+        modified_ciphertext[0] ^= 1;
+        assert!(matches!(
+            XAes256Gcm::decrypt(
+                &key,
+                &original_nonce,
+                &XAes256GcmCiphertext::from(modified_ciphertext),
+                associated_data,
+            ),
+            Err(CryptoError::KeyDecrypt)
+        ));
+
+        let mut wrong_nonce = *NONCE;
+        wrong_nonce[0] ^= 1;
+        assert!(matches!(
+            XAes256Gcm::decrypt(&key, &nonce(&wrong_nonce), &encrypted, associated_data),
+            Err(CryptoError::KeyDecrypt)
+        ));
+    }
+
+    #[test]
+    fn test_rejects_malformed_cose_ivs() {
+        let malformed_iv = vec![0; NONCE_SIZE - 1];
+        let cose_encrypt = CoseEncryptBuilder::new()
+            .unprotected(HeaderBuilder::new().iv(malformed_iv.clone()).build())
+            .build();
+        let cose_encrypt0 = CoseEncrypt0Builder::new()
+            .unprotected(HeaderBuilder::new().iv(malformed_iv).build())
+            .build();
+
+        assert!(matches!(
+            XAes256GcmNonce::try_from(&cose_encrypt),
+            Err(CryptoError::InvalidNonceLength)
+        ));
+        assert!(matches!(
+            XAes256GcmNonce::try_from(&cose_encrypt0),
+            Err(CryptoError::InvalidNonceLength)
+        ));
+    }
+}

@@ -680,9 +680,10 @@ mod tests {
         13, 36, 123, 53, 12, 31, 191, 40, 13, 175,
     ];
 
-    fn algorithms() -> [CoseContentEncryptionAlgorithm; 2] {
+    fn algorithms() -> [CoseContentEncryptionAlgorithm; 3] {
         [
             CoseContentEncryptionAlgorithm::Aes256Gcm,
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
         ]
     }
@@ -746,6 +747,82 @@ mod tests {
         .unwrap();
         let wrong_cek = [0u8; 32];
         assert!(decrypt_cose0(&cose_encrypt0, None, &wrong_cek).is_err());
+    }
+
+    #[test]
+    fn test_decrypt_xaes256_gcm_wrong_key_fails() {
+        let cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            decrypt_cose0(&cose_encrypt0, None, &[0u8; 32]),
+            Err(CryptoError::KeyDecrypt)
+        ));
+    }
+
+    #[test]
+    fn test_xaes256_gcm_emits_24_byte_nonce() {
+        let cose_encrypt = encrypt_cose(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncryptBuilder::new().add_recipient(CoseRecipientBuilder::new().build()),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+        let cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+
+        assert_eq!(cose_encrypt.unprotected.iv.len(), 24);
+        assert_eq!(cose_encrypt0.unprotected.iv.len(), 24);
+    }
+
+    #[test]
+    fn test_decrypt_xaes256_gcm_wrong_nonce_fails() {
+        let mut cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+        cose_encrypt0.unprotected.iv[0] ^= 1;
+
+        assert!(matches!(
+            decrypt_cose0(&cose_encrypt0, None, &CEK),
+            Err(CryptoError::KeyDecrypt)
+        ));
+    }
+
+    #[test]
+    fn test_decrypt_xaes256_gcm_malformed_nonce_fails() {
+        let mut cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+        cose_encrypt0.unprotected.iv.pop();
+
+        assert!(matches!(
+            decrypt_cose0(&cose_encrypt0, None, &CEK),
+            Err(CryptoError::InvalidNonceLength)
+        ));
     }
 
     #[test]
