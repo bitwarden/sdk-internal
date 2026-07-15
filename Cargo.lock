@@ -38,6 +38,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aead-stream"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a901e5bcd15b4a9555a8f17a608d28ef92cf77bc4aa3b4a0c1a3fce1a9cc0bac"
+dependencies = [
+ "aead 0.6.0",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -721,6 +730,7 @@ dependencies = [
  "uniffi",
  "uuid",
  "wasm-bindgen",
+ "xaes-256-gcm",
  "zeroize",
  "zeroizing-alloc",
 ]
@@ -7853,6 +7863,19 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+
+[[package]]
+name = "xaes-256-gcm"
+version = "0.1.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0efddf28e82b0708d683ea8383665f65d5de10b758cefedc238a4f9a89a33ae9"
+dependencies = [
+ "aead 0.6.0",
+ "aead-stream",
+ "aes 0.9.1",
+ "aes-gcm 0.11.0-rc.4",
+ "cipher 0.5.2",
+]
 
 [[package]]
 name = "xterm-color"

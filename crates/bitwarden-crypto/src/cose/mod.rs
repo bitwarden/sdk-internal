@@ -30,6 +30,12 @@ use crate::{
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+/// XAES-256-GCM (<https://c2sp.org/XAES-256-GCM>) extended-nonce AEAD. Given
+/// an input key and 192-bit nonce, a counter-based KDF is instantiated with
+/// CMAC-AES256, the input key, and the first 96 bits of the input nonce. The
+/// derived key and last 96 bits of the input nonce are then used to encrypt
+/// with AES-256-GCM.
+pub(crate) const XAES_256_GCM: i64 = -70010;
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
 /// PBKDF2-HMAC-SHA256 KDF algorithm discriminant, used by the password protected key envelope in
 /// the FIPS cipher suite. PBKDF2 is FIPS-approved, unlike Argon2id ([`ALG_ARGON2ID13`]).
