@@ -406,8 +406,6 @@ fn batch_chunk_size(len: usize) -> usize {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::time::Instant;
-
     use crate::{
         EncString, PrimitiveEncryptable, SymmetricKeyAlgorithm,
         store::{KeyStore, KeyStoreContext},
@@ -477,68 +475,5 @@ pub(crate) mod tests {
             assert_eq!(orig.0, dec.0);
             assert_eq!(orig.1, dec.1);
         }
-    }
-
-    /// Speed comparison between the two decryption strategies exposed to callers (e.g. the
-    /// `DefaultCollectionEncryptionService` TS feature flag): decrypting one item at a time via
-    /// [KeyStore::decrypt] (the "original"/sequential path, not parallelized) versus decrypting
-    /// the whole list in a single call to [KeyStore::decrypt_list_with_failures] (the "bulk" path,
-    /// parallelized internally via rayon).
-    ///
-    /// This is a `#[test]`, not a criterion benchmark, because it needs the crate's `#[cfg(test)]`
-    /// helper types (`Data`/`DataView`/`TestIds`/`TestSymmKey`), which aren't visible to an
-    /// external `benches/` binary. Run with `cargo test speed_test_decrypt -- --nocapture` to see
-    /// the timing/throughput/speedup numbers; the assertions only check correctness, not speed, so
-    /// this won't flake in CI on slower/noisier machines.
-    #[test]
-    fn speed_test_decrypt_sequential_vs_bulk() {
-        let store: KeyStore<TestIds> = KeyStore::default();
-
-        for n in 0..15 {
-            let mut ctx = store.context_mut();
-            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, TestSymmKey::A(n))
-                .unwrap();
-        }
-
-        const ITEM_COUNT: usize = 5_000;
-        let data: Vec<_> = (0..ITEM_COUNT)
-            .map(|n| DataView(format!("Test {n}"), TestSymmKey::A((n % 15) as u8)))
-            .collect();
-        let encrypted: Vec<Data> = store.encrypt_list(&data).unwrap();
-
-        // "Original" path: decrypt one item at a time, sequentially.
-        let sequential_start = Instant::now();
-        let sequential_results: Vec<DataView> = encrypted
-            .iter()
-            .map(|item| store.decrypt(item).unwrap())
-            .collect();
-        let sequential_elapsed = sequential_start.elapsed();
-
-        // "Bulk" path: decrypt the whole list in a single call.
-        let bulk_start = Instant::now();
-        let (bulk_successes, bulk_failures) = store.decrypt_list_with_failures(&encrypted);
-        let bulk_elapsed = bulk_start.elapsed();
-
-        // Correctness, not speed, is asserted so this test can't flake on a slow/noisy CI runner.
-        assert_eq!(sequential_results.len(), ITEM_COUNT);
-        assert_eq!(bulk_successes.len(), ITEM_COUNT);
-        assert!(bulk_failures.is_empty());
-
-        let items_per_ms = |elapsed: std::time::Duration| {
-            ITEM_COUNT as f64 / elapsed.as_secs_f64().max(f64::EPSILON) / 1000.0
-        };
-        let speedup =
-            sequential_elapsed.as_secs_f64() / bulk_elapsed.as_secs_f64().max(f64::EPSILON);
-
-        println!(
-            "\ndecrypt speed test ({ITEM_COUNT} items, {} rayon threads):\n  \
-             sequential (original, KeyStore::decrypt in a loop):        {sequential_elapsed:?} ({:.2} items/ms)\n  \
-             bulk       (decrypt_list_with_failures, parallelized):     {bulk_elapsed:?} ({:.2} items/ms)\n  \
-             speedup: {speedup:.2}x\n",
-            rayon::current_num_threads(),
-            items_per_ms(sequential_elapsed),
-            items_per_ms(bulk_elapsed),
-        );
     }
 }
