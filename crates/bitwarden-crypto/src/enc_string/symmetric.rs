@@ -201,6 +201,17 @@ impl EncString {
         }
     }
 
+    /// Returns the id of the key that encrypted this [`EncString`], if it is recorded.
+    pub fn key_id(&self) -> Option<KeyId> {
+        match self {
+            EncString::Cose_Encrypt0_B64 { data } => {
+                let msg = coset::CoseEncrypt0::from_slice(data.as_slice()).ok()?;
+                KeyId::try_from(msg.protected.header.key_id.as_slice()).ok()
+            }
+            _ => None,
+        }
+    }
+
     #[allow(missing_docs)]
     pub fn to_buffer(&self) -> Result<Vec<u8>> {
         let mut buf;
@@ -503,6 +514,22 @@ mod tests {
             EncString::encrypt_aes256_hmac(b"Test debug string", &derive_symmetric_key("test"))
                 .unwrap();
         println!("{:?}", enc_string_aes);
+    }
+
+    #[test]
+    fn test_key_id_cose_returns_encrypting_key_id() {
+        let enc_string = encrypt_with_xchacha20("Test key id");
+        assert_eq!(
+            enc_string.key_id(),
+            Some(crate::KeyId::from([0u8; KEY_ID_SIZE]))
+        );
+    }
+
+    #[test]
+    fn test_key_id_aes_returns_none() {
+        let enc_string =
+            EncString::encrypt_aes256_hmac(b"Test key id", &derive_symmetric_key("test")).unwrap();
+        assert_eq!(enc_string.key_id(), None);
     }
 
     /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the

@@ -37,7 +37,7 @@ fn main() {
     let envelope = SecretProtectedKeyEnvelope::seal(
         data_key,
         &secret,
-        SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+        SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         &ctx,
     )
     .expect("Sealing should work");
@@ -55,7 +55,7 @@ fn main() {
     let _unsealed_data_key = deserialized
         .unseal(
             &secret,
-            SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+            SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
             &mut ctx,
         )
         .expect("Unsealing should work");
@@ -66,7 +66,7 @@ fn main() {
         .reseal(
             &secret,
             &new_secret,
-            SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+            SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         )
         .expect("The secret should be valid");
     disk.save("data_key_envelope", (&envelope).into());
@@ -76,7 +76,7 @@ fn main() {
     let envelope = SecretProtectedKeyEnvelope::seal(
         data_key,
         &new_secret,
-        SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+        SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         &ctx,
     )
     .expect("Sealing should work");
@@ -87,7 +87,7 @@ fn main() {
     assert!(matches!(
         envelope.unseal(
             &wrong_secret,
-            SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+            SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
             &mut ctx
         ),
         Err(SecretProtectedKeyEnvelopeError::WrongSecret)

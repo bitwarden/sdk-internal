@@ -3,10 +3,11 @@ use bitwarden_core::{
     key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId},
 };
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyStore, PublicKey, SymmetricKeyAlgorithm, UnsignedSharedKey,
+    CoseKeyThumbprintExt, CryptoError, EncString, KeyStore, PublicKey, SymmetricKeyAlgorithm,
+    UnsignedSharedKey,
 };
 use bitwarden_error::bitwarden_error;
-use bitwarden_organization_crypto::{Invite, InviteBundle, InviteKeyBundleError, InviteKeyData};
+use bitwarden_organization_crypto::{Invite, InviteBundle, InviteKeyBundleError, InviteSecret};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -21,27 +22,30 @@ pub enum OrganizationInviteCryptoBundleError {
     /// Failed to generate the invite key bundle.
     #[error("Key bundle generation failed: {0}")]
     BundleGenerationFailed(#[from] InviteKeyBundleError),
-    /// Failed to unseal the invite key envelope using the organization key.
-    #[error("Failed to unseal invite key: {0}")]
+    /// Failed to unseal the invite using the organization key.
+    #[error("Failed to unseal invite: {0}")]
     UnsealingFailed(InviteKeyBundleError),
     /// A cryptographic operation on the organization's key material failed.
     #[error("Cryptographic operation failed: {0}")]
     CryptoOperationFailed(#[from] CryptoError),
+    /// The organization public key does not match the thumbprint bound into the invite.
+    #[error("Organization public key does not match the invite")]
+    ThumbprintMismatch,
 }
 
 /// The cryptographic bundle returned when generating an organization member invite link.
 ///
-/// - `invite_key`: raw invite key encoded as base64Url. **MUST NOT be sent to the server.**
-/// - `invite`: invite key sealed with the organization key, serialized as an EncString. Safe to
-///   send to the server.
+/// - `invite_secret`: raw invite secret encoded as base64Url. **MUST NOT be sent to the server.**
+/// - `invite`: the invite binding the organization key, invite key, and invite secret, serialized
+///   as base64. Safe to send to the server.
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteCryptoBundle {
-    /// Raw invite key. CRITICAL: MUST NOT be sent to the server.
-    #[cfg_attr(feature = "wasm", tsify(type = "InviteKeyData"))]
-    pub invite_key: InviteKeyData,
-    /// Invite key sealed with the organization key. Safe to send to the server.
+    /// Raw invite secret. CRITICAL: MUST NOT be sent to the server.
+    #[cfg_attr(feature = "wasm", tsify(type = "InviteSecret"))]
+    pub invite_secret: InviteSecret,
+    /// The invite. Safe to send to the server.
     #[cfg_attr(feature = "wasm", tsify(type = "Invite"))]
     pub invite: Invite,
 }
@@ -65,7 +69,7 @@ impl InviteLinkClient {
     /// Each call produces a unique invite key sampled from a secure cryptographic source.
     ///
     /// # Security
-    /// The returned `invite_key` MUST NOT be sent to the server.
+    /// The returned `invite_secret` MUST NOT be sent to the server.
     pub fn make_invite(
         &self,
         organization_id: OrganizationId,
@@ -74,54 +78,55 @@ impl InviteLinkClient {
         let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
 
-        let private_key_id = ctx.unwrap_private_key(org_key, &wrapped_private_key)?;
-        let public_key = ctx.get_public_key(private_key_id)?;
-        // TODO: bind the organization public key into the invite (follow-up ticket)
-        let _ = &public_key;
-
-        let bundle = InviteBundle::make(org_key, &mut ctx)?;
+        let bundle = InviteBundle::make_for_private_key(org_key, &wrapped_private_key, &mut ctx)?;
         Ok(OrganizationInviteCryptoBundle {
-            invite_key: bundle.dangerous_get_raw_invite_key().clone(),
+            invite_secret: bundle.dangerous_get_raw_invite_secret().clone(),
             invite: bundle.get_envelope().clone(),
         })
     }
 
-    /// Unseals a `sealed_invite_key_envelope` using the organization's key, returning the raw
-    /// invite key as [`InviteKeyData`].
-    pub fn get_invite_key(
+    /// Recovers the raw [`InviteSecret`] from an `invite` using the organization's key (the admin
+    /// direction, e.g. to reconstruct an invite link).
+    pub fn get_invite_secret(
         &self,
         organization_id: OrganizationId,
         invite: Invite,
-    ) -> Result<InviteKeyData, OrganizationInviteCryptoBundleError> {
+    ) -> Result<InviteSecret, OrganizationInviteCryptoBundleError> {
         let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
+        let invite_key = invite
+            .invite_key_from_organization_key(org_key, &mut ctx)
+            .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)?;
         invite
-            .unseal(org_key, &mut ctx)
+            .get_invite_secret(invite_key, &mut ctx)
             .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)
     }
 
-    /// Whether invite confirmation is supported. Currently always `false`.
-    // TODO(Milestone 3): delegate to the invite key bundle once confirmation is implemented.
-    pub fn supports_confirmation(&self) -> bool {
-        false
+    /// Whether confirmation is enabled on the given `invite` (i.e. whether the organization key can
+    /// be recovered from the invite).
+    pub fn supports_confirmation(&self, invite: Invite) -> bool {
+        invite.supports_confirmation()
     }
 
-    /// Enables confirmation on the given `invite`, returning the updated invite.
-    // TODO(Milestone 3): implement confirmation via the invite key bundle. Currently a stub that
-    // returns the invite unchanged.
+    /// Enables confirmation on the given `invite`, sealing the organization key to the invite key
+    /// so an invitee can self-confirm. Returns the updated invite.
     pub fn enable_confirmation(
         &self,
         organization_id: OrganizationId,
-        invite: Invite,
+        mut invite: Invite,
     ) -> Result<Invite, OrganizationInviteCryptoBundleError> {
-        let _ = &organization_id;
+        let mut ctx = self.key_store.context();
+        let org_key = SymmetricKeySlotId::Organization(organization_id);
+        invite
+            .enable_confirmation(org_key, &mut ctx)
+            .map_err(OrganizationInviteCryptoBundleError::BundleGenerationFailed)?;
         Ok(invite)
     }
 
-    /// Disables confirmation on the given `invite`, returning the updated invite.
-    // TODO(Milestone 3): implement confirmation via the invite key bundle. Currently a stub that
-    // returns the invite unchanged.
-    pub fn disable_confirmation(&self, invite: Invite) -> Invite {
+    /// Disables confirmation on the given `invite`, removing the organization-key envelope. Returns
+    /// the updated invite.
+    pub fn disable_confirmation(&self, mut invite: Invite) -> Invite {
+        invite.disable_confirmation();
         invite
     }
 
@@ -134,11 +139,21 @@ impl InviteLinkClient {
         invite: Invite,
         organization_public_key: PublicKey,
     ) -> Result<UnsignedSharedKey, OrganizationInviteCryptoBundleError> {
-        // The invite is reserved for a future milestone that binds enrollment to the invite.
-        let _ = &invite;
-
-        let ctx = self.key_store.context();
+        let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
+
+        // Verify the organization public key we are about to encapsulate to matches the thumbprint
+        // bound into the invite, so a substituted public key cannot capture the organization key.
+        let invite_key = invite
+            .invite_key_from_organization_key(org_key, &mut ctx)
+            .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)?;
+        let bound_thumbprint = invite
+            .get_public_key_thumbprint(invite_key, &mut ctx)
+            .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)?;
+        if bound_thumbprint != organization_public_key.thumbprint()? {
+            return Err(OrganizationInviteCryptoBundleError::ThumbprintMismatch);
+        }
+
         Ok(UnsignedSharedKey::encapsulate(
             org_key,
             &organization_public_key,
@@ -195,14 +210,27 @@ mod tests {
     }
 
     /// Builds an organization private key wrapped with the organization key held in the client's
-    /// key store, as `make_invite` expects.
-    fn make_wrapped_private_key(client: &InviteLinkClient, org_id: OrganizationId) -> EncString {
+    /// key store (as `make_invite` expects), returning it alongside the matching public key.
+    fn make_org_keypair(
+        client: &InviteLinkClient,
+        org_id: OrganizationId,
+    ) -> (EncString, PublicKey) {
         let mut ctx = client.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(org_id);
         let private_key_id =
             ctx.make_private_key(bitwarden_crypto::PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        ctx.wrap_private_key(org_key, private_key_id)
-            .expect("wrapping the private key with the org key should succeed")
+        let public_key = ctx
+            .get_public_key(private_key_id)
+            .expect("getting the public key should succeed");
+        let wrapped = ctx
+            .wrap_private_key(org_key, private_key_id)
+            .expect("wrapping the private key with the org key should succeed");
+        (wrapped, public_key)
+    }
+
+    /// Convenience wrapper returning only the wrapped private key.
+    fn make_wrapped_private_key(client: &InviteLinkClient, org_id: OrganizationId) -> EncString {
+        make_org_keypair(client, org_id).0
     }
 
     #[test]
@@ -214,27 +242,27 @@ mod tests {
             .make_invite(org_id, make_wrapped_private_key(&client, org_id))
             .unwrap();
 
-        assert!(!String::from(&bundle.invite_key).is_empty());
+        assert!(!String::from(&bundle.invite_secret).is_empty());
         assert!(!String::from(&bundle.invite).is_empty());
     }
 
     #[test]
-    fn envelope_unseals_to_raw_invite_key() {
+    fn invite_recovers_invite_secret() {
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
         let bundle = client
             .make_invite(org_id, make_wrapped_private_key(&client, org_id))
             .unwrap();
-        let unsealed = client
-            .get_invite_key(org_id, bundle.invite.clone())
+        let recovered = client
+            .get_invite_secret(org_id, bundle.invite.clone())
             .unwrap();
 
-        assert_eq!(bundle.invite_key, unsealed);
+        assert_eq!(bundle.invite_secret, recovered);
     }
 
     #[test]
-    fn two_calls_produce_different_invite_keys() {
+    fn two_calls_produce_different_invite_secrets() {
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
@@ -246,8 +274,8 @@ mod tests {
             .unwrap();
 
         assert_ne!(
-            String::from(&bundle1.invite_key),
-            String::from(&bundle2.invite_key)
+            String::from(&bundle1.invite_secret),
+            String::from(&bundle2.invite_secret)
         );
     }
 
@@ -255,7 +283,7 @@ mod tests {
     fn sealed_invite_serializes_as_stable_base64_wire_format() {
         // The invite is serialized as a base64-encoded CBOR structure (the
         // extendable wire format). It must round-trip back to an identical
-        // invite that still unseals to the original invite key.
+        // invite that still recovers the original invite secret.
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
@@ -267,12 +295,12 @@ mod tests {
         let reparsed: Invite = invite_str
             .parse()
             .expect("serialized invite must parse back from its base64 wire format");
-        let unsealed = client.get_invite_key(org_id, reparsed).unwrap();
-        assert_eq!(bundle.invite_key, unsealed);
+        let recovered = client.get_invite_secret(org_id, reparsed).unwrap();
+        assert_eq!(bundle.invite_secret, recovered);
     }
 
     #[test]
-    fn unseal_with_wrong_organization_id_fails() {
+    fn get_invite_secret_with_wrong_organization_id_fails() {
         let org_id = OrganizationId::new_v4();
         let other_org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
@@ -280,11 +308,60 @@ mod tests {
         let bundle = client
             .make_invite(org_id, make_wrapped_private_key(&client, org_id))
             .unwrap();
-        let result = client.get_invite_key(other_org_id, bundle.invite);
+        let result = client.get_invite_secret(other_org_id, bundle.invite);
 
         assert!(matches!(
             result,
             Err(OrganizationInviteCryptoBundleError::UnsealingFailed(_))
+        ));
+    }
+
+    #[test]
+    fn confirmation_can_be_toggled() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(org_id);
+
+        let bundle = client
+            .make_invite(org_id, make_wrapped_private_key(&client, org_id))
+            .unwrap();
+
+        // New invites are created with confirmation enabled.
+        assert!(client.supports_confirmation(bundle.invite.clone()));
+
+        let disabled = client.disable_confirmation(bundle.invite.clone());
+        assert!(!client.supports_confirmation(disabled.clone()));
+
+        let re_enabled = client.enable_confirmation(org_id, disabled).unwrap();
+        assert!(client.supports_confirmation(re_enabled));
+    }
+
+    #[test]
+    fn enroll_account_recovery_succeeds_with_matching_public_key() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(org_id);
+
+        let (wrapped, public_key) = make_org_keypair(&client, org_id);
+        let bundle = client.make_invite(org_id, wrapped).unwrap();
+
+        client
+            .enroll_account_recovery(org_id, bundle.invite, public_key)
+            .expect("enrollment with the matching org public key should succeed");
+    }
+
+    #[test]
+    fn enroll_account_recovery_fails_with_mismatched_public_key() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(org_id);
+
+        let (wrapped, _public_key) = make_org_keypair(&client, org_id);
+        let bundle = client.make_invite(org_id, wrapped).unwrap();
+        // A different key pair whose thumbprint is not bound into the invite.
+        let (_other_wrapped, other_public_key) = make_org_keypair(&client, org_id);
+
+        let result = client.enroll_account_recovery(org_id, bundle.invite, other_public_key);
+        assert!(matches!(
+            result,
+            Err(OrganizationInviteCryptoBundleError::ThumbprintMismatch)
         ));
     }
 
@@ -295,14 +372,15 @@ mod tests {
         let client = make_client(org_id);
 
         // The wrapped private key can only be produced for a known org, so use the known org's
-        // wrapped key but pass an unknown org id: unwrapping with the missing org key fails first.
+        // wrapped key but pass an unknown org id: unwrapping the private key with the missing org
+        // key fails inside `make_for_private_key`.
         let wrapped = make_wrapped_private_key(&client, org_id);
         let result = client.make_invite(other_org_id, wrapped);
 
         assert!(matches!(
             result,
-            Err(OrganizationInviteCryptoBundleError::CryptoOperationFailed(
-                _
+            Err(OrganizationInviteCryptoBundleError::BundleGenerationFailed(
+                InviteKeyBundleError::InvalidPrivateKey
             ))
         ));
     }

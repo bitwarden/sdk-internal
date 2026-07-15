@@ -11,7 +11,6 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
-    XChaCha20Poly1305Key,
     cose::{
         ContentNamespace, SafeObjectNamespace,
         symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
@@ -48,6 +47,7 @@ pub enum SymmetricKeyEnvelopeError {
 }
 
 /// A symmetric key protected by another symmetric key
+#[derive(Clone)]
 pub struct SymmetricKeyEnvelope {
     cose_encrypt0: coset::CoseEncrypt0,
 }
@@ -70,12 +70,20 @@ impl SymmetricKeyEnvelope {
             .get_symmetric_key(sealing_key)
             .map_err(|_| SymmetricKeyEnvelopeError::KeyMissing)?;
 
-        // For now, just XChaCha20Poly1305 is supported as wrapping key
-        let wrapping_key: &XChaCha20Poly1305Key = match wrapping_key {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
+        let (algorithm, wrapping_key_id, wrapping_enc_key) = match wrapping_key {
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => (
+                CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+                &key.key_id,
+                key.enc_key.as_slice(),
+            ),
+            SymmetricCryptoKey::Aes256GcmKey(key) => (
+                CoseContentEncryptionAlgorithm::Aes256Gcm,
+                &key.key_id,
+                key.enc_key.as_slice(),
+            ),
             _ => {
                 return Err(SymmetricKeyEnvelopeError::Parsing(
-                    "Wrapping key must be XChaCha20Poly1305".to_string(),
+                    "Wrapping key must be XChaCha20Poly1305 or AES-256-GCM".to_string(),
                 ));
             }
         };
@@ -96,14 +104,14 @@ impl SymmetricKeyEnvelope {
             SafeObjectNamespace::SymmetricKeyEnvelope,
             namespace,
         );
-        protected_header.key_id = wrapping_key.key_id.as_slice().into();
+        protected_header.key_id = wrapping_key_id.as_slice().into();
 
         let cose_encrypt0 = encrypt_cose0(
-            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            algorithm,
             CoseEncrypt0Builder::new(),
             protected_header,
             &key_bytes,
-            wrapping_key.enc_key.as_slice(),
+            wrapping_enc_key,
         )
         .map_err(|_| SymmetricKeyEnvelopeError::WrongKeyType)?;
 
@@ -121,11 +129,14 @@ impl SymmetricKeyEnvelope {
             .get_symmetric_key(wrapping_key)
             .map_err(|_| SymmetricKeyEnvelopeError::KeyMissing)?;
 
-        let wrapping_key_inner = match wrapping_key_ref {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
+        // The content-encryption algorithm is recovered from the protected header by
+        // `decrypt_cose0`, so unsealing only needs the wrapping key's raw bytes.
+        let wrapping_enc_key = match wrapping_key_ref {
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.enc_key.as_slice(),
+            SymmetricCryptoKey::Aes256GcmKey(key) => key.enc_key.as_slice(),
             _ => {
                 return Err(SymmetricKeyEnvelopeError::Parsing(
-                    "Wrapping key must be XChaCha20Poly1305".to_string(),
+                    "Wrapping key must be XChaCha20Poly1305 or AES-256-GCM".to_string(),
                 ));
             }
         };
@@ -140,12 +151,8 @@ impl SymmetricKeyEnvelope {
         // Decrypt the key bytes. `decrypt_cose0` also validates that the declared
         // content-encryption algorithm matches the cipher before attempting decryption. The
         // envelope always declares the algorithm, so no decryption fallback is needed.
-        let key_bytes = decrypt_cose0(
-            &self.cose_encrypt0,
-            None,
-            wrapping_key_inner.enc_key.as_slice(),
-        )
-        .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;
+        let key_bytes = decrypt_cose0(&self.cose_encrypt0, None, wrapping_enc_key)
+            .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;
 
         let key = decode_sealed_symmetric_key(&self.cose_encrypt0.protected.header, key_bytes)
             .map_err(|e| match e {
@@ -276,6 +283,9 @@ impl FromWasmAbi for SymmetricKeyEnvelope {
 pub enum SymmetricKeyEnvelopeNamespace {
     /// A key used for re-hydration of the SDK
     SessionKey = 1,
+    /// Organization member invite links. The wrapping key is the AES-256-GCM invite key and the
+    /// sealed key is the organization key.
+    OrganizationInvite = 2,
     #[cfg(test)]
     /// Example namespace for testing purposes.
     ExampleNamespace = -3,
@@ -297,6 +307,7 @@ impl TryFrom<i128> for SymmetricKeyEnvelopeNamespace {
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(SymmetricKeyEnvelopeNamespace::SessionKey),
+            2 => Ok(SymmetricKeyEnvelopeNamespace::OrganizationInvite),
             #[cfg(test)]
             -3 => Ok(SymmetricKeyEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -380,6 +391,36 @@ mod tests {
             .get_symmetric_key(key_to_seal)
             .expect("Key should exist in the key store");
 
+        assert_eq!(unsealed_key_ref, original_key_ref);
+    }
+
+    #[test]
+    fn test_seal_unseal_aes256_gcm_wrapping_key() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        // The wrapping key is AES-256-GCM (the invite-key use case); the sealed key is XChaCha.
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256Gcm);
+
+        let envelope = SymmetricKeyEnvelope::seal(
+            key_to_seal,
+            wrapping_key,
+            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        let unsealed_key = envelope
+            .unseal(
+                wrapping_key,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
+            .unwrap();
+
+        let unsealed_key_ref = ctx.get_symmetric_key(unsealed_key).unwrap();
+        let original_key_ref = ctx.get_symmetric_key(key_to_seal).unwrap();
         assert_eq!(unsealed_key_ref, original_key_ref);
     }
 
@@ -554,6 +595,84 @@ mod tests {
         let sealing_key_id = ctx.add_local_symmetric_key(sealing_key);
 
         let envelope = SymmetricKeyEnvelope::from_str(TEST_VECTOR_ENVELOPE).unwrap();
+
+        let unsealed_key_id = envelope
+            .unseal(
+                sealing_key_id,
+                SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
+            .unwrap();
+        let unsealed_key = ctx.get_symmetric_key(unsealed_key_id).unwrap();
+        assert_eq!(unsealed_key.to_owned(), sealed_key_test_vector.to_owned());
+    }
+
+    // Locks the AES-256-GCM-wrapped-key wire format (the invite-key use case) for backward
+    // compatibility.
+    const TEST_VECTOR_AES_GCM_SEALING_KEY: &str =
+        "pQEEAlCrZUeP2U+9cD743Pj7ZRcJAwMEhAMEBQYgWCCDLtd4VzNeHFQxwBoSb2M+VfnwvgF6jZMpNz9BwoeJdQE=";
+    const TEST_VECTOR_AES_GCM_KEY_TO_SEAL: &str = "pQEEAlBLW7+aZogvl5titKu7T8/RAzoAARFvBIQDBAUGIFggBYXfYvCJfDHVREvp84oY/FfmZ7UaAVFriozzTEi3qUwB";
+    const TEST_VECTOR_AES_GCM_ENVELOPE: &str = "g1g6pgEDAxhlBFCrZUeP2U+9cD743Pj7ZRcJOgABFVxQS1u/mmaIL5ebYrSru0/P0ToAATiBAzoAATiAIqEFTBFyoctiYRR4aAOUVVhUxCZOXWNttgQM63dzWjvrP8DKPkgp9ccFokXawmJ+6j0Sb0GFhsC5X5T2M025AjK2Lg57YEVQkfXxCHRgf4/uT+mY6kT1tAy8cYuJhsNWlezMQrav";
+
+    #[test]
+    #[ignore]
+    fn generate_aes_gcm_test_vectors() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        // The invite-key use case: an AES-256-GCM wrapping key sealing another key.
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256Gcm);
+
+        let envelope = SymmetricKeyEnvelope::seal(
+            key_to_seal,
+            wrapping_key,
+            SymmetricKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        println!(
+            "const TEST_VECTOR_AES_GCM_SEALING_KEY: &str = \"{}\";",
+            bitwarden_encoding::B64::from(
+                ctx.get_symmetric_key(wrapping_key)
+                    .unwrap()
+                    .to_encoded()
+                    .to_vec()
+                    .as_slice()
+            )
+        );
+        println!(
+            "const TEST_VECTOR_AES_GCM_KEY_TO_SEAL: &str = \"{}\";",
+            bitwarden_encoding::B64::from(
+                ctx.get_symmetric_key(key_to_seal)
+                    .unwrap()
+                    .to_encoded()
+                    .to_vec()
+                    .as_slice()
+            )
+        );
+        let serialized: String = envelope.into();
+        println!(
+            "const TEST_VECTOR_AES_GCM_ENVELOPE: &str = \"{}\";",
+            serialized
+        );
+    }
+
+    #[test]
+    fn decrypt_aes_gcm_test_vectors() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let sealing_key = SymmetricCryptoKey::try_from(TEST_VECTOR_AES_GCM_SEALING_KEY.to_string())
+            .expect("Failed to parse AES-GCM sealing key from test vector");
+        let sealed_key_test_vector =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_AES_GCM_KEY_TO_SEAL.to_string())
+                .expect("Failed to parse key to seal from test vector");
+
+        let sealing_key_id = ctx.add_local_symmetric_key(sealing_key);
+
+        let envelope = SymmetricKeyEnvelope::from_str(TEST_VECTOR_AES_GCM_ENVELOPE).unwrap();
 
         let unsealed_key_id = envelope
             .unseal(

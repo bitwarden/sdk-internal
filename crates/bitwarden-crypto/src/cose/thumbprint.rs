@@ -30,6 +30,12 @@ use sha2::{Digest, Sha256};
 pub struct CoseKeyThumbprint([u8; 32]);
 
 impl CoseKeyThumbprint {
+    /// Reconstructs a thumbprint from a previously-computed 32-byte SHA-256 digest (e.g. one that
+    /// was persisted). No validation is performed; the bytes are taken as-is.
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        CoseKeyThumbprint(bytes)
+    }
+
     /// The raw 32-byte SHA-256 digest.
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0

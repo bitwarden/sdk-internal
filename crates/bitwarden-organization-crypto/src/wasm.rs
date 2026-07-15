@@ -7,31 +7,31 @@ use std::str::FromStr;
 
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
-use crate::{Invite, InviteKeyBundleError, InviteKeyData};
+use crate::{Invite, InviteKeyBundleError, InviteSecret};
 
-impl wasm_bindgen::describe::WasmDescribe for InviteKeyData {
+impl wasm_bindgen::describe::WasmDescribe for InviteSecret {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
-impl FromWasmAbi for InviteKeyData {
+impl FromWasmAbi for InviteSecret {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        InviteKeyData::from_str(&string).unwrap_throw()
+        InviteSecret::from_str(&string).unwrap_throw()
     }
 }
 
-impl OptionFromWasmAbi for InviteKeyData {
+impl OptionFromWasmAbi for InviteSecret {
     fn is_none(abi: &Self::Abi) -> bool {
         <String as OptionFromWasmAbi>::is_none(abi)
     }
 }
 
-impl IntoWasmAbi for InviteKeyData {
+impl IntoWasmAbi for InviteSecret {
     type Abi = <String as IntoWasmAbi>::Abi;
 
     fn into_abi(self) -> Self::Abi {
@@ -39,7 +39,7 @@ impl IntoWasmAbi for InviteKeyData {
     }
 }
 
-impl TryFrom<wasm_bindgen::JsValue> for InviteKeyData {
+impl TryFrom<wasm_bindgen::JsValue> for InviteSecret {
     type Error = InviteKeyBundleError;
 
     fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
