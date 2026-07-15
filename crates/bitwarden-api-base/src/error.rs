@@ -16,16 +16,9 @@ pub struct ResponseContent {
 }
 
 /// Errors that can occur during API operations.
-///
-/// Note that the error gets renamed as `ApiError` on UniFFI, because the default `Error` name
-/// collides with the `Swift.Error` protocol in the generated Swift bindings.
 #[derive(Debug)]
-#[cfg_attr(
-    feature = "uniffi",
-    derive(uniffi::Error),
-    uniffi(flat_error, name = "ApiError")
-)]
-pub enum Error {
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+pub enum ApiError {
     /// Error from the reqwest HTTP client.
     Reqwest(reqwest::Error),
     /// Error from the reqwest middleware.
@@ -38,7 +31,10 @@ pub enum Error {
     Response(ResponseContent),
 }
 
-impl fmt::Display for Error {
+/// Error alias for backwards compatibility, prefer `ApiError` instead.
+pub type Error = ApiError;
+
+impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (module, e) = match self {
             Error::Reqwest(e) => ("reqwest", e.to_string()),
@@ -51,7 +47,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
+impl error::Error for ApiError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(match self {
             Error::Reqwest(e) => e,
@@ -63,31 +59,31 @@ impl error::Error for Error {
     }
 }
 
-impl From<reqwest::Error> for Error {
+impl From<reqwest::Error> for ApiError {
     fn from(e: reqwest::Error) -> Self {
-        Error::Reqwest(e)
+        Self::Reqwest(e)
     }
 }
 
-impl From<reqwest_middleware::Error> for Error {
+impl From<reqwest_middleware::Error> for ApiError {
     fn from(e: reqwest_middleware::Error) -> Self {
-        Error::ReqwestMiddleware(e)
+        Self::ReqwestMiddleware(e)
     }
 }
 
-impl From<serde_json::Error> for Error {
+impl From<serde_json::Error> for ApiError {
     fn from(e: serde_json::Error) -> Self {
-        Error::Serde(e)
+        Self::Serde(e)
     }
 }
 
-impl From<std::io::Error> for Error {
+impl From<std::io::Error> for ApiError {
     fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
+        Self::Io(e)
     }
 }
 
-impl From<ResponseContent> for Error {
+impl From<ResponseContent> for ApiError {
     fn from(value: ResponseContent) -> Self {
         Self::Response(value)
     }

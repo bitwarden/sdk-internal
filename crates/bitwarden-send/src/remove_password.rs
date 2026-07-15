@@ -173,7 +173,7 @@ mod tests {
             mock.sends_api
                 .expect_put_remove_password()
                 .returning(move |_id| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
                         "Simulated error",
                     )))
                 })

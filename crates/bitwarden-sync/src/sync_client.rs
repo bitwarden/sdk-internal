@@ -185,8 +185,7 @@ impl SyncClient {
             .api_client
             .accounts_api()
             .get_account_revision_date()
-            .await
-            .map_err(|e| SyncError::Api(e.into()))?;
+            .await?;
 
         if revision_ms < 0 {
             return Err(SyncError::AccountDeleted);
