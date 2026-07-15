@@ -10,7 +10,7 @@ use coset::{
 
 use super::{XAES_256_GCM, XCHACHA20_POLY1305};
 use crate::{
-    ContentFormat, CoseEncrypt0Bytes, CryptoError, XChaCha20Poly1305Key,
+    ContentFormat, CoseEncrypt0Bytes, CryptoError, XAes256GcmKey, XChaCha20Poly1305Key,
     error::EncStringParseError,
     hazmat::symmetric_encryption::{
         Aead,
@@ -293,8 +293,8 @@ pub(crate) trait CoseEncryptCipher: Aead {
     /// the freshly generated nonce in the unprotected `iv` header.
     ///
     /// The caller is expected to have already configured the recipient(s) on the builder. A fresh
-    /// random nonce is generated on every call; combined with a per-message CEK this avoids nonce
-    /// reuse.
+    /// random nonce is generated on every call. Callers are required to use per-message keys or
+    /// otherwise satisfy the selected algorithm's requirements to avoid nonce reuse.
     fn encrypt_cose(
         builder: CoseEncryptBuilder,
         protected_header: Header,
@@ -651,6 +651,85 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     }
 
     Ok((decrypted_message, content_format))
+}
+
+/// Encrypts plaintext with XAES-256-GCM and returns a typed COSE Encrypt0 message.
+pub(crate) fn encrypt_xaes256_gcm(
+    plaintext: &[u8],
+    key: &XAes256GcmKey,
+    content_format: ContentFormat,
+) -> Result<CoseEncrypt0Bytes, CryptoError> {
+    let mut plaintext = plaintext.to_vec();
+    let mut protected_header: Header = HeaderBuilder::from(content_format)
+        .key_id(key.key_id.as_slice().to_vec())
+        .build();
+    protected_header.alg = Some(Algorithm::PrivateUse(XAES_256_GCM));
+
+    if should_pad_content(&content_format) {
+        let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
+    }
+
+    let nonce = XAes256GcmNonce::make();
+    CoseEncrypt0Builder::new()
+        .protected(protected_header)
+        .unprotected(HeaderBuilder::new().iv(nonce.as_bytes().to_vec()).build())
+        .create_ciphertext(&plaintext, &[], |data, aad| {
+            XAes256Gcm::encrypt(&(*key.enc_key).into(), &nonce, data, aad)
+                .encrypted_bytes()
+                .to_vec()
+        })
+        .build()
+        .to_vec()
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
+        .map(CoseEncrypt0Bytes::from)
+}
+
+/// Decrypts a typed COSE Encrypt0 message with an XAES-256-GCM key.
+pub(crate) fn decrypt_xaes256_gcm(
+    message: &CoseEncrypt0Bytes,
+    key: &XAes256GcmKey,
+) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
+    let msg = CoseEncrypt0::from_slice(message.as_ref())
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+
+    let Some(ref algorithm) = msg.protected.header.alg else {
+        return Err(CryptoError::EncString(
+            EncStringParseError::CoseMissingAlgorithm,
+        ));
+    };
+    if *algorithm != Algorithm::PrivateUse(XAES_256_GCM) {
+        return Err(CryptoError::WrongKeyType);
+    }
+
+    let content_format = ContentFormat::try_from(&msg.protected.header)
+        .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
+    if key.key_id.as_slice() != msg.protected.header.key_id {
+        return Err(CryptoError::WrongCoseKeyId);
+    }
+
+    let nonce = XAes256GcmNonce::try_from(&msg)?;
+    let decrypted = msg.decrypt_ciphertext(
+        &[],
+        || CryptoError::MissingField("ciphertext"),
+        |data, aad| {
+            XAes256Gcm::decrypt(
+                &(*key.enc_key).into(),
+                &nonce,
+                &XAes256GcmCiphertext::from(data.to_vec()),
+                aad,
+            )
+        },
+    )?;
+
+    if should_pad_content(&content_format) {
+        return Ok((
+            crate::keys::utils::unpad_bytes(&decrypted)?.to_vec(),
+            content_format,
+        ));
+    }
+
+    Ok((decrypted, content_format))
 }
 
 #[cfg(test)]

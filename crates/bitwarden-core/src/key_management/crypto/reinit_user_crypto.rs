@@ -121,6 +121,10 @@ pub(crate) async fn reinit_user_crypto(
                 error!("Unexpected AES-256-GCM user key during reinit_user_crypto");
                 return Err(ReinitUserCryptoError::CryptoInitialization);
             }
+            SymmetricKeyAlgorithm::XAes256Gcm => {
+                error!("Unexpected XAES-256-GCM user key during reinit_user_crypto");
+                return Err(ReinitUserCryptoError::CryptoInitialization);
+            }
         };
 
         req.account_cryptographic_state

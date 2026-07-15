@@ -18,7 +18,8 @@ pub use thumbprint::{CoseKeyThumbprint, CoseKeyThumbprintExt};
 use typenum::U32;
 
 use crate::{
-    Aes256GcmKey, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    Aes256GcmKey, ContentFormat, CryptoError, SymmetricCryptoKey, XAes256GcmKey,
+    XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
 };
@@ -171,6 +172,21 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                         supported_operations: key_opts,
                     },
                 ))
+            }
+            coset::Algorithm::PrivateUse(XAES_256_GCM) => {
+                let enc_key = Box::pin(
+                    Array::<u8, U32>::try_from(key_bytes).map_err(|_| CryptoError::InvalidKey)?,
+                );
+                let key_id = cose_key
+                    .key_id
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(SymmetricCryptoKey::XAes256GcmKey(XAes256GcmKey {
+                    enc_key,
+                    key_id,
+                    supported_operations: key_opts,
+                }))
             }
             coset::Algorithm::Assigned(iana::Algorithm::A256GCM) => {
                 let enc_key = Box::pin(

@@ -257,6 +257,19 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                     _ => return Err(CryptoError::InvalidKey),
                 }
             }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::XAes256GcmKey(key)) => {
+                let (content_bytes, content_format) = crate::cose::symmetric::decrypt_xaes256_gcm(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
+                match content_format {
+                    ContentFormat::BitwardenLegacyKey => {
+                        SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
+                    }
+                    ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
+                    _ => return Err(CryptoError::InvalidKey),
+                }
+            }
             _ => {
                 tracing::warn!(
                     "Unsupported unwrap operation for the given key and data {:?}, {:?}",
@@ -448,14 +461,17 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
         let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
         // `Aes256CbcHmacKey` can wrap keys by encrypting their byte serialization obtained using
-        // `SymmetricCryptoKey::to_encoded()`. `XChaCha20Poly1305Key` need to specify the
-        // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
-        // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
-        // wrapped key is a `XChaCha20Poly1305Key`.
+        // `SymmetricCryptoKey::to_encoded()`. General-purpose COSE wrapping keys serialize the
+        // wrapped key without padding and authenticate whether it is a legacy key or a COSE key
+        // through the content format.
         match (wrapping_key_instance, key_to_wrap_instance) {
             (
                 Aes256CbcHmacKey(_),
-                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_) | Aes256GcmKey(_),
+                Aes256CbcHmacKey(_)
+                | Aes256CbcKey(_)
+                | XChaCha20Poly1305Key(_)
+                | Aes256GcmKey(_)
+                | XAes256GcmKey(_),
             ) => self.encrypt_data_with_symmetric_key(
                 wrapping_key,
                 key_to_wrap_instance
@@ -465,7 +481,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                     .as_slice(),
                 ContentFormat::BitwardenLegacyKey,
             ),
-            (XChaCha20Poly1305Key(_), _) => {
+            (XChaCha20Poly1305Key(_), _) | (XAes256GcmKey(_), _) => {
                 let encoded = key_to_wrap_instance.to_encoded_raw();
                 let content_format = encoded.content_format();
                 self.encrypt_data_with_symmetric_key(
@@ -685,6 +701,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305)
             }
             SymmetricCryptoKey::Aes256GcmKey(_) => Ok(SymmetricKeyAlgorithm::Aes256Gcm),
+            SymmetricCryptoKey::XAes256GcmKey(_) => Ok(SymmetricKeyAlgorithm::XAes256Gcm),
         }
     }
 
@@ -768,6 +785,13 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 )?;
                 Ok(data)
             }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::XAes256GcmKey(key)) => {
+                let (data, _) = crate::cose::symmetric::decrypt_xaes256_gcm(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
+                Ok(data)
+            }
             _ => {
                 tracing::warn!("Unsupported decryption operation for the given key and data");
                 Err(CryptoError::InvalidKey)
@@ -796,6 +820,12 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
+            SymmetricCryptoKey::XAes256GcmKey(key) => {
+                if !key.supported_operations.contains(&KeyOperation::Encrypt) {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
+                EncString::encrypt_xaes256_gcm(data, key, content_format)
+            }
         }
     }
 

@@ -9,8 +9,9 @@ use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
-    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
-    cose::XCHACHA20_POLY1305,
+    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XAes256GcmKey,
+    XChaCha20Poly1305Key,
+    cose::{XAES_256_GCM, XCHACHA20_POLY1305},
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
     keys::KeyId,
 };
@@ -299,6 +300,7 @@ impl std::fmt::Debug for EncString {
                                 coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
                                     "XChaCha20-Poly1305"
                                 }
+                                coset::Algorithm::PrivateUse(XAES_256_GCM) => "XAES-256-GCM",
                                 other => return debug_struct.field("algorithm", other).finish(),
                             };
                             debug_struct.field("algorithm", &alg_name);
@@ -369,6 +371,17 @@ impl EncString {
         })
     }
 
+    pub(crate) fn encrypt_xaes256_gcm(
+        data_dec: &[u8],
+        key: &XAes256GcmKey,
+        content_format: ContentFormat,
+    ) -> Result<EncString> {
+        let data = crate::cose::symmetric::encrypt_xaes256_gcm(data_dec, key, content_format)?;
+        Ok(EncString::Cose_Encrypt0_B64 {
+            data: data.to_vec(),
+        })
+    }
+
     /// The numerical representation of the encryption type of the [EncString].
     const fn enc_type(&self) -> u8 {
         match self {
@@ -395,6 +408,12 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
                     return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
                 }
                 EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
+            }
+            SymmetricCryptoKey::XAes256GcmKey(key) => {
+                if !key.supported_operations.contains(&KeyOperation::Encrypt) {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
+                EncString::encrypt_xaes256_gcm(self, key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
@@ -429,6 +448,14 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 )?;
                 Ok(decrypted_message)
             }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::XAes256GcmKey(key)) => {
+                let (decrypted, _) = crate::cose::symmetric::decrypt_xaes256_gcm(
+                    &CoseEncrypt0Bytes::from(data.as_slice()),
+                    key,
+                )?;
+                Ok(decrypted)
+            }
+            (_, SymmetricCryptoKey::XAes256GcmKey(_)) => Err(CryptoError::WrongKeyType),
             _ => Err(CryptoError::WrongKeyType),
         }
     }
