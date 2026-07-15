@@ -150,14 +150,18 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
 
 /// Decrypts a pre-parsed blob-encrypted `Cipher` into a `CipherView`. Callers
 /// should obtain the [`SealedCipherBlob`] via [`try_parse_blob`].
+///
+/// `wrapping_key` is the outer key under which the cipher's CEK is wrapped —
+/// usually the user/organization key, but during key rotation it can be a
+/// `Local` slot containing the new user key.
 #[instrument(err, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id))]
 pub(crate) fn decrypt_blob_cipher(
     cipher: &Cipher,
     sealed: &SealedCipherBlob,
     ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
 ) -> Result<CipherView, BlobEncryptionError> {
-    let outer_key = cipher.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &cipher.key)?;
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &cipher.key)?;
 
     let CipherBlob::CipherBlobV1(blob) = sealed.unseal(&cipher_key, ctx)?;
 
@@ -314,8 +318,13 @@ mod tests {
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
         cipher.key = view.key.clone();
 
-        let view =
-            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+        let view = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
         assert_eq!(view.name, "Round Trip");
         assert_eq!(view.notes, Some("Some notes".to_string()));
     }
@@ -546,8 +555,13 @@ mod tests {
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
         assert!(try_parse_blob(&cipher).is_some());
 
-        let restored =
-            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+        let restored = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
 
         assert_eq!(restored.name, "My Login");
         assert_eq!(restored.notes, Some("Secret notes".to_string()));
@@ -585,8 +599,13 @@ mod tests {
         });
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
-        let restored =
-            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+        let restored = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
 
         assert_eq!(restored.name, "My Card");
         assert_eq!(restored.notes, Some("Card notes".to_string()));
@@ -618,8 +637,13 @@ mod tests {
         let revision_date = view.revision_date;
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
-        let restored =
-            decrypt_blob_cipher(&cipher, &try_parse_blob(&cipher).unwrap(), &mut ctx).unwrap();
+        let restored = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
 
         assert_eq!(restored.id, Some(cipher_id));
         assert!(restored.favorite);

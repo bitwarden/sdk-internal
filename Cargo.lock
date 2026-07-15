@@ -1006,9 +1006,22 @@ dependencies = [
 name = "bitwarden-pam"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-collections",
  "bitwarden-commercial-marker",
  "bitwarden-core",
+ "bitwarden-error",
+ "bitwarden-uuid",
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify",
+ "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -1439,7 +1452,6 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
- "ciborium",
  "data-encoding",
  "futures",
  "hmac 0.13.0",

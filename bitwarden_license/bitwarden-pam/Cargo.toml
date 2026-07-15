@@ -15,12 +15,36 @@ license-file = "../../LICENSE_SDK.txt"
 keywords.workspace = true
 
 [features]
-wasm = ["bitwarden-core/wasm", "dep:wasm-bindgen"]
+wasm = [
+    "bitwarden-collections/wasm",
+    "bitwarden-core/wasm",
+    "bitwarden-error/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+]
 
 [dependencies]
+bitwarden-api-api = { workspace = true }
+bitwarden-collections = { workspace = true }
 bitwarden-commercial-marker = { workspace = true }
-bitwarden-core = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-error = { workspace = true }
+bitwarden-uuid = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tsify = { workspace = true, optional = true }
+uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
+tokio = { workspace = true, features = ["rt"] }
 
 [lints]
 workspace = true

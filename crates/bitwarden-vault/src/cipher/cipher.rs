@@ -26,7 +26,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
-    blob::{decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
+    bank_account::BankAccountListView,
+    blob::{decrypt_blob_cipher, encrypt_blob_cipher_with_wrapping_key, try_parse_blob},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -367,6 +368,11 @@ impl Cipher {
         self.key = Some(new_cipher_key);
         Ok(())
     }
+
+    /// Returns `true` if this cipher's sensitive data is stored in the sealed-blob format.
+    pub fn is_blob_encrypted(&self) -> bool {
+        try_parse_blob(self).is_some()
+    }
 }
 
 bitwarden_state::register_repository_item!(CipherId => Cipher, "Cipher");
@@ -484,7 +490,7 @@ pub enum CipherListViewType {
     Card(CardListView),
     Identity,
     SshKey,
-    BankAccount,
+    BankAccount(BankAccountListView),
     Passport,
     DriversLicense,
 }
@@ -1119,7 +1125,16 @@ impl CipherView {
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = self
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(BankAccountListView {
+                    account_number: bank_account.account_number.clone(),
+                    account_type: bank_account.account_type.clone(),
+                })
+            }
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
             CipherType::Passport => CipherListViewType::Passport,
         };
@@ -1208,13 +1223,20 @@ impl CipherView {
                     drivers_license::build_subtitle_drivers_license(
                         d.first_name.clone(),
                         d.last_name.clone(),
+                        d.issuing_state.clone(),
                     )
                 })
                 .unwrap_or_default(),
             CipherType::Passport => self
                 .passport
                 .as_ref()
-                .map(|p| passport::build_subtitle_passport(p.given_name.clone(), p.surname.clone()))
+                .map(|p| {
+                    passport::build_subtitle_passport(
+                        p.given_name.clone(),
+                        p.surname.clone(),
+                        p.issuing_country.clone(),
+                    )
+                })
                 .unwrap_or_default(),
         }
     }
@@ -1414,7 +1436,13 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = cipher
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(bank_account.decrypt(ctx, ciphers_key)?)
+            }
             CipherType::Passport => CipherListViewType::Passport,
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
         },
@@ -1480,7 +1508,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key).map_err(CryptoError::from),
             None => lenient_decrypt_cipher_view(self, ctx, key),
         }
     }
@@ -1493,7 +1521,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
@@ -1541,7 +1569,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => {
+                decrypt_blob_cipher(&self.0, &sealed, ctx, key).map_err(CryptoError::from)
+            }
             None => strict_decrypt_cipher_view(&self.0, ctx, key),
         }
     }
@@ -1641,7 +1671,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }
@@ -1686,7 +1716,15 @@ fn strict_decrypt_cipher_list_view(
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = cipher
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(
+                    StrictDecrypt(bank_account).decrypt(ctx, ciphers_key)?,
+                )
+            }
             CipherType::Passport => CipherListViewType::Passport,
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
         },
@@ -1745,13 +1783,13 @@ fn strict_decrypt_cipher_list_view(
 }
 
 /// Selects between blob and legacy encryption paths. The variant is chosen at
-/// the [`CiphersClient`] layer via [`should_use_blob_encryption`].
-///
+/// the [`CiphersClient`] layer via `should_use_blob_encryption`.
 ///
 /// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
-/// [`should_use_blob_encryption`]: crate::cipher::cipher_client::CiphersClient::should_use_blob_encryption
-pub(crate) enum EncryptMode<T> {
+pub enum EncryptMode<T> {
+    /// Encrypt as a sealed blob (current format).
     Blob(T),
+    /// Encrypt using the legacy field-level format.
     Legacy(T),
 }
 
@@ -1780,10 +1818,13 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMod
     ) -> Result<Cipher, CryptoError> {
         match self {
             Self::Blob(view) => {
-                // `encrypt_blob_cipher` takes `&mut CipherView` because it may
-                // generate a cipher key; so we operate on a local clone.
+                // `encrypt_blob_cipher_with_wrapping_key` takes `&mut CipherView` because it may
+                // generate a cipher key; so we operate on a local clone. The explicit `key` is
+                // respected here so callers can target a non-`User`/`Organization` slot (e.g.
+                // a `Local` slot during key rotation).
                 let mut owned = view.clone();
-                encrypt_blob_cipher(&mut owned, ctx).map_err(CryptoError::from)
+                encrypt_blob_cipher_with_wrapping_key(&mut owned, ctx, key)
+                    .map_err(CryptoError::from)
             }
             Self::Legacy(view) => view.encrypt_composite(ctx, key),
         }
@@ -3844,7 +3885,13 @@ mod tests {
                 let list_view = decrypt_blob_list_view(&key_store, view);
                 assert_eq!(list_view.name, "My Bank Account");
                 assert_eq!(list_view.subtitle, "Some Bank");
-                assert!(matches!(list_view.r#type, CipherListViewType::BankAccount));
+                assert_eq!(
+                    list_view.r#type,
+                    CipherListViewType::BankAccount(BankAccountListView {
+                        account_number: Some("123456".to_string()),
+                        account_type: None,
+                    })
+                );
                 assert_eq!(
                     list_view.copyable_fields,
                     vec![

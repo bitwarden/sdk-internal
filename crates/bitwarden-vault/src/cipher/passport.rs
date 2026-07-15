@@ -122,7 +122,16 @@ impl CipherKind for Passport {
             .as_ref()
             .map(|s| s.decrypt(ctx, key))
             .transpose()?;
-        Ok(build_subtitle_passport(given_name, surname))
+        let issuing_country: Option<String> = self
+            .issuing_country
+            .as_ref()
+            .map(|s| s.decrypt(ctx, key))
+            .transpose()?;
+        Ok(build_subtitle_passport(
+            given_name,
+            surname,
+            issuing_country,
+        ))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
@@ -150,13 +159,28 @@ impl CipherKind for Passport {
 pub(super) fn build_subtitle_passport(
     given_name: Option<String>,
     surname: Option<String>,
+    issuing_country: Option<String>,
 ) -> String {
-    [given_name, surname]
-        .into_iter()
-        .flatten()
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut subtitle = String::new();
+
+    if let Some(given_name) = given_name {
+        subtitle.push_str(&given_name);
+    }
+    if let Some(surname) = surname {
+        if !subtitle.is_empty() && !surname.is_empty() {
+            subtitle.push(' ');
+        }
+        subtitle.push_str(&surname);
+    }
+
+    if let Some(issuing_country) = issuing_country {
+        if !subtitle.is_empty() && !issuing_country.is_empty() {
+            subtitle.push_str(", ");
+        }
+        subtitle.push_str(&issuing_country);
+    }
+
+    subtitle
 }
 
 impl TryFrom<CipherPassportModel> for Passport {
@@ -300,6 +324,91 @@ mod tests {
             passport.decrypt_subtitle(&mut ctx, key).unwrap(),
             "Jane Doe".to_string()
         );
+    }
+
+    #[test]
+    fn test_subtitle_passport_with_issuing_country() {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let given_name_encrypted = "Jane".to_owned().encrypt(&mut ctx, key).unwrap();
+        let surname_encrypted = "Doe".to_owned().encrypt(&mut ctx, key).unwrap();
+        let issuing_country_encrypted = "US".to_owned().encrypt(&mut ctx, key).unwrap();
+
+        let passport = Passport {
+            surname: Some(surname_encrypted),
+            given_name: Some(given_name_encrypted),
+            date_of_birth: None,
+            sex: None,
+            birth_place: None,
+            nationality: None,
+            issuing_country: Some(issuing_country_encrypted),
+            passport_number: None,
+            passport_type: None,
+            national_identification_number: None,
+            issuing_authority: None,
+            issue_date: None,
+            expiration_date: None,
+        };
+
+        assert_eq!(
+            passport.decrypt_subtitle(&mut ctx, key).unwrap(),
+            "Jane Doe, US".to_string()
+        );
+    }
+
+    #[test]
+    fn test_build_subtitle_passport() {
+        // All fields present
+        assert_eq!(
+            build_subtitle_passport(
+                Some("Jane".to_string()),
+                Some("Doe".to_string()),
+                Some("US".to_string()),
+            ),
+            "Jane Doe, US"
+        );
+
+        // Names only, no issuing country
+        assert_eq!(
+            build_subtitle_passport(Some("Jane".to_string()), Some("Doe".to_string()), None),
+            "Jane Doe"
+        );
+
+        // Issuing country only
+        assert_eq!(
+            build_subtitle_passport(None, None, Some("US".to_string())),
+            "US"
+        );
+
+        // Surname and issuing country, no given name
+        assert_eq!(
+            build_subtitle_passport(None, Some("Doe".to_string()), Some("US".to_string())),
+            "Doe, US"
+        );
+
+        // Empty strings are treated as absent for separators
+        assert_eq!(
+            build_subtitle_passport(
+                Some("".to_string()),
+                Some("".to_string()),
+                Some("US".to_string()),
+            ),
+            "US"
+        );
+        assert_eq!(
+            build_subtitle_passport(
+                Some("Jane".to_string()),
+                Some("".to_string()),
+                Some("US".to_string()),
+            ),
+            "Jane, US"
+        );
+
+        // Nothing present
+        assert_eq!(build_subtitle_passport(None, None, None), "");
     }
 
     #[test]
