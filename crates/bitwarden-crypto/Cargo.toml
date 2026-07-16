@@ -31,7 +31,7 @@ dangerous-crypto-debug = []
 test-utils = []
 
 [dependencies]
-aes = { version = "0.9.0", features = ["zeroize"] }
+aes = { workspace = true }
 aes-gcm = { version = "0.11.0-rc.4", features = ["zeroize"] }
 argon2 = { version = "=0.6.0-rc.8", features = [
     "kdf",
@@ -44,7 +44,7 @@ bitwarden-logging = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
-cbc = { version = "0.2.0", features = ["alloc", "zeroize"] }
+cbc = { workspace = true }
 chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
 ciborium = { workspace = true }
 coset = { version = ">=0.4.2, <0.5" }
@@ -57,7 +57,7 @@ js-sys = { workspace = true, optional = true }
 ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
-pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
+pbkdf2 = { workspace = true }
 rand = { workspace = true }
 rayon = ">=1.8.1, <2.0"
 rsa = { workspace = true }

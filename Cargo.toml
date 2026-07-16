@@ -21,6 +21,7 @@ keywords = ["bitwarden"]
 [workspace.dependencies]
 
 # External crates that are expected to maintain a consistent version across all crates
+aes = { version = "0.9.0", features = ["zeroize"] }
 async-trait = ">=0.1.80, <0.2"
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=3.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=3.0.0" }
@@ -70,6 +71,7 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=3.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=3.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=3.0.0" }
+cbc = { version = "0.2.0", features = ["alloc", "zeroize"] }
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",
@@ -85,6 +87,7 @@ js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.14", default-features = false }
 mockall = { version = ">=0.13.1, <0.15" }
 password-rules-parser = ">=1.1.0, <2"
+pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"
