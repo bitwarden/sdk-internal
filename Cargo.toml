@@ -21,6 +21,7 @@ keywords = ["bitwarden"]
 [workspace.dependencies]
 
 # External crates that are expected to maintain a consistent version across all crates
+anyhow = ">=1.0, <2.0"
 async-trait = ">=0.1.80, <0.2"
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=3.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=3.0.0" }
@@ -76,6 +77,7 @@ chrono = { version = ">=0.4.26, <0.5", features = [
     "std",
 ], default-features = false }
 ciborium = ">=0.2.2, <0.3"
+clap = { version = ">=4.5.4, <5", features = ["derive"] }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = "3.0.0-pre.7" }
 futures = ">=0.3.31, <0.4"
@@ -123,6 +125,7 @@ subtle = ">=2.5.0, <3.0"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
+toml = "0.9"
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.20", features = [
     "fmt",

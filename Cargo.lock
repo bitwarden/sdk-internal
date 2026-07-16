@@ -1085,6 +1085,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-rotation-daemon"
+version = "3.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitwarden-api-api",
+ "bitwarden-api-base",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-generators",
+ "bitwarden-sensitive-value",
+ "bitwarden-threading",
+ "chrono",
+ "clap",
+ "http",
+ "reqwest",
+ "reqwest-middleware",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "uuid",
+ "wiremock",
+ "zeroize",
+]
+
+[[package]]
 name = "bitwarden-send"
 version = "3.0.0"
 dependencies = [
@@ -6309,6 +6341,7 @@ dependencies = [
  "libc",
  "mio 1.2.1",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",

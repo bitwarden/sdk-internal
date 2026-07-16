@@ -40,6 +40,17 @@ pub struct CipherMiniDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub data: Option<String>,
+    /// The reduced data blob returned in place of
+    /// Bit.Api.Vault.Models.Response.CipherMiniResponseModel.Data when the caller can only reach
+    /// this cipher through leasing-enabled collections (PAM credential leasing). Contains the
+    /// encrypted title and, for logins, the encrypted URIs — never the dropped secrets. Null for
+    /// full responses.
+    #[serde(
+        rename = "partialData",
+        alias = "PartialData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub partial_data: Option<String>,
     #[serde(
         rename = "name",
         alias = "Name",
@@ -166,6 +177,7 @@ impl CipherMiniDetailsResponseModel {
             organization_id: None,
             r#type: None,
             data: None,
+            partial_data: None,
             name: None,
             notes: None,
             login: None,

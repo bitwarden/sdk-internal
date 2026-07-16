@@ -30,7 +30,7 @@ bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
-clap = { version = "4.5.4", features = ["derive", "env"] }
+clap = { workspace = true, features = ["env"] }
 clap_complete = "4.5.55"
 color-eyre = "0.6.3"
 erased-serde = "0.4.6"

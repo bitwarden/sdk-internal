@@ -34,6 +34,12 @@ pub struct CollectionWithIdRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub users: Option<Vec<models::SelectionReadOnlyRequestModel>>,
+    #[serde(
+        rename = "accessRuleId",
+        alias = "AccessRuleId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_rule_id: Option<uuid::Uuid>,
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
 }
@@ -45,6 +51,7 @@ impl CollectionWithIdRequestModel {
             external_id: None,
             groups: None,
             users: None,
+            access_rule_id: None,
             id: None,
         }
     }

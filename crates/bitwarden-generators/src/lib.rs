@@ -11,7 +11,7 @@ pub use passphrase::{
 pub(crate) mod password;
 pub use password::{
     MAXIMUM_MIN_CHAR_COUNT, MAXIMUM_PASSWORD_LENGTH, MINIMUM_MIN_CHAR_COUNT,
-    MINIMUM_PASSWORD_LENGTH, PasswordError, PasswordGeneratorRequest,
+    MINIMUM_PASSWORD_LENGTH, PasswordError, PasswordGeneratorRequest, password,
 };
 pub(crate) mod passwordrules;
 pub use passwordrules::{PasswordRulesError, parse_password_rules};

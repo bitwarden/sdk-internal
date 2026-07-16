@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`e899a9c9f487cfbb2db690ccca92f897dff8b331`](https://github.com/bitwarden/server/commit/e899a9c9f487cfbb2db690ccca92f897dff8b331)
+  [`69d020730a96e1481e3efff62260d747002315de`](https://github.com/bitwarden/server/commit/69d020730a96e1481e3efff62260d747002315de)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -44,6 +44,13 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccessPoliciesApi_                       | [**put_project_service_accounts_access_policies**](docs/AccessPoliciesApi.md#access_policies_put_project_service_accounts_access_policies)                       | **PUT** /projects/{id}/access-policies/service-accounts                                                  |
 | _AccessPoliciesApi_                       | [**put_service_account_granted_policies**](docs/AccessPoliciesApi.md#access_policies_put_service_account_granted_policies)                                       | **PUT** /service-accounts/{id}/granted-policies                                                          |
 | _AccessPoliciesApi_                       | [**put_service_account_people_access_policies**](docs/AccessPoliciesApi.md#access_policies_put_service_account_people_access_policies)                           | **PUT** /service-accounts/{id}/access-policies/people                                                    |
+| _AccessRequestsApi_                       | [**activate**](docs/AccessRequestsApi.md#pam_access_requests_activate)                                                                                           | **POST** /access-requests/{id}/activate                                                                  |
+| _AccessRequestsApi_                       | [**decide**](docs/AccessRequestsApi.md#pam_access_requests_decide)                                                                                               | **POST** /access-requests/{id}/decision                                                                  |
+| _AccessRequestsApi_                       | [**get_details**](docs/AccessRequestsApi.md#pam_access_requests_get_details)                                                                                     | **GET** /access-requests/{id}                                                                            |
+| _AccessRequestsApi_                       | [**get_history**](docs/AccessRequestsApi.md#pam_access_requests_get_history)                                                                                     | **GET** /access-requests/history                                                                         |
+| _AccessRequestsApi_                       | [**get_inbox**](docs/AccessRequestsApi.md#pam_access_requests_get_inbox)                                                                                         | **GET** /access-requests/inbox                                                                           |
+| _AccessRequestsApi_                       | [**get_mine**](docs/AccessRequestsApi.md#pam_access_requests_get_mine)                                                                                           | **GET** /access-requests/mine                                                                            |
+| _AccessRequestsApi_                       | [**revoke**](docs/AccessRequestsApi.md#pam_access_requests_revoke)                                                                                               | **POST** /access-requests/{id}/revoke                                                                    |
 | _AccessRulesApi_                          | [**delete**](docs/AccessRulesApi.md#pam_access_rules_delete)                                                                                                     | **DELETE** /organizations/{orgId}/access-rules/{id}                                                      |
 | _AccessRulesApi_                          | [**get**](docs/AccessRulesApi.md#pam_access_rules_get)                                                                                                           | **GET** /organizations/{orgId}/access-rules/{id}                                                         |
 | _AccessRulesApi_                          | [**get_all**](docs/AccessRulesApi.md#pam_access_rules_get_all)                                                                                                   | **GET** /organizations/{orgId}/access-rules                                                              |
@@ -106,6 +113,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountsKeyManagementApi_                | [**post_set_key_connector_key**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_set_key_connector_key)                                            | **POST** /accounts/set-key-connector-key                                                                 |
 | _AccountsKeyManagementApi_                | [**regenerate_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_regenerate_keys)                                                                  | **POST** /accounts/key-management/regenerate-keys                                                        |
 | _AccountsKeyManagementApi_                | [**rotate_user_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_rotate_user_keys)                                                                | **POST** /accounts/key-management/rotate-user-keys                                                       |
+| _ApiApi_                                  | [**get_trail**](docs/ApiApi.md#pam_audit_get_trail)                                                                                                              | **GET** /organizations/{orgId}/audit                                                                     |
 | _AuthRequestsApi_                         | [**get**](docs/AuthRequestsApi.md#auth_requests_get)                                                                                                             | **GET** /auth-requests/{id}                                                                              |
 | _AuthRequestsApi_                         | [**get_all**](docs/AuthRequestsApi.md#auth_requests_get_all)                                                                                                     | **GET** /auth-requests                                                                                   |
 | _AuthRequestsApi_                         | [**get_pending_auth_requests**](docs/AuthRequestsApi.md#auth_requests_get_pending_auth_requests)                                                                 | **GET** /auth-requests/pending                                                                           |
@@ -113,6 +121,9 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AuthRequestsApi_                         | [**post**](docs/AuthRequestsApi.md#auth_requests_post)                                                                                                           | **POST** /auth-requests                                                                                  |
 | _AuthRequestsApi_                         | [**post_admin_request**](docs/AuthRequestsApi.md#auth_requests_post_admin_request)                                                                               | **POST** /auth-requests/admin-request                                                                    |
 | _AuthRequestsApi_                         | [**put**](docs/AuthRequestsApi.md#auth_requests_put)                                                                                                             | **PUT** /auth-requests/{id}                                                                              |
+| _CipherLeaseApi_                          | [**post**](docs/CipherLeaseApi.md#pam_cipher_lease_post)                                                                                                         | **POST** /leases/ciphers/{id}                                                                            |
+| _CipherLeaseApi_                          | [**pre_check**](docs/CipherLeaseApi.md#pam_cipher_lease_pre_check)                                                                                               | **GET** /leases/ciphers/{id}/pre-check                                                                   |
+| _CipherLeaseApi_                          | [**state**](docs/CipherLeaseApi.md#pam_cipher_lease_state)                                                                                                       | **GET** /leases/ciphers/{id}/state                                                                       |
 | _CiphersApi_                              | [**azure_validate_file**](docs/CiphersApi.md#ciphers_azure_validate_file)                                                                                        | **POST** /ciphers/attachment/validate/azure                                                              |
 | _CiphersApi_                              | [**delete**](docs/CiphersApi.md#ciphers_delete)                                                                                                                  | **DELETE** /ciphers/{id}                                                                                 |
 | _CiphersApi_                              | [**delete_admin**](docs/CiphersApi.md#ciphers_delete_admin)                                                                                                      | **DELETE** /ciphers/{id}/admin                                                                           |
@@ -238,6 +249,11 @@ All URIs are relative to *https://api.bitwarden.com*
 | _InfoApi_                                 | [**get_version**](docs/InfoApi.md#info_get_version)                                                                                                              | **GET** /version                                                                                         |
 | _InstallationsApi_                        | [**get**](docs/InstallationsApi.md#installations_get)                                                                                                            | **GET** /installations/{id}                                                                              |
 | _InstallationsApi_                        | [**post**](docs/InstallationsApi.md#installations_post)                                                                                                          | **POST** /installations                                                                                  |
+| _LeasesApi_                               | [**extend**](docs/LeasesApi.md#pam_leases_extend)                                                                                                                | **POST** /leases/{id}/extend                                                                             |
+| _LeasesApi_                               | [**get_active**](docs/LeasesApi.md#pam_leases_get_active)                                                                                                        | **GET** /leases/active                                                                                   |
+| _LeasesApi_                               | [**get_history**](docs/LeasesApi.md#pam_leases_get_history)                                                                                                      | **GET** /leases/history                                                                                  |
+| _LeasesApi_                               | [**get_mine**](docs/LeasesApi.md#pam_leases_get_mine)                                                                                                            | **GET** /leases/mine                                                                                     |
+| _LeasesApi_                               | [**revoke**](docs/LeasesApi.md#pam_leases_revoke)                                                                                                                | **POST** /leases/{id}/revoke                                                                             |
 | _LicensesApi_                             | [**get_user**](docs/LicensesApi.md#licenses_get_user)                                                                                                            | **GET** /licenses/user/{id}                                                                              |
 | _LicensesApi_                             | [**organization_sync**](docs/LicensesApi.md#licenses_organization_sync)                                                                                          | **GET** /licenses/organization/{id}                                                                      | Used by self-hosted installations to get an updated license file                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | _NotificationsApi_                        | [**list**](docs/NotificationsApi.md#notifications_list)                                                                                                          | **GET** /notifications                                                                                   |
@@ -373,6 +389,33 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationsApi_                        | [**put**](docs/OrganizationsApi.md#organizations_put)                                                                                                            | **PUT** /organizations/{organizationId}                                                                  |
 | _OrganizationsApi_                        | [**put_collection_management**](docs/OrganizationsApi.md#organizations_put_collection_management)                                                                | **PUT** /organizations/{id}/collection-management                                                        |
 | _OrganizationsApi_                        | [**rotate_api_key**](docs/OrganizationsApi.md#organizations_rotate_api_key)                                                                                      | **POST** /organizations/{id}/rotate-api-key                                                              |
+| _PamRotationAttemptsApi_                  | [**failure**](docs/PamRotationAttemptsApi.md#pam_rotation_attempts_failure)                                                                                      | **POST** /rotation/attempts/{id}/failure                                                                 |
+| _PamRotationAttemptsApi_                  | [**get_cipher**](docs/PamRotationAttemptsApi.md#pam_rotation_attempts_get_cipher)                                                                                | **GET** /rotation/attempts/{id}/cipher                                                                   |
+| _PamRotationAttemptsApi_                  | [**put_cipher**](docs/PamRotationAttemptsApi.md#pam_rotation_attempts_put_cipher)                                                                                | **PUT** /rotation/attempts/{id}/cipher                                                                   |
+| _PamRotationAttemptsApi_                  | [**success**](docs/PamRotationAttemptsApi.md#pam_rotation_attempts_success)                                                                                      | **POST** /rotation/attempts/{id}/success                                                                 |
+| _PamRotationConfigsApi_                   | [**delete**](docs/PamRotationConfigsApi.md#pam_rotation_configs_delete)                                                                                          | **DELETE** /organizations/{orgId}/rotation/configs/{id}                                                  |
+| _PamRotationConfigsApi_                   | [**get**](docs/PamRotationConfigsApi.md#pam_rotation_configs_get)                                                                                                | **GET** /organizations/{orgId}/rotation/configs/{id}                                                     |
+| _PamRotationConfigsApi_                   | [**get_all**](docs/PamRotationConfigsApi.md#pam_rotation_configs_get_all)                                                                                        | **GET** /organizations/{orgId}/rotation/configs                                                          |
+| _PamRotationConfigsApi_                   | [**pause**](docs/PamRotationConfigsApi.md#pam_rotation_configs_pause)                                                                                            | **POST** /organizations/{orgId}/rotation/configs/{id}/pause                                              |
+| _PamRotationConfigsApi_                   | [**post**](docs/PamRotationConfigsApi.md#pam_rotation_configs_post)                                                                                              | **POST** /organizations/{orgId}/rotation/configs                                                         |
+| _PamRotationConfigsApi_                   | [**put_account**](docs/PamRotationConfigsApi.md#pam_rotation_configs_put_account)                                                                                | **PUT** /organizations/{orgId}/rotation/configs/{id}/account                                             |
+| _PamRotationConfigsApi_                   | [**put_settings**](docs/PamRotationConfigsApi.md#pam_rotation_configs_put_settings)                                                                              | **PUT** /organizations/{orgId}/rotation/configs/{id}/settings                                            |
+| _PamRotationConfigsApi_                   | [**record_manual**](docs/PamRotationConfigsApi.md#pam_rotation_configs_record_manual)                                                                            | **POST** /organizations/{orgId}/rotation/configs/{id}/record-manual                                      |
+| _PamRotationConfigsApi_                   | [**resume**](docs/PamRotationConfigsApi.md#pam_rotation_configs_resume)                                                                                          | **POST** /organizations/{orgId}/rotation/configs/{id}/resume                                             |
+| _PamRotationConfigsApi_                   | [**rotate**](docs/PamRotationConfigsApi.md#pam_rotation_configs_rotate)                                                                                          | **POST** /organizations/{orgId}/rotation/configs/{id}/rotate                                             |
+| _PamRotationDaemonJobsApi_                | [**get_all**](docs/PamRotationDaemonJobsApi.md#pam_rotation_daemon_jobs_get_all)                                                                                 | **GET** /rotation/daemon/jobs                                                                            |
+| _PamRotationDaemonsApi_                   | [**assign_target**](docs/PamRotationDaemonsApi.md#pam_rotation_daemons_assign_target)                                                                            | **POST** /organizations/{orgId}/rotation/daemons/{id}/assignments                                        |
+| _PamRotationDaemonsApi_                   | [**get_all**](docs/PamRotationDaemonsApi.md#pam_rotation_daemons_get_all)                                                                                        | **GET** /organizations/{orgId}/rotation/daemons                                                          |
+| _PamRotationDaemonsApi_                   | [**post**](docs/PamRotationDaemonsApi.md#pam_rotation_daemons_post)                                                                                              | **POST** /organizations/{orgId}/rotation/daemons                                                         |
+| _PamRotationDaemonsApi_                   | [**revoke**](docs/PamRotationDaemonsApi.md#pam_rotation_daemons_revoke)                                                                                          | **POST** /organizations/{orgId}/rotation/daemons/{id}/revoke                                             |
+| _PamRotationDaemonsApi_                   | [**unassign_target**](docs/PamRotationDaemonsApi.md#pam_rotation_daemons_unassign_target)                                                                        | **DELETE** /organizations/{orgId}/rotation/daemons/{id}/assignments/{targetSystemId}                     |
+| _PamRotationJobsApi_                      | [**claim**](docs/PamRotationJobsApi.md#pam_rotation_jobs_claim)                                                                                                  | **POST** /rotation/jobs/{id}/claim                                                                       |
+| _PamRotationTargetSystemsApi_             | [**disable**](docs/PamRotationTargetSystemsApi.md#pam_rotation_target_systems_disable)                                                                           | **POST** /organizations/{orgId}/rotation/target-systems/{id}/disable                                     |
+| _PamRotationTargetSystemsApi_             | [**enable**](docs/PamRotationTargetSystemsApi.md#pam_rotation_target_systems_enable)                                                                             | **POST** /organizations/{orgId}/rotation/target-systems/{id}/enable                                      |
+| _PamRotationTargetSystemsApi_             | [**get_all**](docs/PamRotationTargetSystemsApi.md#pam_rotation_target_systems_get_all)                                                                           | **GET** /organizations/{orgId}/rotation/target-systems                                                   |
+| _PamRotationTargetSystemsApi_             | [**post**](docs/PamRotationTargetSystemsApi.md#pam_rotation_target_systems_post)                                                                                 | **POST** /organizations/{orgId}/rotation/target-systems                                                  |
+| _PamRotationTargetSystemsApi_             | [**rename**](docs/PamRotationTargetSystemsApi.md#pam_rotation_target_systems_rename)                                                                             | **PUT** /organizations/{orgId}/rotation/target-systems/{id}/name                                         |
+| _PamRotationTargetSystemsApi_             | [**update_policy**](docs/PamRotationTargetSystemsApi.md#pam_rotation_target_systems_update_policy)                                                               | **PUT** /organizations/{orgId}/rotation/target-systems/{id}/policy                                       |
 | _PlansApi_                                | [**get**](docs/PlansApi.md#plans_get)                                                                                                                            | **GET** /plans                                                                                           |
 | _PlansApi_                                | [**get_premium_plan**](docs/PlansApi.md#plans_get_premium_plan)                                                                                                  | **GET** /plans/premium                                                                                   |
 | _PoliciesApi_                             | [**get**](docs/PoliciesApi.md#policies_get)                                                                                                                      | **GET** /organizations/{orgId}/policies/{type}                                                           |
@@ -538,7 +581,25 @@ All URIs are relative to *https://api.bitwarden.com*
 ## Documentation For Models
 
 - [AcceptOrganizationInviteLinkRequestModel](docs/AcceptOrganizationInviteLinkRequestModel.md)
+- [AccessApprovalMode](docs/AccessApprovalMode.md)
+- [AccessAuditEventResponseModel](docs/AccessAuditEventResponseModel.md)
+- [AccessAuditEventResponseModelListResponseModel](docs/AccessAuditEventResponseModelListResponseModel.md)
+- [AccessDecisionRequestModel](docs/AccessDecisionRequestModel.md)
+- [AccessDecisionVerdict](docs/AccessDecisionVerdict.md)
+- [AccessLeaseExtensionRequestModel](docs/AccessLeaseExtensionRequestModel.md)
+- [AccessLeaseResponseModel](docs/AccessLeaseResponseModel.md)
+- [AccessLeaseResponseModelListResponseModel](docs/AccessLeaseResponseModelListResponseModel.md)
+- [AccessLeaseRevokeRequestModel](docs/AccessLeaseRevokeRequestModel.md)
+- [AccessLeaseStatus](docs/AccessLeaseStatus.md)
 - [AccessPolicyRequest](docs/AccessPolicyRequest.md)
+- [AccessPreCheckResponseModel](docs/AccessPreCheckResponseModel.md)
+- [AccessRequestCreateRequestModel](docs/AccessRequestCreateRequestModel.md)
+- [AccessRequestDecisionResponseModel](docs/AccessRequestDecisionResponseModel.md)
+- [AccessRequestDetailsResponseModel](docs/AccessRequestDetailsResponseModel.md)
+- [AccessRequestDetailsResponseModelListResponseModel](docs/AccessRequestDetailsResponseModelListResponseModel.md)
+- [AccessRequestResponseModel](docs/AccessRequestResponseModel.md)
+- [AccessRequestResultResponseModel](docs/AccessRequestResultResponseModel.md)
+- [AccessRequestStatus](docs/AccessRequestStatus.md)
 - [AccessRuleRequestModel](docs/AccessRuleRequestModel.md)
 - [AccessRuleResponseModel](docs/AccessRuleResponseModel.md)
 - [AccessRuleResponseModelListResponseModel](docs/AccessRuleResponseModelListResponseModel.md)
@@ -555,6 +616,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ApiKeyResponseModel](docs/ApiKeyResponseModel.md)
 - [AssertionOptions](docs/AssertionOptions.md)
 - [AssertionResponse](docs/AssertionResponse.md)
+- [AssignDaemonTargetRequestModel](docs/AssignDaemonTargetRequestModel.md)
 - [AttachmentRequestModel](docs/AttachmentRequestModel.md)
 - [AttachmentResponseModel](docs/AttachmentResponseModel.md)
 - [AttachmentUploadDataResponseModel](docs/AttachmentUploadDataResponseModel.md)
@@ -591,6 +653,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ChangeKdfRequestModel](docs/ChangeKdfRequestModel.md)
 - [ChangePlanFrequencyRequest](docs/ChangePlanFrequencyRequest.md)
 - [CheckoutBillingAddressRequest](docs/CheckoutBillingAddressRequest.md)
+- [CipherAccessStateResponseModel](docs/CipherAccessStateResponseModel.md)
 - [CipherAttachmentModel](docs/CipherAttachmentModel.md)
 - [CipherBankAccountModel](docs/CipherBankAccountModel.md)
 - [CipherBulkArchiveRequestModel](docs/CipherBulkArchiveRequestModel.md)
@@ -628,6 +691,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CipherSshKeyModel](docs/CipherSshKeyModel.md)
 - [CipherType](docs/CipherType.md)
 - [CipherWithIdRequestModel](docs/CipherWithIdRequestModel.md)
+- [ClaimableRotationJobResponseModel](docs/ClaimableRotationJobResponseModel.md)
+- [ClaimableRotationJobResponseModelListResponseModel](docs/ClaimableRotationJobResponseModelListResponseModel.md)
 - [ClientType](docs/ClientType.md)
 - [CollectionAccessDetailsResponseModel](docs/CollectionAccessDetailsResponseModel.md)
 - [CollectionAccessDetailsResponseModelListResponseModel](docs/CollectionAccessDetailsResponseModelListResponseModel.md)
@@ -646,7 +711,9 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CreateCollectionRequestModel](docs/CreateCollectionRequestModel.md)
 - [CreateOrganizationInviteLinkRequestModel](docs/CreateOrganizationInviteLinkRequestModel.md)
 - [CreatePremiumCheckoutSessionRequest](docs/CreatePremiumCheckoutSessionRequest.md)
+- [CreateRotationConfigRequestModel](docs/CreateRotationConfigRequestModel.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
+- [DeciderKind](docs/DeciderKind.md)
 - [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
 - [DeleteRecoverRequestModel](docs/DeleteRecoverRequestModel.md)
 - [DeviceAuthRequestResponseModel](docs/DeviceAuthRequestResponseModel.md)
@@ -826,6 +893,26 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserUserMiniDetailsResponseModelListResponseModel](docs/OrganizationUserUserMiniDetailsResponseModelListResponseModel.md)
 - [OrganizationVerifyDeleteRecoverRequestModel](docs/OrganizationVerifyDeleteRecoverRequestModel.md)
 - [OtherDeviceKeysUpdateRequestModel](docs/OtherDeviceKeysUpdateRequestModel.md)
+- [PamDaemonResponseModel](docs/PamDaemonResponseModel.md)
+- [PamDaemonResponseModelListResponseModel](docs/PamDaemonResponseModelListResponseModel.md)
+- [PamDaemonStatus](docs/PamDaemonStatus.md)
+- [PamPasswordPolicyRequestModel](docs/PamPasswordPolicyRequestModel.md)
+- [PamPasswordPolicyResponseModel](docs/PamPasswordPolicyResponseModel.md)
+- [PamRotationAttemptResponseModel](docs/PamRotationAttemptResponseModel.md)
+- [PamRotationAttemptStatus](docs/PamRotationAttemptStatus.md)
+- [PamRotationConfigDetailResponseModel](docs/PamRotationConfigDetailResponseModel.md)
+- [PamRotationConfigResponseModel](docs/PamRotationConfigResponseModel.md)
+- [PamRotationConfigResponseModelListResponseModel](docs/PamRotationConfigResponseModelListResponseModel.md)
+- [PamRotationJobResponseModel](docs/PamRotationJobResponseModel.md)
+- [PamRotationJobStatus](docs/PamRotationJobStatus.md)
+- [PamRotationSource](docs/PamRotationSource.md)
+- [PamRotationSyncState](docs/PamRotationSyncState.md)
+- [PamSessionTerminationOutcome](docs/PamSessionTerminationOutcome.md)
+- [PamTargetSystemKind](docs/PamTargetSystemKind.md)
+- [PamTargetSystemMethod](docs/PamTargetSystemMethod.md)
+- [PamTargetSystemResponseModel](docs/PamTargetSystemResponseModel.md)
+- [PamTargetSystemResponseModelListResponseModel](docs/PamTargetSystemResponseModelListResponseModel.md)
+- [PamTargetSystemStatus](docs/PamTargetSystemStatus.md)
 - [PasskeyKeyDataResponseModel](docs/PasskeyKeyDataResponseModel.md)
 - [PasswordHealthReportApplication](docs/PasswordHealthReportApplication.md)
 - [PasswordHealthReportApplicationModel](docs/PasswordHealthReportApplicationModel.md)
@@ -921,7 +1008,13 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PushType](docs/PushType.md)
 - [PushUpdateRequestModel](docs/PushUpdateRequestModel.md)
 - [RefreshOrganizationInviteLinkRequestModel](docs/RefreshOrganizationInviteLinkRequestModel.md)
+- [RegisterDaemonRequestModel](docs/RegisterDaemonRequestModel.md)
+- [RegisterDaemonResponseModel](docs/RegisterDaemonResponseModel.md)
+- [RegisterTargetSystemRequestModel](docs/RegisterTargetSystemRequestModel.md)
+- [RenameTargetSystemRequestModel](docs/RenameTargetSystemRequestModel.md)
 - [ReportFile](docs/ReportFile.md)
+- [ReportRotationFailedRequestModel](docs/ReportRotationFailedRequestModel.md)
+- [ReportRotationSucceededRequestModel](docs/ReportRotationSucceededRequestModel.md)
 - [RequestSmAccessRequestModel](docs/RequestSmAccessRequestModel.md)
 - [ResetPasswordWithOrgIdRequestModel](docs/ResetPasswordWithOrgIdRequestModel.md)
 - [ResponseData](docs/ResponseData.md)
@@ -931,6 +1024,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [RevokeAccessTokensRequest](docs/RevokeAccessTokensRequest.md)
 - [RotateUserAccountKeysAndDataRequestModel](docs/RotateUserAccountKeysAndDataRequestModel.md)
 - [RotateUserKeysRequestModel](docs/RotateUserKeysRequestModel.md)
+- [RotationCipherResponseModel](docs/RotationCipherResponseModel.md)
+- [RotationClaimResponseModel](docs/RotationClaimResponseModel.md)
 - [Saml2BindingType](docs/Saml2BindingType.md)
 - [Saml2NameIdFormat](docs/Saml2NameIdFormat.md)
 - [Saml2SigningBehavior](docs/Saml2SigningBehavior.md)
@@ -1001,6 +1096,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SsoUrls](docs/SsoUrls.md)
 - [StorageRequestModel](docs/StorageRequestModel.md)
 - [StorageUpdateRequest](docs/StorageUpdateRequest.md)
+- [SubmitCipherUpdateRequestModel](docs/SubmitCipherUpdateRequestModel.md)
 - [SubscriptionCancellationRequestModel](docs/SubscriptionCancellationRequestModel.md)
 - [SubscriptionResponseModel](docs/SubscriptionResponseModel.md)
 - [SyncResponseModel](docs/SyncResponseModel.md)
@@ -1037,6 +1133,9 @@ All URIs are relative to *https://api.bitwarden.com*
 - [UpdateOrganizationReportSummaryRequestModel](docs/UpdateOrganizationReportSummaryRequestModel.md)
 - [UpdateOrganizationReportV2RequestModel](docs/UpdateOrganizationReportV2RequestModel.md)
 - [UpdateProfileRequestModel](docs/UpdateProfileRequestModel.md)
+- [UpdateRotationAccountRequestModel](docs/UpdateRotationAccountRequestModel.md)
+- [UpdateRotationSettingsRequestModel](docs/UpdateRotationSettingsRequestModel.md)
+- [UpdateTargetSystemPolicyRequestModel](docs/UpdateTargetSystemPolicyRequestModel.md)
 - [UpdateTdeOffboardingPasswordRequestModel](docs/UpdateTdeOffboardingPasswordRequestModel.md)
 - [UpdateTempPasswordRequestModel](docs/UpdateTempPasswordRequestModel.md)
 - [UpdateTwoFactorAuthenticatorRequestModel](docs/UpdateTwoFactorAuthenticatorRequestModel.md)
