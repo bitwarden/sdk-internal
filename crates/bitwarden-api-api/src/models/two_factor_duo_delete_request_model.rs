@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// TwoFactorDuoDeleteRequestModel : Request model for deleting a user's Duo two-factor
+/// configuration.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TwoFactorWebAuthnDeleteRequestModel {
-    #[serde(rename = "id", alias = "Id")]
-    pub id: i32,
+pub struct TwoFactorDuoDeleteRequestModel {
     /// User-verification token bound to `UserId + ProviderType`. Minted by the matching GET
     /// endpoint and replayed on subsequent management calls so the user does not have to
     /// re-verify.
@@ -23,10 +23,10 @@ pub struct TwoFactorWebAuthnDeleteRequestModel {
     pub user_verification_token: String,
 }
 
-impl TwoFactorWebAuthnDeleteRequestModel {
-    pub fn new(id: i32, user_verification_token: String) -> TwoFactorWebAuthnDeleteRequestModel {
-        TwoFactorWebAuthnDeleteRequestModel {
-            id,
+impl TwoFactorDuoDeleteRequestModel {
+    /// Request model for deleting a user's Duo two-factor configuration.
+    pub fn new(user_verification_token: String) -> TwoFactorDuoDeleteRequestModel {
+        TwoFactorDuoDeleteRequestModel {
             user_verification_token,
         }
     }
