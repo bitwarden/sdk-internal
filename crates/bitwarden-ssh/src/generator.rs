@@ -1,4 +1,3 @@
-use bitwarden_vault::SshKeyView;
 use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
 use ssh_key::{Algorithm, EcdsaCurve};
@@ -6,8 +5,9 @@ use ssh_key::{Algorithm, EcdsaCurve};
 use tsify::Tsify;
 
 use crate::{
+    SshKeyData,
     error::{self, KeyGenerationError},
-    ssh_private_key_to_view,
+    ssh_private_key_to_data,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -24,12 +24,12 @@ pub enum KeyAlgorithm {
 
 /**
  * Generate a new SSH key pair, for the provided key algorithm, returning
- * an [SshKeyView] struct containing the private key, public key, and key fingerprint,
+ * an [SshKeyData] struct containing the private key, public key, and key fingerprint,
  * with the private key in OpenSSH format.
  */
 pub fn generate_sshkey(
     key_algorithm: KeyAlgorithm,
-) -> Result<SshKeyView, error::KeyGenerationError> {
+) -> Result<SshKeyData, error::KeyGenerationError> {
     let mut rng = bitwarden_random::rng();
     generate_sshkey_internal(key_algorithm, &mut rng)
 }
@@ -37,7 +37,7 @@ pub fn generate_sshkey(
 fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
     key_algorithm: KeyAlgorithm,
     rng: &mut R,
-) -> Result<SshKeyView, error::KeyGenerationError> {
+) -> Result<SshKeyData, error::KeyGenerationError> {
     let private_key = match key_algorithm {
         KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(rng, Algorithm::Ed25519)
             .map_err(KeyGenerationError::KeyGeneration),
@@ -66,7 +66,7 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
         .map_err(KeyGenerationError::KeyGeneration),
     }?;
 
-    ssh_private_key_to_view(private_key).map_err(|_| KeyGenerationError::KeyConversion)
+    ssh_private_key_to_data(private_key).map_err(|_| KeyGenerationError::KeyConversion)
 }
 
 fn create_rsa_key<R: CryptoRng + ?Sized>(

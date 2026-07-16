@@ -52,6 +52,7 @@ crates/bitwarden-random/** @bitwarden/team-key-management-dev
 crates/bitwarden-sensitive-value/** @bitwarden/team-key-management-dev
 crates/bitwarden-send/** @bitwarden/team-tools-dev
 crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev
+crates/bitwarden-ssh/** @bitwarden/team-tools-dev
 crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
