@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// TwoFactorDuoResponseModel : Response model carrying user-scoped Duo provider details and the
-/// user-verification token minted by the read step of two-factor enrollment.
+/// TwoFactorOrganizationDuoResponseModel : Response model carrying organization-scoped Duo provider
+/// details and the user-verification token minted by the read step of two-factor enrollment.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TwoFactorDuoResponseModel {
+pub struct TwoFactorOrganizationDuoResponseModel {
     #[serde(
         rename = "object",
         alias = "Object",
@@ -34,11 +34,11 @@ pub struct TwoFactorDuoResponseModel {
     pub user_verification_token: Option<String>,
 }
 
-impl TwoFactorDuoResponseModel {
-    /// Response model carrying user-scoped Duo provider details and the user-verification token
-    /// minted by the read step of two-factor enrollment.
-    pub fn new() -> TwoFactorDuoResponseModel {
-        TwoFactorDuoResponseModel {
+impl TwoFactorOrganizationDuoResponseModel {
+    /// Response model carrying organization-scoped Duo provider details and the user-verification
+    /// token minted by the read step of two-factor enrollment.
+    pub fn new() -> TwoFactorOrganizationDuoResponseModel {
+        TwoFactorOrganizationDuoResponseModel {
             object: None,
             duo: None,
             user_verification_token: None,

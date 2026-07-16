@@ -14,24 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RefreshOrganizationInviteLinkRequestModel {
-    /// The invite key encrypted with the organization key.
-    #[serde(rename = "encryptedInviteKey", alias = "EncryptedInviteKey")]
-    pub encrypted_invite_key: String,
-    /// The organization key encrypted for the invite link. Currently unused; will be populated in
-    /// a future stage.
-    #[serde(
-        rename = "encryptedOrgKey",
-        alias = "EncryptedOrgKey",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub encrypted_org_key: Option<String>,
+    /// An opaque cryptographic blob. The server only stores and transports it, so its format is
+    /// not validated here.
+    #[serde(rename = "invite", alias = "Invite")]
+    pub invite: String,
+    /// Indicates if the link supports user auto confirmation (not supported yet).
+    #[serde(rename = "supportsConfirmation", alias = "SupportsConfirmation")]
+    pub supports_confirmation: bool,
 }
 
 impl RefreshOrganizationInviteLinkRequestModel {
-    pub fn new(encrypted_invite_key: String) -> RefreshOrganizationInviteLinkRequestModel {
+    pub fn new(
+        invite: String,
+        supports_confirmation: bool,
+    ) -> RefreshOrganizationInviteLinkRequestModel {
         RefreshOrganizationInviteLinkRequestModel {
-            encrypted_invite_key,
-            encrypted_org_key: None,
+            invite,
+            supports_confirmation,
         }
     }
 }

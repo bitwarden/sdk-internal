@@ -13,27 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct UpdateTwoFactorYubicoOtpRequestModel {
-    #[serde(
-        rename = "masterPasswordHash",
-        alias = "MasterPasswordHash",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub master_password_hash: Option<String>,
-    #[serde(rename = "otp", alias = "Otp", skip_serializing_if = "Option::is_none")]
-    pub otp: Option<String>,
-    #[serde(
-        rename = "authRequestAccessCode",
-        alias = "AuthRequestAccessCode",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub auth_request_access_code: Option<String>,
-    #[serde(
-        rename = "secret",
-        alias = "Secret",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub secret: Option<String>,
+pub struct TwoFactorYubiKeyUpdateRequestModel {
     #[serde(
         rename = "key1",
         alias = "Key1",
@@ -66,21 +46,23 @@ pub struct UpdateTwoFactorYubicoOtpRequestModel {
     pub key5: Option<String>,
     #[serde(rename = "nfc", alias = "Nfc")]
     pub nfc: bool,
+    /// User-verification token bound to `UserId + ProviderType`. Minted by the matching GET
+    /// endpoint and replayed on subsequent management calls so the user does not have to
+    /// re-verify.
+    #[serde(rename = "userVerificationToken", alias = "UserVerificationToken")]
+    pub user_verification_token: String,
 }
 
-impl UpdateTwoFactorYubicoOtpRequestModel {
-    pub fn new(nfc: bool) -> UpdateTwoFactorYubicoOtpRequestModel {
-        UpdateTwoFactorYubicoOtpRequestModel {
-            master_password_hash: None,
-            otp: None,
-            auth_request_access_code: None,
-            secret: None,
+impl TwoFactorYubiKeyUpdateRequestModel {
+    pub fn new(nfc: bool, user_verification_token: String) -> TwoFactorYubiKeyUpdateRequestModel {
+        TwoFactorYubiKeyUpdateRequestModel {
             key1: None,
             key2: None,
             key3: None,
             key4: None,
             key5: None,
             nfc,
+            user_verification_token,
         }
     }
 }
