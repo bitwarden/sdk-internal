@@ -1,8 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-mod invite_key_bundle;
-pub use invite_key_bundle::{Invite, InviteBundle, InviteKeyBundleError, InviteKeyData};
-pub mod invite;
+pub use invite::{Invite, InviteSecret, InviteKeyBundleError};
+mod invite;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
