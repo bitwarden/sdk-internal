@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// TwoFactorWebAuthnResponseModel : Response model carrying WebAuthn provider details and the
+/// user-verification token minted by the read step of two-factor enrollment.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorWebAuthnResponseModel {
     #[serde(
@@ -21,25 +23,29 @@ pub struct TwoFactorWebAuthnResponseModel {
     )]
     pub object: Option<String>,
     #[serde(
-        rename = "enabled",
-        alias = "Enabled",
+        rename = "webAuthn",
+        alias = "WebAuthn",
         skip_serializing_if = "Option::is_none"
     )]
-    pub enabled: Option<bool>,
+    pub web_authn: Option<Box<models::TwoFactorWebAuthnDetails>>,
+    /// User-verification token bound to `UserId + ProviderType`. Replayed on subsequent management
+    /// calls so the user does not have to re-verify.
     #[serde(
-        rename = "keys",
-        alias = "Keys",
+        rename = "userVerificationToken",
+        alias = "UserVerificationToken",
         skip_serializing_if = "Option::is_none"
     )]
-    pub keys: Option<Vec<models::KeyModel>>,
+    pub user_verification_token: Option<String>,
 }
 
 impl TwoFactorWebAuthnResponseModel {
+    /// Response model carrying WebAuthn provider details and the user-verification token minted by
+    /// the read step of two-factor enrollment.
     pub fn new() -> TwoFactorWebAuthnResponseModel {
         TwoFactorWebAuthnResponseModel {
             object: None,
-            enabled: None,
-            keys: None,
+            web_authn: None,
+            user_verification_token: None,
         }
     }
 }

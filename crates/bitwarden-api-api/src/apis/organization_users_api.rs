@@ -133,6 +133,14 @@ pub trait OrganizationUsersApi: Send + Sync {
         >,
     ) -> Result<(), Error>;
 
+    /// POST /organizations/users/invite-link/confirm
+    async fn confirm_invite_link<'a>(
+        &self,
+        confirm_organization_invite_link_request_model: Option<
+            models::ConfirmOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
     /// DELETE /organizations/{orgId}/users/{id}/delete-account
     async fn delete_account<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
@@ -580,6 +588,30 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn confirm_invite_link<'a>(
+        &self,
+        confirm_organization_invite_link_request_model: Option<
+            models::ConfirmOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/users/invite-link/confirm",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&confirm_organization_invite_link_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

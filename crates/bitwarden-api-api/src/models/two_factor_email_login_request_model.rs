@@ -12,8 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// TwoFactorEmailLoginRequestModel : Request body for the anonymous login-time endpoint that emails
+/// a 2FA OTP during sign-in. Authenticated by master password / OTP, SSO email-2FA session token,
+/// or device-auth-request access code.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TwoFactorWebAuthnRequestModel {
+pub struct TwoFactorEmailLoginRequestModel {
     #[serde(
         rename = "masterPasswordHash",
         alias = "MasterPasswordHash",
@@ -34,31 +37,35 @@ pub struct TwoFactorWebAuthnRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub secret: Option<String>,
-    #[serde(rename = "id", alias = "Id")]
-    pub id: i32,
-    #[serde(rename = "deviceResponse", alias = "DeviceResponse")]
-    pub device_response: Box<models::AuthenticatorAttestationRawResponse>,
+    #[serde(rename = "email", alias = "Email")]
+    pub email: String,
     #[serde(
-        rename = "name",
-        alias = "Name",
+        rename = "authRequestId",
+        alias = "AuthRequestId",
         skip_serializing_if = "Option::is_none"
     )]
-    pub name: Option<String>,
+    pub auth_request_id: Option<String>,
+    #[serde(
+        rename = "ssoEmail2FaSessionToken",
+        alias = "SsoEmail2FaSessionToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sso_email2_fa_session_token: Option<String>,
 }
 
-impl TwoFactorWebAuthnRequestModel {
-    pub fn new(
-        id: i32,
-        device_response: models::AuthenticatorAttestationRawResponse,
-    ) -> TwoFactorWebAuthnRequestModel {
-        TwoFactorWebAuthnRequestModel {
+impl TwoFactorEmailLoginRequestModel {
+    /// Request body for the anonymous login-time endpoint that emails a 2FA OTP during sign-in.
+    /// Authenticated by master password / OTP, SSO email-2FA session token, or device-auth-request
+    /// access code.
+    pub fn new(email: String) -> TwoFactorEmailLoginRequestModel {
+        TwoFactorEmailLoginRequestModel {
             master_password_hash: None,
             otp: None,
             auth_request_access_code: None,
             secret: None,
-            id,
-            device_response: Box::new(device_response),
-            name: None,
+            email,
+            auth_request_id: None,
+            sso_email2_fa_session_token: None,
         }
     }
 }
