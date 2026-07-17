@@ -969,7 +969,10 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-random",
+ "bitwarden-sensitive-value",
  "ciborium",
+ "rand 0.10.1",
  "serde",
  "serde_json",
  "subtle",
@@ -977,6 +980,7 @@ dependencies = [
  "tsify",
  "uuid",
  "wasm-bindgen",
+ "zeroize",
 ]
 
 [[package]]
