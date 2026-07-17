@@ -316,7 +316,7 @@ mod tests {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key_id = ctx.add_local_symmetric_key(user_key.clone());
-        let session_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let session_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let envelope = SymmetricKeyEnvelope::seal(
             user_key_id,
             session_key_id,
@@ -496,7 +496,7 @@ mod tests {
         let token_handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
         let client = Client::load_from_state(token_handler, reg).await.unwrap();
 
-        let wrong_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let wrong_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm);
         let result = client
             .unlock()
             .unlock(UnlockMethod::SessionKey(SessionKey(wrong_key)))

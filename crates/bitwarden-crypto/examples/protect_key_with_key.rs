@@ -2,7 +2,7 @@
 //! [`SymmetrickeyEnvelope`].
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, key_slot_ids,
+    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids,
     safe::{SymmetricKeyEnvelope, SymmetricKeyEnvelopeError, SymmetricKeyEnvelopeNamespace},
 };
 
@@ -14,7 +14,7 @@ fn main() {
     // Alice has a vault key and wants to protect it with another key.
     // For example, this can be used to persist the vault key while keeping it encrypted at rest.
     let vault_key = ctx.generate_symmetric_key();
-    let wrapping_key = ctx.generate_symmetric_key();
+    let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
     // Seal the vault key with the wrapping key, then store the envelope on disk.
     let envelope = SymmetricKeyEnvelope::seal(
@@ -43,7 +43,7 @@ fn main() {
         .expect("Unsealing should work");
 
     // Unsealing with the wrong wrapping key fails.
-    let wrong_wrapping_key = ctx.generate_symmetric_key();
+    let wrong_wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
     assert!(matches!(
         envelope.unseal(
             wrong_wrapping_key,
