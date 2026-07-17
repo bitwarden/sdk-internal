@@ -665,6 +665,8 @@ pub(crate) fn encrypt_xaes256_gcm(
         .build();
     protected_header.alg = Some(Algorithm::PrivateUse(XAES_256_GCM));
 
+    // GCM as a stream cipher does not have a block size. We want to hide exact
+    // input plaintext length, and pad the plaintext size, if the input is a string.
     if should_pad_content(&content_format) {
         let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
         crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;

@@ -281,6 +281,8 @@ impl PartialEq for XAes256GcmKey {
     }
 }
 
+/// A borrowed view over a symmetric key that is encoded as a COSE key and used as the
+/// content-encryption key for CoseEncrypt0/CoseEncrypt messages.
 pub(crate) enum CoseKeyView<'a> {
     Aes256Gcm(&'a Aes256GcmKey),
     XChaCha20Poly1305(&'a XChaCha20Poly1305Key),
