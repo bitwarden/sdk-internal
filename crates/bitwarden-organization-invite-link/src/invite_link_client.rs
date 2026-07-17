@@ -105,7 +105,7 @@ impl InviteLinkClient {
 
         let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let invite_key = invite.invite_key_from_organization_key(org_key, &mut ctx)?;
+        let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
         let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
         Ok(invite_secret)
     }
@@ -149,7 +149,8 @@ impl InviteLinkClient {
             let mut ctx = self.key_store.context();
 
             // Recover the invite key from the invite secret the invitee holds.
-            let invite_key = invite.invite_key_from_invite_secret(&invite_secret, &mut ctx)?;
+            let invite_key =
+                invite.unseal_invite_key_with_invite_secret(&invite_secret, &mut ctx)?;
 
             // Enroll into account recovery when requested. Verify the account-recovery public key
             // against the organization public-key thumbprint bound into the invite before
