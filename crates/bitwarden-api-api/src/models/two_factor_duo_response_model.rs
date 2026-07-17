@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// TwoFactorDuoResponseModel : Response model carrying user-scoped Duo provider details and the
+/// user-verification token minted by the read step of two-factor enrollment.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorDuoResponseModel {
     #[serde(
@@ -20,40 +22,26 @@ pub struct TwoFactorDuoResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
+    #[serde(rename = "duo", alias = "Duo", skip_serializing_if = "Option::is_none")]
+    pub duo: Option<Box<models::TwoFactorDuoDetails>>,
+    /// User-verification token bound to `UserId + ProviderType`. Replayed on subsequent management
+    /// calls so the user does not have to re-verify.
     #[serde(
-        rename = "enabled",
-        alias = "Enabled",
+        rename = "userVerificationToken",
+        alias = "UserVerificationToken",
         skip_serializing_if = "Option::is_none"
     )]
-    pub enabled: Option<bool>,
-    #[serde(
-        rename = "host",
-        alias = "Host",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub host: Option<String>,
-    #[serde(
-        rename = "clientSecret",
-        alias = "ClientSecret",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub client_secret: Option<String>,
-    #[serde(
-        rename = "clientId",
-        alias = "ClientId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub client_id: Option<String>,
+    pub user_verification_token: Option<String>,
 }
 
 impl TwoFactorDuoResponseModel {
+    /// Response model carrying user-scoped Duo provider details and the user-verification token
+    /// minted by the read step of two-factor enrollment.
     pub fn new() -> TwoFactorDuoResponseModel {
         TwoFactorDuoResponseModel {
             object: None,
-            enabled: None,
-            host: None,
-            client_secret: None,
-            client_id: None,
+            duo: None,
+            user_verification_token: None,
         }
     }
 }

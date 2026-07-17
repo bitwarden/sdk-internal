@@ -14,38 +14,20 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorWebAuthnDeleteRequestModel {
-    #[serde(
-        rename = "masterPasswordHash",
-        alias = "MasterPasswordHash",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub master_password_hash: Option<String>,
-    #[serde(rename = "otp", alias = "Otp", skip_serializing_if = "Option::is_none")]
-    pub otp: Option<String>,
-    #[serde(
-        rename = "authRequestAccessCode",
-        alias = "AuthRequestAccessCode",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub auth_request_access_code: Option<String>,
-    #[serde(
-        rename = "secret",
-        alias = "Secret",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub secret: Option<String>,
     #[serde(rename = "id", alias = "Id")]
     pub id: i32,
+    /// User-verification token bound to `UserId + ProviderType`. Minted by the matching GET
+    /// endpoint and replayed on subsequent management calls so the user does not have to
+    /// re-verify.
+    #[serde(rename = "userVerificationToken", alias = "UserVerificationToken")]
+    pub user_verification_token: String,
 }
 
 impl TwoFactorWebAuthnDeleteRequestModel {
-    pub fn new(id: i32) -> TwoFactorWebAuthnDeleteRequestModel {
+    pub fn new(id: i32, user_verification_token: String) -> TwoFactorWebAuthnDeleteRequestModel {
         TwoFactorWebAuthnDeleteRequestModel {
-            master_password_hash: None,
-            otp: None,
-            auth_request_access_code: None,
-            secret: None,
             id,
+            user_verification_token,
         }
     }
 }

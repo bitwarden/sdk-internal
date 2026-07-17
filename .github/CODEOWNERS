@@ -41,17 +41,18 @@ crates/bitwarden-auth/** @bitwarden/team-auth-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-crypto-cipher-suite/** @bitwarden/team-key-management-dev
-crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bitwarden-importers/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
+crates/bitwarden-exporters/** @bitwarden/team-tools-dev
+crates/bitwarden-generators/** @bitwarden/team-tools-dev
+crates/bitwarden-importers/** @bitwarden/team-tools-dev
 crates/bitwarden-organization-crypto/** @bitwarden/team-key-management-dev
 crates/bitwarden-organization-invite-link/** @bitwarden/team-admin-console-dev
 crates/bitwarden-organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-policies/** @bitwarden/team-admin-console-dev
 crates/bitwarden-random/** @bitwarden/team-key-management-dev
 crates/bitwarden-sensitive-value/** @bitwarden/team-key-management-dev
-crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
+crates/bitwarden-send/** @bitwarden/team-tools-dev
 crates/bitwarden-shared-unlock/** @bitwarden/team-key-management-dev
+crates/bitwarden-ssh/** @bitwarden/team-tools-dev
 crates/bitwarden-state-bridge-macro/** @bitwarden/team-key-management-dev
 crates/bitwarden-unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
