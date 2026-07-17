@@ -38,7 +38,7 @@ use bitwarden_crypto::{
         SecretProtectedKeyEnvelopeNamespace, SymmetricKeyEnvelope, SymmetricKeyEnvelopeNamespace,
     },
 };
-use bitwarden_encoding::{B64, B64Url, FromStrVisitor};
+use bitwarden_encoding::{B64Url, FromStrVisitor};
 use bitwarden_sensitive_value::{Sensitive, SensitiveSlice};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -198,7 +198,7 @@ pub struct Invite {
     organization_key_wrapped_invite_key: EncString,
 }
 
-/// Wire format for [`Invite`]. This is what's serialized by serde (as base64-encoded JSON).
+/// Wire format for [`Invite`]. This is what's serialized by serde (as JSON).
 #[derive(Serialize, Deserialize)]
 struct InviteWire {
     invite_key_wrapped_invite_data: DataEnvelope,
@@ -220,9 +220,8 @@ impl From<&Invite> for InviteWire {
 
 impl From<&Invite> for String {
     fn from(invite: &Invite) -> Self {
-        let buf = serde_json::to_vec(&InviteWire::from(invite))
-            .expect("JSON serialization of Invite never fails");
-        B64::from(buf).to_string()
+        serde_json::to_string(&InviteWire::from(invite))
+            .expect("JSON serialization of Invite never fails")
     }
 }
 
@@ -230,11 +229,8 @@ impl FromStr for Invite {
     type Err = InviteKeyBundleError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = B64::try_from(s)
-            .map_err(|_| InviteKeyBundleError::DecodingFailed)?
-            .into_bytes();
-        let data: InviteWire = serde_json::from_slice(bytes.as_slice())
-            .map_err(|_| InviteKeyBundleError::DecodingFailed)?;
+        let data: InviteWire =
+            serde_json::from_str(s).map_err(|_| InviteKeyBundleError::DecodingFailed)?;
         Ok(Invite {
             invite_key_wrapped_invite_data: data.invite_key_wrapped_invite_data,
             invite_secret_wrapped_invite_key: data.invite_secret_wrapped_invite_key,
@@ -493,9 +489,9 @@ mod tests {
     // must remain decryptable) is verified by `test_invite_test_vector`.
     const TEST_VECTOR_ORG_KEY: &str =
         "KGP9Nc2/91w+42Z9VzY0m7h18avuZcq4ICM8Rhdc3BD92LbWS2TQkVBzavvUM684WKXiC22NJi2EwaiDW4YTAA==";
-    const TEST_VECTOR_WRAPPED_PRIVATE_KEY: &str = "2.Fi0VHpgZgBQWB8x+fLhjbg==|1Kdwcx5HIrnzHsw9vmlaEdsSUGrixdPjC2Tcl9QijlBJrNWSaaWW+sMCTZ71IC18ORFYp8QDICs7aUqE3RaM8zTdXM1Gaf+OJbr29UGyRwiN6flnrjrwsVSSeEGyTUBNS0eSdlaurOu9Eo+CtUmXWsKiGLVYINgYmUims4JsFQ/J8JOG5tkVy9onZc9TIOULSlCqXZ53g7u4Nbvqgdr6qMzuBuO9s0OVStORmliRYTMbGivqiOW27VKk89OMTwuomeC25m5Gh4LwuAcTQob9SnuAssVjGLb2H1HvjdFafAnk2N979hx6u9bgl83dKNa00rbZiGkhxTJIam9pwFuoudP8o4wsv7SeXV86XEq49xJSDD0FGowcHZ8iC9bI28h12vzOAzaA6Om1MUIc38sL/YBwkQyIxeWqFILOuoXPWsZ/fGomSI/mijCIGChzB+YS7W6GbFF50lYJukWPophLL+d8nx/5JuH2m3AfusM4ml2qMjHJ9Lf6ToedDr5ap4hHUPcMSiT/qilt0sjhqP+TAqpp0QxM20QCA9zW/FLBUKpiT/8LhC2eZM2eQlKYwabg4DGy+Wu6s4E5kJJ9jrdN3RCpgy/BDAjyd6+taixvR1ejH/J0T6WirNP5lGo7bdlCiq4mWnqbALtRfQmz1e/7pWhRZv7hHhWurqdZQLuAOdKYe89aQj316NAgPKlMJWiLuT1rC94EmPuiXl54WDjYH2xgnprKwqXdNls+0dbiXSvejXod2b8FD263mUwN+OluwyyI6YeOZge3HAmmmXBUbYgunyqBK1QoMgc5Oj6QyBnzMYc5vE7NuEzjncFMNZc+XjxrAwJS1J2ZR6SjzrQjAAaoGA2fTBQ2NYpr/bf91dbJJkzZZBpHMoJWU0zyE3I4AEs48JS7VW++uM6pIkBdg67JsxaSS3h7E3nJEd8qQScbn+AgFVy6FT1W+dUr+FoaP7N2U0r9qxWh6anZlfWIS4Sw7Sr5plR24SyevrLkIXWoK2T1mFzRnGtP2KaYoIr2oGtx0PGM5ZSzUQJhURKt7Nx9X34AKh3/yI4BLQmx8FVVLhh0mONQrmPx5VgodxxYwh1nIRgMG1BPE8SOj1sXsgzhu2jmUfhFJXpbL//3zr7z5f461ungPN+Dj4dAThf4N+XktskNN3eaIfnHwK4+st97qTA060oe7qqLbMvuR8pj0slvA2HTxcsIFDEUvCJipeTZrOjJHW59co15DDjbXHXrSXDhtfWh6EWSbh+m+q5OldkI30INhNNvKx5LqBCFonONekRD/1qzxFLE8Arlsu0R1OmtQjnbj1Lt5yUkFlL5KIOSETg0BGWqhhkLRXq3URylxTe/An5H9Q0xaqfQtaUOMbdaxSMq4HokSlxLOHGWiWMlPBQQT93XO96wPs13Sytzl0Wcu4kx+Ttlx6EmHPfd1jjDZdSaR0wM8+HA74jC70wwqc2FJzBoCm/O1Da8b0yNb26PTNmkhFjL95XvQERom3hkOf8LaA8metq/OT4jHDU/Tci2GYYxNjoDBYj/JyrKpODPQ4GfmxzzeYyNav+ZFGCDbYa5rvixwddAIAZLB+IBaDx0SnKe/a3rrerjx4GWPo/HHzRjoeLvHVjX1RA4bwIq6icROhBFRDkUZbY=|Y9md9PASfsT04OYaj1P6FL9cXUc/m8PloWizzuWT84E=";
-    const TEST_VECTOR_INVITE: &str = "eyJpbnZpdGVfa2V5X3dyYXBwZWRfaW52aXRlX2RhdGEiOiJnMWhIcFFFREEzZ2pZWEJ3YkdsallYUnBiMjR2ZUM1aWFYUjNZWEprWlc0dVkySnZjaTF3WVdSa1pXUUVVSTdrc014MGNNNi9VQ2VVY2pMcVdIRTZBQUU0Z1FJNkFBRTRnQUtoQlV3a0hhWW0yK3Z1aGFIRXJmbFl4VWV6dkN2NzVuMzRHSk5ubWJ5NzFyb1lYQ3ZNaWE1dVZ0cmkwSWN5NEQ2WVM1YjFGM2l2MVVwRXU3Q2pnb01pNXZqNFlxRUZZQ3pabGx6MXBybnM5aENjSzlyVkFxREM2QTlDTGRMWG9HeWE2ZlNySGhXaW1kZWd5bnA0UHphczVsbGxibTJUMENFaWdod1FuUVIyRzN3QmlUUnNVZG00dWR2eWVKWWlOYWZ6VFE5V25BWlhSOG1pVVZyVHkxWDIzbHhYWE55UnhrTjNYemlTc0RvY2JYVEJvRlJkR1hGWURiSjhrU2cvZVQrWHJqdDlrYmxzTnZaYVlvemtBWVlYWnIxcnhvMDYiLCJpbnZpdGVfc2VjcmV0X3dyYXBwZWRfaW52aXRlX2tleSI6ImhGZ29wUUVEQXhobE9nQUJGVnhRanVTd3pIUnd6cjlRSjVSeU11cFljVG9BQVRpQkJqb0FBVGlBQWFFRlRJaDJmOVkzdGsyTXpvWnhpVmhRQjdkcFhNRjBGak1ISEl0UWt2RDMxNTUvV1VMQmVldW9zbHlUNm5xMEQ0WTJieFZnZjFaQnRNaUoweUQxeVVFMGJaS0tMZS93NmNab3h4YzlsTGRjL05iNHQ2Wmo0L0NDOG9HWTBnVTkxNG1CZzBDaUFTa3pXQ0EwT0VxK1ZsQVlKTnVvZWRSNENtWUVWV0NDOVVIUmNyRWs4NWFSQkpaczV2WT0iLCJpbnZpdGVfa2V5X3dyYXBwZWRfb3JnYW5pemF0aW9uX2tleSI6ImcxaEdwUUVEQTNnaVlYQndiR2xqWVhScGIyNHZlQzVpYVhSM1lYSmtaVzR1YkdWbllXTjVMV3RsZVFSUWp1U3d6SFJ3enI5UUo1UnlNdXBZY1RvQUFUaUJBem9BQVRpQUFxRUZURnd0NWxZQTU0Z3B3MFpSU0ZoUXlYMlB6UEN5QkdPdDVLd29rc21KMTlWWHJXVVJjd1M2RDNVaHhkVm5UQnZOU0pSSjhLZ2VNVEpJYlNldVdSbkpydnJaYzdacEo5bzJnVXg0TTV0aCtod1RVTXN0N3lMNVNzMEFyeFNJRjJvPSIsIm9yZ2FuaXphdGlvbl9rZXlfd3JhcHBlZF9pbnZpdGVfa2V5IjoiMi5OVXkyQW44YVZHaVpObDZLMGFxNHdRPT18bFhvMXhWQTFzc3dKbG1mQ1grNG5vZjlXSURGS1hOcStMS280TkIwVWVtQkFQQlkvK3p2dnlHOUp0QkxnYkU5aTMzaGYvK0FJa0ltTUxzcUNjL0QrU2RxQUhPU3hXV1hLVzJUb0RvRGRldzQ9fDdlQ2MxN2E2TXVCa0J6M3lxcHFuaWp4MlpXVE01ZW1ZcE1aS2tEN2daMEk9In0=";
-    const TEST_VECTOR_INVITE_SECRET: &str = "rAI7b5drK7fgI-PToxddm4-9py1UFdHbaxczIgf7KHk";
+    const TEST_VECTOR_WRAPPED_PRIVATE_KEY: &str = "2.bi9TWF/zrujUg1y+v8ECtQ==|kEMkuRt42j65YZnPEc4bLOT0/WDZwWSNJNGlUMdr/LRF3qi/vCnZ7eT0+7MruTccmyoAjKmsXdoBcufrOdPBUguFQn1LQMGqHqCyyB3SIijOlLyOOmxWYqoLUjihy8o8URGWjrAGWZnkeYWHTlFZP09Fag2xCwiQ/qS32Q+qTGGHDs0FiwjplcPkW9knlmgCXbuyPqDnEYoa0Qs/CC1hUCzFFrWs7QkE+5eLaNHxuBPpsrY6y795kEu9ve38F3piY9b6lQpc/iPGv8Zfh1isI7Mpy1zMwntXGSHjUOy17nPxCqkgYufuNGnwGNwsGjkLAl7e7bD39SYfEpTDaRUgmTl8UrZDx274e6Um1LLvokf3HiL1tboJ9/TW8IiMuAdrb3PLTH6Sep8lqZ3WhNADfMMJle9kCojHp6XSB14in1JqP0636exYeJu+FhUC1TfrthuQN2QDQ8LAvgZR7YvzkTJX3Sc5jP7m/yCmCbHhIqIAaGqJsRwAee0EMsKcALz3/akVoyjHU2LHD3dzQnyMyszyRNYViBNYAM9qBN2DqwWRDOtM171xNVJcTFsAh4mBSLiLOlDsXqLqHVKu2VJNE1XhTQ5Szubqefa/Or7nfxXcxDvivqZ7d5NfDFEskUMqh5yq1KoLK0oK5c+KvY/COIZr/kct+qtfZsXo3w5xJnPOqrAKGm+9CF4OINpLM8Z3csdZf9l5XjlmO1kIuBbquQZ0EZCHzD/GEfXRGB8BEkugdTfpnTDtmmuAJXkIY6t6e6pRUU9u4/sl+U7Iuh22fOA59SuQOElr5Lxre+hQBrRfJS3tSMEtMjYhVmltrngH+SLRxMxH/evbe2uvNaaxlFJe6EK1vqchyTX6nM8Z+2Yjb5pOAzrKQYqwwmVys9IHfjXhybqv10gFpDXBE/eq8u9xs9LbQQ03EbveQUtqdh/ms8SxLOQA9Sm9JwHEL0Zni+8NdAa5orDYzOi53bQLgrs+uUldgB/KOW2goTnKGm4YTbMAXEbum8pST8EXB9jNDXyofyN8IQUoLRvVkEgzbSPBS1sYpkkKdLZy3ojOCKnMnHXIVtzJojFckiutbj6d927X5w51E/RDMoAdylGRVKnmqLKysFRqL+pZK8Cyo+ECr7notG8kr7pVnofzigjKZS9qkRmqEa9bju1GgI20g4cxro8/0O0XnU1o0Mx46qH3niORY59i5bdMwaDS6H2c6+rmf9bIFwwgyAZvHlVdcGNoBGPR3ZXHThwI1OmWSslLWVW0IaS4utB1jL4zvHPCqh/ButA8HeRmU/NYSfaqb9YXyzn+C7ED15MWXkYmZzeE38HHxhqs12+oj+WFcg4d5/e2UcccuVi36SWhA0xWk8Kk2D6e1Pz1lmaw20vpb0eUq4AS5ZnMmWTEiKORFeGNTIROq9vuPuitLrREedu9PGjf5aeKcNqlq2nr7fOaxyi2ocKs7pLqVBUH1G7zHpCo3Rt1+o18guXFHT56vQFfkzoUNXiS6TRM4Mkl3s0TyGgBhxZkNJleTI6y4xhfH1iathBnLcfelLbxZhDB1wh3RXowS32jpM/J4pSUuNEmSLSqRQtRJY41BG00nYY02qEbakkgk6pS6a0/CWphyLfHAzUWbabOhqR1iPN9/ZiecjI=|eoklmBw+LYy2NNwjLOuA4+szKH5SzLGPlrhIJ/vfmW4=";
+    const TEST_VECTOR_INVITE: &str = r#"{"invite_key_wrapped_invite_data":"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEULAvkABNEIqBWSbJbR5w/PU6AAE4gQI6AAE4gAKhBUzu06Qb8Rqlag8wxIVYyAOEYjj8vngz+6efiYs4aJqpGKMDNYgXM7QEYDH85RfElcQ3tkBm5lNsLWy04I2gFaJV6hGRN8fZSG9Br3Q11yUIkTna6wy112uCn/szWnrceGg+tTUKjErl9FmkN6yzoSskR1U10dqVeG7AJRjzkAgZFHol1JycPVxhuJdszrF/HpNEOKUbw94vA8kVRQV7+JWJKgeUki0gb9kHPpE+P2vxtM7YJU5uhQXukKVg2KXkNTX7BwXDZ1aofIkFHzSzMtRuRVrEUjAn","invite_secret_wrapped_invite_key":"hFgopQEDAxhlOgABFVxQsC+QAE0QioFZJsltHnD89ToAATiBBjoAATiAAaEFTH8P6s7widuCRd5gsVhQ8Qdi4roT2jBcAb9Qn6f4pJL/BKGvWTrN3D9wvK3bT/AOgEcoiP3gZPZ8qvCiFBgErQ+IudaHnPxw1/W2QXvvZGbkaa1vnqL8eIPuzWrGVVyBg0CiASkzWCAIfgngqsWpnHP3zFYH88LcFD13xgvwzmmN0nirJ6BUZPY=","invite_key_wrapped_organization_key":"g1hGpQEDA3giYXBwbGljYXRpb24veC5iaXR3YXJkZW4ubGVnYWN5LWtleQRQsC+QAE0QioFZJsltHnD89ToAATiBAzoAATiAAqEFTMKnS2tiogG0nXwKFVhQvhXuJ7yorAyslqDLYYjUblYqKryq4aNOS9nGpHkJd+39Uo8cYblbqkBs6x7degHq+bj80RQUoNGpWBLGOPNkIP6tqMnAxQy0NR6sIm7trkI=","organization_key_wrapped_invite_key":"2.xpuLCrOF/Ai7q+zGn5ftSQ==|AyGdogR5TKqIO9nbABdtb57uJ/G/6J5Cj4AajWjWppe6ZJSfqt65fAmgT954+Qgf10ah9L+34jW27yOVitwXMEq/+7b8FaAUDJoh89Yi36Q=|BK4onlURPXFoaUt48UoUeD1BhFREYHHs1tuY6MoR7lQ="}"#;
+    const TEST_VECTOR_INVITE_SECRET: &str = "Q4PavSCGSc10mROp_3gsoufZyiYx830Thcs2iprt1X8";
 
     /// Loads the const `TEST_VECTOR_ORG_KEY` into the `Organization` slot and returns the parsed
     /// const wrapped organization private key. Sharing fixed vectors keeps tests deterministic and
@@ -731,16 +727,15 @@ mod tests {
 
     #[test]
     fn test_malformed_invite_string_fails() {
-        // Not base64 at all.
+        // Not JSON at all.
         assert!(matches!(
-            "not valid base64 !!!".parse::<Invite>(),
+            "not valid json !!!".parse::<Invite>(),
             Err(InviteKeyBundleError::DecodingFailed)
         ));
 
-        // Valid base64, but the decoded bytes are not valid JSON.
-        let valid_b64_not_json = B64::from(&b"not json"[..]).to_string();
+        // Valid JSON, but missing the required invite fields.
         assert!(matches!(
-            valid_b64_not_json.parse::<Invite>(),
+            "{}".parse::<Invite>(),
             Err(InviteKeyBundleError::DecodingFailed)
         ));
     }
@@ -802,7 +797,7 @@ mod tests {
             wrapped_private_key.to_string()
         );
         println!(
-            "const TEST_VECTOR_INVITE: &str = \"{}\";",
+            "const TEST_VECTOR_INVITE: &str = r#\"{}\"#;",
             String::from(&invite)
         );
         println!(
