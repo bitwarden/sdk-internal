@@ -1,4 +1,4 @@
-//! This example demonstrates the full lifecycle of an organization invite [`InviteBundle`]:
+//! This example demonstrates the full lifecycle of an organization invite,
 //! creating it, reconstructing the invite link (admin), confirm-joining (invitee), and enabling
 //! account recovery (verifying the organization public key bound into the invite).
 
@@ -46,7 +46,7 @@ fn main() {
     // CRITICAL: this object must never be shared with the server.
 
     // 3. The second part is the `Invite`. This is the server-safe bundle of wrapped envelopes. It
-    // serializes to a base64-encoded CBOR structure via serde, `String::from(&invite)`, or wasm abi
+    // serializes to a base64-encoded JSON structure via serde, `String::from(&invite)`, or wasm abi
     // serialization.
     //
     // This can be sent to the server, and should be persisted there:
@@ -60,7 +60,7 @@ fn main() {
     // 4. Admin direction: recover the invite key from the organization key, then use it to recover
     // the invite secret, e.g. to reconstruct an invite link.
     let invite_key = invite
-        .invite_key_from_organization_key(org_key, &mut ctx)
+        .unseal_invite_key_with_organization_key(org_key, &mut ctx)
         .expect("recovering the invite key from the org key should work");
     let recovered_secret = invite
         .get_invite_secret(invite_key, &mut ctx)
@@ -75,28 +75,19 @@ fn main() {
         .parse()
         .expect("the invite secret round-trips through its base64url form");
     let invitee_invite_key = invite
-        .invite_key_from_invite_secret(&invitee_secret, &mut ctx)
+        .unseal_invite_key_with_invite_secret(&invitee_secret, &mut ctx)
         .expect("an invitee should recover the invite key from the invite secret");
     let recovered_org_key_id = invite
         .unseal_organization_key(invitee_invite_key, &mut ctx)
         .expect("an invitee should recover the organization key from the invite key");
-    #[allow(deprecated)]
-    {
-        let recovered = ctx
-            .dangerous_get_symmetric_key(recovered_org_key_id)
-            .expect("the recovered organization key should be in the store");
-        let original = ctx
-            .dangerous_get_symmetric_key(org_key)
-            .expect("the organization key should be in the store");
-        assert_eq!(recovered, original);
-    }
+    ctx.assert_symmetric_keys_equal(recovered_org_key_id, org_key);
 
     // 6. Enabling account recovery: recover the invite key from the organization key, read the
     // organization public-key thumbprint bound into the invite, and confirm it matches the
     // organization public key we are about to enroll against. A substituted public key would not
     // match, so the organization key cannot be captured by an attacker-supplied recovery key.
     let recovery_invite_key = invite
-        .invite_key_from_organization_key(org_key, &mut ctx)
+        .unseal_invite_key_with_organization_key(org_key, &mut ctx)
         .expect("recovering the invite key from the org key should work");
     let bound_thumbprint = invite
         .get_public_key_thumbprint(recovery_invite_key, &mut ctx)
