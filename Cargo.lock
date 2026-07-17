@@ -987,14 +987,17 @@ dependencies = [
 name = "bitwarden-organization-invite-link"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-organization-crypto",
- "serde",
  "thiserror 2.0.18",
- "tsify",
+ "tokio",
+ "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
