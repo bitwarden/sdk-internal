@@ -4287,4 +4287,117 @@ mod tests {
             assert!(ciphers[1].login.is_none());
         }
     }
+
+    // ---------- Repro A: FIDO2 field strictness fails the WHOLE cipher ----------
+    //
+    // Reproduces "passkey items becoming undecryptable". A login cipher is parsed from
+    // the server response via `Cipher::try_from(CipherDetailsResponseModel)`. If a single
+    // required FIDO2 sub-field is null/missing (`discoverable`, `counter`, ...) or has an
+    // unparseable `creationDate`, the FIDO2 `TryFrom` returns a `VaultParseError` which
+    // propagates up and rejects the ENTIRE cipher — so the whole login item, not just the
+    // passkey, is lost. The legacy client TypeScript path tolerated these (null /
+    // DECRYPT_ERROR placeholder) and always produced a view; the SDK path does not.
+
+    /// A fully-valid encrypted FIDO2 credential wire model: every required field present
+    /// and parseable. Each test below nulls/mangles exactly one field.
+    fn valid_fido2_model() -> bitwarden_api_api::models::CipherFido2CredentialModel {
+        let mut c = bitwarden_api_api::models::CipherFido2CredentialModel::new(
+            "2024-01-01T00:00:00Z".to_string(),
+        );
+        c.credential_id = Some(TEST_ENC_STRING_1.to_string());
+        c.key_type = Some(TEST_ENC_STRING_1.to_string());
+        c.key_algorithm = Some(TEST_ENC_STRING_1.to_string());
+        c.key_curve = Some(TEST_ENC_STRING_1.to_string());
+        c.key_value = Some(TEST_ENC_STRING_1.to_string());
+        c.rp_id = Some(TEST_ENC_STRING_1.to_string());
+        c.counter = Some(TEST_ENC_STRING_1.to_string());
+        c.discoverable = Some(TEST_ENC_STRING_1.to_string());
+        c
+    }
+
+    /// Wraps a login (optionally carrying FIDO2 credentials) into a full cipher response
+    /// model, mirroring what the server returns to the client for a passkey login.
+    fn login_response_with_fido2(
+        fido2: Option<Vec<bitwarden_api_api::models::CipherFido2CredentialModel>>,
+    ) -> CipherDetailsResponseModel {
+        let mut login = bitwarden_api_api::models::CipherLoginModel::new();
+        login.username = Some(TEST_ENC_STRING_1.to_string());
+        login.fido2_credentials = fido2;
+
+        let mut resp = CipherDetailsResponseModel::new();
+        resp.r#type = Some(bitwarden_api_api::models::CipherType::Login);
+        resp.name = Some(TEST_CIPHER_NAME.to_string());
+        resp.login = Some(Box::new(login));
+        resp.creation_date = Some("2024-01-01T00:00:00Z".to_string());
+        resp.revision_date = Some("2024-01-01T00:00:00Z".to_string());
+        resp
+    }
+
+    #[test]
+    fn repro_a_valid_passkey_parses() {
+        // Baseline: a well-formed passkey login parses into the domain model.
+        let resp = login_response_with_fido2(Some(vec![valid_fido2_model()]));
+        let cipher = Cipher::try_from(resp).expect("valid passkey cipher should parse");
+        let creds = cipher.login.unwrap().fido2_credentials.unwrap();
+        assert_eq!(creds.len(), 1);
+    }
+
+    #[test]
+    fn repro_a_login_without_fido2_parses() {
+        // Contrast: the exact same login WITHOUT a passkey parses fine — proving the
+        // failures below come from FIDO2 field strictness, not the cipher scaffolding.
+        let resp = login_response_with_fido2(None);
+        assert!(Cipher::try_from(resp).is_ok());
+    }
+
+    #[test]
+    fn repro_a_missing_discoverable_fails_whole_cipher() {
+        // `discoverable` postdates the original passkey format, so legacy credentials can
+        // lack it. One null field now rejects the entire cipher.
+        let mut cred = valid_fido2_model();
+        cred.discoverable = None;
+        let resp = login_response_with_fido2(Some(vec![cred]));
+
+        let err = Cipher::try_from(resp).expect_err("missing discoverable should fail the cipher");
+        assert!(
+            matches!(&err, VaultParseError::MissingField(_)),
+            "expected MissingField, got {err:?}"
+        );
+        assert!(
+            err.to_string().contains("discoverable"),
+            "error should name the offending field: {err}"
+        );
+    }
+
+    #[test]
+    fn repro_a_missing_counter_fails_whole_cipher() {
+        let mut cred = valid_fido2_model();
+        cred.counter = None;
+        let resp = login_response_with_fido2(Some(vec![cred]));
+
+        let err = Cipher::try_from(resp).expect_err("missing counter should fail the cipher");
+        assert!(
+            matches!(&err, VaultParseError::MissingField(_)),
+            "expected MissingField, got {err:?}"
+        );
+        assert!(
+            err.to_string().contains("counter"),
+            "error should name the offending field: {err}"
+        );
+    }
+
+    #[test]
+    fn repro_a_bad_creation_date_fails_whole_cipher() {
+        // An empty/invalid RFC3339 timestamp on the credential fails `.parse()` and, again,
+        // takes down the whole cipher rather than the single field.
+        let mut cred = valid_fido2_model();
+        cred.creation_date = String::new();
+        let resp = login_response_with_fido2(Some(vec![cred]));
+
+        let err = Cipher::try_from(resp).expect_err("bad creation_date should fail the cipher");
+        assert!(
+            matches!(err, VaultParseError::Chrono(_)),
+            "expected Chrono parse error, got {err:?}"
+        );
+    }
 }
