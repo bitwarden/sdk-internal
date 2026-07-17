@@ -16,7 +16,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-use bitwarden_organization_crypto::invite::{Invite, InviteKeyBundleError, InviteSecret};
+use bitwarden_organization_crypto::{Invite, InviteKeyBundleError, InviteSecret};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;

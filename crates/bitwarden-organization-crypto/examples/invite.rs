@@ -6,7 +6,7 @@ use bitwarden_crypto::{
     CoseKeyThumbprintExt, KeyStore, KeyStoreContext, PublicKeyEncryptionAlgorithm,
     SymmetricKeyAlgorithm::Aes256CbcHmac, key_slot_ids,
 };
-use bitwarden_organization_crypto::invite::{Invite, InviteSecret};
+use bitwarden_organization_crypto::{Invite, InviteSecret};
 
 fn main() {
     let key_store = KeyStore::<ExampleIds>::default();
