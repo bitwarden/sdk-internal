@@ -24,7 +24,10 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use super::{key_encryptable::CryptoKey, key_id::KeyId};
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CoseKeyThumbprint, CryptoError, cose,
-    cose::{CoseKeyThumbprintExt, thumbprint_from_required_params},
+    cose::{
+        CoseKeyThumbprintExt, symmetric::CoseContentEncryptionAlgorithm,
+        thumbprint_from_required_params,
+    },
     error::EncodingError,
 };
 
@@ -281,11 +284,11 @@ impl PartialEq for XAes256GcmKey {
     }
 }
 
-/// A borrowed view over a symmetric key that is encoded as a COSE key and used as the
-/// content-encryption key for CoseEncrypt0/CoseEncrypt messages.
+/// A borrowed view over a symmetric key that is encoded as a COSE key.
 pub(crate) enum CoseKeyView<'a> {
     Aes256Gcm(&'a Aes256GcmKey),
     XChaCha20Poly1305(&'a XChaCha20Poly1305Key),
+    XAes256Gcm(&'a XAes256GcmKey),
 }
 
 impl CoseKeyView<'_> {
@@ -293,6 +296,7 @@ impl CoseKeyView<'_> {
         match self {
             CoseKeyView::Aes256Gcm(k) => &k.key_id,
             CoseKeyView::XChaCha20Poly1305(k) => &k.key_id,
+            CoseKeyView::XAes256Gcm(k) => &k.key_id,
         }
     }
 
@@ -300,6 +304,15 @@ impl CoseKeyView<'_> {
         match self {
             CoseKeyView::Aes256Gcm(k) => k.enc_key.as_slice(),
             CoseKeyView::XChaCha20Poly1305(k) => k.enc_key.as_slice(),
+            CoseKeyView::XAes256Gcm(k) => k.enc_key.as_slice(),
+        }
+    }
+
+    pub(crate) fn algorithm(&self) -> CoseContentEncryptionAlgorithm {
+        match self {
+            CoseKeyView::Aes256Gcm(_) => CoseContentEncryptionAlgorithm::Aes256Gcm,
+            CoseKeyView::XChaCha20Poly1305(_) => CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            CoseKeyView::XAes256Gcm(_) => CoseContentEncryptionAlgorithm::XAes256Gcm,
         }
     }
 }
@@ -512,13 +525,13 @@ impl SymmetricCryptoKey {
         }
     }
 
-    /// Returns a [`CoseKeyView`] for symmetric key variants accepted by safe constructs.
-    /// XAES-256-GCM and legacy AES-CBC variants return `None`.
+    /// Returns a [`CoseKeyView`] for COSE-encoded symmetric key variants.
+    /// Legacy AES-CBC variants return `None`.
     pub(crate) fn as_cose_key_view(&self) -> Option<CoseKeyView<'_>> {
         match self {
             Self::Aes256GcmKey(k) => Some(CoseKeyView::Aes256Gcm(k)),
             Self::XChaCha20Poly1305Key(k) => Some(CoseKeyView::XChaCha20Poly1305(k)),
-            Self::XAes256GcmKey(_) => None,
+            Self::XAes256GcmKey(k) => Some(CoseKeyView::XAes256Gcm(k)),
             Self::Aes256CbcKey(_) | Self::Aes256CbcHmacKey(_) => None,
         }
     }
@@ -527,8 +540,8 @@ impl SymmetricCryptoKey {
 impl CoseKeyThumbprintExt for SymmetricCryptoKey {
     /// Computes the RFC 9679 thumbprint of this symmetric key.
     ///
-    /// Returns an error for the legacy AES-CBC keys, which are not representable as COSE keys
-    /// currently.
+    /// Returns an error for legacy AES-CBC keys, which are not currently representable as COSE
+    /// keys.
     fn thumbprint(&self) -> Result<CoseKeyThumbprint, CryptoError> {
         let view = self
             .as_cose_key_view()
