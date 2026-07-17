@@ -14,7 +14,9 @@ use crate::{
     XChaCha20Poly1305Key,
     cose::{
         ContentNamespace, SafeObjectNamespace,
-        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
+        symmetric::{
+            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0,
+        },
     },
     keys::KeyId,
     safe::{
@@ -137,12 +139,11 @@ impl SymmetricKeyEnvelope {
         )
         .map_err(|_| SymmetricKeyEnvelopeError::InvalidNamespace)?;
 
-        // Decrypt the key bytes. `decrypt_cose0` also validates that the declared
-        // content-encryption algorithm matches the cipher before attempting decryption. The
-        // envelope always declares the algorithm, so no decryption fallback is needed.
+        // The wrapping key is independently typed as XChaCha20-Poly1305, so require the protected
+        // content-encryption algorithm to match it before attempting decryption.
         let key_bytes = decrypt_cose0(
             &self.cose_encrypt0,
-            None,
+            CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
             wrapping_key_inner.enc_key.as_slice(),
         )
         .map_err(|_| SymmetricKeyEnvelopeError::WrongKey)?;

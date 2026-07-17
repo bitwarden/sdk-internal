@@ -8,13 +8,14 @@ use coset::{
     CoseEncryptBuilder, Header, HeaderBuilder, iana,
 };
 
-use super::XCHACHA20_POLY1305;
+use super::{XAES_256_GCM, XCHACHA20_POLY1305};
 use crate::{
-    ContentFormat, CoseEncrypt0Bytes, CryptoError, XChaCha20Poly1305Key,
+    ContentFormat, CoseEncrypt0Bytes, CryptoError, XAes256GcmKey, XChaCha20Poly1305Key,
     error::EncStringParseError,
     hazmat::symmetric_encryption::{
         Aead,
         aes_gcm::{Aes256Gcm, Aes256GcmCiphertext, Aes256GcmNonce},
+        xaes_256_gcm::{XAes256Gcm, XAes256GcmCiphertext, XAes256GcmNonce},
         xchacha20::{XChaCha20Poly1305, XChaCha20Poly1305Ciphertext, XChaCha20Poly1305Nonce},
     },
 };
@@ -28,15 +29,27 @@ fn should_pad_content(format: &ContentFormat) -> bool {
 /// The content-encryption algorithms that can seal the body of a COSE message.
 ///
 /// This selects which [`CoseEncryptCipher`] the free `encrypt_cose`/`encrypt_cose0` functions
-/// dispatch to. On decryption the algorithm is instead recovered from the message's protected
-/// header (see [`decrypt_cose`]/[`decrypt_cose0`]), so the caller does not need to know it up
-/// front.
+/// dispatch to. On decryption, [`CoseAlgorithmPolicy`] determines whether the protected algorithm
+/// is required, must match an independently typed CEK, or may be replaced by a legacy default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CoseContentEncryptionAlgorithm {
     /// AES-256-GCM (COSE `A256GCM`).
     Aes256Gcm,
+    /// XAES-256-GCM (private-use [`XAES_256_GCM`]).
+    XAes256Gcm,
     /// XChaCha20-Poly1305 (private-use [`XCHACHA20_POLY1305`]).
     XChaCha20Poly1305,
+}
+
+/// Policy for resolving and validating a COSE message's content-encryption algorithm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CoseAlgorithmPolicy {
+    /// Require a supported algorithm in the protected header.
+    RequireProtectedHeaderAlgorithm,
+    /// Require the protected algorithm to exactly match the independently known CEK algorithm.
+    Exactly(CoseContentEncryptionAlgorithm),
+    /// Use the protected algorithm when present, or the supplied default for a legacy message.
+    ProtectedHeaderAlgorithmOrLegacyDefault(CoseContentEncryptionAlgorithm),
 }
 
 impl TryFrom<&Algorithm> for CoseContentEncryptionAlgorithm {
@@ -45,29 +58,41 @@ impl TryFrom<&Algorithm> for CoseContentEncryptionAlgorithm {
     fn try_from(algorithm: &Algorithm) -> Result<Self, Self::Error> {
         match algorithm {
             Algorithm::Assigned(iana::Algorithm::A256GCM) => Ok(Self::Aes256Gcm),
+            Algorithm::PrivateUse(XAES_256_GCM) => Ok(Self::XAes256Gcm),
             Algorithm::PrivateUse(XCHACHA20_POLY1305) => Ok(Self::XChaCha20Poly1305),
             _ => Err(CryptoError::WrongKeyType),
         }
     }
 }
 
-/// Recovers the content-encryption algorithm declared in a message's protected header, falling back
-/// to `default_algorithm` when the header omits one.
+/// Resolves the content-encryption algorithm according to `policy`.
 ///
-/// Some legacy envelopes (notably early
-/// [`PasswordProtectedKeyEnvelope`](crate::safe::PasswordProtectedKeyEnvelope)s) were sealed
-/// without declaring the content-encryption algorithm in their protected header. Callers
-/// that must decrypt such messages pass the algorithm they expect as `default_algorithm`; passing
-/// `None` requires the header to declare it.
+/// Some legacy envelopes
+/// (notably early [`PasswordProtectedKeyEnvelope`](crate::safe::PasswordProtectedKeyEnvelope)s)
+/// were sealed without declaring the content-encryption algorithm in their protected header.
+/// Only the legacy-default policy permits a missing protected algorithm. An exact policy rejects a
+/// supported but different algorithm before the CEK is converted or used.
 fn algorithm_from_header(
     header: &Header,
-    default_algorithm: Option<CoseContentEncryptionAlgorithm>,
+    policy: CoseAlgorithmPolicy,
 ) -> Result<CoseContentEncryptionAlgorithm, CryptoError> {
-    match header.alg.as_ref() {
-        Some(algorithm) => CoseContentEncryptionAlgorithm::try_from(algorithm),
-        None => default_algorithm.ok_or(CryptoError::EncString(
+    let declared = header
+        .alg
+        .as_ref()
+        .map(CoseContentEncryptionAlgorithm::try_from)
+        .transpose()?;
+
+    match (policy, declared) {
+        (CoseAlgorithmPolicy::ProtectedHeaderAlgorithmOrLegacyDefault(default), None) => {
+            Ok(default)
+        }
+        (_, None) => Err(CryptoError::EncString(
             EncStringParseError::CoseMissingAlgorithm,
         )),
+        (CoseAlgorithmPolicy::Exactly(expected), Some(actual)) if actual != expected => {
+            Err(CryptoError::WrongKeyType)
+        }
+        (_, Some(actual)) => Ok(actual),
     }
 }
 
@@ -120,6 +145,16 @@ pub(crate) fn encrypt_cose(
                 cek,
             ))
         }
+        CoseContentEncryptionAlgorithm::XAes256Gcm => {
+            let cek: &<XAes256Gcm as Aead>::Key =
+                cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
+            Ok(XAes256Gcm::encrypt_cose(
+                builder,
+                protected_header,
+                &plaintext,
+                cek,
+            ))
+        }
         CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
             let cek: &<XChaCha20Poly1305 as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
@@ -133,26 +168,26 @@ pub(crate) fn encrypt_cose(
     }
 }
 
-/// Authenticates and decrypts a multi-recipient COSE [`CoseEncrypt`] message, dispatching to the
-/// [`CoseEncryptCipher`] indicated by the content-encryption algorithm declared in the message's
-/// protected header.
+/// Authenticates and decrypts a multi-recipient COSE [`CoseEncrypt`] message.
 ///
-/// When the protected header omits the content-encryption algorithm (some legacy envelopes),
-/// `default_algorithm` is used instead; pass `None` to require the header to declare it.
-///
-/// Returns an error if the algorithm cannot be determined or is unsupported, if `cek` has the wrong
-/// length for that cipher, or if authentication fails.
+/// `policy` controls whether the protected algorithm is required, must exactly match a typed CEK,
+/// or may fall back only for a legacy message. Returns an error for a missing, unsupported, or
+/// policy-mismatched algorithm, an invalid CEK length, or failed authentication.
 pub(crate) fn decrypt_cose(
     cose_encrypt: &CoseEncrypt,
-    default_algorithm: Option<CoseContentEncryptionAlgorithm>,
+    policy: CoseAlgorithmPolicy,
     cek: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
-    let decrypted = match algorithm_from_header(&cose_encrypt.protected.header, default_algorithm)?
-    {
+    let decrypted = match algorithm_from_header(&cose_encrypt.protected.header, policy)? {
         CoseContentEncryptionAlgorithm::Aes256Gcm => {
             let cek: &<Aes256Gcm as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Aes256Gcm::decrypt_cose(cose_encrypt, cek)?
+        }
+        CoseContentEncryptionAlgorithm::XAes256Gcm => {
+            let cek: &<XAes256Gcm as Aead>::Key =
+                cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
+            XAes256Gcm::decrypt_cose(cose_encrypt, cek)?
         }
         CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
             let cek: &<XChaCha20Poly1305 as Aead>::Key =
@@ -199,6 +234,16 @@ pub(crate) fn encrypt_cose0(
                 cek,
             ))
         }
+        CoseContentEncryptionAlgorithm::XAes256Gcm => {
+            let cek: &<XAes256Gcm as Aead>::Key =
+                cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
+            Ok(XAes256Gcm::encrypt_cose0(
+                builder,
+                protected_header,
+                &plaintext,
+                cek,
+            ))
+        }
         CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
             let cek: &<XChaCha20Poly1305 as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
@@ -212,26 +257,26 @@ pub(crate) fn encrypt_cose0(
     }
 }
 
-/// Authenticates and decrypts a single-recipient COSE [`CoseEncrypt0`] message, dispatching to the
-/// [`CoseEncryptCipher`] indicated by the content-encryption algorithm declared in the message's
-/// protected header.
+/// Authenticates and decrypts a single-recipient COSE [`CoseEncrypt0`] message.
 ///
-/// When the protected header omits the content-encryption algorithm (some legacy envelopes),
-/// `default_algorithm` is used instead; pass `None` to require the header to declare it.
-///
-/// Returns an error if the algorithm cannot be determined or is unsupported, if `cek` has the wrong
-/// length for that cipher, or if authentication fails.
+/// `policy` controls whether the protected algorithm is required, must exactly match a typed CEK,
+/// or may fall back only for a legacy message. Returns an error for a missing, unsupported, or
+/// policy-mismatched algorithm, an invalid CEK length, or failed authentication.
 pub(crate) fn decrypt_cose0(
     cose_encrypt0: &CoseEncrypt0,
-    default_algorithm: Option<CoseContentEncryptionAlgorithm>,
+    policy: CoseAlgorithmPolicy,
     cek: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
-    let decrypted = match algorithm_from_header(&cose_encrypt0.protected.header, default_algorithm)?
-    {
+    let decrypted = match algorithm_from_header(&cose_encrypt0.protected.header, policy)? {
         CoseContentEncryptionAlgorithm::Aes256Gcm => {
             let cek: &<Aes256Gcm as Aead>::Key =
                 cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
             Aes256Gcm::decrypt_cose0(cose_encrypt0, cek)?
+        }
+        CoseContentEncryptionAlgorithm::XAes256Gcm => {
+            let cek: &<XAes256Gcm as Aead>::Key =
+                cek.try_into().map_err(|_| CryptoError::InvalidKeyLen)?;
+            XAes256Gcm::decrypt_cose0(cose_encrypt0, cek)?
         }
         CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => {
             let cek: &<XChaCha20Poly1305 as Aead>::Key =
@@ -259,8 +304,8 @@ pub(crate) trait CoseEncryptCipher: Aead {
     /// the freshly generated nonce in the unprotected `iv` header.
     ///
     /// The caller is expected to have already configured the recipient(s) on the builder. A fresh
-    /// random nonce is generated on every call; combined with a per-message CEK this avoids nonce
-    /// reuse.
+    /// random nonce is generated on every call. Callers are required to use per-message keys or
+    /// otherwise satisfy the selected algorithm's requirements to avoid nonce reuse.
     fn encrypt_cose(
         builder: CoseEncryptBuilder,
         protected_header: Header,
@@ -271,7 +316,7 @@ pub(crate) trait CoseEncryptCipher: Aead {
     /// Authenticates and decrypts the ciphertext of `cose_encrypt` under `cek`, reading the nonce
     /// from the unprotected `iv` header.
     ///
-    /// Returns an error if the protected header does not declare
+    /// Returns an error if a present protected algorithm does not match
     /// [`COSE_ALGORITHM`](Self::COSE_ALGORITHM), the `iv` header is missing or malformed, the
     /// ciphertext is missing, or authentication fails (wrong key, tampered ciphertext, or wrong
     /// associated data).
@@ -368,6 +413,79 @@ impl CoseEncryptCipher for Aes256Gcm {
             || CryptoError::MissingField("ciphertext"),
             |data, aad| {
                 Aes256Gcm::decrypt(cek, &nonce, &Aes256GcmCiphertext::from(data.to_vec()), aad)
+            },
+        )
+    }
+}
+
+impl CoseEncryptCipher for XAes256Gcm {
+    const COSE_ALGORITHM: Algorithm = Algorithm::PrivateUse(XAES_256_GCM);
+
+    fn encrypt_cose(
+        builder: CoseEncryptBuilder,
+        mut protected_header: Header,
+        plaintext: &[u8],
+        cek: &Self::Key,
+    ) -> CoseEncrypt {
+        protected_header.alg = Some(Self::COSE_ALGORITHM);
+
+        let nonce = XAes256GcmNonce::make();
+        builder
+            .protected(protected_header)
+            .unprotected(HeaderBuilder::new().iv(nonce.as_bytes().to_vec()).build())
+            .create_ciphertext(plaintext, &[], |data, aad| {
+                XAes256Gcm::encrypt(cek, &nonce, data, aad)
+                    .encrypted_bytes()
+                    .to_vec()
+            })
+            .build()
+    }
+
+    fn decrypt_cose(cose_encrypt: &CoseEncrypt, cek: &Self::Key) -> Result<Vec<u8>, CryptoError> {
+        ensure_algorithm_matches::<Self>(&cose_encrypt.protected.header)?;
+
+        let nonce = XAes256GcmNonce::try_from(cose_encrypt)?;
+        cose_encrypt.decrypt_ciphertext(
+            &[],
+            || CryptoError::MissingField("ciphertext"),
+            |data, aad| {
+                XAes256Gcm::decrypt(cek, &nonce, &XAes256GcmCiphertext::from(data.to_vec()), aad)
+            },
+        )
+    }
+
+    fn encrypt_cose0(
+        builder: CoseEncrypt0Builder,
+        mut protected_header: Header,
+        plaintext: &[u8],
+        cek: &Self::Key,
+    ) -> CoseEncrypt0 {
+        protected_header.alg = Some(Self::COSE_ALGORITHM);
+
+        let nonce = XAes256GcmNonce::make();
+        builder
+            .protected(protected_header)
+            .unprotected(HeaderBuilder::new().iv(nonce.as_bytes().to_vec()).build())
+            .create_ciphertext(plaintext, &[], |data, aad| {
+                XAes256Gcm::encrypt(cek, &nonce, data, aad)
+                    .encrypted_bytes()
+                    .to_vec()
+            })
+            .build()
+    }
+
+    fn decrypt_cose0(
+        cose_encrypt0: &CoseEncrypt0,
+        cek: &Self::Key,
+    ) -> Result<Vec<u8>, CryptoError> {
+        ensure_algorithm_matches::<Self>(&cose_encrypt0.protected.header)?;
+
+        let nonce = XAes256GcmNonce::try_from(cose_encrypt0)?;
+        cose_encrypt0.decrypt_ciphertext(
+            &[],
+            || CryptoError::MissingField("ciphertext"),
+            |data, aad| {
+                XAes256Gcm::decrypt(cek, &nonce, &XAes256GcmCiphertext::from(data.to_vec()), aad)
             },
         )
     }
@@ -546,6 +664,87 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     Ok((decrypted_message, content_format))
 }
 
+/// Encrypts plaintext with XAES-256-GCM and returns a typed COSE Encrypt0 message.
+pub(crate) fn encrypt_xaes256_gcm(
+    plaintext: &[u8],
+    key: &XAes256GcmKey,
+    content_format: ContentFormat,
+) -> Result<CoseEncrypt0Bytes, CryptoError> {
+    let mut plaintext = plaintext.to_vec();
+    let mut protected_header: Header = HeaderBuilder::from(content_format)
+        .key_id(key.key_id.as_slice().to_vec())
+        .build();
+    protected_header.alg = Some(Algorithm::PrivateUse(XAES_256_GCM));
+
+    // GCM as a stream cipher does not have a block size. We want to hide exact
+    // input plaintext length, and pad the plaintext size, if the input is a string.
+    if should_pad_content(&content_format) {
+        let min_length = TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
+    }
+
+    let nonce = XAes256GcmNonce::make();
+    CoseEncrypt0Builder::new()
+        .protected(protected_header)
+        .unprotected(HeaderBuilder::new().iv(nonce.as_bytes().to_vec()).build())
+        .create_ciphertext(&plaintext, &[], |data, aad| {
+            XAes256Gcm::encrypt(&(*key.enc_key).into(), &nonce, data, aad)
+                .encrypted_bytes()
+                .to_vec()
+        })
+        .build()
+        .to_vec()
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
+        .map(CoseEncrypt0Bytes::from)
+}
+
+/// Decrypts a typed COSE Encrypt0 message with an XAES-256-GCM key.
+pub(crate) fn decrypt_xaes256_gcm(
+    message: &CoseEncrypt0Bytes,
+    key: &XAes256GcmKey,
+) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
+    let msg = CoseEncrypt0::from_slice(message.as_ref())
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+
+    let Some(ref algorithm) = msg.protected.header.alg else {
+        return Err(CryptoError::EncString(
+            EncStringParseError::CoseMissingAlgorithm,
+        ));
+    };
+    if *algorithm != Algorithm::PrivateUse(XAES_256_GCM) {
+        return Err(CryptoError::WrongKeyType);
+    }
+
+    let content_format = ContentFormat::try_from(&msg.protected.header)
+        .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
+    if key.key_id.as_slice() != msg.protected.header.key_id {
+        return Err(CryptoError::WrongCoseKeyId);
+    }
+
+    let nonce = XAes256GcmNonce::try_from(&msg)?;
+    let decrypted = msg.decrypt_ciphertext(
+        &[],
+        || CryptoError::MissingField("ciphertext"),
+        |data, aad| {
+            XAes256Gcm::decrypt(
+                &(*key.enc_key).into(),
+                &nonce,
+                &XAes256GcmCiphertext::from(data.to_vec()),
+                aad,
+            )
+        },
+    )?;
+
+    if should_pad_content(&content_format) {
+        return Ok((
+            crate::keys::utils::unpad_bytes(&decrypted)?.to_vec(),
+            content_format,
+        ));
+    }
+
+    Ok((decrypted, content_format))
+}
+
 #[cfg(test)]
 mod tests {
     use coset::{CoseEncrypt0Builder, CoseEncryptBuilder, CoseRecipientBuilder, HeaderBuilder};
@@ -573,11 +772,25 @@ mod tests {
         13, 36, 123, 53, 12, 31, 191, 40, 13, 175,
     ];
 
-    fn algorithms() -> [CoseContentEncryptionAlgorithm; 2] {
+    fn algorithms() -> [CoseContentEncryptionAlgorithm; 3] {
         [
             CoseContentEncryptionAlgorithm::Aes256Gcm,
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
         ]
+    }
+
+    fn make_xaes_key() -> XAes256GcmKey {
+        XAes256GcmKey {
+            key_id: KeyId::from(KEY_ID),
+            enc_key: Box::pin(Array::from(KEY_DATA)),
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
+        }
     }
 
     fn make_xchacha_key() -> XChaCha20Poly1305Key {
@@ -606,7 +819,8 @@ mod tests {
                 &CEK,
             )
             .unwrap();
-            let decrypted = decrypt_cose(&cose_encrypt, None, &CEK).unwrap();
+            let decrypted =
+                decrypt_cose(&cose_encrypt, CoseAlgorithmPolicy::Exactly(algorithm), &CEK).unwrap();
             assert_eq!(decrypted, PLAINTEXT);
         }
     }
@@ -622,9 +836,151 @@ mod tests {
                 &CEK,
             )
             .unwrap();
-            let decrypted = decrypt_cose0(&cose_encrypt0, None, &CEK).unwrap();
+            let decrypted = decrypt_cose0(
+                &cose_encrypt0,
+                CoseAlgorithmPolicy::Exactly(algorithm),
+                &CEK,
+            )
+            .unwrap();
             assert_eq!(decrypted, PLAINTEXT);
         }
+    }
+
+    #[test]
+    fn test_decrypt_cose_algorithm_policies() {
+        let builder =
+            || CoseEncryptBuilder::new().add_recipient(CoseRecipientBuilder::new().build());
+        let message = encrypt_cose(
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            builder(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+
+        assert_eq!(
+            decrypt_cose(
+                &message,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XChaCha20Poly1305,),
+                &CEK,
+            )
+            .unwrap(),
+            PLAINTEXT
+        );
+        assert!(matches!(
+            decrypt_cose(
+                &message,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256Gcm),
+                &CEK,
+            ),
+            Err(CryptoError::WrongKeyType)
+        ));
+        assert_eq!(
+            decrypt_cose(
+                &message,
+                CoseAlgorithmPolicy::ProtectedHeaderAlgorithmOrLegacyDefault(
+                    CoseContentEncryptionAlgorithm::Aes256Gcm,
+                ),
+                &CEK,
+            )
+            .unwrap(),
+            PLAINTEXT
+        );
+
+        let missing_algorithm = builder()
+            .protected(HeaderBuilder::new().build())
+            .create_ciphertext(PLAINTEXT, &[], |data, _| data.to_vec())
+            .build();
+        for policy in [
+            CoseAlgorithmPolicy::RequireProtectedHeaderAlgorithm,
+            CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+        ] {
+            assert!(matches!(
+                decrypt_cose(&missing_algorithm, policy, &CEK),
+                Err(CryptoError::EncString(
+                    EncStringParseError::CoseMissingAlgorithm
+                ))
+            ));
+        }
+
+        let nonce = XChaCha20Poly1305Nonce::make();
+        let legacy_message = builder()
+            .protected(HeaderBuilder::new().build())
+            .unprotected(HeaderBuilder::new().iv(nonce.as_bytes().to_vec()).build())
+            .create_ciphertext(PLAINTEXT, &[], |data, aad| {
+                XChaCha20Poly1305::encrypt(&CEK, &nonce, data, aad)
+                    .encrypted_bytes()
+                    .to_vec()
+            })
+            .build();
+        assert_eq!(
+            decrypt_cose(
+                &legacy_message,
+                CoseAlgorithmPolicy::ProtectedHeaderAlgorithmOrLegacyDefault(
+                    CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+                ),
+                &CEK,
+            )
+            .unwrap(),
+            PLAINTEXT
+        );
+    }
+
+    #[test]
+    fn test_decrypt_cose0_algorithm_policies() {
+        let message = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+
+        assert_eq!(
+            decrypt_cose0(
+                &message,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XChaCha20Poly1305,),
+                &CEK,
+            )
+            .unwrap(),
+            PLAINTEXT
+        );
+        assert!(matches!(
+            decrypt_cose0(
+                &message,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::Aes256Gcm),
+                &CEK,
+            ),
+            Err(CryptoError::WrongKeyType)
+        ));
+        assert_eq!(
+            decrypt_cose0(
+                &message,
+                CoseAlgorithmPolicy::ProtectedHeaderAlgorithmOrLegacyDefault(
+                    CoseContentEncryptionAlgorithm::Aes256Gcm,
+                ),
+                &CEK,
+            )
+            .unwrap(),
+            PLAINTEXT
+        );
+
+        let missing_algorithm = CoseEncrypt0Builder::new()
+            .protected(HeaderBuilder::new().build())
+            .create_ciphertext(PLAINTEXT, &[], |data, _| data.to_vec())
+            .build();
+        assert!(matches!(
+            decrypt_cose0(
+                &missing_algorithm,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+                &CEK,
+            ),
+            Err(CryptoError::EncString(
+                EncStringParseError::CoseMissingAlgorithm
+            ))
+        ));
     }
 
     #[test]
@@ -638,7 +994,102 @@ mod tests {
         )
         .unwrap();
         let wrong_cek = [0u8; 32];
-        assert!(decrypt_cose0(&cose_encrypt0, None, &wrong_cek).is_err());
+        assert!(
+            decrypt_cose0(
+                &cose_encrypt0,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+                &wrong_cek
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_decrypt_xaes256_gcm_wrong_key_fails() {
+        let cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            decrypt_cose0(
+                &cose_encrypt0,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XAes256Gcm),
+                &[0u8; 32]
+            ),
+            Err(CryptoError::KeyDecrypt)
+        ));
+    }
+
+    #[test]
+    fn test_xaes256_gcm_emits_24_byte_nonce() {
+        let cose_encrypt = encrypt_cose(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncryptBuilder::new().add_recipient(CoseRecipientBuilder::new().build()),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+        let cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+
+        assert_eq!(cose_encrypt.unprotected.iv.len(), 24);
+        assert_eq!(cose_encrypt0.unprotected.iv.len(), 24);
+    }
+
+    #[test]
+    fn test_decrypt_xaes256_gcm_wrong_nonce_fails() {
+        let mut cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+        cose_encrypt0.unprotected.iv[0] ^= 1;
+
+        assert!(matches!(
+            decrypt_cose0(
+                &cose_encrypt0,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XAes256Gcm),
+                &CEK
+            ),
+            Err(CryptoError::KeyDecrypt)
+        ));
+    }
+
+    #[test]
+    fn test_decrypt_xaes256_gcm_malformed_nonce_fails() {
+        let mut cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseEncrypt0Builder::new(),
+            HeaderBuilder::new().build(),
+            PLAINTEXT,
+            &CEK,
+        )
+        .unwrap();
+        cose_encrypt0.unprotected.iv.pop();
+
+        assert!(matches!(
+            decrypt_cose0(
+                &cose_encrypt0,
+                CoseAlgorithmPolicy::Exactly(CoseContentEncryptionAlgorithm::XAes256Gcm),
+                &CEK
+            ),
+            Err(CryptoError::InvalidNonceLength)
+        ));
     }
 
     #[test]
@@ -649,7 +1100,11 @@ mod tests {
             .create_ciphertext(PLAINTEXT, &[], |data, _| data.to_vec())
             .build();
         assert!(matches!(
-            decrypt_cose0(&cose_encrypt0, None, &CEK),
+            decrypt_cose0(
+                &cose_encrypt0,
+                CoseAlgorithmPolicy::RequireProtectedHeaderAlgorithm,
+                &CEK
+            ),
             Err(CryptoError::EncString(
                 EncStringParseError::CoseMissingAlgorithm
             ))
@@ -674,7 +1129,9 @@ mod tests {
 
         let decrypted = decrypt_cose0(
             &cose_encrypt0,
-            Some(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+            CoseAlgorithmPolicy::ProtectedHeaderAlgorithmOrLegacyDefault(
+                CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            ),
             &CEK,
         )
         .unwrap();
@@ -795,6 +1252,156 @@ mod tests {
         assert!(matches!(
             decrypt_xchacha20_poly1305(&serialized_message, &key),
             Err(CryptoError::WrongKeyType)
+        ));
+    }
+
+    fn xaes_message(content_format: ContentFormat) -> CoseEncrypt0 {
+        let encoded =
+            encrypt_xaes256_gcm(TEST_VECTOR_PLAINTEXT, &make_xaes_key(), content_format).unwrap();
+        CoseEncrypt0::from_slice(encoded.as_ref()).unwrap()
+    }
+
+    fn rebuild_xaes_message(message: CoseEncrypt0, protected: Header) -> CoseEncrypt0Bytes {
+        CoseEncrypt0Builder::new()
+            .protected(protected)
+            .unprotected(message.unprotected)
+            .ciphertext(message.ciphertext.unwrap())
+            .build()
+            .to_vec()
+            .unwrap()
+            .into()
+    }
+
+    #[test]
+    fn test_xaes256_gcm_roundtrip_content_formats() {
+        for content_format in [
+            ContentFormat::OctetStream,
+            ContentFormat::Utf8,
+            ContentFormat::Pkcs8PrivateKey,
+            ContentFormat::CoseKey,
+        ] {
+            let encrypted =
+                encrypt_xaes256_gcm(TEST_VECTOR_PLAINTEXT, &make_xaes_key(), content_format)
+                    .unwrap();
+            assert_eq!(
+                decrypt_xaes256_gcm(&encrypted, &make_xaes_key()).unwrap(),
+                (TEST_VECTOR_PLAINTEXT.to_vec(), content_format)
+            );
+        }
+    }
+
+    #[test]
+    fn test_xaes256_gcm_key_id_and_authentication_failures() {
+        let encrypted = encrypt_xaes256_gcm(
+            TEST_VECTOR_PLAINTEXT,
+            &make_xaes_key(),
+            ContentFormat::OctetStream,
+        )
+        .unwrap();
+
+        let mut wrong_bytes = make_xaes_key();
+        wrong_bytes.enc_key[0] ^= 1;
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &wrong_bytes),
+            Err(CryptoError::KeyDecrypt)
+        ));
+
+        let mut wrong_id = make_xaes_key();
+        wrong_id.key_id = KeyId::from([1; 16]);
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &wrong_id),
+            Err(CryptoError::WrongCoseKeyId)
+        ));
+    }
+
+    #[test]
+    fn test_xaes256_gcm_rejects_invalid_protected_headers() {
+        let key = make_xaes_key();
+
+        let mut message = xaes_message(ContentFormat::OctetStream);
+        message.protected.header.alg = Some(Algorithm::Assigned(iana::Algorithm::A256GCM));
+        let encrypted = rebuild_xaes_message(message.clone(), message.protected.header.clone());
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::WrongKeyType)
+        ));
+
+        message.protected.header.alg = None;
+        let encrypted = rebuild_xaes_message(message.clone(), message.protected.header.clone());
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::EncString(
+                EncStringParseError::CoseMissingAlgorithm
+            ))
+        ));
+
+        for content_type in [
+            None,
+            Some(coset::ContentType::Text("application/unsupported".into())),
+        ] {
+            message.protected.header.alg = Some(Algorithm::PrivateUse(XAES_256_GCM));
+            message.protected.header.content_type = content_type;
+            let encrypted = rebuild_xaes_message(message.clone(), message.protected.header.clone());
+            assert!(matches!(
+                decrypt_xaes256_gcm(&encrypted, &key),
+                Err(CryptoError::EncString(
+                    EncStringParseError::CoseMissingContentType
+                ))
+            ));
+        }
+    }
+
+    #[test]
+    fn test_xaes256_gcm_rejects_missing_or_malformed_fields() {
+        let key = make_xaes_key();
+        let mut message = xaes_message(ContentFormat::OctetStream);
+        message.ciphertext = None;
+        let encrypted = message.to_vec().unwrap().into();
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::MissingField("ciphertext"))
+        ));
+
+        let mut message = xaes_message(ContentFormat::OctetStream);
+        message.unprotected.iv.pop();
+        let encrypted = message.to_vec().unwrap().into();
+        assert!(matches!(
+            decrypt_xaes256_gcm(&encrypted, &key),
+            Err(CryptoError::InvalidNonceLength)
+        ));
+
+        assert!(matches!(
+            decrypt_xaes256_gcm(&CoseEncrypt0Bytes::from([0xff].as_slice()), &key),
+            Err(CryptoError::EncString(
+                EncStringParseError::InvalidCoseEncoding(_)
+            ))
+        ));
+    }
+
+    #[test]
+    fn test_xaes256_gcm_rejects_invalid_padding() {
+        let key = make_xaes_key();
+        let nonce = XAes256GcmNonce::make();
+        let mut protected = HeaderBuilder::from(ContentFormat::Utf8)
+            .key_id(KEY_ID.to_vec())
+            .build();
+        protected.alg = Some(Algorithm::PrivateUse(XAES_256_GCM));
+        let message = CoseEncrypt0Builder::new()
+            .protected(protected)
+            .unprotected(HeaderBuilder::new().iv(nonce.as_bytes().to_vec()).build())
+            .create_ciphertext(&[0], &[], |data, aad| {
+                XAes256Gcm::encrypt(&KEY_DATA, &nonce, data, aad)
+                    .encrypted_bytes()
+                    .to_vec()
+            })
+            .build()
+            .to_vec()
+            .unwrap()
+            .into();
+
+        assert!(matches!(
+            decrypt_xaes256_gcm(&message, &key),
+            Err(CryptoError::InvalidPadding)
         ));
     }
 }

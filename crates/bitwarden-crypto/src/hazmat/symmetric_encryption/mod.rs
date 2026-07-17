@@ -2,7 +2,8 @@
 //!
 //! Low-level ("hazmat") authenticated symmetric ciphers, exposed behind two traits:
 //! - [`Aead`]: authenticated encryption *with* associated data. Implemented by AES-256-GCM
-//!   ([`Aes256Gcm`]) and XChaCha20-Poly1305 ([`XChaCha20Poly1305`]).
+//!   ([`Aes256Gcm`]), XAES-256-GCM ([`XAes256Gcm`]), and XChaCha20-Poly1305
+//!   ([`XChaCha20Poly1305`]).
 //!
 //! These are dangerous primitives that operate directly on raw key material. In most cases you
 //! should use the higher-level [`safe`](crate::safe) module (e.g. the password-protected key
@@ -10,10 +11,13 @@
 
 use crate::CryptoError;
 pub(crate) mod aes_gcm;
+pub(crate) mod xaes_256_gcm;
 pub(crate) mod xchacha20;
 
 #[allow(unused_imports)]
 pub(crate) use aes_gcm::Aes256Gcm;
+#[allow(unused_imports)]
+pub(crate) use xaes_256_gcm::XAes256Gcm;
 #[allow(unused_imports)]
 pub(crate) use xchacha20::XChaCha20Poly1305;
 

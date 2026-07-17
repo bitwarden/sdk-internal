@@ -110,7 +110,7 @@ pub(crate) async fn reinit_user_crypto(
                     .unwrap_v2(SymmetricKeySlotId::User, &mut ctx)
                     .map_err(|_| ReinitUserCryptoError::InvalidUpgradeToken)?
             }
-            SymmetricKeyAlgorithm::XChaCha20Poly1305 => {
+            SymmetricKeyAlgorithm::XChaCha20Poly1305 | SymmetricKeyAlgorithm::XAes256Gcm => {
                 // If the active user key is already V2, then the upgrade token should not be
                 // applied. We return here so calling reinit_user_crypto with the
                 // same sync payload after a successful V2 upgrade is a no-op.
@@ -189,6 +189,20 @@ mod tests {
             .register_bridge(Box::new(InMemoryStateBridge::default()));
     }
 
+    /// Make an XAES-256-GCM user key until normal V2 account initialization supports it.
+    fn make_xaes_user_key(client: &Client) -> SymmetricCryptoKey {
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        #[allow(deprecated)]
+        let user_key = ctx
+            .dangerous_get_symmetric_key(local_key_id)
+            .unwrap()
+            .clone();
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+            .unwrap();
+        user_key
+    }
+
     /// Assert that the client's active user key is V2 and matches `expected_v2_key`.
     fn assert_active_user_key_is_v2(client: &Client, expected_v2_key: &SymmetricCryptoKey) {
         let key_store = client.internal.get_key_store();
@@ -196,9 +210,11 @@ mod tests {
         let algorithm = ctx
             .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
             .unwrap();
-        assert_eq!(
-            algorithm,
-            SymmetricKeyAlgorithm::XChaCha20Poly1305,
+        assert!(
+            matches!(
+                algorithm,
+                SymmetricKeyAlgorithm::XChaCha20Poly1305 | SymmetricKeyAlgorithm::XAes256Gcm
+            ),
             "user-slot algorithm must be V2 after upgrade"
         );
 
@@ -268,6 +284,35 @@ mod tests {
         let expected_v2_key =
             SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
         assert_active_user_key_is_v2(&client, &expected_v2_key);
+
+        let upgrade_token = client.internal.state_bridge.get_v2_upgrade_token().await;
+        assert!(
+            upgrade_token.is_none(),
+            "reinit on an already-V2 user must not set the upgrade token"
+        );
+    }
+
+    #[tokio::test]
+    async fn reinit_user_crypto_is_noop_when_active_user_key_is_xaes256gcm() {
+        let client = Client::new_test(None);
+        // TODO: Use normal V2 test-account initialization once it supports XAES-256-GCM.
+        let expected_user_key = make_xaes_user_key(&client);
+        register_in_memory_bridge(&client);
+
+        let result = reinit_user_crypto(
+            &client,
+            ReinitUserCryptoRequest {
+                account_cryptographic_state: test_vector_v2_account_state(),
+                upgrade_token: make_mock_upgrade_token(),
+            },
+        )
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "reinit with an XAES-256-GCM user key must be a no-op and return Ok, got {result:?}"
+        );
+        assert_active_user_key_is_v2(&client, &expected_user_key);
 
         let upgrade_token = client.internal.state_bridge.get_v2_upgrade_token().await;
         assert!(

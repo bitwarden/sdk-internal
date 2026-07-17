@@ -13,7 +13,9 @@ use crate::{
     EncodingError, KeyId, KeySlotIds, SerializedMessage, SymmetricCryptoKey,
     cose::{
         ContentNamespace, SafeObjectNamespace,
-        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
+        symmetric::{
+            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0,
+        },
     },
     safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     utils::pad_bytes,
@@ -167,9 +169,9 @@ impl DataEnvelope {
             .get_symmetric_key(cek_keyslot)
             .map_err(|_| DataEnvelopeError::KeyStore)?;
 
-        // Both AES-256-GCM (current) and XChaCha20-Poly1305 (legacy) content-encryption keys are
-        // accepted so existing envelopes keep decrypting. The actual algorithm is recovered from
-        // the envelope's protected header during decryption.
+        // AES-256-GCM (current), XAES-256-GCM, and XChaCha20-Poly1305 (legacy)
+        // content-encryption keys are accepted. The typed key's algorithm must match the algorithm
+        // in the envelope's protected header.
         let view = cek
             .as_cose_key_view()
             .ok_or(DataEnvelopeError::UnsupportedContentFormat)?;
@@ -193,7 +195,7 @@ impl DataEnvelope {
     }
 
     /// Unseals the data from the encrypted blob using the provided content-encryption-key, which
-    /// may be either an AES-256-GCM or a legacy XChaCha20-Poly1305 key.
+    /// may be an AES-256-GCM, XAES-256-GCM, or legacy XChaCha20-Poly1305 key.
     fn unseal_ref<T>(
         &self,
         namespace: DataEnvelopeNamespace,
@@ -224,11 +226,14 @@ impl DataEnvelope {
             return Err(DataEnvelopeError::UnsupportedContentFormat);
         }
 
-        // Decrypt the message. `decrypt_cose0` recovers the content-encryption algorithm from the
-        // protected header (AES-256-GCM for new envelopes, XChaCha20-Poly1305 for legacy ones), so
-        // no decryption fallback is needed.
-        let decrypted_message = decrypt_cose0(&msg, None, cek.key_bytes())
-            .map_err(|_| DataEnvelopeError::Decryption)?;
+        // Bind the protected content-encryption algorithm to the independently typed CEK before
+        // attempting decryption. DataEnvelope has no legacy format that omits the algorithm.
+        let decrypted_message = decrypt_cose0(
+            &msg,
+            CoseAlgorithmPolicy::Exactly(cek.algorithm()),
+            cek.key_bytes(),
+        )
+        .map_err(|_| DataEnvelopeError::Decryption)?;
 
         let unpadded_message =
             unpad_cbor(&decrypted_message).map_err(|_| DataEnvelopeError::Decryption)?;

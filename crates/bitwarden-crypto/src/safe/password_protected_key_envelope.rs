@@ -33,7 +33,9 @@ use crate::{
         ALG_ARGON2ID13, ALG_PBKDF2_SHA256, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM,
         ARGON2_SALT, ContentNamespace, CoseExtractError, PBKDF2_ITERATIONS, PBKDF2_SALT,
         SafeObjectNamespace, extract_bytes, extract_integer,
-        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
+        symmetric::{
+            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose,
+        },
     },
     keys::KeyId,
     safe::{
@@ -208,7 +210,9 @@ impl PasswordProtectedKeyEnvelope {
         // AES-256-GCM envelopes) dispatch on the protected header regardless of this fallback.
         let key_bytes = decrypt_cose(
             &self.cose_encrypt,
-            Some(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+            CoseAlgorithmPolicy::ProtectedHeaderAlgorithmOrLegacyDefault(
+                CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            ),
             &envelope_key,
         )
         .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
