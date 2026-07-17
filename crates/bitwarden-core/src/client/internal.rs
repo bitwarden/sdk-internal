@@ -280,7 +280,10 @@ impl InternalClient {
                     .unwrap_v2(user_key_id, &mut ctx)
                     .map_err(|_| EncryptionSettingsError::InvalidUpgradeToken)?
             }
-            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), Some(_)) => {
+            (
+                SymmetricCryptoKey::XChaCha20Poly1305Key(_) | SymmetricCryptoKey::XAes256GcmKey(_),
+                Some(_),
+            ) => {
                 debug!("V2 user key already present, ignoring upgrade token");
                 user_key_id
             }
