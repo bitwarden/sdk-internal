@@ -18,7 +18,7 @@ use crate::{
         },
     },
     safe::{
-        ContentEncryptionKey, KeyEncryptionKey,
+        ContentEncryptionKey,
         helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     },
     utils::pad_bytes,
@@ -103,10 +103,6 @@ impl DataEnvelope {
     where
         T: Serialize + SealableVersionedData,
     {
-        if !KeyEncryptionKey::is_key_algorithm_valid(ctx, *wrapping_key) {
-            return Err(DataEnvelopeError::InvalidWrappingKeyAlgorithm);
-        }
-
         let (envelope, cek) = Self::seal(data, ctx)?;
 
         let wrapped_cek = ctx
@@ -554,7 +550,7 @@ mod tests {
     use serde::Deserialize;
 
     use super::*;
-    use crate::{SymmetricKeyAlgorithm, traits::tests::TestIds};
+    use crate::{SymmetricKeyAlgorithm, safe::KeyEncryptionKey, traits::tests::TestIds};
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestDataV1 {
