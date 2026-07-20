@@ -65,6 +65,8 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
+        // We will add support for AES-256-CBC-HMAC in the future, to migrate to safe quicker.
+        #[allow(clippy::single_element_loop)]
         for algorithm in [SymmetricKeyAlgorithm::Aes256Gcm] {
             let key_id = ctx.make_symmetric_key(algorithm);
             assert!(ContentEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
