@@ -318,7 +318,7 @@ mod tests {
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = key_store.context_mut();
-            let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             let _ = ctx.persist_symmetric_key(key, SymmetricKeySlotId::User);
         }
 

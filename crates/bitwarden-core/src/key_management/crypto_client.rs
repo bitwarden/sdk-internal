@@ -437,7 +437,7 @@ mod tests {
         // Add a fresh V2 key to the client's keystore and build a token linking it to the V1 key
         let (token, expected_v2_b64) = {
             let mut ctx = client.internal.get_key_store().context_mut();
-            let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             #[allow(deprecated)]
             let v2_key = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap().clone();
             let token = V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap();
@@ -457,7 +457,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let wrong_v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(wrong_v1_id, v2_id, &ctx).unwrap()
         };
 
@@ -477,7 +477,7 @@ mod tests {
         let result = client.crypto().get_upgraded_user_key(None).unwrap();
         let result_key = SymmetricCryptoKey::try_from(result).unwrap();
         assert!(
-            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            matches!(result_key, SymmetricCryptoKey::XAes256GcmKey(_)),
             "V2 user should receive a V2 key"
         );
     }
@@ -491,7 +491,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(v1_id, v2_id, &ctx).unwrap()
         };
 

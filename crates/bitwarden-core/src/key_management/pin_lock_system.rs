@@ -466,7 +466,7 @@ mod tests {
         {
             let key_store = client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
-            let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
                 .expect("persisting user key should succeed");
         }
@@ -787,7 +787,7 @@ mod tests {
             let mut ctx = key_store.context_mut();
 
             let v1_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
             let envelope = PasswordProtectedKeyEnvelope::seal(
                 v1_local,
@@ -1037,7 +1037,7 @@ mod tests {
         // Replace the persistent envelope with one sealed under a *different* V2 key.
         let mismatched_envelope = {
             let mut ctx = client.internal.get_key_store().context_mut();
-            let other_v2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let other_v2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             PasswordProtectedKeyEnvelope::seal(
                 other_v2,
                 "1234",
@@ -1065,7 +1065,7 @@ mod tests {
         let v2_envelope = {
             let key_store = client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
-            let v2_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             PasswordProtectedKeyEnvelope::seal(
                 v2_local,
                 "1234",
@@ -1133,7 +1133,7 @@ mod tests {
             let key_store = bitwarden_crypto::KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let v1 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(v1, v2, &ctx).expect("unrelated token created")
         };
 

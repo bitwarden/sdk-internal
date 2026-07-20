@@ -160,7 +160,7 @@ mod tests {
             .expect("unwrap with v1 user key should succeed");
 
         // Rewrap
-        let new_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         ctx.persist_symmetric_key(new_local, SymmetricKeySlotId::User)
             .expect("persisting new user key should succeed");
         let wrapped_new = wrapped_v1_local_key

@@ -38,8 +38,8 @@ impl TryFrom<wasm_bindgen::JsValue> for V2UpgradeToken {
 
 impl V2UpgradeToken {
     /// Creates a new [`V2UpgradeToken`] from `v1_key_id` (Aes256CbcHmac) and `v2_key_id`
-    /// (XChaCha20Poly1305) in the KeyStore. Type-checks both keys, then wraps V1 with V2 and
-    /// V2 with V1.
+    /// (XAES-256-GCM) in the KeyStore. Type-checks both keys, then wraps V1
+    /// with V2 and V2 with V1.
     #[bitwarden_logging::instrument(fields(v1_key_id = ?v1_key_id, v2_key_id = ?v2_key_id))]
     pub fn create<Ids: KeySlotIds>(
         v1_key_id: Ids::Symmetric,
@@ -55,11 +55,11 @@ impl V2UpgradeToken {
             return Err(V2UpgradeTokenError::WrongKeyType);
         }
 
-        if ctx
-            .get_symmetric_key_algorithm(v2_key_id)
-            .map_err(|_| V2UpgradeTokenError::KeyMissing)?
-            != SymmetricKeyAlgorithm::XChaCha20Poly1305
-        {
+        if !matches!(
+            ctx.get_symmetric_key_algorithm(v2_key_id)
+                .map_err(|_| V2UpgradeTokenError::KeyMissing)?,
+            SymmetricKeyAlgorithm::XAes256Gcm
+        ) {
             return Err(V2UpgradeTokenError::WrongKeyType);
         }
 
@@ -221,7 +221,7 @@ mod tests {
 
         // Create V1 and V2 keys
         let v1_key_id = ctx.generate_symmetric_key();
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         // Create token
         let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
@@ -252,7 +252,7 @@ mod tests {
 
         // Create V1 and V2 keys
         let v1_key_id = ctx.generate_symmetric_key();
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         // Create token
         let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
@@ -301,7 +301,7 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
             .expect("Token creation should succeed");
@@ -353,7 +353,7 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let mut response = build_response_model(v1_key_id, v2_key_id, &ctx);
         response.wrapped_user_key2 = None;
@@ -370,7 +370,7 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
             .expect("Token creation should succeed");
@@ -398,7 +398,7 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
             .expect("Token creation should succeed");

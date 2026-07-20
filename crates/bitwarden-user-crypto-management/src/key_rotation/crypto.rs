@@ -162,7 +162,7 @@ mod tests {
         let (old_user_key_id, public_key, wrapped_state) = make_v1_wrapped_state(&mut ctx);
 
         // Create a new user key for rotation
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let rotated_state = rotate_account_cryptographic_state(
             &wrapped_state,
@@ -210,7 +210,7 @@ mod tests {
             .expect("verifying key should be obtainable");
 
         // Create a new user key for rotation
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let rotated_state = rotate_account_cryptographic_state(
             &wrapped_state,
@@ -240,7 +240,7 @@ mod tests {
         let (old_user_key_id, public_key, wrapped_state) = make_v1_wrapped_state(&mut ctx);
 
         // Create a new user key for rotation
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let model = rotate_account_cryptographic_state_to_request_model(
             &wrapped_state,
@@ -334,7 +334,7 @@ mod tests {
             .expect("verifying key should be obtainable");
 
         // Create a new user key for rotation
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let model = rotate_account_cryptographic_state_to_request_model(
             &wrapped_state,
