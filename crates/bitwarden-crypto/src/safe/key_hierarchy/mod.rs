@@ -2,5 +2,5 @@
 
 mod key_encryption_key;
 pub use key_encryption_key::*;
-mod data_encryption_key;
-pub use data_encryption_key::*;
+mod content_encryption_key;
+pub use content_encryption_key::*;
