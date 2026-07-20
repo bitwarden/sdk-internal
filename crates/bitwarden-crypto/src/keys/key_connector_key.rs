@@ -8,7 +8,7 @@ use typenum::U32;
 
 use crate::{
     BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, KeySlotIds, KeyStoreContext,
-    SymmetricCryptoKey, keys::utils::stretch_key,
+    SymmetricCryptoKey, hazmat::symmetric_encryption::Aes256Cbc, keys::utils::stretch_key,
 };
 
 /// Key connector key, used to protect the user key.
@@ -116,8 +116,7 @@ impl KeyConnectorKey {
             // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
             // decrypting these old keys.
             EncString::Aes256Cbc_B64 { iv, ref data } => {
-                let legacy_key = self.0.clone();
-                crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)
+                Aes256Cbc::decrypt(&iv, data, &(*self.0).into())
                     .map_err(|_| CryptoError::Decrypt)?
             }
             EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
