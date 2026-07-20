@@ -1,13 +1,13 @@
 use crate::{KeySlotIds, KeyStoreContext, SymmetricKeyAlgorithm};
 
-/// A data-encryption-key (DEK) - alternatively content-encryption-key (CEK) - a single-use
+/// A content-encryption-key (CEK) - alternatively data-encryption-key (DEK) - a single-use
 /// symmetric key that encrypts content directly. It SHALL NOT be re-used for multiple encrypt
 /// operations.
 ///
 /// See the `key_hierarchy` module documentation for its place in the key hierarchy.
-pub struct DataEncryptionKey;
+pub struct ContentEncryptionKey;
 
-impl DataEncryptionKey {
+impl ContentEncryptionKey {
     /// Generates a fresh data-encryption-key, stores it in the key store context, and returns its
     /// key id.
     pub fn make<Ids: KeySlotIds>(ctx: &mut KeyStoreContext<Ids>) -> Ids::Symmetric {
@@ -43,7 +43,7 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let dek_id = DataEncryptionKey::make(&mut ctx);
+        let dek_id = ContentEncryptionKey::make(&mut ctx);
 
         let key = ctx.get_symmetric_key(dek_id).expect("DEK should be stored");
         assert!(matches!(key, SymmetricCryptoKey::Aes256GcmKey(_)));
@@ -54,8 +54,8 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let first = DataEncryptionKey::make(&mut ctx);
-        let second = DataEncryptionKey::make(&mut ctx);
+        let first = ContentEncryptionKey::make(&mut ctx);
+        let second = ContentEncryptionKey::make(&mut ctx);
 
         ctx.assert_symmetric_keys_not_equal(first, second);
     }
@@ -67,7 +67,7 @@ mod tests {
 
         for algorithm in [SymmetricKeyAlgorithm::Aes256Gcm] {
             let key_id = ctx.make_symmetric_key(algorithm);
-            assert!(DataEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
+            assert!(ContentEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
         }
     }
 
@@ -82,7 +82,7 @@ mod tests {
             SymmetricKeyAlgorithm::Aes256CbcHmac,
         ] {
             let key_id = ctx.make_symmetric_key(algorithm);
-            assert!(!DataEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
+            assert!(!ContentEncryptionKey::is_key_algorithm_valid(&ctx, key_id));
         }
     }
 }

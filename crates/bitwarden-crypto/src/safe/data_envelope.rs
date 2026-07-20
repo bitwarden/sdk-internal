@@ -18,7 +18,7 @@ use crate::{
         },
     },
     safe::{
-        DataEncryptionKey, KeyEncryptionKey,
+        ContentEncryptionKey, KeyEncryptionKey,
         helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     },
     utils::pad_bytes,
@@ -76,7 +76,7 @@ impl DataEnvelope {
     {
         // The content-encryption-key is a fresh, single-use data-encryption-key (DEK) stored in
         // the context.
-        let cek_id = DataEncryptionKey::make(ctx);
+        let cek_id = ContentEncryptionKey::make(ctx);
         let cek = match ctx.get_symmetric_key(cek_id) {
             Ok(SymmetricCryptoKey::Aes256GcmKey(key)) => key.clone(),
             _ => return Err(DataEnvelopeError::KeyStore),

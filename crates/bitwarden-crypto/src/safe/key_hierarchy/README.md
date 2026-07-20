@@ -20,13 +20,13 @@ Outside the SDK boundary - only secrets cross it, never keys:
     | Key Encryption Key (KEK)  --  reused                        |
     +-------------------------------------------------------------+
         |  wraps other keys:
-        |    - SymmetricKeyEnvelope           -> a DEK or another KEK
+        |    - SymmetricKeyEnvelope           -> a CEK or another KEK
         |    - PrivateKeyEnvelope   (n/i)     -> a private key
         |    - SignatureKeyEnvelope (n/i)     -> a signing key
         v
-    +-------------------------------------------------------------+
-    | Data Encryption Key (DEK)  --  fresh per data, NEVER reused |
-    +-------------------------------------------------------------+
+    +----------------------------------------------------------------+
+    | Content Encryption Key (CEK)  --  fresh per data, NEVER reused  |
+    +----------------------------------------------------------------+
         |  encrypts content:
         |    - DataEnvelope
         |    - AttachmentStream (n/i)
@@ -48,10 +48,10 @@ symmetric key envelope) may itself be another KEK, allowing chained key hierarch
 **reused**: the same KEK wraps many keys over its lifetime, and rotating it means re-wrapping only
 the keys it protects, not re-encrypting content.
 
-**Data encryption keys (DEKs).** A symmetric key envelope may hold a DEK. A DEK encrypts content —
-via a [data envelope](../README.md#data-envelope) or an attachment stream (not yet implemented).
-Unlike a KEK, a DEK is **freshly generated together with the data it protects and is _never_
-reused**. This makes key rotation cheap: to rotate the wrapping key, only the (small) wrapped DEKs
+**Content encryption keys (CEKs).** A symmetric key envelope may hold a CEK. A CEK encrypts content
+— via a [data envelope](../README.md#data-envelope) or an attachment stream (not yet implemented).
+Unlike a KEK, a CEK is **freshly generated together with the data it protects and is _never_
+reused**. This makes key rotation cheap: to rotate the wrapping key, only the (small) wrapped CEKs
 need re-uploading rather than all content.
 
 **Safe Internal Keys.** A safe primitive may use an internally derived key. For instance, the
@@ -67,9 +67,9 @@ password or a PIN) protects the **user key**, which is a KEK. That user key wrap
 asymmetric private key, its signing key, and the content-encryption-key of every vault item.
 
 Each vault item's content-encryption-key (its "cipher key") is **itself a KEK**: it does not encrypt
-content directly. Instead it wraps that item's DEKs — one DEK per attachment, plus the single data
+content directly. Instead it wraps that item's CEKs — one CEK per attachment, plus the single data
 envelope key that protects the item's own fields. The attachment keys and the data envelope key are
-DEKs, and they are what actually encrypt content.
+CEKs, and they are what actually encrypt content.
 
 ```text
     Password / PIN
@@ -86,8 +86,8 @@ DEKs, and they are what actually encrypt content.
         +--> Cipher key #1 .. #N   (each is itself a KEK)
                 |  each cipher key wraps, via SymmetricKeyEnvelope:
                 |
-                +--> Attachment key #1 .. #M  (DEK) --> AttachmentStream
-                +--> Data envelope key (DEK, single) --> DataEnvelope
+                +--> Attachment key #1 .. #M  (CEK) --> AttachmentStream
+                +--> Data envelope key (CEK, single) --> DataEnvelope
 ```
 
 ## Example: send encryption (mock design)
@@ -100,8 +100,8 @@ A send is unlocked with its **send secret** — a high-entropy secret carried in
 fragment. Because it is high-entropy, it maps to the **send key** through a secret-protected key
 envelope (cheap KDF) rather than a password-protected one.
 
-The send key is a KEK. It wraps the send's DEKs: the single data envelope key that protects the
-send's text/fields, and one attachment key per file. As always, the DEKs — not the KEK — encrypt the
+The send key is a KEK. It wraps the send's CEKs: the single data envelope key that protects the
+send's text/fields, and one attachment key per file. As always, the CEKs — not the KEK — encrypt the
 content.
 
 ```text
@@ -113,6 +113,6 @@ content.
     +-------------------------------------------------------------+
         |  wraps, via SymmetricKeyEnvelope:
         |
-        +--> Data envelope key (DEK, single) --> DataEnvelope
-        +--> Attachment key #1 .. #M  (DEK)    --> AttachmentStream
+        +--> Data envelope key (CEK, single) --> DataEnvelope
+        +--> Attachment key #1 .. #M  (CEK)    --> AttachmentStream
 ```
