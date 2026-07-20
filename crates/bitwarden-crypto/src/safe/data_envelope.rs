@@ -18,7 +18,7 @@ use crate::{
         },
     },
     safe::{
-        ContentEncryptionKey,
+        ContentEncryptionKey, KeyEncryptionKey,
         helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     },
     utils::pad_bytes,
