@@ -1,40 +1,42 @@
 //! Cryptographic organization invites
 //!
-//! An invite is built around an AES-256-GCM **invite key** that acts as the hub tying every wrapped
+//! An invite is built around an XAES-256-GCM **invite key** that acts as the hub tying every sealed
 //! object together. Two independent secrets can recover the invite key (the invite secret from the
 //! link, or the organization key held by admins), and from the invite key everything else — the
-//! invite data and, when confirmation is enabled, the organization key — can be unwrapped:
+//! invite data and, when confirmation is enabled, the organization key — can be unsealed:
 //!
 //! ```text
-//! InviteSecret -> SecretProtectedKeyEnvelope -> InviteKey -> DataEnvelope -+-> InviteSecret
-//!                                                ^     |                    +-> OrgPubKeyPrint
-//!                                                |     |
+//! InviteSecret -> SecretProtectedKeyEnvelope -> InviteKey -> SymmetricKeyEnvelope -> InviteDataCEK
+//!                                                ^     |                                   |
+//!                                                |     |               DataEnvelope --------+
+//!                                                |     |                    +-> InviteSecret
+//!                                                |     |                    +-> OrgPubKeyPrint
 //! OrganizationKey -> EncString ------------------+     +-> SymmetricKeyEnvelope -> OrganizationKey
 //! ```
 //!
-//! - `InviteSecret -> SecretProtectedKeyEnvelope -> InviteKey`
-//!   (`invite_secret_wrapped_invite_key`): the invite key sealed with the high-entropy invite
-//!   secret, so an invitee holding only the secret from the link recovers the invite key.
-//! - `OrganizationKey -> EncString -> InviteKey` (`organization_key_wrapped_invite_key`): the
-//!   invite key wrapped with the organization key, so anyone holding the organization key recovers
-//!   the invite key (and thus the invite data).
-//! - `InviteKey -> DataEnvelope -> InviteSecret + OrgPubKeyPrint`
-//!   (`invite_key_wrapped_invite_data`): the `InviteDataV1` sealed with the invite key, binding the
-//!   organization public-key thumbprint and a copy of the invite secret (so the invite link can be
-//!   reconstructed from the invite key).
-//! - `InviteKey -> SymmetricKeyEnvelope -> OrganizationKey`
-//!   (`invite_key_wrapped_organization_key`): the organization key sealed with the invite key, so a
-//!   redeeming invitee can recover the organization key. It is present if and exactly if
-//!   confirmation is enabled for the invite.
+//! - `InviteSecret -> SecretProtectedKeyEnvelope -> InviteKey` (`invite_secret_sealed_invite_key`):
+//!   the invite key sealed with the high-entropy invite secret, so an invitee holding only the
+//!   secret from the link recovers the invite key.
+//! - `OrganizationKey -> EncString -> InviteKey` (`organization_key_sealed_invite_key`): the invite
+//!   key sealed with the organization key, so anyone holding the organization key recovers the
+//!   invite key (and thus the invite data).
+//! - `InviteKey -> SymmetricKeyEnvelope -> InviteDataCEK -> DataEnvelope -> InviteSecret +
+//!   OrgPubKeyPrint` (`invite_key_sealed_invite_data_cek` + `invite_key_sealed_invite_data`): the
+//!   `InviteDataV1` is sealed under its own content-encryption key (CEK), and that CEK is sealed
+//!   with the invite key. The data binds the organization public-key thumbprint and a copy of the
+//!   invite secret (so the invite link can be reconstructed from the invite key).
+//! - `InviteKey -> SymmetricKeyEnvelope -> OrganizationKey` (`invite_key_sealed_organization_key`):
+//!   the organization key sealed with the invite key, so a redeeming invitee can recover the
+//!   organization key. It is present if and exactly if confirmation is enabled for the invite.
 
 use std::str::FromStr;
 
 use bitwarden_crypto::{
     CoseKeyThumbprint, CoseKeyThumbprintExt, EncString, KeySlotIds, KeyStoreContext,
-    SymmetricKeyAlgorithm, generate_versioned_sealable,
+    generate_versioned_sealable,
     safe::{
         DataEnvelope, DataEnvelopeNamespace, HighEntropySecret, HighEntropySecretSource,
-        SealableData, SealableVersionedData, SecretProtectedKeyEnvelope,
+        KeyEncryptionKey, SealableData, SealableVersionedData, SecretProtectedKeyEnvelope,
         SecretProtectedKeyEnvelopeNamespace, SymmetricKeyEnvelope, SymmetricKeyEnvelopeNamespace,
     },
 };
@@ -178,50 +180,33 @@ const TS_INVITE: &'static str = r#"
 export type Invite = Tagged<string, "Invite">;
 "#;
 
-/// Cryptographic invite for an organization, built around an AES-256-GCM invite key that acts as
+/// Cryptographic invite for an organization, built around an XAES-256-GCM invite key that acts as
 /// the hub tying everything together. See the module-level docs for the overall diagram.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Invite {
-    /// The `InviteData` (org public-key thumbprint + invite secret) sealed with the invite key.
-    invite_key_wrapped_invite_data: DataEnvelope,
+    /// The `InviteData` (org public-key thumbprint + invite secret) sealed with its own
+    /// content-encryption key (CEK).
+    invite_key_sealed_invite_data: DataEnvelope,
+    /// The invite-data content-encryption key sealed with the invite key, so a holder of the
+    /// invite key can recover the CEK and open [`Self::invite_key_sealed_invite_data`].
+    invite_key_sealed_invite_data_cek: SymmetricKeyEnvelope,
     /// The invite key sealed with the high-entropy invite secret, letting an invitee (who holds
     /// only the invite secret from the link) recover the invite key.
-    invite_secret_wrapped_invite_key: SecretProtectedKeyEnvelope,
+    invite_secret_sealed_invite_key: SecretProtectedKeyEnvelope,
     /// The organization key sealed with the invite key, letting a redeeming invitee recover the
     /// organization key once they hold the invite key. This is **optional**: its presence is what
     /// "confirmation" means. When confirmation is enabled the invitee can self-confirm by
     /// recovering the organization key; when disabled, this field is absent and an admin must
     /// confirm the invitee out of band.
-    invite_key_wrapped_organization_key: Option<SymmetricKeyEnvelope>,
-    /// The invite key wrapped with the organization key, letting anyone holding the organization
+    invite_key_sealed_organization_key: Option<SymmetricKeyEnvelope>,
+    /// The invite key sealed with the organization key, letting anyone holding the organization
     /// key recover the invite key (and thus the invite data).
-    organization_key_wrapped_invite_key: EncString,
-}
-
-/// Wire format for [`Invite`]. This is what's serialized by serde (as JSON).
-#[derive(Serialize, Deserialize)]
-struct InviteWire {
-    invite_key_wrapped_invite_data: DataEnvelope,
-    invite_secret_wrapped_invite_key: SecretProtectedKeyEnvelope,
-    invite_key_wrapped_organization_key: Option<SymmetricKeyEnvelope>,
-    organization_key_wrapped_invite_key: EncString,
-}
-
-impl From<&Invite> for InviteWire {
-    fn from(invite: &Invite) -> Self {
-        InviteWire {
-            invite_key_wrapped_invite_data: invite.invite_key_wrapped_invite_data.clone(),
-            invite_secret_wrapped_invite_key: invite.invite_secret_wrapped_invite_key.clone(),
-            invite_key_wrapped_organization_key: invite.invite_key_wrapped_organization_key.clone(),
-            organization_key_wrapped_invite_key: invite.organization_key_wrapped_invite_key.clone(),
-        }
-    }
+    organization_key_sealed_invite_key: EncString,
 }
 
 impl From<&Invite> for String {
     fn from(invite: &Invite) -> Self {
-        serde_json::to_string(&InviteWire::from(invite))
-            .expect("JSON serialization of Invite never fails")
+        serde_json::to_string(invite).expect("JSON serialization of Invite never fails")
     }
 }
 
@@ -229,55 +214,34 @@ impl FromStr for Invite {
     type Err = InviteKeyBundleError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let data: InviteWire =
-            serde_json::from_str(s).map_err(|_| InviteKeyBundleError::DecodingFailed)?;
-        Ok(Invite {
-            invite_key_wrapped_invite_data: data.invite_key_wrapped_invite_data,
-            invite_secret_wrapped_invite_key: data.invite_secret_wrapped_invite_key,
-            invite_key_wrapped_organization_key: data.invite_key_wrapped_organization_key,
-            organization_key_wrapped_invite_key: data.organization_key_wrapped_invite_key,
-        })
+        serde_json::from_str(s).map_err(|_| InviteKeyBundleError::DecodingFailed)
     }
 }
 
-impl<'de> Deserialize<'de> for Invite {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_str(FromStrVisitor::new())
-    }
-}
-
-impl Serialize for Invite {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&String::from(self))
-    }
-}
-
-// Manually implemented to mirror the safe key-envelope primitives: it surfaces the wrapped fields
+// Manually implemented to mirror the safe key-envelope primitives: it surfaces the sealed fields
 // without ever printing key material (each field's own `Debug` is key-material-safe).
 impl std::fmt::Debug for Invite {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Invite")
             .field(
-                "invite_key_wrapped_invite_data",
-                &self.invite_key_wrapped_invite_data,
+                "invite_key_sealed_invite_data",
+                &self.invite_key_sealed_invite_data,
             )
             .field(
-                "invite_secret_wrapped_invite_key",
-                &self.invite_secret_wrapped_invite_key,
+                "invite_key_sealed_invite_data_cek",
+                &self.invite_key_sealed_invite_data_cek,
             )
             .field(
-                "invite_key_wrapped_organization_key",
-                &self.invite_key_wrapped_organization_key,
+                "invite_secret_sealed_invite_key",
+                &self.invite_secret_sealed_invite_key,
             )
             .field(
-                "organization_key_wrapped_invite_key",
-                &self.organization_key_wrapped_invite_key,
+                "invite_key_sealed_organization_key",
+                &self.invite_key_sealed_organization_key,
+            )
+            .field(
+                "organization_key_sealed_invite_key",
+                &self.organization_key_sealed_invite_key,
             )
             .finish()
     }
@@ -290,7 +254,7 @@ impl Invite {
         organization_key: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, InviteKeyBundleError> {
-        ctx.unwrap_symmetric_key(organization_key, &self.organization_key_wrapped_invite_key)
+        ctx.unwrap_symmetric_key(organization_key, &self.organization_key_sealed_invite_key)
             .map_err(|_| InviteKeyBundleError::KeyUnsealingFailed)
     }
 
@@ -301,7 +265,7 @@ impl Invite {
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, InviteKeyBundleError> {
         let secret = HighEntropySecret::from(invite_secret.clone());
-        self.invite_secret_wrapped_invite_key
+        self.invite_secret_sealed_invite_key
             .unseal(
                 &secret,
                 SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
@@ -316,9 +280,18 @@ impl Invite {
         invite_key: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<InviteDataV1, InviteKeyBundleError> {
+        // Recover the invite-data CEK by unsealing it with the invite key, then open the data.
+        let cek = self
+            .invite_key_sealed_invite_data_cek
+            .unseal(
+                invite_key,
+                SymmetricKeyEnvelopeNamespace::OrganizationInvite,
+                ctx,
+            )
+            .map_err(|_| InviteKeyBundleError::KeyUnsealingFailed)?;
         let data: InviteData = self
-            .invite_key_wrapped_invite_data
-            .unseal(invite_key, ctx)
+            .invite_key_sealed_invite_data
+            .unseal(cek, ctx)
             .map_err(|_| InviteKeyBundleError::KeyUnsealingFailed)?;
         let InviteData::InviteDataV1(data) = data;
         Ok(data)
@@ -347,7 +320,7 @@ impl Invite {
     /// Whether confirmation is enabled on this invite, i.e. whether the organization key can be
     /// recovered from the invite key.
     pub fn supports_confirmation(&self) -> bool {
-        self.invite_key_wrapped_organization_key.is_some()
+        self.invite_key_sealed_organization_key.is_some()
     }
 
     /// Unseals the organization key using an invite key, storing it in the key store context and
@@ -357,7 +330,7 @@ impl Invite {
         invite_key: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, InviteKeyBundleError> {
-        self.invite_key_wrapped_organization_key
+        self.invite_key_sealed_organization_key
             .as_ref()
             .ok_or(InviteKeyBundleError::ConfirmationNotEnabled)?
             .unseal(
@@ -382,13 +355,13 @@ impl Invite {
             ctx,
         )
         .map_err(|_| InviteKeyBundleError::KeySealingFailed)?;
-        self.invite_key_wrapped_organization_key = Some(envelope);
+        self.invite_key_sealed_organization_key = Some(envelope);
         Ok(())
     }
 
     /// Disables confirmation
     pub fn disable_confirmation(&mut self) {
-        self.invite_key_wrapped_organization_key = None;
+        self.invite_key_sealed_organization_key = None;
     }
 
     /// Generates a brand new invite around a fresh AES-256-GCM invite key, binding it to the
@@ -419,24 +392,31 @@ impl Invite {
         bitwarden_random::rng().fill_bytes(bytes.as_mut_slice());
         let invite_secret = InviteSecret(bytes);
 
-        // Generate the AES-256-GCM invite key (the hub). It is used for exactly two AES-256-GCM
-        // messages below (the invite-data DataEnvelope and the org-key SymmetricKeyEnvelope), each
-        // with a fresh random nonce, so there is no nonce-reuse concern.
-        let invite_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256Gcm);
+        // Generate the invite key (the hub). It only ever acts as a key-encryption key — sealing
+        // the invite-data CEK and the organization key via `SymmetricKeyEnvelope`.
+        let invite_key = KeyEncryptionKey::make(ctx);
 
-        // Seal the invite data (thumbprint + a copy of the invite secret) with the invite key.
+        // Seal the invite data (thumbprint + a copy of the invite secret) under a fresh
+        // content-encryption key (CEK), then seal that CEK with the invite key so a holder of the
+        // invite key can open the data.
         let invite_data: InviteData = InviteDataV1 {
             public_key_thumbprint: *thumbprint.as_bytes(),
             invite_secret: *invite_secret.0,
         }
         .into();
-        let invite_key_wrapped_invite_data =
-            DataEnvelope::seal_with_provided_key(invite_data, invite_key, ctx)
-                .map_err(|_| InviteKeyBundleError::KeySealingFailed)?;
+        let (invite_key_sealed_invite_data, invite_data_cek) = DataEnvelope::seal(invite_data, ctx)
+            .map_err(|_| InviteKeyBundleError::KeySealingFailed)?;
+        let invite_key_sealed_invite_data_cek = SymmetricKeyEnvelope::seal(
+            invite_data_cek,
+            invite_key,
+            SymmetricKeyEnvelopeNamespace::OrganizationInvite,
+            ctx,
+        )
+        .map_err(|_| InviteKeyBundleError::KeySealingFailed)?;
 
         // Seal the invite key with the invite secret (invitee -> invite key direction).
         let secret = HighEntropySecret::from(invite_secret.clone());
-        let invite_secret_wrapped_invite_key = SecretProtectedKeyEnvelope::seal(
+        let invite_secret_sealed_invite_key = SecretProtectedKeyEnvelope::seal(
             invite_key,
             &secret,
             SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
@@ -447,7 +427,7 @@ impl Invite {
         // Seal the organization key with the invite key (invite key -> organization key direction).
         // New invites are created with confirmation enabled; callers can disable it afterwards via
         // `Invite::disable_confirmation`.
-        let invite_key_wrapped_organization_key = Some(
+        let invite_key_sealed_organization_key = Some(
             SymmetricKeyEnvelope::seal(
                 organization_key,
                 invite_key,
@@ -457,18 +437,19 @@ impl Invite {
             .map_err(|_| InviteKeyBundleError::KeySealingFailed)?,
         );
 
-        // Wrap the invite key with the organization key (organization key -> invite key direction).
-        let organization_key_wrapped_invite_key = ctx
+        // Seal the invite key with the organization key (organization key -> invite key direction).
+        let organization_key_sealed_invite_key = ctx
             .wrap_symmetric_key(organization_key, invite_key)
             .map_err(|_| InviteKeyBundleError::KeySealingFailed)?;
 
         Ok((
             invite_secret,
             Invite {
-                invite_key_wrapped_invite_data,
-                invite_secret_wrapped_invite_key,
-                invite_key_wrapped_organization_key,
-                organization_key_wrapped_invite_key,
+                invite_key_sealed_invite_data,
+                invite_key_sealed_invite_data_cek,
+                invite_secret_sealed_invite_key,
+                invite_key_sealed_organization_key,
+                organization_key_sealed_invite_key,
             },
         ))
     }
@@ -490,8 +471,8 @@ mod tests {
     const TEST_VECTOR_ORG_KEY: &str =
         "KGP9Nc2/91w+42Z9VzY0m7h18avuZcq4ICM8Rhdc3BD92LbWS2TQkVBzavvUM684WKXiC22NJi2EwaiDW4YTAA==";
     const TEST_VECTOR_WRAPPED_PRIVATE_KEY: &str = "2.bi9TWF/zrujUg1y+v8ECtQ==|kEMkuRt42j65YZnPEc4bLOT0/WDZwWSNJNGlUMdr/LRF3qi/vCnZ7eT0+7MruTccmyoAjKmsXdoBcufrOdPBUguFQn1LQMGqHqCyyB3SIijOlLyOOmxWYqoLUjihy8o8URGWjrAGWZnkeYWHTlFZP09Fag2xCwiQ/qS32Q+qTGGHDs0FiwjplcPkW9knlmgCXbuyPqDnEYoa0Qs/CC1hUCzFFrWs7QkE+5eLaNHxuBPpsrY6y795kEu9ve38F3piY9b6lQpc/iPGv8Zfh1isI7Mpy1zMwntXGSHjUOy17nPxCqkgYufuNGnwGNwsGjkLAl7e7bD39SYfEpTDaRUgmTl8UrZDx274e6Um1LLvokf3HiL1tboJ9/TW8IiMuAdrb3PLTH6Sep8lqZ3WhNADfMMJle9kCojHp6XSB14in1JqP0636exYeJu+FhUC1TfrthuQN2QDQ8LAvgZR7YvzkTJX3Sc5jP7m/yCmCbHhIqIAaGqJsRwAee0EMsKcALz3/akVoyjHU2LHD3dzQnyMyszyRNYViBNYAM9qBN2DqwWRDOtM171xNVJcTFsAh4mBSLiLOlDsXqLqHVKu2VJNE1XhTQ5Szubqefa/Or7nfxXcxDvivqZ7d5NfDFEskUMqh5yq1KoLK0oK5c+KvY/COIZr/kct+qtfZsXo3w5xJnPOqrAKGm+9CF4OINpLM8Z3csdZf9l5XjlmO1kIuBbquQZ0EZCHzD/GEfXRGB8BEkugdTfpnTDtmmuAJXkIY6t6e6pRUU9u4/sl+U7Iuh22fOA59SuQOElr5Lxre+hQBrRfJS3tSMEtMjYhVmltrngH+SLRxMxH/evbe2uvNaaxlFJe6EK1vqchyTX6nM8Z+2Yjb5pOAzrKQYqwwmVys9IHfjXhybqv10gFpDXBE/eq8u9xs9LbQQ03EbveQUtqdh/ms8SxLOQA9Sm9JwHEL0Zni+8NdAa5orDYzOi53bQLgrs+uUldgB/KOW2goTnKGm4YTbMAXEbum8pST8EXB9jNDXyofyN8IQUoLRvVkEgzbSPBS1sYpkkKdLZy3ojOCKnMnHXIVtzJojFckiutbj6d927X5w51E/RDMoAdylGRVKnmqLKysFRqL+pZK8Cyo+ECr7notG8kr7pVnofzigjKZS9qkRmqEa9bju1GgI20g4cxro8/0O0XnU1o0Mx46qH3niORY59i5bdMwaDS6H2c6+rmf9bIFwwgyAZvHlVdcGNoBGPR3ZXHThwI1OmWSslLWVW0IaS4utB1jL4zvHPCqh/ButA8HeRmU/NYSfaqb9YXyzn+C7ED15MWXkYmZzeE38HHxhqs12+oj+WFcg4d5/e2UcccuVi36SWhA0xWk8Kk2D6e1Pz1lmaw20vpb0eUq4AS5ZnMmWTEiKORFeGNTIROq9vuPuitLrREedu9PGjf5aeKcNqlq2nr7fOaxyi2ocKs7pLqVBUH1G7zHpCo3Rt1+o18guXFHT56vQFfkzoUNXiS6TRM4Mkl3s0TyGgBhxZkNJleTI6y4xhfH1iathBnLcfelLbxZhDB1wh3RXowS32jpM/J4pSUuNEmSLSqRQtRJY41BG00nYY02qEbakkgk6pS6a0/CWphyLfHAzUWbabOhqR1iPN9/ZiecjI=|eoklmBw+LYy2NNwjLOuA4+szKH5SzLGPlrhIJ/vfmW4=";
-    const TEST_VECTOR_INVITE: &str = r#"{"invite_key_wrapped_invite_data":"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEULAvkABNEIqBWSbJbR5w/PU6AAE4gQI6AAE4gAKhBUzu06Qb8Rqlag8wxIVYyAOEYjj8vngz+6efiYs4aJqpGKMDNYgXM7QEYDH85RfElcQ3tkBm5lNsLWy04I2gFaJV6hGRN8fZSG9Br3Q11yUIkTna6wy112uCn/szWnrceGg+tTUKjErl9FmkN6yzoSskR1U10dqVeG7AJRjzkAgZFHol1JycPVxhuJdszrF/HpNEOKUbw94vA8kVRQV7+JWJKgeUki0gb9kHPpE+P2vxtM7YJU5uhQXukKVg2KXkNTX7BwXDZ1aofIkFHzSzMtRuRVrEUjAn","invite_secret_wrapped_invite_key":"hFgopQEDAxhlOgABFVxQsC+QAE0QioFZJsltHnD89ToAATiBBjoAATiAAaEFTH8P6s7widuCRd5gsVhQ8Qdi4roT2jBcAb9Qn6f4pJL/BKGvWTrN3D9wvK3bT/AOgEcoiP3gZPZ8qvCiFBgErQ+IudaHnPxw1/W2QXvvZGbkaa1vnqL8eIPuzWrGVVyBg0CiASkzWCAIfgngqsWpnHP3zFYH88LcFD13xgvwzmmN0nirJ6BUZPY=","invite_key_wrapped_organization_key":"g1hGpQEDA3giYXBwbGljYXRpb24veC5iaXR3YXJkZW4ubGVnYWN5LWtleQRQsC+QAE0QioFZJsltHnD89ToAATiBAzoAATiAAqEFTMKnS2tiogG0nXwKFVhQvhXuJ7yorAyslqDLYYjUblYqKryq4aNOS9nGpHkJd+39Uo8cYblbqkBs6x7degHq+bj80RQUoNGpWBLGOPNkIP6tqMnAxQy0NR6sIm7trkI=","organization_key_wrapped_invite_key":"2.xpuLCrOF/Ai7q+zGn5ftSQ==|AyGdogR5TKqIO9nbABdtb57uJ/G/6J5Cj4AajWjWppe6ZJSfqt65fAmgT954+Qgf10ah9L+34jW27yOVitwXMEq/+7b8FaAUDJoh89Yi36Q=|BK4onlURPXFoaUt48UoUeD1BhFREYHHs1tuY6MoR7lQ="}"#;
-    const TEST_VECTOR_INVITE_SECRET: &str = "Q4PavSCGSc10mROp_3gsoufZyiYx830Thcs2iprt1X8";
+    const TEST_VECTOR_INVITE: &str = r#"{"invite_key_sealed_invite_data":"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUPw60HtcnAwO6kRKd7MnQz86AAE4gQI6AAE4gAKhBUz+fzObmLDLKRDeBJJYxX9qAxhXIe1Ri1CJw3ojv7WUEwBpVWeMEGTK7HHbp9WnTDjK849psMx6EOpQ7B/BYGiO28Zn0tjtQ85zwShii4FRK39mtJFE8XxV46hxW9+LlH6EPt4yfzHVkTNZ3vgOiSXcs6zyKXIhQaz6yh8eyA653m4DJEHV00JjdQ/jSfTEfyDf6LiflGntDZ7gSYlQMRxuS71yVP9Mgm79yFY4aIw703G/HUjvIEt4XlWCLzvaLDmegpDz9z4eQCVk8v8JM1fS7BsA","invite_key_sealed_invite_data_cek":"g1g+pgE6AAEReQMYZQRQ7raDdes1HnAgiuiZWXyS9ToAARVcUPw60HtcnAwO6kRKd7MnQz86AAE4gQM6AAE4gAKhBVgYvxSL4XPZLwEXHPnEWweqeeKjyH9r85/ZWE3rsZy1MLmzkFOCJa8a0o20b1P3IH6c5NYtT3v1a50+X0GmgDKiMf/omjhwRRQ7ua6wK0O2JBlhM4JIE8jmtsyMd46mFDbURK1kGRvl7Q==","invite_secret_sealed_invite_key":"hFgopQEDAxhlOgABFVxQ7raDdes1HnAgiuiZWXyS9ToAATiBBjoAATiAAaEFTJvCToVTNSe1uWbD5FhUf061kAAj1sMGWjJ8IWPV2e2xk5Z+ownZ1RqUXG2jv9h2vnsEFZ2yglvKaSCGTsOuvOXv0ESwQk6eUtFAaZjxV/Rajyuu6YgEa712Tfb9Jz13QLGngYNAogEpM1gg1MsuVokUsK8WkqggHRdJ4jvzFsbN/bP4g0l+j6f97qb2","invite_key_sealed_organization_key":"g1hKpQE6AAEReQN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXkEUO62g3XrNR5wIIromVl8kvU6AAE4gQM6AAE4gAKhBVgYoth3hg+yUTLXF4ksaeT42IWGKuTv27B4WFAKV8Z7uKGZNHOONGgZQLbQMozgYX9tseuet413M314W0sV3cBKZIRSEZfj3NvHU8tE/6b2oGxPQIPKP3Tyhl84zhI4uG+Mo5WKkvtdPonD0A==","organization_key_sealed_invite_key":"2.XjZXnAwXK/cXCmHNgCPQzw==|WEGa37JPdNWVnMPWlfinyvZdXpMW8kpTBypXPWf/abbG4/+6vp/WJQmVlkVEflEkuZwjKWSkMWJPcACGBoabeBHgzqpkSYf3kyQb7VhePHQ=|kZLDCLGm1nCJhlVuNahFiZOecy5tKG2fXGCNZZzbDjk="}"#;
+    const TEST_VECTOR_INVITE_SECRET: &str = "Ttas45_CvZi1yoFJ3bMCHx0DAAGGxDi-1BhHCutwDjI";
 
     /// Loads the const `TEST_VECTOR_ORG_KEY` into the `Organization` slot and returns the parsed
     /// const wrapped organization private key. Sharing fixed vectors keeps tests deterministic and
