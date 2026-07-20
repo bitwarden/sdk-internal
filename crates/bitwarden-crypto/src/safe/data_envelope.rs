@@ -74,7 +74,7 @@ impl DataEnvelope {
     where
         T: Serialize + SealableVersionedData,
     {
-        // The content-encryption-key is a fresh, single-use data-encryption-key (DEK) stored in
+        // The content-encryption-key is a fresh, single-use content-encryption-key (CEK) stored in
         // the context.
         let cek_id = ContentEncryptionKey::make(ctx);
         let cek = match ctx.get_symmetric_key(cek_id) {
@@ -82,7 +82,7 @@ impl DataEnvelope {
             _ => return Err(DataEnvelopeError::KeyStore),
         };
         let (envelope, cek) = Self::seal_ref(&data, T::NAMESPACE, cek)?;
-        // Persist the DEK restricted to decryption only (seal_ref disabled the other operations).
+        // Persist the CEK restricted to decryption only (seal_ref disabled the other operations).
         ctx.set_symmetric_key_internal(cek_id, SymmetricCryptoKey::Aes256GcmKey(cek))
             .map_err(|_| DataEnvelopeError::KeyStore)?;
         Ok((envelope, cek_id))

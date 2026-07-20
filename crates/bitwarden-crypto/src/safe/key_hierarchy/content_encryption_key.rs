@@ -8,10 +8,10 @@ use crate::{KeySlotIds, KeyStoreContext, SymmetricKeyAlgorithm};
 pub struct ContentEncryptionKey;
 
 impl ContentEncryptionKey {
-    /// Generates a fresh data-encryption-key, stores it in the key store context, and returns its
-    /// key id.
+    /// Generates a fresh content-encryption-key, stores it in the key store context, and returns
+    /// its key id.
     pub fn make<Ids: KeySlotIds>(ctx: &mut KeyStoreContext<Ids>) -> Ids::Symmetric {
-        // AES-256-GCM is used because a DEK is never reused: a new one is generated for each piece
+        // AES-256-GCM is used because a CEK is never reused: a new one is generated for each piece
         // of content, and it only ever performs a single encryption before being used solely to
         // decrypt that content. Because the key is unique per encryption, the 96-bit AES-256-GCM
         // nonce never risks a collision under it, so the extended-nonce variant a reused key
@@ -20,7 +20,8 @@ impl ContentEncryptionKey {
     }
 
     /// Returns whether the symmetric key `key_id` refers to uses an algorithm permitted for a
-    /// data-encryption-key. Returns `false` if the key is missing or uses an unsupported algorithm.
+    /// content-encryption-key. Returns `false` if the key is missing or uses an unsupported
+    /// algorithm.
     #[allow(unused)]
     pub(crate) fn is_key_algorithm_valid<Ids: KeySlotIds>(
         ctx: &KeyStoreContext<Ids>,
@@ -43,9 +44,11 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let dek_id = ContentEncryptionKey::make(&mut ctx);
+        let cek_id = ContentEncryptionKey::make(&mut ctx);
 
-        let key = ctx.get_symmetric_key(dek_id).expect("DEK should be stored");
+        let key = ctx
+            .get_symmetric_key(cek_id)
+            .expect("DEKCEKshould be stored");
         assert!(matches!(key, SymmetricCryptoKey::Aes256GcmKey(_)));
     }
 
