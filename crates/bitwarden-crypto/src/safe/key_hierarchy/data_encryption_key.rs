@@ -21,6 +21,7 @@ impl DataEncryptionKey {
 
     /// Returns whether the symmetric key `key_id` refers to uses an algorithm permitted for a
     /// data-encryption-key. Returns `false` if the key is missing or uses an unsupported algorithm.
+    #[allow(unused)]
     pub(crate) fn is_key_algorithm_valid<Ids: KeySlotIds>(
         ctx: &KeyStoreContext<Ids>,
         key_id: Ids::Symmetric,
