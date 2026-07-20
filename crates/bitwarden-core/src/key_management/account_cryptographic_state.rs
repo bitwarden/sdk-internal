@@ -6,7 +6,7 @@
 //!
 //! V1 users have only a private key protected by an AES256-CBC-HMAC user key.
 //! V2 users have a private key, a signing key, a signed public key and a signed security state,
-//! all protected by a Cose serialized AEAD key, currently XChaCha20-Poly1305.
+//! all protected by a COSE-serialized XAES-256-GCM key.
 
 use std::sync::RwLock;
 
@@ -335,7 +335,7 @@ impl WrappedAccountCryptographicState {
     pub fn make(
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<(SymmetricKeySlotId, Self), AccountCryptographyInitializationError> {
-        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let signing_key = ctx.make_signing_key(SignatureAlgorithm::MlDsa44);
         let signed_public_key = ctx.make_signed_public_key(private_key, signing_key)?;

@@ -114,6 +114,14 @@ impl V2UpgradeToken {
             .unwrap_symmetric_key(v1_key_id, &self.wrapped_user_key_2)
             .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
 
+        if ctx
+            .get_symmetric_key_algorithm(v2_key_id)
+            .map_err(|_| V2UpgradeTokenError::KeyMissing)?
+            != SymmetricKeyAlgorithm::XAes256Gcm
+        {
+            return Err(V2UpgradeTokenError::WrongKeyType);
+        }
+
         // Validate: unwrapped V2 should be able to decrypt wrapped V1 key
         let _: Vec<u8> = self
             .wrapped_user_key_1

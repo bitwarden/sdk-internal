@@ -926,7 +926,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let private_key = ctx.dangerous_get_private_key(private_key_id)?.clone();
 
     // New user key
-    let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+    let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm);
 
     // New signing key
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
@@ -1239,8 +1239,8 @@ pub(crate) fn make_user_password_registration(
     master_password: String,
     salt: String,
 ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
-    // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519
-    // signature keypair, and signed security state
+    // make_user_v2_crypto_state() - Creates user key (XAES-256-GCM), RSA key pair, ML-DSA
+    // signing key pair, and signed security state
     let mut ctx = client.internal.get_key_store().context_mut();
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;

@@ -1,7 +1,7 @@
 use crate::{
     CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyEncryptable, KeySlotIds,
     KeyStoreContext, SignedPublicKey, SignedPublicKeyMessage, SpkiPublicKeyBytes,
-    SymmetricCryptoKey,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 
 /// Rotated set of account keys
@@ -27,7 +27,7 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeySlotIds>(
     current_user_signing_key_id: Ids::Signing,
     ctx: &KeyStoreContext<Ids>,
 ) -> Result<RotatedUserKeys, CryptoError> {
-    let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+    let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm);
 
     let current_private_key = ctx.get_private_key(current_user_private_key_id)?;
     let current_signing_key = ctx.get_signing_key(current_user_signing_key_id)?;

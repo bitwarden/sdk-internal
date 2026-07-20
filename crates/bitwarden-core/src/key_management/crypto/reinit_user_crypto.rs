@@ -117,8 +117,11 @@ pub(crate) async fn reinit_user_crypto(
                 debug!("Active user key is already V2, skipping re-initialization.");
                 return Ok(());
             }
-            SymmetricKeyAlgorithm::Aes256Gcm => {
-                error!("Unexpected AES-256-GCM user key during reinit_user_crypto");
+            SymmetricKeyAlgorithm::XChaCha20Poly1305 | SymmetricKeyAlgorithm::Aes256Gcm => {
+                error!(
+                    ?current_algorithm,
+                    "Unexpected user key algorithm during reinit_user_crypto"
+                );
                 return Err(ReinitUserCryptoError::CryptoInitialization);
             }
         };

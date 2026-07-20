@@ -88,7 +88,7 @@ impl TryFrom<wasm_bindgen::JsValue> for SymmetricCryptoKey {
 pub enum SymmetricKeyAlgorithm {
     /// Used for V1 user keys and data encryption
     Aes256CbcHmac,
-    /// Used for V2 user keys and data envelopes
+    /// Used by legacy COSE-based envelopes
     XChaCha20Poly1305,
     /// FIPS-approved AEAD.
     /// Used as content encryption key in:
@@ -97,8 +97,8 @@ pub enum SymmetricKeyAlgorithm {
     ///
     /// May not be used for multi-device scoped keys such as the user-key or organization-key
     Aes256Gcm,
-    /// Extended-nonce AES-256-GCM. Safe for random nonces and usable as a
-    /// general-purpose encryption/wrapping key.
+    /// Extended-nonce AES-256-GCM. Used for V2 user keys and as a general-purpose
+    /// encryption/wrapping key.
     XAes256Gcm,
 }
 
