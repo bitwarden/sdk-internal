@@ -20,6 +20,9 @@ pub struct JwtToken {
     pub email: Option<String>,
     /// Used by Service Accounts to denote the organization.
     pub organization: Option<String>,
+    /// Whether the user has an active premium membership. Present on user access-token JWTs;
+    /// absent on Service Account tokens (hence `Option`).
+    pub premium: Option<bool>,
     /// The scopes the token has access to.
     pub scope: Vec<String>,
 }
@@ -82,7 +85,42 @@ mod tests {
         assert_eq!(token.sub, "e25d37f3-b603-40de-84ba-af96012f5a42");
         assert_eq!(token.email.as_deref(), Some("test@bitwarden.com"));
         assert_eq!(token.organization.as_deref(), None);
+        // This fixture carries `"premium":false` in its payload.
+        assert_eq!(token.premium, Some(false));
         assert_eq!(token.scope[0], "api");
         assert_eq!(token.scope[1], "offline_access");
+    }
+
+    /// A user access-token JWT with `"premium":true` must parse the claim as `Some(true)`. The
+    /// payload below decodes to
+    /// `{"sub":"...","email":"premium@bitwarden.com","premium":true,"scope":["api"],"exp":
+    /// 1675107177}`.
+    #[test]
+    fn can_decode_premium_claim() {
+        // header.payload.signature — only the payload segment is parsed (the signature is not
+        // verified), so a placeholder header/signature is sufficient for this test.
+        let payload = bitwarden_encoding::B64Url::from(
+            br#"{"sub":"e25d37f3-b603-40de-84ba-af96012f5a42","email":"premium@bitwarden.com","premium":true,"scope":["api"],"exp":1675107177}"#
+                .as_slice(),
+        );
+        let jwt = format!("aaaa.{payload}.bbbb");
+
+        let token: JwtToken = jwt.parse().unwrap();
+        assert_eq!(token.premium, Some(true));
+        assert_eq!(token.email.as_deref(), Some("premium@bitwarden.com"));
+    }
+
+    /// A Service Account token has no `premium` claim; the field must decode to `None` rather than
+    /// failing the parse.
+    #[test]
+    fn premium_absent_decodes_to_none() {
+        let payload = bitwarden_encoding::B64Url::from(
+            br#"{"sub":"e25d37f3-b603-40de-84ba-af96012f5a42","scope":["api"],"exp":1675107177}"#
+                .as_slice(),
+        );
+        let jwt = format!("aaaa.{payload}.bbbb");
+
+        let token: JwtToken = jwt.parse().unwrap();
+        assert_eq!(token.premium, None);
     }
 }

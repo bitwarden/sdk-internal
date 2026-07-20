@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 
+use bitwarden_core::{auth::JwtToken, client::persisted_state::AUTHENTICATION_TOKENS};
 use bitwarden_pm::PasswordManagerClient;
 use bitwarden_send::{
     AuthEdit, SendAddRequest, SendAuthType, SendEditRequest, SendFileView, SendId, SendTextView,
@@ -293,7 +294,7 @@ impl BwCommand for SendArgs {
             // emitting JSON to stdout while the requested file path goes uncreated would
             // be a worse UX than an explicit "not implemented" error.
             Some(SendCommands::Get(args)) if args.output_path.is_some() => Err(eyre!(
-                "`--output` on `bw send get` is not yet implemented (tracked under PM-39238)."
+                "`--output` on `bw send get` is not yet implemented (tracked under PM-34718)."
             )),
             Some(SendCommands::List(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Template(args)) => args.dispatch(ctx).await,
@@ -332,7 +333,7 @@ impl BwCommand for SendGetArgs {
         // The `--output` early-error gate lives in [`SendArgs::run`] above so it can
         // fire *before* the `LoggedIn` typestate extractor — a logged-out caller passing
         // `--output` should see the precise "not yet implemented" error rather than
-        // a generic auth message. The file-decrypt pipeline follow-up is PM-39238.
+        // a generic auth message. The file-decrypt/download pipeline follow-up is PM-34718.
         get_send(&user, self.id, self.text).await
     }
 }
@@ -372,7 +373,7 @@ impl BwCommand for SendCreateArgs {
         } = self;
 
         let request = build_create_request(CreateInputs {
-            file,
+            file: file.clone(),
             text,
             delete_in_days,
             max_access_count,
@@ -383,7 +384,7 @@ impl BwCommand for SendCreateArgs {
             emails,
         })?;
 
-        run_create(&user, request, full_object).await
+        run_create(&user, request, file, full_object).await
     }
 }
 
@@ -536,17 +537,23 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
 
     let view_type = match (file.as_deref(), text.as_deref()) {
         (Some(path), None) => {
-            // File sends require a premium account; the precondition check is PM-39238.
+            // File sends require a premium account; the precondition is checked in `run_create`
+            // (against the access-token JWT) before the send is created on the server.
             let path = PathBuf::from(path);
             let file_name = path
                 .file_name()
                 .and_then(|s| s.to_str())
                 .ok_or_else(|| eyre!("Could not derive a file name from --file path"))?
                 .to_string();
+            // Populate the byte length so the server records the correct size up-front. The bytes
+            // themselves are read and uploaded separately in `run_create`.
+            let size = std::fs::metadata(&path)
+                .wrap_err_with(|| format!("Could not read file metadata for {}", path.display()))?
+                .len();
             SendViewType::File(SendFileView {
                 id: None,
                 file_name,
-                size: None,
+                size: Some(size.to_string()),
                 size_name: None,
             })
         }
@@ -622,6 +629,13 @@ fn build_edit_request(
         (None, Some(f)) => SendViewType::File(f),
         // Sends should always carry exactly one of text/file; the API can in theory return
         // both. The legacy CLI prefers text in that case, which is what we do here.
+        //
+        // PM-39238 disambiguation finding (item #4): there is NO deviation from legacy to fix
+        // here. `get` returns the full [`SendView`] (both `text` and `file` fields preserved), so
+        // a caller reading a mixed-shape response loses nothing. `create` is built from the typed
+        // [`SendViewType`] enum and so is unambiguous by construction. The only place a "prefer
+        // text" choice is forced is `edit`, where a single variant must be reconstructed from the
+        // existing row — and that choice matches the legacy CLI (`SendView.text ?? SendView.file`).
         (Some(t), Some(_)) => SendViewType::Text(SendTextView {
             text: t.text,
             hidden: if hidden { true } else { t.hidden },
@@ -655,6 +669,8 @@ async fn create_shortcut(client: &PasswordManagerClient, args: SendArgs) -> Comm
         .clone()
         .ok_or_else(|| eyre!("Missing <data> argument. Run `bw send --help` for usage."))?;
 
+    let file_path = if args.file { Some(data.clone()) } else { None };
+
     let inputs = if args.file {
         CreateInputs {
             file: Some(data),
@@ -684,26 +700,30 @@ async fn create_shortcut(client: &PasswordManagerClient, args: SendArgs) -> Comm
     };
 
     let request = build_create_request(inputs)?;
-    run_create(client, request, args.full_object).await
+    run_create(client, request, file_path, args.full_object).await
 }
 
 async fn run_create(
     client: &PasswordManagerClient,
     request: SendAddRequest,
+    file_path: Option<String>,
     full_object: bool,
 ) -> CommandResult {
     let is_file = matches!(request.view_type, SendViewType::File(_));
 
-    // For file sends, the create flow has to follow up with `upload_send_file` using the
-    // encrypted file bytes. The CLI doesn't have the encrypted bytes yet — the file-
-    // encryption step is tracked in PM-39238. For now we surface the gap explicitly.
-    if is_file {
-        return Err(eyre!(
-            "Creating file Sends from the Rust CLI is not yet implemented (tracked under PM-39238)."
-        ));
-    }
+    let view = if is_file {
+        // File sends require a premium membership. Match the legacy CLI's pre-check so the user
+        // gets a clear error before any file is read or any request is sent to the server, rather
+        // than a generic server-side rejection mid-upload.
+        require_premium(client).await?;
 
-    let view = client.sends().create(request).await?;
+        let path = file_path.ok_or_else(|| {
+            eyre!("Internal error: file Send created without a source file path.")
+        })?;
+        run_create_file(client, request, &path).await?
+    } else {
+        client.sends().create(request).await?
+    };
 
     if full_object {
         return Ok(CommandOutput::Object(Box::new(view)));
@@ -713,6 +733,75 @@ async fn run_create(
     // hand to a recipient. `--fullObject` opts back into the full JSON view.
     let url = build_access_url(client, &view)?;
     Ok(url.into())
+}
+
+/// Full file-send create pipeline:
+/// 1. `create_file_send` registers the send and returns upload metadata (URL + backend).
+/// 2. The plaintext bytes are read and encrypted under the send key (`encrypt` reuses the send key
+///    the server just recorded because [`bitwarden_send::SendView::key`] is `Some`).
+/// 3. The ciphertext is uploaded via `upload_send_file`, which dispatches to the Direct or Azure
+///    backend based on the `file_upload_type` from step 1.
+async fn run_create_file(
+    client: &PasswordManagerClient,
+    request: SendAddRequest,
+    path: &str,
+) -> color_eyre::eyre::Result<bitwarden_send::SendView> {
+    // Read the plaintext before creating the send so a read failure aborts before we register a
+    // send that would then have no content.
+    let bytes = std::fs::read(path).wrap_err_with(|| format!("Could not read file {path}"))?;
+
+    let resp = client.sends().create_file_send(request).await?;
+
+    let send_id = resp
+        .send
+        .id
+        .ok_or_else(|| eyre!("Server did not return an id for the created file Send."))?;
+
+    // `encrypt` re-derives the send key from `resp.send.key` (which the server recorded), so the
+    // uploaded ciphertext decrypts under the same key recipients receive.
+    let encrypted_send = client.sends().encrypt(resp.send.clone())?;
+    let encrypted_bytes = client.sends().encrypt_buffer(encrypted_send, &bytes)?;
+
+    client
+        .sends()
+        .upload_send_file(
+            send_id,
+            resp.file_id,
+            resp.encrypted_file_name,
+            resp.file_upload_type,
+            resp.url,
+            encrypted_bytes,
+        )
+        .await?;
+
+    Ok(resp.send)
+}
+
+/// Enforce the premium-membership precondition for file Sends by inspecting the `premium` claim on
+/// the current user's access-token JWT (option a from PM-39238). Reads the persisted
+/// [`AUTHENTICATION_TOKENS`] state — the same source the auth middleware attaches to requests — so
+/// no additional token accessor is needed on the client.
+async fn require_premium(client: &PasswordManagerClient) -> color_eyre::eyre::Result<()> {
+    let tokens = client
+        .platform()
+        .state()
+        .setting(AUTHENTICATION_TOKENS)?
+        .get()
+        .await?
+        .ok_or_else(|| eyre!("You must be logged in to create a file Send."))?;
+
+    let claims: JwtToken = tokens
+        .access_token
+        .parse()
+        .wrap_err("Could not parse the current access token.")?;
+
+    if claims.premium == Some(true) {
+        Ok(())
+    } else {
+        Err(eyre!(
+            "A premium membership is required to create file Sends."
+        ))
+    }
 }
 
 /// Build the shareable Send access URL from a decrypted [`bitwarden_send::SendView`].
@@ -1184,10 +1273,19 @@ mod tests {
         assert!(err.to_string().contains("--name is required"));
     }
 
+    /// File create derives the name from the path and records the file's byte length in
+    /// `SendFileView.size` (as a string). Uses a real temp file since the size is read from the
+    /// filesystem via `std::fs::metadata`.
     #[test]
-    fn build_create_request_file_derives_name() {
+    fn build_create_request_file_derives_name_and_size() {
+        let dir = std::env::temp_dir().join(format!("bw-send-create-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("secrets.txt");
+        let contents = b"hello file send"; // 15 bytes
+        std::fs::write(&path, contents).unwrap();
+
         let req = build_create_request(CreateInputs {
-            file: Some("/tmp/secrets.txt".into()),
+            file: Some(path.to_str().unwrap().to_string()),
             text: None,
             delete_in_days: 7,
             max_access_count: None,
@@ -1201,9 +1299,34 @@ mod tests {
 
         assert_eq!(req.name, "secrets.txt");
         match req.view_type {
-            SendViewType::File(f) => assert_eq!(f.file_name, "secrets.txt"),
+            SendViewType::File(f) => {
+                assert_eq!(f.file_name, "secrets.txt");
+                assert_eq!(f.size.as_deref(), Some(contents.len().to_string().as_str()));
+            }
             other => panic!("expected File, got {other:?}"),
         }
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A `--file` pointing at a nonexistent path fails at request-build time (when the size is
+    /// read) rather than surfacing a confusing error later in the upload pipeline.
+    #[test]
+    fn build_create_request_file_missing_path_errors() {
+        let missing = std::env::temp_dir().join("bw-send-does-not-exist-xyzzy.bin");
+        let err = build_create_request(CreateInputs {
+            file: Some(missing.to_str().unwrap().to_string()),
+            text: None,
+            delete_in_days: 7,
+            max_access_count: None,
+            hidden: false,
+            name: None,
+            notes: None,
+            password: None,
+            emails: None,
+        })
+        .unwrap_err();
+        assert!(err.to_string().contains("metadata") || err.to_string().contains("file"));
     }
 
     #[test]
@@ -1456,6 +1579,31 @@ mod tests {
                     "existing={existing_auth:?}, expected AuthEdit::Set {{ auth: Emails }}, got {other:?}"
                 ),
             }
+        }
+    }
+
+    /// PM-39238 item #4 (disambiguation): when the server returns a Send carrying *both* `text`
+    /// and `file` content, `edit` must reconstruct a single [`SendViewType`] and — matching the
+    /// legacy CLI — prefer text. This pins that behavior so a future refactor can't silently flip
+    /// it to file (which would drop the text body on a partial edit).
+    #[test]
+    fn build_edit_request_prefers_text_when_both_present() {
+        let mut existing = make_existing(AuthType::None, false, vec![]);
+        existing.text = Some(SendTextView {
+            text: Some("the text body".to_string()),
+            hidden: false,
+        });
+        existing.file = Some(SendFileView {
+            id: Some("file-id".to_string()),
+            file_name: "attachment.bin".to_string(),
+            size: Some("10".to_string()),
+            size_name: Some("10 B".to_string()),
+        });
+
+        let req = build_edit_request(existing, no_override_edit()).unwrap();
+        match req.view_type {
+            SendViewType::Text(t) => assert_eq!(t.text.as_deref(), Some("the text body")),
+            other => panic!("expected Text (legacy prefers text on mixed-shape), got {other:?}"),
         }
     }
 
