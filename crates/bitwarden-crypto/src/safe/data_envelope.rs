@@ -722,10 +722,8 @@ mod tests {
         let key_store = crate::store::KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let wrapping_key = KeyEncryptionKey::make(&mut ctx);
 
-        // The AES-256-GCM CEK is wrapped by the wrapping key (encoded as a COSE key) and unwrapped
-        // back for unsealing.
         let (envelope, wrapped_cek) =
             DataEnvelope::seal_with_wrapping_key(data, &wrapping_key, &mut ctx).unwrap();
         let unsealed: TestData = envelope
