@@ -542,38 +542,6 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginListView> for StrictDecryp
     }
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Fido2Credential> for Fido2CredentialView {
-    fn encrypt_composite(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<Fido2Credential, CryptoError> {
-        Ok(Fido2Credential {
-            credential_id: self.credential_id.encrypt(ctx, key)?,
-            key_type: self.key_type.encrypt(ctx, key)?,
-            key_algorithm: self.key_algorithm.encrypt(ctx, key)?,
-            key_curve: self.key_curve.encrypt(ctx, key)?,
-            key_value: self.key_value.clone(),
-            rp_id: self.rp_id.encrypt(ctx, key)?,
-            user_handle: self
-                .user_handle
-                .as_ref()
-                .map(|h| h.encrypt(ctx, key))
-                .transpose()?,
-            user_name: self
-                .user_name
-                .as_ref()
-                .map(|n| n.encrypt(ctx, key))
-                .transpose()?,
-            counter: self.counter.encrypt(ctx, key)?,
-            rp_name: self.rp_name.encrypt(ctx, key)?,
-            user_display_name: self.user_display_name.encrypt(ctx, key)?,
-            discoverable: self.discoverable.encrypt(ctx, key)?,
-            creation_date: self.creation_date,
-        })
-    }
-}
-
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialView> for Fido2Credential {
     fn decrypt(
         &self,
