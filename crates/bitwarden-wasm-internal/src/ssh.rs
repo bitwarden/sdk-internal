@@ -27,7 +27,7 @@ pub fn generate_ssh_key(
 /// - `Ok(SshKey)` if the key was successfully coneverted
 /// - `Err(PasswordRequired)` if the key is encrypted and no password was provided
 /// - `Err(WrongPassword)` if the password provided is incorrect
-/// - `Err(ParsingError)` if the key could not be parsed
+/// - `Err(Parsing)` if the key could not be parsed
 /// - `Err(UnsupportedKeyType)` if the key type is not supported
 #[wasm_bindgen]
 pub fn import_ssh_key(
