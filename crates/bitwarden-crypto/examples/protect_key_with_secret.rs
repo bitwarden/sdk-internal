@@ -7,7 +7,7 @@
 //! bytes) and uses a cheap KDF.
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids,
+    KeyStore, KeyStoreContext, key_slot_ids,
     safe::{
         ContentEncryptionKey, HighEntropySecret, SecretProtectedKeyEnvelope,
         SecretProtectedKeyEnvelopeError, SecretProtectedKeyEnvelopeNamespace,
