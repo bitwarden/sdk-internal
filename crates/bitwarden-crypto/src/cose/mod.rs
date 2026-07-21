@@ -37,6 +37,11 @@ pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 /// derived key and last 96 bits of the input nonce are then used to encrypt
 /// with AES-256-GCM.
 pub(crate) const XAES_256_GCM: i64 = -70010;
+/// AES-256-CBC-HMAC-SHA256 used as a COSE content-encryption cipher (Encrypt-then-MAC over
+/// length-prefixed associated data). This lets a legacy 64-byte AES-256-CBC-HMAC-SHA256 key be
+/// used for authenticated encryption within COSE. It is a private-use value as the construction is
+/// Bitwarden-specific.
+pub(crate) const AES256_CBC_HMAC_SHA256: i64 = -70011;
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
 /// PBKDF2-HMAC-SHA256 KDF algorithm discriminant, used by the password protected key envelope in
 /// the FIPS cipher suite. PBKDF2 is FIPS-approved, unlike Argon2id ([`ALG_ARGON2ID13`]).

@@ -458,6 +458,13 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 )?;
                 Ok(decrypted)
             }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::Aes256CbcHmacKey(key)) => {
+                let (decrypted, _) = crate::cose::symmetric::decrypt_aes256_cbc_hmac_sha256(
+                    &CoseEncrypt0Bytes::from(data.as_slice()),
+                    key,
+                )?;
+                Ok(decrypted)
+            }
             (_, SymmetricCryptoKey::XAes256GcmKey(_)) => Err(CryptoError::WrongKeyType),
             _ => Err(CryptoError::WrongKeyType),
         }
@@ -719,6 +726,76 @@ mod tests {
 
         let decrypted_str: String = cipher.decrypt_with_key(&key).unwrap();
         assert_eq!(decrypted_str, test_string);
+    }
+
+    /// A deterministic 64-byte AES-256-CBC-HMAC-SHA256 key (`enc_key || mac_key`) for stable test
+    /// vectors.
+    fn fixed_aes256_cbc_hmac_key() -> crate::Aes256CbcHmacKey {
+        let bytes: Vec<u8> = (0u8..64).collect();
+        let SymmetricCryptoKey::Aes256CbcHmacKey(ref key) =
+            SymmetricCryptoKey::try_from(&crate::BitwardenLegacyKeyBytes::from(bytes)).unwrap()
+        else {
+            panic!("64-byte legacy key must decode to an Aes256CbcHmacKey");
+        };
+        key.clone()
+    }
+
+    /// Seals `plaintext` into a COSE Encrypt0 [`EncString`] using the AES-256-CBC-HMAC-SHA256 AEAD
+    /// content-encryption algorithm. There is no production encrypt path for this variant (it is
+    /// decrypt-only), so tests build the ciphertext directly through the COSE layer.
+    fn encrypt_aes256_cbc_hmac_aead(plaintext: &[u8], key: &crate::Aes256CbcHmacKey) -> EncString {
+        use coset::{CborSerializable, CoseEncrypt0Builder, HeaderBuilder};
+
+        use crate::cose::symmetric::{CoseContentEncryptionAlgorithm, encrypt_cose0};
+
+        let protected = HeaderBuilder::from(crate::ContentFormat::Utf8).build();
+        let cose_encrypt0 = encrypt_cose0(
+            CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
+            CoseEncrypt0Builder::new(),
+            protected,
+            plaintext,
+            &*key.to_composite_key(),
+        )
+        .unwrap();
+        EncString::Cose_Encrypt0_B64 {
+            data: cose_encrypt0.to_vec().unwrap(),
+        }
+    }
+
+    #[test]
+    fn test_enc_string_roundtrip_aes256_cbc_hmac_aead() {
+        let key = fixed_aes256_cbc_hmac_key();
+        let test_string = "encrypted_test_string";
+        let cipher = encrypt_aes256_cbc_hmac_aead(test_string.as_bytes(), &key);
+
+        let decrypted_str: String = cipher
+            .decrypt_with_key(&SymmetricCryptoKey::Aes256CbcHmacKey(key))
+            .unwrap();
+        assert_eq!(decrypted_str, test_string);
+    }
+
+    #[test]
+    #[ignore = "Generates a test vector; run manually"]
+    fn generate_aes256_cbc_hmac_aead_testvector() {
+        let key = fixed_aes256_cbc_hmac_key();
+        let cipher = encrypt_aes256_cbc_hmac_aead(b"Bitwarden AEAD EncString test vector", &key);
+        println!(
+            "const TESTVECTOR_AEAD_ENCSTRING: &str = \"{}\";",
+            cipher.to_string()
+        );
+    }
+
+    /// Locks in the AES-256-CBC-HMAC-SHA256 AEAD COSE Encrypt0 EncString wire format. This must
+    /// never break, or existing data will no longer decrypt.
+    #[test]
+    fn test_decrypt_aes256_cbc_hmac_aead_testvector() {
+        const TESTVECTOR_AEAD_ENCSTRING: &str = "7.g1gtogE6AAERegN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLnV0ZjgtcGFkZGVkoQVQTXjUyFkrtwniBVNPh+dTjVhwOlA0wZHUxMUSt5WXaWTXevBNK73sX3f2LR3FK+xWg2ihqQuXlM1aouRZi22PtGQQGYvXjPTf7p07b0IfN9KWmir0Y19s/olzVd0m3uStdsbWJI7JFbr4HgqMy63zRYb4RCbWOqR/v8sCtT9RiWgkJQ==";
+
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(fixed_aes256_cbc_hmac_key());
+        let enc_string: EncString = TESTVECTOR_AEAD_ENCSTRING.parse().unwrap();
+
+        let decrypted: String = enc_string.decrypt_with_key(&key).unwrap();
+        assert_eq!(decrypted, "Bitwarden AEAD EncString test vector");
     }
 
     #[test]
