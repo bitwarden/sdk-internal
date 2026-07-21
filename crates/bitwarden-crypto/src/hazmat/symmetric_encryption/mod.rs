@@ -29,7 +29,6 @@ impl From<SymmetricEncryptionError> for CryptoError {
     }
 }
 pub(crate) mod aes256_cbc_hmac_sha256_ae;
-#[allow(dead_code)]
 pub(crate) mod aes256_cbc_hmac_sha256_aead;
 pub(crate) mod aes_gcm;
 pub(crate) mod xaes_256_gcm;
