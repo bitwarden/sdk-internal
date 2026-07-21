@@ -810,6 +810,30 @@ impl Cipher {
         }
     }
 
+    /// Decrypt the individual encryption key for this cipher, requiring that one is present.
+    ///
+    /// Unlike [`Cipher::decrypt_cipher_key`], this does NOT fall back to the wrapping
+    /// (user/organization) key when the cipher has no key. It is used by the blob-encryption path,
+    /// where every cipher must carry its own key and operating directly on the user/organization
+    /// key would be incorrect.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The key store context where the cipher key will be decrypted
+    /// * `wrapping_key` - The key used to unwrap the cipher key, i.e. the user or organization key
+    /// * `ciphers_key` - The encrypted cipher key, which must be present
+    #[bitwarden_logging::instrument(err)]
+    pub(crate) fn decrypt_required_cipher_key(
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        wrapping_key: SymmetricKeySlotId,
+        ciphers_key: &Option<EncString>,
+    ) -> Result<SymmetricKeySlotId, CryptoError> {
+        let ciphers_key = ciphers_key
+            .as_ref()
+            .ok_or(CryptoError::MissingField("key"))?;
+        ctx.unwrap_symmetric_key(wrapping_key, ciphers_key)
+    }
+
     /// Builds the cryptographic material for a new attachment: a fresh key (raw and wrapped with
     /// the cipher key) plus the encrypted file name.
     ///

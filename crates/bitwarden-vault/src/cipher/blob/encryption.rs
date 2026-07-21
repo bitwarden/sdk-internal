@@ -43,7 +43,7 @@ fn seal_cipher(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
+    let cipher_key = Cipher::decrypt_required_cipher_key(ctx, wrapping_key, &view.key)?;
     let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
     seal_blob_content(blob, cipher_key, ctx)
 }
@@ -97,7 +97,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         view.generate_cipher_key(ctx, wrapping_key)?;
     }
 
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
+    let cipher_key = Cipher::decrypt_required_cipher_key(ctx, wrapping_key, &view.key)?;
 
     let sealed_string = seal_cipher(view, ctx, wrapping_key)?;
 
@@ -161,7 +161,7 @@ pub(crate) fn decrypt_blob_cipher(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<CipherView, BlobEncryptionError> {
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &cipher.key)?;
+    let cipher_key = Cipher::decrypt_required_cipher_key(ctx, wrapping_key, &cipher.key)?;
 
     let CipherBlob::CipherBlobV1(blob) = sealed.unseal(&cipher_key, ctx)?;
 
@@ -655,6 +655,41 @@ mod tests {
         assert_eq!(restored.creation_date, creation_date);
         assert_eq!(restored.revision_date, revision_date);
         assert!(restored.key.is_some());
+    }
+
+    #[test]
+    fn test_decrypt_blob_cipher_requires_cipher_key() {
+        let (key_store, _) = create_test_key_store();
+        let mut ctx = key_store.context_mut();
+
+        // Seal a blob under a freshly generated cipher key.
+        let mut view = create_shell_cipher_view(CipherType::SecureNote);
+        view.name = "No Key".to_string();
+        view.secure_note = Some(SecureNoteView {
+            r#type: SecureNoteType::Generic,
+        });
+        view.generate_cipher_key(&mut ctx, view.key_identifier())
+            .unwrap();
+        let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();
+
+        // Build a blob-format cipher that is missing its per-cipher key. Decryption must reject it
+        // rather than falling back to the user key.
+        let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
+        cipher.key = None;
+
+        let result = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        );
+
+        assert!(matches!(
+            result,
+            Err(BlobEncryptionError::Crypto(CryptoError::MissingField(
+                "key"
+            )))
+        ));
     }
 
     #[test]
