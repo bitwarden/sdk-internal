@@ -7,7 +7,7 @@ use bitwarden_core::{
 };
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
-use bitwarden_crypto::{IdentifyKey, KeyStore};
+use bitwarden_crypto::{IdentifyKey, KeyStore, KeyStoreContext};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -21,10 +21,7 @@ use crate::{
     cipher_client::admin::CipherAdminClient,
 };
 #[cfg(feature = "wasm")]
-use crate::{
-    Fido2CredentialFullView,
-    cipher::{blob::encrypt_blob_cipher_with_wrapping_key, cipher::DecryptCipherResult},
-};
+use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
 mod bulk_update_collections;
@@ -39,20 +36,14 @@ mod restore;
 mod share_cipher;
 
 /// Returns `true` when cipher data for the given scope should be written in the blob-encrypted
-/// format, based on the client's current security state version. Individual-vault ciphers qualify
-/// once the security state has reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is
-/// tracked in PM-32430.
-pub(crate) fn should_use_blob_encryption(
-    client: &Client,
+/// format, based on the current security state version. Individual-vault ciphers qualify once the
+/// security state has reached [`BLOB_SECURITY_VERSION`]. Organization-vault support is tracked in
+/// PM-32430.
+pub fn should_use_blob_encryption(
+    ctx: &KeyStoreContext<KeySlotIds>,
     organization_id: Option<OrganizationId>,
 ) -> bool {
-    organization_id.is_none()
-        && client
-            .internal
-            .get_key_store()
-            .context()
-            .get_security_state_version()
-            >= BLOB_SECURITY_VERSION
+    organization_id.is_none() && ctx.get_security_state_version() >= BLOB_SECURITY_VERSION
 }
 
 #[allow(missing_docs)]
@@ -87,7 +78,8 @@ impl CiphersClient {
         &self,
         organization_id: Option<OrganizationId>,
     ) -> bool {
-        should_use_blob_encryption(&self.client, organization_id)
+        let key_store = self.client.internal.get_key_store();
+        should_use_blob_encryption(&key_store.context(), organization_id)
     }
 
     #[allow(missing_docs)]
@@ -160,19 +152,15 @@ impl CiphersClient {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
-        let cipher = if self.should_use_blob_encryption(cipher_view.organization_id) {
-            // Rotation installs the new key under a `Local` slot id (`new_key_id`),
-            // not under the view's natural `User`/`Organization` slot — so we must
-            // pass it explicitly as the outer wrapping key.
-            encrypt_blob_cipher_with_wrapping_key(&mut cipher_view, &mut ctx, new_key_id).map_err(
-                |err| {
-                    tracing::warn!(%err, "blob rotation encryption failed");
-                    EncryptError::from(err)
-                },
-            )?
+        // Rotation installs the new key under a `Local` slot id (`new_key_id`), not the view's
+        // natural `User`/`Organization` slot — so pass it explicitly to `encrypt_composite` rather
+        // than going through `key_store.encrypt`, which uses the view's natural key identifier.
+        let mode = if self.should_use_blob_encryption(cipher_view.organization_id) {
+            EncryptMode::Blob(cipher_view)
         } else {
-            cipher_view.encrypt_composite(&mut ctx, new_key_id)?
+            EncryptMode::Legacy(cipher_view)
         };
+        let cipher = mode.encrypt_composite(&mut ctx, new_key_id)?;
 
         Ok(EncryptionContext {
             cipher,
