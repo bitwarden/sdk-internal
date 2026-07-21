@@ -37,7 +37,9 @@ pub use cipher::{
     CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptMode,
     EncryptionContext, ListOrganizationCiphersResult,
 };
-pub use cipher_client::{CiphersClient, GetAssignedOrgCiphersAdminError};
+pub use cipher_client::{
+    CiphersClient, GetAssignedOrgCiphersAdminError, should_use_blob_encryption,
+};
 pub use cipher_view_type::CipherViewType;
 pub use drivers_license::DriversLicenseView;
 #[cfg(feature = "wasm")]

@@ -381,7 +381,9 @@ mod tests {
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         let cipher = make_cipher_view();
-        let encrypted_cipher = cipher.encrypt_composite(&mut ctx, user_key_old).unwrap();
+        let encrypted_cipher = EncryptMode::Legacy(cipher.clone())
+            .encrypt_composite(&mut ctx, user_key_old)
+            .unwrap();
 
         // Rotate it
         let ciphers = vec![encrypted_cipher];
