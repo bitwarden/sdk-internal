@@ -46,7 +46,11 @@ fn test_callback_happy_path() {
     init_logger(Some(callback), None);
 
     // Create client
-    let _client = Client::new(Arc::new(MockTokenProvider), None);
+    let _client = Client::new(
+        Arc::new(MockTokenProvider),
+        None,
+        Arc::new(managed_settings::ManagedSettingsBindingClient::new()),
+    );
 
     // Trigger SDK logging
     tracing::info!("integration test message");

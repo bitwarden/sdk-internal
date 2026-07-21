@@ -15,6 +15,8 @@ pub mod crypto;
 pub mod error;
 mod log_callback;
 #[allow(missing_docs)]
+pub mod managed_settings;
+#[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
 pub mod policies;
@@ -49,6 +51,7 @@ impl Client {
     pub fn new(
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
+        managed_settings: Arc<managed_settings::ManagedSettingsBindingClient>,
     ) -> Self {
         init_logger(None, None);
         setup_error_converter();
@@ -59,6 +62,7 @@ impl Client {
         Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
             settings,
             token_provider,
+            &managed_settings.0,
         ))
     }
 
@@ -321,7 +325,11 @@ mod tests {
         init_logger(Some(callback), None);
 
         // Create client
-        let _client = Client::new(Arc::new(MockTokenProvider), None);
+        let _client = Client::new(
+            Arc::new(MockTokenProvider),
+            None,
+            Arc::new(managed_settings::ManagedSettingsBindingClient::new()),
+        );
 
         // Trigger a log
         tracing::info!("test message from SDK");
