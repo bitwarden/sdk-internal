@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use bitwarden_vault::{Attachment, AttachmentEncryptResult, AttachmentView, Cipher};
+use bitwarden_vault::{Attachment, AttachmentEncryptResult, AttachmentFullView, Cipher};
 
 use crate::Result;
 
@@ -13,7 +13,7 @@ impl AttachmentsClient {
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         buffer: Vec<u8>,
     ) -> Result<AttachmentEncryptResult> {
         Ok(self.0.encrypt_buffer(cipher, attachment, &buffer)?)
@@ -23,7 +23,7 @@ impl AttachmentsClient {
     pub fn encrypt_file(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         decrypted_file_path: String,
         encrypted_file_path: String,
     ) -> Result<Attachment> {
@@ -38,7 +38,7 @@ impl AttachmentsClient {
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         buffer: Vec<u8>,
     ) -> Result<Vec<u8>> {
         Ok(self.0.decrypt_buffer(cipher, attachment, &buffer)?)
@@ -48,7 +48,7 @@ impl AttachmentsClient {
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         encrypted_file_path: String,
         decrypted_file_path: String,
     ) -> Result<()> {

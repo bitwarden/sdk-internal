@@ -9,7 +9,7 @@ use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentView,
+    Attachment, AttachmentEncryptResult, AttachmentFile, AttachmentFileView, AttachmentFullView,
     Cipher, DecryptError, EncryptError,
 };
 
@@ -78,7 +78,7 @@ impl AttachmentsClient {
     pub fn decrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         encrypted_buffer: &[u8],
     ) -> Result<Vec<u8>, DecryptError> {
         Ok(self.key_store.decrypt(&AttachmentFile {
@@ -94,7 +94,7 @@ impl AttachmentsClient {
     pub fn encrypt_buffer(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         buffer: &[u8],
     ) -> Result<AttachmentEncryptResult, EncryptError> {
         Ok(self.key_store.encrypt(AttachmentFileView {
@@ -108,7 +108,7 @@ impl AttachmentsClient {
     pub fn encrypt_file(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         decrypted_file_path: &Path,
         encrypted_file_path: &Path,
     ) -> Result<Attachment, EncryptFileError> {
@@ -125,7 +125,7 @@ impl AttachmentsClient {
     pub fn decrypt_file(
         &self,
         cipher: Cipher,
-        attachment: AttachmentView,
+        attachment: AttachmentFullView,
         encrypted_file_path: &Path,
         decrypted_file_path: &Path,
     ) -> Result<(), DecryptFileError> {

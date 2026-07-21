@@ -663,6 +663,18 @@ mod tests {
         } = client.vault().ciphers().encrypt(view).await.unwrap();
         assert!(new_cipher.key.is_some());
 
+        // The stored (wrapped) attachment key changed: it is now protected by the cipher key
+        // rather than the user key.
+        let enrolled_wrapped_key = new_cipher.attachments.as_ref().unwrap()[0]
+            .key
+            .as_ref()
+            .unwrap()
+            .to_string();
+        assert_ne!(
+            attachment.key.as_ref().unwrap().to_string(),
+            enrolled_wrapped_key
+        );
+
         let view = client
             .vault()
             .ciphers()
@@ -672,12 +684,6 @@ mod tests {
         let attachments = view.clone().attachments.unwrap();
         let attachment_view = attachments.first().unwrap().clone();
         assert!(attachment_view.key.is_some());
-
-        // Ensure attachment key is updated since it's now protected by the cipher key
-        assert_ne!(
-            attachment.clone().key.unwrap().to_string(),
-            attachment_view.clone().key.unwrap().to_string()
-        );
 
         assert_eq!(attachment_view.file_name.as_deref(), Some("h.txt"));
 
@@ -710,19 +716,11 @@ mod tests {
             encrypted_for: _,
         } = client.vault().ciphers().encrypt(new_view).await.unwrap();
 
-        let attachment = new_cipher
-            .clone()
-            .attachments
-            .unwrap()
-            .first()
-            .unwrap()
-            .clone();
-
-        // Ensure attachment key is still the same since it's protected by the cipher key
-        assert_eq!(
-            attachment.clone().key.as_ref().unwrap().to_string(),
-            attachment_view.key.as_ref().unwrap().to_string()
-        );
+        // The stored key remains present after the move. Its wrapped bytes are not compared: the
+        // attachment key is re-wrapped (with a fresh IV) on every encryption, so the ciphertext
+        // differs even though the underlying content key is unchanged - which the readable content
+        // below confirms.
+        assert!(new_cipher.attachments.as_ref().unwrap()[0].key.is_some());
 
         let content = client
             .vault()

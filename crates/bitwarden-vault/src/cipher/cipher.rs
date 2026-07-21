@@ -37,8 +37,8 @@ use super::{
     passport, secure_note, ssh_key,
 };
 use crate::{
-    AttachmentView, DecryptError, EncryptError, Fido2CredentialFullView, Fido2CredentialView,
-    FieldView, FolderId, Login, LoginView, VaultParseError,
+    DecryptError, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FieldView, FolderId,
+    Login, LoginView, VaultParseError,
     password_history::{self, MAX_PASSWORD_HISTORY_ENTRIES},
 };
 
@@ -467,10 +467,10 @@ pub struct CipherView {
     pub view_password: bool,
     pub local_data: Option<LocalDataView>,
 
-    pub attachments: Option<Vec<attachment::AttachmentView>>,
+    pub attachments: Option<Vec<attachment::AttachmentFullView>>,
     /// Attachments that failed to decrypt. Only present when there are decryption failures.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub attachment_decryption_failures: Option<Vec<attachment::AttachmentView>>,
+    pub attachment_decryption_failures: Option<Vec<attachment::AttachmentFullView>>,
     pub fields: Option<Vec<field::FieldView>>,
     pub password_history: Option<Vec<password_history::PasswordHistoryView>>,
     pub creation_date: DateTime<Utc>,
@@ -909,7 +909,9 @@ impl CipherView {
 
         let new_key = ctx.generate_symmetric_key();
 
-        self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
+        // Attachment keys are held decrypted on the view and re-wrapped with the new cipher key
+        // during encryption, so only FIDO2 credentials (still stored as `EncString`s) need
+        // re-encrypting here.
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
         self.key = Some(ctx.wrap_symmetric_key(wrapping_key, new_key)?);
@@ -928,18 +930,6 @@ impl CipherView {
         if let Some(uris) = self.login.as_mut().and_then(|l| l.uris.as_mut()) {
             uris.retain(|u| u.is_checksum_valid());
         }
-    }
-
-    fn reencrypt_attachment_keys(
-        &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        old_key: SymmetricKeySlotId,
-        new_key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
-        if let Some(attachments) = &mut self.attachments {
-            AttachmentView::reencrypt_keys(attachments, ctx, old_key, new_key)?;
-        }
-        Ok(())
     }
 
     #[allow(missing_docs)]
@@ -993,7 +983,8 @@ impl CipherView {
     /// Re-encrypt the cipher key(s) using a new wrapping key.
     ///
     /// If the cipher has a cipher key, it will be re-encrypted with the new wrapping key.
-    /// Otherwise, the cipher will re-encrypt all attachment keys and FIDO2 credential keys
+    /// Otherwise, the cipher will re-encrypt its FIDO2 credential keys. Attachment keys are held
+    /// decrypted on the view and re-wrapped during encryption, so they are not touched here.
     pub fn reencrypt_cipher_keys(
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -1014,9 +1005,9 @@ impl CipherView {
             // Wrap the cipher key with the new wrapping key
             self.key = Some(ctx.wrap_symmetric_key(new_wrapping_key, cipher_key)?);
         } else {
-            // The cipher does not have a key, we must reencrypt all attachment keys and FIDO2
-            // credentials individually
-            self.reencrypt_attachment_keys(ctx, old_key, new_wrapping_key)?;
+            // The cipher does not have a key, so we must reencrypt its FIDO2 credentials
+            // individually. Attachment keys are held decrypted on the view and re-wrapped with
+            // `new_wrapping_key` during encryption.
             self.reencrypt_fido2_credentials(ctx, old_key, new_wrapping_key)?;
         }
 
@@ -2154,7 +2145,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
 #[cfg(test)]
 mod tests {
 
-    use attachment::AttachmentView;
+    use attachment::AttachmentFullView;
     use bitwarden_core::key_management::{
         create_test_crypto_with_user_and_org_key, create_test_crypto_with_user_key,
     };
@@ -2519,15 +2510,13 @@ mod tests {
         let key_store = create_test_crypto_with_user_key(key);
 
         let mut cipher = generate_cipher();
-        let attachment = AttachmentView {
+        let attachment = AttachmentFullView {
             id: None,
             url: None,
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -2632,15 +2621,13 @@ mod tests {
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         let mut cipher = generate_cipher();
-        let attachment = AttachmentView {
+        let attachment = AttachmentFullView {
             id: None,
             url: None,
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -2660,32 +2647,24 @@ mod tests {
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeySlotId::Organization(org);
 
-        // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
-        let (attachment_key_enc, attachment_key_val) = {
+        // The attachment carries its decrypted content key on the view; the cipher has no key.
+        let attachment_key_val = {
             let mut ctx = key_store.context();
             let attachment_key = ctx.generate_symmetric_key();
-            let attachment_key_enc = ctx
-                .wrap_symmetric_key(SymmetricKeySlotId::User, attachment_key)
-                .unwrap();
             #[allow(deprecated)]
-            let attachment_key_val = ctx
-                .dangerous_get_symmetric_key(attachment_key)
+            ctx.dangerous_get_symmetric_key(attachment_key)
                 .unwrap()
-                .clone();
-
-            (attachment_key_enc, attachment_key_val)
+                .clone()
         };
 
         let mut cipher = generate_cipher();
-        let attachment = AttachmentView {
+        let attachment = AttachmentFullView {
             id: None,
             url: None,
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
-            key: Some(attachment_key_enc),
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
+            key: Some(attachment_key_val.clone()),
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2(&mut key_store.context(), SymmetricKeySlotId::User);
@@ -2697,10 +2676,25 @@ mod tests {
 
         assert!(cipher.key.is_none());
 
-        // Check that the attachment key has been re-encrypted with the org key,
-        // and the value matches with the original attachment key
-        let new_attachment_key = cipher.attachments.unwrap()[0].key.clone().unwrap();
+        // The decrypted attachment key on the view is unchanged by the move.
+        assert_eq!(
+            cipher.attachments.as_ref().unwrap()[0]
+                .key
+                .as_ref()
+                .unwrap(),
+            &attachment_key_val
+        );
+
+        // Encrypting the moved cipher wraps the attachment key with the org key (the cipher has no
+        // key of its own), and it round-trips back to the original decrypted key.
+        let encrypted: Cipher = key_store
+            .encrypt(EncryptMode::Legacy(cipher.clone()))
+            .unwrap();
         let mut ctx = key_store.context();
+        let new_attachment_key = encrypted.attachments.as_ref().unwrap()[0]
+            .key
+            .clone()
+            .unwrap();
         let new_attachment_key_id = ctx
             .unwrap_symmetric_key(org_key, &new_attachment_key)
             .unwrap();
@@ -2739,22 +2733,24 @@ mod tests {
             .wrap_symmetric_key(SymmetricKeySlotId::User, cipher_key)
             .unwrap();
 
-        // Attachment has a key that is encrypted with the cipher key
+        // The attachment carries its decrypted content key on the view.
         let attachment_key = ctx.generate_symmetric_key();
-        let attachment_key_enc = ctx.wrap_symmetric_key(cipher_key, attachment_key).unwrap();
+        #[allow(deprecated)]
+        let attachment_key_val = ctx
+            .dangerous_get_symmetric_key(attachment_key)
+            .unwrap()
+            .clone();
 
         let mut cipher = generate_cipher();
         cipher.key = Some(cipher_key_enc);
 
-        let attachment = AttachmentView {
+        let attachment = AttachmentFullView {
             id: None,
             url: None,
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
-            key: Some(attachment_key_enc.clone()),
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
+            key: Some(attachment_key_val.clone()),
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -2775,14 +2771,13 @@ mod tests {
 
         assert_eq!(new_cipher_key_dec, cipher_key_val);
 
-        // Check that the attachment key hasn't changed
+        // Check that the decrypted attachment key on the view hasn't changed
         assert_eq!(
-            cipher.attachments.unwrap()[0]
+            cipher.attachments.as_ref().unwrap()[0]
                 .key
                 .as_ref()
-                .unwrap()
-                .to_string(),
-            attachment_key_enc.to_string()
+                .unwrap(),
+            &attachment_key_val
         );
 
         let cred2: Fido2Credential = cipher

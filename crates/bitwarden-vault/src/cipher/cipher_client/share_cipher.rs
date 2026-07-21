@@ -441,15 +441,13 @@ mod tests {
         let mut cipher_view = test_cipher_view_without_org();
 
         // Add an attachment WITHOUT a key - this should cause an error
-        cipher_view.attachments = Some(vec![crate::AttachmentView {
+        cipher_view.attachments = Some(vec![crate::AttachmentFullView {
             id: Some("attachment-456".to_string()),
             url: Some("https://example.com/attachment".to_string()),
             size: Some("2048".to_string()),
             size_name: Some("2 KB".to_string()),
             file_name: Some("test2.txt".to_string()),
             key: None, // No key!
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
         }]);
 
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();

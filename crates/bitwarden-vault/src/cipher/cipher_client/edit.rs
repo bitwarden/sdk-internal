@@ -19,7 +19,7 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
+    AttachmentFullView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, VaultParseError,
     cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
@@ -71,7 +71,7 @@ pub struct CipherEditRequest {
     pub r#type: CipherViewType,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
-    pub attachments: Vec<AttachmentView>,
+    pub attachments: Vec<AttachmentFullView>,
     pub key: Option<EncString>,
 }
 
