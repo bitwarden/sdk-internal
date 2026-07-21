@@ -252,6 +252,10 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
     }
 }
 
+// ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::CompositeEncryptable`: `AttachmentView` retains
+// key-bound ciphertext (`key`, the attachment content key wrapped under the cipher key) and copies
+// it through unchanged (`key: self.key.clone()` below) instead of re-wrapping it under `key`. As a
+// result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip.
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Attachment> for AttachmentView {
     fn encrypt_composite(
         &self,
@@ -264,6 +268,8 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Attachment> for Attach
             size: self.size.clone(),
             size_name: self.size_name.clone(),
             file_name: self.file_name.encrypt(ctx, key)?,
+            // ⚠️ pass-through of wrapped key-bound ciphertext — see the contract-violation note
+            // above.
             key: self.key.clone(),
         })
     }

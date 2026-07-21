@@ -647,6 +647,10 @@ impl CipherListView {
     }
 }
 
+// ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::CompositeEncryptable`: `CipherView` retains key-bound
+// ciphertext (`key`, the cipher content-encryption key wrapped under the decrypting key) and copies
+// it through unchanged (`key: cipher_view.key` below) instead of re-wrapping it under `key`. As a
+// result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip.
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView {
     fn encrypt_composite(
         &self,
@@ -663,6 +667,8 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
             organization_id: cipher_view.organization_id,
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
+            // ⚠️ pass-through of wrapped key-bound ciphertext — see the contract-violation note
+            // above.
             key: cipher_view.key,
             name: Some(cipher_view.name.encrypt(ctx, ciphers_key)?),
             notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
