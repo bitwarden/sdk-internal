@@ -6,7 +6,6 @@
 //! bytes. They are unlike low-entropy secrets such as PINs or passwords, which can be brute-forced
 //! and therefore require a memory- or compute-hard KDF.
 
-#[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_sensitive_value::{ExposeSensitive, Sensitive, SensitiveSlice};
 use rand::Rng;
@@ -81,6 +80,30 @@ impl HighEntropySecret {
     pub(crate) fn as_bytes(&self) -> SensitiveSlice<'_> {
         Sensitive::from(self.secret.as_slice())
     }
+
+    /// Encodes the high-entropy secret as a standardized base64 string. This is the same wire
+    /// format the WASM ABI marshaling already uses for `HighEntropySecret`, surfaced as Rust API
+    /// so callers embedding the secret in an opaque wire artifact (e.g. a serde-serialized
+    /// envelope crossing a trust boundary) can round-trip without touching raw bytes.
+    ///
+    /// The returned string carries the secret in cleartext. Callers assume responsibility for it
+    /// — logging it, persisting it, or transmitting it over an untrusted channel each open a
+    /// leak channel.
+    pub fn to_base64(&self) -> String {
+        B64::from(self.secret.as_slice()).to_string()
+    }
+
+    /// Reconstructs a `HighEntropySecret` from a standardized base64 string previously produced
+    /// by [`HighEntropySecret::to_base64`] (or by the equivalent WASM ABI marshaling).
+    ///
+    /// The caller must guarantee that the decoded bytes originated from a genuine high-entropy
+    /// source. This constructor does not — and cannot — validate entropy on its own; feeding
+    /// low-entropy input to the cheap KDF that consumes this type will not provide the
+    /// brute-force resistance the KDF assumes.
+    pub fn from_base64(encoded: &str) -> Result<Self, HighEntropySecretError> {
+        let bytes = B64::try_from(encoded).map_err(|_| HighEntropySecretError::Malformed)?;
+        Ok(Self::from_internal(bytes.as_bytes()))
+    }
 }
 
 // Manually implemented so the secret material is never printed.
@@ -96,6 +119,9 @@ pub enum HighEntropySecretError {
     /// The provided secret is too short to be used as a high-entropy secret.
     #[error("Secret is too short")]
     TooShort,
+    /// The provided string could not be decoded as standardized base64.
+    #[error("Secret is not valid base64")]
+    Malformed,
 }
 
 #[cfg(feature = "wasm")]
@@ -212,5 +238,24 @@ mod tests {
             secret.as_bytes().expose_owned(),
             cloned.as_bytes().expose_owned()
         );
+    }
+
+    #[test]
+    fn test_base64_round_trip_preserves_bytes() {
+        let secret = HighEntropySecret::make(32).unwrap();
+        let encoded = secret.to_base64();
+        let decoded = HighEntropySecret::from_base64(&encoded).unwrap();
+        assert_eq!(
+            secret.as_bytes().expose_owned(),
+            decoded.as_bytes().expose_owned()
+        );
+    }
+
+    #[test]
+    fn test_from_base64_rejects_malformed_input() {
+        assert!(matches!(
+            HighEntropySecret::from_base64("!!!not-base64!!!"),
+            Err(HighEntropySecretError::Malformed)
+        ));
     }
 }
