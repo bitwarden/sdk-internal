@@ -76,6 +76,7 @@ typenum = ">=1.18.0, <1.21.0"
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
+xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
 zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 

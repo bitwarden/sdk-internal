@@ -321,7 +321,7 @@ impl CryptoClient {
 
         match (algorithm, upgrade_token) {
             // Already V2, return current key
-            (SymmetricKeyAlgorithm::XChaCha20Poly1305, _) => {
+            (SymmetricKeyAlgorithm::XChaCha20Poly1305 | SymmetricKeyAlgorithm::XAes256Gcm, _) => {
                 #[allow(deprecated)]
                 let current_key = ctx
                     .dangerous_get_symmetric_key(SymmetricKeySlotId::User)

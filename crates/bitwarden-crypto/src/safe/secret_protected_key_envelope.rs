@@ -38,7 +38,9 @@ use crate::{
     ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
-        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
+        symmetric::{
+            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose,
+        },
     },
     keys::KeyId,
     safe::{
@@ -220,8 +222,12 @@ impl SecretProtectedKeyEnvelope {
         // since the KDF salt is guaranteed to be correct. The envelope always declares its
         // content-encryption algorithm in the protected header, so no decryption fallback is
         // needed.
-        let key_bytes = decrypt_cose(&self.cose_encrypt, None, &cek)
-            .map_err(|_| SecretProtectedKeyEnvelopeError::WrongSecret)?;
+        let key_bytes = decrypt_cose(
+            &self.cose_encrypt,
+            CoseAlgorithmPolicy::RequireProtectedHeaderAlgorithm,
+            &cek,
+        )
+        .map_err(|_| SecretProtectedKeyEnvelopeError::WrongSecret)?;
 
         decode_sealed_symmetric_key(&self.cose_encrypt.protected.header, key_bytes).map_err(|e| {
             match e {
