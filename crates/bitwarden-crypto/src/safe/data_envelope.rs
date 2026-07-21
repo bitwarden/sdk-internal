@@ -373,9 +373,6 @@ pub enum DataEnvelopeError {
     /// Indicates that the wrong key was used for decryption.
     #[error("Wrong key used for decryption")]
     WrongKey,
-    /// Indicates that the wrapping key's algorithm is not permitted for a key-encryption-key.
-    #[error("Invalid wrapping key algorithm")]
-    InvalidWrappingKeyAlgorithm,
 }
 
 #[cfg(feature = "wasm")]
