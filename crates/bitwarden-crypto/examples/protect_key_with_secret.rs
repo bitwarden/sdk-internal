@@ -7,10 +7,8 @@
 //! bytes) and uses a cheap KDF.
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids,
-    safe::{
-        HighEntropySecret, SecretProtectedKeyEnvelope, SecretProtectedKeyEnvelopeError,
-        SecretProtectedKeyEnvelopeNamespace,
+    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids, safe::{
+        ContentEncryptionKey, HighEntropySecret, SecretProtectedKeyEnvelope, SecretProtectedKeyEnvelopeError, SecretProtectedKeyEnvelopeNamespace,
     },
 };
 
@@ -28,7 +26,7 @@ fn main() {
 
     // Alice has some data protected with a symmetric key. She wants the symmetric key protected
     // with a high-entropy secret (here, 16 random bytes).
-    let data_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let data_key = ContentEncryptionKey::make(&mut ctx); 
     let secret = HighEntropySecret::make(16).expect("16 bytes is a valid size");
 
     // Seal the key with the secret.
@@ -37,6 +35,7 @@ fn main() {
     let envelope = SecretProtectedKeyEnvelope::seal(
         data_key,
         &secret,
+        // The namespace must be replaced with an appropriate namespace for the use-case
         SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         &ctx,
     )
@@ -66,16 +65,18 @@ fn main() {
         .reseal(
             &secret,
             &new_secret,
+            // The namespace must be replaced with an appropriate namespace for the use-case
             SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         )
         .expect("The secret should be valid");
     disk.save("data_key_envelope", (&envelope).into());
 
     // Alice wants to change the protected key. This requires creating a new envelope
-    let data_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let data_key = ContentEncryptionKey::make(&mut ctx);
     let envelope = SecretProtectedKeyEnvelope::seal(
         data_key,
         &new_secret,
+        // The namespace must be replaced with an appropriate namespace for the use-case
         SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         &ctx,
     )
@@ -87,6 +88,7 @@ fn main() {
     assert!(matches!(
         envelope.unseal(
             &wrong_secret,
+            // The namespace must be replaced with an appropriate namespace for the use-case
             SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
             &mut ctx
         ),
