@@ -183,7 +183,7 @@ impl CiphersClient {
         // be moved directly into the CompositeEncryptable implementation.
         if self.client.flags().get().await.enable_cipher_key_encryption {
             let key = view.key_identifier();
-            view.generate_cipher_key(&mut key_store.context(), key)?;
+            view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
         }
 
         let use_blob = self.should_use_blob_encryption(view.organization_id);

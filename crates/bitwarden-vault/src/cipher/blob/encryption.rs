@@ -94,7 +94,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<Cipher, BlobEncryptionError> {
     if view.key.is_none() {
-        view.generate_cipher_key(ctx, wrapping_key)?;
+        view.upgrade_to_cipher_key_encryption(ctx, wrapping_key)?;
     }
 
     let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
@@ -310,7 +310,7 @@ mod tests {
         view.secure_note = Some(SecureNoteView {
             r#type: SecureNoteType::Generic,
         });
-        view.generate_cipher_key(&mut ctx, view.key_identifier())
+        view.upgrade_to_cipher_key_encryption(&mut ctx, view.key_identifier())
             .unwrap();
 
         let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();

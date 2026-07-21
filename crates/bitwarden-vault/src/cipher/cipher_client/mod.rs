@@ -107,7 +107,7 @@ impl CiphersClient {
         if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
         {
             let key = cipher_view.key_identifier();
-            cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
+            cipher_view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
         }
 
         let mode = if self.should_use_blob_encryption(cipher_view.organization_id) {
@@ -155,7 +155,7 @@ impl CiphersClient {
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         if cipher_view.key.is_none() && enable_cipher_key_encryption {
-            cipher_view.generate_cipher_key(&mut ctx, new_key_id)?;
+            cipher_view.upgrade_to_cipher_key_encryption(&mut ctx, new_key_id)?;
         } else {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
@@ -204,7 +204,7 @@ impl CiphersClient {
             .map(|mut cv| {
                 if cv.key.is_none() && enable_cipher_key {
                     let key = cv.key_identifier();
-                    cv.generate_cipher_key(&mut ctx, key)?;
+                    cv.upgrade_to_cipher_key_encryption(&mut ctx, key)?;
                 }
                 let mode = if self.should_use_blob_encryption(cv.organization_id) {
                     EncryptMode::Blob(cv)

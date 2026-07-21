@@ -175,7 +175,7 @@ fn decrypt_for_blob_upgrade(
         let mut view: CipherView = cipher
             .decrypt(ctx, current_key)
             .map_err(|_| DataReencryptionError::Decryption)?;
-        view.generate_cipher_key_from(ctx, current_key, new_key)
+        view.upgrade_to_cipher_key_encryption_with_external_key(ctx, current_key, new_key)
             .map_err(|_| DataReencryptionError::Encryption)?;
         Ok(view)
     }
@@ -635,7 +635,7 @@ mod tests {
                 Some(vec![full.encrypt_composite(ctx, user_key).unwrap()]);
         }
         if with_cipher_key {
-            view.generate_cipher_key_from(ctx, user_key, user_key)
+            view.upgrade_to_cipher_key_encryption_with_external_key(ctx, user_key, user_key)
                 .unwrap();
         }
         let mut cipher = EncryptMode::Legacy(view)

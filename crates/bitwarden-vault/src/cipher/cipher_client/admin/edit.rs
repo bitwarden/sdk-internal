@@ -80,7 +80,7 @@ async fn edit_cipher(
     // moved directly into the CompositeEncryptable implementation.
     if view.key.is_none() && enable_cipher_key_encryption {
         let key = view.key_identifier();
-        view.generate_cipher_key(&mut key_store.context(), key)?;
+        view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
     }
 
     // Admin endpoints operate on organization-owned ciphers, which aren't

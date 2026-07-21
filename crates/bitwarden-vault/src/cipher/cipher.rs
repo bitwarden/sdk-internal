@@ -892,28 +892,32 @@ impl Cipher {
     }
 }
 impl CipherView {
-    /// Generates a fresh per-item cipher key and re-wraps the cipher's attachment and FIDO2
-    /// sub-keys under it. The existing sub-keys are assumed to be wrapped under
-    /// [`self.key_identifier()`](IdentifyKey::key_identifier).
-    pub fn generate_cipher_key(
+    /// Upgrades the cipher to cipher-key encryption: generates a fresh per-item cipher key and
+    /// re-wraps the cipher's attachment and FIDO2 sub-keys under it. The existing sub-keys are
+    /// assumed to be wrapped under [`self.key_identifier()`](IdentifyKey::key_identifier).
+    pub fn upgrade_to_cipher_key_encryption(
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         wrapping_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
-        self.generate_cipher_key_from(ctx, self.key_identifier(), wrapping_key)
+        self.upgrade_to_cipher_key_encryption_with_external_key(
+            ctx,
+            self.key_identifier(),
+            wrapping_key,
+        )
     }
 
-    /// Variant of [`generate_cipher_key`](Self::generate_cipher_key) that unwraps the existing
-    /// attachment and FIDO2 sub-keys using an explicitly supplied `source_key` rather than
-    /// deriving it from [`IdentifyKey::key_identifier`]. Use this when the sub-keys are wrapped
-    /// under a key other than the cipher's identifier — e.g. during key rotation, where they are
-    /// under the current user key rather than the [`SymmetricKeySlotId::User`] slot.
+    /// Variant of [`upgrade_to_cipher_key_encryption`](Self::upgrade_to_cipher_key_encryption) that
+    /// unwraps the existing attachment and FIDO2 sub-keys using an explicitly supplied `source_key`
+    /// rather than deriving it from [`IdentifyKey::key_identifier`]. Use this when the sub-keys are
+    /// wrapped under a key other than the cipher's identifier — e.g. during key rotation, where
+    /// they are under the current user key rather than the [`SymmetricKeySlotId::User`] slot.
     ///
     /// * `source_key` - The key the current attachment/FIDO2 sub-keys are wrapped under. For a
     ///   keyless cipher this is the current user (or organization) key.
     /// * `wrapping_key` - The key the freshly generated cipher key will be wrapped under (during
     ///   rotation, the new user key).
-    pub fn generate_cipher_key_from(
+    pub fn upgrade_to_cipher_key_encryption_with_external_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         source_key: SymmetricKeySlotId,
@@ -2470,7 +2474,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cipher_key() {
+    fn test_upgrade_to_cipher_key_encryption() {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
@@ -2485,7 +2489,7 @@ mod tests {
 
         let mut cipher = generate_cipher();
         cipher
-            .generate_cipher_key(&mut key_store.context(), cipher.key_identifier())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context(), cipher.key_identifier())
             .unwrap();
 
         // Check that the cipher gets encrypted correctly when it's assigned it's own key
@@ -2496,7 +2500,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cipher_key_when_a_cipher_key_already_exists() {
+    fn test_upgrade_to_cipher_key_encryption_when_a_cipher_key_already_exists() {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
@@ -2512,7 +2516,10 @@ mod tests {
         }
 
         original_cipher
-            .generate_cipher_key(&mut key_store.context(), original_cipher.key_identifier())
+            .upgrade_to_cipher_key_encryption(
+                &mut key_store.context(),
+                original_cipher.key_identifier(),
+            )
             .unwrap();
 
         // Make sure that the cipher key is decryptable
@@ -2524,7 +2531,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cipher_key_ignores_attachments_without_key() {
+    fn test_upgrade_to_cipher_key_encryption_ignores_attachments_without_key() {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
@@ -2542,13 +2549,13 @@ mod tests {
         cipher.attachments = Some(vec![attachment]);
 
         cipher
-            .generate_cipher_key(&mut key_store.context(), cipher.key_identifier())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context(), cipher.key_identifier())
             .unwrap();
         assert!(cipher.attachments.unwrap()[0].key.is_none());
     }
 
     #[test]
-    fn test_generate_cipher_key_from_rewraps_fido2_credentials() {
+    fn test_upgrade_to_cipher_key_encryption_with_external_key_rewraps_fido2_credentials() {
         use crate::cipher::login::Fido2CredentialFullView;
 
         let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
@@ -2571,7 +2578,7 @@ mod tests {
         assert!(cipher.key.is_none());
 
         cipher
-            .generate_cipher_key_from(&mut ctx, source_key, new_user_key)
+            .upgrade_to_cipher_key_encryption_with_external_key(&mut ctx, source_key, new_user_key)
             .unwrap();
 
         // The FIDO2 credential decrypts under the freshly installed cipher key.
@@ -2589,7 +2596,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cipher_key_from_rewraps_attachment_key() {
+    fn test_upgrade_to_cipher_key_encryption_with_external_key_rewraps_attachment_key() {
         let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
             SymmetricKeyAlgorithm::Aes256CbcHmac,
         ));
@@ -2619,7 +2626,7 @@ mod tests {
         assert!(cipher.key.is_none());
 
         cipher
-            .generate_cipher_key_from(&mut ctx, source_key, new_user_key)
+            .upgrade_to_cipher_key_encryption_with_external_key(&mut ctx, source_key, new_user_key)
             .unwrap();
 
         // The attachment key unwraps under the freshly installed cipher key.
@@ -2644,7 +2651,7 @@ mod tests {
 
         let mut cipher = generate_cipher();
         cipher
-            .generate_cipher_key(&mut ctx, cipher.key_identifier())
+            .upgrade_to_cipher_key_encryption(&mut ctx, cipher.key_identifier())
             .unwrap();
 
         // Re-encrypt the cipher key with a new wrapping key
@@ -2687,7 +2694,7 @@ mod tests {
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
         cipher
-            .generate_cipher_key(&mut key_store.context(), cipher.key_identifier())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context(), cipher.key_identifier())
             .unwrap();
 
         cipher
@@ -2712,7 +2719,7 @@ mod tests {
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
         cipher
-            .generate_cipher_key(&mut key_store.context(), cipher.key_identifier())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context(), cipher.key_identifier())
             .unwrap();
 
         cipher.organization_id = Some(org);
@@ -2907,7 +2914,7 @@ mod tests {
 
         let mut cipher_view = generate_cipher();
         cipher_view
-            .generate_cipher_key(&mut ctx, cipher_view.key_identifier())
+            .upgrade_to_cipher_key_encryption(&mut ctx, cipher_view.key_identifier())
             .unwrap();
 
         let key_id = cipher_view.key_identifier();
