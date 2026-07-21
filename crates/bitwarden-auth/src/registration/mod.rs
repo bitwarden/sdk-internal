@@ -3,11 +3,14 @@
 //! mechanisms to establish their cryptographic state and register with
 //! the Bitwarden server
 
+mod open_org_invite_data;
 mod post_keys_for_jit_password_registration;
 mod post_keys_for_key_connector_registration;
 mod post_keys_for_tde_registration;
 mod post_keys_for_user_password_registration;
 mod registration_client;
+mod seal_open_org_invite_data;
+mod unseal_open_org_invite_data;
 
 pub use post_keys_for_jit_password_registration::{
     JitMasterPasswordRegistrationRequest, JitMasterPasswordRegistrationResponse,
@@ -18,3 +21,4 @@ pub use post_keys_for_user_password_registration::{
     UserMasterPasswordRegistrationRequest, UserMasterPasswordRegistrationResponse,
 };
 pub use registration_client::{RegistrationClient, RegistrationError};
+pub use seal_open_org_invite_data::{OpenOrgInviteData, SealedOpenOrgInvite};
