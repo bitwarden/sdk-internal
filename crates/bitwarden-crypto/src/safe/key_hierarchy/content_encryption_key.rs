@@ -46,9 +46,7 @@ mod tests {
 
         let cek_id = ContentEncryptionKey::make(&mut ctx);
 
-        let key = ctx
-            .get_symmetric_key(cek_id)
-            .expect("DEKCEKshould be stored");
+        let key = ctx.get_symmetric_key(cek_id).expect("CEK be stored");
         assert!(matches!(key, SymmetricCryptoKey::Aes256GcmKey(_)));
     }
 
