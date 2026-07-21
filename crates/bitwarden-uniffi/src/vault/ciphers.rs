@@ -2,7 +2,7 @@ use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{
     Cipher, CipherListView, CipherView, DecryptCipherListResult, EncryptionContext,
-    Fido2CredentialView,
+    Fido2CredentialFullView,
 };
 
 use crate::Result;
@@ -42,7 +42,7 @@ impl CiphersClient {
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
-    ) -> Result<Vec<Fido2CredentialView>> {
+    ) -> Result<Vec<Fido2CredentialFullView>> {
         Ok(self.0.decrypt_fido2_credentials(cipher_view)?)
     }
 

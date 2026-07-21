@@ -1,11 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_core::key_management::KeySlotIds;
-use bitwarden_crypto::KeyStoreContext;
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
-use bitwarden_vault::{
-    CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
-};
+use bitwarden_vault::{CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView};
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
 use passkey::types::{CredentialExtensions, Passkey, ctap2::Aaguid};
 
@@ -61,7 +57,7 @@ const AAGUID: Aaguid = Aaguid([
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SelectedCredential {
     cipher: CipherView,
-    credential: Fido2CredentialView,
+    credential: Fido2CredentialFullView,
 }
 
 // This container is needed so we can properly implement the TryFrom trait for Passkey
@@ -73,8 +69,8 @@ pub(crate) struct CipherViewContainer {
 }
 
 impl CipherViewContainer {
-    fn new(cipher: CipherView, ctx: &mut KeyStoreContext<KeySlotIds>) -> Result<Self, CipherError> {
-        let fido2_credentials = cipher.get_fido2_credentials(ctx)?;
+    fn new(cipher: CipherView) -> Result<Self, CipherError> {
+        let fido2_credentials = cipher.get_fido2_credentials()?;
         Ok(Self {
             cipher,
             fido2_credentials,
@@ -149,7 +145,7 @@ pub enum FillCredentialError {
 
 #[allow(missing_docs)]
 pub fn fill_with_credential(
-    view: &Fido2CredentialView,
+    view: &Fido2CredentialFullView,
     value: Passkey,
 ) -> Result<Fido2CredentialFullView, FillCredentialError> {
     let cred_id: Vec<u8> = value.credential_id.into();

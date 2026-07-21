@@ -118,34 +118,12 @@ pub struct Fido2CredentialListView {
     pub counter: String,
 }
 
+// The fully decrypted FIDO2 credential view stored on [`LoginView`]. Unlike the encrypted
+// storage model, every field is plaintext, including the `key_value` (the FIDO2 private key).
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct Fido2CredentialView {
-    pub credential_id: String,
-    pub key_type: String,
-    pub key_algorithm: String,
-    pub key_curve: String,
-    // This value doesn't need to be returned to the client
-    // so we keep it encrypted until we need it
-    pub key_value: EncString,
-    pub rp_id: String,
-    pub user_handle: Option<String>,
-    pub user_name: Option<String>,
-    pub counter: String,
-    pub rp_name: Option<String>,
-    pub user_display_name: Option<String>,
-    pub discoverable: String,
-    pub creation_date: DateTime<Utc>,
-}
-
-// This is mostly a copy of the Fido2CredentialView, but with the key exposed
-// Only meant to be used internally and not exposed to the outside world
-#[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Fido2CredentialFullView {
     pub credential_id: String,
@@ -163,9 +141,9 @@ pub struct Fido2CredentialFullView {
     pub creation_date: DateTime<Utc>,
 }
 
-// This is mostly a copy of the Fido2CredentialView, meant to be exposed to the clients
+// This is mostly a copy of the Fido2CredentialFullView, meant to be exposed to the clients
 // to let them select where to store the new credential. Note that it doesn't contain
-// the encrypted key as that is only filled when the cipher is selected
+// the key as that is only filled when the cipher is selected
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -257,30 +235,6 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialFullView> for Fi
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialFullView> for Fido2CredentialView {
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<Fido2CredentialFullView, CryptoError> {
-        Ok(Fido2CredentialFullView {
-            credential_id: self.credential_id.clone(),
-            key_type: self.key_type.clone(),
-            key_algorithm: self.key_algorithm.clone(),
-            key_curve: self.key_curve.clone(),
-            key_value: self.key_value.decrypt(ctx, key)?,
-            rp_id: self.rp_id.clone(),
-            user_handle: self.user_handle.clone(),
-            user_name: self.user_name.clone(),
-            counter: self.counter.clone(),
-            rp_name: self.rp_name.clone(),
-            user_display_name: self.user_display_name.clone(),
-            discoverable: self.discoverable.clone(),
-            creation_date: self.creation_date,
-        })
-    }
-}
-
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -312,8 +266,7 @@ pub struct LoginView {
     pub totp: Option<String>,
     pub autofill_on_page_load: Option<bool>,
 
-    // TODO: Remove this once the SDK supports state
-    pub fido2_credentials: Option<Vec<Fido2Credential>>,
+    pub fido2_credentials: Option<Vec<Fido2CredentialFullView>>,
 }
 
 impl LoginView {
@@ -326,26 +279,12 @@ impl LoginView {
         }
     }
 
-    /// Re-encrypts the fido2 credentials with a new key, replacing the old encrypted values.
-    pub fn reencrypt_fido2_credentials(
-        &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        old_key: SymmetricKeySlotId,
-        new_key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
-        if let Some(creds) = &mut self.fido2_credentials {
-            let decrypted_creds: Vec<Fido2CredentialFullView> = creds.decrypt(ctx, old_key)?;
-            *creds = decrypted_creds.encrypt_composite(ctx, new_key)?;
-        }
-        Ok(())
-    }
-
     /// Projects this [`LoginView`] into a [`LoginListView`].
     ///
     /// `totp` is re-encrypted under `cipher_key` because [`LoginListView`] stores the
     /// TOTP as an [`EncString`] that [`crate::CipherListView::get_totp_key`] decrypts
-    /// on demand. `fido2_credentials` are still encrypted on [`LoginView`], so they
-    /// decrypt directly to [`Fido2CredentialListView`] via the existing impl.
+    /// on demand. `fido2_credentials` are already decrypted on [`LoginView`], so they
+    /// project directly into [`Fido2CredentialListView`].
     pub(crate) fn to_list_view(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -360,8 +299,7 @@ impl LoginView {
         let fido2_credentials = self
             .fido2_credentials
             .as_ref()
-            .map(|creds| creds.decrypt(ctx, cipher_key))
-            .transpose()?;
+            .map(|creds| creds.iter().map(Fido2CredentialListView::from).collect());
 
         Ok(LoginListView {
             has_fido2: self.fido2_credentials.is_some(),
@@ -447,7 +385,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Login> for LoginView {
                 .filter(|s| !s.is_empty())
                 .encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
-            fido2_credentials: self.fido2_credentials.clone(),
+            fido2_credentials: self.fido2_credentials.encrypt_composite(ctx, key)?,
         })
     }
 }
@@ -479,7 +417,10 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for Login {
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.decrypt(ctx, key).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
-            fido2_credentials: self.fido2_credentials.clone(),
+            fido2_credentials: self
+                .fido2_credentials
+                .as_ref()
+                .and_then(|creds| creds.decrypt(ctx, key).ok()),
         })
     }
 }
@@ -516,7 +457,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for StrictDecrypt<&L
             uris: self.0.uris.decrypt(ctx, key)?,
             totp: self.0.totp.decrypt(ctx, key)?,
             autofill_on_page_load: self.0.autofill_on_page_load,
-            fido2_credentials: self.0.fido2_credentials.clone(),
+            fido2_credentials: self.0.fido2_credentials.decrypt(ctx, key)?,
         })
     }
 }
@@ -542,27 +483,16 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginListView> for StrictDecryp
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialView> for Fido2Credential {
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<Fido2CredentialView, CryptoError> {
-        Ok(Fido2CredentialView {
-            credential_id: self.credential_id.decrypt(ctx, key)?,
-            key_type: self.key_type.decrypt(ctx, key)?,
-            key_algorithm: self.key_algorithm.decrypt(ctx, key)?,
-            key_curve: self.key_curve.decrypt(ctx, key)?,
-            key_value: self.key_value.clone(),
-            rp_id: self.rp_id.decrypt(ctx, key)?,
-            user_handle: self.user_handle.decrypt(ctx, key)?,
-            user_name: self.user_name.decrypt(ctx, key)?,
-            counter: self.counter.decrypt(ctx, key)?,
-            rp_name: self.rp_name.decrypt(ctx, key)?,
-            user_display_name: self.user_display_name.decrypt(ctx, key)?,
-            discoverable: self.discoverable.decrypt(ctx, key)?,
-            creation_date: self.creation_date,
-        })
+impl From<&Fido2CredentialFullView> for Fido2CredentialListView {
+    fn from(view: &Fido2CredentialFullView) -> Self {
+        Fido2CredentialListView {
+            credential_id: view.credential_id.clone(),
+            rp_id: view.rp_id.clone(),
+            user_handle: view.user_handle.clone(),
+            user_name: view.user_name.clone(),
+            user_display_name: view.user_display_name.clone(),
+            counter: view.counter.clone(),
+        }
     }
 }
 

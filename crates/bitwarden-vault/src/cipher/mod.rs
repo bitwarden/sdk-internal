@@ -47,8 +47,8 @@ pub use field::FieldListView;
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{
-    Fido2Credential, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView, Login,
-    LoginListView, LoginUriView, LoginView, UriMatchType,
+    Fido2Credential, Fido2CredentialFullView, Fido2CredentialNewView, Login, LoginListView,
+    LoginUriView, LoginView, UriMatchType,
 };
 pub use passport::PassportView;
 pub use secure_note::{SecureNoteType, SecureNoteView};

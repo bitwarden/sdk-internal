@@ -65,7 +65,6 @@ impl From<&Fido2CredentialDataV1> for Fido2CredentialFullView {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{CompositeEncryptable, Decryptable};
     use chrono::{TimeZone, Utc};
 
     use super::super::{CipherBlobV1, CipherTypeDataV1, LoginUriDataV1, test_support::*};
@@ -73,7 +72,7 @@ mod tests {
         cipher::CipherType,
         field::{FieldType, FieldView},
         linked_id::{LinkedIdType, LoginLinkedIdType},
-        login::{Fido2Credential, Fido2CredentialFullView, LoginUriView, LoginView, UriMatchType},
+        login::{Fido2CredentialFullView, LoginUriView, LoginView, UriMatchType},
     };
 
     #[test]
@@ -185,7 +184,7 @@ mod tests {
         let (key_store, key_id) = create_test_key_store();
         let mut ctx = key_store.context_mut();
 
-        // Create fido2 credentials by encrypting a FullView
+        // The decrypted login view holds fully-decrypted FIDO2 credentials.
         let fido2_full = Fido2CredentialFullView {
             credential_id: "cred-123".to_string(),
             key_type: "public-key".to_string(),
@@ -201,8 +200,6 @@ mod tests {
             discoverable: "true".to_string(),
             creation_date: Utc.with_ymd_and_hms(2024, 6, 1, 10, 30, 0).unwrap(),
         };
-        let encrypted_fido2: Fido2Credential =
-            fido2_full.encrypt_composite(&mut ctx, key_id).unwrap();
 
         let original = crate::CipherView {
             name: "My Login".to_string(),
@@ -219,7 +216,7 @@ mod tests {
                 }]),
                 totp: Some("otpauth://totp/test?secret=JBSWY3DPEHPK3PXP".to_string()),
                 autofill_on_page_load: Some(true),
-                fido2_credentials: Some(vec![encrypted_fido2]),
+                fido2_credentials: Some(vec![fido2_full]),
             }),
             fields: Some(vec![FieldView {
                 name: Some("Custom Field".to_string()),
@@ -278,15 +275,13 @@ mod tests {
         assert_eq!(uris[0].r#match, Some(UriMatchType::Domain));
         assert_eq!(uris[0].uri_checksum, None);
 
-        // Fido2 credentials should be re-encrypted
+        // Fido2 credentials round-trip as fully-decrypted views
         let fido2 = login.fido2_credentials.unwrap();
         assert_eq!(fido2.len(), 1);
-        // Decrypt to verify content survived the round-trip
-        let decrypted: Fido2CredentialFullView = fido2[0].decrypt(&mut ctx, key_id).unwrap();
-        assert_eq!(decrypted.credential_id, "cred-123");
-        assert_eq!(decrypted.counter, "42");
-        assert_eq!(decrypted.discoverable, "true");
-        assert_eq!(decrypted.rp_id, "example.com");
+        assert_eq!(fido2[0].credential_id, "cred-123");
+        assert_eq!(fido2[0].counter, "42");
+        assert_eq!(fido2[0].discoverable, "true");
+        assert_eq!(fido2[0].rp_id, "example.com");
 
         // Fields and password history
         assert_eq!(restored.fields.as_ref().unwrap().len(), 1);

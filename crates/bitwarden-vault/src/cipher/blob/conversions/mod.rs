@@ -1,5 +1,5 @@
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
+use bitwarden_crypto::{CryptoError, KeyStoreContext};
 
 use super::v1::*;
 use crate::{
@@ -59,8 +59,8 @@ mod ssh_key;
 impl CipherBlobV1 {
     pub(crate) fn from_cipher_view(
         view: &CipherView,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeySlotIds>,
+        _key: SymmetricKeySlotId,
     ) -> Result<Self, CryptoError> {
         let type_data = match view.r#type {
             CipherType::Login => {
@@ -72,11 +72,7 @@ impl CipherBlobV1 {
                 let fido2_credentials: Vec<Fido2CredentialDataV1> = login
                     .fido2_credentials
                     .as_ref()
-                    .map(|creds| -> Result<Vec<_>, CryptoError> {
-                        let full_views: Vec<Fido2CredentialFullView> = creds.decrypt(ctx, key)?;
-                        Ok(full_views.iter().map(Fido2CredentialDataV1::from).collect())
-                    })
-                    .transpose()?
+                    .map(|creds| creds.iter().map(Fido2CredentialDataV1::from).collect())
                     .unwrap_or_default();
 
                 CipherTypeDataV1::Login(LoginDataV1 {
@@ -164,8 +160,8 @@ impl CipherBlobV1 {
     pub(crate) fn apply_to_cipher_view(
         &self,
         view: &mut CipherView,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeySlotIds>,
+        _key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         view.name = self.name.clone();
         view.notes = self.notes.clone();
@@ -191,12 +187,13 @@ impl CipherBlobV1 {
                 let fido2_credentials = if login_data.fido2_credentials.is_empty() {
                     None
                 } else {
-                    let full_views: Vec<Fido2CredentialFullView> = login_data
-                        .fido2_credentials
-                        .iter()
-                        .map(Fido2CredentialFullView::from)
-                        .collect();
-                    Some(full_views.encrypt_composite(ctx, key)?)
+                    Some(
+                        login_data
+                            .fido2_credentials
+                            .iter()
+                            .map(Fido2CredentialFullView::from)
+                            .collect(),
+                    )
                 };
 
                 view.r#type = CipherType::Login;

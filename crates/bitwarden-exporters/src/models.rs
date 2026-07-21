@@ -25,7 +25,7 @@ impl crate::Cipher {
         let view: CipherView = key_store.decrypt(&cipher)?;
 
         let r = match view.r#type {
-            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, key_store)?)),
+            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view)?)),
             CipherType::SecureNote => {
                 let s = require!(view.secure_note);
                 crate::CipherType::SecureNote(Box::new(s.into()))
@@ -93,10 +93,7 @@ impl From<PasswordHistoryView> for crate::PasswordHistory {
 }
 
 /// Convert a `LoginView` into a `crate::Login`.
-fn from_login(
-    view: &CipherView,
-    key_store: &KeyStore<KeySlotIds>,
-) -> Result<crate::Login, MissingFieldError> {
+fn from_login(view: &CipherView) -> Result<crate::Login, MissingFieldError> {
     let l = require!(view.login.clone());
 
     Ok(crate::Login {
@@ -110,7 +107,7 @@ fn from_login(
             .collect(),
         totp: l.totp,
         fido2_credentials: l.fido2_credentials.as_ref().and_then(|_| {
-            let credentials = view.get_fido2_credentials(&mut key_store.context()).ok()?;
+            let credentials = view.get_fido2_credentials().ok()?;
             if credentials.is_empty() {
                 None
             } else {
@@ -269,9 +266,6 @@ mod tests {
 
     #[test]
     fn test_from_login() {
-        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let key_store = create_test_crypto_with_user_key(key);
-
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = CipherView {
             r#type: CipherType::Login,
@@ -315,7 +309,7 @@ mod tests {
             archived_date: None,
         };
 
-        let login = from_login(&view, &key_store).unwrap();
+        let login = from_login(&view).unwrap();
 
         assert_eq!(login.username, Some("test_username".to_string()));
         assert_eq!(login.password, Some("test_password".to_string()));

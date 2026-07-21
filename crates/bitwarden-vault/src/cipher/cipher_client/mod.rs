@@ -15,13 +15,14 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
+#[cfg(feature = "wasm")]
+use crate::cipher::cipher::DecryptCipherResult;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
+    Fido2CredentialFullView,
     cipher::cipher::{DecryptCipherListResult, EncryptMode, StrictDecrypt},
     cipher_client::admin::CipherAdminClient,
 };
-#[cfg(feature = "wasm")]
-use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
 mod bulk_update_collections;
@@ -283,28 +284,8 @@ impl CiphersClient {
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
-    ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
-        let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
-        Ok(credentials)
-    }
-
-    /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
-    /// Necessary until the TS clients utilize the SDK entirely for FIDO2 credentials management.
-    /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when
-    /// encrypting the rest of the CipherView.
-    /// TODO: Remove once TS passkey provider implementation uses SDK - PM-8313
-    #[cfg(feature = "wasm")]
-    pub fn set_fido2_credentials(
-        &self,
-        mut cipher_view: CipherView,
-        fido2_credentials: Vec<Fido2CredentialFullView>,
-    ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-
-        cipher_view.set_new_fido2_credentials(&mut key_store.context(), fido2_credentials)?;
-
-        Ok(cipher_view)
+    ) -> Result<Vec<Fido2CredentialFullView>, DecryptError> {
+        Ok(cipher_view.decrypt_fido2_credentials())
     }
 
     #[allow(missing_docs)]
@@ -316,17 +297,6 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
         Ok(cipher_view)
-    }
-
-    #[cfg(feature = "wasm")]
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_private_key(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<String, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
-        Ok(decrypted_key)
     }
 
     /// Returns a new client for performing admin operations.
