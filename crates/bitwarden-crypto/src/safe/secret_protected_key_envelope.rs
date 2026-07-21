@@ -565,6 +565,11 @@ pub enum SecretProtectedKeyEnvelopeNamespace {
     /// Bitwarden Desktop biometric (Windows Hello) unlock. The high-entropy secret is a PRF derived
     /// from the Windows Hello signing credential, and the sealed key is the user key.
     DesktopBiometricUnlock = 2,
+    /// Namespace for the outer envelope of the open-organization-invite registration crossing.
+    /// The sealed key protects the inner `DataEnvelope`'s content-encryption key; the high-entropy
+    /// secret is generated per registration and stored client-side to be paired with the sealed
+    /// data returned via the verification email.
+    RegistrationOpenOrgInvite = 3,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -587,6 +592,7 @@ impl TryFrom<i128> for SecretProtectedKeyEnvelopeNamespace {
         match value {
             1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleUse),
             2 => Ok(SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock),
+            3 => Ok(SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite),
             #[cfg(test)]
             -1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -667,6 +673,20 @@ mod tests {
         222, 10, 249, 242, 57, 196, 223, 240, 234, 177, 19, 72, 201, 32, 1, 129, 46, 6, 76, 38,
         149, 151, 217, 94, 84, 67, 50, 107, 103, 74, 88, 72, 246,
     ];
+
+    #[test]
+    fn test_registration_open_org_invite_namespace_maps_to_expected_discriminant() {
+        // The wire discriminant is load-bearing once shipped; a regression here would silently
+        // invalidate every envelope sealed by production callers.
+        assert_eq!(
+            SecretProtectedKeyEnvelopeNamespace::try_from(3i128).unwrap(),
+            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite
+        );
+        assert_eq!(
+            i128::from(SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite),
+            3
+        );
+    }
 
     #[test]
     #[ignore = "Manual test to verify debug format"]

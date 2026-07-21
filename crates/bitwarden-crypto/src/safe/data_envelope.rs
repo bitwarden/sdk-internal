@@ -487,6 +487,11 @@ macro_rules! generate_versioned_sealable {
 pub enum DataEnvelopeNamespace {
     /// The namespace for vault items ("ciphers")
     VaultItem = 1,
+    /// Namespace for the invite context payload sealed on registration-start and unsealed on
+    /// registration-finish so an anonymous, email-verified new user can complete an open
+    /// organization invite in a single flow. The sealed struct carries the organization id,
+    /// invite link code, and invite key.
+    RegistrationOpenOrgInviteData = 2,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -508,6 +513,7 @@ impl TryFrom<i128> for DataEnvelopeNamespace {
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(DataEnvelopeNamespace::VaultItem),
+            2 => Ok(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
             #[cfg(test)]
             -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -759,6 +765,47 @@ mod tests {
         let result: Result<TestData, DataEnvelopeError> =
             envelope.unseal(crate::traits::tests::TestSymmKey::A(0), &mut ctx);
         assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
+    }
+
+    #[test]
+    fn test_registration_open_org_invite_namespace_maps_to_expected_discriminant() {
+        // The wire discriminant is load-bearing once shipped; a regression here would silently
+        // invalidate every envelope sealed by production callers.
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(2i128).unwrap(),
+            DataEnvelopeNamespace::RegistrationOpenOrgInviteData
+        );
+        assert_eq!(
+            i128::from(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
+            2
+        );
+    }
+
+    #[test]
+    fn test_registration_open_org_invite_data_rejects_cross_namespace_unseal() {
+        // AC 1.iii analogue: an envelope sealed under the new production namespace must not
+        // unseal under any other `DataEnvelopeNamespace` (here, the sibling production
+        // `VaultItem`). Mirrors `test_namespace_cross_contamination_protection` for the new
+        // variant.
+        let data: TestData = TestDataV1 { field: 42 }.into();
+
+        let (envelope, cek) =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::RegistrationOpenOrgInviteData)
+                .unwrap();
+
+        assert!(matches!(
+            unseal_with_cek::<TestData>(&envelope, DataEnvelopeNamespace::VaultItem, &cek),
+            Err(DataEnvelopeError::InvalidNamespace)
+        ));
+
+        // Correct namespace still succeeds.
+        let round_tripped: TestData = unseal_with_cek(
+            &envelope,
+            DataEnvelopeNamespace::RegistrationOpenOrgInviteData,
+            &cek,
+        )
+        .unwrap();
+        assert_eq!(round_tripped, data);
     }
 
     #[test]
