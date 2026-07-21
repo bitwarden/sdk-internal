@@ -195,7 +195,7 @@ impl CiphersClient {
         self.update_password_history(&mut cipher_view, original_cipher_view)
             .await?;
 
-        let encrypted_cipher = self.encrypt(cipher_view).await?;
+        let encrypted_cipher = self.encrypt(cipher_view)?;
 
         let api_client = &self.client.internal.get_api_configurations().api_client;
 
@@ -240,7 +240,7 @@ impl CiphersClient {
                 collection_ids.clone(),
             )?;
             self.update_password_history(&mut cv, None).await?;
-            encrypted_ciphers.push(self.encrypt(cv).await?);
+            encrypted_ciphers.push(self.encrypt(cv)?);
         }
         Ok(encrypted_ciphers)
     }
@@ -486,7 +486,7 @@ mod tests {
         cipher_view_2.organization_id = Some(TEST_ORG_ID.parse().unwrap());
 
         // Encrypt and store cipher_view_1 in repository for password history lookup
-        let encrypted_1 = cipher_client.encrypt(cipher_view_1.clone()).await.unwrap();
+        let encrypted_1 = cipher_client.encrypt(cipher_view_1.clone()).unwrap();
         let repository = cipher_client.get_repository().unwrap();
         repository
             .set(TEST_CIPHER_ID.parse().unwrap(), encrypted_1.cipher.clone())
@@ -814,14 +814,6 @@ mod tests {
 
         let client = Client::new_test(Some(settings));
 
-        client
-            .flags()
-            .load(std::collections::HashMap::from([(
-                "enableCipherKeyEncryption".to_owned(),
-                true,
-            )]))
-            .await;
-
         let user_request = InitUserCryptoRequest {
             user_id: Some(UserId::new(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8"))),
             kdf_params: Kdf::PBKDF2 {
@@ -931,11 +923,7 @@ mod tests {
         repository
             .set(
                 TEST_CIPHER_ID.parse().unwrap(),
-                cipher_client
-                    .encrypt(original.clone())
-                    .await
-                    .unwrap()
-                    .cipher,
+                cipher_client.encrypt(original.clone()).unwrap().cipher,
             )
             .await
             .unwrap();
@@ -1045,7 +1033,7 @@ mod tests {
         let repository = std::sync::Arc::new(MemoryRepository::<Cipher>::default());
         let cipher_client = client.vault().ciphers();
 
-        let encrypted_original1 = cipher_client.encrypt(cipher_view1.clone()).await.unwrap();
+        let encrypted_original1 = cipher_client.encrypt(cipher_view1.clone()).unwrap();
         repository
             .set(
                 encrypted_original1.cipher.id.unwrap(),
@@ -1054,7 +1042,7 @@ mod tests {
             .await
             .unwrap();
 
-        let encrypted_original2 = cipher_client.encrypt(cipher_view2.clone()).await.unwrap();
+        let encrypted_original2 = cipher_client.encrypt(cipher_view2.clone()).unwrap();
         repository
             .set(
                 encrypted_original2.cipher.id.unwrap(),

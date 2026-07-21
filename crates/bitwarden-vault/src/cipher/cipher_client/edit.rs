@@ -165,9 +165,9 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
     }
 }
 
-// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
-// short-lived feature-rollout flags that will be removed once their migrations
-// complete, at which point the argument count drops back under the limit.
+// `use_strict_decryption` and `use_blob` are short-lived feature-rollout flags
+// that will be removed once their migrations complete, at which point the
+// argument count drops back under the limit.
 #[allow(clippy::too_many_arguments)]
 async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeySlotIds>,
@@ -176,7 +176,6 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     request: CipherEditRequest,
     use_strict_decryption: bool,
-    enable_cipher_key_encryption: bool,
     use_blob: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
@@ -191,9 +190,9 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
 
-    // TODO: Once this flag is removed, the key generation logic should be
-    // moved directly into the CompositeEncryptable implementation.
-    if view.key.is_none() && enable_cipher_key_encryption {
+    // TODO: The key generation logic should be moved directly into the
+    // CompositeEncryptable implementation.
+    if view.key.is_none() {
         let key = view.key_identifier();
         view.generate_cipher_key(&mut key_store.context(), key)?;
     }
@@ -273,9 +272,6 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let enable_cipher_key_encryption =
-            self.client.flags().get().await.enable_cipher_key_encryption;
-
         let use_blob = self.should_use_blob_encryption(request.organization_id);
 
         edit_cipher(
@@ -285,7 +281,6 @@ impl CiphersClient {
             user_id,
             request,
             self.is_strict_decrypt().await,
-            enable_cipher_key_encryption,
             use_blob,
         )
         .await
@@ -564,7 +559,6 @@ mod tests {
             request,
             false,
             false,
-            false,
         )
         .await
         .unwrap();
@@ -704,7 +698,6 @@ mod tests {
             request,
             false,
             false,
-            false,
         )
         .await;
 
@@ -745,7 +738,6 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
-            false,
             false,
             false,
         )

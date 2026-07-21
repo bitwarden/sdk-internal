@@ -43,14 +43,6 @@ impl Client {
         let client = Client::new_test(None);
 
         client
-            .flags()
-            .load(HashMap::from([(
-                "enableCipherKeyEncryption".to_owned(),
-                true,
-            )]))
-            .await;
-
-        client
             .crypto()
             .initialize_user_crypto(account.user)
             .await

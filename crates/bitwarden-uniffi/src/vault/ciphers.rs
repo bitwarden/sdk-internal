@@ -14,8 +14,8 @@ pub struct CiphersClient(pub(crate) bitwarden_vault::CiphersClient);
 #[uniffi::export(async_runtime = "tokio")]
 impl CiphersClient {
     /// Encrypt cipher
-    pub async fn encrypt(&self, cipher_view: CipherView) -> Result<EncryptionContext> {
-        Ok(self.0.encrypt(cipher_view).await?)
+    pub fn encrypt(&self, cipher_view: CipherView) -> Result<EncryptionContext> {
+        Ok(self.0.encrypt(cipher_view)?)
     }
 
     /// Decrypt cipher

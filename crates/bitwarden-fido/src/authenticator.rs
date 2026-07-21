@@ -497,8 +497,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .client
                 .vault()
                 .ciphers()
-                .encrypt(selected)
-                .await?;
+                .encrypt(selected)?;
 
             this.authenticator
                 .credential_store
@@ -572,8 +571,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .client
                 .vault()
                 .ciphers()
-                .encrypt(selected)
-                .await?;
+                .encrypt(selected)?;
 
             this.authenticator
                 .credential_store

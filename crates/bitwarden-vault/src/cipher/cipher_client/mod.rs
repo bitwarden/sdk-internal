@@ -83,10 +83,7 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
-    pub async fn encrypt(
-        &self,
-        mut cipher_view: CipherView,
-    ) -> Result<EncryptionContext, EncryptError> {
+    pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<EncryptionContext, EncryptError> {
         let user_id = self
             .client
             .internal
@@ -94,10 +91,9 @@ impl CiphersClient {
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
 
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved directly into the KeyEncryptable implementation
-        if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
-        {
+        // TODO: The key generation logic should be moved directly into the
+        // KeyEncryptable implementation
+        if cipher_view.key.is_none() {
             let key = cipher_view.key_identifier();
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
         }
@@ -121,11 +117,9 @@ impl CiphersClient {
     /// symmetric key in base64 format. See PM-23084
     ///
     /// If the cipher has a CipherKey, it will be re-encrypted with the new key.
-    /// If the cipher does not have a CipherKey and CipherKeyEncryption is enabled, one will be
-    /// generated using the new key. Otherwise, the cipher's data will be encrypted with the new
-    /// key directly.
+    /// If the cipher does not have a CipherKey, one will be generated using the new key.
     #[cfg(feature = "wasm")]
-    pub async fn encrypt_cipher_for_rotation(
+    pub fn encrypt_cipher_for_rotation(
         &self,
         mut cipher_view: CipherView,
         new_key: B64,
@@ -137,8 +131,6 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let enable_cipher_key_encryption =
-            self.client.flags().get().await.enable_cipher_key_encryption;
 
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -146,7 +138,7 @@ impl CiphersClient {
         // Set the new key in the key store context
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
-        if cipher_view.key.is_none() && enable_cipher_key_encryption {
+        if cipher_view.key.is_none() {
             cipher_view.generate_cipher_key(&mut ctx, new_key_id)?;
         } else {
             cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
@@ -173,7 +165,7 @@ impl CiphersClient {
     /// This method attempts to encrypt all ciphers in the list. If any cipher
     /// fails to encrypt, the entire operation fails and an error is returned.
     #[cfg(feature = "wasm")]
-    pub async fn encrypt_list(
+    pub fn encrypt_list(
         &self,
         cipher_views: Vec<CipherView>,
     ) -> Result<Vec<EncryptionContext>, EncryptError> {
@@ -183,14 +175,13 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let enable_cipher_key = self.client.flags().get().await.enable_cipher_key_encryption;
 
         let mut ctx = key_store.context();
 
         let prepared_modes: Vec<EncryptMode<CipherView>> = cipher_views
             .into_iter()
             .map(|mut cv| {
-                if cv.key.is_none() && enable_cipher_key {
+                if cv.key.is_none() {
                     let key = cv.key_identifier();
                     cv.generate_cipher_key(&mut ctx, key)?;
                 }
@@ -613,7 +604,7 @@ mod tests {
         let EncryptionContext {
             cipher: new_cipher,
             encrypted_for: _,
-        } = client.vault().ciphers().encrypt(view).await.unwrap();
+        } = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
         let view = client.vault().ciphers().decrypt(new_cipher).await.unwrap();
@@ -660,7 +651,7 @@ mod tests {
         let EncryptionContext {
             cipher: new_cipher,
             encrypted_for: _,
-        } = client.vault().ciphers().encrypt(view).await.unwrap();
+        } = client.vault().ciphers().encrypt(view).unwrap();
         assert!(new_cipher.key.is_some());
 
         // The stored (wrapped) attachment key changed: it is now protected by the cipher key
@@ -714,7 +705,7 @@ mod tests {
         let EncryptionContext {
             cipher: new_cipher,
             encrypted_for: _,
-        } = client.vault().ciphers().encrypt(new_view).await.unwrap();
+        } = client.vault().ciphers().encrypt(new_view).unwrap();
 
         // The stored key remains present after the move. Its wrapped bytes are not compared: the
         // attachment key is re-wrapped (with a fresh IV) on every encryption, so the ciphertext
@@ -823,7 +814,6 @@ mod tests {
             .vault()
             .ciphers()
             .encrypt_cipher_for_rotation(cipher_view, new_key_b64)
-            .await
             .unwrap();
 
         assert!(ctx.cipher.key.is_some());
@@ -842,7 +832,7 @@ mod tests {
 
         let cipher_views = vec![test_cipher_view(), test_cipher_view()];
 
-        let result = client.vault().ciphers().encrypt_list(cipher_views).await;
+        let result = client.vault().ciphers().encrypt_list(cipher_views);
 
         assert!(result.is_ok());
         let contexts = result.unwrap();
@@ -859,7 +849,7 @@ mod tests {
     async fn test_encrypt_list_empty() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
-        let result = client.vault().ciphers().encrypt_list(vec![]).await;
+        let result = client.vault().ciphers().encrypt_list(vec![]);
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
@@ -877,7 +867,6 @@ mod tests {
             .vault()
             .ciphers()
             .encrypt_list(original_views)
-            .await
             .unwrap();
 
         // Decrypt each cipher and verify the name matches
@@ -900,12 +889,7 @@ mod tests {
         let expected_user_id = client.internal.get_user_id().unwrap();
 
         let cipher_views = vec![test_cipher_view(), test_cipher_view(), test_cipher_view()];
-        let contexts = client
-            .vault()
-            .ciphers()
-            .encrypt_list(cipher_views)
-            .await
-            .unwrap();
+        let contexts = client.vault().ciphers().encrypt_list(cipher_views).unwrap();
 
         for ctx in contexts {
             assert_eq!(ctx.encrypted_for, expected_user_id);
@@ -963,7 +947,6 @@ mod tests {
             .vault()
             .ciphers()
             .encrypt(test_cipher_view())
-            .await
             .unwrap();
 
         assert!(try_parse_blob(&ctx.cipher).is_some());
@@ -989,7 +972,6 @@ mod tests {
             .vault()
             .ciphers()
             .encrypt_list(vec![personal_view, org_view])
-            .await
             .unwrap();
 
         assert_eq!(contexts.len(), 2);
@@ -1021,7 +1003,6 @@ mod tests {
             .vault()
             .ciphers()
             .encrypt_cipher_for_rotation(test_cipher_view(), new_key_b64)
-            .await
             .unwrap();
 
         assert!(try_parse_blob(&ctx.cipher).is_some());
