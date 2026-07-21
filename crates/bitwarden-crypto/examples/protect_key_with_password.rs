@@ -2,8 +2,10 @@
 //! [PasswordProtectedKeyEnvelope].
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, key_slot_ids, safe::{
-        KeyEncryptionKey, PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError, PasswordProtectedKeyEnvelopeNamespace,
+    KeyStore, KeyStoreContext, key_slot_ids,
+    safe::{
+        KeyEncryptionKey, PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError,
+        PasswordProtectedKeyEnvelopeNamespace,
     },
 };
 

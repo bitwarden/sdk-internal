@@ -7,8 +7,10 @@
 //! bytes) and uses a cheap KDF.
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids, safe::{
-        ContentEncryptionKey, HighEntropySecret, SecretProtectedKeyEnvelope, SecretProtectedKeyEnvelopeError, SecretProtectedKeyEnvelopeNamespace,
+    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids,
+    safe::{
+        ContentEncryptionKey, HighEntropySecret, SecretProtectedKeyEnvelope,
+        SecretProtectedKeyEnvelopeError, SecretProtectedKeyEnvelopeNamespace,
     },
 };
 
@@ -26,7 +28,7 @@ fn main() {
 
     // Alice has some data protected with a symmetric key. She wants the symmetric key protected
     // with a high-entropy secret (here, 16 random bytes).
-    let data_key = ContentEncryptionKey::make(&mut ctx); 
+    let data_key = ContentEncryptionKey::make(&mut ctx);
     let secret = HighEntropySecret::make(16).expect("16 bytes is a valid size");
 
     // Seal the key with the secret.
