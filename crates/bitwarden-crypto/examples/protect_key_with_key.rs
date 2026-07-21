@@ -2,7 +2,11 @@
 //! [`SymmetrickeyEnvelope`].
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids, safe::{KeyEncryptionKey, SymmetricKeyEnvelope, SymmetricKeyEnvelopeError, SymmetricKeyEnvelopeNamespace},
+    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids,
+    safe::{
+        KeyEncryptionKey, SymmetricKeyEnvelope, SymmetricKeyEnvelopeError,
+        SymmetricKeyEnvelopeNamespace,
+    },
 };
 
 fn main() {
