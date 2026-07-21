@@ -432,6 +432,12 @@ impl TryFrom<Cipher> for CipherRequestModel {
     }
 }
 
+/// The full decrypted view of a cipher, including its cryptographic key.
+///
+/// This is conceptually a `CipherFullView` and will be renamed to that in follow-up work. At that
+/// point the FFI-facing struct clients receive will be replaced by a separate `CipherView` that
+/// does **not** carry the cipher key, once all cipher operations live in the SDK so clients never
+/// need to handle the key themselves.
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -443,8 +449,13 @@ pub struct CipherView {
     pub folder_id: Option<FolderId>,
     pub collection_ids: Vec<CollectionId>,
 
-    /// Temporary, required to support re-encrypting existing items.
-    pub key: Option<EncString>,
+    /// The decrypted content-encryption key (CEK) for this cipher.
+    ///
+    /// This is the decrypted key material, consistent with the [`CompositeEncryptable`] contract
+    /// that a `*View` holds plaintext. On encryption it is wrapped with the wrapping key to
+    /// produce [`Cipher::key`]; `None` marks a legacy cipher whose fields are encrypted
+    /// directly with the user/organization key.
+    pub key: Option<SymmetricCryptoKey>,
 
     pub name: String,
     pub notes: Option<String>,
@@ -647,17 +658,47 @@ impl CipherListView {
     }
 }
 
-// ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::CompositeEncryptable`: `CipherView` retains key-bound
-// ciphertext (`key`, the cipher content-encryption key wrapped under the decrypting key) and copies
-// it through unchanged (`key: cipher_view.key` below) instead of re-wrapping it under `key`. As a
-// result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip.
 impl CipherView {
+    /// Registers this view's decrypted content-encryption key (CEK) in the context and returns its
+    /// slot id, to be used when encrypting/decrypting the cipher's fields. Ciphers without a
+    /// per-cipher key (`None`) fall back to the provided `wrapping_key` (legacy ciphers whose
+    /// fields are encrypted directly with the user/organization key).
+    fn cipher_key_slot(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        wrapping_key: SymmetricKeySlotId,
+    ) -> Result<SymmetricKeySlotId, CryptoError> {
+        match &self.key {
+            Some(cipher_key) => Ok(ctx.add_local_symmetric_key(cipher_key.clone())),
+            None => Ok(wrapping_key),
+        }
+    }
+
+    /// Like [`CipherView::cipher_key_slot`], but requires the cipher to carry its own key. Used by
+    /// the blob-encryption path, where every cipher must have a per-cipher key and falling back to
+    /// the user/organization key would be incorrect.
+    pub(crate) fn required_cipher_key_slot(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<SymmetricKeySlotId, CryptoError> {
+        let cipher_key = self.key.as_ref().ok_or(CryptoError::MissingField("key"))?;
+        Ok(ctx.add_local_symmetric_key(cipher_key.clone()))
+    }
+
     fn encrypt_legacy_field_encryption(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = self.cipher_key_slot(ctx, key)?;
+
+        // Wrap the decrypted cipher key with the wrapping key to produce the stored, wrapped key.
+        // `None` (legacy cipher without a per-cipher key) stays `None`.
+        let wrapped_key = self
+            .key
+            .as_ref()
+            .map(|_| ctx.wrap_symmetric_key(key, ciphers_key))
+            .transpose()?;
 
         let mut cipher_view = self.clone();
         cipher_view.generate_checksums();
@@ -667,9 +708,7 @@ impl CipherView {
             organization_id: cipher_view.organization_id,
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
-            // ⚠️ pass-through of wrapped key-bound ciphertext — see the contract-violation note
-            // above.
-            key: cipher_view.key,
+            key: wrapped_key,
             name: Some(cipher_view.name.encrypt(ctx, ciphers_key)?),
             notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
             r#type: cipher_view.r#type,
@@ -735,7 +774,7 @@ pub(crate) fn lenient_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        key: cipher.key.clone(),
+        key: Cipher::decrypted_cipher_key(ctx, &cipher.key, ciphers_key)?,
         name: cipher
             .name
             .as_ref()
@@ -834,6 +873,26 @@ impl Cipher {
         ctx.unwrap_symmetric_key(wrapping_key, ciphers_key)
     }
 
+    /// Converts an already-unwrapped cipher key slot into the decrypted [`SymmetricCryptoKey`] held
+    /// by a [`CipherView`]. Returns `None` for legacy ciphers that carry no per-cipher key.
+    ///
+    /// `ciphers_key_slot` must be the slot previously returned by [`Cipher::decrypt_cipher_key`]
+    /// for `cipher_key`.
+    pub(crate) fn decrypted_cipher_key(
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        cipher_key: &Option<EncString>,
+        ciphers_key_slot: SymmetricKeySlotId,
+    ) -> Result<Option<SymmetricCryptoKey>, CryptoError> {
+        match cipher_key {
+            Some(_) => {
+                #[allow(deprecated)]
+                let key = ctx.dangerous_get_symmetric_key(ciphers_key_slot)?.clone();
+                Ok(Some(key))
+            }
+            None => Ok(None),
+        }
+    }
+
     /// Builds the cryptographic material for a new attachment: a fresh key (raw and wrapped with
     /// the cipher key) plus the encrypted file name.
     ///
@@ -926,13 +985,19 @@ impl CipherView {
     pub fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
-        wrapping_key: SymmetricKeySlotId,
+        // Retained for API stability; the decrypted key is now stored on the view and wrapped at
+        // encryption time, so the wrapping key is no longer needed here.
+        _wrapping_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         let new_key = ctx.generate_symmetric_key();
 
-        // FIDO2 credentials and attachment keys are held decrypted on the view and re-encrypted
-        // under the new cipher key during encryption, so nothing needs re-encrypting here.
-        self.key = Some(ctx.wrap_symmetric_key(wrapping_key, new_key)?);
+        // The decrypted cipher key is stored on the view; it is wrapped with the wrapping key
+        // during encryption. FIDO2 credentials and attachment keys are likewise held decrypted on
+        // the view and (re-)encrypted at encryption time, so nothing needs re-encrypting here.
+        #[allow(deprecated)]
+        {
+            self.key = Some(ctx.dangerous_get_symmetric_key(new_key)?.clone());
+        }
         Ok(())
     }
 
@@ -977,34 +1042,22 @@ impl CipherView {
         Ok(())
     }
 
-    /// Re-encrypt the cipher key(s) using a new wrapping key.
+    /// Validates that the cipher can be re-wrapped under a new wrapping key.
     ///
-    /// If the cipher has a cipher key, it will be re-encrypted with the new wrapping key.
-    /// Otherwise there is nothing to re-wrap here: FIDO2 credentials and attachment keys are held
-    /// decrypted on the view and are (re-)encrypted under the correct key during encryption.
+    /// The cipher key, attachment keys, and FIDO2 credentials are all held decrypted on the view
+    /// and are (re-)wrapped under the correct key during encryption, so there is nothing to re-wrap
+    /// here. Legacy v1 attachments (encrypted directly under the user/organization key) cannot be
+    /// moved, so their presence is rejected.
     pub fn reencrypt_cipher_keys(
         &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        new_wrapping_key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeySlotIds>,
+        _new_wrapping_key: SymmetricKeySlotId,
     ) -> Result<(), CipherError> {
-        let old_key = self.key_identifier();
-
-        // If any attachment is missing a key we can't reencrypt the attachment keys
+        // If any attachment is missing a key we can't move the cipher, since legacy v1 attachments
+        // are encrypted directly under the user/organization key rather than the cipher key.
         if self.attachments.iter().flatten().any(|a| a.key.is_none()) {
             return Err(CipherError::AttachmentsWithoutKeys);
         }
-
-        // If the cipher has a key, reencrypt it with the new wrapping key
-        if self.key.is_some() {
-            // Decrypt the current cipher key using the existing wrapping key
-            let cipher_key = Cipher::decrypt_cipher_key(ctx, old_key, &self.key)?;
-
-            // Wrap the cipher key with the new wrapping key
-            self.key = Some(ctx.wrap_symmetric_key(new_wrapping_key, cipher_key)?);
-        }
-        // Otherwise the cipher has no key: its FIDO2 credentials and attachment keys are held
-        // decrypted on the view and re-encrypted under `new_wrapping_key` at encryption time, so
-        // there is nothing to re-wrap here.
 
         Ok(())
     }
@@ -1062,7 +1115,16 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let ciphers_key = self.cipher_key_slot(ctx, key)?;
+
+        // `CipherListView` still carries the wrapped cipher key (used to lazily decrypt the login
+        // totp via `CipherListView::get_totp_key`), so re-wrap the decrypted view key under the
+        // wrapping key. `None` (legacy cipher without a per-cipher key) stays `None`.
+        let wrapped_key = self
+            .key
+            .as_ref()
+            .map(|_| ctx.wrap_symmetric_key(key, ciphers_key))
+            .transpose()?;
 
         let all_attachments = || {
             self.attachments
@@ -1112,7 +1174,7 @@ impl CipherView {
             organization_id: self.organization_id,
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
-            key: self.key.clone(),
+            key: wrapped_key,
             name: self.name.clone(),
             subtitle: self.subtitle(),
             r#type: list_type,
@@ -1567,7 +1629,7 @@ fn strict_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        key: cipher.key.clone(),
+        key: Cipher::decrypted_cipher_key(ctx, &cipher.key, ciphers_key)?,
         name: cipher
             .name
             .as_ref()
@@ -2475,22 +2537,23 @@ mod tests {
             let mut ctx = key_store.context();
             let cipher_key = ctx.generate_symmetric_key();
 
-            original_cipher.key = Some(
-                ctx.wrap_symmetric_key(SymmetricKeySlotId::User, cipher_key)
-                    .unwrap(),
-            );
+            // The view carries the decrypted cipher key.
+            #[allow(deprecated)]
+            {
+                original_cipher.key =
+                    Some(ctx.dangerous_get_symmetric_key(cipher_key).unwrap().clone());
+            }
         }
+
+        let existing_key = original_cipher.key.clone();
 
         original_cipher
             .generate_cipher_key(&mut key_store.context(), original_cipher.key_identifier())
             .unwrap();
 
-        // Make sure that the cipher key is decryptable
-        let wrapped_key = original_cipher.key.unwrap();
-        let mut ctx = key_store.context();
-        let _ = ctx
-            .unwrap_symmetric_key(SymmetricKeySlotId::User, &wrapped_key)
-            .unwrap();
+        // A fresh decrypted cipher key replaces the existing one.
+        assert!(original_cipher.key.is_some());
+        assert_ne!(original_cipher.key, existing_key);
     }
 
     #[test]
@@ -2527,17 +2590,16 @@ mod tests {
             .generate_cipher_key(&mut ctx, cipher.key_identifier())
             .unwrap();
 
-        // Re-encrypt the cipher key with a new wrapping key
+        let key_before = cipher.key.clone();
+
+        // Re-encryption is now a no-op for the decrypted cipher key: it is re-wrapped under the new
+        // wrapping key at encryption time, so the decrypted key on the view is left unchanged.
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         cipher.reencrypt_cipher_keys(&mut ctx, new_key_id).unwrap();
 
-        // Check that the cipher key can be unwrapped with the new key
         assert!(cipher.key.is_some());
-        assert!(
-            ctx.unwrap_symmetric_key(new_key_id, &cipher.key.unwrap())
-                .is_ok()
-        );
+        assert_eq!(cipher.key, key_before);
     }
 
     #[test]
@@ -2589,17 +2651,21 @@ mod tests {
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
-        // Create a cipher with a user key
+        // Create a cipher with a cipher key
         let mut cipher = generate_cipher();
         cipher
             .generate_cipher_key(&mut key_store.context(), cipher.key_identifier())
             .unwrap();
 
+        // Manually assign the org without calling `move_to_organization`.
         cipher.organization_id = Some(org);
 
-        // Check that the cipher can not be encrypted, as the
-        // cipher key is tied to the user key and not the org key
-        assert!(key_store.encrypt(EncryptMode::Legacy(cipher)).is_err());
+        // The cipher key is held decrypted on the view rather than wrapped under a specific key, so
+        // it is simply re-wrapped under the org key at encryption time. Assigning the org directly
+        // is therefore sufficient to encrypt and decrypt the cipher under the org key.
+        let cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
+        let cipher_dec: CipherView = key_store.decrypt(&cipher_enc).unwrap();
+        assert_eq!(cipher_dec.name, "My test login");
     }
 
     #[test]
@@ -2714,23 +2780,24 @@ mod tests {
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
         let org_key = SymmetricKeySlotId::Organization(org);
 
-        let mut ctx = key_store.context();
-
-        let cipher_key = ctx.generate_symmetric_key();
-        let cipher_key_enc = ctx
-            .wrap_symmetric_key(SymmetricKeySlotId::User, cipher_key)
-            .unwrap();
-
-        // The attachment carries its decrypted content key on the view.
-        let attachment_key = ctx.generate_symmetric_key();
-        #[allow(deprecated)]
-        let attachment_key_val = ctx
-            .dangerous_get_symmetric_key(attachment_key)
-            .unwrap()
-            .clone();
+        // Both the cipher and attachment carry their decrypted keys on the view.
+        let (cipher_key_val, attachment_key_val) = {
+            let mut ctx = key_store.context();
+            let cipher_key = ctx.generate_symmetric_key();
+            let attachment_key = ctx.generate_symmetric_key();
+            #[allow(deprecated)]
+            {
+                (
+                    ctx.dangerous_get_symmetric_key(cipher_key).unwrap().clone(),
+                    ctx.dangerous_get_symmetric_key(attachment_key)
+                        .unwrap()
+                        .clone(),
+                )
+            }
+        };
 
         let mut cipher = generate_cipher();
-        cipher.key = Some(cipher_key_enc);
+        cipher.key = Some(cipher_key_val.clone());
 
         let attachment = AttachmentFullView {
             id: None,
@@ -2745,21 +2812,13 @@ mod tests {
         let cred = generate_fido2_full();
         cipher.login.as_mut().unwrap().fido2_credentials = Some(vec![cred.clone()]);
 
-        cipher.move_to_organization(&mut ctx, org).unwrap();
-
-        // Check that the cipher key has been re-encrypted with the org key,
-        let wrapped_new_cipher_key = cipher.key.clone().unwrap();
-        let new_cipher_key_dec = ctx
-            .unwrap_symmetric_key(org_key, &wrapped_new_cipher_key)
+        cipher
+            .move_to_organization(&mut key_store.context(), org)
             .unwrap();
-        #[allow(deprecated)]
-        let new_cipher_key_dec = ctx.dangerous_get_symmetric_key(new_cipher_key_dec).unwrap();
-        #[allow(deprecated)]
-        let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
-        assert_eq!(new_cipher_key_dec, cipher_key_val);
-
-        // Check that the decrypted attachment key on the view hasn't changed
+        // The move assigns the org and leaves the decrypted keys on the view unchanged.
+        assert_eq!(cipher.organization_id, Some(org));
+        assert_eq!(cipher.key.as_ref().unwrap(), &cipher_key_val);
         assert_eq!(
             cipher.attachments.as_ref().unwrap()[0]
                 .key
@@ -2767,6 +2826,21 @@ mod tests {
                 .unwrap(),
             &attachment_key_val
         );
+
+        // Encrypting the moved cipher wraps the cipher key with the org key (the view now owns the
+        // org), round-tripping back to the original decrypted key.
+        let encrypted: Cipher = key_store
+            .encrypt(EncryptMode::Legacy(cipher.clone()))
+            .unwrap();
+        let mut ctx = key_store.context();
+        let new_cipher_key_slot = ctx
+            .unwrap_symmetric_key(org_key, &encrypted.key.clone().unwrap())
+            .unwrap();
+        #[allow(deprecated)]
+        let new_cipher_key_dec = ctx
+            .dangerous_get_symmetric_key(new_cipher_key_slot)
+            .unwrap();
+        assert_eq!(new_cipher_key_dec, &cipher_key_val);
 
         let cred2 = cipher
             .login

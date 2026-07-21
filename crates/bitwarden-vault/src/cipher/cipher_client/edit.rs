@@ -6,7 +6,7 @@ use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::KeySlotIds, require,
 };
-use bitwarden_crypto::{CryptoError, EncString, IdentifyKey, KeyStore};
+use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -72,7 +72,8 @@ pub struct CipherEditRequest {
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
     pub attachments: Vec<AttachmentFullView>,
-    pub key: Option<EncString>,
+    /// The decrypted content-encryption key (CEK) for this cipher, mirroring [`CipherView::key`].
+    pub key: Option<SymmetricCryptoKey>,
 }
 
 impl TryFrom<CipherView> for CipherEditRequest {

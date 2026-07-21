@@ -36,14 +36,13 @@ impl From<BlobEncryptionError> for CryptoError {
     }
 }
 
-/// Seals a `CipherView` into an opaque blob string, using `wrapping_key` as
-/// the outer key that protects the cipher's wrapped CEK.
+/// Seals a `CipherView` into an opaque blob string using the cipher's decrypted CEK, which the
+/// view carries directly.
 fn seal_cipher(
     view: &CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
-    wrapping_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
-    let cipher_key = Cipher::decrypt_required_cipher_key(ctx, wrapping_key, &view.key)?;
+    let cipher_key = view.required_cipher_key_slot(ctx)?;
     let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
     seal_blob_content(blob, cipher_key, ctx)
 }
@@ -97,9 +96,13 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         view.generate_cipher_key(ctx, wrapping_key)?;
     }
 
-    let cipher_key = Cipher::decrypt_required_cipher_key(ctx, wrapping_key, &view.key)?;
+    let cipher_key = view.required_cipher_key_slot(ctx)?;
 
-    let sealed_string = seal_cipher(view, ctx, wrapping_key)?;
+    // The stored `Cipher` carries the wrapped cipher key; wrap the decrypted view key under the
+    // wrapping key to produce it.
+    let wrapped_key = Some(ctx.wrap_symmetric_key(wrapping_key, cipher_key)?);
+
+    let sealed_string = seal_cipher(view, ctx)?;
 
     let attachments = view.attachments.encrypt_composite(ctx, cipher_key)?;
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
@@ -113,7 +116,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         organization_id: view.organization_id,
         folder_id: view.folder_id,
         collection_ids: view.collection_ids.clone(),
-        key: view.key.clone(),
+        key: wrapped_key,
         r#type: view.r#type,
         favorite: view.favorite,
         reprompt: view.reprompt,
@@ -180,7 +183,7 @@ pub(crate) fn decrypt_blob_cipher(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        key: cipher.key.clone(),
+        key: Cipher::decrypted_cipher_key(ctx, &cipher.key, cipher_key)?,
         r#type: cipher.r#type,
         favorite: cipher.favorite,
         reprompt: cipher.reprompt,
@@ -313,10 +316,15 @@ mod tests {
         view.generate_cipher_key(&mut ctx, view.key_identifier())
             .unwrap();
 
-        let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();
+        let sealed_string = seal_cipher(&view, &mut ctx).unwrap();
 
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
-        cipher.key = view.key.clone();
+        // The view now holds the decrypted cipher key; wrap it to populate the stored cipher key.
+        let cipher_key_slot = view.required_cipher_key_slot(&mut ctx).unwrap();
+        cipher.key = Some(
+            ctx.wrap_symmetric_key(view.key_identifier(), cipher_key_slot)
+                .unwrap(),
+        );
 
         let view = decrypt_blob_cipher(
             &cipher,
@@ -670,7 +678,7 @@ mod tests {
         });
         view.generate_cipher_key(&mut ctx, view.key_identifier())
             .unwrap();
-        let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();
+        let sealed_string = seal_cipher(&view, &mut ctx).unwrap();
 
         // Build a blob-format cipher that is missing its per-cipher key. Decryption must reject it
         // rather than falling back to the user key.
