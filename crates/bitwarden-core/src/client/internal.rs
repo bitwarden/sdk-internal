@@ -9,6 +9,7 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_crypto::{
     EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
 };
+use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info};
@@ -130,6 +131,10 @@ pub struct InternalClient {
     // removed as soon as KM state can be mapped via the platform APIs.
     #[cfg(feature = "internal")]
     pub(crate) state_bridge: StateBridge,
+
+    /// Shared in-memory cell holding the active managed-settings profile pushed by the host, if
+    /// any. Presence of a key in the profile means the value is administrator-forced.
+    pub(crate) managed_profile: Arc<std::sync::RwLock<Option<ManagementProfile>>>,
 }
 
 impl InternalClient {
@@ -206,6 +211,12 @@ impl InternalClient {
     #[allow(missing_docs)]
     pub fn get_key_store(&self) -> &KeyStore<KeySlotIds> {
         &self.key_store
+    }
+
+    /// Returns a clone of the shared managed-settings profile cell. The higher-level
+    /// `bitwarden-managed-settings` crate reads and updates the profile through this handle.
+    pub fn managed_profile_handle(&self) -> Arc<std::sync::RwLock<Option<ManagementProfile>>> {
+        self.managed_profile.clone()
     }
 
     /// Returns the security version of the user.

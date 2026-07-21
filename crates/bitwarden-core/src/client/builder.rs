@@ -4,6 +4,7 @@ use std::sync::{Arc, OnceLock};
 
 use bitwarden_api_base::new_http_client_builder;
 use bitwarden_crypto::{CipherSuite, KeyStore};
+use bitwarden_managed_settings_types::ManagementProfile;
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
@@ -24,6 +25,7 @@ pub struct ClientBuilder {
     token_handler: Arc<dyn TokenHandler>,
     state_registry: Option<StateRegistry>,
     middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    managed_profile: Option<Arc<std::sync::RwLock<Option<ManagementProfile>>>>,
 }
 
 impl ClientBuilder {
@@ -34,6 +36,7 @@ impl ClientBuilder {
             token_handler: Arc::new(NoopTokenHandler),
             state_registry: None,
             middleware: Vec::new(),
+            managed_profile: None,
         }
     }
 
@@ -65,9 +68,24 @@ impl ClientBuilder {
         self
     }
 
+    /// Low-level hook to store a managed-settings profile cell. Defaults to a fresh empty cell
+    /// when not set. The `with_managed_settings` extension in `bitwarden-managed-settings` calls
+    /// this to share a single profile cell between the host and the SDK.
+    pub fn with_managed_profile(
+        mut self,
+        cell: Arc<std::sync::RwLock<Option<ManagementProfile>>>,
+    ) -> Self {
+        self.managed_profile = Some(cell);
+        self
+    }
+
     /// Consumes the builder and constructs a [`Client`].
     pub fn build(self) -> Client {
         let settings = self.settings.unwrap_or_default();
+
+        let managed_profile = self
+            .managed_profile
+            .unwrap_or_else(|| Arc::new(std::sync::RwLock::new(None)));
 
         let external_http_client = new_http_client_builder()
             .build()
@@ -144,6 +162,7 @@ impl ClientBuilder {
                 #[cfg(feature = "internal")]
                 state_bridge: StateBridge::new(),
                 state_registry,
+                managed_profile,
             }),
         };
 
@@ -265,6 +284,48 @@ mod tests {
             .with_settings(ClientSettings::default())
             .with_state(registry)
             .build();
+    }
+
+    #[test]
+    fn test_client_builder_defaults_to_empty_managed_profile_cell() {
+        let client = ClientBuilder::new().build();
+        let cell = client.internal.managed_profile_handle();
+        assert!(cell.read().expect("cell should not be poisoned").is_none());
+    }
+
+    #[test]
+    fn test_client_builder_with_managed_profile_reads_back_shared_cell() {
+        let mut profile = ManagementProfile::empty();
+        profile.settings.insert(
+            "environment.base".to_string(),
+            "\"https://vault\"".to_string(),
+        );
+        let cell: Arc<std::sync::RwLock<Option<ManagementProfile>>> =
+            Arc::new(std::sync::RwLock::new(Some(profile)));
+
+        let client = ClientBuilder::new()
+            .with_managed_profile(cell.clone())
+            .build();
+
+        let handle = client.internal.managed_profile_handle();
+        assert_eq!(
+            handle
+                .read()
+                .expect("cell should not be poisoned")
+                .as_ref()
+                .expect("profile should be present")
+                .get("environment.base"),
+            Some("\"https://vault\"".to_string())
+        );
+
+        // Proves it is the same shared cell: an update through the original handle is observed.
+        *cell.write().expect("cell should not be poisoned") = None;
+        assert!(
+            handle
+                .read()
+                .expect("cell should not be poisoned")
+                .is_none()
+        );
     }
 
     #[test]
