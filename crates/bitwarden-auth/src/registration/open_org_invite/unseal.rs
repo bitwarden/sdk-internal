@@ -9,7 +9,7 @@
 //! [`RegistrationError::Crypto`]. The SDK performs no post-decrypt equality check on the
 //! plaintext; the AES-GCM auth tag at each envelope layer is the substitution defense.
 
-use bitwarden_core::{Client, key_management::KeySlotIds};
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{
     KeyStore,
     safe::{
@@ -36,41 +36,34 @@ impl RegistrationClient {
         &self,
         sealed: SealedOpenOrgInvite,
     ) -> Result<OpenOrgInviteSealRequest, RegistrationError> {
-        internal_unseal_open_org_invite_data(&self.client, sealed)
+        let (data_envelope, key_envelope) = split_envelopes(&sealed.sealed_data)?;
+        let high_entropy_secret = HighEntropySecret::from_base64(&sealed.high_entropy_secret)
+            .map_err(|_| RegistrationError::Crypto)?;
+
+        // Per-call transient key store, matching the seal path — the CEK produced by the outer
+        // unseal never lives beyond this function.
+        let key_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = key_store.context_mut();
+
+        let cek_id = key_envelope
+            .unseal(
+                &high_entropy_secret,
+                SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+                &mut ctx,
+            )
+            .map_err(|_| RegistrationError::Crypto)?;
+
+        let versioned: RegistrationOpenOrgInviteData = data_envelope
+            .unseal(cek_id, &mut ctx)
+            .map_err(|_| RegistrationError::Crypto)?;
+
+        let RegistrationOpenOrgInviteData::RegistrationOpenOrgInviteDataV1(v1) = versioned;
+        Ok(OpenOrgInviteSealRequest {
+            organization_id: v1.organization_id,
+            invite_link_code: v1.invite_link_code,
+            invite_key: v1.invite_key,
+        })
     }
-}
-
-fn internal_unseal_open_org_invite_data(
-    _client: &Client,
-    sealed: SealedOpenOrgInvite,
-) -> Result<OpenOrgInviteSealRequest, RegistrationError> {
-    let (data_envelope, key_envelope) = split_envelopes(&sealed.sealed_data)?;
-    let high_entropy_secret = HighEntropySecret::from_base64(&sealed.high_entropy_secret)
-        .map_err(|_| RegistrationError::Crypto)?;
-
-    // Per-call transient key store, matching the seal path — the CEK produced by the outer
-    // unseal never lives beyond this function.
-    let key_store: KeyStore<KeySlotIds> = KeyStore::default();
-    let mut ctx = key_store.context_mut();
-
-    let cek_id = key_envelope
-        .unseal(
-            &high_entropy_secret,
-            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
-            &mut ctx,
-        )
-        .map_err(|_| RegistrationError::Crypto)?;
-
-    let versioned: RegistrationOpenOrgInviteData = data_envelope
-        .unseal(cek_id, &mut ctx)
-        .map_err(|_| RegistrationError::Crypto)?;
-
-    let RegistrationOpenOrgInviteData::RegistrationOpenOrgInviteDataV1(v1) = versioned;
-    Ok(OpenOrgInviteSealRequest {
-        organization_id: v1.organization_id,
-        invite_link_code: v1.invite_link_code,
-        invite_key: v1.invite_key,
-    })
 }
 
 /// Reverses [`super::seal::combine_envelopes`]: base64url-decode, CBOR-decode, split into the two
@@ -91,6 +84,8 @@ fn split_envelopes(
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_core::Client;
+
     use super::*;
 
     fn sample_input() -> OpenOrgInviteSealRequest {

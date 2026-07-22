@@ -13,7 +13,7 @@
 //! performs no post-decrypt equality check on the plaintext, matching how
 //! `Invite::unseal` in `invite_key_bundle` trusts the crypto.
 
-use bitwarden_core::{Client, key_management::KeySlotIds};
+use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{
     KeyStore,
     safe::{
@@ -69,45 +69,40 @@ impl RegistrationClient {
         &self,
         input: OpenOrgInviteSealRequest,
     ) -> Result<SealedOpenOrgInvite, RegistrationError> {
-        internal_seal_open_org_invite_data(&self.client, input)
+        // The CEK is transient and never persists across calls. A per-call `KeyStore` keeps
+        // the key material scoped to this operation so nothing lingers in the caller's key
+        // store.
+        let key_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = key_store.context_mut();
+
+        let high_entropy_secret =
+            HighEntropySecret::make(32).map_err(|_| RegistrationError::Crypto)?;
+
+        let versioned: RegistrationOpenOrgInviteData = RegistrationOpenOrgInviteDataV1 {
+            organization_id: input.organization_id,
+            invite_link_code: input.invite_link_code,
+            invite_key: input.invite_key,
+        }
+        .into();
+
+        let (data_envelope, cek_id) =
+            DataEnvelope::seal(versioned, &mut ctx).map_err(|_| RegistrationError::Crypto)?;
+
+        let key_envelope = SecretProtectedKeyEnvelope::seal(
+            cek_id,
+            &high_entropy_secret,
+            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+            &ctx,
+        )
+        .map_err(|_| RegistrationError::Crypto)?;
+
+        let sealed_data = combine_envelopes(&data_envelope, &key_envelope)?;
+
+        Ok(SealedOpenOrgInvite {
+            sealed_data,
+            high_entropy_secret: high_entropy_secret.to_base64(),
+        })
     }
-}
-
-fn internal_seal_open_org_invite_data(
-    _client: &Client,
-    input: OpenOrgInviteSealRequest,
-) -> Result<SealedOpenOrgInvite, RegistrationError> {
-    // The CEK is transient and never persists across calls. A per-call `KeyStore` keeps the
-    // key material scoped to this operation so nothing lingers in the caller's key store.
-    let key_store: KeyStore<KeySlotIds> = KeyStore::default();
-    let mut ctx = key_store.context_mut();
-
-    let high_entropy_secret = HighEntropySecret::make(32).map_err(|_| RegistrationError::Crypto)?;
-
-    let versioned: RegistrationOpenOrgInviteData = RegistrationOpenOrgInviteDataV1 {
-        organization_id: input.organization_id,
-        invite_link_code: input.invite_link_code,
-        invite_key: input.invite_key,
-    }
-    .into();
-
-    let (data_envelope, cek_id) =
-        DataEnvelope::seal(versioned, &mut ctx).map_err(|_| RegistrationError::Crypto)?;
-
-    let key_envelope = SecretProtectedKeyEnvelope::seal(
-        cek_id,
-        &high_entropy_secret,
-        SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
-        &ctx,
-    )
-    .map_err(|_| RegistrationError::Crypto)?;
-
-    let sealed_data = combine_envelopes(&data_envelope, &key_envelope)?;
-
-    Ok(SealedOpenOrgInvite {
-        sealed_data,
-        high_entropy_secret: high_entropy_secret.to_base64(),
-    })
 }
 
 /// Internal CBOR wire schema for `sealed_data`. Each field is the direct serialization of the
@@ -140,6 +135,8 @@ pub(super) fn combine_envelopes(
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_core::Client;
+
     use super::*;
 
     fn sample_input() -> OpenOrgInviteSealRequest {
