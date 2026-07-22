@@ -99,9 +99,14 @@ impl HighEntropySecret {
     /// The caller must guarantee that the decoded bytes originated from a genuine high-entropy
     /// source. This constructor does not — and cannot — validate entropy on its own; feeding
     /// low-entropy input to the cheap KDF that consumes this type will not provide the
-    /// brute-force resistance the KDF assumes.
+    /// brute-force resistance the KDF assumes. The length check below is a floor, not an
+    /// entropy check: it rejects trivially-short inputs that could not possibly carry enough
+    /// bits, but a caller passing 32 bytes of a fixed ASCII string will still succeed.
     pub fn from_base64(encoded: &str) -> Result<Self, HighEntropySecretError> {
         let bytes = B64::try_from(encoded).map_err(|_| HighEntropySecretError::Malformed)?;
+        if bytes.as_bytes().len() < MIN_SECRET_LENGTH {
+            return Err(HighEntropySecretError::TooShort);
+        }
         Ok(Self::from_internal(bytes.as_bytes()))
     }
 }
@@ -257,5 +262,31 @@ mod tests {
             HighEntropySecret::from_base64("!!!not-base64!!!"),
             Err(HighEntropySecretError::Malformed)
         ));
+    }
+
+    #[test]
+    fn test_from_base64_rejects_below_minimum_length() {
+        // Any successfully-decoded input shorter than MIN_SECRET_LENGTH bytes must be rejected
+        // so the type's length floor holds regardless of the constructor used.
+        for byte_len in 0..MIN_SECRET_LENGTH {
+            let bytes = vec![0u8; byte_len];
+            let encoded = B64::from(bytes.as_slice()).to_string();
+            assert!(
+                matches!(
+                    HighEntropySecret::from_base64(&encoded),
+                    Err(HighEntropySecretError::TooShort)
+                ),
+                "expected decoded length {byte_len} to be rejected as too short"
+            );
+        }
+    }
+
+    #[test]
+    fn test_from_base64_accepts_input_at_minimum_length() {
+        let bytes = vec![7u8; MIN_SECRET_LENGTH];
+        let encoded = B64::from(bytes.as_slice()).to_string();
+        let secret =
+            HighEntropySecret::from_base64(&encoded).expect("input at minimum length is accepted");
+        assert_eq!(secret.as_bytes().expose_owned().len(), MIN_SECRET_LENGTH);
     }
 }
