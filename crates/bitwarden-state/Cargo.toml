@@ -13,6 +13,12 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
+default = ["sdk-managed-sqlite"]
+# Enable the SQLite-backed SDK-managed database on native platforms.
+# Disabling this drops the rusqlite/libsqlite3-sys dependency, which is
+# useful for downstream consumers that ship their own SQLite (e.g. via
+# sqlx) and would otherwise hit a `links = "sqlite3"` collision.
+sdk-managed-sqlite = ["dep:rusqlite"]
 uniffi = ["dep:uniffi"]
 wasm = ["bitwarden-threading/wasm"]
 # Enables browser-mode integration tests (IndexedDB). Requires a webdriver
@@ -30,7 +36,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [target.'cfg(not(target_arch="wasm32"))'.dependencies]
-rusqlite = { version = ">=0.37.0, <0.40", features = ["bundled"] }
+rusqlite = { version = ">=0.37.0, <0.40", features = ["bundled"], optional = true }
 uniffi = { workspace = true, optional = true }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
