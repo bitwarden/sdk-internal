@@ -1,9 +1,9 @@
-//! Unseals a [`SealedOpenOrgInvite`] back into the plaintext [`OpenOrgInviteData`], provided the
-//! caller supplies the paired [`HighEntropySecret`] the seal path returned. This runs on the
-//! verification-email tab after registration-finish has logged the user in.
+//! Unseals a [`SealedOpenOrgInvite`] back into the plaintext [`OpenOrgInviteSealRequest`],
+//! provided the caller supplies the paired [`HighEntropySecret`] the seal path returned. This
+//! runs on the verification-email tab after registration-finish has logged the user in.
 //!
-//! Reverses the two-envelope construction documented in [`super::seal_open_org_invite_data`]:
-//! outer key envelope → inner CEK, then inner data envelope → plaintext.
+//! Reverses the two-envelope construction documented in [`super::seal`]: outer key envelope →
+//! inner CEK, then inner data envelope → plaintext.
 //!
 //! Any failure — malformed wire, wrong secret, tampered blob, cross-namespace — surfaces as
 //! [`RegistrationError::Crypto`]. The SDK performs no post-decrypt equality check on the
@@ -22,10 +22,10 @@ use bitwarden_encoding::B64Url;
 use wasm_bindgen::prelude::*;
 
 use super::{
-    open_org_invite_data::RegistrationOpenOrgInviteData,
-    registration_client::{RegistrationClient, RegistrationError},
-    seal_open_org_invite_data::{OpenOrgInviteData, SealedEnvelopePair, SealedOpenOrgInvite},
+    RegistrationOpenOrgInviteData,
+    seal::{OpenOrgInviteSealRequest, SealedEnvelopePair, SealedOpenOrgInvite},
 };
+use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
@@ -36,7 +36,7 @@ impl RegistrationClient {
     pub fn unseal_open_org_invite_data(
         &self,
         sealed: SealedOpenOrgInvite,
-    ) -> Result<OpenOrgInviteData, RegistrationError> {
+    ) -> Result<OpenOrgInviteSealRequest, RegistrationError> {
         internal_unseal_open_org_invite_data(&self.client, sealed)
     }
 }
@@ -44,7 +44,7 @@ impl RegistrationClient {
 fn internal_unseal_open_org_invite_data(
     _client: &Client,
     sealed: SealedOpenOrgInvite,
-) -> Result<OpenOrgInviteData, RegistrationError> {
+) -> Result<OpenOrgInviteSealRequest, RegistrationError> {
     let (data_envelope, key_envelope) = split_envelopes(&sealed.sealed_data)?;
     let high_entropy_secret = HighEntropySecret::from_base64(&sealed.high_entropy_secret)
         .map_err(|_| RegistrationError::Crypto)?;
@@ -67,16 +67,16 @@ fn internal_unseal_open_org_invite_data(
         .map_err(|_| RegistrationError::Crypto)?;
 
     let RegistrationOpenOrgInviteData::RegistrationOpenOrgInviteDataV1(v1) = versioned;
-    Ok(OpenOrgInviteData {
+    Ok(OpenOrgInviteSealRequest {
         organization_id: v1.organization_id,
         invite_link_code: v1.invite_link_code,
         invite_key: v1.invite_key,
     })
 }
 
-/// Reverses [`super::seal_open_org_invite_data::combine_envelopes`]: base64url-decode, CBOR-decode,
-/// split into the two typed envelopes. Any framing error surfaces as [`RegistrationError::Crypto`]
-/// per the AC that malformed input never panics and never silently returns empty.
+/// Reverses [`super::seal::combine_envelopes`]: base64url-decode, CBOR-decode, split into the two
+/// typed envelopes. Any framing error surfaces as [`RegistrationError::Crypto`] per the AC that
+/// malformed input never panics and never silently returns empty.
 fn split_envelopes(
     sealed_data: &str,
 ) -> Result<(DataEnvelope, SecretProtectedKeyEnvelope), RegistrationError> {
@@ -94,15 +94,15 @@ fn split_envelopes(
 mod tests {
     use super::*;
 
-    fn sample_input() -> OpenOrgInviteData {
-        OpenOrgInviteData {
+    fn sample_input() -> OpenOrgInviteSealRequest {
+        OpenOrgInviteSealRequest {
             organization_id: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".to_string(),
             invite_link_code: "abcd1234efgh5678".to_string(),
             invite_key: "raw-invite-key-material-base64url".to_string(),
         }
     }
 
-    fn seal(client: &RegistrationClient, input: OpenOrgInviteData) -> SealedOpenOrgInvite {
+    fn seal(client: &RegistrationClient, input: OpenOrgInviteSealRequest) -> SealedOpenOrgInvite {
         client
             .seal_open_org_invite_data(input)
             .expect("seal should succeed")

@@ -1,11 +1,10 @@
 //! Seals an open-organization-invite context into an opaque wire artifact plus a paired
 //! [`HighEntropySecret`]. The sealed data rides the verification email URL; the secret stays
-//! client-side. Both are needed to recover the original invite context via
-//! [`super::unseal_open_org_invite_data`].
+//! client-side. Both are needed to recover the original invite context via [`super::unseal`].
 //!
 //! Two-envelope construction mirrors the pattern in
 //! `bitwarden-organization-crypto/src/invite_key_bundle.rs`:
-//! - inner [`DataEnvelope`] seals the [`RegistrationOpenOrgInviteData`] payload with a freshly
+//! - inner [`DataEnvelope`] seals the `RegistrationOpenOrgInviteData` payload with a freshly
 //!   generated content-encryption key (CEK);
 //! - outer [`SecretProtectedKeyEnvelope`] seals that CEK with a per-registration
 //!   [`HighEntropySecret`].
@@ -29,10 +28,8 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use super::{
-    open_org_invite_data::{RegistrationOpenOrgInviteData, RegistrationOpenOrgInviteDataV1},
-    registration_client::{RegistrationClient, RegistrationError},
-};
+use super::{RegistrationOpenOrgInviteData, wire_v1::RegistrationOpenOrgInviteDataV1};
+use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
 /// The plaintext invite context that a registrant will consume on the verification-email tab to
 /// complete the open-organization-invite acceptance. All three fields are required.
@@ -40,7 +37,7 @@ use super::{
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenOrgInviteData {
+pub struct OpenOrgInviteSealRequest {
     /// The organization the registrant is joining.
     pub organization_id: String,
     /// The public invite link code (also carried in the shared invite URL).
@@ -50,8 +47,13 @@ pub struct OpenOrgInviteData {
     pub invite_key: String,
 }
 
-/// The output of [`RegistrationClient::seal_open_org_invite_data`]. Both fields are opaque wire
-/// artifacts safe to transport at layer boundaries; both are needed to unseal.
+/// Opaque wire artifacts that carry the invite context across the verification-email tab
+/// boundary. Both fields together form the full payload; neither half is useful alone.
+///
+/// This type does double duty at the SDK boundary: it is the **response** returned by
+/// [`RegistrationClient::seal_open_org_invite_data`] and the **request** input to
+/// [`RegistrationClient::unseal_open_org_invite_data`]. Named shape-neutrally rather than with a
+/// `Request`/`Response` suffix because either would misrepresent one of the two roles.
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -73,7 +75,7 @@ impl RegistrationClient {
     /// two-envelope construction.
     pub fn seal_open_org_invite_data(
         &self,
-        input: OpenOrgInviteData,
+        input: OpenOrgInviteSealRequest,
     ) -> Result<SealedOpenOrgInvite, RegistrationError> {
         internal_seal_open_org_invite_data(&self.client, input)
     }
@@ -81,7 +83,7 @@ impl RegistrationClient {
 
 fn internal_seal_open_org_invite_data(
     _client: &Client,
-    input: OpenOrgInviteData,
+    input: OpenOrgInviteSealRequest,
 ) -> Result<SealedOpenOrgInvite, RegistrationError> {
     // The CEK is transient and never persists across calls. A per-call `KeyStore` keeps the
     // key material scoped to this operation so nothing lingers in the caller's key store.
@@ -148,8 +150,8 @@ pub(super) fn combine_envelopes(
 mod tests {
     use super::*;
 
-    fn sample_input() -> OpenOrgInviteData {
-        OpenOrgInviteData {
+    fn sample_input() -> OpenOrgInviteSealRequest {
+        OpenOrgInviteSealRequest {
             organization_id: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".to_string(),
             invite_link_code: "abcd1234efgh5678".to_string(),
             invite_key: "raw-invite-key-material-base64url".to_string(),
