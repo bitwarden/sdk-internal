@@ -11,7 +11,7 @@ mod from_client_part;
 mod gov_mode;
 #[allow(missing_docs)]
 pub mod internal;
-pub use from_client_part::{FromClient, FromClientPart};
+pub use from_client_part::{FromClient, FromClientPart, FromClientShared};
 pub use internal::ApiConfigurations;
 #[allow(missing_docs)]
 pub mod login_method;
