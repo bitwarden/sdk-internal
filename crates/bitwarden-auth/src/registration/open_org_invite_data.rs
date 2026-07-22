@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Once this shape ships it cannot be broken; if the fields change, add a new `V2` struct and
 /// register both variants on [`RegistrationOpenOrgInviteData`].
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub(super) struct RegistrationOpenOrgInviteDataV1 {
     pub(super) organization_id: String,
     pub(super) invite_link_code: String,

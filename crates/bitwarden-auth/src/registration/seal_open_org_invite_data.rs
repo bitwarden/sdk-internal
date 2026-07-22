@@ -39,6 +39,7 @@ use super::{
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct OpenOrgInviteData {
     /// The organization the registrant is joining.
     pub organization_id: String,
@@ -54,6 +55,7 @@ pub struct OpenOrgInviteData {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SealedOpenOrgInvite {
     /// Base64url-encoded CBOR wrapper containing the inner data envelope and outer key envelope.
     /// Rides the verification email URL as an opaque blob.
