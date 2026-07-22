@@ -66,7 +66,7 @@ fn internal_unseal_open_org_invite_data(
         .unseal(cek_id, &mut ctx)
         .map_err(|_| RegistrationError::Crypto)?;
 
-    let RegistrationOpenOrgInviteData::V1(v1) = versioned;
+    let RegistrationOpenOrgInviteData::RegistrationOpenOrgInviteDataV1(v1) = versioned;
     Ok(OpenOrgInviteData {
         organization_id: v1.organization_id,
         invite_link_code: v1.invite_link_code,

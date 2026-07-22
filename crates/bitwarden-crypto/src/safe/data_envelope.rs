@@ -407,6 +407,10 @@ fn unpad_cbor(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
 /// This serializes to an adjacently tagged enum, with the "version" field being set to the provided
 /// version, and the "content" field being the serialized struct.
 ///
+/// The enum name may be prefixed with a visibility modifier (`pub`, `pub(crate)`, `pub(super)`,
+/// etc.) so callers can share the versioned type across sibling modules. Omit the prefix for
+/// module-private visibility (the historical default).
+///
 ///
 /// ```
 /// use bitwarden_crypto::{safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData}, generate_versioned_sealable};
@@ -439,6 +443,10 @@ fn unpad_cbor(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
 #[macro_export]
 macro_rules! generate_versioned_sealable {
     (
+        // Optional visibility modifier for the generated enum. `$vis:vis` matches empty
+        // (module-private, the historical default) or any visibility keyword such as `pub`
+        // or `pub(super)`.
+        $vis:vis
         // Provide the name
         $enum_name:ident,
         // Provide the namespace
@@ -449,7 +457,7 @@ macro_rules! generate_versioned_sealable {
         // Implement the enum
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         #[serde(tag = "version", content = "content")]
-        enum $enum_name {
+        $vis enum $enum_name {
             $(
                 #[serde(rename = $rename)]
                 // Strip the `MyItem` prefix from type name if you want shorter variant names

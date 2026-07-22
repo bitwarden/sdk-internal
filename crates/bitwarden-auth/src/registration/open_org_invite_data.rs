@@ -1,11 +1,14 @@
 //! Versioned sealable payload for the open-organization-invite registration crossing.
 //!
 //! The payload structs live in their own file so both [`super::seal_open_org_invite_data`] and
-//! [`super::unseal_open_org_invite_data`] can reference them. The versioned enum matches what
-//! `bitwarden_crypto::generate_versioned_sealable!` would emit, expanded manually so it can be
-//! `pub(super)` and accessible across the sibling modules.
+//! [`super::unseal_open_org_invite_data`] can reference them. The
+//! `generate_versioned_sealable!` invocation uses its optional visibility prefix to emit a
+//! `pub(super)` enum so the sibling modules can see it.
 
-use bitwarden_crypto::safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData};
+use bitwarden_crypto::{
+    generate_versioned_sealable,
+    safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
+};
 use serde::{Deserialize, Serialize};
 
 /// Version 1 wire schema of the open-invite registration payload.
@@ -22,21 +25,8 @@ pub(super) struct RegistrationOpenOrgInviteDataV1 {
 
 impl SealableData for RegistrationOpenOrgInviteDataV1 {}
 
-/// Adjacently tagged versioned wrapper. Serialization uses `{"version": "1", "content": {...}}`,
-/// matching the shape `generate_versioned_sealable!` emits.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-#[serde(tag = "version", content = "content")]
-pub(super) enum RegistrationOpenOrgInviteData {
-    #[serde(rename = "1")]
-    V1(RegistrationOpenOrgInviteDataV1),
-}
-
-impl SealableVersionedData for RegistrationOpenOrgInviteData {
-    const NAMESPACE: DataEnvelopeNamespace = DataEnvelopeNamespace::RegistrationOpenOrgInviteData;
-}
-
-impl From<RegistrationOpenOrgInviteDataV1> for RegistrationOpenOrgInviteData {
-    fn from(value: RegistrationOpenOrgInviteDataV1) -> Self {
-        Self::V1(value)
-    }
-}
+generate_versioned_sealable!(
+    pub(super) RegistrationOpenOrgInviteData,
+    DataEnvelopeNamespace::RegistrationOpenOrgInviteData,
+    [RegistrationOpenOrgInviteDataV1 => "1"]
+);
