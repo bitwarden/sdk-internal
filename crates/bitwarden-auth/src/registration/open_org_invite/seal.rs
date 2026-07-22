@@ -100,7 +100,7 @@ impl RegistrationClient {
 
         Ok(SealedOpenOrgInvite {
             sealed_data,
-            high_entropy_secret: high_entropy_secret.to_base64(),
+            high_entropy_secret: high_entropy_secret.into(),
         })
     }
 }
@@ -188,7 +188,9 @@ mod tests {
             .expect("seal should succeed");
 
         // The secret must be a HighEntropySecret round-trippable base64 string.
-        HighEntropySecret::from_base64(&sealed.high_entropy_secret)
+        sealed
+            .high_entropy_secret
+            .parse::<HighEntropySecret>()
             .expect("high_entropy_secret must be valid base64");
     }
 

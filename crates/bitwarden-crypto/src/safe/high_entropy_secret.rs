@@ -6,9 +6,12 @@
 //! bytes. They are unlike low-entropy secrets such as PINs or passwords, which can be brute-forced
 //! and therefore require a memory- or compute-hard KDF.
 
-use bitwarden_encoding::B64;
+use std::str::FromStr;
+
+use bitwarden_encoding::{B64, FromStrVisitor};
 use bitwarden_sensitive_value::{ExposeSensitive, Sensitive, SensitiveSlice};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
@@ -80,34 +83,53 @@ impl HighEntropySecret {
     pub(crate) fn as_bytes(&self) -> SensitiveSlice<'_> {
         Sensitive::from(self.secret.as_slice())
     }
+}
 
-    /// Encodes the high-entropy secret as a standardized base64 string. This is the same wire
-    /// format the WASM ABI marshaling already uses for `HighEntropySecret`, surfaced as Rust API
-    /// so callers embedding the secret in an opaque wire artifact (e.g. a serde-serialized
-    /// envelope crossing a trust boundary) can round-trip without touching raw bytes.
-    ///
-    /// The returned string carries the secret in cleartext. Callers assume responsibility for it
-    /// — logging it, persisting it, or transmitting it over an untrusted channel each open a
-    /// leak channel.
-    pub fn to_base64(&self) -> String {
-        B64::from(self.secret.as_slice()).to_string()
-    }
+/// Parses a `HighEntropySecret` from a standardized base64 string previously produced by
+/// [`String::from`]`(secret)` (or by the equivalent WASM ABI marshaling).
+///
+/// The caller must guarantee that the decoded bytes originated from a genuine high-entropy
+/// source. This constructor does not — and cannot — validate entropy on its own; feeding
+/// low-entropy input to the cheap KDF that consumes this type will not provide the
+/// brute-force resistance the KDF assumes. The length check below is a floor, not an entropy
+/// check: it rejects trivially-short inputs that could not possibly carry enough bits, but a
+/// caller passing 32 bytes of a fixed ASCII string will still succeed.
+impl FromStr for HighEntropySecret {
+    type Err = HighEntropySecretError;
 
-    /// Reconstructs a `HighEntropySecret` from a standardized base64 string previously produced
-    /// by [`HighEntropySecret::to_base64`] (or by the equivalent WASM ABI marshaling).
-    ///
-    /// The caller must guarantee that the decoded bytes originated from a genuine high-entropy
-    /// source. This constructor does not — and cannot — validate entropy on its own; feeding
-    /// low-entropy input to the cheap KDF that consumes this type will not provide the
-    /// brute-force resistance the KDF assumes. The length check below is a floor, not an
-    /// entropy check: it rejects trivially-short inputs that could not possibly carry enough
-    /// bits, but a caller passing 32 bytes of a fixed ASCII string will still succeed.
-    pub fn from_base64(encoded: &str) -> Result<Self, HighEntropySecretError> {
-        let bytes = B64::try_from(encoded).map_err(|_| HighEntropySecretError::Malformed)?;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = B64::try_from(s).map_err(|_| HighEntropySecretError::Malformed)?;
         if bytes.as_bytes().len() < MIN_SECRET_LENGTH {
             return Err(HighEntropySecretError::TooShort);
         }
         Ok(Self::from_internal(bytes.as_bytes()))
+    }
+}
+
+/// Encodes a `HighEntropySecret` as a standardized base64 string. The returned string carries
+/// the secret in cleartext — logging it, persisting it, or transmitting it over an untrusted
+/// channel each open a leak channel.
+impl From<HighEntropySecret> for String {
+    fn from(val: HighEntropySecret) -> Self {
+        B64::from(val.secret.as_slice()).to_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for HighEntropySecret {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl Serialize for HighEntropySecret {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&B64::from(self.secret.as_slice()).to_string())
     }
 }
 
@@ -149,8 +171,7 @@ impl FromWasmAbi for HighEntropySecret {
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        let b64 = B64::try_from(string).unwrap_throw();
-        HighEntropySecret::from_internal(b64.as_bytes())
+        HighEntropySecret::from_str(&string).unwrap_throw()
     }
 }
 
@@ -248,24 +269,22 @@ mod tests {
     #[test]
     fn test_base64_round_trip_preserves_bytes() {
         let secret = HighEntropySecret::make(32).unwrap();
-        let encoded = secret.to_base64();
-        let decoded = HighEntropySecret::from_base64(&encoded).unwrap();
-        assert_eq!(
-            secret.as_bytes().expose_owned(),
-            decoded.as_bytes().expose_owned()
-        );
+        let bytes = secret.as_bytes().expose_owned().to_vec();
+        let encoded = String::from(secret);
+        let decoded: HighEntropySecret = encoded.parse().unwrap();
+        assert_eq!(decoded.as_bytes().expose_owned(), bytes.as_slice());
     }
 
     #[test]
-    fn test_from_base64_rejects_malformed_input() {
+    fn test_from_str_rejects_malformed_input() {
         assert!(matches!(
-            HighEntropySecret::from_base64("!!!not-base64!!!"),
+            "!!!not-base64!!!".parse::<HighEntropySecret>(),
             Err(HighEntropySecretError::Malformed)
         ));
     }
 
     #[test]
-    fn test_from_base64_rejects_below_minimum_length() {
+    fn test_from_str_rejects_below_minimum_length() {
         // Any successfully-decoded input shorter than MIN_SECRET_LENGTH bytes must be rejected
         // so the type's length floor holds regardless of the constructor used.
         for byte_len in 0..MIN_SECRET_LENGTH {
@@ -273,7 +292,7 @@ mod tests {
             let encoded = B64::from(bytes.as_slice()).to_string();
             assert!(
                 matches!(
-                    HighEntropySecret::from_base64(&encoded),
+                    encoded.parse::<HighEntropySecret>(),
                     Err(HighEntropySecretError::TooShort)
                 ),
                 "expected decoded length {byte_len} to be rejected as too short"
@@ -282,11 +301,12 @@ mod tests {
     }
 
     #[test]
-    fn test_from_base64_accepts_input_at_minimum_length() {
+    fn test_from_str_accepts_input_at_minimum_length() {
         let bytes = vec![7u8; MIN_SECRET_LENGTH];
         let encoded = B64::from(bytes.as_slice()).to_string();
-        let secret =
-            HighEntropySecret::from_base64(&encoded).expect("input at minimum length is accepted");
+        let secret: HighEntropySecret = encoded
+            .parse()
+            .expect("input at minimum length is accepted");
         assert_eq!(secret.as_bytes().expose_owned().len(), MIN_SECRET_LENGTH);
     }
 }

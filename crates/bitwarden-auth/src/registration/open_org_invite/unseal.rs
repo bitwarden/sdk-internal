@@ -37,7 +37,9 @@ impl RegistrationClient {
         sealed: SealedOpenOrgInvite,
     ) -> Result<OpenOrgInviteSealRequest, RegistrationError> {
         let (data_envelope, key_envelope) = split_envelopes(&sealed.sealed_data)?;
-        let high_entropy_secret = HighEntropySecret::from_base64(&sealed.high_entropy_secret)
+        let high_entropy_secret = sealed
+            .high_entropy_secret
+            .parse::<HighEntropySecret>()
             .map_err(|_| RegistrationError::Crypto)?;
 
         // Per-call transient key store, matching the seal path — the CEK produced by the outer
@@ -122,7 +124,7 @@ mod tests {
         let registration_client = RegistrationClient::new(client);
 
         let mut sealed = seal(&registration_client, sample_input());
-        let unrelated = HighEntropySecret::make(32).unwrap().to_base64();
+        let unrelated = String::from(HighEntropySecret::make(32).unwrap());
         sealed.high_entropy_secret = unrelated;
 
         let err = registration_client
