@@ -29,10 +29,9 @@ use crate::registration::registration_client::{RegistrationClient, RegistrationE
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
-    /// Unseals a [`SealedOpenOrgInvite`] returned by
-    /// [`RegistrationClient::seal_open_org_invite_data`] back into the plaintext invite
-    /// context. Returns [`RegistrationError::Crypto`] for any failure — malformed wire,
-    /// wrong secret, tampered blob, or cross-namespace substitution.
+    /// Unseals a [`SealedOpenOrgInvite`] back into an [`OpenOrgInviteSealRequest`]. Returns
+    /// [`RegistrationError::Crypto`] if the sealed payload or the paired secret is malformed,
+    /// mismatched, or tampered with.
     pub fn unseal_open_org_invite_data(
         &self,
         sealed: SealedOpenOrgInvite,

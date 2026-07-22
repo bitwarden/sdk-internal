@@ -31,8 +31,7 @@ use wasm_bindgen::prelude::*;
 use super::{RegistrationOpenOrgInviteData, wire_v1::RegistrationOpenOrgInviteDataV1};
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
-/// The plaintext invite context that a registrant will consume on the verification-email tab to
-/// complete the open-organization-invite acceptance. All three fields are required.
+/// Input to [`RegistrationClient::seal_open_org_invite_data`]. All three fields are required.
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -40,39 +39,32 @@ use crate::registration::registration_client::{RegistrationClient, RegistrationE
 pub struct OpenOrgInviteSealRequest {
     /// The organization the registrant is joining.
     pub organization_id: String,
-    /// The public invite link code (also carried in the shared invite URL).
+    /// The public invite link code carried in the shared invite URL.
     pub invite_link_code: String,
-    /// The invite key associated with the invite link. Never leaves the client except in
-    /// pre-sealed form.
+    /// The invite key associated with the invite link.
     pub invite_key: String,
 }
 
-/// Opaque wire artifacts that carry the invite context across the verification-email tab
-/// boundary. Both fields together form the full payload; neither half is useful alone.
-///
-/// This type does double duty at the SDK boundary: it is the **response** returned by
-/// [`RegistrationClient::seal_open_org_invite_data`] and the **request** input to
-/// [`RegistrationClient::unseal_open_org_invite_data`]. Named shape-neutrally rather than with a
-/// `Request`/`Response` suffix because either would misrepresent one of the two roles.
+/// Sealed open-organization-invite payload. Produced by
+/// [`RegistrationClient::seal_open_org_invite_data`] and consumed by
+/// [`RegistrationClient::unseal_open_org_invite_data`]. Both fields are required to unseal;
+/// neither half is useful on its own.
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SealedOpenOrgInvite {
-    /// Base64url-encoded CBOR wrapper containing the inner data envelope and outer key envelope.
-    /// Rides the verification email URL as an opaque blob.
+    /// URL-safe blob intended for the verification-email link.
     pub sealed_data: String,
-    /// Standardized base64 of the per-registration [`HighEntropySecret`]. Stays client-side
-    /// (e.g. `localStorage`) — never sent to the server.
+    /// Paired secret; keep client-side (e.g. `localStorage`) and never send to the server.
     pub high_entropy_secret: String,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
-    /// Seals an open-organization-invite context so the registrant can carry it across the
-    /// verification-email tab boundary. Returns both halves — the sealed data (server-visible)
-    /// and the paired high-entropy secret (client-only). See module-level docs for the
-    /// two-envelope construction.
+    /// Seals an [`OpenOrgInviteSealRequest`] into a [`SealedOpenOrgInvite`]. The returned
+    /// `sealed_data` is safe to place on the verification-email link; the returned
+    /// `high_entropy_secret` must stay client-side.
     pub fn seal_open_org_invite_data(
         &self,
         input: OpenOrgInviteSealRequest,
