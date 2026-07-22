@@ -109,8 +109,7 @@ async fn access_send_v1(
     let resp = api_client
         .sends_api()
         .access(send_id, Some(models::SendAccessRequestModel { password }))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.try_into()?)
 }
 
@@ -121,8 +120,7 @@ async fn access_send(
     let resp = api_client
         .sends_api()
         .access_using_auth(access_token)
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.try_into()?)
 }
 
@@ -139,8 +137,7 @@ async fn get_file_download_data_v1(
             file_id,
             Some(models::SendAccessRequestModel { password }),
         )
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.into())
 }
 
@@ -152,8 +149,7 @@ async fn get_file_download_data(
     let resp = api_client
         .sends_api()
         .get_send_file_download_data_using_auth(file_id, access_token)
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     Ok(resp.into())
 }
 
@@ -317,7 +313,7 @@ mod tests {
             mock.sends_api
                 .expect_access()
                 .returning(|_id, _request| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
                         "Simulated error",
                     )))
                 })
@@ -379,7 +375,7 @@ mod tests {
             mock.sends_api
                 .expect_access_using_auth()
                 .returning(|_token| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
                         "Simulated error",
                     )))
                 })
@@ -431,7 +427,7 @@ mod tests {
             mock.sends_api
                 .expect_get_send_file_download_data()
                 .returning(|_send_id, _file_id, _request| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
                         "Simulated error",
                     )))
                 })
@@ -479,7 +475,7 @@ mod tests {
             mock.sends_api
                 .expect_get_send_file_download_data_using_auth()
                 .returning(|_file_id, _token| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
                         "Simulated error",
                     )))
                 })

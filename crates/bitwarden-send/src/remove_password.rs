@@ -33,8 +33,7 @@ async fn remove_send_password<R: Repository<Send> + ?Sized>(
     let resp = api_client
         .sends_api()
         .put_remove_password(&send_id.to_string())
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     let send: Send = resp.try_into()?;
 
@@ -174,7 +173,7 @@ mod tests {
             mock.sends_api
                 .expect_put_remove_password()
                 .returning(move |_id| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
                         "Simulated error",
                     )))
                 })

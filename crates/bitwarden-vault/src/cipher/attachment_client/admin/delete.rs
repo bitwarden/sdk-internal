@@ -20,12 +20,6 @@ pub enum DeleteAttachmentAdminError {
     VaultParse(#[from] VaultParseError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for DeleteAttachmentAdminError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentAdminClient {
     /// Deletes an attachment from a cipher using the admin endpoint.

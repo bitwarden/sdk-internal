@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_core::{ApiError, FromClient, OrganizationId, client::ApiConfigurations};
+use bitwarden_core::{FromClient, OrganizationId, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -30,8 +30,7 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .get_all(organization_id.into())
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         response
             .data
@@ -52,8 +51,7 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .get(organization_id.into(), id.into())
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         AccessRuleView::try_from(response)
     }
@@ -71,8 +69,7 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .post(organization_id.into(), request.try_into()?)
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         AccessRuleView::try_from(response)
     }
@@ -91,8 +88,7 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .put(organization_id.into(), id.into(), request.try_into()?)
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         AccessRuleView::try_from(response)
     }
@@ -107,8 +103,7 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .delete(organization_id.into(), id.into())
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         Ok(())
     }
@@ -213,8 +208,8 @@ mod tests {
             mock.access_rules_api
                 .expect_get()
                 .returning(move |_org_id, _id| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: reqwest::StatusCode::NOT_FOUND,
                             message: String::new(),
                         },
@@ -272,8 +267,8 @@ mod tests {
             mock.access_rules_api
                 .expect_post()
                 .returning(move |_org_id, _request| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: reqwest::StatusCode::BAD_REQUEST,
                             message: "Invalid rule".to_string(),
                         },

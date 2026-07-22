@@ -23,7 +23,7 @@ const FLAGS_TTL: Duration = Duration::hours(1);
 pub enum FetchFlagsError {
     /// Network or deserialization error when fetching `/config`.
     #[error("failed to fetch /config: {0}")]
-    Api(#[from] bitwarden_api_api::apis::Error),
+    Api(#[from] bitwarden_api_api::ApiError),
     /// Error persisting flags or fetched_at timestamp to state registry.
     #[error("state access error: {0}")]
     State(#[from] bitwarden_state::SettingsError),

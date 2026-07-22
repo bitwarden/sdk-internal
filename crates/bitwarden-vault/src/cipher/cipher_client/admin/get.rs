@@ -22,12 +22,6 @@ pub enum GetAssignedOrgCiphersAdminError {
     VaultParse(#[from] VaultParseError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for GetAssignedOrgCiphersAdminError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -49,8 +43,7 @@ pub async fn list_org_ciphers(
     let api = api_client.ciphers_api();
     let response: CipherMiniDetailsResponseModelListResponseModel = api
         .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     let ciphers = response
         .data
         .into_iter()

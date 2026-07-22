@@ -24,12 +24,6 @@ pub enum CipherGetAttachmentDownloadUrlError {
     InvalidEmergencyAccessId,
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherGetAttachmentDownloadUrlError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
     /// Returns the attachment download URL.
@@ -60,7 +54,7 @@ impl AttachmentsClient {
             .await
         {
             Ok(response) => response.url.ok_or_else(|| MissingFieldError("url").into()),
-            Err(bitwarden_api_api::apis::Error::Response(content))
+            Err(bitwarden_api_api::ApiError::Response(content))
                 if content.status == StatusCode::NOT_FOUND =>
             {
                 let repository = self.repository.require()?;
@@ -103,7 +97,7 @@ impl AttachmentsClient {
             .get_attachment_data(emergency_access_id, cipher_id.into(), attachment_id)
             .await
             .map_err(|e| match e {
-                bitwarden_api_api::apis::Error::Response(content)
+                bitwarden_api_api::ApiError::Response(content)
                     if content.status == StatusCode::NOT_FOUND =>
                 {
                     CipherGetAttachmentDownloadUrlError::NotFound
@@ -191,8 +185,8 @@ mod tests {
         }
     }
 
-    fn not_found_response() -> bitwarden_api_api::apis::Error<()> {
-        bitwarden_api_api::apis::Error::Response(bitwarden_api_api::apis::ResponseContent {
+    fn not_found_response() -> bitwarden_api_api::ApiError {
+        bitwarden_api_api::ApiError::Response(bitwarden_api_api::ResponseContent {
             status: StatusCode::NOT_FOUND,
             message: String::new(),
         })
@@ -328,8 +322,8 @@ mod tests {
             mock.ciphers_api
                 .expect_get_attachment_data()
                 .returning(|_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
                             message: "bitwarden".to_string(),
                         },
@@ -441,8 +435,8 @@ mod tests {
             mock.emergency_access_api
                 .expect_get_attachment_data()
                 .returning(|_ea_id, _cipher_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
                             message: "bitwarden".to_string(),
                         },
