@@ -735,6 +735,12 @@ pub(crate) fn lenient_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::Decryptable`: the resulting `CipherView` is a
+        // decrypted DTO, yet `key` (the cipher's content key wrapped under the user/org key) is
+        // copied through still encrypted (`cipher.key.clone()`) rather than decrypted, because
+        // `CipherView` stores it as an `EncString`. The wrapped key is therefore key-bound to the
+        // original user/org key: a `CipherView` cannot be re-encrypted under a different user/org
+        // key without explicitly rewrapping `key`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1414,6 +1420,8 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1605,6 +1613,8 @@ fn strict_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1697,6 +1707,8 @@ fn strict_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name

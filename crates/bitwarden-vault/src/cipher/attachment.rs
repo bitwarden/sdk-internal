@@ -302,6 +302,11 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, AttachmentView> for Attachment 
             size: self.size.clone(),
             size_name: self.size_name.clone(),
             file_name,
+            // ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::Decryptable`: the resulting
+            // `AttachmentView` is a decrypted DTO, yet `key` (the attachment content key wrapped
+            // under the cipher key) is copied through still encrypted (`self.key.clone()`) rather
+            // than decrypted. The wrapped key is therefore key-bound to the original cipher key,
+            // which is what makes the `CompositeEncryptable` pass-through above non-round-tripping.
             key: self.key.clone(),
             #[cfg(feature = "wasm")]
             decrypted_key: decrypted_key.map(|k| k.to_string()),

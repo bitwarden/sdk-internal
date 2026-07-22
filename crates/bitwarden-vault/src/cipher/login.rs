@@ -430,6 +430,13 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, LoginUri> for LoginUri
     }
 }
 
+// ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::CompositeEncryptable`: `LoginView` is a decrypted
+// DTO, yet it stores `fido2_credentials` as `Vec<Fido2Credential>` (already-encrypted values)
+// rather than a decrypted view type. Encryption therefore copies the ciphertext through unchanged
+// (`fido2_credentials: self.fido2_credentials.clone()` below) instead of re-encrypting it under
+// `key`. As a result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip the credentials:
+// they remain wrapped under the original key K. Callers that rewrap the cipher key must invoke
+// `LoginView::reencrypt_fido2_credentials` explicitly to keep the credentials decryptable.
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Login> for LoginView {
     fn encrypt_composite(
         &self,
@@ -447,6 +454,8 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Login> for LoginView {
                 .filter(|s| !s.is_empty())
                 .encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
+            // ⚠️ pass-through of already-encrypted credentials — see the contract-violation note
+            // above.
             fido2_credentials: self.fido2_credentials.clone(),
         })
     }
@@ -479,6 +488,11 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for Login {
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.decrypt(ctx, key).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
+            // ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::Decryptable`: the resulting `LoginView`
+            // is a decrypted DTO, but `fido2_credentials` are copied through still
+            // encrypted (`self.fido2_credentials.clone()`) rather than decrypted,
+            // because `LoginView` stores them as the encrypted `Vec<Fido2Credential>`.
+            // Consumers must decrypt each credential separately.
             fido2_credentials: self.fido2_credentials.clone(),
         })
     }
@@ -516,6 +530,11 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for StrictDecrypt<&L
             uris: self.0.uris.decrypt(ctx, key)?,
             totp: self.0.totp.decrypt(ctx, key)?,
             autofill_on_page_load: self.0.autofill_on_page_load,
+            // ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::Decryptable`: the resulting `LoginView`
+            // is a decrypted DTO, but `fido2_credentials` are copied through still
+            // encrypted (`self.0.fido2_credentials.clone()`) rather than decrypted,
+            // because `LoginView` stores them as the encrypted `Vec<Fido2Credential>`.
+            // Consumers must decrypt each credential separately.
             fido2_credentials: self.0.fido2_credentials.clone(),
         })
     }
