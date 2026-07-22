@@ -4,6 +4,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
     PrimitiveEncryptable,
 };
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -38,12 +39,12 @@ pub struct DriversLicenseView {
     pub first_name: Option<String>,
     pub middle_name: Option<String>,
     pub last_name: Option<String>,
-    pub date_of_birth: Option<String>,
+    pub date_of_birth: Option<NaiveDate>,
     pub license_number: Option<String>,
     pub issuing_country: Option<String>,
     pub issuing_state: Option<String>,
-    pub issue_date: Option<String>,
-    pub expiration_date: Option<String>,
+    pub issue_date: Option<NaiveDate>,
+    pub expiration_date: Option<NaiveDate>,
     pub issuing_authority: Option<String>,
     pub license_class: Option<String>,
 }
@@ -58,12 +59,18 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, DriversLicense> for Dr
             first_name: self.first_name.encrypt(ctx, key)?,
             middle_name: self.middle_name.encrypt(ctx, key)?,
             last_name: self.last_name.encrypt(ctx, key)?,
-            date_of_birth: self.date_of_birth.encrypt(ctx, key)?,
+            date_of_birth: self
+                .date_of_birth
+                .map(|d| d.to_string())
+                .encrypt(ctx, key)?,
             license_number: self.license_number.encrypt(ctx, key)?,
             issuing_country: self.issuing_country.encrypt(ctx, key)?,
             issuing_state: self.issuing_state.encrypt(ctx, key)?,
-            issue_date: self.issue_date.encrypt(ctx, key)?,
-            expiration_date: self.expiration_date.encrypt(ctx, key)?,
+            issue_date: self.issue_date.map(|d| d.to_string()).encrypt(ctx, key)?,
+            expiration_date: self
+                .expiration_date
+                .map(|d| d.to_string())
+                .encrypt(ctx, key)?,
             issuing_authority: self.issuing_authority.encrypt(ctx, key)?,
             license_class: self.license_class.encrypt(ctx, key)?,
         })
@@ -80,12 +87,27 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, DriversLicenseView> for Drivers
             first_name: self.first_name.decrypt(ctx, key).ok().flatten(),
             middle_name: self.middle_name.decrypt(ctx, key).ok().flatten(),
             last_name: self.last_name.decrypt(ctx, key).ok().flatten(),
-            date_of_birth: self.date_of_birth.decrypt(ctx, key).ok().flatten(),
+            date_of_birth: self
+                .date_of_birth
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
             license_number: self.license_number.decrypt(ctx, key).ok().flatten(),
             issuing_country: self.issuing_country.decrypt(ctx, key).ok().flatten(),
             issuing_state: self.issuing_state.decrypt(ctx, key).ok().flatten(),
-            issue_date: self.issue_date.decrypt(ctx, key).ok().flatten(),
-            expiration_date: self.expiration_date.decrypt(ctx, key).ok().flatten(),
+            issue_date: self
+                .issue_date
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
+            expiration_date: self
+                .expiration_date
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
             issuing_authority: self.issuing_authority.decrypt(ctx, key).ok().flatten(),
             license_class: self.license_class.decrypt(ctx, key).ok().flatten(),
         })
@@ -108,7 +130,16 @@ impl CipherKind for DriversLicense {
             .as_ref()
             .map(|l| l.decrypt(ctx, key))
             .transpose()?;
-        Ok(build_subtitle_drivers_license(first_name, last_name))
+        let issuing_state: Option<String> = self
+            .issuing_state
+            .as_ref()
+            .map(|l| l.decrypt(ctx, key))
+            .transpose()?;
+        Ok(build_subtitle_drivers_license(
+            first_name,
+            last_name,
+            issuing_state,
+        ))
     }
 
     fn get_copyable_fields(&self, _: Option<&Cipher>) -> Vec<CopyableCipherFields> {
@@ -136,13 +167,28 @@ impl CipherKind for DriversLicense {
 pub(super) fn build_subtitle_drivers_license(
     first_name: Option<String>,
     last_name: Option<String>,
+    issuing_state: Option<String>,
 ) -> String {
-    [first_name, last_name]
-        .into_iter()
-        .flatten()
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut subtitle = String::new();
+
+    if let Some(first_name) = first_name {
+        subtitle.push_str(&first_name);
+    }
+    if let Some(last_name) = last_name {
+        if !subtitle.is_empty() && !last_name.is_empty() {
+            subtitle.push(' ');
+        }
+        subtitle.push_str(&last_name);
+    }
+
+    if let Some(issuing_state) = issuing_state {
+        if !subtitle.is_empty() && !issuing_state.is_empty() {
+            subtitle.push_str(", ");
+        }
+        subtitle.push_str(&issuing_state);
+    }
+
+    subtitle
 }
 
 impl TryFrom<CipherDriversLicenseModel> for DriversLicense {
@@ -200,12 +246,12 @@ mod tests {
             first_name: Some("John".to_string()),
             middle_name: Some("Michael".to_string()),
             last_name: Some("Doe".to_string()),
-            date_of_birth: Some("1985-06-15".to_string()),
+            date_of_birth: NaiveDate::from_ymd_opt(1985, 6, 15),
             license_number: Some("DL-987654".to_string()),
             issuing_country: Some("US".to_string()),
             issuing_state: Some("NY".to_string()),
-            issue_date: Some("2020-01-01".to_string()),
-            expiration_date: Some("2028-01-01".to_string()),
+            issue_date: NaiveDate::from_ymd_opt(2020, 1, 1),
+            expiration_date: NaiveDate::from_ymd_opt(2028, 1, 1),
             issuing_authority: Some("NY DMV".to_string()),
             license_class: Some("D".to_string()),
         }
@@ -274,6 +320,89 @@ mod tests {
             dl.decrypt_subtitle(&mut ctx, key).unwrap(),
             "John Doe".to_string()
         );
+    }
+
+    #[test]
+    fn test_subtitle_drivers_license_with_issuing_state() {
+        let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+        let key = SymmetricKeySlotId::User;
+        let mut ctx = key_store.context();
+
+        let first_name_encrypted = "John".to_owned().encrypt(&mut ctx, key).unwrap();
+        let last_name_encrypted = "Doe".to_owned().encrypt(&mut ctx, key).unwrap();
+        let issuing_state_encrypted = "NY".to_owned().encrypt(&mut ctx, key).unwrap();
+
+        let dl = DriversLicense {
+            first_name: Some(first_name_encrypted),
+            middle_name: None,
+            last_name: Some(last_name_encrypted),
+            date_of_birth: None,
+            license_number: None,
+            issuing_country: None,
+            issuing_state: Some(issuing_state_encrypted),
+            issue_date: None,
+            expiration_date: None,
+            issuing_authority: None,
+            license_class: None,
+        };
+
+        assert_eq!(
+            dl.decrypt_subtitle(&mut ctx, key).unwrap(),
+            "John Doe, NY".to_string()
+        );
+    }
+
+    #[test]
+    fn test_build_subtitle_drivers_license() {
+        // All fields present
+        assert_eq!(
+            build_subtitle_drivers_license(
+                Some("John".to_string()),
+                Some("Doe".to_string()),
+                Some("NY".to_string()),
+            ),
+            "John Doe, NY"
+        );
+
+        // Names only, no issuing state
+        assert_eq!(
+            build_subtitle_drivers_license(Some("John".to_string()), Some("Doe".to_string()), None),
+            "John Doe"
+        );
+
+        // Issuing state only
+        assert_eq!(
+            build_subtitle_drivers_license(None, None, Some("NY".to_string())),
+            "NY"
+        );
+
+        // Last name and issuing state, no first name
+        assert_eq!(
+            build_subtitle_drivers_license(None, Some("Doe".to_string()), Some("NY".to_string())),
+            "Doe, NY"
+        );
+
+        // Empty strings are treated as absent for separators
+        assert_eq!(
+            build_subtitle_drivers_license(
+                Some("".to_string()),
+                Some("".to_string()),
+                Some("NY".to_string()),
+            ),
+            "NY"
+        );
+        assert_eq!(
+            build_subtitle_drivers_license(
+                Some("John".to_string()),
+                Some("".to_string()),
+                Some("NY".to_string()),
+            ),
+            "John, NY"
+        );
+
+        // Nothing present
+        assert_eq!(build_subtitle_drivers_license(None, None, None), "");
     }
 
     #[test]

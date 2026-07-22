@@ -9,7 +9,7 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
@@ -47,7 +47,7 @@ js-sys = { workspace = true }
 [dev-dependencies]
 bitwarden-encoding = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["test-support"] }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 
 [lints]
 workspace = true

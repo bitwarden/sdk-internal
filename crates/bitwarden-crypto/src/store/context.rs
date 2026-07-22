@@ -7,7 +7,7 @@ use coset::iana::KeyOperation;
 use serde::Serialize;
 use zeroize::Zeroizing;
 
-use super::KeyStoreInner;
+use super::{CipherSuite, KeyStoreInner};
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeySlotId, KeySlotIds, LocalId,
@@ -85,6 +85,8 @@ pub struct KeyStoreContext<'a, Ids: KeySlotIds> {
 
     pub(super) security_state_version: u64,
 
+    pub(super) cipher_suite: CipherSuite,
+
     // Make sure the context is !Send & !Sync
     pub(super) _phantom: std::marker::PhantomData<(Cell<()>, RwLockReadGuard<'static, ()>)>,
 }
@@ -143,6 +145,12 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// safely.
     pub fn get_security_state_version(&self) -> u64 {
         self.security_state_version
+    }
+
+    /// Returns the [CipherSuite] this context operates under, which determines the algorithms
+    /// operations are allowed to use in the current environment.
+    pub fn cipher_suite(&self) -> CipherSuite {
+        self.cipher_suite
     }
 
     /// Remove all symmetric keys from the context for which the predicate returns false
@@ -236,7 +244,21 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(
+                let (content_bytes, content_format) =
+                    crate::cose::symmetric::decrypt_xchacha20_poly1305(
+                        &CoseEncrypt0Bytes::from(data.clone()),
+                        key,
+                    )?;
+                match content_format {
+                    ContentFormat::BitwardenLegacyKey => {
+                        SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
+                    }
+                    ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
+                    _ => return Err(CryptoError::InvalidKey),
+                }
+            }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::XAes256GcmKey(key)) => {
+                let (content_bytes, content_format) = crate::cose::symmetric::decrypt_xaes256_gcm(
                     &CoseEncrypt0Bytes::from(data.clone()),
                     key,
                 )?;
@@ -439,14 +461,17 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         let wrapping_key_instance = self.get_symmetric_key(wrapping_key)?;
         let key_to_wrap_instance = self.get_symmetric_key(key_to_wrap)?;
         // `Aes256CbcHmacKey` can wrap keys by encrypting their byte serialization obtained using
-        // `SymmetricCryptoKey::to_encoded()`. `XChaCha20Poly1305Key` need to specify the
-        // content format to be either octet stream, in case the wrapped key is a Aes256CbcHmacKey
-        // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
-        // wrapped key is a `XChaCha20Poly1305Key`.
+        // `SymmetricCryptoKey::to_encoded()`. General-purpose COSE wrapping keys serialize the
+        // wrapped key without padding and authenticate whether it is a legacy key or a COSE key
+        // through the content format.
         match (wrapping_key_instance, key_to_wrap_instance) {
             (
                 Aes256CbcHmacKey(_),
-                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_),
+                Aes256CbcHmacKey(_)
+                | Aes256CbcKey(_)
+                | XChaCha20Poly1305Key(_)
+                | Aes256GcmKey(_)
+                | XAes256GcmKey(_),
             ) => self.encrypt_data_with_symmetric_key(
                 wrapping_key,
                 key_to_wrap_instance
@@ -456,7 +481,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                     .as_slice(),
                 ContentFormat::BitwardenLegacyKey,
             ),
-            (XChaCha20Poly1305Key(_), _) => {
+            (XChaCha20Poly1305Key(_), _) | (XAes256GcmKey(_), _) => {
                 let encoded = key_to_wrap_instance.to_encoded_raw();
                 let content_format = encoded.content_format();
                 self.encrypt_data_with_symmetric_key(
@@ -675,6 +700,8 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
                 Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305)
             }
+            SymmetricCryptoKey::Aes256GcmKey(_) => Ok(SymmetricKeyAlgorithm::Aes256Gcm),
+            SymmetricCryptoKey::XAes256GcmKey(_) => Ok(SymmetricKeyAlgorithm::XAes256Gcm),
         }
     }
 
@@ -752,7 +779,14 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(
+                let (data, _) = crate::cose::symmetric::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
+                Ok(data)
+            }
+            (EncString::Cose_Encrypt0_B64 { data }, SymmetricCryptoKey::XAes256GcmKey(key)) => {
+                let (data, _) = crate::cose::symmetric::decrypt_xaes256_gcm(
                     &CoseEncrypt0Bytes::from(data.clone()),
                     key,
                 )?;
@@ -782,6 +816,15 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                     return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
                 }
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
+            }
+            SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
+            )),
+            SymmetricCryptoKey::XAes256GcmKey(key) => {
+                if !key.supported_operations.contains(&KeyOperation::Encrypt) {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
+                EncString::encrypt_xaes256_gcm(data, key, content_format)
             }
         }
     }
@@ -932,51 +975,47 @@ mod tests {
         let store: KeyStore<TestIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        // Aes256 CBC HMAC keys
-        let key_aes_1_id = TestSymmKey::A(1);
-        let local_key_1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx.persist_symmetric_key(local_key_1_id, key_aes_1_id)
-            .unwrap();
-        let key_aes_2_id = TestSymmKey::A(2);
-        let local_key_2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx.persist_symmetric_key(local_key_2_id, key_aes_2_id)
-            .unwrap();
+        let cbc = TestSymmKey::A(1);
+        let xchacha = TestSymmKey::A(2);
+        let aes_gcm = TestSymmKey::A(3);
+        let xaes = TestSymmKey::A(4);
+        for (id, key) in [
+            (
+                cbc,
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            ),
+            (
+                xchacha,
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305),
+            ),
+            (
+                aes_gcm,
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256Gcm),
+            ),
+            (
+                xaes,
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm),
+            ),
+        ] {
+            ctx.set_symmetric_key(id, key).unwrap();
+        }
 
-        // XChaCha20 Poly1305 keys
-        let key_xchacha_3_id = TestSymmKey::A(3);
-        let key_xchacha_3 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        ctx.set_symmetric_key(key_xchacha_3_id, key_xchacha_3.clone())
-            .unwrap();
-        let key_xchacha_4_id = TestSymmKey::A(4);
-        let key_xchacha_4 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        ctx.set_symmetric_key(key_xchacha_4_id, key_xchacha_4.clone())
-            .unwrap();
-
-        // Wrap and unwrap the keys
-        let wrapped_key_1_2 = ctx.wrap_symmetric_key(key_aes_1_id, key_aes_2_id).unwrap();
-        let wrapped_key_1_3 = ctx
-            .wrap_symmetric_key(key_aes_1_id, key_xchacha_3_id)
-            .unwrap();
-        let wrapped_key_3_1 = ctx
-            .wrap_symmetric_key(key_xchacha_3_id, key_aes_1_id)
-            .unwrap();
-        let wrapped_key_3_4 = ctx
-            .wrap_symmetric_key(key_xchacha_3_id, key_xchacha_4_id)
-            .unwrap();
-
-        // Unwrap the keys
-        let _unwrapped_key_2 = ctx
-            .unwrap_symmetric_key(key_aes_1_id, &wrapped_key_1_2)
-            .unwrap();
-        let _unwrapped_key_3 = ctx
-            .unwrap_symmetric_key(key_aes_1_id, &wrapped_key_1_3)
-            .unwrap();
-        let _unwrapped_key_1 = ctx
-            .unwrap_symmetric_key(key_xchacha_3_id, &wrapped_key_3_1)
-            .unwrap();
-        let _unwrapped_key_4 = ctx
-            .unwrap_symmetric_key(key_xchacha_3_id, &wrapped_key_3_4)
-            .unwrap();
+        for (wrapping_key, wrapped_key) in [
+            (cbc, cbc),
+            (cbc, xchacha),
+            (xchacha, cbc),
+            (xchacha, xchacha),
+            (xaes, cbc),
+            (xaes, xchacha),
+            (xaes, aes_gcm),
+            (xaes, xaes),
+            (cbc, xaes),
+            (xchacha, xaes),
+        ] {
+            let encrypted = ctx.wrap_symmetric_key(wrapping_key, wrapped_key).unwrap();
+            let unwrapped = ctx.unwrap_symmetric_key(wrapping_key, &encrypted).unwrap();
+            ctx.assert_symmetric_keys_equal(unwrapped, wrapped_key);
+        }
     }
 
     #[test]
@@ -1129,6 +1168,77 @@ mod tests {
             ),
             "Expected encrypt to fail with KeyOperationNotSupported",
         );
+    }
+
+    #[test]
+    fn test_xaes_data_roundtrip_and_encrypt_operation() {
+        use coset::iana::KeyOperation;
+
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+        let key_id = TestSymmKey::A(0);
+        ctx.set_symmetric_key(
+            key_id,
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm),
+        )
+        .unwrap();
+
+        let plaintext = b"data encrypted directly by the key store";
+        let encrypted = ctx
+            .encrypt_data_with_symmetric_key(key_id, plaintext, crate::ContentFormat::OctetStream)
+            .unwrap();
+        assert_eq!(
+            ctx.decrypt_data_with_symmetric_key(key_id, &encrypted)
+                .unwrap(),
+            plaintext
+        );
+
+        let no_encrypt = TestSymmKey::A(1);
+        ctx.set_symmetric_key(
+            no_encrypt,
+            SymmetricCryptoKey::XAes256GcmKey(crate::XAes256GcmKey {
+                key_id: [1; 16].into(),
+                enc_key: Box::pin([1; 32].into()),
+                supported_operations: vec![KeyOperation::Decrypt],
+            }),
+        )
+        .unwrap();
+        assert!(matches!(
+            ctx.encrypt_data_with_symmetric_key(
+                no_encrypt,
+                plaintext,
+                crate::ContentFormat::OctetStream,
+            ),
+            Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt))
+        ));
+    }
+
+    #[test]
+    fn test_xaes_key_store_rejects_unsupported_inputs() {
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+        let xaes = TestSymmKey::A(0);
+        ctx.set_symmetric_key(
+            xaes,
+            SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm),
+        )
+        .unwrap();
+
+        let non_key = ctx
+            .encrypt_data_with_symmetric_key(xaes, b"not a key", crate::ContentFormat::OctetStream)
+            .unwrap();
+        assert!(matches!(
+            ctx.unwrap_symmetric_key(xaes, &non_key),
+            Err(CryptoError::InvalidKey)
+        ));
+
+        let legacy_data =
+            EncString::encrypt_aes256_hmac(b"data", &crate::derive_symmetric_key("test key"))
+                .unwrap();
+        assert!(matches!(
+            ctx.decrypt_data_with_symmetric_key(xaes, &legacy_data),
+            Err(CryptoError::InvalidKey)
+        ));
     }
 
     #[test]

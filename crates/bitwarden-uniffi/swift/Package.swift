@@ -23,8 +23,9 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "BitwardenSdk",
-            dependencies: ["BitwardenFFI"],
+            dependencies: ["BitwardenFFI", "BitwardenSdkSupport"],
             swiftSettings: [.unsafeFlags(["-suppress-warnings"])]),
+        .target(name: "BitwardenSdkSupport"),
         .testTarget(
             name: "BitwardenSdkTests",
             dependencies: ["BitwardenSdk"]),

@@ -127,6 +127,12 @@ pub struct RegisterFinishRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub provider_user_id: Option<uuid::Uuid>,
+    #[serde(
+        rename = "salesAssistedToken",
+        alias = "SalesAssistedToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sales_assisted_token: Option<String>,
 }
 
 impl RegisterFinishRequestModel {
@@ -152,6 +158,7 @@ impl RegisterFinishRequestModel {
             accept_emergency_access_id: None,
             provider_invite_token: None,
             provider_user_id: None,
+            sales_assisted_token: None,
         }
     }
 }

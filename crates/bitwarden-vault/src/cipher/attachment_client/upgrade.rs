@@ -336,7 +336,7 @@ mod tests {
     fn cipher_with(name: EncString, attachments: Option<Vec<Attachment>>) -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name,
+            name: Some(name),
             r#type: CipherType::Login,
             attachments,
             organization_id: None,

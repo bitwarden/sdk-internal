@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// TwoFactorYubiKeyResponseModel : Response model carrying YubiKey provider details and the
+/// user-verification token minted by the read step of two-factor enrollment.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorYubiKeyResponseModel {
     #[serde(
@@ -21,56 +23,29 @@ pub struct TwoFactorYubiKeyResponseModel {
     )]
     pub object: Option<String>,
     #[serde(
-        rename = "enabled",
-        alias = "Enabled",
+        rename = "yubiKey",
+        alias = "YubiKey",
         skip_serializing_if = "Option::is_none"
     )]
-    pub enabled: Option<bool>,
+    pub yubi_key: Option<Box<models::TwoFactorYubiKeyDetails>>,
+    /// User-verification token bound to `UserId + ProviderType`. Replayed on subsequent management
+    /// calls so the user does not have to re-verify.
     #[serde(
-        rename = "key1",
-        alias = "Key1",
+        rename = "userVerificationToken",
+        alias = "UserVerificationToken",
         skip_serializing_if = "Option::is_none"
     )]
-    pub key1: Option<String>,
-    #[serde(
-        rename = "key2",
-        alias = "Key2",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub key2: Option<String>,
-    #[serde(
-        rename = "key3",
-        alias = "Key3",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub key3: Option<String>,
-    #[serde(
-        rename = "key4",
-        alias = "Key4",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub key4: Option<String>,
-    #[serde(
-        rename = "key5",
-        alias = "Key5",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub key5: Option<String>,
-    #[serde(rename = "nfc", alias = "Nfc", skip_serializing_if = "Option::is_none")]
-    pub nfc: Option<bool>,
+    pub user_verification_token: Option<String>,
 }
 
 impl TwoFactorYubiKeyResponseModel {
+    /// Response model carrying YubiKey provider details and the user-verification token minted by
+    /// the read step of two-factor enrollment.
     pub fn new() -> TwoFactorYubiKeyResponseModel {
         TwoFactorYubiKeyResponseModel {
             object: None,
-            enabled: None,
-            key1: None,
-            key2: None,
-            key3: None,
-            key4: None,
-            key5: None,
-            nfc: None,
+            yubi_key: None,
+            user_verification_token: None,
         }
     }
 }

@@ -1,14 +1,14 @@
-use bitwarden_vault::SshKeyView;
 use ed25519;
 use pem_rfc7468::PemLabel;
 use pkcs8::{DecodePrivateKey, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5};
-use ssh_key::private::{Ed25519Keypair, RsaKeypair};
-#[cfg(feature = "ecdsa-keys")]
-use ssh_key::sec1;
+use ssh_key::{
+    private::{Ed25519Keypair, RsaKeypair},
+    sec1,
+};
 
-use crate::{error::SshKeyImportError, ssh_private_key_to_view};
+use crate::{SshKeyData, error::SshKeyImportError, ssh_private_key_to_data};
 
-/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKeyView],
+/// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKeyData],
 /// with the public key and fingerprint, and the private key in OpenSSH format.
 /// A password can be provided for encrypted keys.
 /// # Returns
@@ -19,7 +19,7 @@ use crate::{error::SshKeyImportError, ssh_private_key_to_view};
 pub fn import_key(
     encoded_key: String,
     password: Option<String>,
-) -> Result<SshKeyView, SshKeyImportError> {
+) -> Result<SshKeyData, SshKeyImportError> {
     let label = pem_rfc7468::decode_label(encoded_key.as_bytes())
         .map_err(|_| SshKeyImportError::Parsing)?;
 
@@ -37,7 +37,7 @@ pub fn import_key(
 fn import_pkcs8_key(
     encoded_key: String,
     password: Option<String>,
-) -> Result<SshKeyView, SshKeyImportError> {
+) -> Result<SshKeyData, SshKeyImportError> {
     match parse_pkcs8_pem(&encoded_key, password.as_deref()) {
         // Some exporters (e.g. 1Password's 1PUX) emit the base64 body on a single line, which the
         // strict RFC 7468 parser rejects. Re-wrap to 64-character lines and retry once. Only
@@ -53,7 +53,7 @@ fn import_pkcs8_key(
 fn parse_pkcs8_pem(
     encoded_key: &str,
     password: Option<&str>,
-) -> Result<SshKeyView, SshKeyImportError> {
+) -> Result<SshKeyData, SshKeyImportError> {
     let doc = if let Some(password) = password {
         SecretDocument::from_pkcs8_encrypted_pem(encoded_key, password.as_bytes()).map_err(
             |err| match err {
@@ -113,9 +113,9 @@ fn rewrap_pem(pem: &str) -> Option<String> {
     Some(out)
 }
 
-/// Import a DER encoded private key, and returns a decoded [SshKeyView]. This is primarily used for
+/// Import a DER encoded private key, and returns a decoded [SshKeyData]. This is primarily used for
 /// importing SSH keys from other Credential Managers through Credential Exchange.
-pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImportError> {
+pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyData, SshKeyImportError> {
     let private_key_info =
         PrivateKeyInfo::from_der(encoded_key).map_err(|_| SshKeyImportError::Parsing)?;
 
@@ -136,18 +136,17 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImpo
                 RsaKeypair::try_from(private_key).map_err(|_| SshKeyImportError::Parsing)?,
             )
         }
-        #[cfg(feature = "ecdsa-keys")]
         sec1::ALGORITHM_OID => import_ecdsa_pkcs8_der(encoded_key)?,
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
 
-    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::Parsing)
+    ssh_private_key_to_data(private_key).map_err(|_| SshKeyImportError::Parsing)
 }
 
 fn import_openssh_key(
     encoded_key: String,
     password: Option<String>,
-) -> Result<SshKeyView, SshKeyImportError> {
+) -> Result<SshKeyData, SshKeyImportError> {
     let private_key =
         ssh_key::private::PrivateKey::from_openssh(&encoded_key).map_err(|err| match err {
             ssh_key::Error::AlgorithmUnknown | ssh_key::Error::AlgorithmUnsupported { .. } => {
@@ -165,21 +164,9 @@ fn import_openssh_key(
         private_key
     };
 
-    reject_ecdsa_import(&private_key)?;
-
-    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::Parsing)
+    ssh_private_key_to_data(private_key).map_err(|_| SshKeyImportError::Parsing)
 }
 
-fn reject_ecdsa_import(key: &ssh_key::PrivateKey) -> Result<(), SshKeyImportError> {
-    #[cfg(not(feature = "ecdsa-keys"))]
-    if matches!(key.key_data(), ssh_key::private::KeypairData::Ecdsa(_)) {
-        return Err(SshKeyImportError::UnsupportedKeyType);
-    }
-    let _ = key;
-    Ok(())
-}
-
-#[cfg(feature = "ecdsa-keys")]
 fn import_ecdsa_pkcs8_der(encoded_key: &[u8]) -> Result<ssh_key::PrivateKey, SshKeyImportError> {
     use pkcs8::DecodePrivateKey as _;
 
@@ -316,15 +303,6 @@ mod tests {
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }
 
-    #[cfg(not(feature = "ecdsa-keys"))]
-    #[test]
-    fn import_ecdsa_blocked() {
-        let private_key = include_str!("../resources/import/ecdsa_openssh_unencrypted");
-        let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
-    }
-
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn import_ecdsa_p256_openssh_unencrypted() {
         let private_key = include_str!("../resources/import/ecdsa_openssh_unencrypted");
@@ -333,7 +311,6 @@ mod tests {
         assert_eq!(result.public_key, public_key);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn import_ecdsa_p384_openssh_unencrypted() {
         let private_key = include_str!("../resources/import/ecdsa_p384_openssh_unencrypted");
@@ -343,7 +320,6 @@ mod tests {
         assert_eq!(result.public_key, public_key);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn import_ecdsa_p521_openssh_unencrypted() {
         let private_key = include_str!("../resources/import/ecdsa_p521_openssh_unencrypted");

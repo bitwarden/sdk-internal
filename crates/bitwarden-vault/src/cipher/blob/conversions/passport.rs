@@ -1,24 +1,44 @@
 use super::{PassportDataV1, PassportView};
 
-impl_bidirectional_from!(
-    PassportView,
-    PassportDataV1,
-    [
-        surname,
-        given_name,
-        date_of_birth,
-        sex,
-        birth_place,
-        nationality,
-        issuing_country,
-        passport_number,
-        passport_type,
-        national_identification_number,
-        issuing_authority,
-        issue_date,
-        expiration_date,
-    ]
-);
+impl From<&PassportView> for PassportDataV1 {
+    fn from(src: &PassportView) -> Self {
+        Self {
+            surname: src.surname.clone(),
+            given_name: src.given_name.clone(),
+            date_of_birth: src.date_of_birth.map(|d| d.to_string()),
+            sex: src.sex.clone(),
+            birth_place: src.birth_place.clone(),
+            nationality: src.nationality.clone(),
+            issuing_country: src.issuing_country.clone(),
+            passport_number: src.passport_number.clone(),
+            passport_type: src.passport_type.clone(),
+            national_identification_number: src.national_identification_number.clone(),
+            issuing_authority: src.issuing_authority.clone(),
+            issue_date: src.issue_date.map(|d| d.to_string()),
+            expiration_date: src.expiration_date.map(|d| d.to_string()),
+        }
+    }
+}
+
+impl From<&PassportDataV1> for PassportView {
+    fn from(src: &PassportDataV1) -> Self {
+        Self {
+            surname: src.surname.clone(),
+            given_name: src.given_name.clone(),
+            date_of_birth: src.date_of_birth.as_deref().and_then(|s| s.parse().ok()),
+            sex: src.sex.clone(),
+            birth_place: src.birth_place.clone(),
+            nationality: src.nationality.clone(),
+            issuing_country: src.issuing_country.clone(),
+            passport_number: src.passport_number.clone(),
+            passport_type: src.passport_type.clone(),
+            national_identification_number: src.national_identification_number.clone(),
+            issuing_authority: src.issuing_authority.clone(),
+            issue_date: src.issue_date.as_deref().and_then(|s| s.parse().ok()),
+            expiration_date: src.expiration_date.as_deref().and_then(|s| s.parse().ok()),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -37,7 +57,7 @@ mod tests {
             passport: Some(PassportView {
                 surname: Some("Doe".to_string()),
                 given_name: Some("Jane".to_string()),
-                date_of_birth: Some("1990-01-01".to_string()),
+                date_of_birth: chrono::NaiveDate::from_ymd_opt(1990, 1, 1),
                 sex: Some("F".to_string()),
                 birth_place: Some("New York".to_string()),
                 nationality: Some("American".to_string()),
@@ -46,8 +66,8 @@ mod tests {
                 passport_type: Some("P".to_string()),
                 national_identification_number: Some("123-45-6789".to_string()),
                 issuing_authority: Some("US State Department".to_string()),
-                issue_date: Some("2020-01-01".to_string()),
-                expiration_date: Some("2030-01-01".to_string()),
+                issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+                expiration_date: chrono::NaiveDate::from_ymd_opt(2030, 1, 1),
             }),
             ..create_shell_cipher_view(CipherType::Passport)
         };

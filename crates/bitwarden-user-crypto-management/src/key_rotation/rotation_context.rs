@@ -1,5 +1,5 @@
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-use bitwarden_crypto::{KeyStoreContext, PublicKey};
+use bitwarden_crypto::{KeyStoreContext, PublicKey, SymmetricKeyAlgorithm};
 use tracing::{debug, info, warn};
 
 use super::{
@@ -85,8 +85,7 @@ pub(super) fn make_rotation_context(
     let current_user_key_id = SymmetricKeySlotId::User;
 
     debug!("Generating new xchacha20-poly1305 user key for key rotation");
-    let new_user_key_id =
-        ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+    let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
     Ok(RotationContext {
         v1_organization_memberships,

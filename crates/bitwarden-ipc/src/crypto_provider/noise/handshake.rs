@@ -25,8 +25,10 @@ pub(crate) enum CipherSuite {
     #[allow(non_camel_case_types)]
     Noise_NN_25519_ChaChaPoly_BLAKE2s,
     #[allow(non_camel_case_types)]
-    #[default]
     Noise_NN_25519_AESGCM_SHA256,
+    #[allow(non_camel_case_types)]
+    #[default]
+    Noise_NN_P256_AESGCM_SHA256,
 }
 
 impl CipherSuite {
@@ -35,6 +37,7 @@ impl CipherSuite {
         match self {
             Self::Noise_NN_25519_ChaChaPoly_BLAKE2s => TransportCipher::ChaCha20Poly1305,
             Self::Noise_NN_25519_AESGCM_SHA256 => TransportCipher::Aes256Gcm,
+            Self::Noise_NN_P256_AESGCM_SHA256 => TransportCipher::Aes256Gcm,
         }
     }
 }
@@ -47,6 +50,9 @@ impl Display for CipherSuite {
             }
             Self::Noise_NN_25519_AESGCM_SHA256 => {
                 write!(f, "Noise_NN_25519_AESGCM_SHA256")
+            }
+            Self::Noise_NN_P256_AESGCM_SHA256 => {
+                write!(f, "Noise_NN_P256_AESGCM_SHA256")
             }
         }
     }
@@ -77,11 +83,12 @@ pub(crate) struct ReadError;
 
 impl HandshakeInitiator {
     pub(crate) fn new(ciphersuite: &CipherSuite) -> Self {
-        let builder = snow::Builder::new(
+        let builder = snow::Builder::with_resolver(
             ciphersuite
                 .to_string()
                 .parse()
                 .expect("Ciphersuite should be valid"),
+            Box::new(bitwarden_random::SdkCryptoResolver),
         );
         let handshake_state = builder
             .build_initiator()
@@ -134,11 +141,12 @@ pub(crate) struct HandshakeResponder {
 
 impl HandshakeResponder {
     pub(crate) fn new(ciphersuite: &CipherSuite) -> Self {
-        let builder = snow::Builder::new(
+        let builder = snow::Builder::with_resolver(
             ciphersuite
                 .to_string()
                 .parse()
                 .expect("Ciphersuite should be valid"),
+            Box::new(bitwarden_random::SdkCryptoResolver),
         );
         let handshake_state = builder
             .build_responder()
@@ -188,10 +196,9 @@ mod tests {
     use super::*;
     use crate::crypto_provider::noise::transport_state::assert_matching_pair;
 
-    #[test]
-    fn test_handshake() {
-        let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
-        let mut responder = HandshakeResponder::new(&CipherSuite::default());
+    fn run_handshake(ciphersuite: &CipherSuite) {
+        let mut initiator = HandshakeInitiator::new(ciphersuite);
+        let mut responder = HandshakeResponder::new(ciphersuite);
 
         let init_message = initiator.write_start_message().unwrap();
         responder.read_start_message(&init_message).unwrap();
@@ -201,5 +208,16 @@ mod tests {
         let initiator_transport_state = (&mut initiator).into();
         let responder_transport_state = (&mut responder).into();
         assert_matching_pair(&initiator_transport_state, &responder_transport_state);
+    }
+
+    #[test]
+    fn test_handshake() {
+        for ciphersuite in [
+            CipherSuite::Noise_NN_25519_ChaChaPoly_BLAKE2s,
+            CipherSuite::Noise_NN_25519_AESGCM_SHA256,
+            CipherSuite::Noise_NN_P256_AESGCM_SHA256,
+        ] {
+            run_handshake(&ciphersuite);
+        }
     }
 }

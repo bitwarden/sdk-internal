@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::TwoFactorEmailRequestModel;
+use bitwarden_api_api::models::TwoFactorEmailLoginRequestModel;
 use bitwarden_crypto::HashPurpose;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ pub(crate) async fn send_two_factor_email(
     config
         .api_client
         .two_factor_api()
-        .send_email_login(Some(TwoFactorEmailRequestModel {
+        .send_email_login(Some(TwoFactorEmailLoginRequestModel {
             master_password_hash: Some(password_hash.to_string()),
             otp: None,
             auth_request_access_code: None,

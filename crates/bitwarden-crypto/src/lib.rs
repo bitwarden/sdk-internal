@@ -35,16 +35,16 @@ pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
 #[expect(deprecated)]
 pub use store::{
-    KeyStore, KeyStoreContext, RotatedUserKeys, dangerous_get_v2_rotated_account_keys,
+    CipherSuite, KeyStore, KeyStoreContext, RotatedUserKeys, dangerous_get_v2_rotated_account_keys,
 };
 mod cose;
 pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
-pub use cose::CoseSerializable;
+pub use cose::{CoseKeyThumbprint, CoseKeyThumbprintExt, CoseSerializable};
 pub mod safe;
 mod signing;
 pub use signing::*;
+mod hazmat;
 mod traits;
-mod xchacha20;
 pub use traits::{
     CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds, LocalId,
     PrimitiveEncryptable,

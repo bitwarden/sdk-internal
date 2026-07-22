@@ -39,7 +39,7 @@ impl LoginClient {
         &self,
         email: String,
     ) -> Result<PasswordPreloginResponse, PasswordPreloginError> {
-        let request_model = PasswordPreloginRequestModel::new(email);
+        let request_model = PasswordPreloginRequestModel::new(email.clone());
         let api_configs = self.client.internal.get_api_configurations();
         let response = api_configs
             .identity_client
@@ -48,7 +48,10 @@ impl LoginClient {
             .await
             .map_err(ApiError::from)?;
 
-        Ok(PasswordPreloginResponse::try_from(response)?)
+        Ok(PasswordPreloginResponse::try_from((
+            response,
+            email.as_str(),
+        ))?)
     }
 }
 
@@ -235,16 +238,33 @@ mod tests {
             .get_password_prelogin(TEST_EMAIL.to_string())
             .await;
 
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            PasswordPreloginError::Unknown(err) => {
-                assert_eq!(
-                    err,
-                    "The response received was missing a required field: response.salt"
-                );
+        assert_eq!(result.unwrap().salt, TEST_EMAIL.to_string());
+    }
+
+    #[tokio::test]
+    async fn test_get_password_prelogin_email_fallback_case_insensitive() {
+        // Create a mock response missing salt
+        let raw_response = serde_json::json!({
+            "kdfSettings": {
+                "kdfType": KdfType::PBKDF2_SHA256.as_i64(),
+                "iterations": mock_default_pbkdf2_iterations().get(),
             }
-            other => panic!("Expected MissingField error, got {:?}", other),
-        }
+        });
+
+        let case_variant_email = "TeST@eXaMPlE.cOM";
+
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("/identity/accounts/prelogin/password"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(raw_response));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let login_client = make_login_client(&mock_server);
+
+        let result = login_client
+            .get_password_prelogin(case_variant_email.to_string())
+            .await;
+
+        assert_eq!(result.unwrap().salt, TEST_EMAIL.to_string());
     }
 
     #[tokio::test]

@@ -20,6 +20,7 @@ pub enum OrganizationUserStatusTypeNew {
     Invited,
     Accepted,
     Confirmed,
+    Staged,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -31,6 +32,7 @@ impl OrganizationUserStatusTypeNew {
             Self::Invited => 0,
             Self::Accepted => 1,
             Self::Confirmed => 2,
+            Self::Staged => 3,
             Self::__Unknown(v) => *v,
         }
     }
@@ -40,6 +42,7 @@ impl OrganizationUserStatusTypeNew {
             0 => Self::Invited,
             1 => Self::Accepted,
             2 => Self::Confirmed,
+            3 => Self::Staged,
             v => Self::__Unknown(v),
         }
     }

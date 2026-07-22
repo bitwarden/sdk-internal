@@ -11,7 +11,7 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
@@ -32,6 +32,7 @@ test-utils = []
 
 [dependencies]
 aes = { version = "0.9.0", features = ["zeroize"] }
+aes-gcm = { version = "0.11.0-rc.4", features = ["zeroize"] }
 argon2 = { version = "=0.6.0-rc.8", features = [
     "kdf",
     "zeroize",
@@ -40,6 +41,8 @@ bitwarden-api-key-connector = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-logging = { workspace = true }
+bitwarden-random = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 cbc = { version = "0.2.0", features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
@@ -69,10 +72,11 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util"] }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
-typenum = ">=1.18.0, <1.20.0"
+typenum = ">=1.18.0, <1.21.0"
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
+xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
 zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 
