@@ -86,7 +86,7 @@ impl HighEntropySecret {
 }
 
 /// Parses a `HighEntropySecret` from a standardized base64 string previously produced by
-/// [`String::from`]`(secret)` (or by the equivalent WASM ABI marshaling).
+/// `String::from(secret)` (or by the equivalent WASM ABI marshaling).
 ///
 /// The caller must guarantee that the decoded bytes originated from a genuine high-entropy
 /// source. This constructor does not — and cannot — validate entropy on its own; feeding
@@ -108,7 +108,7 @@ impl FromStr for HighEntropySecret {
 
 /// Encodes a `HighEntropySecret` as a standardized base64 string. The returned string carries
 /// the secret in cleartext — logging it, persisting it, or transmitting it over an untrusted
-/// channel each open a leak channel.
+/// channel each leak the secret.
 impl From<HighEntropySecret> for String {
     fn from(val: HighEntropySecret) -> Self {
         B64::from(val.secret.as_slice()).to_string()
@@ -154,7 +154,7 @@ pub enum HighEntropySecretError {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type HighEntropySecret = Tagged<String, "HighEntropySecret">;
+export type HighEntropySecret = Tagged<string, "HighEntropySecret">;
 "#;
 
 #[cfg(feature = "wasm")]

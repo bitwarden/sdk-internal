@@ -158,7 +158,7 @@ pub enum SealedEnvelopePairError {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type SealedEnvelopePair = Tagged<String, "SealedEnvelopePair">;
+export type SealedEnvelopePair = Tagged<string, "SealedEnvelopePair">;
 "#;
 
 #[cfg(feature = "wasm")]
