@@ -66,7 +66,9 @@ mod tests {
     use bitwarden_encoding::B64Url;
 
     use super::*;
-    use crate::registration::open_org_invite::seal::{SealedEnvelopePair, SealedEnvelopePairError};
+    use crate::registration::open_org_invite::seal::{
+        OPEN_ORG_INVITE_SECRET_SIZE_BYTES, SealedEnvelopePair, SealedEnvelopePairError,
+    };
 
     fn sample_input() -> OpenOrgInviteSealRequest {
         OpenOrgInviteSealRequest {
@@ -102,7 +104,8 @@ mod tests {
         let registration_client = RegistrationClient::new(client);
 
         let mut sealed = seal(&registration_client, sample_input());
-        sealed.high_entropy_secret = HighEntropySecret::make(32).unwrap();
+        sealed.high_entropy_secret =
+            HighEntropySecret::make(OPEN_ORG_INVITE_SECRET_SIZE_BYTES).unwrap();
 
         let err = registration_client
             .unseal_open_org_invite_data(sealed)

@@ -34,6 +34,11 @@ use wasm_bindgen::prelude::*;
 use super::{RegistrationOpenOrgInviteData, wire_v1::RegistrationOpenOrgInviteDataV1};
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
+/// Byte length of the per-registration [`HighEntropySecret`] the seal path generates. 32 bytes
+/// = 256 bits, well above [`HighEntropySecret`]'s minimum-length floor and matching the
+/// standard random-secret size elsewhere in the SDK.
+pub(super) const OPEN_ORG_INVITE_SECRET_SIZE_BYTES: usize = 32;
+
 /// Input to [`RegistrationClient::seal_open_org_invite_data`]. All three fields are required.
 // Not `uniffi::Record`-derived: [`SealedOpenOrgInvite`] holds typed cryptographic fields
 // (`HighEntropySecret`, `SealedEnvelopePair`) that lack uniffi custom-type impls, so this
@@ -205,8 +210,8 @@ impl RegistrationClient {
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = key_store.context_mut();
 
-        let high_entropy_secret =
-            HighEntropySecret::make(32).map_err(|_| RegistrationError::Crypto)?;
+        let high_entropy_secret = HighEntropySecret::make(OPEN_ORG_INVITE_SECRET_SIZE_BYTES)
+            .map_err(|_| RegistrationError::Crypto)?;
 
         let versioned: RegistrationOpenOrgInviteData = RegistrationOpenOrgInviteDataV1 {
             organization_id: input.organization_id,
