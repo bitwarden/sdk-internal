@@ -5,17 +5,18 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
-pub mod filter;
-mod master_password_policy_response;
+mod enriched_policy;
+mod enriched_policy_type;
 mod models;
 mod policy_client;
-pub mod policy_overrides;
+pub mod policy_definition;
+pub mod policy_definitions;
 mod policy_type;
-mod registry;
 
-pub use filter::Policy;
-pub use master_password_policy_response::MasterPasswordPolicyResponse;
+pub use enriched_policy::EnrichedPolicy;
+pub use enriched_policy_type::EnrichedPolicyType;
 pub use models::{OrganizationUserPolicyContext, PolicyView};
 pub use policy_client::{PoliciesClientExt, PolicyClient};
-pub use policy_overrides::*;
+pub use policy_definition::PolicyDefinition;
+pub use policy_definitions::*;
 pub use policy_type::PolicyType;
