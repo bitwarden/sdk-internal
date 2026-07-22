@@ -116,14 +116,16 @@ fn internal_seal_open_org_invite_data(
     })
 }
 
-/// Internal CBOR wire schema for `sealed_data`. Byte arrays are the direct serializations of the
-/// respective envelope types (CBOR handles them as `bstr` natively), avoiding the
-/// double-base64 overhead of nesting the envelopes' own string forms.
+/// Internal CBOR wire schema for `sealed_data`. Each field is the direct serialization of the
+/// respective envelope type, forced to CBOR `bstr` (major type 2) via `serde_bytes`. Without
+/// that hint, serde's default `Vec<u8>` handling would emit a CBOR array of integers — one
+/// element per byte, roughly doubling the encoded size — which defeats the point of nesting
+/// raw bytes here instead of the envelopes' own base64 string forms.
 #[derive(Serialize, Deserialize)]
 pub(super) struct SealedEnvelopePair {
-    #[serde(rename = "d")]
+    #[serde(rename = "d", with = "serde_bytes")]
     pub(super) data_envelope: Vec<u8>,
-    #[serde(rename = "k")]
+    #[serde(rename = "k", with = "serde_bytes")]
     pub(super) key_envelope: Vec<u8>,
 }
 
