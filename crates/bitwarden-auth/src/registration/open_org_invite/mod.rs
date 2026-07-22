@@ -12,7 +12,9 @@ use bitwarden_crypto::{
     generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
-pub use seal::{OpenOrgInviteSealRequest, SealedOpenOrgInvite};
+pub use seal::{
+    OpenOrgInviteSealRequest, SealedEnvelopePair, SealedEnvelopePairError, SealedOpenOrgInvite,
+};
 use serde::{Deserialize, Serialize};
 use wire_v1::RegistrationOpenOrgInviteDataV1;
 

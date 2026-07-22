@@ -13,6 +13,8 @@
 //! performs no post-decrypt equality check on the plaintext, matching how
 //! `Invite::unseal` in `invite_key_bundle` trusts the crypto.
 
+use std::str::FromStr;
+
 use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{
     KeyStore,
@@ -21,8 +23,9 @@ use bitwarden_crypto::{
         SecretProtectedKeyEnvelopeNamespace,
     },
 };
-use bitwarden_encoding::B64Url;
+use bitwarden_encoding::{B64Url, FromStrVisitor};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -32,8 +35,10 @@ use super::{RegistrationOpenOrgInviteData, wire_v1::RegistrationOpenOrgInviteDat
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
 /// Input to [`RegistrationClient::seal_open_org_invite_data`]. All three fields are required.
+// Not `uniffi::Record`-derived: [`SealedOpenOrgInvite`] holds typed cryptographic fields
+// (`HighEntropySecret`, `SealedEnvelopePair`) that lack uniffi custom-type impls, so this
+// crossing is WASM-only. Add those impls in `bitwarden-crypto` before enabling mobile.
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenOrgInviteSealRequest {
@@ -50,14 +55,139 @@ pub struct OpenOrgInviteSealRequest {
 /// [`RegistrationClient::unseal_open_org_invite_data`]. Both fields are required to unseal;
 /// neither half is useful on its own.
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SealedOpenOrgInvite {
-    /// URL-safe blob intended for the verification-email link.
-    pub sealed_data: String,
+    /// URL-safe opaque payload; place on the verification-email link.
+    pub sealed_data: SealedEnvelopePair,
     /// Paired secret; keep client-side (e.g. `localStorage`) and never send to the server.
-    pub high_entropy_secret: String,
+    pub high_entropy_secret: HighEntropySecret,
+}
+
+/// The two sealed envelopes that together carry an open-organization-invite payload.
+#[derive(Debug, Clone)]
+pub struct SealedEnvelopePair {
+    /// The sealed invite-payload envelope.
+    pub data_envelope: DataEnvelope,
+    /// The sealed content-encryption-key envelope.
+    pub key_envelope: SecretProtectedKeyEnvelope,
+}
+
+impl FromStr for SealedEnvelopePair {
+    type Err = SealedEnvelopePairError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let outer = B64Url::try_from(s).map_err(|_| SealedEnvelopePairError::Malformed)?;
+        let wire: SealedEnvelopePairWire = ciborium::de::from_reader(outer.as_bytes())
+            .map_err(|_| SealedEnvelopePairError::Malformed)?;
+        let data_envelope = DataEnvelope::from(wire.data_envelope);
+        let key_envelope = SecretProtectedKeyEnvelope::try_from(&wire.key_envelope)
+            .map_err(|_| SealedEnvelopePairError::Malformed)?;
+        Ok(SealedEnvelopePair {
+            data_envelope,
+            key_envelope,
+        })
+    }
+}
+
+impl From<&SealedEnvelopePair> for String {
+    fn from(val: &SealedEnvelopePair) -> Self {
+        let data_bytes: Vec<u8> = (&val.data_envelope).into();
+        let key_bytes: Vec<u8> = (&val.key_envelope).into();
+        let wire = SealedEnvelopePairWire {
+            data_envelope: data_bytes,
+            key_envelope: key_bytes,
+        };
+        let mut buf = Vec::new();
+        ciborium::ser::into_writer(&wire, &mut buf)
+            .expect("CBOR encoding of two byte fields cannot fail");
+        B64Url::from(buf).to_string()
+    }
+}
+
+impl From<SealedEnvelopePair> for String {
+    fn from(val: SealedEnvelopePair) -> Self {
+        (&val).into()
+    }
+}
+
+impl Serialize for SealedEnvelopePair {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl<'de> Deserialize<'de> for SealedEnvelopePair {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+/// Internal CBOR framing shape for [`SealedEnvelopePair`]. Each field is the direct
+/// serialization of the respective envelope type, forced to CBOR `bstr` (major type 2) via
+/// `serde_bytes` for compactness — serde's default `Vec<u8>` handling would emit a CBOR array
+/// of integers roughly doubling the encoded size.
+#[derive(Serialize, Deserialize)]
+struct SealedEnvelopePairWire {
+    #[serde(rename = "d", with = "serde_bytes")]
+    data_envelope: Vec<u8>,
+    #[serde(rename = "k", with = "serde_bytes")]
+    key_envelope: Vec<u8>,
+}
+
+/// Errors returned when parsing a [`SealedEnvelopePair`] from its wire form.
+#[derive(Debug, Error)]
+pub enum SealedEnvelopePairError {
+    /// The wire string could not be decoded.
+    #[error("Sealed envelope pair is malformed")]
+    Malformed,
+}
+
+// WASM ABI: `SealedEnvelopePair` marshals as its wire string, matching the JSON wire form.
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type SealedEnvelopePair = Tagged<String, "SealedEnvelopePair">;
+"#;
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::describe::WasmDescribe for SealedEnvelopePair {
+    fn describe() {
+        <String as wasm_bindgen::describe::WasmDescribe>::describe();
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::convert::FromWasmAbi for SealedEnvelopePair {
+    type Abi = <String as wasm_bindgen::convert::FromWasmAbi>::Abi;
+
+    unsafe fn from_abi(abi: Self::Abi) -> Self {
+        use wasm_bindgen::UnwrapThrowExt;
+        let string = unsafe { String::from_abi(abi) };
+        SealedEnvelopePair::from_str(&string).unwrap_throw()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::convert::OptionFromWasmAbi for SealedEnvelopePair {
+    fn is_none(abi: &Self::Abi) -> bool {
+        <String as wasm_bindgen::convert::OptionFromWasmAbi>::is_none(abi)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::convert::IntoWasmAbi for SealedEnvelopePair {
+    type Abi = <String as wasm_bindgen::convert::IntoWasmAbi>::Abi;
+
+    fn into_abi(self) -> Self::Abi {
+        String::from(self).into_abi()
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -96,41 +226,14 @@ impl RegistrationClient {
         )
         .map_err(|_| RegistrationError::Crypto)?;
 
-        let sealed_data = combine_envelopes(&data_envelope, &key_envelope)?;
-
         Ok(SealedOpenOrgInvite {
-            sealed_data,
-            high_entropy_secret: high_entropy_secret.into(),
+            sealed_data: SealedEnvelopePair {
+                data_envelope,
+                key_envelope,
+            },
+            high_entropy_secret,
         })
     }
-}
-
-/// Internal CBOR wire schema for `sealed_data`. Each field is the direct serialization of the
-/// respective envelope type, forced to CBOR `bstr` (major type 2) via `serde_bytes`. Without
-/// that hint, serde's default `Vec<u8>` handling would emit a CBOR array of integers — one
-/// element per byte, roughly doubling the encoded size — which defeats the point of nesting
-/// raw bytes here instead of the envelopes' own base64 string forms.
-#[derive(Serialize, Deserialize)]
-pub(super) struct SealedEnvelopePair {
-    #[serde(rename = "d", with = "serde_bytes")]
-    pub(super) data_envelope: Vec<u8>,
-    #[serde(rename = "k", with = "serde_bytes")]
-    pub(super) key_envelope: Vec<u8>,
-}
-
-/// CBOR-encodes the two envelopes and outer-base64url-encodes the result. Base64url keeps the
-/// output URL-safe, since the sealed data rides the verification email URL fragment.
-pub(super) fn combine_envelopes(
-    data_envelope: &DataEnvelope,
-    key_envelope: &SecretProtectedKeyEnvelope,
-) -> Result<String, RegistrationError> {
-    let pair = SealedEnvelopePair {
-        data_envelope: data_envelope.into(),
-        key_envelope: key_envelope.into(),
-    };
-    let mut buf = Vec::new();
-    ciborium::ser::into_writer(&pair, &mut buf).map_err(|_| RegistrationError::Crypto)?;
-    Ok(B64Url::from(buf).to_string())
 }
 
 #[cfg(test)]
@@ -148,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn seal_returns_non_empty_sealed_data_and_high_entropy_secret() {
+    fn seal_produces_populated_sealed_data_and_high_entropy_secret() {
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
 
@@ -156,42 +259,68 @@ mod tests {
             .seal_open_org_invite_data(sample_input())
             .expect("seal should succeed");
 
-        assert!(!sealed.sealed_data.is_empty());
-        assert!(!sealed.high_entropy_secret.is_empty());
-    }
+        // Wire round-trip sanity: the sealed envelope pair should serialize to a non-empty
+        // base64url string that parses back into the same shape.
+        let wire = String::from(&sealed.sealed_data);
+        assert!(!wire.is_empty());
+        let parsed: SealedEnvelopePair = wire.parse().expect("wire form must round-trip");
+        // Just check both envelope fields are structurally present (the underlying envelopes
+        // don't derive PartialEq).
+        let _ = parsed.data_envelope;
+        let _ = parsed.key_envelope;
 
-    #[test]
-    fn seal_sealed_data_is_valid_base64url() {
-        let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
-
-        let sealed = registration_client
-            .seal_open_org_invite_data(sample_input())
-            .expect("seal should succeed");
-
-        // Wire-format sanity: sealed_data must decode as base64url and re-encode identically.
-        let decoded = B64Url::try_from(sealed.sealed_data.as_str())
-            .expect("sealed_data must be valid base64url");
-        assert_eq!(
-            B64Url::from(decoded.as_bytes()).to_string(),
-            sealed.sealed_data
-        );
-    }
-
-    #[test]
-    fn seal_high_entropy_secret_is_valid_base64() {
-        let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
-
-        let sealed = registration_client
-            .seal_open_org_invite_data(sample_input())
-            .expect("seal should succeed");
-
-        // The secret must be a HighEntropySecret round-trippable base64 string.
-        sealed
-            .high_entropy_secret
+        // High-entropy secret should also round-trip via its own wire form.
+        let secret_wire = String::from(sealed.high_entropy_secret);
+        assert!(!secret_wire.is_empty());
+        secret_wire
             .parse::<HighEntropySecret>()
-            .expect("high_entropy_secret must be valid base64");
+            .expect("high_entropy_secret must be a valid wire string");
+    }
+
+    #[test]
+    fn sealed_envelope_pair_wire_is_valid_base64url() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let sealed = registration_client
+            .seal_open_org_invite_data(sample_input())
+            .expect("seal should succeed");
+
+        // Wire-format sanity: the SealedEnvelopePair's wire form must decode as base64url and
+        // re-encode identically.
+        let wire = String::from(&sealed.sealed_data);
+        let decoded =
+            B64Url::try_from(wire.as_str()).expect("sealed_data wire must be valid base64url");
+        assert_eq!(B64Url::from(decoded.as_bytes()).to_string(), wire);
+    }
+
+    #[test]
+    fn sealed_open_org_invite_json_wire_shape_is_stable() {
+        // Locks in the JSON wire contract: a two-key camelCase object with both values as
+        // strings. A future refactor that silently renamed a field, added a new one, or changed
+        // a value type from string to object would trip this assertion — and would silently
+        // break any existing sealed URL still in flight.
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+        let sealed = registration_client
+            .seal_open_org_invite_data(sample_input())
+            .expect("seal should succeed");
+
+        let json = serde_json::to_value(&sealed).expect("serialize");
+        let obj = json.as_object().expect("must be a JSON object");
+        assert_eq!(obj.len(), 2, "no extra or missing fields");
+        assert!(
+            obj.get("sealedData")
+                .expect("sealedData key must be present")
+                .is_string(),
+            "sealedData must serialize as a JSON string"
+        );
+        assert!(
+            obj.get("highEntropySecret")
+                .expect("highEntropySecret key must be present")
+                .is_string(),
+            "highEntropySecret must serialize as a JSON string"
+        );
     }
 
     #[test]
@@ -207,7 +336,14 @@ mod tests {
             .expect("second seal should succeed");
 
         // Per-registration randomness: fresh CEK + fresh HighEntropySecret + fresh HKDF salt.
-        assert_ne!(first.high_entropy_secret, second.high_entropy_secret);
-        assert_ne!(first.sealed_data, second.sealed_data);
+        // Compare via wire form since the underlying types don't derive PartialEq.
+        assert_ne!(
+            String::from(first.high_entropy_secret),
+            String::from(second.high_entropy_secret)
+        );
+        assert_ne!(
+            String::from(&first.sealed_data),
+            String::from(&second.sealed_data)
+        );
     }
 }

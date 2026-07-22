@@ -10,20 +10,13 @@
 //! plaintext; the AES-GCM auth tag at each envelope layer is the substitution defense.
 
 use bitwarden_core::key_management::KeySlotIds;
-use bitwarden_crypto::{
-    KeyStore,
-    safe::{
-        DataEnvelope, HighEntropySecret, SecretProtectedKeyEnvelope,
-        SecretProtectedKeyEnvelopeNamespace,
-    },
-};
-use bitwarden_encoding::B64Url;
+use bitwarden_crypto::{KeyStore, safe::SecretProtectedKeyEnvelopeNamespace};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::{
     RegistrationOpenOrgInviteData,
-    seal::{OpenOrgInviteSealRequest, SealedEnvelopePair, SealedOpenOrgInvite},
+    seal::{OpenOrgInviteSealRequest, SealedOpenOrgInvite},
 };
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
@@ -36,26 +29,24 @@ impl RegistrationClient {
         &self,
         sealed: SealedOpenOrgInvite,
     ) -> Result<OpenOrgInviteSealRequest, RegistrationError> {
-        let (data_envelope, key_envelope) = split_envelopes(&sealed.sealed_data)?;
-        let high_entropy_secret = sealed
-            .high_entropy_secret
-            .parse::<HighEntropySecret>()
-            .map_err(|_| RegistrationError::Crypto)?;
-
         // Per-call transient key store, matching the seal path — the CEK produced by the outer
         // unseal never lives beyond this function.
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = key_store.context_mut();
 
-        let cek_id = key_envelope
+        let cek_id = sealed
+            .sealed_data
+            .key_envelope
             .unseal(
-                &high_entropy_secret,
+                &sealed.high_entropy_secret,
                 SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
                 &mut ctx,
             )
             .map_err(|_| RegistrationError::Crypto)?;
 
-        let versioned: RegistrationOpenOrgInviteData = data_envelope
+        let versioned: RegistrationOpenOrgInviteData = sealed
+            .sealed_data
+            .data_envelope
             .unseal(cek_id, &mut ctx)
             .map_err(|_| RegistrationError::Crypto)?;
 
@@ -68,27 +59,14 @@ impl RegistrationClient {
     }
 }
 
-/// Reverses [`super::seal::combine_envelopes`]: base64url-decode, CBOR-decode, split into the two
-/// typed envelopes. Any framing error surfaces as [`RegistrationError::Crypto`] per the AC that
-/// malformed input never panics and never silently returns empty.
-fn split_envelopes(
-    sealed_data: &str,
-) -> Result<(DataEnvelope, SecretProtectedKeyEnvelope), RegistrationError> {
-    let outer = B64Url::try_from(sealed_data).map_err(|_| RegistrationError::Crypto)?;
-    let pair: SealedEnvelopePair =
-        ciborium::de::from_reader(outer.as_bytes()).map_err(|_| RegistrationError::Crypto)?;
-
-    let data_envelope = DataEnvelope::from(pair.data_envelope);
-    let key_envelope = SecretProtectedKeyEnvelope::try_from(&pair.key_envelope)
-        .map_err(|_| RegistrationError::Crypto)?;
-    Ok((data_envelope, key_envelope))
-}
-
 #[cfg(test)]
 mod tests {
     use bitwarden_core::Client;
+    use bitwarden_crypto::safe::HighEntropySecret;
+    use bitwarden_encoding::B64Url;
 
     use super::*;
+    use crate::registration::open_org_invite::seal::{SealedEnvelopePair, SealedEnvelopePairError};
 
     fn sample_input() -> OpenOrgInviteSealRequest {
         OpenOrgInviteSealRequest {
@@ -124,8 +102,7 @@ mod tests {
         let registration_client = RegistrationClient::new(client);
 
         let mut sealed = seal(&registration_client, sample_input());
-        let unrelated = String::from(HighEntropySecret::make(32).unwrap());
-        sealed.high_entropy_secret = unrelated;
+        sealed.high_entropy_secret = HighEntropySecret::make(32).unwrap();
 
         let err = registration_client
             .unseal_open_org_invite_data(sealed)
@@ -134,45 +111,79 @@ mod tests {
     }
 
     #[test]
-    fn unseal_fails_when_high_entropy_secret_is_malformed_base64() {
+    fn unseal_fails_when_sealed_data_wire_is_truncated_across_round_trip() {
+        // Simulate a truncated `sealed_data` blob arriving over the JSON wire: encode the seal
+        // output, truncate the sealed-data string, and re-parse. The parse itself should fail
+        // at the SealedEnvelopePair layer (CBOR framing broken by truncation).
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
+        let sealed = seal(&registration_client, sample_input());
 
-        let mut sealed = seal(&registration_client, sample_input());
-        sealed.high_entropy_secret = "!!!not-base64!!!".to_string();
+        let mut wire = String::from(&sealed.sealed_data);
+        wire.truncate(wire.len() / 2);
 
-        let err = registration_client
-            .unseal_open_org_invite_data(sealed)
-            .expect_err("unseal must reject malformed base64 for the secret");
-        assert!(matches!(err, RegistrationError::Crypto));
+        let err = wire
+            .parse::<SealedEnvelopePair>()
+            .expect_err("truncated wire must be rejected at parse time");
+        assert!(matches!(err, SealedEnvelopePairError::Malformed));
     }
 
     #[test]
-    fn unseal_fails_when_sealed_data_is_malformed_base64url() {
-        let client = Client::new(None);
-        let registration_client = RegistrationClient::new(client);
+    fn unseal_fails_when_sealed_data_wire_is_malformed_base64url() {
+        // Same shape as the truncation test but with an invalid base64url prefix.
+        let err = "not-valid-base64url!"
+            .parse::<SealedEnvelopePair>()
+            .expect_err("malformed base64url must be rejected at parse time");
+        assert!(matches!(err, SealedEnvelopePairError::Malformed));
 
-        let mut sealed = seal(&registration_client, sample_input());
-        sealed.sealed_data = "not-valid-base64url!".to_string();
-
-        let err = registration_client
-            .unseal_open_org_invite_data(sealed)
-            .expect_err("unseal must reject malformed sealed_data at the split step");
-        assert!(matches!(err, RegistrationError::Crypto));
+        // Also verify the outer B64Url decoder itself rejects the same input, which is what
+        // exercises the pre-CBOR path in the parser.
+        assert!(B64Url::try_from("not-valid-base64url!").is_err());
     }
 
     #[test]
-    fn unseal_fails_when_sealed_data_is_truncated() {
+    fn sealed_envelope_pair_parse_rejects_valid_cbor_with_bad_key_envelope_bytes() {
+        // Build a well-formed base64url + CBOR wire whose `k` field decodes but does not parse
+        // as a `SecretProtectedKeyEnvelope`. Exercises the parse-envelope step (step 4 in the
+        // FromStr walkthrough) — the step that base64url/CBOR/truncation tests never reach.
+        #[derive(serde::Serialize)]
+        struct FakeWire<'a> {
+            #[serde(rename = "d", with = "serde_bytes")]
+            d: &'a [u8],
+            #[serde(rename = "k", with = "serde_bytes")]
+            k: &'a [u8],
+        }
+        let fake = FakeWire {
+            d: &[1, 2, 3, 4],       // DataEnvelope::from is an infallible byte-wrap; that's fine
+            k: &[0xff, 0xff, 0xff], // won't parse as SecretProtectedKeyEnvelope
+        };
+        let mut buf = Vec::new();
+        ciborium::ser::into_writer(&fake, &mut buf).unwrap();
+        let wire = B64Url::from(buf).to_string();
+
+        let err = wire
+            .parse::<SealedEnvelopePair>()
+            .expect_err("bad key-envelope bytes must be rejected at parse time");
+        assert!(matches!(err, SealedEnvelopePairError::Malformed));
+    }
+
+    #[test]
+    fn seal_json_round_trip_unseal_recovers_original_fields() {
+        // The whole point of the typed-fields refactor: `SealedOpenOrgInvite` marshals through
+        // serde as strings and unseals identically after a JSON round-trip — the shape a real
+        // client would send through the server + URL + query param.
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
 
-        let mut sealed = seal(&registration_client, sample_input());
-        // Drop the tail — the base64url still parses but the CBOR framing collapses.
-        sealed.sealed_data.truncate(sealed.sealed_data.len() / 2);
+        let input = sample_input();
+        let sealed = seal(&registration_client, input.clone());
 
-        let err = registration_client
-            .unseal_open_org_invite_data(sealed)
-            .expect_err("unseal must reject truncated sealed_data");
-        assert!(matches!(err, RegistrationError::Crypto));
+        let json = serde_json::to_string(&sealed).expect("serialize");
+        let round_tripped: SealedOpenOrgInvite = serde_json::from_str(&json).expect("deserialize");
+
+        let unsealed = registration_client
+            .unseal_open_org_invite_data(round_tripped)
+            .expect("unseal after JSON round-trip should succeed");
+        assert_eq!(unsealed, input);
     }
 }
