@@ -1,8 +1,8 @@
 //! Open-organization-invite registration crossing.
 //!
-//! The registrant seals an invite context on one browser tab and unseals it on the
-//! verification-email tab after registration-finish. This module owns the shared wire schema
-//! (`wire_v1`), the seal path (`seal`), and the unseal path (`unseal`).
+//! The app seals an invite context on registration-start submit and unseals it on the accept
+//! open-org-invite component after a successful registration-finish. This module owns the shared
+//! wire schema (`wire_v1`), the seal path (`seal`), and the unseal path (`unseal`).
 
 mod seal;
 mod unseal;
