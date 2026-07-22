@@ -14,6 +14,24 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{DecryptError, EncryptError};
 
+/// Represents the result of decrypting a list of collections.
+///
+/// This struct contains two vectors: `successes` and `failures`.
+/// `successes` contains the decrypted `CollectionView` objects,
+/// while `failures` contains the original `Collection` objects that failed to decrypt.
+#[cfg_attr(
+    feature = "wasm",
+    derive(Tsify, Serialize, Deserialize),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct DecryptCollectionListResult {
+    /// The decrypted `CollectionView` objects.
+    pub successes: Vec<CollectionView>,
+    /// The original `Collection` objects that failed to decrypt.
+    pub failures: Vec<Collection>,
+}
+
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Clone)]
@@ -56,6 +74,22 @@ impl CollectionsClient {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&collections)?;
         Ok(views)
+    }
+
+    /// Decrypts a list of collections, returning successes and failures separately.
+    ///
+    /// Unlike [decrypt_list], a single collection that fails to decrypt (e.g. due to a missing
+    /// organization key) does not abort the entire batch — it is returned in `failures` instead.
+    pub fn decrypt_list_with_failures(
+        &self,
+        collections: Vec<Collection>,
+    ) -> DecryptCollectionListResult {
+        let key_store = self.client.internal.get_key_store();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&collections);
+        DecryptCollectionListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
     }
 
     ///
@@ -188,6 +222,61 @@ mod tests {
             .unwrap();
 
         assert_eq!(dec.name, "Default collection");
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_all_success() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client
+            .vault()
+            .collections()
+            .decrypt_list_with_failures(vec![test_collection()]);
+
+        assert_eq!(result.successes.len(), 1);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].name, "Default collection");
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_mixed_results() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let valid_collection = test_collection();
+        let mut invalid_collection = test_collection();
+        // No organization key exists in the test account's key store for this id, so
+        // decryption of this single item must fail without affecting the others.
+        invalid_collection.organization_id =
+            "00000000-0000-0000-0000-000000000000".parse().unwrap();
+
+        let collections = vec![valid_collection, invalid_collection.clone()];
+
+        let result = client
+            .vault()
+            .collections()
+            .decrypt_list_with_failures(collections);
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.successes[0].name, "Default collection");
+
+        assert_eq!(result.failures.len(), 1);
+        // The failed item must be returned unchanged (still ciphertext) — decryption
+        // failures must never leak partially-decrypted or plaintext data.
+        assert_eq!(result.failures[0].id, invalid_collection.id);
+        assert_eq!(result.failures[0].name, invalid_collection.name);
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_list_with_failures_empty_list() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client
+            .vault()
+            .collections()
+            .decrypt_list_with_failures(vec![]);
+
+        assert!(result.successes.is_empty());
+        assert!(result.failures.is_empty());
     }
 
     #[tokio::test]
