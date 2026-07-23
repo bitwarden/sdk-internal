@@ -41,7 +41,7 @@ pub(super) const OPEN_ORG_INVITE_SECRET_SIZE_BYTES: usize = 32;
 
 /// Input to [`RegistrationClient::seal_open_org_invite_data`]. All three fields are required.
 // Not `uniffi::Record`-derived: [`SealedOpenOrgInvite`] holds typed cryptographic fields
-// (`HighEntropySecret`, `SealedEnvelopePair`) that lack uniffi custom-type impls, so this
+// (`HighEntropySecret`, `SealedOpenOrgInviteData`) that lack uniffi custom-type impls, so this
 // crossing is WASM-only. Add those impls in `bitwarden-crypto` before enabling mobile.
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -64,42 +64,42 @@ pub struct OpenOrgInviteSealRequest {
 #[serde(rename_all = "camelCase")]
 pub struct SealedOpenOrgInvite {
     /// URL-safe opaque payload; place on the verification-email link.
-    pub sealed_data: SealedEnvelopePair,
+    pub sealed_data: SealedOpenOrgInviteData,
     /// Paired secret; keep client-side (e.g. `localStorage`) and never send to the server.
     pub high_entropy_secret: HighEntropySecret,
 }
 
 /// The two sealed envelopes that together carry an open-organization-invite payload.
 #[derive(Debug, Clone)]
-pub struct SealedEnvelopePair {
+pub struct SealedOpenOrgInviteData {
     /// The sealed invite-payload envelope.
     pub data_envelope: DataEnvelope,
     /// The sealed content-encryption-key envelope.
     pub key_envelope: SecretProtectedKeyEnvelope,
 }
 
-impl FromStr for SealedEnvelopePair {
-    type Err = SealedEnvelopePairError;
+impl FromStr for SealedOpenOrgInviteData {
+    type Err = SealedOpenOrgInviteDataError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let outer = B64Url::try_from(s).map_err(|_| SealedEnvelopePairError::Malformed)?;
-        let wire: SealedEnvelopePairWire = ciborium::de::from_reader(outer.as_bytes())
-            .map_err(|_| SealedEnvelopePairError::Malformed)?;
+        let outer = B64Url::try_from(s).map_err(|_| SealedOpenOrgInviteDataError::Malformed)?;
+        let wire: SealedOpenOrgInviteDataWire = ciborium::de::from_reader(outer.as_bytes())
+            .map_err(|_| SealedOpenOrgInviteDataError::Malformed)?;
         let data_envelope = DataEnvelope::from(wire.data_envelope);
         let key_envelope = SecretProtectedKeyEnvelope::try_from(&wire.key_envelope)
-            .map_err(|_| SealedEnvelopePairError::Malformed)?;
-        Ok(SealedEnvelopePair {
+            .map_err(|_| SealedOpenOrgInviteDataError::Malformed)?;
+        Ok(SealedOpenOrgInviteData {
             data_envelope,
             key_envelope,
         })
     }
 }
 
-impl From<&SealedEnvelopePair> for String {
-    fn from(val: &SealedEnvelopePair) -> Self {
+impl From<&SealedOpenOrgInviteData> for String {
+    fn from(val: &SealedOpenOrgInviteData) -> Self {
         let data_bytes: Vec<u8> = (&val.data_envelope).into();
         let key_bytes: Vec<u8> = (&val.key_envelope).into();
-        let wire = SealedEnvelopePairWire {
+        let wire = SealedOpenOrgInviteDataWire {
             data_envelope: data_bytes,
             key_envelope: key_bytes,
         };
@@ -110,13 +110,13 @@ impl From<&SealedEnvelopePair> for String {
     }
 }
 
-impl From<SealedEnvelopePair> for String {
-    fn from(val: SealedEnvelopePair) -> Self {
+impl From<SealedOpenOrgInviteData> for String {
+    fn from(val: SealedOpenOrgInviteData) -> Self {
         (&val).into()
     }
 }
 
-impl Serialize for SealedEnvelopePair {
+impl Serialize for SealedOpenOrgInviteData {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -125,7 +125,7 @@ impl Serialize for SealedEnvelopePair {
     }
 }
 
-impl<'de> Deserialize<'de> for SealedEnvelopePair {
+impl<'de> Deserialize<'de> for SealedOpenOrgInviteData {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -134,60 +134,60 @@ impl<'de> Deserialize<'de> for SealedEnvelopePair {
     }
 }
 
-/// Internal CBOR framing shape for [`SealedEnvelopePair`]. Each field is the direct
+/// Internal CBOR framing shape for [`SealedOpenOrgInviteData`]. Each field is the direct
 /// serialization of the respective envelope type, forced to CBOR `bstr` (major type 2) via
 /// `serde_bytes` for compactness — serde's default `Vec<u8>` handling would emit a CBOR array
 /// of integers roughly doubling the encoded size.
 #[derive(Serialize, Deserialize)]
-struct SealedEnvelopePairWire {
+struct SealedOpenOrgInviteDataWire {
     #[serde(rename = "d", with = "serde_bytes")]
     data_envelope: Vec<u8>,
     #[serde(rename = "k", with = "serde_bytes")]
     key_envelope: Vec<u8>,
 }
 
-/// Errors returned when parsing a [`SealedEnvelopePair`] from its wire form.
+/// Errors returned when parsing a [`SealedOpenOrgInviteData`] from its wire form.
 #[derive(Debug, Error)]
-pub enum SealedEnvelopePairError {
+pub enum SealedOpenOrgInviteDataError {
     /// The wire string could not be decoded.
     #[error("Sealed envelope pair is malformed")]
     Malformed,
 }
 
-// WASM ABI: `SealedEnvelopePair` marshals as its wire string, matching the JSON wire form.
+// WASM ABI: `SealedOpenOrgInviteData` marshals as its wire string, matching the JSON wire form.
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type SealedEnvelopePair = Tagged<string, "SealedEnvelopePair">;
+export type SealedOpenOrgInviteData = Tagged<string, "SealedOpenOrgInviteData">;
 "#;
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for SealedEnvelopePair {
+impl wasm_bindgen::describe::WasmDescribe for SealedOpenOrgInviteData {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::convert::FromWasmAbi for SealedEnvelopePair {
+impl wasm_bindgen::convert::FromWasmAbi for SealedOpenOrgInviteData {
     type Abi = <String as wasm_bindgen::convert::FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        SealedEnvelopePair::from_str(&string).unwrap_throw()
+        SealedOpenOrgInviteData::from_str(&string).unwrap_throw()
     }
 }
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::convert::OptionFromWasmAbi for SealedEnvelopePair {
+impl wasm_bindgen::convert::OptionFromWasmAbi for SealedOpenOrgInviteData {
     fn is_none(abi: &Self::Abi) -> bool {
         <String as wasm_bindgen::convert::OptionFromWasmAbi>::is_none(abi)
     }
 }
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::convert::IntoWasmAbi for SealedEnvelopePair {
+impl wasm_bindgen::convert::IntoWasmAbi for SealedOpenOrgInviteData {
     type Abi = <String as wasm_bindgen::convert::IntoWasmAbi>::Abi;
 
     fn into_abi(self) -> Self::Abi {
@@ -232,7 +232,7 @@ impl RegistrationClient {
         .map_err(|_| RegistrationError::Crypto)?;
 
         Ok(SealedOpenOrgInvite {
-            sealed_data: SealedEnvelopePair {
+            sealed_data: SealedOpenOrgInviteData {
                 data_envelope,
                 key_envelope,
             },
@@ -268,7 +268,7 @@ mod tests {
         // base64url string that parses back into the same shape.
         let wire = String::from(&sealed.sealed_data);
         assert!(!wire.is_empty());
-        let parsed: SealedEnvelopePair = wire.parse().expect("wire form must round-trip");
+        let parsed: SealedOpenOrgInviteData = wire.parse().expect("wire form must round-trip");
         // Just check both envelope fields are structurally present (the underlying envelopes
         // don't derive PartialEq).
         let _ = parsed.data_envelope;
@@ -291,7 +291,7 @@ mod tests {
             .seal_open_org_invite_data(sample_input())
             .expect("seal should succeed");
 
-        // Wire-format sanity: the SealedEnvelopePair's wire form must decode as base64url and
+        // Wire-format sanity: the SealedOpenOrgInviteData's wire form must decode as base64url and
         // re-encode identically.
         let wire = String::from(&sealed.sealed_data);
         let decoded =

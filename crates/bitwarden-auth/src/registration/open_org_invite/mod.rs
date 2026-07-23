@@ -15,7 +15,8 @@ use bitwarden_crypto::{
 };
 use data_v1::RegistrationOpenOrgInviteDataV1;
 pub use seal::{
-    OpenOrgInviteSealRequest, SealedEnvelopePair, SealedEnvelopePairError, SealedOpenOrgInvite,
+    OpenOrgInviteSealRequest, SealedOpenOrgInvite, SealedOpenOrgInviteData,
+    SealedOpenOrgInviteDataError,
 };
 use serde::{Deserialize, Serialize};
 

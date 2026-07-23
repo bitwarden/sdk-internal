@@ -69,7 +69,7 @@ mod tests {
 
     use super::*;
     use crate::registration::open_org_invite::seal::{
-        OPEN_ORG_INVITE_SECRET_SIZE_BYTES, SealedEnvelopePair, SealedEnvelopePairError,
+        OPEN_ORG_INVITE_SECRET_SIZE_BYTES, SealedOpenOrgInviteData, SealedOpenOrgInviteDataError,
     };
 
     fn sample_input() -> OpenOrgInviteSealRequest {
@@ -119,7 +119,7 @@ mod tests {
     fn unseal_fails_when_sealed_data_wire_is_truncated_across_round_trip() {
         // Simulate a truncated `sealed_data` blob arriving over the JSON wire: encode the seal
         // output, truncate the sealed-data string, and re-parse. The parse itself should fail
-        // at the SealedEnvelopePair layer (CBOR framing broken by truncation).
+        // at the SealedOpenOrgInviteData layer (CBOR framing broken by truncation).
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
         let sealed = seal(&registration_client, sample_input());
@@ -128,18 +128,18 @@ mod tests {
         wire.truncate(wire.len() / 2);
 
         let err = wire
-            .parse::<SealedEnvelopePair>()
+            .parse::<SealedOpenOrgInviteData>()
             .expect_err("truncated wire must be rejected at parse time");
-        assert!(matches!(err, SealedEnvelopePairError::Malformed));
+        assert!(matches!(err, SealedOpenOrgInviteDataError::Malformed));
     }
 
     #[test]
     fn unseal_fails_when_sealed_data_wire_is_malformed_base64url() {
         // Same shape as the truncation test but with an invalid base64url prefix.
         let err = "not-valid-base64url!"
-            .parse::<SealedEnvelopePair>()
+            .parse::<SealedOpenOrgInviteData>()
             .expect_err("malformed base64url must be rejected at parse time");
-        assert!(matches!(err, SealedEnvelopePairError::Malformed));
+        assert!(matches!(err, SealedOpenOrgInviteDataError::Malformed));
 
         // Also verify the outer B64Url decoder itself rejects the same input, which is what
         // exercises the pre-CBOR path in the parser.
@@ -167,9 +167,9 @@ mod tests {
         let wire = B64Url::from(buf).to_string();
 
         let err = wire
-            .parse::<SealedEnvelopePair>()
+            .parse::<SealedOpenOrgInviteData>()
             .expect_err("bad key-envelope bytes must be rejected at parse time");
-        assert!(matches!(err, SealedEnvelopePairError::Malformed));
+        assert!(matches!(err, SealedOpenOrgInviteDataError::Malformed));
     }
 
     #[test]
