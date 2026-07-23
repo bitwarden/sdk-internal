@@ -5,9 +5,11 @@
 //! Reverses the two-envelope construction documented in [`super::seal`]: outer key envelope →
 //! inner CEK, then inner data envelope → plaintext.
 //!
-//! Any failure — malformed wire, wrong secret, tampered blob, cross-namespace — surfaces as
-//! [`RegistrationError::Crypto`]. The SDK performs no post-decrypt equality check on the
-//! plaintext; the AES-GCM auth tag at each envelope layer is the substitution defense.
+//! Failures reaching this function surface as [`RegistrationError::Crypto`] — wrong secret,
+//! tampered blob, cross-namespace CEK. Malformed wire strings and sub-minimum secret lengths
+//! are rejected earlier by `serde` / `FromStr` at the deserialization boundary and never enter
+//! here. The SDK performs no post-decrypt equality check on the plaintext; the AES-GCM auth
+//! tag at each envelope layer is the substitution defense.
 
 use bitwarden_core::key_management::KeySlotIds;
 use bitwarden_crypto::{KeyStore, safe::SecretProtectedKeyEnvelopeNamespace};
@@ -23,8 +25,8 @@ use crate::registration::registration_client::{RegistrationClient, RegistrationE
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
     /// Unseals a [`SealedOpenOrgInvite`] back into an [`OpenOrgInviteSealRequest`]. Returns
-    /// [`RegistrationError::Crypto`] if the sealed payload or the paired secret is malformed,
-    /// mismatched, or tampered with.
+    /// [`RegistrationError::Crypto`] if the paired secret does not match the sealed payload or
+    /// the payload has been tampered with.
     pub fn unseal_open_org_invite_data(
         &self,
         sealed: SealedOpenOrgInvite,
