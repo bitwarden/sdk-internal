@@ -69,6 +69,12 @@ pub trait OrganizationsApi: Send + Sync {
         installation_id: Option<uuid::Uuid>,
     ) -> Result<models::OrganizationLicense, Error>;
 
+    /// GET /organizations/{orgId}/private-key
+    async fn get_private_key<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationPrivateKeyResponseModel, Error>;
+
     /// GET /organizations/{id}/public-key
     async fn get_public_key<'a>(
         &self,
@@ -366,6 +372,27 @@ impl OrganizationsApi for OrganizationsApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("installationId", &param_value.to_string())]);
         }
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_private_key<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationPrivateKeyResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/private-key",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await

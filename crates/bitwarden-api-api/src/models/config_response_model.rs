@@ -49,7 +49,7 @@ pub struct ConfigResponseModel {
         alias = "FeatureStates",
         skip_serializing_if = "Option::is_none"
     )]
-    pub feature_states: Option<std::collections::HashMap<String, serde_json::Value>>,
+    pub feature_states: Option<std::collections::HashMap<String, models::JsonValue>>,
     #[serde(
         rename = "push",
         alias = "Push",

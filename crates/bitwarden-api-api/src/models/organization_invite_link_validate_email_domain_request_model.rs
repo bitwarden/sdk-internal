@@ -14,6 +14,8 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationInviteLinkValidateEmailDomainRequestModel {
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
+    pub organization_id: uuid::Uuid,
     #[serde(rename = "code", alias = "Code")]
     pub code: uuid::Uuid,
     #[serde(rename = "email", alias = "Email")]
@@ -22,9 +24,14 @@ pub struct OrganizationInviteLinkValidateEmailDomainRequestModel {
 
 impl OrganizationInviteLinkValidateEmailDomainRequestModel {
     pub fn new(
+        organization_id: uuid::Uuid,
         code: uuid::Uuid,
         email: String,
     ) -> OrganizationInviteLinkValidateEmailDomainRequestModel {
-        OrganizationInviteLinkValidateEmailDomainRequestModel { code, email }
+        OrganizationInviteLinkValidateEmailDomainRequestModel {
+            organization_id,
+            code,
+            email,
+        }
     }
 }

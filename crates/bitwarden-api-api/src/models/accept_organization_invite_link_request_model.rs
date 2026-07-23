@@ -14,6 +14,8 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AcceptOrganizationInviteLinkRequestModel {
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
+    pub organization_id: uuid::Uuid,
     #[serde(rename = "code", alias = "Code")]
     pub code: uuid::Uuid,
     #[serde(
@@ -25,8 +27,12 @@ pub struct AcceptOrganizationInviteLinkRequestModel {
 }
 
 impl AcceptOrganizationInviteLinkRequestModel {
-    pub fn new(code: uuid::Uuid) -> AcceptOrganizationInviteLinkRequestModel {
+    pub fn new(
+        organization_id: uuid::Uuid,
+        code: uuid::Uuid,
+    ) -> AcceptOrganizationInviteLinkRequestModel {
         AcceptOrganizationInviteLinkRequestModel {
+            organization_id,
             code,
             reset_password_key: None,
         }

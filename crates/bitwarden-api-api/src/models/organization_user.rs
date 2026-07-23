@@ -114,6 +114,14 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub access_secrets_manager: Option<bool>,
+    /// True if the User has access to Privileged Access Management for this Organization, false
+    /// otherwise.
+    #[serde(
+        rename = "accessPam",
+        alias = "AccessPam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_pam: Option<bool>,
     #[serde(
         rename = "revocationReason",
         alias = "RevocationReason",
@@ -142,6 +150,7 @@ impl OrganizationUser {
             revision_date: None,
             permissions: None,
             access_secrets_manager: None,
+            access_pam: None,
             revocation_reason: None,
         }
     }

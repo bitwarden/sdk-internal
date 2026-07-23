@@ -167,6 +167,12 @@ pub trait OrganizationUsersApi: Send + Sync {
         include_collections: Option<bool>,
     ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error>;
 
+    /// POST /organizations/users/invite-link/invite
+    async fn get_invite<'a>(
+        &self,
+        get_organization_invite_request_model: Option<models::GetOrganizationInviteRequestModel>,
+    ) -> Result<(), Error>;
+
     /// GET /organizations/{orgId}/users/mini-details
     async fn get_mini_details<'a>(
         &self,
@@ -716,6 +722,27 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_invite<'a>(
+        &self,
+        get_organization_invite_request_model: Option<models::GetOrganizationInviteRequestModel>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/users/invite-link/invite",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&get_organization_invite_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_mini_details<'a>(
