@@ -565,6 +565,11 @@ pub enum SecretProtectedKeyEnvelopeNamespace {
     /// Bitwarden Desktop biometric (Windows Hello) unlock. The high-entropy secret is a PRF derived
     /// from the Windows Hello signing credential, and the sealed key is the user key.
     DesktopBiometricUnlock = 2,
+    /// Namespace for the outer envelope of the open-organization-invite registration crossing.
+    /// The sealed key protects the inner `DataEnvelope`'s content-encryption key; the high-entropy
+    /// secret is generated per registration and stored client-side to be paired with the sealed
+    /// data returned via the verification email.
+    RegistrationOpenOrgInvite = 3,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -587,6 +592,7 @@ impl TryFrom<i128> for SecretProtectedKeyEnvelopeNamespace {
         match value {
             1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleUse),
             2 => Ok(SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock),
+            3 => Ok(SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite),
             #[cfg(test)]
             -1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -667,6 +673,58 @@ mod tests {
         222, 10, 249, 242, 57, 196, 223, 240, 234, 177, 19, 72, 201, 32, 1, 129, 46, 6, 76, 38,
         149, 151, 217, 94, 84, 67, 50, 107, 103, 74, 88, 72, 246,
     ];
+
+    #[test]
+    fn test_registration_open_org_invite_namespace_maps_to_expected_discriminant() {
+        // The wire discriminant is load-bearing once shipped; a regression here would silently
+        // invalidate every envelope sealed by production callers.
+        assert_eq!(
+            SecretProtectedKeyEnvelopeNamespace::try_from(3i128).unwrap(),
+            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite
+        );
+        assert_eq!(
+            i128::from(SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite),
+            3
+        );
+    }
+
+    #[test]
+    fn test_registration_open_org_invite_rejects_cross_namespace_unseal() {
+        // An envelope sealed under the new production namespace must not unseal under any
+        // other production namespace (here, the sibling production
+        // `DesktopBiometricUnlock`). Mirrors the sibling test in `data_envelope.rs` for the
+        // new variant.
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let secret = testvector_secret();
+
+        let envelope = SecretProtectedKeyEnvelope::seal(
+            test_key,
+            &secret,
+            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+            &ctx,
+        )
+        .expect("seal");
+
+        assert!(matches!(
+            envelope.unseal(
+                &secret,
+                SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock,
+                &mut ctx,
+            ),
+            Err(SecretProtectedKeyEnvelopeError::InvalidNamespace)
+        ));
+
+        // Correct namespace still succeeds.
+        let _ = envelope
+            .unseal(
+                &secret,
+                SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+                &mut ctx,
+            )
+            .expect("unseal under correct namespace succeeds");
+    }
 
     #[test]
     #[ignore = "Manual test to verify debug format"]
