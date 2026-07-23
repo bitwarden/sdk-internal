@@ -46,7 +46,7 @@ pub(super) const OPEN_ORG_INVITE_SECRET_SIZE_BYTES: usize = 32;
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenOrgInviteSealRequest {
+pub struct OpenOrgInvite {
     /// The organization the registrant is joining.
     pub organization_id: String,
     /// The public invite link code carried in the shared invite URL.
@@ -197,12 +197,12 @@ impl wasm_bindgen::convert::IntoWasmAbi for SealedOpenOrgInviteData {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
-    /// Seals an [`OpenOrgInviteSealRequest`] into a [`SealedOpenOrgInvite`]. The returned
+    /// Seals an [`OpenOrgInvite`] into a [`SealedOpenOrgInvite`]. The returned
     /// `sealed_data` is safe to place on the verification-email link; the returned
     /// `high_entropy_secret` must stay client-side.
     pub fn seal_open_org_invite_data(
         &self,
-        input: OpenOrgInviteSealRequest,
+        input: OpenOrgInvite,
     ) -> Result<SealedOpenOrgInvite, RegistrationError> {
         // The CEK is transient and never persists across calls. A per-call `KeyStore` keeps
         // the key material scoped to this operation so nothing lingers in the caller's key
@@ -247,8 +247,8 @@ mod tests {
 
     use super::*;
 
-    fn sample_input() -> OpenOrgInviteSealRequest {
-        OpenOrgInviteSealRequest {
+    fn sample_input() -> OpenOrgInvite {
+        OpenOrgInvite {
             organization_id: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".to_string(),
             invite_link_code: "abcd1234efgh5678".to_string(),
             invite_key: "raw-invite-key-material-base64url".to_string(),

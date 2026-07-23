@@ -11,8 +11,7 @@ mod post_keys_for_user_password_registration;
 mod registration_client;
 
 pub use open_org_invite::{
-    OpenOrgInviteSealRequest, SealedOpenOrgInvite, SealedOpenOrgInviteData,
-    SealedOpenOrgInviteDataError,
+    OpenOrgInvite, SealedOpenOrgInvite, SealedOpenOrgInviteData, SealedOpenOrgInviteDataError,
 };
 pub use post_keys_for_jit_password_registration::{
     JitMasterPasswordRegistrationRequest, JitMasterPasswordRegistrationResponse,

@@ -1,4 +1,4 @@
-//! Unseals a [`SealedOpenOrgInvite`] back into the plaintext [`OpenOrgInviteSealRequest`],
+//! Unseals a [`SealedOpenOrgInvite`] back into the plaintext [`OpenOrgInvite`],
 //! provided the caller supplies the paired [`HighEntropySecret`] the seal path returned. This
 //! runs on the verification-email tab after registration-finish has logged the user in.
 //!
@@ -18,19 +18,19 @@ use wasm_bindgen::prelude::*;
 
 use super::{
     RegistrationOpenOrgInviteData,
-    seal::{OpenOrgInviteSealRequest, SealedOpenOrgInvite},
+    seal::{OpenOrgInvite, SealedOpenOrgInvite},
 };
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
-    /// Unseals a [`SealedOpenOrgInvite`] back into an [`OpenOrgInviteSealRequest`]. Returns
+    /// Unseals a [`SealedOpenOrgInvite`] back into an [`OpenOrgInvite`]. Returns
     /// [`RegistrationError::Crypto`] if the paired secret does not match the sealed payload or
     /// the payload has been tampered with.
     pub fn unseal_open_org_invite_data(
         &self,
         sealed: SealedOpenOrgInvite,
-    ) -> Result<OpenOrgInviteSealRequest, RegistrationError> {
+    ) -> Result<OpenOrgInvite, RegistrationError> {
         // Per-call transient key store, matching the seal path — the CEK produced by the outer
         // unseal never lives beyond this function.
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -53,7 +53,7 @@ impl RegistrationClient {
             .map_err(|_| RegistrationError::Crypto)?;
 
         let RegistrationOpenOrgInviteData::RegistrationOpenOrgInviteDataV1(v1) = versioned;
-        Ok(OpenOrgInviteSealRequest {
+        Ok(OpenOrgInvite {
             organization_id: v1.organization_id,
             invite_link_code: v1.invite_link_code,
             invite_key: v1.invite_key,
@@ -72,15 +72,15 @@ mod tests {
         OPEN_ORG_INVITE_SECRET_SIZE_BYTES, SealedOpenOrgInviteData, SealedOpenOrgInviteDataError,
     };
 
-    fn sample_input() -> OpenOrgInviteSealRequest {
-        OpenOrgInviteSealRequest {
+    fn sample_input() -> OpenOrgInvite {
+        OpenOrgInvite {
             organization_id: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".to_string(),
             invite_link_code: "abcd1234efgh5678".to_string(),
             invite_key: "raw-invite-key-material-base64url".to_string(),
         }
     }
 
-    fn seal(client: &RegistrationClient, input: OpenOrgInviteSealRequest) -> SealedOpenOrgInvite {
+    fn seal(client: &RegistrationClient, input: OpenOrgInvite) -> SealedOpenOrgInvite {
         client
             .seal_open_org_invite_data(input)
             .expect("seal should succeed")
