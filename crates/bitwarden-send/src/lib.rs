@@ -25,7 +25,7 @@ pub use create_file_send::{
 mod delete;
 pub use delete::DeleteSendError;
 mod edit;
-pub use edit::{EditSendError, SendEditRequest};
+pub use edit::{AuthEdit, EditSendError, SendEditRequest};
 mod error;
 pub use error::SendParseError;
 mod get_list;
