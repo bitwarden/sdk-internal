@@ -309,4 +309,15 @@ mod tests {
             .expect("input at minimum length is accepted");
         assert_eq!(secret.as_bytes().expose_owned().len(), MIN_SECRET_LENGTH);
     }
+
+    #[test]
+    fn test_serde_json_round_trip_preserves_bytes() {
+        // Locks the serde impls directly. Without this, a regression in `Serialize` /
+        // `Deserialize` would only surface via a downstream crate's integration test.
+        let secret = HighEntropySecret::make(32).unwrap();
+        let bytes = secret.as_bytes().expose_owned().to_vec();
+        let json = serde_json::to_string(&secret).expect("serialize");
+        let round_tripped: HighEntropySecret = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(round_tripped.as_bytes().expose_owned(), bytes.as_slice());
+    }
 }

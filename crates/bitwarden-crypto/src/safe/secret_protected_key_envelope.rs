@@ -689,6 +689,44 @@ mod tests {
     }
 
     #[test]
+    fn test_registration_open_org_invite_rejects_cross_namespace_unseal() {
+        // An envelope sealed under the new production namespace must not unseal under any
+        // other production namespace (here, the sibling production
+        // `DesktopBiometricUnlock`). Mirrors the sibling test in `data_envelope.rs` for the
+        // new variant.
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let secret = testvector_secret();
+
+        let envelope = SecretProtectedKeyEnvelope::seal(
+            test_key,
+            &secret,
+            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+            &ctx,
+        )
+        .expect("seal");
+
+        assert!(matches!(
+            envelope.unseal(
+                &secret,
+                SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock,
+                &mut ctx,
+            ),
+            Err(SecretProtectedKeyEnvelopeError::InvalidNamespace)
+        ));
+
+        // Correct namespace still succeeds.
+        let _ = envelope
+            .unseal(
+                &secret,
+                SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+                &mut ctx,
+            )
+            .expect("unseal under correct namespace succeeds");
+    }
+
+    #[test]
     #[ignore = "Manual test to verify debug format"]
     fn test_debug() {
         let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
