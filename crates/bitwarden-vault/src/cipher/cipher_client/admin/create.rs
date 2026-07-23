@@ -119,7 +119,7 @@ impl CipherAdminClient {
             view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        let use_blob = should_use_blob_encryption(&self.client, view.organization_id);
+        let use_blob = should_use_blob_encryption(&key_store.context(), view.organization_id);
 
         create_cipher(
             view,

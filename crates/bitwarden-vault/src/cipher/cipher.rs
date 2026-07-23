@@ -651,8 +651,8 @@ impl CipherListView {
 // ciphertext (`key`, the cipher content-encryption key wrapped under the decrypting key) and copies
 // it through unchanged (`key: cipher_view.key` below) instead of re-wrapping it under `key`. As a
 // result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip.
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView {
-    fn encrypt_composite(
+impl CipherView {
+    fn encrypt_legacy_field_encryption(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
@@ -1844,7 +1844,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMod
                 encrypt_blob_cipher_with_wrapping_key(&mut owned, ctx, key)
                     .map_err(CryptoError::from)
             }
-            Self::Legacy(view) => view.encrypt_composite(ctx, key),
+            Self::Legacy(view) => view.encrypt_legacy_field_encryption(ctx, key),
         }
     }
 }
@@ -2401,7 +2401,9 @@ mod tests {
         ));
 
         // Encrypt a valid cipher, then swap name with an EncString from a different key
-        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = key_store
+            .encrypt(EncryptMode::Legacy(generate_cipher()))
+            .unwrap();
         let cipher = Cipher {
             name: Some(TEST_CIPHER_NAME.parse().unwrap()), // encrypted with a different key
             ..cipher
@@ -2434,7 +2436,9 @@ mod tests {
         ));
 
         // Encrypt a valid cipher, then corrupt the login username
-        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = key_store
+            .encrypt(EncryptMode::Legacy(generate_cipher()))
+            .unwrap();
         let cipher = Cipher {
             login: Some(Login {
                 username: Some(TEST_CIPHER_NAME.parse().unwrap()), // encrypted with a different key
@@ -2476,7 +2480,7 @@ mod tests {
 
         // Check that the cipher gets encrypted correctly without it's own key
         let cipher = generate_cipher();
-        let no_key_cipher_enc = key_store.encrypt(cipher).unwrap();
+        let no_key_cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
         let no_key_cipher_dec: CipherView = key_store.decrypt(&no_key_cipher_enc).unwrap();
         assert!(no_key_cipher_dec.key.is_none());
         assert_eq!(no_key_cipher_dec.name, original_cipher.name);
@@ -2487,7 +2491,7 @@ mod tests {
             .unwrap();
 
         // Check that the cipher gets encrypted correctly when it's assigned it's own key
-        let key_cipher_enc = key_store.encrypt(cipher).unwrap();
+        let key_cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
         let key_cipher_dec: CipherView = key_store.decrypt(&key_cipher_enc).unwrap();
         assert!(key_cipher_dec.key.is_some());
         assert_eq!(key_cipher_dec.name, original_cipher.name);
@@ -2606,7 +2610,7 @@ mod tests {
         assert_eq!(cipher.organization_id, Some(org));
 
         // Check that the cipher can be encrypted/decrypted with the new org key
-        let cipher_enc = key_store.encrypt(cipher).unwrap();
+        let cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
         let cipher_dec: CipherView = key_store.decrypt(&cipher_enc).unwrap();
 
         assert_eq!(cipher_dec.name, "My test login");
@@ -2629,7 +2633,7 @@ mod tests {
 
         // Check that the cipher can not be encrypted, as the
         // cipher key is tied to the user key and not the org key
-        assert!(key_store.encrypt(cipher).is_err());
+        assert!(key_store.encrypt(EncryptMode::Legacy(cipher)).is_err());
     }
 
     #[test]
@@ -3490,7 +3494,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let cipher: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::Passport);
@@ -3523,7 +3527,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let cipher: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::DriversLicense);
@@ -3567,7 +3571,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let encrypted: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::Passport);
@@ -3602,7 +3606,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let encrypted: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::DriversLicense);
@@ -3667,7 +3671,7 @@ mod tests {
 
         /// Encrypt a view through the legacy field-level path.
         fn encrypt_legacy(view: CipherView, key_store: &KeyStore<KeySlotIds>) -> Cipher {
-            key_store.encrypt(view).unwrap()
+            key_store.encrypt(EncryptMode::Legacy(view)).unwrap()
         }
 
         /// Encrypt a view through the blob path.

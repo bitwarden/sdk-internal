@@ -170,7 +170,7 @@ impl CipherAdminClient {
         let enable_cipher_key_encryption =
             self.client.flags().get().await.enable_cipher_key_encryption;
 
-        let use_blob = should_use_blob_encryption(&self.client, request.organization_id);
+        let use_blob = should_use_blob_encryption(&key_store.context(), request.organization_id);
 
         edit_cipher(
             key_store,

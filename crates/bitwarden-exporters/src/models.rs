@@ -247,7 +247,7 @@ impl From<crate::SecureNoteType> for SecureNoteType {
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
-    use bitwarden_vault::{CipherId, CipherRepromptType, FolderId, LoginView};
+    use bitwarden_vault::{CipherId, CipherRepromptType, EncryptMode, FolderId, LoginView};
     use chrono::{DateTime, Utc};
 
     use super::*;
@@ -370,7 +370,7 @@ mod tests {
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
         };
-        let encrypted = key_store.encrypt(cipher_view).unwrap();
+        let encrypted = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
 
         let cipher: crate::Cipher = crate::Cipher::from_cipher(&key_store, encrypted).unwrap();
 

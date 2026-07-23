@@ -1,7 +1,9 @@
 use bitwarden_collections::collection::Collection;
 use bitwarden_core::{Client, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
-use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
+use bitwarden_vault::{
+    Cipher, CipherView, EncryptMode, Folder, FolderView, should_use_blob_encryption,
+};
 
 use crate::{
     ExportError, ExportFormat, ImportingCipher,
@@ -93,7 +95,15 @@ pub fn encrypt_import(
         view.set_new_fido2_credentials(ctx, passkeys)?;
     }
 
-    let new_cipher = view.encrypt_composite(ctx, view.key_identifier())?;
+    // Select the encryption format based on the account's current security state, matching how
+    // regular cipher saves choose between the blob and legacy field-level formats.
+    let key = view.key_identifier();
+    let mode = if should_use_blob_encryption(ctx, organization_id) {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let new_cipher = mode.encrypt_composite(ctx, key)?;
 
     Ok(new_cipher)
 }
