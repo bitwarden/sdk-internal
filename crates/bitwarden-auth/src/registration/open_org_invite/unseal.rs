@@ -1,6 +1,7 @@
-//! Unseals a [`SealedOpenOrgInvite`] back into the plaintext [`OpenOrgInvite`],
-//! provided the caller supplies the paired [`HighEntropySecret`] the seal path returned. This
-//! runs on the verification-email tab after registration-finish has logged the user in.
+//! Unseals a [`SealedOpenOrgInvite`] back into the plaintext [`OpenOrgInvite`], provided the
+//! caller supplies the paired [`bitwarden_crypto::safe::HighEntropySecret`] the seal path
+//! returned. This runs on the verification-email tab after registration-finish has logged the
+//! user in.
 //!
 //! Reverses the two-envelope construction documented in [`super::seal`]: outer key envelope →
 //! inner CEK, then inner data envelope → plaintext.

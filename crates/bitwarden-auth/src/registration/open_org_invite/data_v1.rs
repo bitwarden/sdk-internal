@@ -1,7 +1,8 @@
 //! Version 1 of the open-org-invite plaintext payload — the innermost thing sealed by the
-//! [`DataEnvelope`] in [`super::seal`]. Not to be confused with the sealed opaque blob
-//! ([`super::SealedOpenOrgInviteData`]) or the outbound JSON ([`super::SealedOpenOrgInvite`]);
-//! this file describes only the cleartext shape that gets CBOR-encoded and encrypted.
+//! [`bitwarden_crypto::safe::DataEnvelope`] in [`super::seal`]. Not to be confused with the sealed
+//! opaque blob ([`super::SealedOpenOrgInviteData`]) or the outbound JSON
+//! ([`super::SealedOpenOrgInvite`]); this file describes only the cleartext shape that gets
+//! CBOR-encoded and encrypted.
 //!
 //! Once this shape ships it cannot be broken: any field change means adding a new `V2` struct
 //! and registering both variants on the versioned enum in [`super`], so old sealed payloads
