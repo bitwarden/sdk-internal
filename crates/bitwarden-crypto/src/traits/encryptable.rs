@@ -16,6 +16,21 @@
 //! a type that implements the `ConstContentFormat` trait. This allows for compile-time type
 //! checking of the content format, and the risk of using the wrong content format is limited to
 //! converting untyped bytes into a `Bytes<C>`
+//!
+//! # Round-trip contract
+//!
+//! The encrypt traits here and [`crate::Decryptable`] form a symmetric pair with a contract that
+//! callers rely on:
+//!
+//! - Decryption MUST yield a value that contains no encrypted material — no wrapped keys and no
+//!   residual [`EncString`]s that are still bound to the key that was used to decrypt. Everything
+//!   protected by that key must be fully decrypted.
+//! - Encryption MUST produce output that is fully encrypted under the provided `key`. No encrypted
+//!   items may be copied from the input. Plaintext data co-existing with encrypted data is allowed,
+//!   and may be copied through.
+//!
+//! Together these mean that decrypting with one key and re-encrypting with another round-trips: for
+//! any two valid keys `K` and `K1`, `decrypt(encrypt(decrypt(x, K), K1), K1) = decrypt(x, K)`.
 
 use crate::{ContentFormat, CryptoError, EncString, KeySlotId, KeySlotIds, store::KeyStoreContext};
 
@@ -32,6 +47,16 @@ pub trait CompositeEncryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
     ///
     /// For a struct made up of many small encstrings, such as a cipher, this takes the struct
     /// and recursively encrypts all the fields / sub-structs.
+    ///
+    /// # Contract
+    /// The returned value MUST be fully encrypted under `key`. Implementations MUST NOT reuse
+    /// ciphertext embedded in `self` (for example a still-wrapped per-item key carried over from a
+    /// previous decryption); any such key material must be re-derived and re-wrapped under `key`.
+    /// This guarantees that a value produced by [`Decryptable::decrypt`] can be re-encrypted under
+    /// any valid key and then decrypted with that same key — i.e. `decrypt(K)` then `encrypt(K1)`
+    /// then `decrypt(K1)` succeeds.
+    ///
+    /// [`Decryptable::decrypt`]: crate::Decryptable::decrypt
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -75,6 +100,13 @@ pub trait PrimitiveEncryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
     /// instead.
     ///
     /// Encrypts a primitive without requiring an externally provided content type
+    ///
+    /// # Contract
+    /// The returned value MUST be fully encrypted under `key`, so that the corresponding
+    /// [`Decryptable::decrypt`] yields the original primitive and a decrypt-then-encrypt under a
+    /// different key round-trips.
+    ///
+    /// [`Decryptable::decrypt`]: crate::Decryptable::decrypt
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 

@@ -647,6 +647,10 @@ impl CipherListView {
     }
 }
 
+// ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::CompositeEncryptable`: `CipherView` retains key-bound
+// ciphertext (`key`, the cipher content-encryption key wrapped under the decrypting key) and copies
+// it through unchanged (`key: cipher_view.key` below) instead of re-wrapping it under `key`. As a
+// result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip.
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView {
     fn encrypt_composite(
         &self,
@@ -663,6 +667,8 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
             organization_id: cipher_view.organization_id,
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
+            // ⚠️ pass-through of wrapped key-bound ciphertext — see the contract-violation note
+            // above.
             key: cipher_view.key,
             name: Some(cipher_view.name.encrypt(ctx, ciphers_key)?),
             notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
@@ -729,6 +735,12 @@ pub(crate) fn lenient_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::Decryptable`: the resulting `CipherView` is a
+        // decrypted DTO, yet `key` (the cipher's content key wrapped under the user/org key) is
+        // copied through still encrypted (`cipher.key.clone()`) rather than decrypted, because
+        // `CipherView` stores it as an `EncString`. The wrapped key is therefore key-bound to the
+        // original user/org key: a `CipherView` cannot be re-encrypted under a different user/org
+        // key without explicitly rewrapping `key`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1408,6 +1420,8 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1599,6 +1613,8 @@ fn strict_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1691,6 +1707,8 @@ fn strict_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name

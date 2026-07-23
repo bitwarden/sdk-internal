@@ -373,10 +373,7 @@ fn make_upgrade_token_if_needed(
         ctx.get_symmetric_key_algorithm(current_user_key_id),
         ctx.get_symmetric_key_algorithm(new_user_key_id),
     ) {
-        (
-            Ok(SymmetricKeyAlgorithm::Aes256CbcHmac),
-            Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305),
-        ) => {
+        (Ok(SymmetricKeyAlgorithm::Aes256CbcHmac), Ok(SymmetricKeyAlgorithm::XAes256Gcm)) => {
             let token =
                 V2UpgradeToken::create(current_user_key_id, new_user_key_id, ctx).map_err(|e| {
                     error!("Failed to create V2 upgrade token: {e}");
@@ -728,7 +725,7 @@ mod tests {
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let result = reencrypt_common_unlock_data(
             empty_common_unlock_input(),
@@ -761,7 +758,7 @@ mod tests {
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let result = reencrypt_common_unlock_data(
             empty_common_unlock_input(),
@@ -784,8 +781,8 @@ mod tests {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let result = reencrypt_common_unlock_data(
             empty_common_unlock_input(),
@@ -952,7 +949,7 @@ mod tests {
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let input = ReencryptMasterPasswordChangeAndUnlockInput {
             password: "test_password".to_string(),
