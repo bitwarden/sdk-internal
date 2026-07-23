@@ -12,6 +12,7 @@ use super::{
 use crate::{
     BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
     UserKey,
+    hazmat::symmetric_encryption::Aes256Cbc,
     util::{self},
 };
 
@@ -172,8 +173,7 @@ pub(super) fn decrypt_user_key(
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
         EncString::Aes256Cbc_B64 { iv, ref data } => {
-            crate::aes::decrypt_aes256(&iv, data.clone(), &key.clone())
-                .map_err(|_| CryptoError::Decrypt)?
+            Aes256Cbc::decrypt(&iv, data, &(**key).into()).map_err(|_| CryptoError::Decrypt)?
         }
         EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key));
