@@ -545,15 +545,14 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
                 .and_then(|s| s.to_str())
                 .ok_or_else(|| eyre!("Could not derive a file name from --file path"))?
                 .to_string();
-            // Populate the byte length so the server records the correct size up-front. The bytes
-            // themselves are read and uploaded separately in `run_create`.
-            let size = std::fs::metadata(&path)
-                .wrap_err_with(|| format!("Could not read file metadata for {}", path.display()))?
-                .len();
+            // `size` is intentionally left `None` on create: the legacy client does not set
+            // `file.size` on the create request (a plaintext byte count would not match the
+            // uploaded ciphertext blob). The server derives the size from the uploaded blob; the
+            // ciphertext length is instead sent as `file_length` inside `create_file_send`.
             SendViewType::File(SendFileView {
                 id: None,
                 file_name,
-                size: Some(size.to_string()),
+                size: None,
                 size_name: None,
             })
         }
@@ -736,11 +735,12 @@ async fn run_create(
 }
 
 /// Full file-send create pipeline:
-/// 1. `create_file_send` registers the send and returns upload metadata (URL + backend).
-/// 2. The plaintext bytes are read and encrypted under the send key (`encrypt` reuses the send key
-///    the server just recorded because [`bitwarden_send::SendView::key`] is `Some`).
+/// 1. Read the plaintext file bytes.
+/// 2. `create_file_send` encrypts them under the send key it derives, sends the ciphertext length
+///    as `file_length`, registers the send, and returns the encrypted bytes plus upload metadata
+///    (URL + backend).
 /// 3. The ciphertext is uploaded via `upload_send_file`, which dispatches to the Direct or Azure
-///    backend based on the `file_upload_type` from step 1.
+///    backend based on the `file_upload_type` from step 2.
 async fn run_create_file(
     client: &PasswordManagerClient,
     request: SendAddRequest,
@@ -750,17 +750,14 @@ async fn run_create_file(
     // send that would then have no content.
     let bytes = std::fs::read(path).wrap_err_with(|| format!("Could not read file {path}"))?;
 
-    let resp = client.sends().create_file_send(request).await?;
+    // `create_file_send` performs the encryption internally (so `file_length` on the create request
+    // reflects the true ciphertext length) and hands back the encrypted bytes for the upload.
+    let resp = client.sends().create_file_send(request, bytes).await?;
 
     let send_id = resp
         .send
         .id
         .ok_or_else(|| eyre!("Server did not return an id for the created file Send."))?;
-
-    // `encrypt` re-derives the send key from `resp.send.key` (which the server recorded), so the
-    // uploaded ciphertext decrypts under the same key recipients receive.
-    let encrypted_send = client.sends().encrypt(resp.send.clone())?;
-    let encrypted_bytes = client.sends().encrypt_buffer(encrypted_send, &bytes)?;
 
     client
         .sends()
@@ -770,7 +767,7 @@ async fn run_create_file(
             resp.encrypted_file_name,
             resp.file_upload_type,
             resp.url,
-            encrypted_bytes,
+            resp.encrypted_file_buffer,
         )
         .await?;
 
@@ -1273,19 +1270,17 @@ mod tests {
         assert!(err.to_string().contains("--name is required"));
     }
 
-    /// File create derives the name from the path and records the file's byte length in
-    /// `SendFileView.size` (as a string). Uses a real temp file since the size is read from the
-    /// filesystem via `std::fs::metadata`.
+    /// File create derives the name from the path and leaves `SendFileView.size` unset (`None`):
+    /// the legacy client does not set `file.size` on create (the server derives it from the
+    /// uploaded blob), and a plaintext byte count would not match the uploaded ciphertext. The
+    /// encrypted-buffer length is sent separately as `file_length` inside `create_file_send`.
+    ///
+    /// `build_create_request` does not touch the filesystem, so a placeholder path is fine here;
+    /// the actual file read happens later in `run_create_file`.
     #[test]
-    fn build_create_request_file_derives_name_and_size() {
-        let dir = std::env::temp_dir().join(format!("bw-send-create-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("secrets.txt");
-        let contents = b"hello file send"; // 15 bytes
-        std::fs::write(&path, contents).unwrap();
-
+    fn build_create_request_file_derives_name_and_leaves_size_unset() {
         let req = build_create_request(CreateInputs {
-            file: Some(path.to_str().unwrap().to_string()),
+            file: Some("/tmp/secrets.txt".into()),
             text: None,
             delete_in_days: 7,
             max_access_count: None,
@@ -1301,32 +1296,10 @@ mod tests {
         match req.view_type {
             SendViewType::File(f) => {
                 assert_eq!(f.file_name, "secrets.txt");
-                assert_eq!(f.size.as_deref(), Some(contents.len().to_string().as_str()));
+                assert_eq!(f.size, None, "file.size must be unset on create");
             }
             other => panic!("expected File, got {other:?}"),
         }
-
-        std::fs::remove_dir_all(&dir).ok();
-    }
-
-    /// A `--file` pointing at a nonexistent path fails at request-build time (when the size is
-    /// read) rather than surfacing a confusing error later in the upload pipeline.
-    #[test]
-    fn build_create_request_file_missing_path_errors() {
-        let missing = std::env::temp_dir().join("bw-send-does-not-exist-xyzzy.bin");
-        let err = build_create_request(CreateInputs {
-            file: Some(missing.to_str().unwrap().to_string()),
-            text: None,
-            delete_in_days: 7,
-            max_access_count: None,
-            hidden: false,
-            name: None,
-            notes: None,
-            password: None,
-            emails: None,
-        })
-        .unwrap_err();
-        assert!(err.to_string().contains("metadata") || err.to_string().contains("file"));
     }
 
     #[test]
