@@ -13,10 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct CreateOrganizationInviteLinkRequestModel {
-    /// Email domains permitted to accept the invite link (e.g. `[\"acme.com\"]`).
-    #[serde(rename = "allowedDomains", alias = "AllowedDomains")]
-    pub allowed_domains: Vec<String>,
+pub struct UpdateInviteSupportConfirmRequestModel {
     /// An opaque cryptographic invite. The server only stores and transports it, so its format is
     /// not validated here.
     #[serde(rename = "invite", alias = "Invite")]
@@ -26,14 +23,12 @@ pub struct CreateOrganizationInviteLinkRequestModel {
     pub supports_confirmation: bool,
 }
 
-impl CreateOrganizationInviteLinkRequestModel {
+impl UpdateInviteSupportConfirmRequestModel {
     pub fn new(
-        allowed_domains: Vec<String>,
         invite: String,
         supports_confirmation: bool,
-    ) -> CreateOrganizationInviteLinkRequestModel {
-        CreateOrganizationInviteLinkRequestModel {
-            allowed_domains,
+    ) -> UpdateInviteSupportConfirmRequestModel {
+        UpdateInviteSupportConfirmRequestModel {
             invite,
             supports_confirmation,
         }

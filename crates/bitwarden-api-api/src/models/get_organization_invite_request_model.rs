@@ -13,21 +13,18 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct GetOrganizationInviteLinkStatusRequestModel {
-    #[serde(rename = "organizationId", alias = "OrganizationId")]
-    pub organization_id: uuid::Uuid,
+pub struct GetOrganizationInviteRequestModel {
     #[serde(rename = "code", alias = "Code")]
     pub code: uuid::Uuid,
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
+    pub organization_id: uuid::Uuid,
 }
 
-impl GetOrganizationInviteLinkStatusRequestModel {
-    pub fn new(
-        organization_id: uuid::Uuid,
-        code: uuid::Uuid,
-    ) -> GetOrganizationInviteLinkStatusRequestModel {
-        GetOrganizationInviteLinkStatusRequestModel {
-            organization_id,
+impl GetOrganizationInviteRequestModel {
+    pub fn new(code: uuid::Uuid, organization_id: uuid::Uuid) -> GetOrganizationInviteRequestModel {
+        GetOrganizationInviteRequestModel {
             code,
+            organization_id,
         }
     }
 }

@@ -56,9 +56,8 @@ pub struct SyncResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub policies: Option<Vec<models::PolicyResponseModel>>,
-    /// Policies for organizations where the user is in the Confirmed or Accepted status. Null when
-    /// the `pm-34145-policies-in-accepted-state` feature flag is disabled. New clients should
-    /// prefer this property and fall back to
+    /// Policies for organizations where the user is in the Confirmed or Accepted status. New
+    /// clients should prefer this property and fall back to
     /// Bit.Api.Vault.Models.Response.SyncResponseModel.Policies if absent.
     #[serde(
         rename = "policiesNew",
