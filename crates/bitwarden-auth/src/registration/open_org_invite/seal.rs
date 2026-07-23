@@ -31,7 +31,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use super::{RegistrationOpenOrgInviteData, wire_v1::RegistrationOpenOrgInviteDataV1};
+use super::{RegistrationOpenOrgInviteData, data_v1::RegistrationOpenOrgInviteDataV1};
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
 /// Byte length of the per-registration [`HighEntropySecret`] the seal path generates. 32 bytes
