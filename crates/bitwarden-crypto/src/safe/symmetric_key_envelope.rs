@@ -50,6 +50,7 @@ pub enum SymmetricKeyEnvelopeError {
 }
 
 /// A symmetric key protected by an XAES-256-GCM wrapping key.
+#[derive(Clone)]
 pub struct SymmetricKeyEnvelope {
     cose_encrypt0: coset::CoseEncrypt0,
 }
@@ -270,6 +271,9 @@ impl FromWasmAbi for SymmetricKeyEnvelope {
 pub enum SymmetricKeyEnvelopeNamespace {
     /// A key used for re-hydration of the SDK
     SessionKey = 1,
+    /// Organization member invites. Used to seal the invite-data content-encryption key and the
+    /// organization key with the invite key.
+    OrganizationInvite = 2,
     #[cfg(test)]
     /// Example namespace for testing purposes.
     ExampleNamespace = -3,
@@ -291,6 +295,7 @@ impl TryFrom<i128> for SymmetricKeyEnvelopeNamespace {
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(SymmetricKeyEnvelopeNamespace::SessionKey),
+            2 => Ok(SymmetricKeyEnvelopeNamespace::OrganizationInvite),
             #[cfg(test)]
             -3 => Ok(SymmetricKeyEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]

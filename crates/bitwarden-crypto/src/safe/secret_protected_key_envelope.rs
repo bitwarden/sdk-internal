@@ -559,9 +559,9 @@ impl TryFrom<wasm_bindgen::JsValue> for SecretProtectedKeyEnvelope {
 /// The content-layer separation namespace for secret protected key envelopes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecretProtectedKeyEnvelopeNamespace {
-    /// Neutral placeholder so the public API and example are usable. Replace with a
-    /// product-specific variant when the first real consumer lands.
-    ExampleUse = 1,
+    /// Organization member invite links. The high-entropy secret is the random invite secret
+    /// carried in the invite link, and the sealed key is the invite key.
+    OrganizationInvite = 1,
     /// Bitwarden Desktop biometric (Windows Hello) unlock. The high-entropy secret is a PRF derived
     /// from the Windows Hello signing credential, and the sealed key is the user key.
     DesktopBiometricUnlock = 2,
@@ -585,7 +585,7 @@ impl TryFrom<i128> for SecretProtectedKeyEnvelopeNamespace {
 
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
-            1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleUse),
+            1 => Ok(SecretProtectedKeyEnvelopeNamespace::OrganizationInvite),
             2 => Ok(SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock),
             #[cfg(test)]
             -1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleNamespace),
