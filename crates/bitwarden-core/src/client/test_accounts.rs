@@ -57,9 +57,9 @@ impl Client {
     ) -> Self {
         let client = Self::register_test_repositories(
             Client::builder()
-                .with_api_configurations(std::sync::Arc::new(
-                    ApiConfigurations::from_api_client(api_client),
-                ))
+                .with_api_configurations(std::sync::Arc::new(ApiConfigurations::from_api_client(
+                    api_client,
+                )))
                 .build(),
         );
         Self::init_test_account_on(client, account).await

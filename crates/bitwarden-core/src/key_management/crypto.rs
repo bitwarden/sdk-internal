@@ -471,7 +471,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, Cryp
 }
 
 /// Response from the `update_kdf` function
-/// 
+///
 /// Note: This is deprecated and will be removed after key-connector fully uses sdk
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
