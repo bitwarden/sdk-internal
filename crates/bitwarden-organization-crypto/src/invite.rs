@@ -21,7 +21,7 @@
 //!   key sealed with the organization key, so anyone holding the organization key recovers the
 //!   invite key (and thus the invite data).
 //! - `InviteKey -> SymmetricKeyEnvelope -> InviteDataCEK -> DataEnvelope -> InviteSecret +
-//!   OrgPubKeyPrint` (`invite_key_sealed_invite_data_cek` + `invite_key_sealed_invite_data`): the
+//!   OrgPubKeyPrint` (`invite_key_sealed_invite_data_cek` + `sealed_invite_data`): the
 //!   `InviteDataV1` is sealed under its own content-encryption key (CEK), and that CEK is sealed
 //!   with the invite key. The data binds the organization public-key thumbprint and a copy of the
 //!   invite secret (so the invite link can be reconstructed from the invite key).
@@ -87,6 +87,15 @@ export type InviteSecret = Tagged<string, "InviteSecret">;
 /// CRITICAL: This must never be sent to the server.
 #[derive(Clone)]
 pub struct InviteSecret(Zeroizing<[u8; INVITE_SECRET_LEN]>);
+
+impl InviteSecret {
+    /// Generates a fresh invite secret: 32 random, high-entropy bytes drawn from the SDK CSPRNG.
+    fn make() -> Self {
+        let mut bytes = Zeroizing::new([0u8; INVITE_SECRET_LEN]);
+        bitwarden_random::rng().fill_bytes(bytes.as_mut_slice());
+        InviteSecret(bytes)
+    }
+}
 
 impl ConstantTimeEq for InviteSecret {
     fn ct_eq(&self, other: &InviteSecret) -> Choice {
@@ -186,9 +195,9 @@ export type Invite = Tagged<string, "Invite">;
 pub struct Invite {
     /// The `InviteData` (org public-key thumbprint + invite secret) sealed with its own
     /// content-encryption key (CEK).
-    invite_key_sealed_invite_data: DataEnvelope,
+    sealed_invite_data: DataEnvelope,
     /// The invite-data content-encryption key sealed with the invite key, so a holder of the
-    /// invite key can recover the CEK and open [`Self::invite_key_sealed_invite_data`].
+    /// invite key can recover the CEK and open [`Self::sealed_invite_data`].
     invite_key_sealed_invite_data_cek: SymmetricKeyEnvelope,
     /// The invite key sealed with the high-entropy invite secret, letting an invitee (who holds
     /// only the invite secret from the link) recover the invite key.
@@ -223,10 +232,7 @@ impl FromStr for Invite {
 impl std::fmt::Debug for Invite {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Invite")
-            .field(
-                "invite_key_sealed_invite_data",
-                &self.invite_key_sealed_invite_data,
-            )
+            .field("sealed_invite_data", &self.sealed_invite_data)
             .field(
                 "invite_key_sealed_invite_data_cek",
                 &self.invite_key_sealed_invite_data_cek,
@@ -290,7 +296,7 @@ impl Invite {
             )
             .map_err(|_| InviteKeyBundleError::KeyUnsealingFailed)?;
         let data: InviteData = self
-            .invite_key_sealed_invite_data
+            .sealed_invite_data
             .unseal(cek, ctx)
             .map_err(|_| InviteKeyBundleError::KeyUnsealingFailed)?;
         let InviteData::InviteDataV1(data) = data;
@@ -389,9 +395,7 @@ impl Invite {
             .map_err(|_| InviteKeyBundleError::InvalidPrivateKey)?;
 
         // Generate the URL-fragment invite secret (goes in the invite link).
-        let mut bytes = Zeroizing::new([0u8; INVITE_SECRET_LEN]);
-        bitwarden_random::rng().fill_bytes(bytes.as_mut_slice());
-        let invite_secret = InviteSecret(bytes);
+        let invite_secret = InviteSecret::make();
 
         // Generate the invite key (the hub). It only ever acts as a key-encryption key — sealing
         // the invite-data CEK and the organization key via `SymmetricKeyEnvelope`.
@@ -405,7 +409,7 @@ impl Invite {
             invite_secret: *invite_secret.0,
         }
         .into();
-        let (invite_key_sealed_invite_data, invite_data_cek) = DataEnvelope::seal(invite_data, ctx)
+        let (sealed_invite_data, invite_data_cek) = DataEnvelope::seal(invite_data, ctx)
             .map_err(|_| InviteKeyBundleError::KeySealingFailed)?;
         let invite_key_sealed_invite_data_cek = SymmetricKeyEnvelope::seal(
             invite_data_cek,
@@ -446,7 +450,7 @@ impl Invite {
         Ok((
             invite_secret,
             Invite {
-                invite_key_sealed_invite_data,
+                sealed_invite_data,
                 invite_key_sealed_invite_data_cek,
                 invite_secret_sealed_invite_key,
                 invite_key_sealed_organization_key,
@@ -472,7 +476,7 @@ mod tests {
     const TEST_VECTOR_ORG_KEY: &str =
         "KGP9Nc2/91w+42Z9VzY0m7h18avuZcq4ICM8Rhdc3BD92LbWS2TQkVBzavvUM684WKXiC22NJi2EwaiDW4YTAA==";
     const TEST_VECTOR_WRAPPED_PRIVATE_KEY: &str = "2.bi9TWF/zrujUg1y+v8ECtQ==|kEMkuRt42j65YZnPEc4bLOT0/WDZwWSNJNGlUMdr/LRF3qi/vCnZ7eT0+7MruTccmyoAjKmsXdoBcufrOdPBUguFQn1LQMGqHqCyyB3SIijOlLyOOmxWYqoLUjihy8o8URGWjrAGWZnkeYWHTlFZP09Fag2xCwiQ/qS32Q+qTGGHDs0FiwjplcPkW9knlmgCXbuyPqDnEYoa0Qs/CC1hUCzFFrWs7QkE+5eLaNHxuBPpsrY6y795kEu9ve38F3piY9b6lQpc/iPGv8Zfh1isI7Mpy1zMwntXGSHjUOy17nPxCqkgYufuNGnwGNwsGjkLAl7e7bD39SYfEpTDaRUgmTl8UrZDx274e6Um1LLvokf3HiL1tboJ9/TW8IiMuAdrb3PLTH6Sep8lqZ3WhNADfMMJle9kCojHp6XSB14in1JqP0636exYeJu+FhUC1TfrthuQN2QDQ8LAvgZR7YvzkTJX3Sc5jP7m/yCmCbHhIqIAaGqJsRwAee0EMsKcALz3/akVoyjHU2LHD3dzQnyMyszyRNYViBNYAM9qBN2DqwWRDOtM171xNVJcTFsAh4mBSLiLOlDsXqLqHVKu2VJNE1XhTQ5Szubqefa/Or7nfxXcxDvivqZ7d5NfDFEskUMqh5yq1KoLK0oK5c+KvY/COIZr/kct+qtfZsXo3w5xJnPOqrAKGm+9CF4OINpLM8Z3csdZf9l5XjlmO1kIuBbquQZ0EZCHzD/GEfXRGB8BEkugdTfpnTDtmmuAJXkIY6t6e6pRUU9u4/sl+U7Iuh22fOA59SuQOElr5Lxre+hQBrRfJS3tSMEtMjYhVmltrngH+SLRxMxH/evbe2uvNaaxlFJe6EK1vqchyTX6nM8Z+2Yjb5pOAzrKQYqwwmVys9IHfjXhybqv10gFpDXBE/eq8u9xs9LbQQ03EbveQUtqdh/ms8SxLOQA9Sm9JwHEL0Zni+8NdAa5orDYzOi53bQLgrs+uUldgB/KOW2goTnKGm4YTbMAXEbum8pST8EXB9jNDXyofyN8IQUoLRvVkEgzbSPBS1sYpkkKdLZy3ojOCKnMnHXIVtzJojFckiutbj6d927X5w51E/RDMoAdylGRVKnmqLKysFRqL+pZK8Cyo+ECr7notG8kr7pVnofzigjKZS9qkRmqEa9bju1GgI20g4cxro8/0O0XnU1o0Mx46qH3niORY59i5bdMwaDS6H2c6+rmf9bIFwwgyAZvHlVdcGNoBGPR3ZXHThwI1OmWSslLWVW0IaS4utB1jL4zvHPCqh/ButA8HeRmU/NYSfaqb9YXyzn+C7ED15MWXkYmZzeE38HHxhqs12+oj+WFcg4d5/e2UcccuVi36SWhA0xWk8Kk2D6e1Pz1lmaw20vpb0eUq4AS5ZnMmWTEiKORFeGNTIROq9vuPuitLrREedu9PGjf5aeKcNqlq2nr7fOaxyi2ocKs7pLqVBUH1G7zHpCo3Rt1+o18guXFHT56vQFfkzoUNXiS6TRM4Mkl3s0TyGgBhxZkNJleTI6y4xhfH1iathBnLcfelLbxZhDB1wh3RXowS32jpM/J4pSUuNEmSLSqRQtRJY41BG00nYY02qEbakkgk6pS6a0/CWphyLfHAzUWbabOhqR1iPN9/ZiecjI=|eoklmBw+LYy2NNwjLOuA4+szKH5SzLGPlrhIJ/vfmW4=";
-    const TEST_VECTOR_INVITE: &str = r#"{"invite_key_sealed_invite_data":"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUPw60HtcnAwO6kRKd7MnQz86AAE4gQI6AAE4gAKhBUz+fzObmLDLKRDeBJJYxX9qAxhXIe1Ri1CJw3ojv7WUEwBpVWeMEGTK7HHbp9WnTDjK849psMx6EOpQ7B/BYGiO28Zn0tjtQ85zwShii4FRK39mtJFE8XxV46hxW9+LlH6EPt4yfzHVkTNZ3vgOiSXcs6zyKXIhQaz6yh8eyA653m4DJEHV00JjdQ/jSfTEfyDf6LiflGntDZ7gSYlQMRxuS71yVP9Mgm79yFY4aIw703G/HUjvIEt4XlWCLzvaLDmegpDz9z4eQCVk8v8JM1fS7BsA","invite_key_sealed_invite_data_cek":"g1g+pgE6AAEReQMYZQRQ7raDdes1HnAgiuiZWXyS9ToAARVcUPw60HtcnAwO6kRKd7MnQz86AAE4gQM6AAE4gAKhBVgYvxSL4XPZLwEXHPnEWweqeeKjyH9r85/ZWE3rsZy1MLmzkFOCJa8a0o20b1P3IH6c5NYtT3v1a50+X0GmgDKiMf/omjhwRRQ7ua6wK0O2JBlhM4JIE8jmtsyMd46mFDbURK1kGRvl7Q==","invite_secret_sealed_invite_key":"hFgopQEDAxhlOgABFVxQ7raDdes1HnAgiuiZWXyS9ToAATiBBjoAATiAAaEFTJvCToVTNSe1uWbD5FhUf061kAAj1sMGWjJ8IWPV2e2xk5Z+ownZ1RqUXG2jv9h2vnsEFZ2yglvKaSCGTsOuvOXv0ESwQk6eUtFAaZjxV/Rajyuu6YgEa712Tfb9Jz13QLGngYNAogEpM1gg1MsuVokUsK8WkqggHRdJ4jvzFsbN/bP4g0l+j6f97qb2","invite_key_sealed_organization_key":"g1hKpQE6AAEReQN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXkEUO62g3XrNR5wIIromVl8kvU6AAE4gQM6AAE4gAKhBVgYoth3hg+yUTLXF4ksaeT42IWGKuTv27B4WFAKV8Z7uKGZNHOONGgZQLbQMozgYX9tseuet413M314W0sV3cBKZIRSEZfj3NvHU8tE/6b2oGxPQIPKP3Tyhl84zhI4uG+Mo5WKkvtdPonD0A==","organization_key_sealed_invite_key":"2.XjZXnAwXK/cXCmHNgCPQzw==|WEGa37JPdNWVnMPWlfinyvZdXpMW8kpTBypXPWf/abbG4/+6vp/WJQmVlkVEflEkuZwjKWSkMWJPcACGBoabeBHgzqpkSYf3kyQb7VhePHQ=|kZLDCLGm1nCJhlVuNahFiZOecy5tKG2fXGCNZZzbDjk="}"#;
+    const TEST_VECTOR_INVITE: &str = r#"{"sealed_invite_data":"g1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUPw60HtcnAwO6kRKd7MnQz86AAE4gQI6AAE4gAKhBUz+fzObmLDLKRDeBJJYxX9qAxhXIe1Ri1CJw3ojv7WUEwBpVWeMEGTK7HHbp9WnTDjK849psMx6EOpQ7B/BYGiO28Zn0tjtQ85zwShii4FRK39mtJFE8XxV46hxW9+LlH6EPt4yfzHVkTNZ3vgOiSXcs6zyKXIhQaz6yh8eyA653m4DJEHV00JjdQ/jSfTEfyDf6LiflGntDZ7gSYlQMRxuS71yVP9Mgm79yFY4aIw703G/HUjvIEt4XlWCLzvaLDmegpDz9z4eQCVk8v8JM1fS7BsA","invite_key_sealed_invite_data_cek":"g1g+pgE6AAEReQMYZQRQ7raDdes1HnAgiuiZWXyS9ToAARVcUPw60HtcnAwO6kRKd7MnQz86AAE4gQM6AAE4gAKhBVgYvxSL4XPZLwEXHPnEWweqeeKjyH9r85/ZWE3rsZy1MLmzkFOCJa8a0o20b1P3IH6c5NYtT3v1a50+X0GmgDKiMf/omjhwRRQ7ua6wK0O2JBlhM4JIE8jmtsyMd46mFDbURK1kGRvl7Q==","invite_secret_sealed_invite_key":"hFgopQEDAxhlOgABFVxQ7raDdes1HnAgiuiZWXyS9ToAATiBBjoAATiAAaEFTJvCToVTNSe1uWbD5FhUf061kAAj1sMGWjJ8IWPV2e2xk5Z+ownZ1RqUXG2jv9h2vnsEFZ2yglvKaSCGTsOuvOXv0ESwQk6eUtFAaZjxV/Rajyuu6YgEa712Tfb9Jz13QLGngYNAogEpM1gg1MsuVokUsK8WkqggHRdJ4jvzFsbN/bP4g0l+j6f97qb2","invite_key_sealed_organization_key":"g1hKpQE6AAEReQN4ImFwcGxpY2F0aW9uL3guYml0d2FyZGVuLmxlZ2FjeS1rZXkEUO62g3XrNR5wIIromVl8kvU6AAE4gQM6AAE4gAKhBVgYoth3hg+yUTLXF4ksaeT42IWGKuTv27B4WFAKV8Z7uKGZNHOONGgZQLbQMozgYX9tseuet413M314W0sV3cBKZIRSEZfj3NvHU8tE/6b2oGxPQIPKP3Tyhl84zhI4uG+Mo5WKkvtdPonD0A==","organization_key_sealed_invite_key":"2.XjZXnAwXK/cXCmHNgCPQzw==|WEGa37JPdNWVnMPWlfinyvZdXpMW8kpTBypXPWf/abbG4/+6vp/WJQmVlkVEflEkuZwjKWSkMWJPcACGBoabeBHgzqpkSYf3kyQb7VhePHQ=|kZLDCLGm1nCJhlVuNahFiZOecy5tKG2fXGCNZZzbDjk="}"#;
     const TEST_VECTOR_INVITE_SECRET: &str = "Ttas45_CvZi1yoFJ3bMCHx0DAAGGxDi-1BhHCutwDjI";
 
     /// Loads the const `TEST_VECTOR_ORG_KEY` into the `Organization` slot and returns the parsed
@@ -738,7 +742,7 @@ mod tests {
     }
 
     #[test]
-    fn test_into_base64_url() {
+    fn test_invite_secret_into_base64_url() {
         let data: [u8; 32] = *b"+/=Hello, World!AAAAAAAAAAAAAAAA";
         let secret = InviteSecret(zeroize::Zeroizing::new(data));
 
