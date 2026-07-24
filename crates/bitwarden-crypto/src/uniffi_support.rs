@@ -6,7 +6,9 @@ use bitwarden_uniffi_error::convert_result;
 use crate::{
     CryptoError, EncString, EncodingError, PublicKey, Salt, SignedPublicKey, SymmetricCryptoKey,
     UnsignedSharedKey,
-    safe::{DataEnvelope, HighEntropySecret, PasswordProtectedKeyEnvelope},
+    safe::{
+        DataEnvelope, HighEntropySecret, PasswordProtectedKeyEnvelope, SecretProtectedKeyEnvelope,
+    },
 };
 
 uniffi::custom_type!(NonZeroU32, u32, {
@@ -70,6 +72,12 @@ uniffi::custom_type!(Salt, String, {
         convert_result(Salt::new(val.as_str()))
     },
     lower: |obj| obj.to_string(),
+});
+
+uniffi::custom_type!(SecretProtectedKeyEnvelope, String, {
+    remote,
+    try_lift: |val| convert_result(SecretProtectedKeyEnvelope::from_str(&val)),
+    lower: |obj| obj.into(),
 });
 
 uniffi::custom_type!(HighEntropySecret, Vec<u8>, {

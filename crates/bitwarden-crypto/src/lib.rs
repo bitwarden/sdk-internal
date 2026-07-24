@@ -39,12 +39,12 @@ pub use store::{
 };
 mod cose;
 pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
-pub use cose::CoseSerializable;
+pub use cose::{CoseKeyThumbprint, CoseKeyThumbprintExt, CoseSerializable};
 pub mod safe;
 mod signing;
 pub use signing::*;
+mod hazmat;
 mod traits;
-mod xchacha20;
 pub use traits::{
     CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds, LocalId,
     PrimitiveEncryptable,

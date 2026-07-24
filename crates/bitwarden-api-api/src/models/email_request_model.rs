@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// EmailRequestModel : This model is used in the second step of self service email change after the
+/// master password hash has been verified. The token is used to verify ownership of the new email.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmailRequestModel {
     #[serde(
@@ -36,30 +38,31 @@ pub struct EmailRequestModel {
     pub secret: Option<String>,
     #[serde(rename = "newEmail", alias = "NewEmail")]
     pub new_email: String,
-    #[serde(rename = "newMasterPasswordHash", alias = "NewMasterPasswordHash")]
-    pub new_master_password_hash: String,
+    #[serde(
+        rename = "newMasterPasswordHash",
+        alias = "NewMasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub new_master_password_hash: Option<String>,
     #[serde(rename = "token", alias = "Token")]
     pub token: String,
-    #[serde(rename = "key", alias = "Key")]
-    pub key: String,
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
 }
 
 impl EmailRequestModel {
-    pub fn new(
-        new_email: String,
-        new_master_password_hash: String,
-        token: String,
-        key: String,
-    ) -> EmailRequestModel {
+    /// This model is used in the second step of self service email change after the master password
+    /// hash has been verified. The token is used to verify ownership of the new email.
+    pub fn new(new_email: String, token: String) -> EmailRequestModel {
         EmailRequestModel {
             master_password_hash: None,
             otp: None,
             auth_request_access_code: None,
             secret: None,
             new_email,
-            new_master_password_hash,
+            new_master_password_hash: None,
             token,
-            key,
+            key: None,
         }
     }
 }
