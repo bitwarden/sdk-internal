@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+bitwarden_commercial_marker::commercial_crate!();
+
 use bitwarden_uuid::uuid_newtype;
 
 mod access_rules;

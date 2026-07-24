@@ -1,0 +1,19 @@
+[package]
+name = "bitwarden-commercial-marker"
+description = """
+Internal marker crate used to detect, at compile time, whether any Bitwarden commercial (licensed)
+crate is present in a build. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[lints]
+workspace = true

@@ -27,6 +27,7 @@ wasm = [
 [dependencies]
 bitwarden-api-api = { workspace = true }
 bitwarden-collections = { workspace = true }
+bitwarden-commercial-marker = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-error = { workspace = true }
 bitwarden-uuid = { workspace = true }

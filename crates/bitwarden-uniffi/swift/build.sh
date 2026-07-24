@@ -11,7 +11,8 @@ rm -rf tmp
 
 # Build native library
 export IPHONEOS_DEPLOYMENT_TARGET="13.0"
-export RUSTFLAGS="-C link-arg=-Wl,-application_extension"
+# Fail if a commercial bitwarden_license crate leaks in (see bitwarden-commercial-marker).
+export RUSTFLAGS="-C link-arg=-Wl,-application_extension --cfg bitwarden_ensure_non_commercial"
 if [[ $DEBUG_MODE = "true" ]]; then
   PROFILE="debug"
   PROFILE_FLAG=""
