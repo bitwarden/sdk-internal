@@ -11,7 +11,7 @@ bytes) — never key material the SDK is responsible for.
 Outside the SDK boundary - only secrets cross it, never keys:
 
     Password / PIN  (low entropy)
-        |  PasswordProtectedKeyEnvelope  (slow, memory-hard KDF)
+        |  PasswordProtectedKeyEnvelope  (slow, memory or compute-hard KDF)
         |
     High-entropy secret  (PRF, key-connector, URL fragment)
         |  SecretProtectedKeyEnvelope  (cheap KDF)
