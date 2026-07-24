@@ -3,30 +3,43 @@ use thiserror::Error;
 
 use crate::rpc::error::RpcError;
 
-/// Classifies an IPC error as either fatal or recoverable.
+/// Classification of an IPC error, returned by [`IpcErrorKind::kind`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorKind {
+    /// The client can no longer make progress, so the shared processing loop should stop.
+    Fatal,
+    /// The destination could not be reached (e.g. the peer transport is not connected);
+    /// The client should continue to process messages. A peer may become reachable later.
+    Unreachable,
+    /// Any other, recoverable failure: only the current operation failed, so the client should stay
+    /// running and continue processing other messages.
+    Other,
+}
+
+/// Classifies an IPC error into an [`ErrorKind`].
 ///
 /// The IPC client runs a single long-lived processing loop that is shared across every peer and
 /// every message. Historically *any* transport or crypto error tore that loop down, which meant a
 /// single transient failure (a handshake timeout, a peer disconnecting mid-send, a malformed
 /// frame) permanently disabled the shared client and it never recovered.
 ///
-/// This trait lets each layer classify its own errors so the client can distinguish the two cases:
-/// - **Fatal** (`is_fatal() == true`): the client can no longer make progress, so the processing
-///   loop should stop.
-/// - **Recoverable** (`is_fatal() == false`): only the current operation failed, so the client
-///   should stay running and continue processing other messages.
+/// This trait lets each layer classify its own errors so the client can distinguish the cases:
+/// - [`ErrorKind::Fatal`]: the client can no longer make progress, so the processing loop should
+///   stop.
+/// - [`ErrorKind::Unreachable`] and [`ErrorKind::Other`]: only the current operation failed, so the
+///   client should stay running and continue processing other messages.
 ///
 /// Implementations should classify errors at construction, where the most context is available,
-/// and default ambiguous cases to recoverable. Failing open keeps the shared client alive, which
-/// is almost always the safer choice.
+/// and default ambiguous cases to [`ErrorKind::Other`]. Failing open keeps the shared client alive,
+/// which is almost always the safer choice.
 pub trait IpcErrorKind {
-    /// Returns `true` if the error is fatal and the IPC client should stop processing messages, or
-    /// `false` if the error is recoverable and the client should keep running.
-    fn is_fatal(&self) -> bool;
+    /// Classifies the error so the IPC client can decide whether to stop the processing loop or
+    /// keep running.
+    fn kind(&self) -> ErrorKind;
 }
 
 impl IpcErrorKind for std::convert::Infallible {
-    fn is_fatal(&self) -> bool {
+    fn kind(&self) -> ErrorKind {
         // `Infallible` can never be constructed, so this is unreachable.
         match *self {}
     }
@@ -34,8 +47,8 @@ impl IpcErrorKind for std::convert::Infallible {
 
 #[cfg(any(test, feature = "test-support"))]
 impl IpcErrorKind for () {
-    fn is_fatal(&self) -> bool {
-        false
+    fn kind(&self) -> ErrorKind {
+        ErrorKind::Other
     }
 }
 
@@ -46,11 +59,16 @@ impl IpcErrorKind for () {
 #[bitwarden_error(basic)]
 pub struct AlreadyRunningError;
 
-/// Error returned by [`IpcClient::send`](crate::IpcClient::send). Wraps the underlying transport
-/// error as a string.
+/// Error returned by [`IpcClient::send`](crate::IpcClient::send).
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
-#[error("{0}")]
-pub struct SendError(pub(crate) String);
+pub enum SendError {
+    /// The destination could not be reached (e.g. the peer transport is not connected).
+    #[error("Destination unreachable")]
+    Unreachable,
+    /// Any other send failure, carrying the underlying error's debug representation.
+    #[error("{0}")]
+    Other(String),
+}
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 #[bitwarden_error(flat)]
@@ -117,6 +135,18 @@ pub enum RequestError {
     #[error("Failed to send message: {0}")]
     Send(String),
 
+    #[error("Destination unreachable")]
+    Unreachable,
+
     #[error("Error occurred on the remote target: {0}")]
     Rpc(#[from] RpcError),
+}
+
+impl From<SendError> for RequestError {
+    fn from(error: SendError) -> Self {
+        match error {
+            SendError::Unreachable => RequestError::Unreachable,
+            SendError::Other(message) => RequestError::Send(message),
+        }
+    }
 }

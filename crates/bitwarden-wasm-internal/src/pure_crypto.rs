@@ -150,6 +150,11 @@ impl PureCrypto {
             .to_vec()
     }
 
+    #[wasm_bindgen(unchecked_return_type = "SymmetricKey")]
+    pub fn make_aes256_cbc_hmac_key() -> SymmetricCryptoKey {
+        SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac)
+    }
+
     /// Wraps (encrypts) a symmetric key using a symmetric wrapping key, returning the wrapped key
     /// as an EncString.
     pub fn wrap_symmetric_key(
@@ -406,7 +411,7 @@ impl PureCrypto {
         let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
         let padding = Oaep::<Sha1>::new();
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         public_key
             .encrypt(&mut rng, padding, &plain_data)
             .map_err(|_| RsaError::Encryption)
@@ -414,13 +419,21 @@ impl PureCrypto {
 
     /// Generates a cryptographically secure random number between the given min and max
     /// (inclusive).
+    #[deprecated(
+        note = "Use `SdkRandomNumberClient::gen_range` instead. This method will be removed in a future release."
+    )]
+    #[allow(deprecated, reason = "wasm_bindgen glue calls this deprecated method")]
     pub fn random_number(min: u32, max: u32) -> u32 {
         let _span = tracing::info_span!("PureCrypto::random_number").entered();
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         rng.random_range(min..=max)
     }
 
     /// Generates a new v4 UUID using a cryptographically secure random number generator
+    #[deprecated(
+        note = "Use `SdkRandomNumberClient::gen_uuid` instead. This method will be removed in a future release."
+    )]
+    #[allow(deprecated, reason = "wasm_bindgen glue calls this deprecated method")]
     pub fn new_guid() -> String {
         let _span = tracing::info_span!("PureCrypto::new_guid").entered();
         uuid::Uuid::new_v4().to_string()
@@ -809,6 +822,10 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     }
 
     #[test]
+    #[expect(
+        deprecated,
+        reason = "Exercises the deprecated new_guid until it is removed"
+    )]
     fn test_new_guid_is_v4_and_unique() {
         let first = PureCrypto::new_guid();
         let second = PureCrypto::new_guid();

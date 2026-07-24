@@ -2,6 +2,8 @@
 pub use bitwarden_api_base::*;
 
 pub mod access_policies_api;
+pub mod access_requests_api;
+pub mod access_rules_api;
 pub mod account_billing_v_next_api;
 pub mod accounts_api;
 pub mod accounts_billing_api;
@@ -20,6 +22,7 @@ pub mod hibp_api;
 pub mod import_ciphers_api;
 pub mod info_api;
 pub mod installations_api;
+pub mod leases_api;
 pub mod licenses_api;
 pub mod notifications_api;
 pub mod organization_auth_requests_api;
@@ -86,6 +89,8 @@ pub enum ApiClient {
 
 struct ApiClientReal {
     access_policies_api: access_policies_api::AccessPoliciesApiClient,
+    access_requests_api: access_requests_api::AccessRequestsApiClient,
+    access_rules_api: access_rules_api::AccessRulesApiClient,
     account_billing_v_next_api: account_billing_v_next_api::AccountBillingVNextApiClient,
     accounts_api: accounts_api::AccountsApiClient,
     accounts_billing_api: accounts_billing_api::AccountsBillingApiClient,
@@ -104,6 +109,7 @@ struct ApiClientReal {
     import_ciphers_api: import_ciphers_api::ImportCiphersApiClient,
     info_api: info_api::InfoApiClient,
     installations_api: installations_api::InstallationsApiClient,
+    leases_api: leases_api::LeasesApiClient,
     licenses_api: licenses_api::LicensesApiClient,
     notifications_api: notifications_api::NotificationsApiClient,
     organization_auth_requests_api:
@@ -165,6 +171,8 @@ struct ApiClientReal {
 #[cfg(feature = "mockall")]
 pub struct ApiClientMock {
     pub access_policies_api: access_policies_api::MockAccessPoliciesApi,
+    pub access_requests_api: access_requests_api::MockAccessRequestsApi,
+    pub access_rules_api: access_rules_api::MockAccessRulesApi,
     pub account_billing_v_next_api: account_billing_v_next_api::MockAccountBillingVNextApi,
     pub accounts_api: accounts_api::MockAccountsApi,
     pub accounts_billing_api: accounts_billing_api::MockAccountsBillingApi,
@@ -183,6 +191,7 @@ pub struct ApiClientMock {
     pub import_ciphers_api: import_ciphers_api::MockImportCiphersApi,
     pub info_api: info_api::MockInfoApi,
     pub installations_api: installations_api::MockInstallationsApi,
+    pub leases_api: leases_api::MockLeasesApi,
     pub licenses_api: licenses_api::MockLicensesApi,
     pub notifications_api: notifications_api::MockNotificationsApi,
     pub organization_auth_requests_api:
@@ -247,6 +256,8 @@ impl ApiClient {
     pub fn new(configuration: &Arc<bitwarden_api_base::Configuration>) -> Self {
         Self::Real(ApiClientReal {
             access_policies_api: access_policies_api::AccessPoliciesApiClient::new(configuration.clone()),
+            access_requests_api: access_requests_api::AccessRequestsApiClient::new(configuration.clone()),
+            access_rules_api: access_rules_api::AccessRulesApiClient::new(configuration.clone()),
             account_billing_v_next_api: account_billing_v_next_api::AccountBillingVNextApiClient::new(configuration.clone()),
             accounts_api: accounts_api::AccountsApiClient::new(configuration.clone()),
             accounts_billing_api: accounts_billing_api::AccountsBillingApiClient::new(configuration.clone()),
@@ -265,6 +276,7 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::ImportCiphersApiClient::new(configuration.clone()),
             info_api: info_api::InfoApiClient::new(configuration.clone()),
             installations_api: installations_api::InstallationsApiClient::new(configuration.clone()),
+            leases_api: leases_api::LeasesApiClient::new(configuration.clone()),
             licenses_api: licenses_api::LicensesApiClient::new(configuration.clone()),
             notifications_api: notifications_api::NotificationsApiClient::new(configuration.clone()),
             organization_auth_requests_api: organization_auth_requests_api::OrganizationAuthRequestsApiClient::new(configuration.clone()),
@@ -321,6 +333,8 @@ impl ApiClient {
     pub fn new_mocked(func: impl FnOnce(&mut ApiClientMock)) -> Self {
         let mut mock = ApiClientMock {
             access_policies_api: access_policies_api::MockAccessPoliciesApi::new(),
+            access_requests_api: access_requests_api::MockAccessRequestsApi::new(),
+            access_rules_api: access_rules_api::MockAccessRulesApi::new(),
             account_billing_v_next_api: account_billing_v_next_api::MockAccountBillingVNextApi::new(),
             accounts_api: accounts_api::MockAccountsApi::new(),
             accounts_billing_api: accounts_billing_api::MockAccountsBillingApi::new(),
@@ -339,6 +353,7 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::MockImportCiphersApi::new(),
             info_api: info_api::MockInfoApi::new(),
             installations_api: installations_api::MockInstallationsApi::new(),
+            leases_api: leases_api::MockLeasesApi::new(),
             licenses_api: licenses_api::MockLicensesApi::new(),
             notifications_api: notifications_api::MockNotificationsApi::new(),
             organization_auth_requests_api: organization_auth_requests_api::MockOrganizationAuthRequestsApi::new(),
@@ -400,6 +415,20 @@ impl ApiClient {
             ApiClient::Real(real) => &real.access_policies_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.access_policies_api,
+        }
+    }
+    pub fn access_requests_api(&self) -> &dyn access_requests_api::AccessRequestsApi {
+        match self {
+            ApiClient::Real(real) => &real.access_requests_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.access_requests_api,
+        }
+    }
+    pub fn access_rules_api(&self) -> &dyn access_rules_api::AccessRulesApi {
+        match self {
+            ApiClient::Real(real) => &real.access_rules_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.access_rules_api,
         }
     }
     pub fn account_billing_v_next_api(
@@ -530,6 +559,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.installations_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.installations_api,
+        }
+    }
+    pub fn leases_api(&self) -> &dyn leases_api::LeasesApi {
+        match self {
+            ApiClient::Real(real) => &real.leases_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.leases_api,
         }
     }
     pub fn licenses_api(&self) -> &dyn licenses_api::LicensesApi {

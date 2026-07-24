@@ -1,7 +1,9 @@
 use std::{ops::Add, sync::Arc};
 
 use bitwarden_error::bitwarden_error;
-use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
+use bitwarden_ipc::{
+    Endpoint, IpcClient, IpcClientExt, RequestError, SubscribeError, TypedIncomingMessage,
+};
 use bitwarden_threading::{cancellation_token, time::sleep};
 use thiserror::Error;
 
@@ -238,7 +240,20 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
 
     async fn send_message(&self, message: FollowerMessage, recipient: Endpoint) {
         if let Err(error) = self.0.ipc_client.send_typed(message, recipient).await {
-            tracing::error!(?error, "Failed to send shared unlock IPC message");
+            match error {
+                RequestError::Unreachable => {
+                    // The leader is not connected; the message simply could not be delivered.
+                }
+                RequestError::Timeout(_) => {
+                    tracing::warn!(
+                        ?error,
+                        "Timeout sending shared unlock follower message to leader"
+                    );
+                }
+                _ => {
+                    tracing::error!(?error, "Failed to send shared unlock IPC message");
+                }
+            }
         }
     }
 }

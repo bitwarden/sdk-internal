@@ -157,7 +157,7 @@ pub(crate) async fn username(
     http: &reqwest::Client,
 ) -> Result<String, UsernameError> {
     use UsernameGeneratorRequest::*;
-    use rand::rng;
+    use bitwarden_random::rng;
     match input {
         Word {
             capitalize,

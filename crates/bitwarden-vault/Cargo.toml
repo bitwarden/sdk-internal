@@ -11,7 +11,7 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
@@ -41,11 +41,11 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-logging = { workspace = true }
+bitwarden-ssh = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
-ciborium = { workspace = true }
 data-encoding = { workspace = true }
 futures = { workspace = true }
 hmac = { workspace = true }

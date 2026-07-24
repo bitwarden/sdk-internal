@@ -23,6 +23,13 @@ import {
   SharedUnlockLeader,
   InitUserCryptoMethod,
 } from "@bitwarden/sdk-internal";
+import {
+  ORG_ACCOUNT_KDF_PARAMS,
+  ORG_ACCOUNT_MASTER_KEY_WRAPPED_USER_KEY,
+  ORG_ACCOUNT_PRIVATE_KEY,
+  TEST_ORGANIZATION_ID,
+  TEST_ORGANIZATION_KEY,
+} from "./org-fixtures";
 
 export const encstring = (s: string) => s as unknown as EncString;
 const userId = (s: string) => s as unknown as UserId;
@@ -166,6 +173,38 @@ export async function makeInitializedPasswordmanagerClient(
 ): Promise<PasswordManagerClient> {
   const client = makePasswordManagerClient(stateBridge);
   await initializeCryptoDefault(client);
+  return client;
+}
+
+/**
+ * Makes a password manager client initialized with the organization-capable
+ * account (see `org-fixtures.ts`) and the organization's key loaded into the
+ * key store. This is the setup required for organization-scoped operations
+ * such as the invite link client.
+ */
+export async function makeOrgInitializedClient(
+  stateBridge: WasmStateBridge,
+): Promise<PasswordManagerClient> {
+  const client = makePasswordManagerClient(stateBridge);
+  await client.crypto().initialize_user_crypto({
+    userId: TEST_USER_ID,
+    kdfParams: ORG_ACCOUNT_KDF_PARAMS,
+    email: TEST_EMAIL,
+    accountCryptographicState: { V1: { private_key: encstring(ORG_ACCOUNT_PRIVATE_KEY) } },
+    method: {
+      masterPasswordUnlock: {
+        password: TEST_PASSWORD,
+        master_password_unlock: {
+          masterKeyWrappedUserKey: encstring(ORG_ACCOUNT_MASTER_KEY_WRAPPED_USER_KEY),
+          salt: TEST_EMAIL,
+          kdf: ORG_ACCOUNT_KDF_PARAMS,
+        },
+      },
+    },
+  });
+  await client.crypto().initialize_org_crypto({
+    organizationKeys: new Map([[TEST_ORGANIZATION_ID, TEST_ORGANIZATION_KEY]]),
+  });
   return client;
 }
 

@@ -127,6 +127,16 @@ impl PasswordManagerClient {
     pub fn invite_link(&self) -> InviteLinkClient {
         self.0.invite_link()
     }
+
+    /// Crypto cipher suite operations.
+    pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
+        self.0.crypto_cipher_suite()
+    }
+
+    /// Whether the client is in Gov Mode.
+    pub fn gov_mode(&self) -> bool {
+        self.0.0.gov_mode()
+    }
 }
 
 #[bitwarden_error(basic)]

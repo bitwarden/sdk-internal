@@ -3,7 +3,7 @@ use bitwarden_crypto::{
     EncString, KeyStoreContext,
     safe::{DataEnvelope, DataEnvelopeError},
 };
-use bitwarden_encoding::B64;
+use bitwarden_logging::instrument;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,15 +13,17 @@ const FORMAT_VERSION: u8 = 1;
 
 /// Error type for `SealedCipherBlob` operations.
 #[derive(Debug, Error)]
-pub(crate) enum SealedCipherBlobError {
+pub enum SealedCipherBlobError {
+    /// The format version is newer or older than this client supports.
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
-    #[error("CBOR encoding error")]
-    CborEncoding,
-    #[error("CBOR decoding error")]
-    CborDecoding,
-    #[error("Base64 decoding error")]
-    Base64Decoding,
+    /// Serializing the sealed container to JSON failed.
+    #[error("JSON encoding error")]
+    JsonEncoding,
+    /// The string did not parse as a JSON object carrying a `format_version` key.
+    #[error("JSON decoding error")]
+    JsonDecoding,
+    /// The inner `DataEnvelope` could not be sealed or opened.
     #[error(transparent)]
     DataEnvelope(#[from] DataEnvelopeError),
 }
@@ -30,7 +32,7 @@ pub(crate) enum SealedCipherBlobError {
 ///
 /// Serializable into the `Cipher.data: Option<String>` field.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub(super) struct SealedCipherBlob {
+pub(crate) struct SealedCipherBlob {
     format_version: u8,
     wrapped_cek: EncString,
     envelope: DataEnvelope,
@@ -54,6 +56,7 @@ impl SealedCipherBlob {
     }
 
     /// Unseals the `CipherBlob` from this container using the provided wrapping key.
+    #[instrument(err, fields(format_version = self.format_version))]
     pub(super) fn unseal(
         &self,
         wrapping_key: &SymmetricKeySlotId,
@@ -69,20 +72,25 @@ impl SealedCipherBlob {
             .unseal_with_wrapping_key(wrapping_key, &self.wrapped_cek, ctx)?)
     }
 
-    /// Serializes this container into an opaque base64-encoded CBOR string.
+    /// Serializes this container into an opaque JSON string.
     pub(super) fn to_opaque_string(&self) -> Result<String, SealedCipherBlobError> {
-        let mut buf = Vec::new();
-        ciborium::ser::into_writer(self, &mut buf)
-            .map_err(|_| SealedCipherBlobError::CborEncoding)?;
-        Ok(B64::from(buf).to_string())
+        serde_json::to_string(self).map_err(|_| SealedCipherBlobError::JsonEncoding)
     }
 
-    /// Deserializes a `SealedCipherBlob` from an opaque base64-encoded CBOR string.
+    /// Deserializes a `SealedCipherBlob` from an opaque JSON string.
+    ///
+    /// Requires the JSON to be an object carrying a `format_version` key; legacy
+    /// field-level `CipherData` never contains it, so it is rejected here.
     pub(super) fn from_opaque_string(s: &str) -> Result<Self, SealedCipherBlobError> {
-        let bytes = B64::try_from(s)
-            .map_err(|_| SealedCipherBlobError::Base64Decoding)?
-            .into_bytes();
-        ciborium::de::from_reader(bytes.as_slice()).map_err(|_| SealedCipherBlobError::CborDecoding)
+        let value: serde_json::Value =
+            serde_json::from_str(s).map_err(|_| SealedCipherBlobError::JsonDecoding)?;
+        if !value
+            .as_object()
+            .is_some_and(|o| o.contains_key("format_version"))
+        {
+            return Err(SealedCipherBlobError::JsonDecoding);
+        }
+        serde_json::from_value(value).map_err(|_| SealedCipherBlobError::JsonDecoding)
     }
 }
 
@@ -153,16 +161,15 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_base64() {
-        let result = SealedCipherBlob::from_opaque_string("not valid base64!@#$");
-        assert!(matches!(result, Err(SealedCipherBlobError::Base64Decoding)));
+    fn test_invalid_json() {
+        let result = SealedCipherBlob::from_opaque_string("not json");
+        assert!(matches!(result, Err(SealedCipherBlobError::JsonDecoding)));
     }
 
     #[test]
-    fn test_invalid_cbor() {
-        let not_cbor = B64::from(b"this is not valid cbor data".as_slice()).to_string();
-        let result = SealedCipherBlob::from_opaque_string(&not_cbor);
-        assert!(matches!(result, Err(SealedCipherBlobError::CborDecoding)));
+    fn test_missing_format_version() {
+        let result = SealedCipherBlob::from_opaque_string("{\"Name\":\"x\"}");
+        assert!(matches!(result, Err(SealedCipherBlobError::JsonDecoding)));
     }
 
     #[test]
@@ -185,8 +192,8 @@ mod tests {
     }
 
     const TEST_VECTOR_WRAPPING_KEY: &str =
-        "e0MSZ4/Z4AS7fzjxMos7MXibNALU4mDJQwmge+uVwahg9P25cuaNiSpLvYMk2BgJfntbQs4FszcnY5nPe2FpVA==";
-    const TEST_VECTOR_SEALED_BLOB: &str = "o25mb3JtYXRfdmVyc2lvbgFrd3JhcHBlZF9jZWt4tDIub1dJMUloMDVleWxpeGxCQUM4V253QT09fDdOTVFiU3JXS3ZOWFNoTkNHdmZZWld0T2doMEcvZ294YXdod01UWm5PR1hLeVZ6RXA1WWRXRUhoRnQ0UFVrbVVOT204Z2JMRlhyTFN4MW5CU25PdjlEeEJLNFp6ejNJVFp3dm92Z3NBTFQwPXxBMzhlZkFhSlhmMnk2aFdxTHBUanJ6NlF5OS9FRERMWnpJOWZFSGhtVExJPWhlbnZlbG9wZXkBKGcxaExwUUU2QUFFUmJ3TjRJMkZ3Y0d4cFkyRjBhVzl1TDNndVltbDBkMkZ5WkdWdUxtTmliM0l0Y0dGa1pHVmtCRkFQV0dnR1lPblBYVGlNY2NUOVVrVUFPZ0FCT0lFQ09nQUJPSUFCb1FWWUdDeWk1cEtQSHQ2NXAwU0MxR1FGMTZ1TE85SEtUODFmZWxoeFF2UDBrTlYyQXpibks5RXlSUjlSRUUvUURYK0JVcE53bkxjUTZKZldJb2cycHp4TjBBNUlKTmhmZ1Uzd0NMSS9WOVZHcThkM1RZanBLSm9MNitKSVhVQnI0UWtHeGgzekZmci8rQThGN3RwR2dSK0tnLzVQRGJLMk9ENjdkM0ZnOW12b2t2UVBzQ0F5MnlIaVJ6aHdONUU9";
+        "z27dMz/RK4wboY/Ako0YVFr9jaiSjgQQyGkTZ4LIuNrOXyeDAjeD41qbhVKl0OSjP3QuN9xmAJQE8+V5/Tl7ig==";
+    const TEST_VECTOR_SEALED_BLOB: &str = r#"{"format_version":1,"wrapped_cek":"2.LQJf2BbznXX+NelBY4pSJg==|txMmjZEOhSMA7Jrm+rZt1LDfA6s3G2QU5Z8MqO4nG9s2ZXuzSLU/iYOUXD8xw+eHVSu7IUHu1LsCm4SLf+ZhkX5QIo4hJT3DHSbgu6VPUC0=|yuU/EWQWyihf2Yh9lQ1NP+zTROEpnXoRS//GfxDgC4k=","envelope":"g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFBoHnjLne8MPV72YPXuskd6OgABOIECOgABOIABoQVYGA00vxb7gF7Y3SUyoCMy34C1HrB3fSY3jVhxZXQmmotGEIwwRlG+SpTcyTl5m4lUnozWrjAYfWitl1+cz457Wq3iDW/MvrHE7c1g38QJxY6t1yhQL0dQy9DyDXQDiWGPtYzic2Ay+GtrlIERN37wOdhQ1HZDeoobHL+aKomvPTems/Ta2SqWC9HfE38="}"#;
 
     #[test]
     fn test_recorded_sealed_blob_test_vector() {

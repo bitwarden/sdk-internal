@@ -3,7 +3,7 @@ use std::sync::RwLock;
 use std::sync::{Arc, OnceLock};
 
 use bitwarden_api_base::new_http_client_builder;
-use bitwarden_crypto::KeyStore;
+use bitwarden_crypto::{CipherSuite, KeyStore};
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
@@ -132,7 +132,7 @@ impl ClientBuilder {
             client: bw_http_client,
         };
 
-        Client {
+        let client = Client {
             internal: Arc::new(InternalClient {
                 user_id: OnceLock::new(),
                 token_handler: self.token_handler,
@@ -145,7 +145,16 @@ impl ClientBuilder {
                 state_bridge: StateBridge::new(),
                 state_registry,
             }),
-        }
+        };
+
+        // Configure the key store's cipher suite from the client's environment, so all crypto
+        // operations (e.g. the KDF for a new account) pick compliant algorithms.
+        client
+            .internal
+            .get_key_store()
+            .set_cipher_suite(CipherSuite::from_gov_mode(client.gov_mode()));
+
+        client
     }
 }
 
