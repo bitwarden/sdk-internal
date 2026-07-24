@@ -716,6 +716,7 @@ dependencies = [
  "rsa",
  "schemars 1.2.1",
  "serde",
+ "serde-wasm-bindgen",
  "serde_bytes",
  "serde_json",
  "serde_repr",
