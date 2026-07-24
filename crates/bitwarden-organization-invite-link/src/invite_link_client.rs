@@ -4,9 +4,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyStore;
 use bitwarden_error::bitwarden_error;
-use bitwarden_organization_crypto::{
-    InviteKeyBundle, InviteKeyBundleError, InviteKeyData, InviteKeyEnvelope,
-};
+use bitwarden_organization_crypto::{Invite, InviteBundle, InviteKeyBundleError, InviteKeyData};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -29,8 +27,8 @@ pub enum OrganizationInviteCryptoBundleError {
 /// The cryptographic bundle returned when generating an organization member invite link.
 ///
 /// - `invite_key`: raw invite key encoded as base64Url. **MUST NOT be sent to the server.**
-/// - `sealed_invite_key_envelope`: invite key sealed with the organization key, serialized as an
-///   EncString. Safe to send to the server.
+/// - `invite`: invite key sealed with the organization key, serialized as an EncString. Safe to
+///   send to the server.
 #[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -39,8 +37,8 @@ pub struct OrganizationInviteCryptoBundle {
     #[cfg_attr(feature = "wasm", tsify(type = "InviteKeyData"))]
     pub invite_key: InviteKeyData,
     /// Invite key sealed with the organization key. Safe to send to the server.
-    #[cfg_attr(feature = "wasm", tsify(type = "InviteKeyEnvelope"))]
-    pub sealed_invite_key_envelope: InviteKeyEnvelope,
+    #[cfg_attr(feature = "wasm", tsify(type = "Invite"))]
+    pub invite: Invite,
 }
 
 /// Client for organization invite link cryptographic operations.
@@ -61,29 +59,29 @@ impl InviteLinkClient {
     ///
     /// # Security
     /// The returned `invite_key` MUST NOT be sent to the server.
-    pub fn generate_invite_crypto_bundle(
+    pub fn make_invite(
         &self,
         organization_id: OrganizationId,
     ) -> Result<OrganizationInviteCryptoBundle, OrganizationInviteCryptoBundleError> {
         let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let bundle = InviteKeyBundle::make(org_key, &mut ctx)?;
+        let bundle = InviteBundle::make(org_key, &mut ctx)?;
         Ok(OrganizationInviteCryptoBundle {
             invite_key: bundle.dangerous_get_raw_invite_key().clone(),
-            sealed_invite_key_envelope: bundle.get_sealed_invite_key_envelope().clone(),
+            invite: bundle.get_envelope().clone(),
         })
     }
 
     /// Unseals a `sealed_invite_key_envelope` using the organization's key, returning the raw
     /// invite key as [`InviteKeyData`].
-    pub fn unseal_invite_key(
+    pub fn get_invite_key(
         &self,
         organization_id: OrganizationId,
-        sealed_invite_key_envelope: InviteKeyEnvelope,
+        invite: Invite,
     ) -> Result<InviteKeyData, OrganizationInviteCryptoBundleError> {
         let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
-        sealed_invite_key_envelope
+        invite
             .unseal(org_key, &mut ctx)
             .map_err(OrganizationInviteCryptoBundleError::UnsealingFailed)
     }
@@ -120,10 +118,10 @@ mod tests {
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
-        let bundle = client.generate_invite_crypto_bundle(org_id).unwrap();
+        let bundle = client.make_invite(org_id).unwrap();
 
         assert!(!String::from(&bundle.invite_key).is_empty());
-        assert!(!String::from(&bundle.sealed_invite_key_envelope).is_empty());
+        assert!(!String::from(&bundle.invite).is_empty());
     }
 
     #[test]
@@ -131,9 +129,9 @@ mod tests {
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
-        let bundle = client.generate_invite_crypto_bundle(org_id).unwrap();
+        let bundle = client.make_invite(org_id).unwrap();
         let unsealed = client
-            .unseal_invite_key(org_id, bundle.sealed_invite_key_envelope.clone())
+            .get_invite_key(org_id, bundle.invite.clone())
             .unwrap();
 
         assert_eq!(bundle.invite_key, unsealed);
@@ -144,8 +142,8 @@ mod tests {
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
-        let bundle1 = client.generate_invite_crypto_bundle(org_id).unwrap();
-        let bundle2 = client.generate_invite_crypto_bundle(org_id).unwrap();
+        let bundle1 = client.make_invite(org_id).unwrap();
+        let bundle2 = client.make_invite(org_id).unwrap();
 
         assert_ne!(
             String::from(&bundle1.invite_key),
@@ -154,19 +152,21 @@ mod tests {
     }
 
     #[test]
-    fn sealed_envelope_serializes_as_encstring_text_format() {
-        // The server validates EncryptedInviteKey as a Bitwarden EncString text
-        // format (e.g. "2.iv|data|mac").
+    fn sealed_invite_serializes_as_stable_base64_wire_format() {
+        // The invite is serialized as a base64-encoded CBOR structure (the
+        // extendable wire format). It must round-trip back to an identical
+        // invite that still unseals to the original invite key.
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
-        let bundle = client.generate_invite_crypto_bundle(org_id).unwrap();
-        let envelope_str = String::from(&bundle.sealed_invite_key_envelope);
+        let bundle = client.make_invite(org_id).unwrap();
+        let invite_str = String::from(&bundle.invite);
 
-        assert!(
-            envelope_str.parse::<bitwarden_crypto::EncString>().is_ok(),
-            "sealed_invite_key_envelope must parse as a valid EncString, got: {envelope_str}"
-        );
+        let reparsed: Invite = invite_str
+            .parse()
+            .expect("serialized invite must parse back from its base64 wire format");
+        let unsealed = client.get_invite_key(org_id, reparsed).unwrap();
+        assert_eq!(bundle.invite_key, unsealed);
     }
 
     #[test]
@@ -175,8 +175,8 @@ mod tests {
         let other_org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
-        let bundle = client.generate_invite_crypto_bundle(org_id).unwrap();
-        let result = client.unseal_invite_key(other_org_id, bundle.sealed_invite_key_envelope);
+        let bundle = client.make_invite(org_id).unwrap();
+        let result = client.get_invite_key(other_org_id, bundle.invite);
 
         assert!(matches!(
             result,
@@ -190,7 +190,7 @@ mod tests {
         let other_org_id = OrganizationId::new_v4();
         let client = make_client(org_id);
 
-        let result = client.generate_invite_crypto_bundle(other_org_id);
+        let result = client.make_invite(other_org_id);
 
         assert!(matches!(
             result,

@@ -151,7 +151,7 @@ mod tests {
     fn test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             r#type: CipherType::Login,
             attachments: Some(vec![Attachment {
                 id: Some(TEST_ATTACHMENT_ID.to_string()),

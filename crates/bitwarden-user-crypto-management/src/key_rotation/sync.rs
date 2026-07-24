@@ -712,7 +712,7 @@ mod tests {
         // Verify ciphers
         assert_eq!(data.ciphers.len(), 1);
         assert_eq!(data.ciphers[0].id, Some(CipherId::new(cipher_id)));
-        assert_eq!(data.ciphers[0].name, TEST_ENC_STRING.parse().unwrap());
+        assert_eq!(data.ciphers[0].name, Some(TEST_ENC_STRING.parse().unwrap()));
 
         // Verify sends
         assert_eq!(data.sends.len(), 1);

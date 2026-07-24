@@ -455,6 +455,6 @@ mod tests {
         }));
         let cipher = encrypt_import(&mut ctx, importing("GitHub", login), None).unwrap();
 
-        assert_ne!(cipher.name.to_string(), "GitHub");
+        assert_ne!(cipher.name.unwrap().to_string(), "GitHub");
     }
 }

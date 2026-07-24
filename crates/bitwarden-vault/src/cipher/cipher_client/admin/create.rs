@@ -11,10 +11,12 @@ use wasm_bindgen::prelude::*;
 use crate::{
     Cipher, CipherView, VaultParseError,
     cipher::{
-        cipher::{PartialCipher, StrictDecrypt},
+        cipher::{EncryptMode, PartialCipher, StrictDecrypt},
         cipher_client::create::convert_request_to_cipher_view,
     },
-    cipher_client::{admin::CipherAdminClient, create::CipherCreateRequest},
+    cipher_client::{
+        admin::CipherAdminClient, create::CipherCreateRequest, should_use_blob_encryption,
+    },
 };
 
 #[allow(missing_docs)]
@@ -46,6 +48,7 @@ async fn create_cipher(
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, CreateCipherAdminError> {
     let collection_ids = view.collection_ids.clone();
     // CipherMiniResponseModel does not include folder_id, favorite, or edit — save them from
@@ -53,7 +56,17 @@ async fn create_cipher(
     let folder_id = view.folder_id;
     let favorite = view.favorite;
 
-    let cipher: Cipher = key_store.encrypt(view)?;
+    // Admin endpoints operate on organization-owned ciphers, which aren't
+    // expected to use blob encryption yet — `should_use_blob_encryption`
+    // returns `false` for any `Some(org)` today. Routing through the same
+    // dispatcher means org blob support (PM-32430) flips on automatically
+    // here when the helper learns to return `true` for orgs.
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -106,12 +119,15 @@ impl CipherAdminClient {
             view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
+        let use_blob = should_use_blob_encryption(&self.client, view.organization_id);
+
         create_cipher(
             view,
             user_id,
             &config.api_client,
             key_store,
             self.is_strict_decrypt().await,
+            use_blob,
         )
         .await
     }
@@ -202,6 +218,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             &api_client,
             &store,
+            false,
             false,
         )
         .await

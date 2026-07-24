@@ -1,15 +1,13 @@
-use bitwarden_vault::SshKeyView;
 use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
-use ssh_key::Algorithm;
-#[cfg(feature = "ecdsa-keys")]
-use ssh_key::EcdsaCurve;
+use ssh_key::{Algorithm, EcdsaCurve};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
 use crate::{
+    SshKeyData,
     error::{self, KeyGenerationError},
-    ssh_private_key_to_view,
+    ssh_private_key_to_data,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -19,36 +17,32 @@ pub enum KeyAlgorithm {
     Ed25519,
     Rsa3072,
     Rsa4096,
-    #[cfg(feature = "ecdsa-keys")]
     EcdsaP256,
-    #[cfg(feature = "ecdsa-keys")]
     EcdsaP384,
-    #[cfg(feature = "ecdsa-keys")]
     EcdsaP521,
 }
 
 /**
  * Generate a new SSH key pair, for the provided key algorithm, returning
- * an [SshKeyView] struct containing the private key, public key, and key fingerprint,
+ * an [SshKeyData] struct containing the private key, public key, and key fingerprint,
  * with the private key in OpenSSH format.
  */
 pub fn generate_sshkey(
     key_algorithm: KeyAlgorithm,
-) -> Result<SshKeyView, error::KeyGenerationError> {
-    let mut rng = rand::rng();
+) -> Result<SshKeyData, error::KeyGenerationError> {
+    let mut rng = bitwarden_random::rng();
     generate_sshkey_internal(key_algorithm, &mut rng)
 }
 
 fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
     key_algorithm: KeyAlgorithm,
     rng: &mut R,
-) -> Result<SshKeyView, error::KeyGenerationError> {
+) -> Result<SshKeyData, error::KeyGenerationError> {
     let private_key = match key_algorithm {
         KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(rng, Algorithm::Ed25519)
             .map_err(KeyGenerationError::KeyGeneration),
         KeyAlgorithm::Rsa3072 => create_rsa_key(rng, 3072),
         KeyAlgorithm::Rsa4096 => create_rsa_key(rng, 4096),
-        #[cfg(feature = "ecdsa-keys")]
         KeyAlgorithm::EcdsaP256 => ssh_key::PrivateKey::random(
             rng,
             Algorithm::Ecdsa {
@@ -56,7 +50,6 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
             },
         )
         .map_err(KeyGenerationError::KeyGeneration),
-        #[cfg(feature = "ecdsa-keys")]
         KeyAlgorithm::EcdsaP384 => ssh_key::PrivateKey::random(
             rng,
             Algorithm::Ecdsa {
@@ -64,7 +57,6 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
             },
         )
         .map_err(KeyGenerationError::KeyGeneration),
-        #[cfg(feature = "ecdsa-keys")]
         KeyAlgorithm::EcdsaP521 => ssh_key::PrivateKey::random(
             rng,
             Algorithm::Ecdsa {
@@ -74,7 +66,7 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
         .map_err(KeyGenerationError::KeyGeneration),
     }?;
 
-    ssh_private_key_to_view(private_key).map_err(|_| KeyGenerationError::KeyConversion)
+    ssh_private_key_to_data(private_key).map_err(|_| KeyGenerationError::KeyConversion)
 }
 
 fn create_rsa_key<R: CryptoRng + ?Sized>(
@@ -123,7 +115,6 @@ mod tests {
         assert_eq!(result.unwrap().private_key, target);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn generate_ssh_key_ecdsa_p256() {
         let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
@@ -133,7 +124,6 @@ mod tests {
         assert_eq!(result.unwrap().private_key, target);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn generate_ssh_key_ecdsa_p384() {
         let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
@@ -143,7 +133,6 @@ mod tests {
         assert_eq!(result.unwrap().private_key, target);
     }
 
-    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn generate_ssh_key_ecdsa_p521() {
         let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
