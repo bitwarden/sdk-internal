@@ -820,7 +820,6 @@ mod tests {
         let (invite_secret, invite) =
             Invite::make_for_private_key(TestSymmKey::Organization, &wrapped_private_key, &mut ctx)
                 .unwrap();
-        // Exercises both the `InviteSecret` and `Invite` `Debug` impls.
         println!("{invite_secret:?}");
         println!("{invite:?}");
     }
