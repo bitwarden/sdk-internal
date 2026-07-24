@@ -565,10 +565,8 @@ pub enum SecretProtectedKeyEnvelopeNamespace {
     /// Bitwarden Desktop biometric (Windows Hello) unlock. The high-entropy secret is a PRF derived
     /// from the Windows Hello signing credential, and the sealed key is the user key.
     DesktopBiometricUnlock = 2,
-    /// Namespace for the outer envelope of the open-organization-invite registration crossing.
-    /// The sealed key protects the inner `DataEnvelope`'s content-encryption key; the high-entropy
-    /// secret is generated per registration and stored client-side to be paired with the sealed
-    /// data returned via the verification email.
+    /// Used for threading the open-organization-invite data through the registration with email
+    /// verification process. Is generated per registration email.  
     RegistrationOpenOrgInvite = 3,
     /// This namespace is only used in tests
     #[cfg(test)]
