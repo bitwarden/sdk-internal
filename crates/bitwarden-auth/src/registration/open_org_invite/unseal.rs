@@ -32,8 +32,7 @@ impl RegistrationClient {
         &self,
         sealed: SealedOpenOrgInvite,
     ) -> Result<OpenOrgInvite, RegistrationError> {
-        // Per-call transient key store, matching the seal path — the CEK produced by the outer
-        // unseal never lives beyond this function.
+        // Per-call KeyStore — CEK never lives beyond this function.
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = key_store.context_mut();
 
@@ -118,9 +117,6 @@ mod tests {
 
     #[test]
     fn unseal_fails_when_sealed_data_wire_is_truncated_across_round_trip() {
-        // Simulate a truncated `sealed_data` blob arriving over the JSON wire: encode the seal
-        // output, truncate the sealed-data string, and re-parse. The parse itself should fail
-        // at the SealedOpenOrgInviteData layer (CBOR framing broken by truncation).
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
         let sealed = seal(&registration_client, sample_input());
@@ -149,9 +145,8 @@ mod tests {
 
     #[test]
     fn sealed_envelope_pair_parse_rejects_valid_cbor_with_bad_key_envelope_bytes() {
-        // Build a well-formed base64url + CBOR wire whose `k` field decodes but does not parse
-        // as a `SecretProtectedKeyEnvelope`. Exercises the parse-envelope step (step 4 in the
-        // FromStr walkthrough) — the step that base64url/CBOR/truncation tests never reach.
+        // Well-formed base64url + CBOR wire whose `k` field bytes don't parse as a
+        // SecretProtectedKeyEnvelope — exercises the parse-envelope failure path.
         #[derive(serde::Serialize)]
         struct FakeWire<'a> {
             #[serde(rename = "d", with = "serde_bytes")]
@@ -175,9 +170,6 @@ mod tests {
 
     #[test]
     fn seal_json_round_trip_unseal_recovers_original_fields() {
-        // The whole point of the typed-fields refactor: `SealedOpenOrgInvite` marshals through
-        // serde as strings and unseals identically after a JSON round-trip — the shape a real
-        // client would send through the server + URL + query param.
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
 

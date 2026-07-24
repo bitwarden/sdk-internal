@@ -198,9 +198,7 @@ impl RegistrationClient {
         &self,
         input: OpenOrgInvite,
     ) -> Result<SealedOpenOrgInvite, RegistrationError> {
-        // The CEK is transient and never persists across calls. A per-call `KeyStore` keeps
-        // the key material scoped to this operation so nothing lingers in the caller's key
-        // store.
+        // Per-call KeyStore — CEK never lives beyond this operation.
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = key_store.context_mut();
 
@@ -258,13 +256,9 @@ mod tests {
             .seal_open_org_invite_data(sample_input())
             .expect("seal should succeed");
 
-        // Wire round-trip sanity: the sealed envelope pair should serialize to a non-empty
-        // base64url string that parses back into the same shape.
         let wire = String::from(&sealed.sealed_data);
         assert!(!wire.is_empty());
         let parsed: SealedOpenOrgInviteData = wire.parse().expect("wire form must round-trip");
-        // Just check both envelope fields are structurally present (the underlying envelopes
-        // don't derive PartialEq).
         let _ = parsed.data_envelope;
         let _ = parsed.key_envelope;
 
@@ -285,8 +279,6 @@ mod tests {
             .seal_open_org_invite_data(sample_input())
             .expect("seal should succeed");
 
-        // Wire-format sanity: the SealedOpenOrgInviteData's wire form must decode as base64url and
-        // re-encode identically.
         let wire = String::from(&sealed.sealed_data);
         let decoded =
             B64Url::try_from(wire.as_str()).expect("sealed_data wire must be valid base64url");
@@ -295,10 +287,7 @@ mod tests {
 
     #[test]
     fn sealed_open_org_invite_json_wire_shape_is_stable() {
-        // Locks in the JSON wire contract: a two-key camelCase object with both values as
-        // strings. A future refactor that silently renamed a field, added a new one, or changed
-        // a value type from string to object would trip this assertion — and would silently
-        // break any existing sealed URL still in flight.
+        // Locks the JSON wire: two-key camelCase object, both values as strings.
         let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
         let sealed = registration_client
@@ -334,8 +323,7 @@ mod tests {
             .seal_open_org_invite_data(sample_input())
             .expect("second seal should succeed");
 
-        // Per-registration randomness: fresh CEK + fresh HighEntropySecret + fresh HKDF salt.
-        // Compare via wire form since the underlying types don't derive PartialEq.
+        // Per-registration randomness: fresh CEK + secret + HKDF salt.
         assert_ne!(
             String::from(first.high_entropy_secret),
             String::from(second.high_entropy_secret)

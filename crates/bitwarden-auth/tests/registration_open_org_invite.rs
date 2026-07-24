@@ -1,8 +1,4 @@
-//! Integration tests for the open-organization-invite registration crossing.
-//!
-//! Exercises the crate's public API only (`Client::auth_new().registration()`), so a break here
-//! implies a break in what external consumers actually see. Round-trip and JSON-wire round-trip
-//! are the two paths a real client (web app) traverses in production.
+//! Integration tests for the open-org-invite registration crossing — public API only.
 
 use bitwarden_auth::{
     AuthClientExt,
@@ -64,13 +60,6 @@ fn pinned_wire_vector_unseals_to_expected_plaintext() {
 
 #[test]
 fn unseal_with_wrong_secret_returns_crypto_error_via_public_api() {
-    // Locks the public error contract: an unseal call with a mismatched high-entropy secret
-    // surfaces as `RegistrationError::Crypto`, not a panic or a different variant. A future
-    // refactor that swallowed the auth-tag failure or remapped it to a different error would
-    // fail this test.
-    //
-    // Size 32 matches what the seal path generates, though any size ≥ MIN_SECRET_LENGTH works
-    // here — the mismatch is what drives the failure, not the size.
     let client = Client::new(None);
     let registration = client.auth_new().registration();
 
