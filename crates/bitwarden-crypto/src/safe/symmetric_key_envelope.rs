@@ -20,7 +20,7 @@ use crate::{
     },
     keys::KeyId,
     safe::{
-        DecodeSealedKeyError, decode_sealed_symmetric_key, extract_key_id,
+        DecodeSealedKeyError, KeyEncryptionKey, decode_sealed_symmetric_key, extract_key_id,
         helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
         set_contained_key_id,
     },
@@ -62,6 +62,10 @@ impl SymmetricKeyEnvelope {
         namespace: SymmetricKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, SymmetricKeyEnvelopeError> {
+        if !KeyEncryptionKey::is_key_algorithm_valid(ctx, sealing_key) {
+            return Err(SymmetricKeyEnvelopeError::WrongKeyType);
+        }
+
         // Get the keys from the key store.
         let key_to_seal = ctx
             .get_symmetric_key(key_to_seal)

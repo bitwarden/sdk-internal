@@ -10,6 +10,8 @@ mod symmetric_key_envelope;
 pub use symmetric_key_envelope::*;
 mod data_envelope;
 pub use data_envelope::*;
+mod key_hierarchy;
+pub use key_hierarchy::*;
 mod helpers;
 
 use ciborium::Value;
