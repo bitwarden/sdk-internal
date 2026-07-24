@@ -37,10 +37,10 @@ use crate::registration::registration_client::{RegistrationClient, RegistrationE
 /// Byte length of the per-registration [`HighEntropySecret`] the seal path generates.
 pub(super) const OPEN_ORG_INVITE_SECRET_SIZE_BYTES: usize = 32;
 
-/// Input to [`RegistrationClient::seal_open_org_invite_data`]. All three fields are required.
-// Not `uniffi::Record`-derived: [`SealedOpenOrgInvite`] holds typed cryptographic fields
-// (`HighEntropySecret`, `SealedOpenOrgInviteData`) that lack uniffi custom-type impls, so this
-// crossing is WASM-only. Add those impls in `bitwarden-crypto` before enabling mobile.
+/// Plaintext open-organization-invite payload. Passed into
+/// [`RegistrationClient::seal_open_org_invite_data`] to seal to be used in the registration email
+/// verification link, and returned by [`RegistrationClient::unseal_open_org_invite_data`] for the
+/// acceptance flow.
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
