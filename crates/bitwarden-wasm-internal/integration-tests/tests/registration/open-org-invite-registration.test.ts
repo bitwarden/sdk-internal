@@ -3,7 +3,7 @@ import { makePasswordManagerClient, makeStateBridge } from "../utils";
 const SAMPLE_INPUT = {
   organizationId: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8",
   inviteLinkCode: "abcd1234efgh5678",
-  inviteKey: "raw-invite-key-material-base64url",
+  inviteSecret: "raw-invite-secret-material-base64url",
 };
 
 describe("open org invite registration seal/unseal", () => {
@@ -25,7 +25,7 @@ describe("open org invite registration seal/unseal", () => {
 
     expect(unsealed.organizationId).toEqual(SAMPLE_INPUT.organizationId);
     expect(unsealed.inviteLinkCode).toEqual(SAMPLE_INPUT.inviteLinkCode);
-    expect(unsealed.inviteKey).toEqual(SAMPLE_INPUT.inviteKey);
+    expect(unsealed.inviteSecret).toEqual(SAMPLE_INPUT.inviteSecret);
   });
 
   it("two independent seals produce different highEntropySecret values (per-registration randomness)", () => {

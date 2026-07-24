@@ -45,7 +45,7 @@ pub struct OpenOrgInvite {
     pub organization_id: String,
     /// The public invite link code carried in the shared invite URL.
     pub invite_link_code: String,
-    /// The invite key associated with the invite link.
+    /// The invite secret associated with the invite link.
     pub invite_secret: String,
 }
 
