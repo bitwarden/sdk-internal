@@ -240,6 +240,7 @@ src/models/folder_with_id_request_model.rs
 src/models/gateway_type.rs
 src/models/get_organization_invite_link_policies_request_model.rs
 src/models/get_organization_invite_link_status_request_model.rs
+src/models/get_organization_invite_request_model.rs
 src/models/get_secrets_request_model.rs
 src/models/global_domains.rs
 src/models/global_equivalent_domains_type.rs
@@ -314,12 +315,17 @@ src/models/organization_integration_configuration_response_model.rs
 src/models/organization_integration_request_model.rs
 src/models/organization_integration_response_model.rs
 src/models/organization_integration_status.rs
+src/models/organization_invite_link_response_model.rs
+src/models/organization_invite_link_sso_response_model.rs
+src/models/organization_invite_link_status_response_model.rs
 src/models/organization_invite_link_validate_email_domain_request_model.rs
+src/models/organization_invite_link_validate_email_domain_response_model.rs
 src/models/organization_keys_request_model.rs
 src/models/organization_keys_response_model.rs
 src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_password_reset_key_data_response_model.rs
+src/models/organization_private_key_response_model.rs
 src/models/organization_public_key_response_model.rs
 src/models/organization_report_file_response_model.rs
 src/models/organization_report_metrics.rs
@@ -375,6 +381,7 @@ src/models/organization_user_user_mini_details_response_model.rs
 src/models/organization_user_user_mini_details_response_model_list_response_model.rs
 src/models/organization_verify_delete_recover_request_model.rs
 src/models/other_device_keys_update_request_model.rs
+src/models/passkey_directory_response_model.rs
 src/models/passkey_key_data_response_model.rs
 src/models/password_health_report_application.rs
 src/models/password_health_report_application_model.rs
@@ -603,6 +610,7 @@ src/models/update_client_organization_request_body.rs
 src/models/update_collection_request_model.rs
 src/models/update_devices_trust_request_model.rs
 src/models/update_domains_request_model.rs
+src/models/update_invite_support_confirm_request_model.rs
 src/models/update_organization_invite_link_request_model.rs
 src/models/update_organization_report_application_data_request_model.rs
 src/models/update_organization_report_summary_request_model.rs
