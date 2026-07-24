@@ -394,11 +394,8 @@ impl Invite {
             .thumbprint()
             .map_err(|_| InviteKeyBundleError::InvalidPrivateKey)?;
 
-        // Generate the URL-fragment invite secret (goes in the invite link).
         let invite_secret = InviteSecret::make();
 
-        // Generate the invite key (the hub). It only ever acts as a key-encryption key — sealing
-        // the invite-data CEK and the organization key via `SymmetricKeyEnvelope`.
         let invite_key = KeyEncryptionKey::make(ctx);
 
         // Seal the invite data (thumbprint + a copy of the invite secret) under a fresh
