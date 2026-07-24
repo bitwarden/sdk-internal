@@ -52,7 +52,7 @@ pub struct OpenOrgInvite {
     /// The public invite link code carried in the shared invite URL.
     pub invite_link_code: String,
     /// The invite key associated with the invite link.
-    pub invite_key: String,
+    pub invite_secret: String,
 }
 
 /// Sealed open-organization-invite payload. Produced by
@@ -216,7 +216,7 @@ impl RegistrationClient {
         let versioned: RegistrationOpenOrgInviteData = RegistrationOpenOrgInviteDataV1 {
             organization_id: input.organization_id,
             invite_link_code: input.invite_link_code,
-            invite_key: input.invite_key,
+            invite_secret: input.invite_secret,
         }
         .into();
 
@@ -251,7 +251,7 @@ mod tests {
         OpenOrgInvite {
             organization_id: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".to_string(),
             invite_link_code: "abcd1234efgh5678".to_string(),
-            invite_key: "raw-invite-key-material-base64url".to_string(),
+            invite_secret: "raw-invite-secret-material-base64url".to_string(),
         }
     }
 

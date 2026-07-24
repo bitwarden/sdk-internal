@@ -18,13 +18,13 @@ use bitwarden_crypto::safe::HighEntropySecret;
 ///
 /// Regenerate manually only if the format is being intentionally rev'd (add a new pinned vector
 /// alongside; don't replace this one).
-const TEST_VECTOR_SEALED_JSON: &str = "{\"sealedData\":\"omFkWQECg1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUNRvG46j66E9mStKyv2V4gI6AAE4gQI6AAE4gAKhBUx34gcQMaUHA1O5E2BYp8wkVQf1mt_NcUTsUg1RsOsbt9QOXthf1OL0anpQBC-VHJmOvhpLlsift2LQvy9kvdvJEAICf4jBbIhcrKgVB3ByOyUF0WBcmyiSUO-4r_RXOii60QrCoyYPyXR-HWFYfH_K8vOfNNNJ7F95JQZwdzCmfECftFK1T_utF9R9gi85A4NFDKLaMQC_7vQ-6BNy5ZUY0v3HlZEumrh6qq7I9k2Wy0yFnAHWYWtYs4RYKKUBAwMYZToAARVcUNRvG46j66E9mStKyv2V4gI6AAE4gQY6AAE4gAOhBUy4OSguxO7pY5c0SXBYTfmkyD9Kt5JIDfr9M7z1LDMK8xyeXsOx9JSbJysInccqzzhPFX-C6AEulM3em4E3y2M25qD_zYHB1bPTSwEXpt3xJF3BIhntjqnKra0ggYNAogEpM1ggucjwg1hoHBPTx-9hCLC6Ah40TxFTS8fKDQRbEjbn_7L2\",\"highEntropySecret\":\"CX54883hTfRI9oADLOvsVPuao4LT8w6dyIB7ZdkVxqQ=\"}";
+const TEST_VECTOR_SEALED_JSON: &str = "{\"sealedData\":\"omFkWQEIg1hHpQEDA3gjYXBwbGljYXRpb24veC5iaXR3YXJkZW4uY2Jvci1wYWRkZWQEUFqAgWU1-KdQ_WSC9j6uHio6AAE4gQI6AAE4gAKhBUzdLM5ewEv8mViKCBFYreHEaRuCDRPSbUW_ooyCoXl6ZxFmO9sfHcbS12nHVjNJsWp8WPMjVrENzilURtOm0OdbAkheyhgfSJ5E_bPuX6yIh3aIDESQK3N82N5veFUd8LU4PsZm1E-FcvQeP3IDSCHz-DubbrD40_hQ0uWcO6h9PTZYO4WZCd4ZxPb4EPSCmAn8Y-pvAzU3OEsouyNeRQn65O53CWSuYbVFyB8wN_BNW75AtvihzSgMAHgkYWtYs4RYKKUBAwMYZToAARVcUFqAgWU1-KdQ_WSC9j6uHio6AAE4gQY6AAE4gAOhBUxJcyohD7PSzo4wHNtYTcpIwa4RMy4zieTNlzXGJ3Ager50D2G90cdJxgflVzJbbN5mY0Zxhomeacl3T7daXpZ-C5aKVupvoBLv1bSQTV2xVbBRHovaXCcxazT_gYNAogEpM1ggKPWBQew1BF295hb71n3ewMIJ3dXtZHpX2WZNRemNT1X2\",\"highEntropySecret\":\"jV/KuhhhwMnPGP/idLT1Quq52RvaCbMF0lsj4SgdNKw=\"}";
 
 fn sample_input() -> OpenOrgInvite {
     OpenOrgInvite {
         organization_id: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".to_string(),
         invite_link_code: "abcd1234efgh5678".to_string(),
-        invite_key: "raw-invite-key-material-base64url".to_string(),
+        invite_secret: "raw-invite-secret-material-base64url".to_string(),
     }
 }
 

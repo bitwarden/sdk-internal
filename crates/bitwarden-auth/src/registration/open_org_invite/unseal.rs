@@ -57,7 +57,7 @@ impl RegistrationClient {
         Ok(OpenOrgInvite {
             organization_id: v1.organization_id,
             invite_link_code: v1.invite_link_code,
-            invite_key: v1.invite_key,
+            invite_secret: v1.invite_secret,
         })
     }
 }
@@ -77,7 +77,7 @@ mod tests {
         OpenOrgInvite {
             organization_id: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".to_string(),
             invite_link_code: "abcd1234efgh5678".to_string(),
-            invite_key: "raw-invite-key-material-base64url".to_string(),
+            invite_secret: "raw-invite-secret-material-base64url".to_string(),
         }
     }
 

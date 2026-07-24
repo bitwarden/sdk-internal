@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 pub(super) struct RegistrationOpenOrgInviteDataV1 {
     pub(super) organization_id: String,
     pub(super) invite_link_code: String,
-    pub(super) invite_key: String,
+    pub(super) invite_secret: String,
 }
 
 impl SealableData for RegistrationOpenOrgInviteDataV1 {}
