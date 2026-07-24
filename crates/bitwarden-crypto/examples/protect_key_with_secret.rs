@@ -22,7 +22,9 @@ fn main() {
     // Alice wants to protect a key with a high-entropy secret.
     // For example to:
     // - Protect a send with a random URL fragment secret
-    // - Protect a key with another (derived) key
+    //   - Here, The secret key envelope wraps a KEK, the KEK wraps a CEK, and the CEK wraps the data.
+    // - Protect a key with a (derived) secret, external to the SDK
+    //   - Here, the secret key envelope wraps a the key
     // For this, the `SecretProtectedKeyEnvelope` is used.
     // (For low-entropy secrets such as a PIN, use the `PasswordProtectedKeyEnvelope` instead.)
 
