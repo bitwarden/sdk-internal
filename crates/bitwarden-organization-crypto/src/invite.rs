@@ -395,7 +395,6 @@ impl Invite {
             .map_err(|_| InviteKeyBundleError::InvalidPrivateKey)?;
 
         let invite_secret = InviteSecret::make();
-
         let invite_key = KeyEncryptionKey::make(ctx);
 
         // Seal the invite data (thumbprint + a copy of the invite secret) under a fresh
