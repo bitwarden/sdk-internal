@@ -364,8 +364,9 @@ impl Invite {
         self.invite_key_sealed_organization_key = None;
     }
 
-    /// Generates a brand new invite around a fresh AES-256-GCM invite key, binding it to the
-    /// provided organization key and the organization's public-key thumbprint (see [`Invite`]).
+    /// Generates a brand new invite around a new invite key. The invite is sealed for the
+    /// provided organization key and bound to the organization's public-key thumbprint (see
+    /// [`Invite`]).
     ///
     /// `wrapped_organization_private_key` is the organization's private key wrapped with
     /// `organization_key`; the public-key thumbprint bound into the invite is derived from it.
