@@ -34,9 +34,7 @@ use wasm_bindgen::prelude::*;
 use super::{RegistrationOpenOrgInviteData, data_v1::RegistrationOpenOrgInviteDataV1};
 use crate::registration::registration_client::{RegistrationClient, RegistrationError};
 
-/// Byte length of the per-registration [`HighEntropySecret`] the seal path generates. 32 bytes
-/// = 256 bits, well above [`HighEntropySecret`]'s minimum-length floor and matching the
-/// standard random-secret size elsewhere in the SDK.
+/// Byte length of the per-registration [`HighEntropySecret`] the seal path generates.
 pub(super) const OPEN_ORG_INVITE_SECRET_SIZE_BYTES: usize = 32;
 
 /// Input to [`RegistrationClient::seal_open_org_invite_data`]. All three fields are required.
