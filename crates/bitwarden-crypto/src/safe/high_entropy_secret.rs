@@ -85,15 +85,6 @@ impl HighEntropySecret {
     }
 }
 
-/// Parses a `HighEntropySecret` from a standardized base64 string previously produced by
-/// `String::from(secret)` (or by the equivalent WASM ABI marshaling).
-///
-/// The caller must guarantee that the decoded bytes originated from a genuine high-entropy
-/// source. This constructor does not — and cannot — validate entropy on its own; feeding
-/// low-entropy input to the cheap KDF that consumes this type will not provide the
-/// brute-force resistance the KDF assumes. The length check below is a floor, not an entropy
-/// check: it rejects trivially-short inputs that could not possibly carry enough bits, but a
-/// caller passing 32 bytes of a fixed ASCII string will still succeed.
 impl FromStr for HighEntropySecret {
     type Err = HighEntropySecretError;
 
@@ -106,9 +97,6 @@ impl FromStr for HighEntropySecret {
     }
 }
 
-/// Encodes a `HighEntropySecret` as a standardized base64 string. The returned string carries
-/// the secret in cleartext — logging it, persisting it, or transmitting it over an untrusted
-/// channel each leak the secret.
 impl From<HighEntropySecret> for String {
     fn from(val: HighEntropySecret) -> Self {
         B64::from(val.secret.as_slice()).to_string()
