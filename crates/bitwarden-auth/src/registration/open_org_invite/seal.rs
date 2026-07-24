@@ -8,10 +8,6 @@
 //!   generated content-encryption key (CEK);
 //! - outer [`SecretProtectedKeyEnvelope`] seals that CEK with a per-registration
 //!   [`HighEntropySecret`].
-//!
-//! Substitution defense at both layers is the AES-GCM auth tag / wrong-key check — the SDK
-//! performs no post-decrypt equality check on the plaintext, matching how
-//! `Invite::unseal` in `invite_key_bundle` trusts the crypto.
 
 use std::str::FromStr;
 
