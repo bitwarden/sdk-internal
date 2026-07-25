@@ -22,6 +22,7 @@ wasm = [
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
     "bitwarden-organization-crypto/wasm",
+    "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
 ]
@@ -33,7 +34,10 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-organization-crypto = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
 thiserror = { workspace = true }
+tsify = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
