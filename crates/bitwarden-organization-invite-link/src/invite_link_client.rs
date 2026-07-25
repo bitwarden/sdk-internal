@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use bitwarden_api_api::models::{
     AcceptOrganizationInviteLinkRequestModel, ConfirmOrganizationInviteLinkRequestModel,
-    CreateOrganizationInviteLinkRequestModel,
+    CreateOrganizationInviteLinkRequestModel, GetOrganizationInviteRequestModel,
+    RefreshOrganizationInviteLinkRequestModel, UpdateOrganizationInviteLinkRequestModel,
 };
 use bitwarden_core::{
     ApiError, Client, FromClient, MissingFieldError, OrganizationId,
@@ -12,14 +13,17 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     CoseKeyThumbprintExt, CryptoError, EncString, KeyStore, PrimitiveEncryptable, PublicKey,
-    PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, UnsignedSharedKey,
+    SpkiPublicKeyBytes, UnsignedSharedKey,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use bitwarden_organization_crypto::invite::{Invite, InviteKeyBundleError, InviteSecret};
+use http::StatusCode;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
+
+use crate::organization_invite_link::OrganizationInviteLink;
 
 /// Errors returned from [`InviteLinkClient`] operations.
 #[bitwarden_error(flat)]
@@ -54,60 +58,132 @@ pub struct InviteLinkClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl InviteLinkClient {
-    /// Creates a new organization invite and posts it to the server, returning the
-    /// [`InviteSecret`] carried in the invite link.
+    /// Get an existing invite link.
+    pub async fn get(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<Option<OrganizationInviteLink>, InviteLinkError> {
+        let response = match self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .get(organization_id.into())
+            .await
+            .map_err(ApiError::from)
+        {
+            Ok(response) => response,
+            Err(ApiError::Response(rc)) if rc.status == StatusCode::NOT_FOUND => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+
+        OrganizationInviteLink::try_from(response).map(Some)
+    }
+
+    /// Delete an existing invite link.
+    pub async fn delete(&self, organization_id: OrganizationId) -> Result<(), InviteLinkError> {
+        self.api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .delete(organization_id.into())
+            .await
+            .map_err(ApiError::from)?;
+        Ok(())
+    }
+
+    /// Creates a new organization invite and posts it to the server, returning the full
+    /// [`OrganizationInviteLink`] persisted by the server.
     ///
     /// # Security
-    /// The returned [`InviteSecret`] MUST NOT be sent to the server; only the sealed invite is
-    /// posted here.
-    pub async fn make_invite(
+    /// Only the sealed invite is posted to the server; the invite secret is never sent. Use
+    /// [`InviteLinkClient::get_invite_secret`] to recover the secret needed to reconstruct the
+    /// invite link.
+    pub async fn make_invite_link(
         &self,
         organization_id: OrganizationId,
         allowed_domains: Vec<String>,
-    ) -> Result<InviteSecret, InviteLinkError> {
-        let wrapped_private_key = self.download_wrapped_private_key(organization_id).await?;
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        let invite = self.make_invite(organization_id).await?;
 
-        // Confine the (non-Send) key store context to a synchronous scope so nothing is held
-        // across the `.await` below.
-        let (invite_secret, invite, supports_confirmation) = {
-            let mut ctx = self.key_store.context();
-            let org_key = SymmetricKeySlotId::Organization(organization_id);
-            let (invite_secret, invite) =
-                Invite::make_for_private_key(org_key, &wrapped_private_key, &mut ctx)?;
-            let supports_confirmation = invite.supports_confirmation();
-            (invite_secret, String::from(&invite), supports_confirmation)
-        };
-
-        self.api_configurations
+        let response = self
+            .api_configurations
             .api_client
             .organization_invite_links_api()
             .create(
                 organization_id.into(),
                 Some(CreateOrganizationInviteLinkRequestModel {
                     allowed_domains,
-                    invite,
-                    supports_confirmation,
+                    invite: String::from(&invite),
+                    supports_confirmation: invite.supports_confirmation(),
                 }),
             )
             .await
             .map_err(ApiError::from)?;
 
-        Ok(invite_secret)
+        OrganizationInviteLink::try_from(response)
     }
 
-    /// Fetches the organization's invite from the server and, using the organization key, recovers
-    /// the [`InviteSecret`] so an admin can reconstruct the invite link.
-    pub async fn get_invite_secret(
+    /// Refresh an existing invite link.
+    /// This generates a new code and secret.
+    pub async fn refresh_invite(
         &self,
         organization_id: OrganizationId,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        let invite = self.make_invite(organization_id).await?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .refresh(
+                organization_id.into(),
+                Some(RefreshOrganizationInviteLinkRequestModel {
+                    invite: String::from(&invite),
+                    supports_confirmation: invite.supports_confirmation(),
+                }),
+            )
+            .await
+            .map_err(ApiError::from)?;
+
+        OrganizationInviteLink::try_from(response)
+    }
+
+    /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
+    /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
+    pub fn get_invite_secret(
+        &self,
+        organization_invite_link: OrganizationInviteLink,
     ) -> Result<InviteSecret, InviteLinkError> {
-        let invite = self.fetch_invite(organization_id).await?;
+        let OrganizationInviteLink {
+            organization_id,
+            invite,
+            ..
+        } = organization_invite_link;
 
         let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
         let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
         let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
         Ok(invite_secret)
+    }
+
+    /// Updates the allowed domains for an existing organization invite link.
+    pub async fn update_allowed_domains(
+        &self,
+        organization_id: OrganizationId,
+        allowed_domains: Vec<String>,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .update(
+                organization_id.into(),
+                Some(UpdateOrganizationInviteLinkRequestModel { allowed_domains }),
+            )
+            .await
+            .map_err(ApiError::from)?;
+
+        OrganizationInviteLink::try_from(response)
     }
 
     /// Accepts an organization invite for the current user, optionally enrolling into account
@@ -141,7 +217,19 @@ impl InviteLinkClient {
         } else {
             None
         };
-        let invite = self.fetch_invite(organization_id).await?;
+
+        let invite_response = self
+            .api_configurations
+            .api_client
+            .organization_users_api()
+            .get_invite(Some(GetOrganizationInviteRequestModel {
+                organization_id: organization_id.into(),
+                code,
+            }))
+            .await
+            .map_err(ApiError::from)?;
+
+        let invite: Invite = require!(invite_response.invite).parse()?;
 
         // Confine the (non-Send) key store context to a synchronous scope; it produces the owned
         // request payload consumed after the `.await`s below.
@@ -187,6 +275,7 @@ impl InviteLinkClient {
                     .encrypt(&mut ctx, org_key)?
                     .to_string();
                 PendingPost::Confirm(ConfirmOrganizationInviteLinkRequestModel {
+                    organization_id: organization_id.into(),
                     code,
                     org_user_key,
                     reset_password_key,
@@ -194,6 +283,7 @@ impl InviteLinkClient {
                 })
             } else {
                 PendingPost::Accept(AcceptOrganizationInviteLinkRequestModel {
+                    organization_id: organization_id.into(),
                     code,
                     reset_password_key,
                 })
@@ -214,6 +304,28 @@ impl InviteLinkClient {
 
         Ok(())
     }
+
+    /// Makes an invite blob to be included in a new invite link request.
+    async fn make_invite(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<Invite, InviteLinkError> {
+        let wrapped_private_key_response = self
+            .api_configurations
+            .api_client
+            .organizations_api()
+            .get_private_key(organization_id.into())
+            .await
+            .map_err(ApiError::from)?;
+
+        let wrapped_private_key: EncString =
+            require!(wrapped_private_key_response.private_key).parse()?;
+
+        let mut ctx = self.key_store.context();
+        let org_key = SymmetricKeySlotId::Organization(organization_id);
+        let (_, invite) = Invite::make_for_private_key(org_key, &wrapped_private_key, &mut ctx)?;
+        Ok(invite)
+    }
 }
 
 /// A prepared invite acceptance request, built while the key store context is held and posted once
@@ -221,51 +333,6 @@ impl InviteLinkClient {
 enum PendingPost {
     Confirm(ConfirmOrganizationInviteLinkRequestModel),
     Accept(AcceptOrganizationInviteLinkRequestModel),
-}
-
-// Stubbed network helpers.
-//
-// The backend endpoints these represent do not exist yet, so they are stubbed and the real API
-// wiring lands in a follow-up PR (see TODOs). They are kept as small private helpers so the public
-// methods above do not change when the real calls are added. They are `async` because they stand
-// in for network calls; the real implementations will `.await`, so silence `unused_async` until
-// then.
-#[allow(clippy::unused_async)]
-impl InviteLinkClient {
-    /// TODO(PM-40523): replace with a real API call that downloads the organization's private key,
-    /// wrapped with the organization key. For now we derive one locally so the invite flow is
-    /// exercisable end-to-end.
-    async fn download_wrapped_private_key(
-        &self,
-        organization_id: OrganizationId,
-    ) -> Result<EncString, InviteLinkError> {
-        let mut ctx = self.key_store.context();
-        let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        Ok(ctx.wrap_private_key(org_key, private_key)?)
-    }
-
-    /// TODO(PM-38749): replace with a real API call. The `get` invite-link endpoint currently
-    /// returns no invite payload, so we synthesize a fresh invite from a locally-derived wrapped
-    /// private key.
-    async fn fetch_invite(
-        &self,
-        organization_id: OrganizationId,
-    ) -> Result<Invite, InviteLinkError> {
-        // Test seam: let tests pin the invite the "server" returns so invitee flows can supply a
-        // matching invite secret. Not compiled into release builds.
-        #[cfg(test)]
-        if let Some(invite) = TEST_INVITE.with(|slot| slot.borrow_mut().take()) {
-            return Ok(invite);
-        }
-
-        let wrapped_private_key = self.download_wrapped_private_key(organization_id).await?;
-        let mut ctx = self.key_store.context();
-        let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let (_invite_secret, invite) =
-            Invite::make_for_private_key(org_key, &wrapped_private_key, &mut ctx)?;
-        Ok(invite)
-    }
 }
 
 /// Extension trait that exposes [`InviteLinkClient`] on [`Client`].
@@ -290,11 +357,16 @@ thread_local! {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::{apis::ApiClient, models::OrganizationPublicKeyResponseModel};
+    use bitwarden_api_api::{
+        apis::ApiClient,
+        models::{OrganizationInviteLinkResponseModel, OrganizationPublicKeyResponseModel},
+    };
     use bitwarden_core::{
         client::ApiConfigurations, key_management::create_test_crypto_with_user_and_org_key,
     };
-    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{
+        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+    };
 
     use super::*;
 
@@ -316,46 +388,75 @@ mod tests {
         }
     }
 
+    /// Serializes a fresh, valid [`Invite`] so response fixtures carry a parseable invite.
+    fn valid_invite_string() -> String {
+        let org_id = OrganizationId::new_v4();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let key_store = create_test_crypto_with_user_and_org_key(user_key, org_id, org_key);
+        let mut ctx = key_store.context();
+        let slot = SymmetricKeySlotId::Organization(org_id);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let wrapped = ctx.wrap_private_key(slot, private_key).unwrap();
+        let (_secret, invite) = Invite::make_for_private_key(slot, &wrapped, &mut ctx).unwrap();
+        String::from(&invite)
+    }
+
+    /// Builds a well-formed invite-link response the "server" returns from `create`.
+    fn create_response() -> OrganizationInviteLinkResponseModel {
+        OrganizationInviteLinkResponseModel {
+            object: None,
+            id: Some(uuid::Uuid::new_v4()),
+            code: Some(uuid::Uuid::new_v4()),
+            organization_id: Some(uuid::Uuid::new_v4()),
+            allowed_domains: Some(vec!["example.com".to_string()]),
+            invite: Some(valid_invite_string()),
+            supports_confirmation: Some(true),
+            creation_date: Some("2025-01-10T00:00:00Z".to_string()),
+        }
+    }
+
     /// Mocks the invite-links API so `create` succeeds.
     fn mocked_create_ok() -> ApiClient {
         ApiClient::new_mocked(|mock| {
             mock.organization_invite_links_api
                 .expect_create()
-                .returning(|_org, _model| Ok(()))
+                .returning(|_org, _model| Ok(create_response()))
                 .once();
         })
     }
 
     #[tokio::test]
-    async fn make_invite_posts_and_returns_secret() {
+    async fn make_invite_posts_and_returns_link() {
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id, mocked_create_ok());
 
-        let secret = client
-            .make_invite(org_id, vec!["example.com".to_string()])
+        let link = client
+            .make_invite_link(org_id, vec!["example.com".to_string()])
             .await
             .unwrap();
 
-        assert!(!String::from(&secret).is_empty());
+        assert!(link.supports_confirmation);
+        assert_eq!(link.allowed_domains, vec!["example.com".to_string()]);
     }
 
     #[tokio::test]
-    async fn make_invite_two_calls_produce_different_secrets() {
+    async fn make_invite_two_calls_produce_different_invites() {
         let org_id = OrganizationId::new_v4();
         let client = make_client(
             org_id,
             ApiClient::new_mocked(|mock| {
                 mock.organization_invite_links_api
                     .expect_create()
-                    .returning(|_org, _model| Ok(()))
+                    .returning(|_org, _model| Ok(create_response()))
                     .times(2);
             }),
         );
 
-        let secret1 = client.make_invite(org_id, vec![]).await.unwrap();
-        let secret2 = client.make_invite(org_id, vec![]).await.unwrap();
+        let link1 = client.make_invite_link(org_id, vec![]).await.unwrap();
+        let link2 = client.make_invite_link(org_id, vec![]).await.unwrap();
 
-        assert_ne!(String::from(&secret1), String::from(&secret2));
+        assert_ne!(String::from(&link1.invite), String::from(&link2.invite));
     }
 
     #[tokio::test]
@@ -364,7 +465,7 @@ mod tests {
         let other_org_id = OrganizationId::new_v4();
         let client = make_client(org_id, ApiClient::new_mocked(|_| {}));
 
-        let result = client.make_invite(other_org_id, vec![]).await;
+        let result = client.make_invite_link(other_org_id, vec![]).await;
 
         assert!(matches!(result, Err(InviteLinkError::Crypto(_))));
     }
@@ -381,19 +482,38 @@ mod tests {
             }),
         );
 
-        let result = client.make_invite(org_id, vec![]).await;
+        let result = client.make_invite_link(org_id, vec![]).await;
 
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
     }
 
-    #[tokio::test]
-    async fn get_invite_secret_round_trips_to_the_invite_secret() {
+    #[test]
+    fn get_invite_secret_round_trips_to_the_invite_secret() {
         let org_id = OrganizationId::new_v4();
         let client = make_client(org_id, ApiClient::new_mocked(|_| {}));
 
-        // `fetch_invite` synthesizes a valid invite for the org; `get_invite_secret` must recover a
-        // non-empty secret from it via the organization key.
-        let secret = client.get_invite_secret(org_id).await.unwrap();
+        // Build an invite bound to the client's org key, wrapped in an `OrganizationInviteLink`;
+        // `get_invite_secret` must recover a non-empty secret from it via the organization key.
+        let invite = {
+            let mut ctx = client.key_store.context();
+            let org_key = SymmetricKeySlotId::Organization(org_id);
+            let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+            let wrapped = ctx.wrap_private_key(org_key, private_key).unwrap();
+            let (_secret, invite) =
+                Invite::make_for_private_key(org_key, &wrapped, &mut ctx).unwrap();
+            invite
+        };
+        let link = OrganizationInviteLink {
+            id: uuid::Uuid::new_v4(),
+            code: uuid::Uuid::new_v4(),
+            organization_id: org_id,
+            allowed_domains: vec![],
+            invite,
+            supports_confirmation: true,
+            creation_date: "2025-01-10T00:00:00Z".parse().unwrap(),
+        };
+
+        let secret = client.get_invite_secret(link).unwrap();
         assert!(!String::from(&secret).is_empty());
     }
 
