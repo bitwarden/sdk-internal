@@ -11,12 +11,11 @@ use thiserror::Error;
 
 use super::SealedOpenOrgInviteData;
 
-/// Internal CBOR framing shape for [`SealedOpenOrgInviteData`]. Each field is the direct
-/// serialization of the respective envelope type, forced to CBOR `bstr` (major type 2) via
-/// `serde_bytes` for compactness — serde's default `Vec<u8>` handling would emit a CBOR array
-/// of integers roughly doubling the encoded size.
+/// Intermediate shape used to (de)serialize [`SealedOpenOrgInviteData`] to and from its wire
+/// bytes. Each envelope is carried as raw bytes under a short field name for compactness.
 #[derive(Serialize, Deserialize)]
 struct SealedOpenOrgInviteDataWire {
+    // Without serde_bytes, Vec<u8> encodes as a CBOR array of integers (~2x the size).
     #[serde(rename = "d", with = "serde_bytes")]
     data_envelope: Vec<u8>,
     #[serde(rename = "k", with = "serde_bytes")]
