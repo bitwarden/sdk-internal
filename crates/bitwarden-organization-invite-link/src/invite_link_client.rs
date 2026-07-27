@@ -116,6 +116,7 @@ impl InviteLinkClient {
 
     /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
     /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_return_type = "InviteSecret"))]
     pub fn get_invite_secret(
         &self,
         organization_id: OrganizationId,
