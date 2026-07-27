@@ -1,6 +1,7 @@
-//! Wire encoding for [`SealedOpenOrgInviteData`]: base64url outer, CBOR inner. The manual
-//! serde and WASM ABI impls collapse the two internal envelopes into a single opaque string
-//! across every boundary.
+//! Wire encoding for [`SealedOpenOrgInviteData`]. Its two internal envelopes are packed with
+//! CBOR (compact binary format) then base64url-wrapped so it crosses every boundary as one
+//! opaque string — via serde on the Rust side and the WASM ABI (wasm-bindgen's Rust↔JS
+//! conversion layer) into TypeScript.
 
 use std::str::FromStr;
 
