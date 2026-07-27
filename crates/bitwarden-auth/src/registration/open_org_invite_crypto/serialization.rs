@@ -27,7 +27,7 @@ struct SealedOpenOrgInviteDataWire {
 #[derive(Debug, Error)]
 pub enum SealedOpenOrgInviteDataError {
     /// The wire string could not be decoded.
-    #[error("Sealed envelope pair is malformed")]
+    #[error("Sealed open org invite data is malformed")]
     Malformed,
 }
 
