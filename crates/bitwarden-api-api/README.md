@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`2f375aa0852a3f464415aac71ae58494cc12d4e8`](https://github.com/bitwarden/server/commit/2f375aa0852a3f464415aac71ae58494cc12d4e8)
+  [`f15fee9e1d2f7e9d9502876e773cf1413f6519f0`](https://github.com/bitwarden/server/commit/f15fee9e1d2f7e9d9502876e773cf1413f6519f0)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -805,6 +805,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationInviteLinkStatusResponseModel](docs/OrganizationInviteLinkStatusResponseModel.md)
 - [OrganizationInviteLinkValidateEmailDomainRequestModel](docs/OrganizationInviteLinkValidateEmailDomainRequestModel.md)
 - [OrganizationInviteLinkValidateEmailDomainResponseModel](docs/OrganizationInviteLinkValidateEmailDomainResponseModel.md)
+- [OrganizationInviteResponseModel](docs/OrganizationInviteResponseModel.md)
 - [OrganizationKeysRequestModel](docs/OrganizationKeysRequestModel.md)
 - [OrganizationKeysResponseModel](docs/OrganizationKeysResponseModel.md)
 - [OrganizationLicense](docs/OrganizationLicense.md)

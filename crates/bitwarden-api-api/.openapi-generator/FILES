@@ -320,6 +320,7 @@ src/models/organization_invite_link_sso_response_model.rs
 src/models/organization_invite_link_status_response_model.rs
 src/models/organization_invite_link_validate_email_domain_request_model.rs
 src/models/organization_invite_link_validate_email_domain_response_model.rs
+src/models/organization_invite_response_model.rs
 src/models/organization_keys_request_model.rs
 src/models/organization_keys_response_model.rs
 src/models/organization_license.rs
