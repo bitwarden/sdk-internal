@@ -43,9 +43,6 @@ export interface InviteLinkServerOptions {
  * ```ts
  * installHttpMock({ ...inviteLinkRoutes(), [ROUTES.getInvite]: () => ({ json: { invite } }) });
  * ```
- *
- * Create and refresh echo the posted invite back in their response, the way the server persists and
- * returns it, so `link.invite` is genuinely what went over the wire.
  */
 export function inviteLinkRoutes(options: InviteLinkServerOptions = {}): Routes {
   const invite = () => {
