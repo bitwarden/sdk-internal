@@ -41,9 +41,9 @@ pub enum InviteLinkError {
     /// A required field was missing from a server response.
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
-    /// A field in a server response was present but malformed and could not be parsed.
-    #[error("Failed to parse `{0}` from server response")]
-    MalformedField(&'static str),
+    /// A value was present but malformed and could not be parsed.
+    #[error("Failed to parse `{0}`")]
+    ParseFailure(&'static str),
     /// The account-recovery public key returned by the server does not match the organization
     /// public key bound into the invite.
     #[error("Account recovery public key does not match the invite's bound organization key")]
@@ -150,7 +150,7 @@ impl InviteLinkClient {
         enroll_into_account_recovery: bool,
     ) -> Result<(), InviteLinkError> {
         let code =
-            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::MalformedField("code"))?;
+            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
 
         // When enrolling into account recovery, fetch the organization's public key (which is the
         // account-recovery public key) from the server.
@@ -165,7 +165,7 @@ impl InviteLinkClient {
             Some(
                 require!(response.public_key)
                     .parse::<B64>()
-                    .map_err(|_| InviteLinkError::MalformedField("public_key"))?,
+                    .map_err(|_| InviteLinkError::ParseFailure("public_key"))?,
             )
         } else {
             None

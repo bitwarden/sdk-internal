@@ -43,7 +43,7 @@ impl TryFrom<OrganizationInviteLinkResponseModel> for OrganizationInviteLink {
             supports_confirmation: response.supports_confirmation.unwrap_or(false),
             creation_date: require!(response.creation_date)
                 .parse()
-                .map_err(|_| InviteLinkError::MalformedField("creation_date"))?,
+                .map_err(|_| InviteLinkError::ParseFailure("creation_date"))?,
         })
     }
 }
