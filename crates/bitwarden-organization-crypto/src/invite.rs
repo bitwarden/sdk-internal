@@ -191,7 +191,7 @@ export type Invite = Tagged<string, "Invite">;
 
 /// Cryptographic invite for an organization, built around an XAES-256-GCM invite key that acts as
 /// the hub tying everything together. See the module-level docs for the overall diagram.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Invite {
     /// The `InviteData` (org public-key thumbprint + invite secret) sealed with its own
     /// content-encryption key (CEK).
@@ -213,9 +213,37 @@ pub struct Invite {
     organization_key_sealed_invite_key: EncString,
 }
 
+/// Wire format for [`Invite`]. This is what's serialized by serde.
+///
+/// [`Invite`] itself serializes as its [`String`] form, so this mirror struct carries the actual
+/// JSON field layout. Keeping the two apart means an invite is a single opaque string wherever it
+/// is embedded — on the wire, in storage, and across the WASM boundary, where it is typed as
+/// `Tagged<string, "Invite">`.
+#[derive(Serialize, Deserialize)]
+struct SerializedInvite {
+    sealed_invite_data: DataEnvelope,
+    invite_key_sealed_invite_data_cek: SymmetricKeyEnvelope,
+    invite_secret_sealed_invite_key: SecretProtectedKeyEnvelope,
+    invite_key_sealed_organization_key: Option<SymmetricKeyEnvelope>,
+    organization_key_sealed_invite_key: EncString,
+}
+
+impl From<&Invite> for SerializedInvite {
+    fn from(invite: &Invite) -> Self {
+        SerializedInvite {
+            sealed_invite_data: invite.sealed_invite_data.clone(),
+            invite_key_sealed_invite_data_cek: invite.invite_key_sealed_invite_data_cek.clone(),
+            invite_secret_sealed_invite_key: invite.invite_secret_sealed_invite_key.clone(),
+            invite_key_sealed_organization_key: invite.invite_key_sealed_organization_key.clone(),
+            organization_key_sealed_invite_key: invite.organization_key_sealed_invite_key.clone(),
+        }
+    }
+}
+
 impl From<&Invite> for String {
     fn from(invite: &Invite) -> Self {
-        serde_json::to_string(invite).expect("JSON serialization of Invite never fails")
+        serde_json::to_string(&SerializedInvite::from(invite))
+            .expect("JSON serialization of Invite never fails")
     }
 }
 
@@ -223,7 +251,33 @@ impl FromStr for Invite {
     type Err = InviteKeyBundleError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s).map_err(|_| InviteKeyBundleError::DecodingFailed)
+        let data: SerializedInvite =
+            serde_json::from_str(s).map_err(|_| InviteKeyBundleError::DecodingFailed)?;
+        Ok(Invite {
+            sealed_invite_data: data.sealed_invite_data,
+            invite_key_sealed_invite_data_cek: data.invite_key_sealed_invite_data_cek,
+            invite_secret_sealed_invite_key: data.invite_secret_sealed_invite_key,
+            invite_key_sealed_organization_key: data.invite_key_sealed_organization_key,
+            organization_key_sealed_invite_key: data.organization_key_sealed_invite_key,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for Invite {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl Serialize for Invite {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
     }
 }
 
@@ -634,8 +688,11 @@ mod tests {
         let recovered = decoded.get_invite_secret(invite_key, &mut ctx).unwrap();
         assert_eq!(invite_secret, recovered);
 
-        // The custom serde impls delegate to the string round-trip.
+        // The custom serde impls delegate to the string round-trip: an invite must serialize as a
+        // single string, not as a struct. Callers (notably the WASM bindings, which type an invite
+        // as `Tagged<string, "Invite">`) depend on this.
         let json = serde_json::to_string(&invite).unwrap();
+        assert_eq!(json, serde_json::to_string(&encoded).unwrap());
         let from_json: Invite = serde_json::from_str(&json).unwrap();
         assert_eq!(String::from(&from_json), encoded);
     }

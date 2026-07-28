@@ -22,6 +22,7 @@ import {
   SharedUnlockFollower,
   SharedUnlockLeader,
   InitUserCryptoMethod,
+  ClientSettings,
 } from "@bitwarden/sdk-internal";
 import {
   ORG_ACCOUNT_KDF_PARAMS,
@@ -118,14 +119,17 @@ export const MASTER_KEY_WRAPPED_USER_KEY =
 /**
  * Makes an uninitialized password manager client and registers the supplied state bridge.
  */
-export function makePasswordManagerClient(stateBridge: WasmStateBridge): PasswordManagerClient {
+export function makePasswordManagerClient(
+  stateBridge: WasmStateBridge,
+  settings?: ClientSettings,
+): PasswordManagerClient {
   init_sdk();
 
   const tokens: TokenProvider = {
     get_access_token: async () => undefined,
   };
 
-  const client = new PasswordManagerClient(tokens);
+  const client = new PasswordManagerClient(tokens, settings);
   client.km_state_bridge().register_bridge_impl(stateBridge);
   return client;
 }
@@ -177,15 +181,15 @@ export async function makeInitializedPasswordmanagerClient(
 }
 
 /**
- * Makes a password manager client initialized with the organization-capable
- * account (see `org-fixtures.ts`) and the organization's key loaded into the
- * key store. This is the setup required for organization-scoped operations
- * such as the invite link client.
+ * Makes a password manager client with the organization-capable account (see `org-fixtures.ts`)
+ * unlocked, but with no organization key in the key store — the state a user who has been invited
+ * to an organization but has not yet joined it is in.
  */
-export async function makeOrgInitializedClient(
+export async function makeOrgAccountClient(
   stateBridge: WasmStateBridge,
+  settings?: ClientSettings,
 ): Promise<PasswordManagerClient> {
-  const client = makePasswordManagerClient(stateBridge);
+  const client = makePasswordManagerClient(stateBridge, settings);
   await client.crypto().initialize_user_crypto({
     userId: TEST_USER_ID,
     kdfParams: ORG_ACCOUNT_KDF_PARAMS,
@@ -202,6 +206,20 @@ export async function makeOrgInitializedClient(
       },
     },
   });
+  return client;
+}
+
+/**
+ * Makes a password manager client initialized with the organization-capable
+ * account (see `org-fixtures.ts`) and the organization's key loaded into the
+ * key store. This is the setup required for organization-scoped operations
+ * such as the invite link client.
+ */
+export async function makeOrgInitializedClient(
+  stateBridge: WasmStateBridge,
+  settings?: ClientSettings,
+): Promise<PasswordManagerClient> {
+  const client = await makeOrgAccountClient(stateBridge, settings);
   await client.crypto().initialize_org_crypto({
     organizationKeys: new Map([[TEST_ORGANIZATION_ID, TEST_ORGANIZATION_KEY]]),
   });
