@@ -234,7 +234,7 @@ mod tests {
         let result = access_send(&api_client, ACCESS_TOKEN).await.unwrap();
 
         assert_eq!(result.id, Some(SEND_ID.to_string()));
-        assert_eq!(result.type_, Some(crate::SendType::File));
+        assert_eq!(result.type_, Some(crate::SendType::Text));
         assert_eq!(result.name, Some("encrypted-name".to_string()));
         assert!(result.file.is_none());
         let text = result.text.expect("text variant should be populated");
