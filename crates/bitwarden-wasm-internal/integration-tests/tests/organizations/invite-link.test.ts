@@ -45,7 +45,7 @@ describe("invite link client", () => {
 
       const link = await admin
         .invite_link()
-        .create_invite_link(TEST_ORGANIZATION_ID, ["example.com", "test.com"]);
+        .create_invite_link(TEST_ORGANIZATION_ID, ["example.com", "test.com"], true);
 
       expect(mock.routes()).toEqual([ROUTES.privateKey, ROUTES.create]);
 
@@ -81,7 +81,7 @@ describe("invite link client", () => {
       mock = installHttpMock(inviteLinkRoutes());
       const inviteLink = admin.invite_link();
 
-      const link = await inviteLink.create_invite_link(TEST_ORGANIZATION_ID, []);
+      const link = await inviteLink.create_invite_link(TEST_ORGANIZATION_ID, [], true);
       const secret = inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, link.invite);
 
       expect(secret).toMatch(SECRET_PATTERN);
@@ -95,7 +95,7 @@ describe("invite link client", () => {
     it("posts a new invite to the refresh endpoint", async () => {
       mock = installHttpMock(inviteLinkRoutes());
 
-      const link = await admin.invite_link().refresh_invite_link(TEST_ORGANIZATION_ID);
+      const link = await admin.invite_link().refresh_invite_link(TEST_ORGANIZATION_ID, true);
 
       expect(mock.routes()).toEqual([ROUTES.privateKey, ROUTES.refresh]);
       // Refreshing must not fall through to the create endpoint.
@@ -111,8 +111,8 @@ describe("invite link client", () => {
       mock = installHttpMock(inviteLinkRoutes());
       const inviteLink = admin.invite_link();
 
-      const created = await inviteLink.create_invite_link(TEST_ORGANIZATION_ID, []);
-      const refreshed = await inviteLink.refresh_invite_link(TEST_ORGANIZATION_ID);
+      const created = await inviteLink.create_invite_link(TEST_ORGANIZATION_ID, [], true);
+      const refreshed = await inviteLink.refresh_invite_link(TEST_ORGANIZATION_ID, true);
 
       expect(refreshed.invite).not.toBe(created.invite);
       expect(inviteLink.get_invite_secret(TEST_ORGANIZATION_ID, refreshed.invite)).not.toBe(
@@ -262,7 +262,11 @@ describe("invite link client", () => {
     );
 
     const adminInviteLink = admin.invite_link();
-    const link = await adminInviteLink.create_invite_link(TEST_ORGANIZATION_ID, ["example.com"]);
+    const link = await adminInviteLink.create_invite_link(
+      TEST_ORGANIZATION_ID,
+      ["example.com"],
+      true,
+    );
     const secret = adminInviteLink.get_invite_secret(TEST_ORGANIZATION_ID, link.invite);
 
     expect(persisted).toBe(link.invite);
