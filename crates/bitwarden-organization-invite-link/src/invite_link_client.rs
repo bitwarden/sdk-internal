@@ -378,6 +378,50 @@ mod tests {
         (secret, invite, org_public_key)
     }
 
+    /// Regenerates the invite-link fixtures used by the WASM integration tests in
+    /// `crates/bitwarden-wasm-internal/integration-tests/tests/org-fixtures.ts`. All five values
+    /// belong together — the invites bind the thumbprint of the public key of the private key they
+    /// wrap — so they must always be copied over as a set.
+    #[tokio::test]
+    #[ignore = "Manual test to generate integration-test fixtures"]
+    async fn generate_integration_test_fixtures() {
+        let org_id: OrganizationId = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+        let core = Client::init_test_account(
+            bitwarden_core::client::test_accounts::test_bitwarden_com_account(),
+        )
+        .await;
+        let client = core.invite_link();
+
+        let mut ctx = client.key_store.context();
+        let org_key = SymmetricKeySlotId::Organization(org_id);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let public_key = B64::from(
+            ctx.get_public_key(private_key)
+                .unwrap()
+                .to_der()
+                .unwrap()
+                .as_ref(),
+        );
+        let wrapped = ctx.wrap_private_key(org_key, private_key).unwrap();
+        let (secret, invite) = Invite::make_for_private_key(org_key, &wrapped, &mut ctx).unwrap();
+
+        // The same invite with the organization-key envelope stripped, which drives the acceptance
+        // (rather than self-confirmation) branch. It shares the invite secret and the bound
+        // public-key thumbprint, so one secret and one public key serve both invites.
+        let mut no_confirmation = invite.clone();
+        no_confirmation.disable_confirmation();
+        assert!(invite.supports_confirmation() && !no_confirmation.supports_confirmation());
+
+        println!("TEST_ORG_WRAPPED_PRIVATE_KEY = {}", wrapped.to_string());
+        println!("TEST_ORG_PUBLIC_KEY = {public_key}");
+        println!("TEST_INVITE = {}", String::from(&invite));
+        println!(
+            "TEST_INVITE_NO_CONFIRMATION = {}",
+            String::from(&no_confirmation)
+        );
+        println!("TEST_INVITE_SECRET = {}", String::from(&secret));
+    }
+
     #[tokio::test]
     async fn create_invite_link_posts_and_returns_link() {
         let org_id = OrganizationId::new_v4();
