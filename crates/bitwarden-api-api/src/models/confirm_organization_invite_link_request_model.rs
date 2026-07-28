@@ -14,6 +14,8 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConfirmOrganizationInviteLinkRequestModel {
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
+    pub organization_id: uuid::Uuid,
     #[serde(rename = "code", alias = "Code")]
     pub code: uuid::Uuid,
     /// The organization symmetric key encrypted to the user.
@@ -38,11 +40,13 @@ pub struct ConfirmOrganizationInviteLinkRequestModel {
 
 impl ConfirmOrganizationInviteLinkRequestModel {
     pub fn new(
+        organization_id: uuid::Uuid,
         code: uuid::Uuid,
         org_user_key: String,
         default_user_collection_name: String,
     ) -> ConfirmOrganizationInviteLinkRequestModel {
         ConfirmOrganizationInviteLinkRequestModel {
+            organization_id,
             code,
             org_user_key,
             reset_password_key: None,

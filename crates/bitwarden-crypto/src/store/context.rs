@@ -14,7 +14,8 @@ use crate::{
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
-    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
+    derive_shareable_key, error::UnsupportedOperationError,
+    hazmat::symmetric_encryption::Aes256CbcHmacSha256, signing, store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -237,7 +238,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                Aes256CbcHmacSha256::decrypt(iv, data, mac, &key.to_composite_key())
                     .map_err(|_| CryptoError::Decrypt)?,
             ))?,
             (
@@ -773,7 +774,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+            ) => Aes256CbcHmacSha256::decrypt(iv, data, mac, &key.to_composite_key())
                 .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
