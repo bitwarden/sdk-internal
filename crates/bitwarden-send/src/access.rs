@@ -283,6 +283,7 @@ mod tests {
                             text: Some("encrypted-text".to_string()),
                             hidden: Some(true),
                         })),
+                        data: None,
                         expiration_date: Some("2025-01-10T00:00:00Z".to_string()),
                         creator_identifier: Some("user@example.com".to_string()),
                     })
@@ -351,6 +352,7 @@ mod tests {
                             size_name: Some("4.2 KB".to_string()),
                         })),
                         text: None,
+                        data: None,
                         expiration_date: None,
                         creator_identifier: None,
                     })

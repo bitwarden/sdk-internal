@@ -109,6 +109,8 @@ impl
             deletion_date: self.deletion_date.to_rfc3339(),
             file,
             text,
+            // TODO: Implement logic for item-based Sends
+            data: None,
             password,
             emails,
             disabled: self.disabled,
@@ -196,6 +198,7 @@ mod tests {
                         notes: model.notes,
                         file: model.file,
                         text: model.text,
+                        data: model.data,
                         key: Some(model.key),
                         max_access_count: model.max_access_count,
                         access_count: Some(0),
