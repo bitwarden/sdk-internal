@@ -1,58 +1,40 @@
 # Please sort into logical groups with comment headers. Sort groups in order of specificity.
-
 # For example, default owners should always be the first group.
-
 # Sort lines alphabetically within these groups to avoid accidentally adding duplicates.
-
 #
-
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # We have a few ownership models in use here, applied to team-owned crates as well as CLI code:
-
 # 1. Full ownership by team-platform-dev, for cases where teams have not yet onboarded at all.
-
 # 2. Joint team ownership with team-platform-dev, as a team onboards into SDK development and close guidance is necessary.
-
 # 3. Full team ownership, once a team is comfortable with SDK development and has enough shared experience to ensure alignment with SDK architecture.
 
 # Platform is the default owner for all files
-
-- @bitwarden/team-platform-dev
+* @bitwarden/team-platform-dev
 
 # CODEOWNERS owners
-
 .github/CODEOWNERS @bitwarden/tech-leads
 
 # Auto-generated bindings
-
 # For these bindings, we want Platform to continue to own everything except the auto-generated code.
-
 # Bindings for our API do not have an owner as the API is shared between teams.
-
 crates/bitwarden-api-api/src/**
 crates/bitwarden-api-api/README.md
 crates/bitwarden-api-api/.openapi-generator/**
-
 # Bindings for Identity are owned by Auth.
-
 crates/bitwarden-api-identity/src/** @bitwarden/team-auth-dev
 crates/bitwarden-api-identity/README.md @bitwarden/team-auth-dev
 crates/bitwarden-api-identity/.openapi-generator/** @bitwarden/team-auth-dev
-
 # Bindings for Key Connector are owned by Key Management.
-
-crates/bitwarden-api-key-connector/src/\*\* @bitwarden/team-key-management-dev
+crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
 # Claude related files
-
 .claude/ @bitwarden/team-ai-sme
 .claude/skills/create-testvectors/ @bitwarden/team-ai-sme @bitwarden/team-key-management-dev
 .github/workflows/respond.yml @bitwarden/team-ai-sme
 .github/workflows/review-code.yml @bitwarden/team-ai-sme
 
 # Team-owned crates
-
 bitwarden_license/bitwarden-pam/** @bitwarden/team-pam-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev
@@ -77,7 +59,6 @@ crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-vault/** @bitwarden/team-vault-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
-
 crates/bitwarden-wasm-internal/integration-tests/tests/organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/registration/** @bitwarden/team-auth-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/unlock/** @bitwarden/team-key-management-dev
@@ -86,37 +67,31 @@ crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @
 crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-dev
 
 # BW CLI
-
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev
 crates/bw/src/auth/** @bitwarden/team-auth-dev
 crates/bw/src/key_management/** @bitwarden/team-key-management-dev
 crates/bw/src/tools/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
-crates/bw/src/vault/\*\* @bitwarden/team-vault-dev
+crates/bw/src/vault/** @bitwarden/team-vault-dev
 
 # BRE for publish workflow changes
-
-.github/workflows/publish-\*.yml @bitwarden/dept-bre
+.github/workflows/publish-*.yml @bitwarden/dept-bre
 .github/workflows/release-rust-crates.yml @bitwarden/dept-bre
 .github/workflows/release-swift.yml @bitwarden/dept-bre
 
 ## Multiple owners
-
-.github/workflows/build-\* @bitwarden/team-platform-dev
+.github/workflows/build-* @bitwarden/team-platform-dev
 .github/workflows/version-bump.yml @bitwarden/team-platform-dev
 
 # Docker-related files
-
 **/Dockerfile @bitwarden/team-appsec @bitwarden/dept-bre
-**/\*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
+**/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
 **/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
 
 # UniFFI config files. Platform owns to avoid review bingo when they are all changed.
-
-\*\*/uniffi.toml @bitwarden/team-platform-dev
+**/uniffi.toml @bitwarden/team-platform-dev
 
 ## No ownership for root dependency management files to allow Renovate to manage updates
-
 /Cargo.lock
 /Cargo.toml
 /package-lock.json
