@@ -10,7 +10,6 @@
 //! envelope or data envelope) instead.
 
 use crate::CryptoError;
-#[allow(dead_code)]
 pub(crate) mod aes256_cbc;
 
 #[allow(dead_code)]
@@ -29,7 +28,6 @@ impl From<SymmetricEncryptionError> for CryptoError {
         CryptoError::KeyDecrypt
     }
 }
-#[allow(dead_code)]
 pub(crate) mod aes256_cbc_hmac_sha256_ae;
 pub(crate) mod aes_gcm;
 pub(crate) mod xaes_256_gcm;
@@ -37,9 +35,7 @@ pub(crate) mod xchacha20;
 
 #[allow(unused_imports)]
 pub(crate) use aes_gcm::Aes256Gcm;
-#[allow(unused_imports)]
 pub(crate) use aes256_cbc::Aes256Cbc;
-#[allow(unused_imports)]
 pub(crate) use aes256_cbc_hmac_sha256_ae::Aes256CbcHmacSha256;
 #[allow(unused_imports)]
 pub(crate) use xaes_256_gcm::XAes256Gcm;
