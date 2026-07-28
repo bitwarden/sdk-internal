@@ -176,8 +176,7 @@ impl SendClient {
         access_send(&config.api_client, &access_token).await
     }
 
-    /// Gets file download data for a file send, authenticated
-    /// with a send access token.
+    /// Gets file download data for a file send, authenticated with a send access token.
     pub async fn get_file_download_data(
         &self,
         access_token: String,
@@ -222,10 +221,10 @@ mod tests {
                         file: None,
                         text: Some(Box::new(SendTextModel {
                             text: Some("encrypted_send_text".to_string()),
-                            hidden: Some(false),
+                            hidden: Some(true),
                         })),
-                        expiration_date: None,
-                        creator_identifier: None,
+                        expiration_date: Some("2025-01-10T00:00:00Z".to_string()),
+                        creator_identifier: Some("user@example.com".to_string()),
                     })
                 })
                 .once();
@@ -239,9 +238,15 @@ mod tests {
         assert!(result.file.is_none());
         let text = result.text.expect("text variant should be populated");
         assert_eq!(text.text, Some("encrypted_send_text".to_string()));
-        assert!(!text.hidden);
-        assert_eq!(result.expiration_date, None);
-        assert_eq!(result.creator_identifier, None);
+        assert!(text.hidden);
+        assert_eq!(
+            result.expiration_date,
+            Some("2025-01-10T00:00:00Z".parse::<DateTime<Utc>>().unwrap())
+        );
+        assert_eq!(
+            result.creator_identifier,
+            Some("user@example.com".to_string())
+        );
     }
 
     #[tokio::test]
