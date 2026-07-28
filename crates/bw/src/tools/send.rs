@@ -626,15 +626,13 @@ fn build_edit_request(
             hidden: if hidden { true } else { t.hidden },
         }),
         (None, Some(f)) => SendViewType::File(f),
-        // Sends should always carry exactly one of text/file; the API can in theory return
-        // both. The legacy CLI prefers text in that case, which is what we do here.
-        //
-        // PM-39238 disambiguation finding (item #4): there is NO deviation from legacy to fix
-        // here. `get` returns the full [`SendView`] (both `text` and `file` fields preserved), so
-        // a caller reading a mixed-shape response loses nothing. `create` is built from the typed
-        // [`SendViewType`] enum and so is unambiguous by construction. The only place a "prefer
-        // text" choice is forced is `edit`, where a single variant must be reconstructed from the
-        // existing row — and that choice matches the legacy CLI (`SendView.text ?? SendView.file`).
+        // Sends should always carry exactly one of text/file; the API can in theory return both.
+        // PM-39238 disambiguation finding (item #4): there is NO deviation from legacy to fix here.
+        // `get` returns the full [`SendView`] (both `text` and `file` preserved), so a caller
+        // reading a mixed-shape response loses nothing. `create` is built from the typed
+        // [`SendViewType`] enum and so is unambiguous by construction. The only place a choice is
+        // forced is `edit`, where a single variant must be reconstructed from the existing row —
+        // preferring text matches the legacy CLI (`SendView.text ?? SendView.file`).
         (Some(t), Some(_)) => SendViewType::Text(SendTextView {
             text: t.text,
             hidden: if hidden { true } else { t.hidden },

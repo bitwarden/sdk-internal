@@ -85,7 +85,6 @@ mod tests {
         assert_eq!(token.sub, "e25d37f3-b603-40de-84ba-af96012f5a42");
         assert_eq!(token.email.as_deref(), Some("test@bitwarden.com"));
         assert_eq!(token.organization.as_deref(), None);
-        // This fixture carries `"premium":false` in its payload.
         assert_eq!(token.premium, Some(false));
         assert_eq!(token.scope[0], "api");
         assert_eq!(token.scope[1], "offline_access");
