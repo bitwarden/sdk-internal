@@ -68,8 +68,11 @@ impl InviteLinkClient {
         &self,
         organization_id: OrganizationId,
         allowed_domains: Vec<String>,
+        supports_confirmation: bool,
     ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        let invite = self.make_invite(organization_id).await?;
+        let invite = self
+            .make_invite(organization_id, supports_confirmation)
+            .await?;
 
         let response = self
             .api_configurations
@@ -94,8 +97,11 @@ impl InviteLinkClient {
     pub async fn refresh_invite_link(
         &self,
         organization_id: OrganizationId,
+        supports_confirmation: bool,
     ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        let invite = self.make_invite(organization_id).await?;
+        let invite = self
+            .make_invite(organization_id, supports_confirmation)
+            .await?;
 
         let response = self
             .api_configurations
@@ -252,6 +258,7 @@ impl InviteLinkClient {
     async fn make_invite(
         &self,
         organization_id: OrganizationId,
+        supports_confirmation: bool,
     ) -> Result<Invite, InviteLinkError> {
         let wrapped_private_key_response = self
             .api_configurations
@@ -266,7 +273,14 @@ impl InviteLinkClient {
 
         let mut ctx = self.key_store.context();
         let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let (_, invite) = Invite::make_for_private_key(org_key, &wrapped_private_key, &mut ctx)?;
+        let (_, mut invite) =
+            Invite::make_for_private_key(org_key, &wrapped_private_key, &mut ctx)?;
+
+        // Invites support confirmation by default; disable if not applicable
+        if !supports_confirmation {
+            invite.disable_confirmation();
+        }
+
         Ok(invite)
     }
 }
@@ -423,7 +437,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_invite_link_posts_and_returns_link() {
+    async fn create_invite_link_posts_and_returns_link_without_confirmation() {
         let org_id = OrganizationId::new_v4();
         let wrapped = Arc::new(std::sync::Mutex::new(None::<String>));
         let for_mock = wrapped.clone();
@@ -456,12 +470,56 @@ mod tests {
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
         let link = client
-            .create_invite_link(org_id, vec!["example.com".to_string()])
+            .create_invite_link(org_id, vec!["example.com".to_string()], false)
             .await
             .unwrap();
 
         assert_eq!(link.allowed_domains, vec!["example.com".to_string()]);
         assert!(!String::from(&link.invite).is_empty());
+        assert!(!link.invite.supports_confirmation());
+    }
+
+    #[tokio::test]
+    async fn create_invite_link_posts_and_returns_link_with_confirmation() {
+        let org_id = OrganizationId::new_v4();
+        let wrapped = Arc::new(std::sync::Mutex::new(None::<String>));
+        let for_mock = wrapped.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organizations_api
+                    .expect_get_private_key()
+                    .returning(move |_org| {
+                        Ok(OrganizationPrivateKeyResponseModel {
+                            object: None,
+                            private_key: for_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_invite_links_api
+                    .expect_create()
+                    .returning(|org, model| {
+                        let model = model.unwrap();
+                        Ok(echo_link_response(
+                            org,
+                            model.allowed_domains,
+                            model.invite,
+                            model.supports_confirmation,
+                        ))
+                    })
+                    .once();
+            }),
+        );
+        *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
+
+        let link = client
+            .create_invite_link(org_id, vec!["example.com".to_string()], true)
+            .await
+            .unwrap();
+
+        assert_eq!(link.allowed_domains, vec!["example.com".to_string()]);
+        assert!(!String::from(&link.invite).is_empty());
+        assert!(link.invite.supports_confirmation());
     }
 
     #[tokio::test]
@@ -497,8 +555,14 @@ mod tests {
         );
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
-        let link1 = client.create_invite_link(org_id, vec![]).await.unwrap();
-        let link2 = client.create_invite_link(org_id, vec![]).await.unwrap();
+        let link1 = client
+            .create_invite_link(org_id, vec![], false)
+            .await
+            .unwrap();
+        let link2 = client
+            .create_invite_link(org_id, vec![], false)
+            .await
+            .unwrap();
 
         assert_ne!(String::from(&link1.invite), String::from(&link2.invite));
     }
@@ -527,7 +591,7 @@ mod tests {
         // organization's key slot (which is absent from the store) must fail.
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
-        let result = client.create_invite_link(other_org_id, vec![]).await;
+        let result = client.create_invite_link(other_org_id, vec![], false).await;
 
         assert!(matches!(result, Err(InviteLinkError::Invite(_))));
     }
@@ -544,7 +608,7 @@ mod tests {
             }),
         );
 
-        let result = client.create_invite_link(org_id, vec![]).await;
+        let result = client.create_invite_link(org_id, vec![], false).await;
 
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
     }
