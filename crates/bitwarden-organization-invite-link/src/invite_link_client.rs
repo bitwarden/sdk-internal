@@ -149,7 +149,8 @@ impl InviteLinkClient {
         default_collection_name: String,
         enroll_into_account_recovery: bool,
     ) -> Result<(), InviteLinkError> {
-        let code = uuid::Uuid::parse_str(&code).map_err(|_| MissingFieldError("code"))?;
+        let code =
+            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::MalformedField("code"))?;
 
         // When enrolling into account recovery, fetch the organization's public key (which is the
         // account-recovery public key) from the server.
@@ -164,7 +165,7 @@ impl InviteLinkClient {
             Some(
                 require!(response.public_key)
                     .parse::<B64>()
-                    .map_err(|_| MissingFieldError("public_key"))?,
+                    .map_err(|_| InviteLinkError::MalformedField("public_key"))?,
             )
         } else {
             None
