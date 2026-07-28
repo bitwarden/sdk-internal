@@ -41,6 +41,9 @@ pub enum InviteLinkError {
     /// A required field was missing from a server response.
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
+    /// A field in a server response was present but malformed and could not be parsed.
+    #[error("Failed to parse `{0}` from server response")]
+    MalformedFieldError(&'static str),
     /// The account-recovery public key returned by the server does not match the organization
     /// public key bound into the invite.
     #[error("Account recovery public key does not match the invite's bound organization key")]
