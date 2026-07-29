@@ -12,7 +12,6 @@
 #[global_allocator]
 static ALLOC: ZeroizingAllocator<std::alloc::System> = ZeroizingAllocator(std::alloc::System);
 
-mod aes;
 mod content_format;
 pub use content_format::*;
 mod enc_string;
