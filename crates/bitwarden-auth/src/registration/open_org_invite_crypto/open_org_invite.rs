@@ -39,7 +39,9 @@ pub struct OpenOrgInvite {
 /// The two sealed envelopes that together carry an open-organization-invite payload.
 #[derive(Debug, Clone)]
 pub struct SealedOpenOrgInviteData {
+    /// The OpenOrgInvite plaintext, encrypted under a fresh CEK.
     pub(super) data_envelope: DataEnvelope,
+    /// That CEK, encrypted under the caller's HighEntropySecret.
     pub(super) key_envelope: SecretProtectedKeyEnvelope,
 }
 

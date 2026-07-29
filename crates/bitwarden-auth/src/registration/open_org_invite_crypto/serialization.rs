@@ -17,8 +17,10 @@ use super::SealedOpenOrgInviteData;
 #[derive(Serialize, Deserialize)]
 struct SealedOpenOrgInviteDataWire {
     // Without serde_bytes, Vec<u8> encodes as a CBOR array of integers (~2x the size).
+    /// Bytes of the data envelope (OpenOrgInvite plaintext encrypted under a fresh CEK).
     #[serde(rename = "d", with = "serde_bytes")]
     data_envelope: Vec<u8>,
+    /// Bytes of the key envelope (the CEK encrypted under the caller's HighEntropySecret).
     #[serde(rename = "k", with = "serde_bytes")]
     key_envelope: Vec<u8>,
 }
