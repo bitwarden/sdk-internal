@@ -8,22 +8,11 @@ use bitwarden_core::{
     },
 };
 use bitwarden_crypto::KeyId;
-use bitwarden_error::bitwarden_error;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use tracing::{info, warn};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
-
-/// Errors that can occur while running the key management sync handler.
-#[derive(Debug, Error)]
-#[bitwarden_error(flat)]
-pub enum KmSyncHandlerError {
-    /// Reporting the user key id to the server failed.
-    #[error("Failed to post the user key id to the server")]
-    PostUserKeyId,
-}
 
 /// The parts of a sync response the key management sync handler needs.
 ///
@@ -77,22 +66,22 @@ pub struct KmSyncUserDecryption {
 /// Runs the key management sync work for the given sync data.
 ///
 /// Each concern gets its own handler below; add new ones here. Handlers share a signature so this
-/// stays a flat list, and a handler that fails short-circuits the rest.
-async fn handle_km_sync(client: &Client, data: &KmSyncData) -> Result<(), KmSyncHandlerError> {
-    handle_user_key_id(client, data).await?;
+/// stays a flat list, and each is independent: none of them can fail the sync pass, and a handler
+/// that gives up logs and leaves the rest to run. State is applied before any handler that talks to
+/// the server, so a network failure never costs us a state write.
+async fn handle_km_sync(client: &Client, data: &KmSyncData) {
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
+    handle_user_key_id(client, data).await;
 
     // Further key management sync handlers go here.
-
-    Ok(())
 }
 
 /// Persists the user decryption options the server reported.
 ///
-/// The V2 upgrade token is cleared when the server reports none, since an absent token means the
-/// upgrade is no longer outstanding. Master password unlock data is only written when present: an
-/// account without a master password simply has none.
+/// What the server reports replaces what is stored, so an option the server omits is cleared rather
+/// than left behind: an absent V2 upgrade token means the upgrade is no longer outstanding, and
+/// absent master password unlock data means the account has no master password.
 async fn handle_user_decryption_options(client: &Client, data: &KmSyncData) {
     let Some(user_decryption) = data.user_decryption.as_ref() else {
         return;
@@ -103,10 +92,13 @@ async fn handle_user_decryption_options(client: &Client, data: &KmSyncData) {
         return;
     }
 
-    if let Some(master_password_unlock) = user_decryption.master_password_unlock.as_ref() {
-        state_bridge
-            .set_masterpassword_unlock_data(master_password_unlock)
-            .await;
+    match user_decryption.master_password_unlock.as_ref() {
+        Some(master_password_unlock) => {
+            state_bridge
+                .set_masterpassword_unlock_data(master_password_unlock)
+                .await
+        }
+        None => state_bridge.clear_masterpassword_unlock_data().await,
     }
 
     match user_decryption.v2_upgrade_token.as_ref() {
@@ -135,18 +127,21 @@ async fn handle_account_cryptographic_state(client: &Client, data: &KmSyncData) 
 ///
 /// A no-op when the server already knows the key id, and when the client has no user key id to
 /// report — either because the client is locked or because the user key carries no key id.
-async fn handle_user_key_id(client: &Client, data: &KmSyncData) -> Result<(), KmSyncHandlerError> {
+///
+/// A failed report is logged and otherwise ignored: the backfill is opportunistic, and the next
+/// sync will try again.
+async fn handle_user_key_id(client: &Client, data: &KmSyncData) {
     let server_user_key_id = data
         .user_decryption
         .as_ref()
         .and_then(|d| d.user_key_id.as_ref());
     if server_user_key_id.is_some() {
-        return Ok(());
+        return;
     }
 
     info!("Server has no user key id; attempting to report the current one");
     match client.user_crypto_management().post_user_key_id().await {
-        Ok(()) => Ok(()),
+        Ok(()) => {}
         // The client is locked, or the user key carries no key id. Neither is an error: there is
         // simply nothing to report.
         Err(
@@ -154,13 +149,11 @@ async fn handle_user_key_id(client: &Client, data: &KmSyncData) -> Result<(), Km
             | bitwarden_user_crypto_management::PostUserKeyIdError::NoKeyId,
         ) => {
             info!("No user key id available to report");
-            Ok(())
         }
         Err(e) => {
             // A rejection here is expected when another device won the race to backfill, so this is
             // reported as a warning rather than an error.
             warn!("Failed to report the user key id: {e:?}");
-            Err(KmSyncHandlerError::PostUserKeyId)
         }
     }
 }
@@ -184,10 +177,7 @@ impl KmSyncHandlerClient {
 impl KmSyncHandlerClient {
     /// Runs the key management sync work. Call this after each sync, once the user's cryptographic
     /// state has been applied.
-    ///
-    /// Callers should treat a failure as non-fatal: nothing here is required for the sync itself to
-    /// have succeeded.
-    pub async fn on_sync(&self, data: KmSyncData) -> Result<(), KmSyncHandlerError> {
+    pub async fn on_sync(&self, data: KmSyncData) {
         handle_km_sync(&self.client, &data).await
     }
 }
@@ -259,7 +249,7 @@ impl bitwarden_sync::SyncHandler for KmSyncHandler {
                 .and_then(|p| p.account_keys.as_deref())
                 .and_then(|k| WrappedAccountCryptographicState::try_from(k).ok()),
         };
-        handle_km_sync(&self.client, &data).await?;
+        handle_km_sync(&self.client, &data).await;
         Ok(())
     }
 }
@@ -304,9 +294,7 @@ mod tests {
 
         // No API client is configured on this bare client, so any attempt to reach the server
         // would fail rather than silently pass.
-        handle_user_key_id(&client, &data)
-            .await
-            .expect("an already-known key id should short-circuit");
+        handle_user_key_id(&client, &data).await;
     }
 
     #[tokio::test]
@@ -314,9 +302,7 @@ mod tests {
         let client = Client::new(None);
         let data = KmSyncData::default();
 
-        handle_user_key_id(&client, &data)
-            .await
-            .expect("a locked client has nothing to report");
+        handle_user_key_id(&client, &data).await;
     }
 
     #[tokio::test]
@@ -324,9 +310,7 @@ mod tests {
         let client = unlocked_client(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let data = KmSyncData::default();
 
-        handle_user_key_id(&client, &data)
-            .await
-            .expect("a user key with no key id has nothing to report");
+        handle_user_key_id(&client, &data).await;
     }
 
     #[cfg(not(target_arch = "wasm32"))]
