@@ -3,6 +3,7 @@ use std::{fmt::Display, str::FromStr};
 use rand::RngExt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 use subtle::ConstantTimeEq;
+use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 use zeroize::Zeroize;
@@ -15,6 +16,14 @@ export type KeyId = Tagged<string, "KeyId">;
 
 /// Since `KeyId` is a wrapper around UUIDs, this is statically 16 bytes.
 pub(crate) const KEY_ID_SIZE: usize = 16;
+
+/// Errors that can occur when parsing a key id.
+#[derive(Debug, Error)]
+pub enum KeyIdError {
+    /// The value is not a valid key id: not hex, or not exactly `KEY_ID_SIZE` bytes.
+    #[error("Invalid key id")]
+    InvalidKeyId,
+}
 
 /// A key id is a unique identifier for a single key. There is a 1:1 mapping between key ID and key
 /// bytes, so something like a user key rotation is replacing the key with ID A with a new key with
@@ -58,8 +67,6 @@ impl KeyId {
     }
 }
 
-// A key id crosses the WASM boundary as its hex string, matching the other string-shaped crypto
-// primitives (see `EncString`). This is what lets the key management state bridge carry a `KeyId`.
 #[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for KeyId {
     fn describe() {
@@ -97,10 +104,10 @@ impl IntoWasmAbi for KeyId {
 
 #[cfg(feature = "wasm")]
 impl TryFrom<wasm_bindgen::JsValue> for KeyId {
-    type Error = &'static str;
+    type Error = KeyIdError;
 
     fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
-        let hex_encoded_key_id = value.as_string().ok_or("KeyId must be a string")?;
+        let hex_encoded_key_id = value.as_string().ok_or(KeyIdError::InvalidKeyId)?;
         Self::from_str(&hex_encoded_key_id)
     }
 }
@@ -112,16 +119,14 @@ impl Display for KeyId {
 }
 
 impl FromStr for KeyId {
-    type Err = &'static str;
+    type Err = KeyIdError;
 
     fn from_str(hex_encoded_key_id: &str) -> Result<Self, Self::Err> {
-        let bytes = hex::decode(hex_encoded_key_id).map_err(|_| "KeyId is not valid hex")?;
+        let bytes = hex::decode(hex_encoded_key_id).map_err(|_| KeyIdError::InvalidKeyId)?;
         Self::try_from(bytes.as_slice())
     }
 }
 
-// A key id is not secret, and every FFI surface represents it as its hex string. Serializing to a
-// bare string keeps the wire format identical to what the server stores.
 impl Serialize for KeyId {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_hex())
@@ -136,11 +141,11 @@ impl<'de> Deserialize<'de> for KeyId {
 }
 
 impl TryFrom<&[u8]> for KeyId {
-    type Error = &'static str;
+    type Error = KeyIdError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.len() != KEY_ID_SIZE {
-            return Err("Invalid length for KeyId");
+            return Err(KeyIdError::InvalidKeyId);
         }
         let mut key_id = [0u8; KEY_ID_SIZE];
         key_id.copy_from_slice(value);
@@ -207,9 +212,20 @@ mod tests {
     #[test]
     fn test_from_str_rejects_invalid_values() {
         // Not hex, and hex of the wrong length.
-        assert!("not-hex".parse::<KeyId>().is_err());
-        assert!("0123456789abcdef".parse::<KeyId>().is_err());
-        assert!("".parse::<KeyId>().is_err());
+        for invalid in ["not-hex", "0123456789abcdef", ""] {
+            assert!(matches!(
+                invalid.parse::<KeyId>(),
+                Err(KeyIdError::InvalidKeyId)
+            ));
+        }
+    }
+
+    #[test]
+    fn test_try_from_slice_rejects_the_wrong_length() {
+        assert!(matches!(
+            KeyId::try_from([0u8; 4].as_slice()),
+            Err(KeyIdError::InvalidKeyId)
+        ));
     }
 
     #[test]

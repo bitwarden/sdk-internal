@@ -36,7 +36,7 @@ uniffi::custom_type!(EncString, String, {
 
 uniffi::custom_type!(KeyId, String, {
     try_lift: |val| {
-        convert_result(KeyId::from_str(&val).map_err(|_| CryptoError::InvalidKey))
+        convert_result(KeyId::from_str(&val))
     },
     lower: |obj| obj.to_hex(),
 });

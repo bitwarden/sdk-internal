@@ -1,9 +1,4 @@
-import {
-  ClientSettings,
-  KmSyncData,
-  PasswordManagerClient,
-  init_sdk,
-} from "@bitwarden/sdk-internal";
+import { ClientSettings, PasswordManagerClient, init_sdk } from "@bitwarden/sdk-internal";
 
 import { HttpMock, installHttpMock } from "../http-mock";
 import {
