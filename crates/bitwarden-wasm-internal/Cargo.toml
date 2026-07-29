@@ -40,6 +40,7 @@ bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-crypto-sync-handler = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
+bitwarden-km-sync-handler = { workspace = true, features = ["wasm"] }
 bitwarden-logging = { workspace = true, features = ["wasm"] }
 # This dependency is not used directly, but we need to include it in order to
 # ensure wasm-bindgen is generated for the `bitwarden-organization-crypto` crate

@@ -39,12 +39,6 @@ pub struct AccountKeysRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub security_state: Option<Box<models::SecurityStateModel>>,
-    #[serde(
-        rename = "userKeyId",
-        alias = "UserKeyId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub user_key_id: Option<String>,
 }
 
 impl AccountKeysRequestModel {
@@ -58,7 +52,6 @@ impl AccountKeysRequestModel {
             public_key_encryption_key_pair: None,
             signature_key_pair: None,
             security_state: None,
-            user_key_id: None,
         }
     }
 }

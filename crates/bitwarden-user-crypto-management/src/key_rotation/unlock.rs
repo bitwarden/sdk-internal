@@ -334,6 +334,9 @@ fn to_authentication_and_unlock_data(
             ),
         };
     Ok(MasterPasswordUnlockAndAuthenticationDataModel {
+        user_key_id: master_password_unlock_data
+            .user_key_id
+            .map(|id| id.to_string()),
         kdf_type,
         kdf_iterations: kdf_iterations.get().try_into().map_err(|_| ParsingError)?,
         kdf_memory: kdf_memory
@@ -487,6 +490,7 @@ mod tests {
                 .expect("should parse"),
             kdf: kdf.clone(),
             salt: salt.to_string(),
+            user_key_id: None,
         };
         let decrypted_user_key = master_password_unlock_data
             .unwrap_to_context(password, &mut ctx)
@@ -530,6 +534,7 @@ mod tests {
                 .expect("should parse"),
             kdf: kdf.clone(),
             salt: salt.to_string(),
+            user_key_id: None,
         };
         let decrypted_user_key = master_password_unlock_data
             .unwrap_to_context(password, &mut ctx)

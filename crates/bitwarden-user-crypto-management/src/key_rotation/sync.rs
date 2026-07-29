@@ -381,6 +381,7 @@ mod tests {
             })),
             web_authn_prf_options: None,
             v2_upgrade_token: None,
+            user_key_id: None,
         }
     }
 

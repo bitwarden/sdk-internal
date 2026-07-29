@@ -4,6 +4,7 @@ use std::{fmt::Display, sync::Arc};
 use bitwarden_core::{ClientSettings, key_management::state_bridge::StateBridgeClient};
 use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
 use bitwarden_error::bitwarden_error;
+use bitwarden_km_sync_handler::KmSyncHandlerClient;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
 use bitwarden_policies::PolicyClient;
 use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};

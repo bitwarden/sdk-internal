@@ -26,6 +26,12 @@ pub struct RotateUserKeysRequestModel {
     pub account_data: Box<models::AccountDataRequestModel>,
     #[serde(rename = "unlockMethodData", alias = "UnlockMethodData")]
     pub unlock_method_data: Box<models::UnlockMethodRequestModel>,
+    #[serde(
+        rename = "userKeyId",
+        alias = "UserKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_key_id: Option<String>,
 }
 
 impl RotateUserKeysRequestModel {
@@ -40,6 +46,7 @@ impl RotateUserKeysRequestModel {
             unlock_data: Box::new(unlock_data),
             account_data: Box::new(account_data),
             unlock_method_data: Box::new(unlock_method_data),
+            user_key_id: None,
         }
     }
 }

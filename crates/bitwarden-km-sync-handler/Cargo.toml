@@ -1,0 +1,57 @@
+[package]
+name = "bitwarden-km-sync-handler"
+description = """
+temporary sync handler will live in this crate until sync fully moves to the sdk. at that point this logic will be moved over.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[features]
+default = []
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-user-crypto-management/uniffi",
+    "dep:uniffi",
+]
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-crypto/wasm",
+    "bitwarden-error/wasm",
+    "bitwarden-user-crypto-management/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+]
+
+# Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
+[dependencies]
+async-trait = { workspace = true }
+bitwarden-api-api = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-crypto = { workspace = true }
+bitwarden-error = { workspace = true }
+bitwarden-logging = { workspace = true }
+bitwarden-sync = { workspace = true }
+bitwarden-user-crypto-management = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tsify = { workspace = true, optional = true }
+uniffi = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
+tokio = { workspace = true, features = ["rt"] }
+
+[lints]
+workspace = true

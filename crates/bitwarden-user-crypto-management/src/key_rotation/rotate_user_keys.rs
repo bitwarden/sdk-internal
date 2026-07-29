@@ -215,6 +215,10 @@ async fn internal_rotate_user_keys(
 
         (
             RotateUserKeysRequestModel {
+                // The key id of the user key this rotation establishes.
+                user_key_id: ctx
+                    .get_symmetric_key_id(rotation_context.new_user_key_id)
+                    .map(|id| id.to_hex()),
                 wrapped_account_cryptographic_state: Box::new(
                     wrapped_account_cryptographic_state_request_model,
                 ),

@@ -268,6 +268,7 @@ mod tests {
                 .expect("should parse"),
             kdf: create_test_kdf_pbkdf2(),
             salt: "test@example.com".to_string(),
+            user_key_id: None,
         };
         let decrypted_user_key = master_password_unlock_data
             .unwrap_to_context(&mock_password, &mut ctx)
@@ -306,6 +307,7 @@ mod tests {
                 .expect("should parse"),
             kdf: create_test_kdf_argon2id(),
             salt: "test@example.com".to_string(),
+            user_key_id: None,
         };
         let decrypted_user_key = master_password_unlock_data
             .unwrap_to_context(&mock_password, &mut ctx)

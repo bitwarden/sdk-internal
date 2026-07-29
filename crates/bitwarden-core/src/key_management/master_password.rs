@@ -6,7 +6,7 @@ use bitwarden_api_api::models::{
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
 };
 use bitwarden_crypto::{
-    EncString, Kdf, KeySlotIds, KeyStoreContext, MasterKey, SymmetricCryptoKey,
+    EncString, Kdf, KeyId, KeySlotIds, KeyStoreContext, MasterKey, SymmetricCryptoKey,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -58,6 +58,12 @@ pub struct MasterPasswordUnlockData {
     pub master_key_wrapped_user_key: EncString,
     /// The salt used in the KDF, typically the user's email
     pub salt: String,
+    /// Key id of the user key this data wraps, when known. Optional: not every caller knows it,
+    /// and it is not submitted as part of the unlock method — the key id reaches the server
+    /// through its own channel.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub user_key_id: Option<KeyId>,
 }
 
 #[cfg(feature = "wasm")]
@@ -100,6 +106,7 @@ impl MasterPasswordUnlockData {
             kdf: kdf.to_owned(),
             salt: salt.to_owned(),
             master_key_wrapped_user_key,
+            user_key_id: user_key.key_id(),
         })
     }
 
@@ -145,6 +152,8 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
             kdf,
             master_key_wrapped_user_key,
             salt,
+            // The server does not return the key id nested inside the unlock response.
+            user_key_id: None,
         })
     }
 }
@@ -155,6 +164,8 @@ impl From<&MasterPasswordUnlockData> for MasterPasswordUnlockDataRequestModel {
             kdf: Box::new(kdf_to_api_kdf_request_model(&data.kdf)),
             master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
             salt: data.salt.to_owned(),
+            // The key id is not part of the unlock method; it travels through the state bridge.
+            user_key_id: None,
         }
     }
 }
@@ -167,6 +178,8 @@ impl From<&MasterPasswordUnlockData>
             kdf: Box::new(kdf_to_identity_kdf_request_model(&data.kdf)),
             master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
             salt: data.salt.to_owned(),
+            // The key id is not part of the unlock method; it travels through the state bridge.
+            user_key_id: None,
         }
     }
 }

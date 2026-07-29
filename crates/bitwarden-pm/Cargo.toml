@@ -25,6 +25,7 @@ uniffi = [
     "bitwarden-fido/uniffi",
     "bitwarden-generators/uniffi",
     "bitwarden-importers/uniffi",
+    "bitwarden-km-sync-handler/uniffi",
     "bitwarden-send/uniffi",
     "bitwarden-state/uniffi",
     "bitwarden-unlock/uniffi",
@@ -40,6 +41,7 @@ wasm = [
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
     "bitwarden-importers/wasm",
+    "bitwarden-km-sync-handler/wasm",
     "bitwarden-organization-invite-link/wasm",
     "bitwarden-pam?/wasm",
     "bitwarden-policies/wasm",
@@ -65,6 +67,7 @@ bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }
+bitwarden-km-sync-handler = { workspace = true }
 bitwarden-organization-invite-link = { workspace = true }
 bitwarden-pam = { workspace = true, optional = true }
 bitwarden-policies = { workspace = true }

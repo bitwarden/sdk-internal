@@ -509,6 +509,7 @@ mod tests {
                 kdf: new_kdf.clone(),
                 master_key_wrapped_user_key: user_key,
                 salt: email,
+                user_key_id: None,
             })
             .await
             .unwrap();
@@ -537,6 +538,7 @@ mod tests {
                 kdf,
                 master_key_wrapped_user_key: new_encrypted_user_key,
                 salt: new_email,
+                user_key_id: None,
             })
             .await
             .unwrap();

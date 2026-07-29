@@ -180,7 +180,6 @@ fn internal_account_keys_from_api_model(
         input_model.user_key_encrypted_account_private_key.clone();
 
     let account_public_key = input_model.account_public_key.clone();
-    let user_key_id = input_model.user_key_id.clone();
 
     Ok(bitwarden_api_identity::models::AccountKeysRequestModel {
         public_key_encryption_key_pair,
@@ -188,7 +187,6 @@ fn internal_account_keys_from_api_model(
         security_state,
         user_key_encrypted_account_private_key,
         account_public_key,
-        user_key_id,
     })
 }
 
