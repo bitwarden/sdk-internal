@@ -1,6 +1,6 @@
 // The key-management slice of a sync response, plus the one route the handler calls.
 
-import { KeyId, KmSyncData } from "@bitwarden/sdk-internal";
+import { Kdf, KeyId, KmSyncData } from "@bitwarden/sdk-internal";
 
 import { Routes } from "../http-mock";
 import { MASTER_KEY_WRAPPED_USER_KEY, TEST_EMAIL, encstring } from "../utils";
@@ -47,6 +47,11 @@ export const SYNC_VECTOR: KmSyncData = {
       signed_public_key: V2_SIGNED_PUBLIC_KEY,
     },
   },
+};
+
+/** Kdf settings that differ from the ones {@link SYNC_VECTOR} carries, for re-sync cases. */
+export const CHANGED_KDF_PARAMS: Kdf = {
+  argon2id: { iterations: 8, memory: 64, parallelism: 4 },
 };
 
 /**

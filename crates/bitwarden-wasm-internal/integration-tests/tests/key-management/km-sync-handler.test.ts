@@ -13,7 +13,13 @@ import {
   makeV2AccountClient,
 } from "../utils";
 import { V2_USER_KEY_ID } from "../v2-fixtures";
-import { ROUTES, SYNC_VECTOR, kmSyncRoutes, withoutUserKeyId } from "./km-sync-fixtures";
+import {
+  CHANGED_KDF_PARAMS,
+  ROUTES,
+  SYNC_VECTOR,
+  kmSyncRoutes,
+  withoutUserKeyId,
+} from "./km-sync-fixtures";
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the SDK's
 // request URLs parseable and makes an unmocked route fail loudly rather than escape to the network.
@@ -50,6 +56,7 @@ describe("km sync handler", () => {
       expect(await bridge.get_account_cryptographic_state()).toEqual(
         SYNC_VECTOR.accountCryptographicState,
       );
+      expect(await bridge.get_kdf()).toEqual(SYNC_VECTOR.userDecryption!.masterPasswordUnlock!.kdf);
       // The server already knows the key id, so there is nothing to report.
       expect(mock.routes()).toEqual([]);
     });
@@ -78,6 +85,36 @@ describe("km sync handler", () => {
       await client.km_sync_handler().on_sync({ ...SYNC_VECTOR, userDecryption });
 
       expect(await bridge.get_masterpassword_unlock_data()).toBeFalsy();
+    });
+
+    it("keeps the stored kdf settings when the server reports no master password", async () => {
+      const bridge = makeStateBridge();
+      const client = await makeV2AccountClient(bridge, SETTINGS);
+      await client.km_sync_handler().on_sync(SYNC_VECTOR);
+
+      // The kdf only reaches the client as part of the master password unlock data, but an account
+      // without a master password still has kdf settings — PIN unlock derives from them.
+      const { masterPasswordUnlock: _dropped, ...userDecryption } = SYNC_VECTOR.userDecryption!;
+      await client.km_sync_handler().on_sync({ ...SYNC_VECTOR, userDecryption });
+
+      expect(await bridge.get_kdf()).toEqual(SYNC_VECTOR.userDecryption!.masterPasswordUnlock!.kdf);
+    });
+
+    it("updates the stored kdf settings when the server reports new ones", async () => {
+      const bridge = makeStateBridge();
+      const client = await makeV2AccountClient(bridge, SETTINGS);
+      await client.km_sync_handler().on_sync(SYNC_VECTOR);
+
+      const masterPasswordUnlock = {
+        ...SYNC_VECTOR.userDecryption!.masterPasswordUnlock!,
+        kdf: CHANGED_KDF_PARAMS,
+      };
+      await client.km_sync_handler().on_sync({
+        ...SYNC_VECTOR,
+        userDecryption: { ...SYNC_VECTOR.userDecryption!, masterPasswordUnlock },
+      });
+
+      expect(await bridge.get_kdf()).toEqual(CHANGED_KDF_PARAMS);
     });
 
     it("does not throw when no state bridge is registered", async () => {
