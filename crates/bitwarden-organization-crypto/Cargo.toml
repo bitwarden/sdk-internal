@@ -22,7 +22,7 @@ wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-random/wasm",
-] # WASM support
+]
 
 [dependencies]
 bitwarden-crypto = { workspace = true }
