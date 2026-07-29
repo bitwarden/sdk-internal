@@ -21,21 +21,26 @@ wasm = [
     "dep:wasm-bindgen",
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-random/wasm",
 ] # WASM support
 
 [dependencies]
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
+bitwarden-random = { workspace = true }
+bitwarden-sensitive-value = { workspace = true }
 ciborium = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 subtle = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
+zeroize = { workspace = true }
 
 [dev-dependencies]
 bitwarden-crypto = { workspace = true, features = ["test-utils"] }
-serde_json = { workspace = true }
 uuid = { workspace = true }
 
 [lints]

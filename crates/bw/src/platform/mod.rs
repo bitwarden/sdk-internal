@@ -9,7 +9,7 @@ mod sync;
 
 pub(crate) use appdata::appdata_dir;
 pub(crate) use completion::CompletionArgs;
-pub(crate) use config::ConfigCommand;
+pub(crate) use config::{ConfigCommand, read_config_json};
 pub(crate) use encode::EncodeArgs;
 pub(crate) use serve::ServeArgs;
 pub(crate) use sync::SyncArgs;

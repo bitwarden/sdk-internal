@@ -97,12 +97,6 @@ impl Serialize for InviteKeyData {
     }
 }
 
-#[cfg(feature = "wasm")]
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_INVITE: &'static str = r#"
-export type Invite = Tagged<string, "Invite">;
-"#;
-
 /// Cryptographic invite for an organization.
 #[derive(Debug, Clone)]
 pub struct Invite {
