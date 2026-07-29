@@ -23,6 +23,14 @@ pub struct WrappedAccountCryptographicStateRequestModel {
     pub signature_key_pair: Box<models::SignatureKeyPairRequestModel>,
     #[serde(rename = "securityState", alias = "SecurityState")]
     pub security_state: Box<models::SecurityStateModel>,
+    /// Hex-encoded key-id of the user's current user-key. The private key, and signature key will
+    /// be encrypted by the key this key-id is referencing.
+    #[serde(
+        rename = "userKeyId",
+        alias = "UserKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_key_id: Option<String>,
 }
 
 impl WrappedAccountCryptographicStateRequestModel {
@@ -35,6 +43,7 @@ impl WrappedAccountCryptographicStateRequestModel {
             public_key_encryption_key_pair: Box::new(public_key_encryption_key_pair),
             signature_key_pair: Box::new(signature_key_pair),
             security_state: Box::new(security_state),
+            user_key_id: None,
         }
     }
 }
