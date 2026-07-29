@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::OrganizationInviteLinkResponseModel;
-use bitwarden_core::{MissingFieldError, OrganizationId, require};
+use bitwarden_core::{OrganizationId, require};
 use bitwarden_organization_crypto::invite::Invite;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ impl TryFrom<OrganizationInviteLinkResponseModel> for OrganizationInviteLink {
             supports_confirmation: response.supports_confirmation.unwrap_or(false),
             creation_date: require!(response.creation_date)
                 .parse()
-                .map_err(|_| MissingFieldError("creation_date"))?,
+                .map_err(|_| InviteLinkError::ParseFailure("creation_date"))?,
         })
     }
 }
