@@ -41,7 +41,7 @@ pub struct OpenOrgInvite {
 pub struct SealedOpenOrgInviteData {
     /// The OpenOrgInvite plaintext, encrypted under a fresh CEK.
     pub(super) data_envelope: DataEnvelope,
-    /// That CEK, encrypted under the caller's HighEntropySecret.
+    /// The CEK, encrypted under the caller's HighEntropySecret.
     pub(super) key_envelope: SecretProtectedKeyEnvelope,
 }
 
