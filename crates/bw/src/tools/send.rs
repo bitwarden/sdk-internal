@@ -26,6 +26,10 @@ use crate::{
     client_state::{AnyState, BwCommand, BwCommandExt as _, ClientContext, LoggedIn},
     platform::read_config_json,
     render::{CommandOutput, CommandResult},
+    tools::{
+        file_output::reject_path_traversal,
+        receive::{ReceiveInputs, run_receive},
+    },
 };
 
 /// Allowed values for `--deleteInDays`, matching the legacy CLI's enumerated set.
@@ -147,15 +151,43 @@ pub struct SendGetArgs {
     pub text: bool,
 }
 
+/// `bw send receive <url>`. Must stay field-identical to [`super::ReceiveArgs`]
+/// (`bw receive`) — they are the same command under two names, and both delegate to
+/// [`super::receive::run_receive`].
 #[derive(Args, Clone, Debug)]
+#[command(after_help = "Notes:
+    If a password is required, the provided password is used or the user is prompted.")]
 pub struct SendReceiveArgs {
     pub url: String,
 
     #[arg(long, help = "Optional password for the Send.")]
     pub password: Option<String>,
 
-    #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-    pub obj: Option<String>,
+    #[arg(long, help = "Environment variable storing the Send's password.")]
+    pub passwordenv: Option<String>,
+
+    #[arg(
+        long,
+        help = "Path to a file containing the Send's password as its first line."
+    )]
+    pub passwordfile: Option<String>,
+
+    // The internal field is `output_path` (not `output`) to avoid clashing with the top-level
+    // `Cli::output` (the `-o` rendered-output-format arg) — same convention as
+    // `SendGetArgs::output_path`. User-facing long flag stays `--output` to match both that
+    // sibling command and the legacy CLI.
+    #[arg(
+        long = "output",
+        help = "Specify a file path to save a File-type Send to."
+    )]
+    pub output_path: Option<String>,
+
+    #[arg(
+        long = "fullObject",
+        alias = "full-object",
+        help = "Return the Send's json object rather than its content."
+    )]
+    pub full_object: bool,
 }
 
 #[derive(Args, Clone, Debug)]
@@ -293,7 +325,20 @@ impl BwCommand for SendArgs {
             )),
             // `--output` on `get` similarly fails before the auth check: silently
             // emitting JSON to stdout while the requested file path goes uncreated would
-            // be a worse UX than an explicit "not implemented" error. Tracked under PM-34718.
+            // be a worse UX than an explicit "not implemented" error.
+            //
+            // This is deliberately *not* implemented alongside `bw receive` (PM-34718), even
+            // though that command now has the whole download/decrypt/save pipeline:
+            //   - There is no owner-scoped download-URL endpoint server-side. Only the two
+            //     anonymous send-access endpoints exist, so the only way to make this work today is
+            //     to route the Send's *owner* through the same endpoint recipients use — which
+            //     increments the Send's `access_count` and burns one of the recipient's allowed
+            //     accesses just to let the owner look at their own file. That's a behavior change,
+            //     not a parity fix.
+            //   - It isn't a parity gap either: the legacy CLI never implemented this flag.
+            //     `SendGetCommand.run` declares `--output` and then never reads `options.output`.
+            // Implementing it needs a real owner-scoped server endpoint first; that requires its
+            // own ticket.
             Some(SendCommands::Get(args)) if args.output_path.is_some() => {
                 Err(eyre!("`--output` on `bw send get` is not yet implemented."))
             }
@@ -334,20 +379,27 @@ impl BwCommand for SendGetArgs {
         // The `--output` early-error gate lives in [`SendArgs::run`] above so it can
         // fire *before* the `LoggedIn` typestate extractor — a logged-out caller passing
         // `--output` should see the precise "not yet implemented" error rather than
-        // a generic auth message. The file-decrypt/download pipeline follow-up is PM-34718.
+        // a generic auth message. See that gate for why it stays unimplemented.
         get_send(&user, self.id, self.text).await
     }
 }
 
 impl BwCommand for SendReceiveArgs {
-    // `bw send receive` is the legacy alias for the top-level `bw receive` command.
-    // Both are tracked under PM-34718 ("[SDK CLI] Receive Command"), a sibling to this
-    // ticket. Routed through `AnyState` so the not-yet-implemented error fires without
-    // an auth check.
+    // `bw send receive` is the legacy alias for the top-level `bw receive` command; both route
+    // into the same implementation. `AnyState` because receiving a Send needs no session — the
+    // decryption key comes from the url fragment, not the account key store.
     type Client = AnyState;
 
     async fn run(self, _: AnyState) -> CommandResult {
-        Err(eyre!("`bw send receive` is not yet implemented."))
+        run_receive(ReceiveInputs {
+            url: self.url,
+            password: self.password,
+            passwordenv: self.passwordenv,
+            passwordfile: self.passwordfile,
+            output_path: self.output_path,
+            full_object: self.full_object,
+        })
+        .await
     }
 }
 
@@ -731,22 +783,6 @@ async fn run_create(
     Ok(url.into())
 }
 
-/// Reject `--file` paths containing a `..` segment before they reach the filesystem: a script
-/// that forwards an unsanitized path through to this CLI should not be able to resolve outside
-/// the directory it intended, even though `bw` itself only ever reads with the invoking user's
-/// own permissions.
-fn reject_path_traversal(path: &str) -> color_eyre::eyre::Result<()> {
-    let has_parent_dir_segment = std::path::Path::new(path)
-        .components()
-        .any(|c| c == std::path::Component::ParentDir);
-    if has_parent_dir_segment {
-        return Err(eyre!(
-            "Invalid --file path: {path} (path traversal segments are not allowed)."
-        ));
-    }
-    Ok(())
-}
-
 /// Full file-send create pipeline:
 /// 1. Read the plaintext file bytes.
 /// 2. `create_file_send` encrypts them under the send key it derives, sends the ciphertext length
@@ -759,7 +795,7 @@ async fn run_create_file(
     request: SendAddRequest,
     path: &str,
 ) -> color_eyre::eyre::Result<bitwarden_send::SendView> {
-    reject_path_traversal(path)?;
+    reject_path_traversal("--file", path)?;
 
     // Read the plaintext before creating the send so a read failure aborts before we register a
     // send that would then have no content.
@@ -1208,21 +1244,8 @@ mod tests {
         assert!(compute_deletion_date(0).is_err());
     }
 
-    // ---- reject_path_traversal ----
-
-    #[test]
-    fn reject_path_traversal_accepts_plain_paths() {
-        assert!(reject_path_traversal("secrets.txt").is_ok());
-        assert!(reject_path_traversal("/tmp/secrets.txt").is_ok());
-        assert!(reject_path_traversal("./dir/secrets.txt").is_ok());
-    }
-
-    #[test]
-    fn reject_path_traversal_rejects_parent_dir_segments() {
-        assert!(reject_path_traversal("../secrets.txt").is_err());
-        assert!(reject_path_traversal("dir/../../secrets.txt").is_err());
-        assert!(reject_path_traversal("/tmp/../etc/passwd").is_err());
-    }
+    // `reject_path_traversal` moved to `tools::file_output` when `bw receive` needed the same
+    // check for `--passwordfile` and its output path; its tests moved with it.
 
     // ---- build_auth ----
 
