@@ -283,19 +283,20 @@ impl BwCommand for SendArgs {
             // `LoggedIn`. The integration tests in `tests/send.rs` assert that supplying
             // `encoded_json` to `create`/`edit` returns the "not yet implemented" error
             // even when the caller is logged out — that signals the input is unsupported
-            // rather than burying it behind a confusing auth error.
+            // rather than burying it behind a confusing auth error. Tracked under PM-39240;
+            // kept out of the message itself since it ships in the production CLI output.
             Some(SendCommands::Create(args)) if args.encoded_json.is_some() => Err(eyre!(
-                "`encoded_json` input on `bw send create` is not yet implemented (tracked under PM-39240)."
+                "`encoded_json` input on `bw send create` is not yet implemented."
             )),
             Some(SendCommands::Edit(args)) if args.encoded_json.is_some() => Err(eyre!(
-                "`encoded_json` input on `bw send edit` is not yet implemented (tracked under PM-39240)."
+                "`encoded_json` input on `bw send edit` is not yet implemented."
             )),
             // `--output` on `get` similarly fails before the auth check: silently
             // emitting JSON to stdout while the requested file path goes uncreated would
-            // be a worse UX than an explicit "not implemented" error.
-            Some(SendCommands::Get(args)) if args.output_path.is_some() => Err(eyre!(
-                "`--output` on `bw send get` is not yet implemented (tracked under PM-34718)."
-            )),
+            // be a worse UX than an explicit "not implemented" error. Tracked under PM-34718.
+            Some(SendCommands::Get(args)) if args.output_path.is_some() => {
+                Err(eyre!("`--output` on `bw send get` is not yet implemented."))
+            }
             Some(SendCommands::List(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Template(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Get(args)) => args.dispatch(ctx).await,
@@ -346,9 +347,7 @@ impl BwCommand for SendReceiveArgs {
     type Client = AnyState;
 
     async fn run(self, _: AnyState) -> CommandResult {
-        Err(eyre!(
-            "`bw send receive` is not yet implemented (tracked under PM-34718)."
-        ))
+        Err(eyre!("`bw send receive` is not yet implemented."))
     }
 }
 
@@ -732,6 +731,22 @@ async fn run_create(
     Ok(url.into())
 }
 
+/// Reject `--file` paths containing a `..` segment before they reach the filesystem: a script
+/// that forwards an unsanitized path through to this CLI should not be able to resolve outside
+/// the directory it intended, even though `bw` itself only ever reads with the invoking user's
+/// own permissions.
+fn reject_path_traversal(path: &str) -> color_eyre::eyre::Result<()> {
+    let has_parent_dir_segment = std::path::Path::new(path)
+        .components()
+        .any(|c| c == std::path::Component::ParentDir);
+    if has_parent_dir_segment {
+        return Err(eyre!(
+            "Invalid --file path: {path} (path traversal segments are not allowed)."
+        ));
+    }
+    Ok(())
+}
+
 /// Full file-send create pipeline:
 /// 1. Read the plaintext file bytes.
 /// 2. `create_file_send` encrypts them under the send key it derives, sends the ciphertext length
@@ -744,6 +759,8 @@ async fn run_create_file(
     request: SendAddRequest,
     path: &str,
 ) -> color_eyre::eyre::Result<bitwarden_send::SendView> {
+    reject_path_traversal(path)?;
+
     // Read the plaintext before creating the send so a read failure aborts before we register a
     // send that would then have no content.
     let bytes = std::fs::read(path).wrap_err_with(|| format!("Could not read file {path}"))?;
@@ -1189,6 +1206,22 @@ mod tests {
     #[test]
     fn compute_deletion_date_rejects_zero() {
         assert!(compute_deletion_date(0).is_err());
+    }
+
+    // ---- reject_path_traversal ----
+
+    #[test]
+    fn reject_path_traversal_accepts_plain_paths() {
+        assert!(reject_path_traversal("secrets.txt").is_ok());
+        assert!(reject_path_traversal("/tmp/secrets.txt").is_ok());
+        assert!(reject_path_traversal("./dir/secrets.txt").is_ok());
+    }
+
+    #[test]
+    fn reject_path_traversal_rejects_parent_dir_segments() {
+        assert!(reject_path_traversal("../secrets.txt").is_err());
+        assert!(reject_path_traversal("dir/../../secrets.txt").is_err());
+        assert!(reject_path_traversal("/tmp/../etc/passwd").is_err());
     }
 
     // ---- build_auth ----
