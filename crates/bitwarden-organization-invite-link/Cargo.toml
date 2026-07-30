@@ -35,6 +35,7 @@ bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-organization-crypto = { workspace = true }
 chrono = { workspace = true }
+http = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }

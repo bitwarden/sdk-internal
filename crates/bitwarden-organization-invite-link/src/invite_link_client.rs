@@ -18,6 +18,7 @@ use bitwarden_crypto::{
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use bitwarden_organization_crypto::invite::{Invite, InviteKeyBundleError, InviteSecret};
+use http::StatusCode;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -60,6 +61,38 @@ pub struct InviteLinkClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl InviteLinkClient {
+    /// Get an existing invite link.
+    pub async fn get(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<Option<OrganizationInviteLink>, InviteLinkError> {
+        let response = match self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .get(organization_id.into())
+            .await
+            .map_err(ApiError::from)
+        {
+            Ok(response) => response,
+            Err(ApiError::Response(rc)) if rc.status == StatusCode::NOT_FOUND => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+
+        OrganizationInviteLink::try_from(response).map(Some)
+    }
+
+    /// Delete an existing invite link.
+    pub async fn delete(&self, organization_id: OrganizationId) -> Result<(), InviteLinkError> {
+        self.api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .delete(organization_id.into())
+            .await
+            .map_err(ApiError::from)?;
+        Ok(())
+    }
+
     /// Creates a new organization invite and posts it to the server, returning the full
     /// [`OrganizationInviteLink`] persisted by the server.
     ///
@@ -67,7 +100,7 @@ impl InviteLinkClient {
     /// Only the sealed invite is posted to the server; the invite secret is never sent. Use
     /// [`InviteLinkClient::get_invite_secret`] to recover the secret needed to reconstruct the
     /// invite link.
-    pub async fn create_invite_link(
+    pub async fn create(
         &self,
         organization_id: OrganizationId,
         allowed_domains: Vec<String>,
@@ -97,7 +130,7 @@ impl InviteLinkClient {
 
     /// Refresh an existing invite link.
     /// This generates a new code and secret.
-    pub async fn refresh_invite_link(
+    pub async fn refresh(
         &self,
         organization_id: OrganizationId,
         supports_confirmation: bool,
@@ -121,6 +154,26 @@ impl InviteLinkClient {
             .map_err(ApiError::from)?;
 
         OrganizationInviteLink::try_from(response)
+    }
+
+    /// Backwards-compatible alias for [`InviteLinkClient::create`].
+    pub async fn create_invite_link(
+        &self,
+        organization_id: OrganizationId,
+        allowed_domains: Vec<String>,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        self.create(organization_id, allowed_domains, supports_confirmation)
+            .await
+    }
+
+    /// Backwards-compatible alias for [`InviteLinkClient::refresh`].
+    pub async fn refresh_invite_link(
+        &self,
+        organization_id: OrganizationId,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        self.refresh(organization_id, supports_confirmation).await
     }
 
     /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
@@ -441,7 +494,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_invite_link_posts_and_returns_link_without_confirmation() {
+    async fn create_posts_and_returns_link_without_confirmation() {
         let org_id = OrganizationId::new_v4();
         let wrapped = Arc::new(std::sync::Mutex::new(None::<String>));
         let for_mock = wrapped.clone();
@@ -474,7 +527,7 @@ mod tests {
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
         let link = client
-            .create_invite_link(org_id, vec!["example.com".to_string()], false)
+            .create(org_id, vec!["example.com".to_string()], false)
             .await
             .unwrap();
 
@@ -484,7 +537,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_invite_link_posts_and_returns_link_with_confirmation() {
+    async fn create_posts_and_returns_link_with_confirmation() {
         let org_id = OrganizationId::new_v4();
         let wrapped = Arc::new(std::sync::Mutex::new(None::<String>));
         let for_mock = wrapped.clone();
@@ -517,7 +570,7 @@ mod tests {
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
         let link = client
-            .create_invite_link(org_id, vec!["example.com".to_string()], true)
+            .create(org_id, vec!["example.com".to_string()], true)
             .await
             .unwrap();
 
@@ -527,7 +580,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_invite_link_two_calls_produce_different_invites() {
+    async fn create_two_calls_produce_different_invites() {
         let org_id = OrganizationId::new_v4();
         let wrapped = Arc::new(std::sync::Mutex::new(None::<String>));
         let for_mock = wrapped.clone();
@@ -559,20 +612,14 @@ mod tests {
         );
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
-        let link1 = client
-            .create_invite_link(org_id, vec![], false)
-            .await
-            .unwrap();
-        let link2 = client
-            .create_invite_link(org_id, vec![], false)
-            .await
-            .unwrap();
+        let link1 = client.create(org_id, vec![], false).await.unwrap();
+        let link2 = client.create(org_id, vec![], false).await.unwrap();
 
         assert_ne!(String::from(&link1.invite), String::from(&link2.invite));
     }
 
     #[tokio::test]
-    async fn create_invite_link_with_unknown_organization_id_fails() {
+    async fn create_with_unknown_organization_id_fails() {
         let org_id = OrganizationId::new_v4();
         let other_org_id = OrganizationId::new_v4();
         let wrapped = Arc::new(std::sync::Mutex::new(None::<String>));
@@ -595,13 +642,13 @@ mod tests {
         // organization's key slot (which is absent from the store) must fail.
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
-        let result = client.create_invite_link(other_org_id, vec![], false).await;
+        let result = client.create(other_org_id, vec![], false).await;
 
         assert!(matches!(result, Err(InviteLinkError::Invite(_))));
     }
 
     #[tokio::test]
-    async fn create_invite_link_surfaces_api_errors() {
+    async fn create_surfaces_api_errors() {
         let org_id = OrganizationId::new_v4();
         let client = make_client(
             org_id,
@@ -612,7 +659,7 @@ mod tests {
             }),
         );
 
-        let result = client.create_invite_link(org_id, vec![], false).await;
+        let result = client.create(org_id, vec![], false).await;
 
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
     }

@@ -995,6 +995,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-organization-crypto",
  "chrono",
+ "http",
  "serde",
  "thiserror 2.0.18",
  "tokio",
