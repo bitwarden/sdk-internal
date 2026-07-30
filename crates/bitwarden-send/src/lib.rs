@@ -7,8 +7,9 @@ mod uniffi_support;
 
 mod access;
 pub use access::{
-    AccessSendError, GetFileDownloadDataError, SendAccessFileResponse, SendAccessResponse,
-    SendAccessTextResponse, SendFileDownloadData,
+    AccessSendError, GetFileDownloadDataError, SendAccessDecryptError, SendAccessFileResponse,
+    SendAccessFileView, SendAccessKey, SendAccessKeyError, SendAccessResponse,
+    SendAccessTextResponse, SendAccessTextView, SendAccessView, SendFileDownloadData,
 };
 mod send_client;
 pub use send_client::{
