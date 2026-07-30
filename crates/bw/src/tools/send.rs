@@ -14,16 +14,16 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use bitwarden_pm::PasswordManagerClient;
 use bitwarden_send::{
-    AuthEdit, SendAddRequest, SendAuthType, SendEditRequest, SendFileView, SendId, SendTextView,
-    SendType, SendView, SendViewType,
+    AuthEdit, AuthType, SendAddRequest, SendAuthType, SendEditRequest, SendFileView, SendId,
+    SendTextView, SendType, SendView, SendViewType,
 };
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use clap::{
     Args, Subcommand,
     builder::{PossibleValuesParser, TypedValueParser as _},
 };
 use color_eyre::eyre::{Context as _, eyre};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     client_state::{AnyState, BwCommand, BwCommandExt as _, ClientContext, LoggedIn},
@@ -285,23 +285,31 @@ impl BwCommand for SendArgs {
             // `--output` on `get` fails before the auth check: silently emitting JSON to
             // stdout while the requested file path goes uncreated would be a worse UX than
             // an explicit "not implemented" error.
-            Some(SendCommands::Get(args)) if args.output_path.is_some() => Err(eyre!(
-                "`--output` on `bw send get` is not yet implemented (tracked under PM-39238)."
-            )),
+            Some(SendCommands::Get(args)) if args.output_path.is_some() => {
+                Err(eyre!("`--output` on `bw send get` is not yet implemented"))
+            }
             // `create`/`edit` resolve and parse their full-object JSON input *before*
             // extracting `LoggedIn`, so malformed input surfaces a clear parse error rather
             // than a confusing "not logged in" message (the integration tests assert this
             // ordering). Input comes from the positional `encoded_json` or, when absent and
-            // stdin is piped, from stdin.
+            // stdin is piped, from stdin. Stdin is only consulted when no other input source
+            // was given: a fully specified flag-only invocation must not block on (or
+            // consume) a caller's stdin pipe.
             Some(SendCommands::Create(args)) => {
-                let json = read_encoded_json_input(args.encoded_json.clone())?
+                let stdin_eligible = args.text.is_none() && args.file.is_none();
+                let json = read_encoded_json_input(args.encoded_json.clone(), stdin_eligible)?
                     .map(|raw| parse_encoded_send_view(&raw))
                     .transpose()?;
                 let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
                 dispatch_create(&user, args, json).await
             }
             Some(SendCommands::Edit(args)) => {
-                let json = read_encoded_json_input(args.encoded_json.clone())?
+                let stdin_eligible = args.delete_in_days.is_none()
+                    && args.max_access_count.is_none()
+                    && !args.hidden
+                    && args.password.is_none()
+                    && args.emails.is_none();
+                let json = read_encoded_json_input(args.encoded_json.clone(), stdin_eligible)?
                     .map(|raw| parse_encoded_send_view(&raw))
                     .transpose()?;
                 let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
@@ -537,15 +545,24 @@ struct SendFileTemplateBody {
 /// Resolve the raw full-object JSON input for `create`/`edit`.
 ///
 /// Precedence mirrors the legacy CLI: an explicit positional argument wins; otherwise, when
-/// stdin is piped (not an interactive terminal), read it. When stdin is a TTY and no
-/// positional was given, there is no JSON input and the flag-only path runs. The `is_terminal`
-/// guard is what keeps an interactive shell (and the test harness, which doesn't pipe stdin)
-/// from blocking on a read.
-fn read_encoded_json_input(positional: Option<String>) -> color_eyre::eyre::Result<Option<String>> {
+/// `stdin_eligible` (the caller supplied no other flag that already fully specifies the
+/// command) and stdin is piped (not an interactive terminal), read it. When stdin is a TTY, no
+/// positional was given, or `stdin_eligible` is false, there is no JSON input and the
+/// flag-only path runs.
+///
+/// `stdin_eligible` exists so a fully flag-specified `create`/`edit` never touches stdin: an
+/// unconditional read would block (or silently swallow bytes) when stdin is a non-TTY pipe
+/// that stays open, e.g. `ssh host 'bw send edit --itemid <id> --deleteInDays 3'` or
+/// `docker run -i`. The `is_terminal` guard separately keeps an interactive shell (and the
+/// test harness, which doesn't pipe stdin) from blocking on a read.
+fn read_encoded_json_input(
+    positional: Option<String>,
+    stdin_eligible: bool,
+) -> color_eyre::eyre::Result<Option<String>> {
     if let Some(raw) = positional {
         return Ok(Some(raw));
     }
-    if std::io::stdin().is_terminal() {
+    if !stdin_eligible || std::io::stdin().is_terminal() {
         return Ok(None);
     }
     let mut buf = String::new();
@@ -556,22 +573,101 @@ fn read_encoded_json_input(positional: Option<String>) -> color_eyre::eyre::Resu
     Ok(Some(buf))
 }
 
+/// CLI-local shape for the full-object JSON accepted by `create`/`edit`.
+///
+/// Deliberately distinct from [`SendView`] (`deny_unknown_fields`, no field defaults — the
+/// wire contract other SDK consumers rely on): the JSON this command accepts comes from three
+/// sources with different completeness —
+///   - `bw send template` output, which only carries the fields relevant to creation (`name`,
+///     `notes`, `type`, `text`/`file`, `deletionDate`)
+///   - `bw send get`/`--fullObject` output, a full `SendView` that also carries fields this CLI
+///     doesn't model (`object`, `accessUrl`, ...)
+///   - a hand-authored object supplying just the fields the caller cares about
+///
+/// Server-owned/read-only fields default when absent so all three shapes parse, and unknown
+/// keys are silently ignored (no `deny_unknown_fields`) so `bw send get` output round-trips.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SendJsonInput {
+    id: Option<SendId>,
+    access_id: Option<String>,
+    #[serde(default)]
+    name: String,
+    notes: Option<String>,
+    key: Option<String>,
+    new_password: Option<String>,
+    #[serde(default)]
+    has_password: bool,
+    r#type: SendType,
+    file: Option<SendFileView>,
+    text: Option<SendTextView>,
+    max_access_count: Option<u32>,
+    #[serde(default)]
+    access_count: u32,
+    #[serde(default)]
+    disabled: bool,
+    #[serde(default)]
+    hide_email: bool,
+    #[serde(default = "Utc::now")]
+    revision_date: DateTime<Utc>,
+    deletion_date: DateTime<Utc>,
+    expiration_date: Option<DateTime<Utc>>,
+    #[serde(default)]
+    emails: Vec<String>,
+    #[serde(default = "default_auth_type")]
+    auth_type: AuthType,
+}
+
+fn default_auth_type() -> AuthType {
+    AuthType::None
+}
+
+impl From<SendJsonInput> for SendView {
+    fn from(input: SendJsonInput) -> Self {
+        SendView {
+            id: input.id,
+            access_id: input.access_id,
+            name: input.name,
+            notes: input.notes,
+            key: input.key,
+            new_password: input.new_password,
+            has_password: input.has_password,
+            r#type: input.r#type,
+            file: input.file,
+            text: input.text,
+            max_access_count: input.max_access_count,
+            access_count: input.access_count,
+            disabled: input.disabled,
+            hide_email: input.hide_email,
+            revision_date: input.revision_date,
+            deletion_date: input.deletion_date,
+            expiration_date: input.expiration_date,
+            emails: input.emails,
+            auth_type: input.auth_type,
+        }
+    }
+}
+
 /// Decode and parse the full-object JSON input into a [`SendView`].
 ///
 /// The input may be base64-encoded JSON (legacy CLI behavior) or raw JSON (this CLI's
-/// convenience). We try base64 → UTF-8 → JSON first and fall back to parsing the original
-/// string as JSON if any step fails. Real JSON text starts with `{` and contains characters
-/// outside the base64 alphabet, so the base64 attempt fails fast on raw JSON and the fallback
-/// is taken — no explicit disambiguation is needed.
+/// convenience). Real JSON text starts with `{` and contains characters outside the base64
+/// alphabet, so decoding as base64 fails fast on raw JSON; when decoding fails (or the decoded
+/// bytes aren't valid UTF-8) we fall back to treating the original string as the JSON text
+/// directly. Either way, JSON is parsed exactly once, so a deserialize failure (e.g. a missing
+/// required field) is always the *real* error — we never re-parse the encoded string as JSON
+/// and mask it behind a generic "expected value" message.
 fn parse_encoded_send_view(raw: &str) -> color_eyre::eyre::Result<SendView> {
-    if let Ok(decoded) = STANDARD.decode(raw.trim())
-        && let Ok(text) = std::str::from_utf8(&decoded)
-        && let Ok(view) = serde_json::from_str::<SendView>(text)
-    {
-        return Ok(view);
-    }
+    let trimmed = raw.trim();
+    let json_text = STANDARD
+        .decode(trimmed)
+        .ok()
+        .and_then(|decoded| String::from_utf8(decoded).ok())
+        .unwrap_or_else(|| trimmed.to_string());
 
-    serde_json::from_str::<SendView>(raw).wrap_err("Error parsing the encoded request data.")
+    let input: SendJsonInput =
+        serde_json::from_str(&json_text).wrap_err("Error parsing the encoded request data.")?;
+    Ok(input.into())
 }
 
 struct CreateInputs {
@@ -704,15 +800,14 @@ fn build_create_request_from_view(
             // regardless of input source.)
             return Err(eyre!(
                 "Creating file Sends from JSON is not supported: the CLI needs a local file path \
-                 to read and encrypt the contents. Use `--file <path>` instead (file-send \
-                 creation is tracked under PM-39238)."
+                 to read and encrypt the contents. Use `--file <path>` instead."
             ));
         }
     };
 
     let resolved_name = name.unwrap_or(view.name);
     if resolved_name.is_empty() {
-        return Err(eyre!("--name is required for text Sends."));
+        return Err(eyre!("--name is required."));
     }
 
     // Auth precedence: CLI `--password`/`--emails` win as a unit; otherwise fall back to the
@@ -1726,6 +1821,71 @@ mod tests {
         assert!(
             err.to_string()
                 .contains("Error parsing the encoded request data")
+        );
+    }
+
+    /// Mirrors `bw send template send.text` output with only the fields the template emits
+    /// (`name`, `notes`, `type`, `text`, `deletionDate`) filled in — the documented
+    /// template -> create round trip. Server-owned fields (`hasPassword`, `accessCount`,
+    /// `revisionDate`, `emails`, `authType`, `disabled`, `hideEmail`) must not be required.
+    #[test]
+    fn parse_encoded_send_view_accepts_template_shaped_json() {
+        let json = r#"{
+            "name": "My Send",
+            "notes": "",
+            "type": 0,
+            "text": {"text": "hello", "hidden": false},
+            "deletionDate": "2030-01-01T00:00:00Z"
+        }"#;
+
+        let view = parse_encoded_send_view(json).expect("template-shaped JSON should parse");
+        assert_eq!(view.name, "My Send");
+        assert!(!view.has_password);
+        assert_eq!(view.access_count, 0);
+        assert!(!view.disabled);
+        assert!(!view.hide_email);
+        assert!(view.emails.is_empty());
+        assert!(matches!(view.auth_type, AuthType::None));
+    }
+
+    /// `bw send get` output carries fields (`object`, `accessUrl`, ...) this CLI doesn't model.
+    /// Rejecting them outright would break the `bw send get <id> | bw send edit` workflow.
+    #[test]
+    fn parse_encoded_send_view_tolerates_unknown_fields() {
+        let json = r#"{
+            "object": "send",
+            "accessUrl": "https://vault.bitwarden.com/#/send/abc/def",
+            "name": "My Send",
+            "hasPassword": false,
+            "type": 0,
+            "text": {"text": "hello", "hidden": false},
+            "accessCount": 0,
+            "disabled": false,
+            "hideEmail": false,
+            "revisionDate": "2025-01-01T00:00:00Z",
+            "deletionDate": "2030-01-01T00:00:00Z",
+            "emails": [],
+            "authType": 2
+        }"#;
+
+        let view = parse_encoded_send_view(json).expect("unknown fields should be ignored");
+        assert_eq!(view.name, "My Send");
+    }
+
+    /// When the input decodes cleanly as base64 but the resulting JSON fails to deserialize,
+    /// the *real* error (e.g. a missing required field) must surface — not a generic
+    /// "expected value" error from re-parsing the base64 string itself as JSON.
+    #[test]
+    fn parse_encoded_send_view_surfaces_real_error_for_valid_base64_invalid_json() {
+        let b64 = STANDARD.encode(r#"{"name": "My Send"}"#);
+        let err = parse_encoded_send_view(&b64).unwrap_err();
+        // `to_string()` only shows the top-level `wrap_err` message; the underlying
+        // serde_json cause (what actually pins this down as the *real* error, not a
+        // re-parse-as-JSON failure) is in the `{:?}` chain.
+        let chain = format!("{err:?}");
+        assert!(
+            chain.contains("missing field"),
+            "expected the real deserialize error, got: {chain}"
         );
     }
 
