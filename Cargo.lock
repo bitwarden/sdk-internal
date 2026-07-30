@@ -1390,6 +1390,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
+ "bitwarden-km-sync-handler",
  "bitwarden-organizations",
  "bitwarden-pm",
  "bitwarden-policies",

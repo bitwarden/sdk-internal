@@ -63,6 +63,7 @@ pub struct MasterPasswordUnlockData {
     /// through its own channel.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub user_key_id: Option<KeyId>,
 }
 
