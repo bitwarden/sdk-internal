@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bitwarden_api_api::models::{
     AcceptOrganizationInviteLinkRequestModel, ConfirmOrganizationInviteLinkRequestModel,
     CreateOrganizationInviteLinkRequestModel, GetOrganizationInviteRequestModel,
-    RefreshOrganizationInviteLinkRequestModel,
+    RefreshOrganizationInviteLinkRequestModel, UpdateOrganizationInviteLinkRequestModel,
 };
 use bitwarden_core::{
     ApiError, Client, FromClient, MissingFieldError, OrganizationId,
@@ -189,6 +189,26 @@ impl InviteLinkClient {
         let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
         let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
         Ok(invite_secret)
+    }
+
+    /// Updates the allowed domains for an existing organization invite link.
+    pub async fn update_allowed_domains(
+        &self,
+        organization_id: OrganizationId,
+        allowed_domains: Vec<String>,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .update(
+                organization_id.into(),
+                Some(UpdateOrganizationInviteLinkRequestModel { allowed_domains }),
+            )
+            .await
+            .map_err(ApiError::from)?;
+
+        OrganizationInviteLink::try_from(response)
     }
 
     /// Accepts an organization invite for the current user, optionally enrolling into account
