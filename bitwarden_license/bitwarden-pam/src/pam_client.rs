@@ -4,7 +4,9 @@ use bitwarden_core::{Client, FromClient, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::access_rules::AccessRulesClient;
+use crate::{
+    access_requests::AccessRequestsClient, access_rules::AccessRulesClient, leases::LeasesClient,
+};
 
 /// Entry point for Privileged Access Management (PAM) operations.
 #[derive(Clone, FromClient)]
@@ -18,6 +20,20 @@ impl PamClient {
     /// Access rule CRUD operations.
     pub fn access_rules(&self) -> AccessRulesClient {
         AccessRulesClient {
+            api_configurations: self.api_configurations.clone(),
+        }
+    }
+
+    /// Access request operations (activate, cancel, and read the caller's requests).
+    pub fn access_requests(&self) -> AccessRequestsClient {
+        AccessRequestsClient {
+            api_configurations: self.api_configurations.clone(),
+        }
+    }
+
+    /// Access lease operations (read, extend, and end the caller's leases).
+    pub fn leases(&self) -> LeasesClient {
+        LeasesClient {
             api_configurations: self.api_configurations.clone(),
         }
     }

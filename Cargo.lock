@@ -1045,6 +1045,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-error",
  "bitwarden-uuid",
+ "bitwarden-vault",
  "chrono",
  "reqwest",
  "serde",
