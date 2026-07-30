@@ -15,10 +15,6 @@ use tracing::{info, warn};
 use wasm_bindgen::prelude::*;
 
 /// The parts of a sync response the key management sync handler needs.
-///
-/// This is deliberately narrow rather than the full sync response: while the clients still own sync
-/// they build their own response models, and marshalling those across the bindings boundary is not
-/// worth it for a handful of fields.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -64,12 +60,8 @@ pub struct KmSyncUserDecryption {
 }
 
 /// Runs the key management sync work for the given sync data.
-///
-/// Each concern gets its own handler below; add new ones here. Handlers share a signature so this
-/// stays a flat list, and each is independent: none of them can fail the sync pass, and a handler
-/// that gives up logs and leaves the rest to run. State is applied before any handler that talks to
-/// the server, so a network failure never costs us a state write.
 async fn handle_km_sync(client: &Client, data: &KmSyncData) {
+    // Handlers MUST NOT fail, to avoid partial state writes
     handle_user_decryption_options(client, data).await;
     handle_account_cryptographic_state(client, data).await;
     handle_user_key_id(client, data).await;
@@ -78,15 +70,12 @@ async fn handle_km_sync(client: &Client, data: &KmSyncData) {
 }
 
 /// Persists the user decryption options the server reported.
-///
-/// What the server reports replaces what is stored, so an option the server omits is cleared rather
-/// than left behind: an absent V2 upgrade token means the upgrade is no longer outstanding, and
-/// absent master password unlock data means the account has no master password.
 async fn handle_user_decryption_options(client: &Client, data: &KmSyncData) {
     let Some(user_decryption) = data.user_decryption.as_ref() else {
         return;
     };
 
+    // This is necessary until all clients implement the state bridge.
     let state_bridge = client.km_state_bridge();
     if !state_bridge.is_bridge_registered() {
         return;
@@ -114,6 +103,7 @@ async fn handle_account_cryptographic_state(client: &Client, data: &KmSyncData) 
         return;
     };
 
+    // This is necessary until all clients implement the state bridge.
     let state_bridge = client.km_state_bridge();
     if !state_bridge.is_bridge_registered() {
         return;
@@ -125,12 +115,6 @@ async fn handle_account_cryptographic_state(client: &Client, data: &KmSyncData) 
 }
 
 /// Reports the current user key's key id to the server when the server does not already have one.
-///
-/// A no-op when the server already knows the key id, and when the client has no user key id to
-/// report — either because the client is locked or because the user key carries no key id.
-///
-/// A failed report is logged and otherwise ignored: the backfill is opportunistic, and the next
-/// sync will try again.
 async fn handle_user_key_id(client: &Client, data: &KmSyncData) {
     let server_user_key_id = data
         .user_decryption
