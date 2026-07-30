@@ -965,7 +965,6 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
- "bitwarden-logging",
  "bitwarden-sync",
  "bitwarden-user-crypto-management",
  "serde",

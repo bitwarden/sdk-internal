@@ -213,26 +213,40 @@ impl bitwarden_sync::SyncHandler for KmSyncHandler {
 
         let data = KmSyncData {
             user_decryption: user_decryption.map(|d| KmSyncUserDecryption {
-                user_key_id: d
-                    .user_key_id
-                    .as_deref()
-                    .and_then(|hex_encoded_key_id| hex_encoded_key_id.parse().ok()),
-                // A response the SDK cannot parse is dropped rather than failing the whole sync;
-                // the previously stored value stays put.
-                master_password_unlock: d
-                    .master_password_unlock
-                    .as_deref()
-                    .and_then(|m| MasterPasswordUnlockData::try_from(m).ok()),
-                v2_upgrade_token: d
-                    .v2_upgrade_token
-                    .as_deref()
-                    .and_then(|t| V2UpgradeToken::try_from(t).ok()),
+                user_key_id: d.user_key_id.as_deref().and_then(|hex_encoded_key_id| {
+                    hex_encoded_key_id
+                        .parse()
+                        .inspect_err(|e| {
+                            warn!(error = ?e, "Sync response carried an unparseable user key id; treating it as absent")
+                        })
+                        .ok()
+                }),
+                master_password_unlock: d.master_password_unlock.as_deref().and_then(|m| {
+                    MasterPasswordUnlockData::try_from(m)
+                        .inspect_err(|e| {
+                            warn!(error = ?e, "Sync response carried unparseable master password unlock data; treating it as absent")
+                        })
+                        .ok()
+                }),
+                v2_upgrade_token: d.v2_upgrade_token.as_deref().and_then(|t| {
+                    V2UpgradeToken::try_from(t)
+                        .inspect_err(|e| {
+                            warn!(error = ?e, "Sync response carried an unparseable V2 upgrade token; treating it as absent")
+                        })
+                        .ok()
+                }),
             }),
             account_cryptographic_state: response
                 .profile
                 .as_deref()
                 .and_then(|p| p.account_keys.as_deref())
-                .and_then(|k| WrappedAccountCryptographicState::try_from(k).ok()),
+                .and_then(|k| {
+                    WrappedAccountCryptographicState::try_from(k)
+                        .inspect_err(|e| {
+                            warn!(error = ?e, "Sync response carried unparseable account cryptographic state; ignoring it")
+                        })
+                        .ok()
+                }),
         };
         handle_km_sync(&self.client, &data).await;
         Ok(())

@@ -8,4 +8,6 @@ mod km_sync_handler;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use km_sync_handler::KmSyncHandler;
-pub use km_sync_handler::{KmSyncData, KmSyncHandlerClient, KmSyncHandlerClientExt};
+pub use km_sync_handler::{
+    KmSyncData, KmSyncHandlerClient, KmSyncHandlerClientExt, KmSyncUserDecryption,
+};
