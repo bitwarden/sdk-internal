@@ -14,7 +14,8 @@ use crate::{
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
-    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
+    derive_shareable_key, error::UnsupportedOperationError,
+    hazmat::symmetric_encryption::Aes256CbcHmacSha256, signing, store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -237,7 +238,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                Aes256CbcHmacSha256::decrypt(iv, data, mac, &key.to_composite_key())
                     .map_err(|_| CryptoError::Decrypt)?,
             ))?,
             (
@@ -773,7 +774,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+            ) => Aes256CbcHmacSha256::decrypt(iv, data, mac, &key.to_composite_key())
                 .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
@@ -881,6 +882,28 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
         if key_1 != key_2 {
             panic!(
                 "Symmetric keys with ids {:?} and {:?} are not equal",
+                key_id_1, key_id_2,
+            );
+        }
+    }
+
+    /// A test helper to assert that the symmetric keys corresponding to the given identifiers are
+    /// not equal.
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn assert_symmetric_keys_not_equal(
+        &self,
+        key_id_1: Ids::Symmetric,
+        key_id_2: Ids::Symmetric,
+    ) {
+        let key_1 = self
+            .get_symmetric_key(key_id_1)
+            .expect("Key 1 should exist in context");
+        let key_2 = self
+            .get_symmetric_key(key_id_2)
+            .expect("Key 2 should exist in context");
+        if key_1 == key_2 {
+            panic!(
+                "Symmetric keys with ids {:?} and {:?} are equal",
                 key_id_1, key_id_2,
             );
         }

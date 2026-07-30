@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use bitwarden_core::Client;
 use bitwarden_crypto::CryptoError;
-use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
+use bitwarden_vault::{CipherError, CipherView, EncryptError, VaultClientExt};
 use itertools::Itertools;
 use passkey::{
     authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck},
@@ -446,14 +446,14 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
     ) -> Result<(), StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
-            #[error("Client User Id has not been set")]
-            MissingUserId,
             #[error(transparent)]
             FillCredential(#[from] FillCredentialError),
             #[error(transparent)]
             Cipher(#[from] CipherError),
             #[error(transparent)]
             Crypto(#[from] CryptoError),
+            #[error(transparent)]
+            Encrypt(#[from] EncryptError),
             #[error(transparent)]
             Fido2Callback(#[from] Fido2CallbackError),
 
@@ -469,12 +469,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
             options: passkey::types::ctap2::get_assertion::Options,
         ) -> Result<(), InnerError> {
-            let user_id = this
-                .authenticator
-                .client
-                .internal
-                .get_user_id()
-                .ok_or(InnerError::MissingUserId)?;
             let cred = try_from_credential_full(cred, user, rp, options)?;
 
             // Get the previously selected cipher and add the new credential to it
@@ -498,14 +492,17 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .replace(selected.clone());
 
             // Encrypt the updated cipher before sending it to the clients to be stored
-            let encrypted = key_store.encrypt(selected)?;
+            let encryption_context = this
+                .authenticator
+                .client
+                .vault()
+                .ciphers()
+                .encrypt(selected)
+                .await?;
 
             this.authenticator
                 .credential_store
-                .save_credential(EncryptionContext {
-                    cipher: encrypted,
-                    encrypted_for: user_id,
-                })
+                .save_credential(encryption_context)
                 .await?;
 
             Ok(())
@@ -522,8 +519,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
     async fn update_credential(&mut self, cred: Passkey) -> Result<(), StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
-            #[error("Client User Id has not been set")]
-            MissingUserId,
             #[error(transparent)]
             InvalidGuid(#[from] InvalidGuidError),
             #[error("Credential ID does not match selected credential")]
@@ -535,6 +530,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error(transparent)]
             Crypto(#[from] CryptoError),
             #[error(transparent)]
+            Encrypt(#[from] EncryptError),
+            #[error(transparent)]
             Fido2Callback(#[from] Fido2CallbackError),
             #[error(transparent)]
             GetSelectedCredential(#[from] GetSelectedCredentialError),
@@ -545,12 +542,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             this: &mut CredentialStoreImpl<'_>,
             cred: Passkey,
         ) -> Result<(), InnerError> {
-            let user_id = this
-                .authenticator
-                .client
-                .internal
-                .get_user_id()
-                .ok_or(InnerError::MissingUserId)?;
             // Get the previously selected cipher and update the credential
             let selected = this.authenticator.get_selected_credential()?;
 
@@ -576,14 +567,17 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .replace(selected.clone());
 
             // Encrypt the updated cipher before sending it to the clients to be stored
-            let encrypted = key_store.encrypt(selected)?;
+            let encryption_context = this
+                .authenticator
+                .client
+                .vault()
+                .ciphers()
+                .encrypt(selected)
+                .await?;
 
             this.authenticator
                 .credential_store
-                .save_credential(EncryptionContext {
-                    cipher: encrypted,
-                    encrypted_for: user_id,
-                })
+                .save_credential(encryption_context)
                 .await?;
 
             Ok(())

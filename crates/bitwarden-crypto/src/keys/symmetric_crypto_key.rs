@@ -19,7 +19,7 @@ use subtle::{Choice, ConstantTimeEq};
 use typenum::U32;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use super::{key_encryptable::CryptoKey, key_id::KeyId};
 use crate::{
@@ -88,7 +88,7 @@ impl TryFrom<wasm_bindgen::JsValue> for SymmetricCryptoKey {
 pub enum SymmetricKeyAlgorithm {
     /// Used for V1 user keys and data encryption
     Aes256CbcHmac,
-    /// Used for V2 user keys and data envelopes
+    /// Used by old PIN PasswordProtectedKeyEnvelope
     XChaCha20Poly1305,
     /// FIPS-approved AEAD.
     /// Used as content encryption key in:
@@ -97,8 +97,8 @@ pub enum SymmetricKeyAlgorithm {
     ///
     /// May not be used for multi-device scoped keys such as the user-key or organization-key
     Aes256Gcm,
-    /// Extended-nonce AES-256-GCM. Safe for random nonces and usable as a
-    /// general-purpose encryption/wrapping key.
+    /// Extended-nonce AES-256-GCM. Used for V2 user keys and as a general-purpose
+    /// encryption/wrapping key.
     XAes256Gcm,
 }
 
@@ -136,6 +136,17 @@ pub struct Aes256CbcHmacKey {
 impl ConstantTimeEq for Aes256CbcHmacKey {
     fn ct_eq(&self, other: &Self) -> Choice {
         self.enc_key.ct_eq(&other.enc_key) & self.mac_key.ct_eq(&other.mac_key)
+    }
+}
+
+impl Aes256CbcHmacKey {
+    /// Returns the 64-byte composite key (`enc_key || mac_key`) in the layout expected by the
+    /// [`Aes256CbcHmacSha256`](crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256) cipher.
+    pub(crate) fn to_composite_key(&self) -> Zeroizing<[u8; 64]> {
+        let mut key = Zeroizing::new([0u8; 64]);
+        key[..32].copy_from_slice(&self.enc_key);
+        key[32..].copy_from_slice(&self.mac_key);
+        key
     }
 }
 

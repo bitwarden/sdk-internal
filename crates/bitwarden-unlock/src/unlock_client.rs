@@ -282,7 +282,7 @@ mod tests {
     fn make_test_user_crypto() -> (SymmetricCryptoKey, WrappedAccountCryptographicState) {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
-        let user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let private_key_id = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let signed_public_key = ctx

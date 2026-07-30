@@ -17,11 +17,11 @@ pub struct CreateOrganizationInviteLinkRequestModel {
     /// Email domains permitted to accept the invite link (e.g. `[\"acme.com\"]`).
     #[serde(rename = "allowedDomains", alias = "AllowedDomains")]
     pub allowed_domains: Vec<String>,
-    /// An opaque cryptographic blob. The server only stores and transports it, so its format is
+    /// An opaque cryptographic invite. The server only stores and transports it, so its format is
     /// not validated here.
     #[serde(rename = "invite", alias = "Invite")]
     pub invite: String,
-    /// Indicates if the link supports user auto confirmation (not supported yet).
+    /// Whether this invite link can be used to confirm a user.
     #[serde(rename = "supportsConfirmation", alias = "SupportsConfirmation")]
     pub supports_confirmation: bool,
 }

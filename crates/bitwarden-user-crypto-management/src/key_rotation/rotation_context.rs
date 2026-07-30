@@ -84,8 +84,8 @@ pub(super) fn make_rotation_context(
     );
     let current_user_key_id = SymmetricKeySlotId::User;
 
-    debug!("Generating new xchacha20-poly1305 user key for key rotation");
-    let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+    debug!("Generating new XAES-256-GCM user key for key rotation");
+    let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
     Ok(RotationContext {
         v1_organization_memberships,

@@ -383,7 +383,7 @@ mod tests {
         let user_key_old =
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
         let user_key_new =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XAes256Gcm);
 
         // An already blob-encrypted cipher
         let cipher = make_cipher_view();
