@@ -34,10 +34,13 @@ impl FlightRecorderClient {
 
     /// Ingest a single TypeScript-originated log event into the global buffer,
     /// honoring the configured level floor.
-    pub fn write(&self, timestamp: i64, level: LogLevel, target: String, message: String) {
+    ///
+    /// `timestamp` is milliseconds since the Unix epoch, supplied by the caller
+    /// (`Date.now()`).
+    pub fn write(&self, timestamp: f64, level: LogLevel, target: String, message: String) {
         let level = convert_level(level);
         let event = FlightRecorderEvent {
-            timestamp,
+            timestamp: timestamp as i64,
             level: level.to_string(),
             target,
             message,
