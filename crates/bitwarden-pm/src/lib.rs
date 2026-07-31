@@ -11,6 +11,9 @@ use bitwarden_core::{
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
 };
 use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
+#[cfg(not(target_arch = "wasm32"))]
+use bitwarden_crypto_sync_handler::CryptoSyncHandler;
+use bitwarden_crypto_sync_handler::CryptoSyncHandlerClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
@@ -30,6 +33,7 @@ pub mod clients {
     pub use bitwarden_auth::AuthClient;
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient;
+    pub use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
@@ -85,9 +89,10 @@ impl PasswordManagerClient {
     pub fn new_with_sync(settings: Option<bitwarden_core::ClientSettings>) -> Self {
         let client = Self::new(settings);
 
-        client
-            .sync()
-            .register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
+        let sync = client.sync();
+        sync.register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
+        #[cfg(not(target_arch = "wasm32"))]
+        sync.register_sync_handler(Arc::new(CryptoSyncHandler::new(client.0.clone())));
 
         // TODO: Add more sync handlers here!
 
@@ -123,6 +128,11 @@ impl PasswordManagerClient {
     /// Feature flag operations
     pub fn flags(&self) -> bitwarden_core::FlagsClient {
         self.0.flags()
+    }
+
+    /// Key management operations that run on every sync
+    pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
+        self.0.crypto_sync_handler()
     }
 
     /// Operations that manage the cryptographic machinery of a user account, including key-rotation

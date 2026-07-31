@@ -62,6 +62,7 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var v2UpgradeToken: V2UpgradeToken?
     private var accountCryptographicState: WrappedAccountCryptographicState?
     private var masterpasswordUnlockData: MasterPasswordUnlockData?
+    private var kdf: Kdf?
 
     func setUserKey(value: SymmetricCryptoKey) { userKey = value }
     func getUserKey() -> SymmetricCryptoKey? { userKey }
@@ -90,6 +91,10 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func setMasterpasswordUnlockData(value: MasterPasswordUnlockData) { masterpasswordUnlockData = value }
     func getMasterpasswordUnlockData() -> MasterPasswordUnlockData? { masterpasswordUnlockData }
     func clearMasterpasswordUnlockData() { masterpasswordUnlockData = nil }
+
+    func setKdf(value: Kdf) { kdf = value }
+    func getKdf() -> Kdf? { kdf }
+    func clearKdf() { kdf = nil }
 }
 
 final class MockTokenProvider: ClientManagedTokens {

@@ -7,7 +7,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use bitwarden_crypto::{EncString, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope};
+use bitwarden_crypto::{EncString, Kdf, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -148,4 +148,5 @@ bitwarden_state_bridge_macro::state_bridge! {
     v2_upgrade_token: V2UpgradeToken as ts "V2UpgradeToken",
     account_cryptographic_state: WrappedAccountCryptographicState as ts "WrappedAccountCryptographicState",
     masterpassword_unlock_data: MasterPasswordUnlockData as ts "MasterPasswordUnlockData",
+    kdf: Kdf as ts "Kdf",
 }
