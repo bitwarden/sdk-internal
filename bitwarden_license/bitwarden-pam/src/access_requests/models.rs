@@ -1,7 +1,9 @@
 use bitwarden_api_api::models::{
-    AccessDecisionVerdict as ApiAccessDecisionVerdict, AccessRequestDecisionResponseModel,
-    AccessRequestDetailsResponseModel, AccessRequestStatus as ApiAccessRequestStatus,
-    DeciderKind as ApiDeciderKind,
+    AccessApprovalMode as ApiAccessApprovalMode, AccessDecisionVerdict as ApiAccessDecisionVerdict,
+    AccessPreCheckResponseModel, AccessRequestCreateRequestModel,
+    AccessRequestDecisionResponseModel, AccessRequestDetailsResponseModel,
+    AccessRequestResultResponseModel, AccessRequestStatus as ApiAccessRequestStatus,
+    CipherAccessStateResponseModel, DeciderKind as ApiDeciderKind,
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, UserId, require};
@@ -11,7 +13,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::LeasingError};
+use crate::{
+    AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::LeasingError,
+    leases::AccessLeaseView,
+};
 
 /// The lifecycle state of an access request.
 ///
@@ -228,10 +233,221 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
     }
 }
 
+/// The approval path a lease request will take, surfaced by
+/// [`pre_check`](crate::AccessRequestsClient::pre_check) so the client can present the right
+/// workflow before the requester commits.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "snake_case")]
+pub enum AccessApprovalMode {
+    /// A request would be approved immediately - the client should let the requester pick a
+    /// duration.
+    Automatic,
+    /// A request would need an approver - the client should let the requester pick a window and
+    /// justify it.
+    Human,
+    /// An approval mode value this SDK version does not recognize.
+    Unknown,
+}
+
+impl From<ApiAccessApprovalMode> for AccessApprovalMode {
+    fn from(mode: ApiAccessApprovalMode) -> Self {
+        match mode {
+            ApiAccessApprovalMode::Automatic => Self::Automatic,
+            ApiAccessApprovalMode::Human => Self::Human,
+            ApiAccessApprovalMode::__Unknown(_) => Self::Unknown,
+        }
+    }
+}
+
+/// The resolved approval outcome for a cipher, read without submitting a request.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct AccessPreCheckView {
+    /// The cipher this pre-check was resolved for.
+    pub cipher_id: CipherId,
+    /// The approval path a request for this cipher would take.
+    pub approval_mode: AccessApprovalMode,
+    /// True when the caller already holds an active lease: reveal the credential, no request
+    /// needed.
+    pub has_active_lease: bool,
+}
+
+impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
+    type Error = LeasingError;
+
+    fn try_from(response: AccessPreCheckResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            cipher_id: CipherId::new(require!(response.cipher_id)),
+            approval_mode: AccessApprovalMode::from(require!(response.approval_mode)),
+            has_active_lease: require!(response.has_active_lease),
+        })
+    }
+}
+
+/// A decrypted view of an access request as its requester sees it right after submitting it.
+///
+/// A lighter sibling of [`AccessRequestView`]: the create response doesn't carry a decision log,
+/// pinned rule, produced-lease linkage, or denormalized requester identity, since none of those
+/// exist yet for a request that was just opened.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct AccessRequestSummaryView {
+    /// The request's unique identifier.
+    pub id: AccessRequestId,
+    /// The cipher access was requested for.
+    pub cipher_id: CipherId,
+    /// The collection the cipher belongs to, through which the request is governed.
+    pub collection_id: CollectionId,
+    /// The organization that owns the cipher. None when the server omits it.
+    pub organization_id: Option<OrganizationId>,
+    /// The request's lifecycle state.
+    pub status: AccessRequestStatus,
+    /// The start of the activation window resolved at submit (UTC).
+    pub lease_not_before: DateTime<Utc>,
+    /// The end of the activation window resolved at submit (UTC).
+    pub lease_not_after: DateTime<Utc>,
+    /// The optional justification the requester supplied when opening the request.
+    pub reason: Option<String>,
+    /// When the request was opened (UTC).
+    pub submitted_at: DateTime<Utc>,
+}
+
+impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestSummaryView {
+    type Error = LeasingError;
+
+    fn try_from(response: AccessRequestDetailsResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: AccessRequestId::new(require!(response.id)),
+            cipher_id: CipherId::new(require!(response.cipher_id)),
+            collection_id: CollectionId::new(require!(response.collection_id)),
+            organization_id: response.organization_id.map(OrganizationId::new),
+            status: AccessRequestStatus::from(require!(response.status)),
+            lease_not_before: require!(response.lease_not_before).parse()?,
+            lease_not_after: require!(response.lease_not_after).parse()?,
+            reason: response.reason,
+            submitted_at: require!(response.submitted_at).parse()?,
+        })
+    }
+}
+
+/// The result of submitting a cipher-lease request.
+///
+/// No lease is minted at submit on either path - the requester
+/// [`activate`](crate::AccessRequestsClient::activate)s the request to start the lease.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct AccessRequestResultView {
+    /// [`Automatic`](AccessApprovalMode::Automatic) when [`request`](Self::request) was approved
+    /// on submit and is ready to activate, [`Human`](AccessApprovalMode::Human) when it is
+    /// pending an approver.
+    pub approval_mode: AccessApprovalMode,
+    /// The request that was just submitted.
+    pub request: AccessRequestSummaryView,
+}
+
+impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
+    type Error = LeasingError;
+
+    fn try_from(response: AccessRequestResultResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            approval_mode: AccessApprovalMode::from(require!(response.approval_mode)),
+            request: AccessRequestSummaryView::try_from(*require!(response.request))?,
+        })
+    }
+}
+
+/// A single-snapshot read of the caller's access state for one cipher, powering the cipher-view
+/// banner and the vault-row badge.
+///
+/// At most one of [`active_lease`](Self::active_lease), [`pending_request`](Self::pending_request),
+/// and [`approved_request`](Self::approved_request) is meaningfully "next": an active lease
+/// authorizes access, a pending request awaits a decision, and an approved request awaits
+/// activation by the caller.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct CipherAccessStateView {
+    /// The cipher this state was resolved for.
+    pub cipher_id: CipherId,
+    /// The caller's active lease over this cipher, if any.
+    pub active_lease: Option<AccessLeaseView>,
+    /// The caller's request awaiting a decision on this cipher, if any.
+    pub pending_request: Option<AccessRequestView>,
+    /// The caller's approved-but-not-yet-activated request on this cipher, if any. Lapsed
+    /// approvals are never surfaced here.
+    pub approved_request: Option<AccessRequestView>,
+    /// Whether the active lease can still be extended.
+    pub extensions_allowed: bool,
+    /// The longest a single extension of the active lease may run, in seconds; None when there is
+    /// no cap or no active lease.
+    pub max_extension_duration_seconds: Option<i32>,
+}
+
+impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
+    type Error = LeasingError;
+
+    fn try_from(response: CipherAccessStateResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            cipher_id: CipherId::new(require!(response.cipher_id)),
+            active_lease: response
+                .active_lease
+                .map(|lease| AccessLeaseView::try_from(*lease))
+                .transpose()?,
+            pending_request: response
+                .pending_request
+                .map(|request| AccessRequestView::try_from(*request))
+                .transpose()?,
+            approved_request: response
+                .approved_request
+                .map(|request| AccessRequestView::try_from(*request))
+                .transpose()?,
+            extensions_allowed: require!(response.extensions_allowed),
+            max_extension_duration_seconds: response.max_extension_duration_seconds,
+        })
+    }
+}
+
+/// Request to lease a cipher.
+///
+/// Supply [`duration_seconds`](Self::duration_seconds) for the automatic path, or
+/// [`start`](Self::start)/[`end`](Self::end) + [`reason`](Self::reason) for the human path. Run a
+/// [`pre_check`](crate::AccessRequestsClient::pre_check) first to know which shape the server
+/// expects.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct AccessRequestCreateRequest {
+    /// How long the automatic path's lease should run, in seconds. None on the human path.
+    pub duration_seconds: Option<i32>,
+    /// The start of the requested window (UTC). Required on the human path.
+    pub start: Option<DateTime<Utc>>,
+    /// The end of the requested window (UTC). Required on the human path.
+    pub end: Option<DateTime<Utc>>,
+    /// The justification recorded with the request. Required on the human path.
+    pub reason: Option<String>,
+}
+
+impl From<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
+    fn from(request: AccessRequestCreateRequest) -> Self {
+        Self {
+            duration_seconds: request.duration_seconds,
+            start: request.start.map(|d| d.to_rfc3339()),
+            end: request.end.map(|d| d.to_rfc3339()),
+            reason: request.reason,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::models::{AccessLeaseStatus as ApiAccessLeaseStatus, DeciderKind};
-    use uuid::Uuid;
+    use bitwarden_api_api::models::{
+        AccessLeaseResponseModel, AccessLeaseStatus as ApiAccessLeaseStatus, DeciderKind,
+    };
+    use uuid::{Uuid, uuid};
 
     use super::*;
 
@@ -380,5 +596,154 @@ mod tests {
 
         assert_eq!(json["decider"], "automatic");
         assert_eq!(json["verdict"], "approve");
+    }
+
+    fn request_id() -> AccessRequestId {
+        AccessRequestId::new(uuid!("44444444-4444-4444-4444-444444444444"))
+    }
+
+    fn cipher_id() -> uuid::Uuid {
+        uuid!("55555555-5555-5555-5555-555555555555")
+    }
+
+    #[test]
+    fn pre_check_view_converts() {
+        let response = AccessPreCheckResponseModel {
+            cipher_id: Some(cipher_id()),
+            approval_mode: Some(ApiAccessApprovalMode::Automatic),
+            has_active_lease: Some(true),
+            ..Default::default()
+        };
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert_eq!(view.cipher_id, CipherId::new(cipher_id()));
+        assert_eq!(view.approval_mode, AccessApprovalMode::Automatic);
+        assert!(view.has_active_lease);
+    }
+
+    #[test]
+    fn pre_check_view_maps_unknown_approval_mode() {
+        let response = AccessPreCheckResponseModel {
+            approval_mode: Some(ApiAccessApprovalMode::__Unknown(99)),
+            ..AccessPreCheckResponseModel {
+                cipher_id: Some(cipher_id()),
+                has_active_lease: Some(false),
+                ..Default::default()
+            }
+        };
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert_eq!(view.approval_mode, AccessApprovalMode::Unknown);
+    }
+
+    fn sample_created_request() -> AccessRequestDetailsResponseModel {
+        AccessRequestDetailsResponseModel {
+            id: Some(request_id().into()),
+            cipher_id: Some(cipher_id()),
+            collection_id: Some(uuid!("66666666-6666-6666-6666-666666666666")),
+            organization_id: Some(uuid!("77777777-7777-7777-7777-777777777777")),
+            status: Some(ApiAccessRequestStatus::Pending),
+            lease_not_before: Some("2025-01-01T00:00:00Z".to_string()),
+            lease_not_after: Some("2025-01-01T01:00:00Z".to_string()),
+            reason: Some("Need to fix an incident".to_string()),
+            submitted_at: Some("2025-01-01T00:00:00Z".to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn access_request_summary_view_converts() {
+        let view = AccessRequestSummaryView::try_from(sample_created_request()).unwrap();
+
+        assert_eq!(view.id, request_id());
+        assert_eq!(view.cipher_id, CipherId::new(cipher_id()));
+        assert_eq!(view.status, AccessRequestStatus::Pending);
+        assert_eq!(view.reason, Some("Need to fix an incident".to_string()));
+    }
+
+    #[test]
+    fn access_request_result_view_converts() {
+        let response = AccessRequestResultResponseModel {
+            approval_mode: Some(ApiAccessApprovalMode::Human),
+            request: Some(Box::new(sample_created_request())),
+            ..Default::default()
+        };
+
+        let view = AccessRequestResultView::try_from(response).unwrap();
+
+        assert_eq!(view.approval_mode, AccessApprovalMode::Human);
+        assert_eq!(view.request.id, request_id());
+    }
+
+    #[test]
+    fn cipher_access_state_view_converts_when_nothing_active() {
+        let response = CipherAccessStateResponseModel {
+            cipher_id: Some(cipher_id()),
+            active_lease: None,
+            pending_request: None,
+            approved_request: None,
+            extensions_allowed: Some(false),
+            max_extension_duration_seconds: None,
+            ..Default::default()
+        };
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.cipher_id, CipherId::new(cipher_id()));
+        assert_eq!(view.active_lease, None);
+        assert_eq!(view.pending_request, None);
+        assert_eq!(view.approved_request, None);
+        assert!(!view.extensions_allowed);
+        assert_eq!(view.max_extension_duration_seconds, None);
+    }
+
+    #[test]
+    fn cipher_access_state_view_converts_when_all_branches_populated() {
+        let response = CipherAccessStateResponseModel {
+            cipher_id: Some(cipher_id()),
+            active_lease: Some(Box::new(AccessLeaseResponseModel {
+                id: Some(uuid!("33333333-3333-3333-3333-333333333333")),
+                request_id: Some(request_id().into()),
+                cipher_id: Some(cipher_id()),
+                collection_id: Some(uuid!("66666666-6666-6666-6666-666666666666")),
+                requester_id: Some(uuid!("88888888-8888-8888-8888-888888888888")),
+                status: Some(ApiAccessLeaseStatus::Active),
+                not_before: Some("2025-01-01T00:00:00Z".to_string()),
+                not_after: Some("2025-01-01T01:00:00Z".to_string()),
+                ..Default::default()
+            })),
+            pending_request: Some(Box::new(full_response())),
+            approved_request: Some(Box::new(full_response())),
+            extensions_allowed: Some(true),
+            max_extension_duration_seconds: Some(3600),
+            ..Default::default()
+        };
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert!(view.active_lease.is_some());
+        assert!(view.pending_request.is_some());
+        assert!(view.approved_request.is_some());
+        assert!(view.extensions_allowed);
+        assert_eq!(view.max_extension_duration_seconds, Some(3600));
+    }
+
+    #[test]
+    fn access_request_create_request_converts_to_model() {
+        let request = AccessRequestCreateRequest {
+            duration_seconds: Some(3600),
+            start: Some("2025-01-01T00:00:00Z".parse().unwrap()),
+            end: Some("2025-01-01T01:00:00Z".parse().unwrap()),
+            reason: Some("Need access".to_string()),
+        };
+
+        let model = AccessRequestCreateRequestModel::from(request);
+
+        assert_eq!(model.duration_seconds, Some(3600));
+        assert_eq!(model.start, Some("2025-01-01T00:00:00+00:00".to_string()));
+        assert_eq!(model.end, Some("2025-01-01T01:00:00+00:00".to_string()));
+        assert_eq!(model.reason, Some("Need access".to_string()));
     }
 }
