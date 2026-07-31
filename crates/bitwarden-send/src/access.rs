@@ -16,9 +16,10 @@ use zeroize::Zeroizing;
 
 use crate::{SendParseError, SendType, send::SEND_ITERATIONS, send_client::SendClient};
 
-/// Length in bytes of the raw Send key carried in a Send URL fragment. Fixed by
-/// `SendView::encrypt_composite`, which generates exactly 16 bytes for a new send.
-const SEND_KEY_LEN: usize = 16;
+/// Length in bytes of the raw Send key carried in a Send URL fragment. `pub(crate)` so
+/// `SendView::encrypt_composite` (`send.rs`) can generate keys of exactly this length,
+/// enforcing the relationship at compile time instead of relying on a test to catch drift.
+pub(crate) const SEND_KEY_LEN: usize = 16;
 
 // ===== Public output types (returned to callers) =====
 
@@ -712,7 +713,6 @@ mod tests {
         use crate::{
             Send, SendAccessFileResponse, SendAccessKey, SendAccessKeyError, SendAccessResponse,
             SendAccessTextResponse, SendAuthType, SendFileView, SendTextView, SendType, SendView,
-            access::SEND_KEY_LEN,
         };
 
         /// The url-safe-base64 form of a 16-byte send key, as it appears in the trailing
@@ -1007,14 +1007,6 @@ mod tests {
 
             let access_key = SendAccessKey::from_url_b64(URL_KEY).expect("key parses");
             assert!(access_key.decrypt_response(response).is_err());
-        }
-
-        #[test]
-        fn send_key_len_matches_the_generated_send_key_length() {
-            // `SendView::encrypt_composite` generates a 16-byte key for new sends; this
-            // constant must track that or `from_url_b64` would reject real send URLs.
-            let generated = bitwarden_crypto::generate_random_bytes::<[u8; SEND_KEY_LEN]>();
-            assert_eq!(generated.len(), SEND_KEY_LEN);
         }
 
         /// The `--fullObject` JSON dump is a user-facing contract; pin its camelCase wire

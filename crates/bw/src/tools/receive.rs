@@ -78,7 +78,9 @@ pub(crate) struct ReceiveInputs {
     pub full_object: bool,
 }
 
-/// Entry point shared by [`super::ReceiveArgs`] and [`super::send::SendReceiveArgs`].
+/// Entry point for [`super::ReceiveArgs::run`], reached both from the top-level `bw receive`
+/// command and from `SendCommands::Receive` (`bw send receive`), which reuses the same arg
+/// struct rather than a hand-synced copy.
 pub(crate) async fn run_receive(inputs: ReceiveInputs) -> CommandResult {
     let url = Url::parse(&inputs.url).wrap_err("Failed to parse the provided Send url")?;
     let (send_id, key_b64) = parse_send_url(&url)?;

@@ -25,7 +25,6 @@ use crate::{
     client_state::{AnyState, BwCommand, BwCommandExt as _, ClientContext, LoggedIn},
     platform::read_config_json,
     render::{CommandOutput, CommandResult},
-    tools::receive::{ReceiveInputs, run_receive},
 };
 
 /// Allowed values for `--deleteInDays`, matching the legacy CLI's enumerated set.
@@ -107,7 +106,7 @@ pub enum SendCommands {
     Get(SendGetArgs),
 
     #[command(about = "Access a Bitwarden Send from a url.")]
-    Receive(SendReceiveArgs),
+    Receive(super::ReceiveArgs),
 
     #[command(about = "Create a Send.")]
     Create(SendCreateArgs),
@@ -145,45 +144,6 @@ pub struct SendGetArgs {
 
     #[arg(long, help = "Only return the access url.")]
     pub text: bool,
-}
-
-/// `bw send receive <url>`. Must stay field-identical to [`super::ReceiveArgs`]
-/// (`bw receive`) — they are the same command under two names, and both delegate to
-/// [`super::receive::run_receive`].
-#[derive(Args, Clone, Debug)]
-#[command(after_help = "Notes:
-    If a password is required, the provided password is used or the user is prompted.")]
-pub struct SendReceiveArgs {
-    pub url: String,
-
-    #[arg(long, help = "Optional password for the Send.")]
-    pub password: Option<String>,
-
-    #[arg(long, help = "Environment variable storing the Send's password.")]
-    pub passwordenv: Option<String>,
-
-    #[arg(
-        long,
-        help = "Path to a file containing the Send's password as its first line."
-    )]
-    pub passwordfile: Option<String>,
-
-    // The internal field is `output_path` (not `output`) to avoid clashing with the top-level
-    // `Cli::output` (the `-o` rendered-output-format arg) — same convention as
-    // `SendGetArgs::output_path`. User-facing long flag stays `--output` to match both that
-    // sibling command and the legacy CLI.
-    #[arg(
-        long = "output",
-        help = "Specify a file path to save a File-type Send to."
-    )]
-    pub output_path: Option<String>,
-
-    #[arg(
-        long = "fullObject",
-        alias = "full-object",
-        help = "Return the Send's json object rather than its content."
-    )]
-    pub full_object: bool,
 }
 
 #[derive(Args, Clone, Debug)]
@@ -376,25 +336,6 @@ impl BwCommand for SendGetArgs {
         // `--output` should see the precise "not yet implemented" error rather than
         // a generic auth message. See that gate for why it stays unimplemented.
         get_send(&user, self.id, self.text).await
-    }
-}
-
-impl BwCommand for SendReceiveArgs {
-    // `bw send receive` is the legacy alias for the top-level `bw receive` command; both route
-    // into the same implementation. `AnyState` because receiving a Send needs no session — the
-    // decryption key comes from the url fragment, not the account key store.
-    type Client = AnyState;
-
-    async fn run(self, _: AnyState) -> CommandResult {
-        run_receive(ReceiveInputs {
-            url: self.url,
-            password: self.password,
-            passwordenv: self.passwordenv,
-            passwordfile: self.passwordfile,
-            output_path: self.output_path,
-            full_object: self.full_object,
-        })
-        .await
     }
 }
 
