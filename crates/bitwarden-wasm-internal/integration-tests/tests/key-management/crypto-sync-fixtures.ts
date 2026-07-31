@@ -2,7 +2,6 @@
 
 import { Kdf, CryptoSyncData } from "@bitwarden/sdk-internal";
 
-import { Routes } from "../http-mock";
 import { MASTER_KEY_WRAPPED_USER_KEY, TEST_EMAIL, encstring } from "../utils";
 import {
   V2_KDF_PARAMS,
