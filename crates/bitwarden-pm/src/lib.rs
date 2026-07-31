@@ -14,6 +14,7 @@ use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
+use bitwarden_managed_settings::ManagedSettingsClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
@@ -67,15 +68,23 @@ impl PasswordManagerClient {
         PasswordManagerClientBuilder::new()
     }
 
-    /// Initialize a new instance of the SDK client with client-managed tokens
+    /// Initialize a new instance of the SDK client with client-managed tokens and a shared
+    /// managed-settings (UEM/MDM) profile handle.
     pub fn new_with_client_tokens(
         settings: Option<bitwarden_core::ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
+        managed_settings: &bitwarden_managed_settings::ManagedSettingsClient,
     ) -> Self {
-        Self(bitwarden_core::Client::new_with_token_handler(
-            settings,
-            ClientManagedTokenHandler::new(tokens),
-        ))
+        let mut builder = bitwarden_core::ClientBuilder::new()
+            .with_token_handler(ClientManagedTokenHandler::new(tokens))
+            .with_managed_profile(managed_settings.cell())
+            .with_middleware(vec![Arc::new(
+                bitwarden_core::client::tracing_middleware::ReqwestTracingMiddleware,
+            )]);
+        if let Some(s) = settings {
+            builder = builder.with_settings(s);
+        }
+        Self(builder.build())
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
@@ -97,6 +106,11 @@ impl PasswordManagerClient {
     /// Platform operations
     pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
         self.0.platform()
+    }
+
+    /// Administrator-enforced (managed) settings operations.
+    pub fn managed_settings(&self) -> bitwarden_managed_settings::ManagedSettingsClient {
+        self.0.managed_settings()
     }
 
     /// Auth operations

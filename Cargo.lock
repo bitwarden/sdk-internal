@@ -636,6 +636,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-logging",
+ "bitwarden-managed-settings-types",
  "bitwarden-random",
  "bitwarden-state",
  "bitwarden-state-bridge-macro",
@@ -965,6 +966,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-managed-settings"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-managed-settings-types",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "bitwarden-managed-settings-types"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-error",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-organization-crypto"
 version = "3.0.0"
 dependencies = [
@@ -1053,6 +1076,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
+ "bitwarden-managed-settings",
  "bitwarden-organization-invite-link",
  "bitwarden-pam",
  "bitwarden-policies",
@@ -1350,6 +1374,8 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
+ "bitwarden-managed-settings",
+ "bitwarden-managed-settings-types",
  "bitwarden-organizations",
  "bitwarden-pm",
  "bitwarden-policies",
@@ -1501,6 +1527,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-logging",
+ "bitwarden-managed-settings",
  "bitwarden-organization-crypto",
  "bitwarden-organization-invite-link",
  "bitwarden-pm",

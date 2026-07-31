@@ -1,0 +1,33 @@
+[package]
+name = "bitwarden-managed-settings"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+readme.workspace = true
+keywords.workspace = true
+
+[features]
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-managed-settings-types/uniffi",
+] # Uniffi bindings
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-managed-settings-types/wasm",
+    "dep:wasm-bindgen",
+] # WASM support
+
+[dependencies]
+bitwarden-core = { workspace = true }
+bitwarden-managed-settings-types = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+[lints]
+workspace = true

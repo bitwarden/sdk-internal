@@ -52,7 +52,11 @@ fn main() {
     bitwarden_uniffi::init_logger(Some(callback), None);
 
     println!("Step 2: Create SDK client...\n");
-    let _client = Client::new(Arc::new(DemoTokenProvider), None);
+    let _client = Client::new(
+        Arc::new(DemoTokenProvider),
+        None,
+        Arc::new(bitwarden_uniffi::managed_settings::ManagedSettingsBindingClient::new()),
+    );
 
     println!("✅ Client created - callback is receiving logs\n");
     println!("Emitting SDK logs at different levels...\n");
