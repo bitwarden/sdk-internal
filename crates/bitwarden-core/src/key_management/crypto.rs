@@ -1324,6 +1324,7 @@ mod tests {
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
                     signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    verifying_key: None,
                 },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: TEST_USER_PASSWORD.into(),
@@ -2014,6 +2015,7 @@ mod tests {
                     signing_key: enrollment_response.signing_key,
                     security_state: enrollment_response.security_state,
                     signed_public_key: Some(enrollment_response.signed_public_key),
+                    verifying_key: None,
                 },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
@@ -2050,6 +2052,7 @@ mod tests {
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
                     signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    verifying_key: None,
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
@@ -2108,6 +2111,7 @@ mod tests {
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
                     signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    verifying_key: None,
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
@@ -2358,6 +2362,7 @@ mod tests {
                     signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
                     security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
                     signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                    verifying_key: None,
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
