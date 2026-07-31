@@ -38,10 +38,10 @@ pub fn init_flight_recorder(config: FlightRecorderConfig) -> FlightRecorderLayer
 /// not been called.
 pub fn write_flight_recorder(event: FlightRecorderEvent, level: tracing::Level) {
     // Mirrors the layer's check: skip events more verbose than the configured level.
-    if let Some(floor) = FLIGHT_RECORDER_LEVEL.get() {
-        if level > *floor {
-            return;
-        }
+    if let Some(floor) = FLIGHT_RECORDER_LEVEL.get()
+        && level > *floor
+    {
+        return;
     }
     if let Some(buffer) = get_flight_recorder_buffer() {
         buffer.push(event);
