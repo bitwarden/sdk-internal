@@ -1,10 +1,4 @@
-//! Open-organization-invite registration crossing.
-//!
-//! The app seals an invite context on registration-start submit and unseals it on the accept
-//! open-org-invite component after a successful registration-finish. This module owns the
-//! versioned plaintext payload (`data_v1`), the domain types and crypto operations
-//! (`open_org_invite`), their wire encoding (`serialization`), and the FFI-facing client
-//! methods (`client`).
+#![doc = include_str!("./README.md")]
 
 mod client;
 mod data_v1;
