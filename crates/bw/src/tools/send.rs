@@ -563,7 +563,7 @@ struct SendTextTemplateBody {
     hidden: bool,
 }
 
-#[derive(Serialize, Default)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SendFileTemplate {
     name: String,
@@ -572,6 +572,20 @@ struct SendFileTemplate {
     send_type: u8, // 1 = file
     file: SendFileTemplateBody,
     deletion_date: String,
+}
+
+impl Default for SendFileTemplate {
+    fn default() -> Self {
+        // `#[derive(Default)]` would give `send_type: 0`, the text-Send discriminant, since
+        // `u8::default()` is 0 — this struct needs the non-zero file discriminant instead.
+        Self {
+            name: String::new(),
+            notes: String::new(),
+            send_type: 1,
+            file: SendFileTemplateBody::default(),
+            deletion_date: String::new(),
+        }
+    }
 }
 
 #[derive(Serialize, Default)]
