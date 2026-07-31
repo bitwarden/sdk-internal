@@ -16,10 +16,15 @@ keywords.workspace = true
 
 [features]
 default = []
-uniffi = ["bitwarden-core/uniffi", "dep:uniffi"]
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-user-crypto-management/uniffi",
+    "dep:uniffi",
+]
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
+    "bitwarden-user-crypto-management/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -32,6 +37,7 @@ bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-sync = { workspace = true }
+bitwarden-user-crypto-management = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }

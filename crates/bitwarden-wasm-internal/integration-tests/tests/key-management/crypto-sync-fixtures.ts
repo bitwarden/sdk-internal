@@ -1,7 +1,8 @@
 // The key-management slice of a sync response, plus the one route the handler calls.
 
-import { Kdf, CryptoSyncData, UnsignedSharedKey } from "@bitwarden/sdk-internal";
+import { Kdf, KeyId, CryptoSyncData, UnsignedSharedKey } from "@bitwarden/sdk-internal";
 
+import { Routes } from "../http-mock";
 import { MASTER_KEY_WRAPPED_USER_KEY, TEST_EMAIL, encstring } from "../utils";
 import {
   V2_KDF_PARAMS,
@@ -9,6 +10,7 @@ import {
   V2_SECURITY_STATE,
   V2_SIGNED_PUBLIC_KEY,
   V2_SIGNING_KEY,
+  V2_USER_KEY_ID,
 } from "../v2-fixtures";
 
 const unsignedSharedKey = (s: string) => s as unknown as UnsignedSharedKey;
@@ -18,6 +20,10 @@ const PRF_ENCRYPTED_PRIVATE_KEY =
   "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
 const PRF_ENCRYPTED_USER_KEY =
   "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
+/** Route keys, so tests assert against the same strings the mock matches on. */
+export const ROUTES = {
+  postUserKeyId: "POST /accounts/key-management/user-key-id",
+} as const;
 
 /**
  * A full sync payload, as a client hands it to `on_sync` after a sync
@@ -26,6 +32,7 @@ const PRF_ENCRYPTED_USER_KEY =
  */
 export const SYNC_VECTOR: CryptoSyncData = {
   userDecryption: {
+    userKeyId: V2_USER_KEY_ID as unknown as KeyId,
     masterPasswordUnlock: {
       kdf: V2_KDF_PARAMS,
       masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
@@ -63,3 +70,17 @@ export const SYNC_VECTOR: CryptoSyncData = {
 export const CHANGED_KDF_PARAMS: Kdf = {
   argon2id: { iterations: 8, memory: 64, parallelism: 4 },
 };
+
+/**
+ * {@link SYNC_VECTOR} with the key id absent — an account the server has no key id recorded for,
+ * which is what triggers the backfill.
+ */
+export function withoutUserKeyId(): CryptoSyncData {
+  const { userKeyId: _dropped, ...rest } = SYNC_VECTOR.userDecryption!;
+  return { ...SYNC_VECTOR, userDecryption: rest };
+}
+
+/** Accepts the key-id backfill. Spread it and override to make the server reject instead. */
+export function cryptoSyncRoutes(): Routes {
+  return { [ROUTES.postUserKeyId]: () => ({}) };
+}

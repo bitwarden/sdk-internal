@@ -17,9 +17,6 @@ use bitwarden_crypto_sync_handler::CryptoSyncHandlerClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
-#[cfg(not(target_arch = "wasm32"))]
-use bitwarden_km_sync_handler::KmSyncHandler;
-use bitwarden_km_sync_handler::KmSyncHandlerClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
@@ -40,7 +37,6 @@ pub mod clients {
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
-    pub use bitwarden_km_sync_handler::KmSyncHandlerClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::SendClient;
