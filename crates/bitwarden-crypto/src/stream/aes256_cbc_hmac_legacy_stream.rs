@@ -498,7 +498,7 @@ impl StreamingAes256CbcHmacEncryptor {
         };
 
         let mut iv: Iv = [0u8; AES256_CBC_IV_SIZE];
-        rand::rng().fill_bytes(&mut iv);
+        bitwarden_random::rng().fill_bytes(&mut iv);
 
         // The CBC ciphertext is the PKCS7-padded plaintext, which is always rounded up to the next
         // full block (a full padding block is added when already block-aligned).

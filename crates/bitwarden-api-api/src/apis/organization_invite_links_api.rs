@@ -33,13 +33,16 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
         create_organization_invite_link_request_model: Option<
             models::CreateOrganizationInviteLinkRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error>;
 
     /// DELETE /organizations/{orgId}/invite-link
     async fn delete<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/invite-link
-    async fn get<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
+    async fn get<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error>;
 
     /// POST /organizations/invite-link/policies
     async fn get_policies<'a>(
@@ -47,7 +50,7 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
         get_organization_invite_link_policies_request_model: Option<
             models::GetOrganizationInviteLinkPoliciesRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error>;
 
     /// POST /organizations/invite-link/status
     async fn get_status<'a>(
@@ -55,7 +58,7 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
         get_organization_invite_link_status_request_model: Option<
             models::GetOrganizationInviteLinkStatusRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<models::OrganizationInviteLinkStatusResponseModel, Error>;
 
     /// POST /organizations/{orgId}/invite-link/refresh
     async fn refresh<'a>(
@@ -64,7 +67,7 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
         refresh_organization_invite_link_request_model: Option<
             models::RefreshOrganizationInviteLinkRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/invite-link
     async fn update<'a>(
@@ -73,7 +76,16 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
         update_organization_invite_link_request_model: Option<
             models::UpdateOrganizationInviteLinkRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error>;
+
+    /// PUT /organizations/{orgId}/invite-link/support-confirm
+    async fn update_invite_support_confirm<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        update_invite_support_confirm_request_model: Option<
+            models::UpdateInviteSupportConfirmRequestModel,
+        >,
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error>;
 
     /// POST /organizations/invite-link/validate-email-domain
     async fn validate_email_domain<'a>(
@@ -81,7 +93,7 @@ pub trait OrganizationInviteLinksApi: Send + Sync {
         organization_invite_link_validate_email_domain_request_model: Option<
             models::OrganizationInviteLinkValidateEmailDomainRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<models::OrganizationInviteLinkValidateEmailDomainResponseModel, Error>;
 }
 
 pub struct OrganizationInviteLinksApiClient {
@@ -103,7 +115,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         create_organization_invite_link_request_model: Option<
             models::CreateOrganizationInviteLinkRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -120,7 +132,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&create_organization_invite_link_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn delete<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error> {
@@ -141,7 +153,10 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error> {
+    async fn get<'a>(
+        &self,
+        org_id: uuid::Uuid,
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -156,7 +171,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_policies<'a>(
@@ -164,7 +179,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         get_organization_invite_link_policies_request_model: Option<
             models::GetOrganizationInviteLinkPoliciesRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -180,7 +195,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&get_organization_invite_link_policies_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_status<'a>(
@@ -188,7 +203,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         get_organization_invite_link_status_request_model: Option<
             models::GetOrganizationInviteLinkStatusRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<models::OrganizationInviteLinkStatusResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -204,7 +219,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&get_organization_invite_link_status_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn refresh<'a>(
@@ -213,7 +228,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         refresh_organization_invite_link_request_model: Option<
             models::RefreshOrganizationInviteLinkRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -230,7 +245,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&refresh_organization_invite_link_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn update<'a>(
@@ -239,7 +254,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         update_organization_invite_link_request_model: Option<
             models::UpdateOrganizationInviteLinkRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -256,7 +271,33 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_invite_link_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn update_invite_support_confirm<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        update_invite_support_confirm_request_model: Option<
+            models::UpdateInviteSupportConfirmRequestModel,
+        >,
+    ) -> Result<models::OrganizationInviteLinkResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/invite-link/support-confirm",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&update_invite_support_confirm_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn validate_email_domain<'a>(
@@ -264,7 +305,7 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         organization_invite_link_validate_email_domain_request_model: Option<
             models::OrganizationInviteLinkValidateEmailDomainRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<models::OrganizationInviteLinkValidateEmailDomainResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -280,6 +321,6 @@ impl OrganizationInviteLinksApi for OrganizationInviteLinksApiClient {
         local_var_req_builder = local_var_req_builder
             .json(&organization_invite_link_validate_email_domain_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 }

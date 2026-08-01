@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// GroupDetailsResponseModelListResponseModel : A paginated list response wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupDetailsResponseModelListResponseModel {
     #[serde(
@@ -35,6 +36,7 @@ pub struct GroupDetailsResponseModelListResponseModel {
 }
 
 impl GroupDetailsResponseModelListResponseModel {
+    /// A paginated list response wrapper.
     pub fn new() -> GroupDetailsResponseModelListResponseModel {
         GroupDetailsResponseModelListResponseModel {
             object: None,

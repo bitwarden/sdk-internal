@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// TwoFactorAuthenticatorResponseModel : Response model carrying Authenticator provider details and
+/// the user-verification token minted by the read step of two-factor enrollment.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorAuthenticatorResponseModel {
     #[serde(
@@ -21,13 +23,13 @@ pub struct TwoFactorAuthenticatorResponseModel {
     )]
     pub object: Option<String>,
     #[serde(
-        rename = "enabled",
-        alias = "Enabled",
+        rename = "authenticator",
+        alias = "Authenticator",
         skip_serializing_if = "Option::is_none"
     )]
-    pub enabled: Option<bool>,
-    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
-    pub key: Option<String>,
+    pub authenticator: Option<Box<models::TwoFactorAuthenticatorDetails>>,
+    /// User-verification token bound to `UserId + Key`. Replayed on subsequent management calls so
+    /// the user does not have to re-verify.
     #[serde(
         rename = "userVerificationToken",
         alias = "UserVerificationToken",
@@ -37,11 +39,12 @@ pub struct TwoFactorAuthenticatorResponseModel {
 }
 
 impl TwoFactorAuthenticatorResponseModel {
+    /// Response model carrying Authenticator provider details and the user-verification token
+    /// minted by the read step of two-factor enrollment.
     pub fn new() -> TwoFactorAuthenticatorResponseModel {
         TwoFactorAuthenticatorResponseModel {
             object: None,
-            enabled: None,
-            key: None,
+            authenticator: None,
             user_verification_token: None,
         }
     }

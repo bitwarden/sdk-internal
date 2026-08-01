@@ -139,6 +139,14 @@ pub struct OrganizationUserUserDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub revocation_reason: Option<models::RevocationReason>,
+    /// The date the organization user was created, i.e. when the user was first invited to the
+    /// organization.
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub creation_date: Option<String>,
 }
 
 impl OrganizationUserUserDetailsResponseModel {
@@ -165,6 +173,7 @@ impl OrganizationUserUserDetailsResponseModel {
             collections: None,
             groups: None,
             revocation_reason: None,
+            creation_date: None,
         }
     }
 }
