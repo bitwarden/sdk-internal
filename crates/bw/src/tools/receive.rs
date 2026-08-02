@@ -11,11 +11,14 @@
 //! Both `bw receive <url>` and `bw send receive <url>` are the same command; their arg structs
 //! are field-identical and both funnel into [`run_receive`].
 //!
-//! **Known security gap (PM-40120):** [`resolve_urls`] trusts a Send link's host unconditionally
-//! to pick the API/identity origin to talk to — matching the legacy CLI's behavior. A link
-//! pointing at an attacker-controlled host can therefore redirect the token-mint and
-//! Send-fetch requests there, potentially letting an attacker capture a token minted with the
-//! victim's real password. A fix (reject, or prompt when the link's host doesn't match the
+//! **Known security gap (PM-40120):** [`resolve_urls`] trusts a Send link's host
+//! unconditionally to resolve *both* the API and identity origin — the same class of bug the
+//! legacy CLI has, though the exact mechanism differs there (legacy always mints against the
+//! configured environment but can leak the resulting real token to an attacker-controlled host
+//! on the follow-up fetch). Here, a link pointing at an attacker-controlled host sends the
+//! token-mint request there directly, so a password-protected Send's hashed password (salted
+//! with the fragment key, which the attacker already knows — they crafted the link) goes
+//! straight to that host. A fix (reject, or prompt when the link's host doesn't match the
 //! configured deployment) is pending a product decision on the resulting UX; `resolve_urls` is
 //! where it belongs once decided.
 
@@ -308,10 +311,10 @@ async fn request_token(
 }
 
 /// Extracts the typed `send_access_error_type` from an `invalid_request` response, or `None`
-/// if `err` isn't that shape. `attempt_access`, `access_with_password`, and
-/// `access_with_email_otp` all need to branch on this one sub-field of a deeply nested error
-/// enum; centralizing the match here keeps those call sites down to a single `Some(...) => ...`
-/// comparison instead of repeating the full pattern.
+/// if `err` isn't that shape. `attempt_access` and `access_with_email_otp` both need to branch
+/// on this one sub-field of a deeply nested error enum; centralizing the match here keeps
+/// those call sites down to a single `Some(...) => ...` comparison instead of repeating the
+/// full pattern.
 fn invalid_request_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenInvalidRequestError> {
     match err {
         SendAccessTokenError::Expected(SendAccessTokenApiErrorResponse::InvalidRequest {

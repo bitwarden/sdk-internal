@@ -283,11 +283,11 @@ impl BwCommand for SendArgs {
             // be a worse UX than an explicit "not implemented" error.
             //
             // Matches the legacy CLI, which never actually implemented this flag either:
-            // `SendGetCommand.run` declares `--output` but never reads `options.output`.
-            // `bw receive`'s download/decrypt/save pipeline (PM-34718) can't be reused here
-            // as-is: it goes through the anonymous send-access endpoint, and the only
-            // server-side download route is that same endpoint — there's no owner-scoped one
-            // yet. Wiring this up needs that endpoint first.
+            // `send.program.ts` declares `--output` on `send get`, but `SendGetCommand.run`
+            // never reads it. `bw receive`'s download/decrypt/save pipeline can't be reused
+            // here as-is: it goes through the anonymous send-access endpoint, and that's the
+            // only server-side download route that exists — there's no owner-scoped one yet.
+            // Wiring this up needs that endpoint first.
             Some(SendCommands::Get(args)) if args.output_path.is_some() => {
                 Err(eyre!("`--output` on `bw send get` is not yet implemented."))
             }
