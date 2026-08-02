@@ -186,9 +186,8 @@ pub struct SendAccessKey {
     /// derives [`Self::key`] below. Retained because the send password hash is salted with
     /// these raw bytes, not with the derived key.
     secret: Zeroizing<[u8; SEND_KEY_LEN]>,
-    /// The send's actual symmetric key, derived from `secret` via `derive_shareable_key` (an
-    /// HKDF pass — "stretched" means "put through that derivation"). This is what encrypts
-    /// the send's fields and file blob.
+    /// The send's actual symmetric key, derived from `secret` via `derive_shareable_key`.
+    /// This is what encrypts the send's fields and file blob.
     key: SymmetricCryptoKey,
 }
 
