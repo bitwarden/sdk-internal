@@ -282,18 +282,12 @@ impl BwCommand for SendArgs {
             // emitting JSON to stdout while the requested file path goes uncreated would
             // be a worse UX than an explicit "not implemented" error.
             //
-            // This is deliberately *not* implemented alongside `bw receive` (PM-34718), even
-            // though that command now has the whole download/decrypt/save pipeline:
-            //   - There is no owner-scoped download-URL endpoint server-side. Only the two
-            //     anonymous send-access endpoints exist, so the only way to make this work today is
-            //     to route the Send's *owner* through the same endpoint recipients use — which
-            //     increments the Send's `access_count` and burns one of the recipient's allowed
-            //     accesses just to let the owner look at their own file. That's a behavior change,
-            //     not a parity fix.
-            //   - It isn't a parity gap either: the legacy CLI never implemented this flag.
-            //     `SendGetCommand.run` declares `--output` and then never reads `options.output`.
-            // Implementing it needs a real owner-scoped server endpoint first; that requires its
-            // own ticket.
+            // Matches the legacy CLI, which never actually implemented this flag either:
+            // `SendGetCommand.run` declares `--output` but never reads `options.output`.
+            // `bw receive`'s download/decrypt/save pipeline (PM-34718) can't be reused here
+            // as-is: it goes through the anonymous send-access endpoint, and the only
+            // server-side download route is that same endpoint — there's no owner-scoped one
+            // yet. Wiring this up needs that endpoint first.
             Some(SendCommands::Get(args)) if args.output_path.is_some() => {
                 Err(eyre!("`--output` on `bw send get` is not yet implemented."))
             }

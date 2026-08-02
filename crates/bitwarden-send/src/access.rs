@@ -90,8 +90,9 @@ pub struct SendFileDownloadData {
 /// [`SendAccessKey::decrypt_response`].
 ///
 /// Mirrors the legacy CLI's `SendAccessResponse` output shape (`apps/cli`) so that a
-/// JSON dump of a received send stays recognizable to existing scripts, with two
-/// additions the wire response already carries (`expirationDate`, `creatorIdentifier`).
+/// JSON dump of a received send stays recognizable to existing scripts, with two additions:
+/// `expirationDate` and `creatorIdentifier` are already present on the raw
+/// `SendAccessResponse` the server returns, but the legacy CLI's output shape drops them.
 ///
 /// `text`/`file` are kept as independent `Option`s rather than collapsed into an enum with
 /// associated data: `type_` is `Option<SendType>` on the wire and an unrecognized or absent
@@ -181,10 +182,13 @@ pub enum SendAccessDecryptError {
 /// The key is opaque by design: callers need to *use* it three ways (hash a password,
 /// decrypt a response, decrypt a downloaded blob) but never need to *see* it.
 pub struct SendAccessKey {
-    /// The raw fragment key. Retained because the send password hash is salted with the
-    /// *unstretched* key, not with [`Self::key`].
+    /// The raw fragment key, exactly as decoded from the URL — not run through the KDF that
+    /// derives [`Self::key`] below. Retained because the send password hash is salted with
+    /// these raw bytes, not with the derived key.
     secret: Zeroizing<[u8; SEND_KEY_LEN]>,
-    /// The stretched send key that actually encrypts the send's fields and file blob.
+    /// The send's actual symmetric key, derived from `secret` via `derive_shareable_key` (an
+    /// HKDF pass — "stretched" means "put through that derivation"). This is what encrypts
+    /// the send's fields and file blob.
     key: SymmetricCryptoKey,
 }
 
@@ -707,6 +711,9 @@ mod tests {
     // ===== SendAccessKey =====
 
     mod send_access_key {
+        //! Tests for [`SendAccessKey`]: URL-fragment key parsing/derivation, password hashing,
+        //! and decrypting a [`SendAccessResponse`] into a [`SendAccessView`].
+
         use bitwarden_core::key_management::create_test_crypto_with_user_key;
         use bitwarden_crypto::{OctetStreamBytes, PrimitiveEncryptable as _, SymmetricCryptoKey};
 
