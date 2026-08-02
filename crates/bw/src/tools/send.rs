@@ -286,7 +286,7 @@ impl BwCommand for SendArgs {
             // `send.program.ts` declares `--output` on `send get`, but `SendGetCommand.run`
             // never reads it. `bw receive`'s download/decrypt/save pipeline can't be reused
             // here as-is: it goes through the anonymous send-access endpoint, and that's the
-            // only server-side download route that exists — there's no owner-scoped one yet.
+            // only server-side download route that exists, there's no owner-scoped one yet.
             // Wiring this up needs that endpoint first.
             Some(SendCommands::Get(args)) if args.output_path.is_some() => {
                 Err(eyre!("`--output` on `bw send get` is not yet implemented."))
