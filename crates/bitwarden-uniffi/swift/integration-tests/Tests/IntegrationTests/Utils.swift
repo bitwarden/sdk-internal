@@ -63,7 +63,7 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var accountCryptographicState: WrappedAccountCryptographicState?
     private var masterpasswordUnlockData: MasterPasswordUnlockData?
     private var webauthnPrfUnlockData: WebAuthnPrfUnlockData?
-    private var kdf: Kdf?
+    private var kdfConfig: Kdf?
 
     func setUserKey(value: SymmetricCryptoKey) { userKey = value }
     func getUserKey() -> SymmetricCryptoKey? { userKey }
@@ -97,9 +97,9 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func getWebauthnPrfUnlockData() -> WebAuthnPrfUnlockData? { webauthnPrfUnlockData }
     func clearWebauthnPrfUnlockData() { webauthnPrfUnlockData = nil }
 
-    func setKdf(value: Kdf) { kdf = value }
-    func getKdf() -> Kdf? { kdf }
-    func clearKdf() { kdf = nil }
+    func setKdfConfig(value: Kdf) { kdfConfig = value }
+    func getKdfConfig() -> Kdf? { kdfConfig }
+    func clearKdfConfig() { kdfConfig = nil }
 }
 
 final class MockTokenProvider: ClientManagedTokens {

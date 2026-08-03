@@ -137,10 +137,10 @@ pub enum Kdf {
 
 #[cfg(feature = "wasm")]
 impl TryFrom<wasm_bindgen::JsValue> for Kdf {
-    type Error = String;
+    type Error = serde_wasm_bindgen::Error;
 
     fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
-        <Self as Tsify>::from_js(value).map_err(|e| e.to_string())
+        serde_wasm_bindgen::from_value(value)
     }
 }
 

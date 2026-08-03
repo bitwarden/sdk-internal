@@ -149,5 +149,5 @@ bitwarden_state_bridge_macro::state_bridge! {
     account_cryptographic_state: WrappedAccountCryptographicState as ts "WrappedAccountCryptographicState",
     masterpassword_unlock_data: MasterPasswordUnlockData as ts "MasterPasswordUnlockData",
     webauthn_prf_unlock_data: WebAuthnPrfUnlockData as ts "WebAuthnPrfUnlockData",
-    kdf: Kdf as ts "Kdf",
+    kdf_config: Kdf as ts "Kdf",
 }

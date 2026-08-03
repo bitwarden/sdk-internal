@@ -25,6 +25,7 @@ import {
   SharedUnlockLeader,
   InitUserCryptoMethod,
   ClientSettings,
+  Kdf,
 } from "@bitwarden/sdk-internal";
 import {
   ORG_ACCOUNT_KDF_PARAMS,
@@ -57,7 +58,9 @@ export function makeStateBridge(): WasmStateBridge {
   let accountCryptographicState: WrappedAccountCryptographicState | null;
   let masterPasswordUnlockData: MasterPasswordUnlockData | null;
   let webauthnPrfUnlockData: WebAuthnPrfUnlockData | null;
-  let kdf: Kdf | null;
+  // Initialized, unlike the slots above, so an untouched bridge reports `null` rather than
+  // `undefined` — tests assert on the absence of a KDF config after a failed change.
+  let kdfConfig: Kdf | null = null;
 
   return {
     set_user_key: async (v: SymmetricKey) => {
@@ -124,12 +127,12 @@ export function makeStateBridge(): WasmStateBridge {
       webauthnPrfUnlockData = null;
     },
 
-    set_kdf: async (v: Kdf) => {
-      kdf = v;
+    set_kdf_config: async (v: Kdf) => {
+      kdfConfig = v;
     },
-    get_kdf: async () => kdf,
-    clear_kdf: async () => {
-      kdf = null;
+    get_kdf_config: async () => kdfConfig,
+    clear_kdf_config: async () => {
+      kdfConfig = null;
     },
   };
 }
@@ -187,13 +190,25 @@ export function initializeCryptoDefault(client: PasswordManagerClient) {
 export function initializeUserCrypto(
   client: PasswordManagerClient,
   initUserCryptoMethod: InitUserCryptoMethod,
+  kdfParams: Kdf = TEST_KDF_PARAMS,
 ) {
   return client.crypto().initialize_user_crypto({
     userId: TEST_USER_ID,
-    kdfParams: TEST_KDF_PARAMS,
+    kdfParams,
     email: TEST_EMAIL,
     accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
     method: initUserCryptoMethod,
+  });
+}
+
+export function seedMasterPasswordUnlockData(
+  stateBridge: WasmStateBridge,
+  kdf: Kdf = TEST_KDF_PARAMS,
+): Promise<void> {
+  return stateBridge.set_masterpassword_unlock_data({
+    kdf,
+    masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
+    salt: TEST_EMAIL,
   });
 }
 
@@ -202,8 +217,9 @@ export function initializeUserCrypto(
  */
 export async function makeInitializedPasswordmanagerClient(
   stateBridge: WasmStateBridge,
+  settings?: ClientSettings,
 ): Promise<PasswordManagerClient> {
-  const client = makePasswordManagerClient(stateBridge);
+  const client = makePasswordManagerClient(stateBridge, settings);
   await initializeCryptoDefault(client);
   return client;
 }
