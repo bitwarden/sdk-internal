@@ -141,6 +141,10 @@ async fn internal_password_change_and_rotate_user_keys(
                 .map_err(|_| RotateUserKeysError::Crypto)?;
 
         RotateUserAccountKeysAndDataRequestModel {
+            // The key id of the user key this rotation establishes.
+            user_key_id: ctx
+                .get_symmetric_key_id(rotation_context.new_user_key_id)
+                .map(|id| id.to_hex()),
             old_master_key_authentication_hash: Some(
                 old_master_password_authentication_data
                     .master_password_authentication_hash

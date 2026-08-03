@@ -944,6 +944,8 @@ pub mod set_initial_password_request_model;
 pub use self::set_initial_password_request_model::SetInitialPasswordRequestModel;
 pub mod set_key_connector_key_request_model;
 pub use self::set_key_connector_key_request_model::SetKeyConnectorKeyRequestModel;
+pub mod set_user_key_id_request_model;
+pub use self::set_user_key_id_request_model::SetUserKeyIdRequestModel;
 pub mod set_verify_devices_request_model;
 pub use self::set_verify_devices_request_model::SetVerifyDevicesRequestModel;
 pub mod setup_business_unit_request_body;

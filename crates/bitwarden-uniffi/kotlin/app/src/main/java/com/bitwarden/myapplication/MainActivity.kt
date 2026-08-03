@@ -268,7 +268,9 @@ class MainActivity : FragmentActivity() {
                     masterPasswordUnlock = MasterPasswordUnlockData(
                         kdf = kdf,
                         masterKeyWrappedUserKey = loginBody.Key,
-                        salt = EMAIL
+                        salt = EMAIL,
+                        // The identity login response does not carry the user key id.
+                        userKeyId = null
                     )
                 ),
                 upgradeToken = null

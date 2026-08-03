@@ -756,6 +756,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-sync",
+ "bitwarden-user-crypto-management",
  "serde",
  "thiserror 1.0.69",
  "tokio",

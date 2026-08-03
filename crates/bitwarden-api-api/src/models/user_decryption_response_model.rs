@@ -33,6 +33,13 @@ pub struct UserDecryptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub v2_upgrade_token: Option<Box<models::V2UpgradeTokenResponseModel>>,
+    /// Hex-encoded key id of the user's current user key, when the server knows it.
+    #[serde(
+        rename = "userKeyId",
+        alias = "UserKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_key_id: Option<String>,
 }
 
 impl UserDecryptionResponseModel {
@@ -41,6 +48,7 @@ impl UserDecryptionResponseModel {
             master_password_unlock: None,
             web_authn_prf_options: None,
             v2_upgrade_token: None,
+            user_key_id: None,
         }
     }
 }

@@ -106,6 +106,7 @@ mod tests {
                     },
                     master_key_wrapped_user_key: user_key.parse().unwrap(),
                     salt: "robb@stark.com".to_string(),
+                    user_key_id: None,
                 },
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.parse().unwrap(),

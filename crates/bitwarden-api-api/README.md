@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`f15fee9e1d2f7e9d9502876e773cf1413f6519f0`](https://github.com/bitwarden/server/commit/f15fee9e1d2f7e9d9502876e773cf1413f6519f0)
+  [`ba8edda213c63ecf35d30f70385afc8e1b0b94af`](https://github.com/bitwarden/server/commit/ba8edda213c63ecf35d30f70385afc8e1b0b94af)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -111,6 +111,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountsKeyManagementApi_                | [**post_convert_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_convert_to_key_connector)                                      | **POST** /accounts/convert-to-key-connector                                                              |
 | _AccountsKeyManagementApi_                | [**post_enroll_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_enroll_to_key_connector)                                        | **POST** /accounts/key-connector/enroll                                                                  |
 | _AccountsKeyManagementApi_                | [**post_set_key_connector_key**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_set_key_connector_key)                                            | **POST** /accounts/set-key-connector-key                                                                 |
+| _AccountsKeyManagementApi_                | [**post_user_key_id**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_user_key_id)                                                                | **POST** /accounts/key-management/user-key-id                                                            | Reports the key id of the caller's current user key to the server.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | _AccountsKeyManagementApi_                | [**regenerate_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_regenerate_keys)                                                                  | **POST** /accounts/key-management/regenerate-keys                                                        |
 | _AccountsKeyManagementApi_                | [**rotate_user_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_rotate_user_keys)                                                                | **POST** /accounts/key-management/rotate-user-keys                                                       |
 | _AuthRequestsApi_                         | [**get**](docs/AuthRequestsApi.md#auth_requests_get)                                                                                                             | **GET** /auth-requests/{id}                                                                              |
@@ -1031,6 +1032,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ServiceAccountUpdateRequestModel](docs/ServiceAccountUpdateRequestModel.md)
 - [SetInitialPasswordRequestModel](docs/SetInitialPasswordRequestModel.md)
 - [SetKeyConnectorKeyRequestModel](docs/SetKeyConnectorKeyRequestModel.md)
+- [SetUserKeyIdRequestModel](docs/SetUserKeyIdRequestModel.md)
 - [SetVerifyDevicesRequestModel](docs/SetVerifyDevicesRequestModel.md)
 - [SetupBusinessUnitRequestBody](docs/SetupBusinessUnitRequestBody.md)
 - [SignatureKeyPairRequestModel](docs/SignatureKeyPairRequestModel.md)

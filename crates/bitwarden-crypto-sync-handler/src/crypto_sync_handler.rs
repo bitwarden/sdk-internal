@@ -10,9 +10,13 @@ use bitwarden_core::{
     key_management::{
         MasterPasswordUnlockData, V2UpgradeToken, WebAuthnPrfUnlockData, WebAuthnPrfUnlockOption,
         account_cryptographic_state::WrappedAccountCryptographicState,
+        state_bridge::StateBridgeClient,
     },
 };
+use bitwarden_crypto::KeyId;
+use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -46,6 +50,11 @@ pub struct CryptoSyncData {
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct CryptoSyncUserDecryption {
+    /// Key id of the user key, as the server currently knows it. `None` means the server has no
+    /// key id for this account and one should be reported.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub user_key_id: Option<KeyId>,
     /// Unlock data for accounts that have a master password.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
@@ -141,25 +150,23 @@ impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for Crypto
 }
 
 /// Runs the key management sync work for the given sync data.
-async fn handle_crypto_sync(client: &Client, data: &CryptoSyncData) {
-    // Handlers MUST NOT fail, to avoid partial state writes
-    handle_user_decryption_options(client, data).await;
-    handle_account_cryptographic_state(client, data).await;
+async fn set_crypto_sync_to_state(client: &Client, data: &CryptoSyncData) {
+    if !client.km_state_bridge().is_bridge_registered() {
+        info!("Key management state bridge not registered; skipping sync work");
+        return;
+    }
 
-    // Further key management sync handlers go here.
+    let state_bridge = client.km_state_bridge();
+    // Handlers MUST NOT fail, to avoid partial state writes
+    handle_user_decryption_options(&state_bridge, data).await;
+    handle_account_cryptographic_state(&state_bridge, data).await;
 }
 
 /// Persists the user decryption options the server reported.
-async fn handle_user_decryption_options(client: &Client, data: &CryptoSyncData) {
+async fn handle_user_decryption_options(state_bridge: &StateBridgeClient, data: &CryptoSyncData) {
     let Some(user_decryption) = data.user_decryption.as_ref() else {
         return;
     };
-
-    // This is necessary until all clients implement the state bridge.
-    let state_bridge = client.km_state_bridge();
-    if !state_bridge.is_bridge_registered() {
-        return;
-    }
 
     match user_decryption.master_password_unlock.as_ref() {
         Some(master_password_unlock) => {
@@ -190,20 +197,50 @@ async fn handle_user_decryption_options(client: &Client, data: &CryptoSyncData) 
 }
 
 /// Persists the account cryptographic state the server reported.
-async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncData) {
-    let Some(account_cryptographic_state) = data.account_cryptographic_state.as_ref() else {
-        return;
-    };
+async fn handle_account_cryptographic_state(
+    state_bridge: &StateBridgeClient,
+    data: &CryptoSyncData,
+) {
+    if let Some(account_cryptographic_state) = data.account_cryptographic_state.as_ref() {
+        state_bridge
+            .set_account_cryptographic_state(account_cryptographic_state)
+            .await;
+    } else {
+        state_bridge.clear_account_cryptographic_state().await;
+    }
+}
 
-    // This is necessary until all clients implement the state bridge.
-    let state_bridge = client.km_state_bridge();
-    if !state_bridge.is_bridge_registered() {
+/// Reports the current user key's key id to the server when the server does not already have one.
+async fn handle_user_key_id(client: &Client, data: &CryptoSyncData) {
+    let server_user_key_id = data
+        .user_decryption
+        .as_ref()
+        .and_then(|d| d.user_key_id.as_ref());
+    if server_user_key_id.is_some() {
         return;
     }
 
-    state_bridge
-        .set_account_cryptographic_state(account_cryptographic_state)
-        .await;
+    info!("Server has no user key id; attempting to report the current one");
+    match client.user_crypto_management().post_user_key_id().await {
+        Ok(()) => {}
+        // The client is locked, or the user key carries no key id. Neither is an error: there is
+        // simply nothing to report.
+        Err(
+            bitwarden_user_crypto_management::PostUserKeyIdError::UserKeyNotAvailable
+            | bitwarden_user_crypto_management::PostUserKeyIdError::NoKeyId,
+        ) => {
+            info!("No user key id available to report");
+        }
+        Err(e) => {
+            // A rejection here is expected when another device won the race to backfill, so this is
+            // reported as a warning rather than an error.
+            warn!("Failed to report the user key id: {e:?}");
+        }
+    }
+}
+
+async fn run_crypto_sync_hooks(client: &Client, data: &CryptoSyncData) {
+    handle_user_key_id(client, data).await;
 }
 
 /// Client for the key management work that runs on every sync.
@@ -226,7 +263,7 @@ impl CryptoSyncHandlerClient {
     /// Runs the key management sync work. Call this after each sync, once the user's cryptographic
     /// state has been applied.
     pub async fn on_sync(&self, data: CryptoSyncData) {
-        handle_crypto_sync(&self.client, &data).await
+        set_crypto_sync_to_state(&self.client, &data).await
     }
 }
 
@@ -276,7 +313,8 @@ impl bitwarden_sync::SyncHandler for CryptoSyncHandler {
         // written any state.
         let data = CryptoSyncData::try_from(response)?;
 
-        handle_crypto_sync(&self.client, &data).await;
+        set_crypto_sync_to_state(&self.client, &data).await;
+        run_crypto_sync_hooks(&self.client, &data).await;
         Ok(())
     }
 }

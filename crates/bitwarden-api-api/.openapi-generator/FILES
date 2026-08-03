@@ -546,6 +546,7 @@ src/models/service_account_secrets_details_response_model_list_response_model.rs
 src/models/service_account_update_request_model.rs
 src/models/set_initial_password_request_model.rs
 src/models/set_key_connector_key_request_model.rs
+src/models/set_user_key_id_request_model.rs
 src/models/set_verify_devices_request_model.rs
 src/models/setup_business_unit_request_body.rs
 src/models/signature_key_pair_request_model.rs

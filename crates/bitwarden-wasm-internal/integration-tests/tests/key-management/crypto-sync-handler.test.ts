@@ -1,13 +1,44 @@
-import { PasswordManagerClient, init_sdk } from "@bitwarden/sdk-internal";
+import { ClientSettings, PasswordManagerClient, init_sdk } from "@bitwarden/sdk-internal";
 
-import { makeStateBridge, makeV2AccountClient } from "../utils";
-import { CHANGED_KDF_PARAMS, SYNC_VECTOR } from "./crypto-sync-fixtures";
+import { HttpMock, installHttpMock } from "../http-mock";
+import {
+  makeInitializedPasswordmanagerClient,
+  makePasswordManagerClient,
+  makeStateBridge,
+  makeV2AccountClient,
+} from "../utils";
+import { V2_USER_KEY_ID } from "../v2-fixtures";
+import {
+  CHANGED_KDF_PARAMS,
+  ROUTES,
+  SYNC_VECTOR,
+  cryptoSyncRoutes,
+  withoutUserKeyId,
+} from "./crypto-sync-fixtures";
+
+// Nothing listens here; every request is served by the fetch mock. A concrete host keeps the SDK's
+// request URLs parseable and makes an unmocked route fail loudly rather than escape to the network.
+const SETTINGS: ClientSettings = {
+  apiUrl: "http://localhost:4000",
+  identityUrl: "http://localhost:4000/identity",
+};
 
 describe("crypto sync handler", () => {
+  let mock: HttpMock;
+
+  beforeEach(() => {
+    mock = installHttpMock(cryptoSyncRoutes());
+  });
+
+  afterEach(() => {
+    expect(mock.unmatched.map((r) => r.route)).toEqual([]);
+    mock.restore();
+  });
+
   describe("state", () => {
     it("applies a full sync payload to state", async () => {
       const bridge = makeStateBridge();
-      const client = await makeV2AccountClient(bridge);
+      const client = await makeV2AccountClient(bridge, SETTINGS);
 
       await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
 
@@ -25,6 +56,8 @@ describe("crypto sync handler", () => {
       expect(await bridge.get_webauthn_prf_unlock_data()).toEqual({
         options: SYNC_VECTOR.userDecryption!.webAuthnPrfOptions,
       });
+      // The server already knows the key id, so there is nothing to report.
+      expect(mock.routes()).toEqual([]);
     });
 
     it("clears stored webauthn prf options when the server reports none", async () => {
@@ -54,7 +87,7 @@ describe("crypto sync handler", () => {
 
     it("clears a stored upgrade token when the server reports none", async () => {
       const bridge = makeStateBridge();
-      const client = await makeV2AccountClient(bridge);
+      const client = await makeV2AccountClient(bridge, SETTINGS);
       await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
       expect(await bridge.get_v2_upgrade_token()).toBeTruthy();
 
@@ -67,7 +100,7 @@ describe("crypto sync handler", () => {
 
     it("clears stored master password unlock data when the server reports none", async () => {
       const bridge = makeStateBridge();
-      const client = await makeV2AccountClient(bridge);
+      const client = await makeV2AccountClient(bridge, SETTINGS);
       await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
       expect(await bridge.get_masterpassword_unlock_data()).toBeTruthy();
 
@@ -80,7 +113,7 @@ describe("crypto sync handler", () => {
 
     it("keeps the stored kdf settings when the server reports no master password", async () => {
       const bridge = makeStateBridge();
-      const client = await makeV2AccountClient(bridge);
+      const client = await makeV2AccountClient(bridge, SETTINGS);
       await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
 
       // The kdf only reaches the client as part of the master password unlock data, but an account
@@ -93,7 +126,7 @@ describe("crypto sync handler", () => {
 
     it("updates the stored kdf settings when the server reports new ones", async () => {
       const bridge = makeStateBridge();
-      const client = await makeV2AccountClient(bridge);
+      const client = await makeV2AccountClient(bridge, SETTINGS);
       await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
 
       const masterPasswordUnlock = {
@@ -112,9 +145,41 @@ describe("crypto sync handler", () => {
       // Built without `makePasswordManagerClient`, which always registers a bridge. The handler has
       // to no-op rather than fail when a host has not wired one up.
       init_sdk();
-      const client = new PasswordManagerClient({ get_access_token: async () => undefined });
+      const client = new PasswordManagerClient(
+        { get_access_token: async () => undefined },
+        SETTINGS,
+      );
 
       await expect(client.crypto_sync_handler().on_sync(SYNC_VECTOR)).resolves.toBeUndefined();
+    });
+  });
+
+  describe("user key id backfill", () => {
+    it("reports the user key id when the server has none", async () => {
+      const bridge = makeStateBridge();
+      const client = await makeV2AccountClient(bridge, SETTINGS);
+
+      await client.crypto_sync_handler().on_sync(withoutUserKeyId());
+
+      expect(mock.bodyFor(ROUTES.postUserKeyId)).toEqual({ userKeyId: V2_USER_KEY_ID });
+    });
+
+    it("does not report anything for a locked client", async () => {
+      // No `initialize_user_crypto`, so there is no user key to take an id from.
+      const client = makePasswordManagerClient(makeStateBridge(), SETTINGS);
+
+      await client.crypto_sync_handler().on_sync(withoutUserKeyId());
+
+      expect(mock.called(ROUTES.postUserKeyId)).toBe(false);
+    });
+
+    it("does not report anything for a V1 account", async () => {
+      // A V1 user key is Aes256CbcHmac, an algorithm that carries no key id. Support will be added later.
+      const client = await makeInitializedPasswordmanagerClient(makeStateBridge());
+
+      await client.crypto_sync_handler().on_sync(withoutUserKeyId());
+
+      expect(mock.called(ROUTES.postUserKeyId)).toBe(false);
     });
   });
 });

@@ -200,7 +200,9 @@ struct ContentView: View {
                     masterPasswordUnlock: MasterPasswordUnlockData(
                         kdf: kdf,
                         masterKeyWrappedUserKey: loginData.Key,
-                        salt: EMAIL
+                        salt: EMAIL,
+                        // The identity login response does not carry the user key id.
+                        userKeyId: nil
                     )
                 ),
                 upgradeToken: nil
