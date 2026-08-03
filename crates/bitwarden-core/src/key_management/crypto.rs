@@ -471,6 +471,8 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, Cryp
 }
 
 /// Response from the `update_kdf` function
+///
+/// Note: This is deprecated and will be removed after key-connector fully uses sdk
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -484,6 +486,7 @@ pub struct UpdateKdfResponse {
     old_master_password_authentication_data: MasterPasswordAuthenticationData,
 }
 
+// Note: This is deprecated and will be removed after key-connector fully uses sdk
 pub(super) async fn make_update_kdf(
     client: &Client,
     password: &str,

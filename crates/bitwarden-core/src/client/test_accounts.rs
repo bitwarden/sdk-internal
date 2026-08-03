@@ -10,6 +10,7 @@ use bitwarden_test::MemoryRepository;
 #[cfg(feature = "test-fixtures")]
 use crate::{
     Client, ClientSettings, UserId,
+    client::ApiConfigurations,
     key_management::{
         LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
         account_cryptographic_state::WrappedAccountCryptographicState,
@@ -22,7 +23,11 @@ impl Client {
     /// Creates a client with the necessary state repositories for testing.
     /// Does not initialize any crypto state.
     pub fn new_test(settings: Option<ClientSettings>) -> Self {
-        let client = Client::new(settings);
+        Self::register_test_repositories(Client::new(settings))
+    }
+
+    /// Registers the state repositories required by the test-account crypto initialization.
+    fn register_test_repositories(client: Client) -> Self {
         client
             .platform()
             .state()
@@ -40,8 +45,27 @@ impl Client {
     }
 
     pub async fn init_test_account(account: TestAccount) -> Self {
-        let client = Client::new_test(None);
+        Self::init_test_account_on(Client::new_test(None), account).await
+    }
 
+    /// Creates a test account client backed by a mocked
+    /// [`bitwarden_api_api::apis::ApiClient`], so tests can assert on API requests made by
+    /// sub-clients that operate on a full [`Client`].
+    pub async fn init_test_account_with_api_client(
+        account: TestAccount,
+        api_client: bitwarden_api_api::apis::ApiClient,
+    ) -> Self {
+        let client = Self::register_test_repositories(
+            Client::builder()
+                .with_api_configurations(std::sync::Arc::new(ApiConfigurations::from_api_client(
+                    api_client,
+                )))
+                .build(),
+        );
+        Self::init_test_account_on(client, account).await
+    }
+
+    async fn init_test_account_on(client: Client, account: TestAccount) -> Self {
         client
             .flags()
             .load(HashMap::from([(

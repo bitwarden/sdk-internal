@@ -62,6 +62,7 @@ crates/bitwarden-vault/** @bitwarden/team-vault-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/organizations/** @bitwarden/team-admin-console-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/registration/** @bitwarden/team-auth-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/unlock/** @bitwarden/team-key-management-dev
+crates/bitwarden-wasm-internal/integration-tests/tests/user-crypto-management/** @bitwarden/team-key-management-dev
 crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management-dev
 crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-platform-dev
 crates/bitwarden-ipc/src/crypto_provider/noise/ @bitwarden/team-key-management-dev
