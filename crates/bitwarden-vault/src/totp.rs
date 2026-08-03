@@ -86,12 +86,12 @@ pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpRes
 ///
 /// See [generate_totp] for more information.
 pub fn generate_totp_cipher_view(
-    ctx: &mut KeyStoreContext<KeySlotIds>,
+    _ctx: &mut KeyStoreContext<KeySlotIds>,
     view: CipherListView,
     time: Option<DateTime<Utc>>,
 ) -> Result<TotpResponse, TotpError> {
     let key = view
-        .get_totp_key(ctx)?
+        .get_totp_key()?
         .filter(|s| !s.is_empty())
         .ok_or(TotpError::MissingSecret)?;
 
@@ -373,8 +373,8 @@ fn decode_b32(s: &str) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_core::key_management::{SymmetricKeySlotId, create_test_crypto_with_user_key};
+    use bitwarden_crypto::{Decryptable, EncString, SymmetricCryptoKey};
     use chrono::Utc;
 
     use super::*;
@@ -730,6 +730,18 @@ mod tests {
 
     #[test]
     fn test_generate_totp_cipher_view() {
+        let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
+        let key_store = create_test_crypto_with_user_key(key);
+
+        // Decrypt the TOTP URI which was previously stored as an EncString in LoginListView.totp
+        let enc_totp: EncString = "2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap();
+        let totp_str: String = {
+            let mut ctx = key_store.context();
+            enc_totp
+                .decrypt(&mut ctx, SymmetricKeySlotId::User)
+                .unwrap()
+        };
+
         let view = CipherListView {
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
@@ -738,11 +750,11 @@ mod tests {
             key: None,
             name: "My test login".to_string(),
             subtitle: "test_username".to_string(),
-            r#type: CipherListViewType::Login(LoginListView{
+            r#type: CipherListViewType::Login(LoginListView {
                 fido2_credentials: None,
                 has_fido2: true,
                 username: None,
-                totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
+                totp: Some(totp_str),
                 uris: None,
             }),
             favorite: false,
@@ -766,9 +778,6 @@ mod tests {
             #[cfg(feature = "wasm")]
             attachment_names: None,
         };
-
-        let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
 
         let time = DateTime::parse_from_rfc3339("2023-01-01T00:00:00.000Z")
             .unwrap()

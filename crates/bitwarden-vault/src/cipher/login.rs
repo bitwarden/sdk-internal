@@ -128,9 +128,11 @@ pub struct Fido2CredentialView {
     pub key_type: String,
     pub key_algorithm: String,
     pub key_curve: String,
-    // This value doesn't need to be returned to the client
-    // so we keep it encrypted until we need it
-    pub key_value: EncString,
+    /// The raw EC private key material for this passkey credential.
+    /// Previously kept as `EncString` until explicitly requested; it is now decrypted eagerly as
+    /// part of the view-layer migration. Callers that receive `Fido2CredentialView` over a binding
+    /// boundary should treat this field with the same care as any private key material.
+    pub key_value: String,
     pub rp_id: String,
     pub user_handle: Option<String>,
     pub user_name: Option<String>,
@@ -257,27 +259,23 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialFullView> for Fi
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialFullView> for Fido2CredentialView {
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<Fido2CredentialFullView, CryptoError> {
-        Ok(Fido2CredentialFullView {
-            credential_id: self.credential_id.clone(),
-            key_type: self.key_type.clone(),
-            key_algorithm: self.key_algorithm.clone(),
-            key_curve: self.key_curve.clone(),
-            key_value: self.key_value.decrypt(ctx, key)?,
-            rp_id: self.rp_id.clone(),
-            user_handle: self.user_handle.clone(),
-            user_name: self.user_name.clone(),
-            counter: self.counter.clone(),
-            rp_name: self.rp_name.clone(),
-            user_display_name: self.user_display_name.clone(),
-            discoverable: self.discoverable.clone(),
-            creation_date: self.creation_date,
-        })
+impl From<Fido2CredentialView> for Fido2CredentialFullView {
+    fn from(v: Fido2CredentialView) -> Self {
+        Fido2CredentialFullView {
+            credential_id: v.credential_id,
+            key_type: v.key_type,
+            key_algorithm: v.key_algorithm,
+            key_curve: v.key_curve,
+            key_value: v.key_value,
+            rp_id: v.rp_id,
+            user_handle: v.user_handle,
+            user_name: v.user_name,
+            counter: v.counter,
+            rp_name: v.rp_name,
+            user_display_name: v.user_display_name,
+            discoverable: v.discoverable,
+            creation_date: v.creation_date,
+        }
     }
 }
 
@@ -341,22 +339,11 @@ impl LoginView {
     }
 
     /// Projects this [`LoginView`] into a [`LoginListView`].
-    ///
-    /// `totp` is re-encrypted under `cipher_key` because [`LoginListView`] stores the
-    /// TOTP as an [`EncString`] that [`crate::CipherListView::get_totp_key`] decrypts
-    /// on demand. `fido2_credentials` are still encrypted on [`LoginView`], so they
-    /// decrypt directly to [`Fido2CredentialListView`] via the existing impl.
     pub(crate) fn to_list_view(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         cipher_key: SymmetricKeySlotId,
     ) -> Result<LoginListView, CryptoError> {
-        let totp = self
-            .totp
-            .as_ref()
-            .map(|t| t.encrypt(ctx, cipher_key))
-            .transpose()?;
-
         let fido2_credentials = self
             .fido2_credentials
             .as_ref()
@@ -367,7 +354,7 @@ impl LoginView {
             has_fido2: self.fido2_credentials.is_some(),
             fido2_credentials,
             username: self.username.clone(),
-            totp,
+            totp: self.totp.clone(),
             uris: self.uris.clone(),
         })
     }
@@ -411,8 +398,7 @@ pub struct LoginListView {
     pub fido2_credentials: Option<Vec<Fido2CredentialListView>>,
     pub has_fido2: bool,
     pub username: Option<String>,
-    /// The TOTP key is not decrypted. Useable as is with [`crate::generate_totp_cipher_view`].
-    pub totp: Option<EncString>,
+    pub totp: Option<String>,
     pub uris: Option<Vec<LoginUriView>>,
 }
 
@@ -511,7 +497,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginListView> for Login {
                 .and_then(|fido2_credentials| fido2_credentials.decrypt(ctx, key).ok()),
             has_fido2: self.fido2_credentials.is_some(),
             username: self.username.decrypt(ctx, key).ok().flatten(),
-            totp: self.totp.clone(),
+            totp: self.totp.decrypt(ctx, key).ok().flatten(),
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
         })
     }
@@ -555,7 +541,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginListView> for StrictDecryp
                 .transpose()?,
             has_fido2: self.0.fido2_credentials.is_some(),
             username: self.0.username.decrypt(ctx, key)?,
-            totp: self.0.totp.clone(),
+            totp: self.0.totp.decrypt(ctx, key)?,
             uris: self.0.uris.decrypt(ctx, key)?,
         })
     }
@@ -572,7 +558,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Fido2CredentialView> for Fido2C
             key_type: self.key_type.decrypt(ctx, key)?,
             key_algorithm: self.key_algorithm.decrypt(ctx, key)?,
             key_curve: self.key_curve.decrypt(ctx, key)?,
-            key_value: self.key_value.clone(),
+            key_value: self.key_value.decrypt(ctx, key)?,
             rp_id: self.rp_id.decrypt(ctx, key)?,
             user_handle: self.user_handle.decrypt(ctx, key)?,
             user_name: self.user_name.decrypt(ctx, key)?,
