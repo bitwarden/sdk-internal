@@ -166,7 +166,9 @@ async fn handle_user_decryption_options(client: &Client, data: &CryptoSyncData) 
             state_bridge
                 .set_masterpassword_unlock_data(master_password_unlock)
                 .await;
-            state_bridge.set_kdf_config(&master_password_unlock.kdf).await;
+            state_bridge
+                .set_kdf_config(&master_password_unlock.kdf)
+                .await;
         }
         None => state_bridge.clear_masterpassword_unlock_data().await,
     }
