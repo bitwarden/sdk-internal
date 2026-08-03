@@ -20,7 +20,9 @@ describe("crypto sync handler", () => {
       expect(await bridge.get_account_cryptographic_state()).toEqual(
         SYNC_VECTOR.accountCryptographicState,
       );
-      expect(await bridge.get_kdf()).toEqual(SYNC_VECTOR.userDecryption!.masterPasswordUnlock!.kdf);
+      expect(await bridge.get_kdf_config()).toEqual(
+        SYNC_VECTOR.userDecryption!.masterPasswordUnlock!.kdf,
+      );
       // The handler stores the list
       expect(await bridge.get_webauthn_prf_unlock_data()).toEqual({
         options: SYNC_VECTOR.userDecryption!.webAuthnPrfOptions,
@@ -88,7 +90,9 @@ describe("crypto sync handler", () => {
       const { masterPasswordUnlock: _dropped, ...userDecryption } = SYNC_VECTOR.userDecryption!;
       await client.crypto_sync_handler().on_sync({ ...SYNC_VECTOR, userDecryption });
 
-      expect(await bridge.get_kdf()).toEqual(SYNC_VECTOR.userDecryption!.masterPasswordUnlock!.kdf);
+      expect(await bridge.get_kdf_config()).toEqual(
+        SYNC_VECTOR.userDecryption!.masterPasswordUnlock!.kdf,
+      );
     });
 
     it("updates the stored kdf settings when the server reports new ones", async () => {
@@ -105,7 +109,7 @@ describe("crypto sync handler", () => {
         userDecryption: { ...SYNC_VECTOR.userDecryption!, masterPasswordUnlock },
       });
 
-      expect(await bridge.get_kdf()).toEqual(CHANGED_KDF_PARAMS);
+      expect(await bridge.get_kdf_config()).toEqual(CHANGED_KDF_PARAMS);
     });
 
     it("does not throw when no state bridge is registered", async () => {
