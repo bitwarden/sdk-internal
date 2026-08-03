@@ -147,7 +147,7 @@ mod tests {
         let key = SymmetricCryptoKey::try_from(B64::try_from(V1_USER_KEY).unwrap()).unwrap();
         ctx.add_local_symmetric_key(key)
     }
-    const V2_USER_KEY: &str = "pQEEAlCg4GEL17wqaWbSzi7WdH1kAzoAARFvBIQDBAUGIFgg1opRU0oX0Rje8I0ufEOx7Xv6NIoOCSAb1ex312/xDqkB";
+    const V2_USER_KEY: &str = "pQEEAlCxZkKFDpp70P5mWPmOjf3xAzoAARF5BIQDBAUGIFggCFcd6XLISUfLaITyU9yimrYHacdS5XhBayO2663jdSUB";
     fn load_v2_user_key(ctx: &mut KeyStoreContext<KeySlotIds>) -> SymmetricKeySlotId {
         let key = SymmetricCryptoKey::try_from(B64::try_from(V2_USER_KEY).unwrap()).unwrap();
         ctx.add_local_symmetric_key(key)

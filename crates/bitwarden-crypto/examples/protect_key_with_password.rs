@@ -4,7 +4,7 @@
 use bitwarden_crypto::{
     KeyStore, KeyStoreContext, key_slot_ids,
     safe::{
-        PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError,
+        KeyEncryptionKey, PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError,
         PasswordProtectedKeyEnvelopeNamespace,
     },
 };
@@ -23,7 +23,7 @@ fn main() {
 
     // Alice has a vault protected with a symmetric key. She wants the symmetric key protected with
     // a PIN.
-    let vault_key = ctx.generate_symmetric_key();
+    let vault_key = KeyEncryptionKey::make(&mut ctx);
 
     // Seal the key with the PIN
     // The KDF settings are chosen for you, and do not need to be separately tracked or synced
@@ -32,6 +32,7 @@ fn main() {
     let envelope = PasswordProtectedKeyEnvelope::seal(
         vault_key,
         pin,
+        // The namespace must be replaced with an appropriate namespace for the use-case
         PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
         &ctx,
     )
@@ -50,6 +51,7 @@ fn main() {
     let _unsealed_vault_key = deserialized
         .unseal(
             pin,
+            // The namespace must be replaced with an appropriate namespace for the use-case
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &mut ctx,
         )
@@ -61,6 +63,7 @@ fn main() {
         .reseal(
             pin,
             "0000",
+            // The namespace must be replaced with an appropriate namespace for the use-case
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
         )
         .expect("The password should be valid");
@@ -71,6 +74,7 @@ fn main() {
     let envelope = PasswordProtectedKeyEnvelope::seal(
         vault_key,
         "0000",
+        // The namespace must be replaced with an appropriate namespace for the use-case
         PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
         &ctx,
     )
@@ -81,6 +85,7 @@ fn main() {
     assert!(matches!(
         envelope.unseal(
             "9999",
+            // The namespace must be replaced with an appropriate namespace for the use-case
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
             &mut ctx
         ),

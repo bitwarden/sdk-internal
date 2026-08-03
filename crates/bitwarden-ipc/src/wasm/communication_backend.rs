@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    error::IpcErrorKind,
+    error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
     traits::{CommunicationBackend, CommunicationBackendReceiver},
 };
@@ -42,6 +42,11 @@ pub enum WasmCommunicationError {
     #[error("incoming message channel lagged, {0} messages were dropped")]
     Lagged(u64),
 
+    /// The destination is not reachable: the JS backend reported "Destination unreachable" (e.g.
+    /// the desktop app is not connected).
+    #[error("Destination unreachable")]
+    Unreachable,
+
     /// The communication channel was closed because all senders were dropped. This is fatal: the
     /// IPC client's processing loop stops cleanly instead of busy-looping on the closed channel.
     #[error("incoming message channel closed")]
@@ -49,8 +54,12 @@ pub enum WasmCommunicationError {
 }
 
 impl IpcErrorKind for WasmCommunicationError {
-    fn is_fatal(&self) -> bool {
-        matches!(self, WasmCommunicationError::Closed)
+    fn kind(&self) -> ErrorKind {
+        match self {
+            WasmCommunicationError::Unreachable => ErrorKind::Unreachable,
+            WasmCommunicationError::Closed => ErrorKind::Fatal,
+            _ => ErrorKind::Other,
+        }
     }
 }
 
@@ -132,7 +141,16 @@ impl CommunicationBackend for JsCommunicationBackend {
             })
             .await
             .map_err(|e| WasmCommunicationError::Js(e.to_string()))?
-            .map_err(WasmCommunicationError::Js)
+            .map_err(|message| {
+                // The TS backend throws `Error("Destination unreachable")` when the peer transport
+                // is not connected. Map it to a dedicated variant so callers can suppress logging
+                // for this expected case while still surfacing every other send failure.
+                if message.contains("Destination unreachable") {
+                    WasmCommunicationError::Unreachable
+                } else {
+                    WasmCommunicationError::Js(message)
+                }
+            })
     }
 
     async fn subscribe(&self) -> Self::Receiver {
@@ -187,7 +205,7 @@ mod tests {
 
         let error = receiver.receive().await.unwrap_err();
         assert!(matches!(error, WasmCommunicationError::Closed));
-        assert!(error.is_fatal());
+        assert_eq!(error.kind(), ErrorKind::Fatal);
     }
 
     #[tokio::test]
@@ -202,6 +220,6 @@ mod tests {
 
         let error = receiver.receive().await.unwrap_err();
         assert!(matches!(error, WasmCommunicationError::Lagged(_)));
-        assert!(!error.is_fatal());
+        assert_ne!(error.kind(), ErrorKind::Fatal);
     }
 }

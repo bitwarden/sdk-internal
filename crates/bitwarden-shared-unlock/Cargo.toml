@@ -47,7 +47,7 @@ js-sys = { workspace = true }
 [dev-dependencies]
 bitwarden-encoding = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["test-support"] }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 
 [lints]
 workspace = true

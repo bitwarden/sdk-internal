@@ -53,9 +53,7 @@ pub trait IpcClientExt: IpcClient {
                 RequestError::Rpc(RpcError::RequestSerialization(e.to_string()))
             })?;
 
-            self.send(message)
-                .await
-                .map_err(|e| RequestError::Send(format!("{e:?}")))
+            self.send(message).await.map_err(RequestError::from)
         }
     }
 
@@ -111,9 +109,7 @@ pub trait IpcClientExt: IpcClient {
                 RequestError::Rpc(RpcError::RequestSerialization(e.to_string()))
             })?;
 
-            self.send(message)
-                .await
-                .map_err(|e| RequestError::Send(format!("{e:?}")))?;
+            self.send(message).await.map_err(RequestError::from)?;
 
             let response = loop {
                 let received = response_subscription

@@ -70,6 +70,15 @@ pub struct BillingCustomerDiscount {
         skip_serializing_if = "Option::is_none"
     )]
     pub applies_to: Option<Vec<String>>,
+    /// True when this discount was surfaced from a price-migration schedule's Phase 2 coupon
+    /// rather than a genuine customer- or subscription-level discount. Lets clients distinguish a
+    /// deferred price-migration coupon from a real discount.
+    #[serde(
+        rename = "isFromSchedule",
+        alias = "IsFromSchedule",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_from_schedule: Option<bool>,
 }
 
 impl BillingCustomerDiscount {
@@ -83,6 +92,7 @@ impl BillingCustomerDiscount {
             end: None,
             duration_in_months: None,
             applies_to: None,
+            is_from_schedule: None,
         }
     }
 }
