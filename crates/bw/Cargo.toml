@@ -15,7 +15,7 @@ repository.workspace = true
 license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 
 [dependencies]
-base64 = ">=0.22.1, <0.23"
+base64 = ">=0.22.1, <0.24"
 bat = { version = "0.26.0", features = [
     "regex-fancy",
 ], default-features = false }
