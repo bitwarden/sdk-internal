@@ -332,6 +332,7 @@ mod tests {
                 size_name: Some("123 B".to_string()),
             })),
             text: None,
+            data: None,
             key: Some(request.key),
             max_access_count: request.max_access_count,
             access_count: Some(0),
