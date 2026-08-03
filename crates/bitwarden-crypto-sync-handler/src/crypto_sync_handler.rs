@@ -1,5 +1,10 @@
 //! Key management work that runs on every sync.
 
+#[cfg(not(target_arch = "wasm32"))]
+use bitwarden_core::key_management::{
+    MasterPasswordError, V2UpgradeTokenError, WebAuthnPrfError,
+    account_cryptographic_state::AccountKeysResponseParseError,
+};
 use bitwarden_core::{
     Client,
     key_management::{
@@ -8,8 +13,6 @@ use bitwarden_core::{
     },
 };
 use serde::{Deserialize, Serialize};
-#[cfg(not(target_arch = "wasm32"))]
-use tracing::warn;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -55,6 +58,86 @@ pub struct CryptoSyncUserDecryption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub web_authn_prf_options: Option<Vec<WebAuthnPrfUnlockOption>>,
+}
+
+/// Errors returned when a sync response cannot be converted into [`CryptoSyncData`].
+///
+/// The conversion happens before anything is written to state, so returning one of these leaves
+/// state untouched rather than partially updated.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, thiserror::Error)]
+pub enum CryptoSyncDataParseError {
+    /// The sync response carried master password unlock data that could not be parsed.
+    #[error("Sync response carried unparseable master password unlock data")]
+    MasterPasswordUnlock(#[source] MasterPasswordError),
+    /// The sync response carried a V2 upgrade token that could not be parsed.
+    #[error("Sync response carried an unparseable V2 upgrade token")]
+    V2UpgradeToken(#[source] V2UpgradeTokenError),
+    /// The sync response carried a WebAuthn PRF unlock option that could not be parsed.
+    #[error("Sync response carried an unparseable WebAuthn PRF unlock option")]
+    WebAuthnPrfOption(#[source] WebAuthnPrfError),
+    /// The sync response carried account cryptographic state that could not be parsed.
+    #[error("Sync response carried unparseable account cryptographic state")]
+    AccountCryptographicState(#[source] AccountKeysResponseParseError),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TryFrom<&bitwarden_api_api::models::SyncResponseModel> for CryptoSyncData {
+    type Error = CryptoSyncDataParseError;
+
+    fn try_from(
+        response: &bitwarden_api_api::models::SyncResponseModel,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            user_decryption: response
+                .user_decryption
+                .as_deref()
+                .map(CryptoSyncUserDecryption::try_from)
+                .transpose()?,
+            account_cryptographic_state: response
+                .profile
+                .as_deref()
+                .and_then(|p| p.account_keys.as_deref())
+                .map(WrappedAccountCryptographicState::try_from)
+                .transpose()
+                .map_err(CryptoSyncDataParseError::AccountCryptographicState)?,
+        })
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TryFrom<&bitwarden_api_api::models::UserDecryptionResponseModel> for CryptoSyncUserDecryption {
+    type Error = CryptoSyncDataParseError;
+
+    fn try_from(
+        response: &bitwarden_api_api::models::UserDecryptionResponseModel,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            master_password_unlock: response
+                .master_password_unlock
+                .as_deref()
+                .map(MasterPasswordUnlockData::try_from)
+                .transpose()
+                .map_err(CryptoSyncDataParseError::MasterPasswordUnlock)?,
+            v2_upgrade_token: response
+                .v2_upgrade_token
+                .as_deref()
+                .map(V2UpgradeToken::try_from)
+                .transpose()
+                .map_err(CryptoSyncDataParseError::V2UpgradeToken)?,
+            web_authn_prf_options: response
+                .web_authn_prf_options
+                .as_deref()
+                .map(|options| {
+                    options
+                        .iter()
+                        .map(WebAuthnPrfUnlockOption::try_from)
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()
+                .map_err(CryptoSyncDataParseError::WebAuthnPrfOption)?,
+        })
+    }
 }
 
 /// Runs the key management sync work for the given sync data.
@@ -189,50 +272,99 @@ impl bitwarden_sync::SyncHandler for CryptoSyncHandler {
         &self,
         response: &bitwarden_api_api::models::SyncResponseModel,
     ) -> Result<(), bitwarden_sync::SyncHandlerError> {
-        let user_decryption = response.user_decryption.as_deref();
+        // Parsing happens up front so that a malformed response fails the sync without having
+        // written any state.
+        let data = CryptoSyncData::try_from(response)?;
 
-        let data = CryptoSyncData {
-            user_decryption: user_decryption.map(|d| CryptoSyncUserDecryption {
-                master_password_unlock: d.master_password_unlock.as_deref().and_then(|m| {
-                    MasterPasswordUnlockData::try_from(m)
-                        .inspect_err(|e| {
-                            warn!(error = ?e, "Sync response carried unparseable master password unlock data; treating it as absent")
-                        })
-                        .ok()
-                }),
-                v2_upgrade_token: d.v2_upgrade_token.as_deref().and_then(|t| {
-                    V2UpgradeToken::try_from(t)
-                        .inspect_err(|e| {
-                            warn!(error = ?e, "Sync response carried an unparseable V2 upgrade token; treating it as absent")
-                        })
-                        .ok()
-                }),
-                web_authn_prf_options: d.web_authn_prf_options.as_deref().map(|options| {
-                    options
-                        .iter()
-                        .filter_map(|o| {
-                            WebAuthnPrfUnlockOption::try_from(o)
-                                .inspect_err(|e| {
-                                    warn!(error = ?e, "Sync response carried an unparseable WebAuthn PRF option; skipping it")
-                                })
-                                .ok()
-                        })
-                        .collect()
-                }),
-            }),
-            account_cryptographic_state: response
-                .profile
-                .as_deref()
-                .and_then(|p| p.account_keys.as_deref())
-                .and_then(|k| {
-                    WrappedAccountCryptographicState::try_from(k)
-                        .inspect_err(|e| {
-                            warn!(error = ?e, "Sync response carried unparseable account cryptographic state; ignoring it")
-                        })
-                        .ok()
-                }),
-        };
         handle_crypto_sync(&self.client, &data).await;
         Ok(())
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use bitwarden_api_api::models::{
+        KdfType, MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
+        SyncResponseModel, UserDecryptionResponseModel, WebAuthnPrfDecryptionOption,
+    };
+
+    use super::*;
+
+    const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
+    const TEST_SALT: &str = "test@example.com";
+
+    fn master_password_unlock(
+        master_key_encrypted_user_key: Option<String>,
+    ) -> MasterPasswordUnlockResponseModel {
+        MasterPasswordUnlockResponseModel {
+            kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                kdf_type: KdfType::PBKDF2_SHA256,
+                iterations: 600_000,
+                memory: None,
+                parallelism: None,
+            }),
+            master_key_encrypted_user_key,
+            salt: Some(TEST_SALT.to_string()),
+        }
+    }
+
+    fn sync_response(user_decryption: UserDecryptionResponseModel) -> SyncResponseModel {
+        SyncResponseModel {
+            user_decryption: Some(Box::new(user_decryption)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_try_from_empty_response_is_empty_data() {
+        let data = CryptoSyncData::try_from(&SyncResponseModel::default()).unwrap();
+
+        assert!(data.user_decryption.is_none());
+        assert!(data.account_cryptographic_state.is_none());
+    }
+
+    #[test]
+    fn test_try_from_valid_master_password_unlock_succeeds() {
+        let response = sync_response(UserDecryptionResponseModel {
+            master_password_unlock: Some(Box::new(master_password_unlock(Some(
+                TEST_USER_KEY.to_string(),
+            )))),
+            ..Default::default()
+        });
+
+        let data = CryptoSyncData::try_from(&response).unwrap();
+
+        let user_decryption = data.user_decryption.unwrap();
+        assert_eq!(
+            user_decryption.master_password_unlock.unwrap().salt,
+            TEST_SALT
+        );
+    }
+
+    #[test]
+    fn test_try_from_malformed_master_password_unlock_errors() {
+        // Missing wrapped user key.
+        let response = sync_response(UserDecryptionResponseModel {
+            master_password_unlock: Some(Box::new(master_password_unlock(None))),
+            ..Default::default()
+        });
+
+        assert!(matches!(
+            CryptoSyncData::try_from(&response),
+            Err(CryptoSyncDataParseError::MasterPasswordUnlock(_))
+        ));
+    }
+
+    #[test]
+    fn test_try_from_malformed_webauthn_prf_option_errors() {
+        let response = sync_response(UserDecryptionResponseModel {
+            web_authn_prf_options: Some(vec![WebAuthnPrfDecryptionOption::default()]),
+            ..Default::default()
+        });
+
+        assert!(matches!(
+            CryptoSyncData::try_from(&response),
+            Err(CryptoSyncDataParseError::WebAuthnPrfOption(_))
+        ));
     }
 }
