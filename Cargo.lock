@@ -973,7 +973,6 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-random",
  "bitwarden-sensitive-value",
- "ciborium",
  "rand 0.10.2",
  "serde",
  "serde_json",
