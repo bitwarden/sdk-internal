@@ -3,7 +3,7 @@
 use bitwarden_core::{
     Client,
     key_management::{
-        MasterPasswordUnlockData, V2UpgradeToken,
+        MasterPasswordUnlockData, V2UpgradeToken, WebAuthnPrfUnlockData, WebAuthnPrfUnlockOption,
         account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
@@ -51,6 +51,10 @@ pub struct CryptoSyncUserDecryption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "wasm", tsify(optional))]
     pub v2_upgrade_token: Option<V2UpgradeToken>,
+    /// The WebAuthn PRF credentials the account can unlock with.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub web_authn_prf_options: Option<Vec<WebAuthnPrfUnlockOption>>,
 }
 
 /// Runs the key management sync work for the given sync data.
@@ -87,6 +91,18 @@ async fn handle_user_decryption_options(client: &Client, data: &CryptoSyncData) 
     match user_decryption.v2_upgrade_token.as_ref() {
         Some(v2_upgrade_token) => state_bridge.set_v2_upgrade_token(v2_upgrade_token).await,
         None => state_bridge.clear_v2_upgrade_token().await,
+    }
+
+    // An absent list and an empty list both mean the account has no PRF-capable credentials.
+    match user_decryption.web_authn_prf_options.as_ref() {
+        Some(options) if !options.is_empty() => {
+            state_bridge
+                .set_webauthn_prf_unlock_data(&WebAuthnPrfUnlockData {
+                    options: options.clone(),
+                })
+                .await
+        }
+        _ => state_bridge.clear_webauthn_prf_unlock_data().await,
     }
 }
 
@@ -190,6 +206,18 @@ impl bitwarden_sync::SyncHandler for CryptoSyncHandler {
                             warn!(error = ?e, "Sync response carried an unparseable V2 upgrade token; treating it as absent")
                         })
                         .ok()
+                }),
+                web_authn_prf_options: d.web_authn_prf_options.as_deref().map(|options| {
+                    options
+                        .iter()
+                        .filter_map(|o| {
+                            WebAuthnPrfUnlockOption::try_from(o)
+                                .inspect_err(|e| {
+                                    warn!(error = ?e, "Sync response carried an unparseable WebAuthn PRF option; skipping it")
+                                })
+                                .ok()
+                        })
+                        .collect()
                 }),
             }),
             account_cryptographic_state: response

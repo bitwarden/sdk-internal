@@ -1,7 +1,7 @@
 [package]
 name = "bitwarden-crypto-sync-handler"
 description = """
-temporary sync handler will live in this crate until sync fully moves to the sdk. at that point this logic will be moved over.
+This crate is responsible for taking cryptographic items from incoming syncs, and writing them to disk.
 """
 
 version.workspace = true

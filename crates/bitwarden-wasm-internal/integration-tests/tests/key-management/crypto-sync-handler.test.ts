@@ -21,6 +21,35 @@ describe("crypto sync handler", () => {
         SYNC_VECTOR.accountCryptographicState,
       );
       expect(await bridge.get_kdf()).toEqual(SYNC_VECTOR.userDecryption!.masterPasswordUnlock!.kdf);
+      // The handler stores the list
+      expect(await bridge.get_webauthn_prf_unlock_data()).toEqual({
+        options: SYNC_VECTOR.userDecryption!.webAuthnPrfOptions,
+      });
+    });
+
+    it("clears stored webauthn prf options when the server reports none", async () => {
+      const bridge = makeStateBridge();
+      const client = await makeV2AccountClient(bridge);
+      await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
+      expect(await bridge.get_webauthn_prf_unlock_data()).toBeTruthy();
+
+      // No PRF-capable credentials are left on the account.
+      const { webAuthnPrfOptions: _dropped, ...userDecryption } = SYNC_VECTOR.userDecryption!;
+      await client.crypto_sync_handler().on_sync({ ...SYNC_VECTOR, userDecryption });
+
+      expect(await bridge.get_webauthn_prf_unlock_data()).toBeFalsy();
+    });
+
+    it("clears stored webauthn prf options when the server reports an empty list", async () => {
+      const bridge = makeStateBridge();
+      const client = await makeV2AccountClient(bridge);
+      await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
+
+      // An empty list means the same thing as an absent one.
+      const userDecryption = { ...SYNC_VECTOR.userDecryption!, webAuthnPrfOptions: [] };
+      await client.crypto_sync_handler().on_sync({ ...SYNC_VECTOR, userDecryption });
+
+      expect(await bridge.get_webauthn_prf_unlock_data()).toBeFalsy();
     });
 
     it("clears a stored upgrade token when the server reports none", async () => {

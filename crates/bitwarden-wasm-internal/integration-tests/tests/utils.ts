@@ -6,6 +6,7 @@ import {
   V2UpgradeToken,
   WrappedAccountCryptographicState,
   MasterPasswordUnlockData,
+  WebAuthnPrfUnlockData,
   Kdf,
   PasswordManagerClient,
   init_sdk,
@@ -55,6 +56,7 @@ export function makeStateBridge(): WasmStateBridge {
   let v2UpgradeToken: V2UpgradeToken | null;
   let accountCryptographicState: WrappedAccountCryptographicState | null;
   let masterPasswordUnlockData: MasterPasswordUnlockData | null;
+  let webauthnPrfUnlockData: WebAuthnPrfUnlockData | null;
   let kdf: Kdf | null;
 
   return {
@@ -113,6 +115,15 @@ export function makeStateBridge(): WasmStateBridge {
     clear_masterpassword_unlock_data: async () => {
       masterPasswordUnlockData = null;
     },
+
+    set_webauthn_prf_unlock_data: async (v: WebAuthnPrfUnlockData) => {
+      webauthnPrfUnlockData = v;
+    },
+    get_webauthn_prf_unlock_data: async () => webauthnPrfUnlockData,
+    clear_webauthn_prf_unlock_data: async () => {
+      webauthnPrfUnlockData = null;
+    },
+
     set_kdf: async (v: Kdf) => {
       kdf = v;
     },

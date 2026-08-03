@@ -1,6 +1,6 @@
 // The key-management slice of a sync response, plus the one route the handler calls.
 
-import { Kdf, CryptoSyncData } from "@bitwarden/sdk-internal";
+import { Kdf, CryptoSyncData, UnsignedSharedKey } from "@bitwarden/sdk-internal";
 
 import { MASTER_KEY_WRAPPED_USER_KEY, TEST_EMAIL, encstring } from "../utils";
 import {
@@ -10,6 +10,14 @@ import {
   V2_SIGNED_PUBLIC_KEY,
   V2_SIGNING_KEY,
 } from "../v2-fixtures";
+
+const unsignedSharedKey = (s: string) => s as unknown as UnsignedSharedKey;
+
+/** A PRF-key-wrapped private key, and the user key encapsulated to the matching public key. */
+const PRF_ENCRYPTED_PRIVATE_KEY =
+  "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
+const PRF_ENCRYPTED_USER_KEY =
+  "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
 
 /**
  * A full sync payload, as a client hands it to `on_sync` after a sync
@@ -30,6 +38,16 @@ export const SYNC_VECTOR: CryptoSyncData = {
       wrapped_user_key_1: V2_PRIVATE_KEY,
       wrapped_user_key_2: encstring(MASTER_KEY_WRAPPED_USER_KEY),
     },
+    // Stored and read back opaquely, like the upgrade token — the handler never unwraps these, so
+    // shape-valid values suffice.
+    webAuthnPrfOptions: [
+      {
+        encryptedPrivateKey: encstring(PRF_ENCRYPTED_PRIVATE_KEY),
+        encryptedUserKey: unsignedSharedKey(PRF_ENCRYPTED_USER_KEY),
+        credentialId: "test-credential-id",
+        transports: ["internal", "hybrid"],
+      },
+    ],
   },
   accountCryptographicState: {
     V2: {

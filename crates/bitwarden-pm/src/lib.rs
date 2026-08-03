@@ -90,9 +90,9 @@ impl PasswordManagerClient {
         let client = Self::new(settings);
 
         let sync = client.sync();
-        sync.register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
         #[cfg(not(target_arch = "wasm32"))]
         sync.register_sync_handler(Arc::new(CryptoSyncHandler::new(client.0.clone())));
+        sync.register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
 
         // TODO: Add more sync handlers here!
 
