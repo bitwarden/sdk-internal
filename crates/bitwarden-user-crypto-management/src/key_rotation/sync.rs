@@ -353,6 +353,7 @@ mod tests {
             notes: None,
             file: None,
             text: None,
+            data: None,
             key: Some(KEY_ENC_STRING.to_string()),
             max_access_count: None,
             access_count: Some(0),
