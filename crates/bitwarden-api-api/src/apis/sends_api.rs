@@ -26,13 +26,6 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SendsApi: Send + Sync {
-    /// POST /sends/access/{id}
-    async fn access<'a>(
-        &self,
-        id: &'a str,
-        send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<models::SendAccessResponseModel, Error>;
-
     /// POST /sends/access
     async fn access_using_auth<'a>(
         &self,
@@ -50,14 +43,6 @@ pub trait SendsApi: Send + Sync {
 
     /// GET /sends
     async fn get_all(&self) -> Result<models::SendResponseModelListResponseModel, Error>;
-
-    /// POST /sends/{encodedSendId}/access/file/{fileId}
-    async fn get_send_file_download_data<'a>(
-        &self,
-        encoded_send_id: &'a str,
-        file_id: &'a str,
-        send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<models::SendFileDownloadDataResponseModel, Error>;
 
     /// POST /sends/access/file/{fileId}
     async fn get_send_file_download_data_using_auth<'a>(
@@ -122,28 +107,6 @@ impl SendsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SendsApi for SendsApiClient {
-    async fn access<'a>(
-        &self,
-        id: &'a str,
-        send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<models::SendAccessResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/sends/access/{id}",
-            local_var_configuration.base_path,
-            id = crate::apis::urlencode(id)
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.json(&send_access_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
     async fn access_using_auth<'a>(
         &self,
         access_token: &'a str,
@@ -225,30 +188,6 @@ impl SendsApi for SendsApiClient {
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn get_send_file_download_data<'a>(
-        &self,
-        encoded_send_id: &'a str,
-        file_id: &'a str,
-        send_access_request_model: Option<models::SendAccessRequestModel>,
-    ) -> Result<models::SendFileDownloadDataResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/sends/{encodedSendId}/access/file/{fileId}",
-            local_var_configuration.base_path,
-            encodedSendId = crate::apis::urlencode(encoded_send_id),
-            fileId = crate::apis::urlencode(file_id)
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.json(&send_access_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

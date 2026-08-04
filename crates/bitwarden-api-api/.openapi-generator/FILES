@@ -7,6 +7,7 @@ src/apis/accounts_api.rs
 src/apis/accounts_billing_api.rs
 src/apis/accounts_key_management_api.rs
 src/apis/auth_requests_api.rs
+src/apis/cipher_lease_api.rs
 src/apis/ciphers_api.rs
 src/apis/collections_api.rs
 src/apis/config_api.rs
@@ -73,6 +74,7 @@ src/apis/users_api.rs
 src/apis/web_authn_api.rs
 src/lib.rs
 src/models/accept_organization_invite_link_request_model.rs
+src/models/access_approval_mode.rs
 src/models/access_decision_request_model.rs
 src/models/access_decision_verdict.rs
 src/models/access_lease_extension_request_model.rs
@@ -81,9 +83,12 @@ src/models/access_lease_response_model_list_response_model.rs
 src/models/access_lease_revoke_request_model.rs
 src/models/access_lease_status.rs
 src/models/access_policy_request.rs
+src/models/access_pre_check_response_model.rs
+src/models/access_request_create_request_model.rs
 src/models/access_request_decision_response_model.rs
 src/models/access_request_details_response_model.rs
 src/models/access_request_details_response_model_list_response_model.rs
+src/models/access_request_result_response_model.rs
 src/models/access_request_status.rs
 src/models/access_rule_request_model.rs
 src/models/access_rule_response_model.rs
@@ -137,6 +142,7 @@ src/models/bulk_deny_admin_auth_request_request_model.rs
 src/models/change_kdf_request_model.rs
 src/models/change_plan_frequency_request.rs
 src/models/checkout_billing_address_request.rs
+src/models/cipher_access_state_response_model.rs
 src/models/cipher_attachment_model.rs
 src/models/cipher_bank_account_model.rs
 src/models/cipher_bulk_archive_request_model.rs
@@ -521,7 +527,6 @@ src/models/security_tasks_response_model_list_response_model.rs
 src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
 src/models/self_hosted_organization_license_request_model.rs
-src/models/send_access_request_model.rs
 src/models/send_access_response_model.rs
 src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
