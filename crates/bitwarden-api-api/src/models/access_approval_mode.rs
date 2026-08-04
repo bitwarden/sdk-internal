@@ -11,74 +11,76 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-///
+/// AccessApprovalMode : The approval path a lease request will take, surfaced by the pre-check so
+/// the client can present the right workflow: Bit.Services.Pam.Enums.AccessApprovalMode.Automatic
+/// (pick a duration) or Bit.Services.Pam.Enums.AccessApprovalMode.Human (pick a window + justify).
+/// The approval path a lease request will take, surfaced by the pre-check so the client can present
+/// the right workflow: Bit.Services.Pam.Enums.AccessApprovalMode.Automatic (pick a duration) or
+/// Bit.Services.Pam.Enums.AccessApprovalMode.Human (pick a window + justify).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum SendType {
-    Text,
-    File,
-    Item,
+pub enum AccessApprovalMode {
+    Automatic,
+    Human,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
 }
 
-impl SendType {
+impl AccessApprovalMode {
     pub fn as_i64(&self) -> i64 {
         match self {
-            Self::Text => 0,
-            Self::File => 1,
-            Self::Item => 2,
+            Self::Automatic => 0,
+            Self::Human => 1,
             Self::__Unknown(v) => *v,
         }
     }
 
     pub fn from_i64(value: i64) -> Self {
         match value {
-            0 => Self::Text,
-            1 => Self::File,
-            2 => Self::Item,
+            0 => Self::Automatic,
+            1 => Self::Human,
             v => Self::__Unknown(v),
         }
     }
 }
 
-impl serde::Serialize for SendType {
+impl serde::Serialize for AccessApprovalMode {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_i64(self.as_i64())
     }
 }
 
-impl<'de> serde::Deserialize<'de> for SendType {
+impl<'de> serde::Deserialize<'de> for AccessApprovalMode {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct SendTypeVisitor;
+        struct AccessApprovalModeVisitor;
 
-        impl Visitor<'_> for SendTypeVisitor {
-            type Value = SendType;
+        impl Visitor<'_> for AccessApprovalModeVisitor {
+            type Value = AccessApprovalMode;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 f.write_str("an integer")
             }
 
             fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
-                Ok(SendType::from_i64(v))
+                Ok(AccessApprovalMode::from_i64(v))
             }
 
             fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
-                Ok(SendType::from_i64(v as i64))
+                Ok(AccessApprovalMode::from_i64(v as i64))
             }
         }
 
-        deserializer.deserialize_i64(SendTypeVisitor)
+        deserializer.deserialize_i64(AccessApprovalModeVisitor)
     }
 }
 
-impl std::fmt::Display for SendType {
+impl std::fmt::Display for AccessApprovalMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_i64())
     }
 }
-impl Default for SendType {
-    fn default() -> SendType {
-        Self::Text
+impl Default for AccessApprovalMode {
+    fn default() -> AccessApprovalMode {
+        Self::Automatic
     }
 }

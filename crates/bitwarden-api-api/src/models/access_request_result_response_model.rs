@@ -12,8 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// AccessRequestResultResponseModel : The envelope returned when a cipher-lease request is
+/// submitted.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SendResponseModelListResponseModel {
+pub struct AccessRequestResultResponseModel {
     #[serde(
         rename = "object",
         alias = "Object",
@@ -21,25 +23,26 @@ pub struct SendResponseModelListResponseModel {
     )]
     pub object: Option<String>,
     #[serde(
-        rename = "data",
-        alias = "Data",
+        rename = "approvalMode",
+        alias = "ApprovalMode",
         skip_serializing_if = "Option::is_none"
     )]
-    pub data: Option<Vec<models::SendResponseModel>>,
+    pub approval_mode: Option<models::AccessApprovalMode>,
     #[serde(
-        rename = "continuationToken",
-        alias = "ContinuationToken",
+        rename = "request",
+        alias = "Request",
         skip_serializing_if = "Option::is_none"
     )]
-    pub continuation_token: Option<String>,
+    pub request: Option<Box<models::AccessRequestDetailsResponseModel>>,
 }
 
-impl SendResponseModelListResponseModel {
-    pub fn new() -> SendResponseModelListResponseModel {
-        SendResponseModelListResponseModel {
+impl AccessRequestResultResponseModel {
+    /// The envelope returned when a cipher-lease request is submitted.
+    pub fn new() -> AccessRequestResultResponseModel {
+        AccessRequestResultResponseModel {
             object: None,
-            data: None,
-            continuation_token: None,
+            approval_mode: None,
+            request: None,
         }
     }
 }
