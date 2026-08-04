@@ -803,6 +803,9 @@ fn build_create_request_from_view(
                  to read and encrypt the contents. Use `--file <path>` instead."
             ));
         }
+        SendType::Item => {
+            return Err(eyre!("Creating item Sends is not supported by the CLI."));
+        }
     };
 
     let resolved_name = name.unwrap_or(view.name);
@@ -939,6 +942,9 @@ fn build_edit_request_from_json(
         SendType::File => SendViewType::File(req.file.ok_or_else(|| {
             eyre!("JSON declares a file Send (type 1) but is missing the `file` object.")
         })?),
+        SendType::Item => {
+            return Err(eyre!("Editing item Sends is not supported by the CLI."));
+        }
     };
 
     let deletion_date = match delete_in_days {
