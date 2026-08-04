@@ -749,6 +749,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-crypto-sync-handler"
+version = "3.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-sync",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-encoding"
 version = "3.0.0"
 dependencies = [
@@ -1049,6 +1067,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-crypto-cipher-suite",
+ "bitwarden-crypto-sync-handler",
  "bitwarden-exporters",
  "bitwarden-fido",
  "bitwarden-generators",
@@ -1345,6 +1364,7 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-crypto-sync-handler",
  "bitwarden-encoding",
  "bitwarden-exporters",
  "bitwarden-fido",
@@ -1498,6 +1518,7 @@ dependencies = [
  "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-crypto-sync-handler",
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-logging",

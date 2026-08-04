@@ -28,6 +28,7 @@ bitwarden-auth = { workspace = true, features = ["uniffi"] }
 bitwarden-collections = { workspace = true, features = ["uniffi"] }
 bitwarden-core = { workspace = true, features = ["uniffi"] }
 bitwarden-crypto = { workspace = true, features = ["uniffi"] }
+bitwarden-crypto-sync-handler = { workspace = true, features = ["uniffi"] }
 bitwarden-encoding = { workspace = true, features = ["uniffi"] }
 bitwarden-exporters = { workspace = true, features = ["uniffi"] }
 bitwarden-fido = { workspace = true, features = ["uniffi"] }
