@@ -1,8 +1,13 @@
 //! The [`PolicyType`] enum.
 
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
+use tsify::Tsify;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
+
+use crate::{MasterPasswordPolicyResponse, models::ErasedPolicy, policy_overrides::*};
 
 /// The type of an organization policy.
 ///
@@ -67,4 +72,44 @@ pub enum PolicyType {
     /// Supersedes [`DisableSend`](Self::DisableSend) and [`SendOptions`](Self::SendOptions) when
     /// the `pm-31885-send-controls` feature flag is active on the server.
     SendControls = 21,
+}
+
+impl PolicyType {
+    /// Dispatches this runtime policy type to its concrete (zero-sized)
+    /// [`Policy`] implementation, erased behind [`ErasedPolicy`] so the
+    /// differing associated `Data` types can be handled uniformly.
+    pub(crate) fn to_policy(&self) -> Box<dyn ErasedPolicy> {
+        match self {
+            PolicyType::MasterPassword => Box::new(MasterPasswordPolicy),
+            PolicyType::PasswordGenerator => Box::new(PasswordGeneratorPolicy),
+            PolicyType::MaximumVaultTimeout => Box::new(MaximumVaultTimeoutPolicy),
+            PolicyType::FreeFamiliesSponsorship => Box::new(FreeFamiliesSponsorshipPolicy),
+            PolicyType::RemoveUnlockWithPin => Box::new(RemoveUnlockWithPinPolicy),
+            PolicyType::RestrictedItemTypes => Box::new(RestrictedItemTypesPolicy),
+            PolicyType::AutomaticUserConfirmation => Box::new(AutomaticUserConfirmationPolicy),
+            PolicyType::OrganizationUserNotification => {
+                Box::new(OrganizationUserNotificationPolicy)
+            }
+            _ => todo!("policy type {self:?} is not yet supported"),
+        }
+    }
+}
+
+/// Type-erased policy data for crossing the FFI boundary.
+///
+/// Each variant carries the strongly-typed data for one policy, mirroring the
+/// generic [`Policy::Data`](crate::Policy) used on the native side.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum PolicyDataType {
+    MasterPassword(MasterPasswordPolicyResponse),
+    PasswordGenerator,
+    MaximumVaultTimeout,
+    FreeFamiliesSponsorship,
+    RemoveUnlockWithPin,
+    RestrictedItemTypes,
+    AutomaticUserConfirmation,
+    OrganizationUserNotification,
 }

@@ -1,34 +1,22 @@
 //! [`PolicyClient`] and its associated extension trait.
 
-use bitwarden_core::Client;
+use std::collections::HashMap;
+
+use bitwarden_core::{Client, OrganizationId};
+use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    OrganizationUserPolicyContext, PolicyType, PolicyView, policy_overrides::*,
-    registry::PolicyRegistry,
+    OrganizationUserPolicyContext, Policy, PolicyType, PolicyView,
+    models::{EnforcedPolicy, EnforcedPolicyErased},
 };
-
-fn build_policy_registry() -> PolicyRegistry {
-    PolicyRegistry::builder()
-        .register(MasterPasswordPolicy)
-        .register(PasswordGeneratorPolicy)
-        .register(MaximumVaultTimeoutPolicy)
-        .register(FreeFamiliesSponsorshipPolicy)
-        .register(RemoveUnlockWithPinPolicy)
-        .register(RestrictedItemTypesPolicy)
-        .register(AutomaticUserConfirmationPolicy)
-        .register(OrganizationUserNotificationPolicy)
-        .build()
-}
 
 /// Client for policy domain operations.
 ///
 /// Obtained via [`PoliciesClientExt::policies`] on a [`Client`].
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub struct PolicyClient {
-    registry: PolicyRegistry,
-}
+pub struct PolicyClient;
 
 impl Default for PolicyClient {
     fn default() -> Self {
@@ -39,29 +27,91 @@ impl Default for PolicyClient {
 impl PolicyClient {
     /// Creates a new [`PolicyClient`] with a freshly built registry.
     pub fn new() -> Self {
-        Self {
-            registry: build_policy_registry(),
-        }
+        Self
     }
 }
 
+/// FFI client
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl PolicyClient {
-    /// Filter policies of the given type for the current user.
-    ///
-    /// Untyped FFI path: native/WASM callers pass a runtime `policy_type` integer.
-    /// Delegates to the registry, falling back to default rules for unknown types.
-    pub fn filter_by_type(
+    #[cfg_attr(feature = "wasm", wasm_bindgen(js_name = getManyEnforced))]
+    pub fn get_many_enforced_erased(
         &self,
-        policies: Vec<PolicyView>,
-        organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
         policy_type: PolicyType,
-    ) -> Vec<PolicyView> {
-        self.registry
-            .filter_by_type(&policies, &organization_user_policy_contexts, policy_type)
-            .into_iter()
-            .cloned()
+        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // caller
+        policy_views: Vec<PolicyView>,
+        organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
+    ) -> Vec<EnforcedPolicyErased> {
+        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+            organization_user_policy_contexts
+                .iter()
+                .map(|ctx| (ctx.id, ctx))
+                .collect();
+        policy_type
+            .to_policy()
+            .get_many_enforced_erased(&policy_views, &contexts)
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen(js_name = getEnforced))]
+    pub fn get_enforced_erased(
+        &self,
+        policy_type: PolicyType,
+        organization_id: OrganizationId,
+        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // caller
+        policy_views: Vec<PolicyView>,
+        organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
+    ) -> EnforcedPolicyErased {
+        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+            organization_user_policy_contexts
+                .iter()
+                .map(|ctx| (ctx.id, ctx))
+                .collect();
+        policy_type.to_policy().get_enforced_erased(
+            organization_id.into(),
+            &policy_views,
+            &contexts,
+        )
+    }
+}
+
+/// Native rust client
+impl PolicyClient {
+    pub fn get_many_enforced<P: Policy>(
+        &self,
+        policy: P,
+        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // caller
+        policy_views: &[PolicyView],
+        organization_user_policy_contexts: &[OrganizationUserPolicyContext],
+    ) -> Vec<EnforcedPolicy<P>> {
+        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+            organization_user_policy_contexts
+                .iter()
+                .map(|ctx| (ctx.id, ctx))
+                .collect();
+        policy_views
+            .iter()
+            .map(|p| EnforcedPolicy::new(p.organization_id, &policy, policy_views, &contexts))
             .collect()
+    }
+
+    pub fn get_enforced<P: Policy>(
+        &self,
+        policy: P,
+        organization_id: Uuid,
+        // TODO: policy_views and ctx should come from state rather than being specified by the
+        // caller
+        policy_views: &[PolicyView],
+        organization_user_policy_contexts: &[OrganizationUserPolicyContext],
+    ) -> EnforcedPolicy<P> {
+        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+            organization_user_policy_contexts
+                .iter()
+                .map(|ctx| (ctx.id, ctx))
+                .collect();
+        EnforcedPolicy::new(organization_id, &policy, policy_views, &contexts)
     }
 }
 
@@ -80,27 +130,31 @@ impl PoliciesClientExt for Client {
 #[cfg(test)]
 mod tests {
     use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
-    use uuid::Uuid;
 
     use super::*;
-    use crate::enforcement::Policy;
+    use crate::{MasterPasswordPolicy, MasterPasswordPolicyResponse, policy_type::PolicyDataType};
 
-    fn policy_view(organization_id: Uuid, policy_type: PolicyType, enabled: bool) -> PolicyView {
+    fn policy_view(
+        organization_id: Uuid,
+        policy_type: PolicyType,
+        data: Option<&str>,
+    ) -> PolicyView {
         PolicyView {
             id: Uuid::new_v4(),
             organization_id,
             r#type: policy_type,
-            data: None,
-            enabled,
-            revision_date: Default::default(),
+            data: data.map(str::to_owned),
+            enabled: true,
+            revision_date: None,
         }
     }
 
-    fn organization(id: Uuid) -> OrganizationUserPolicyContext {
+    /// A confirmed, non-provider member of `organization_id` that a policy applies to.
+    fn confirmed_member(organization_id: Uuid) -> OrganizationUserPolicyContext {
         OrganizationUserPolicyContext {
-            id,
+            id: organization_id,
+            status: OrganizationUserStatusType::Confirmed,
             role: OrganizationUserType::User,
-            status: OrganizationUserStatusType::Confirmed,
             enabled: true,
             use_policies: true,
             is_provider_user: false,
@@ -108,63 +162,95 @@ mod tests {
     }
 
     #[test]
-    fn filter_by_type_delegates_to_registry() {
+    fn get_enforced_returns_typed_decision() {
         let org_id = Uuid::new_v4();
-        let policies = vec![
-            policy_view(org_id, PolicyType::MasterPassword, true),
-            policy_view(org_id, PolicyType::PasswordGenerator, true),
-        ];
-        let orgs = vec![organization(org_id)];
+        let views = [policy_view(
+            org_id,
+            PolicyType::MasterPassword,
+            Some(r#"{"minComplexity":3,"minLength":12}"#),
+        )];
+        let contexts = [confirmed_member(org_id)];
 
-        let client = PolicyClient::new();
-        let result = client.filter_by_type(policies, orgs, PolicyType::MasterPassword);
+        let result =
+            PolicyClient::new().get_enforced(MasterPasswordPolicy, org_id, &views, &contexts);
 
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].r#type, PolicyType::MasterPassword);
+        assert_eq!(result.organization_id, org_id);
+        assert!(result.enforced);
+        assert_eq!(
+            result.data,
+            MasterPasswordPolicyResponse {
+                min_complexity: Some(3),
+                min_length: Some(12),
+                ..Default::default()
+            }
+        );
     }
 
     #[test]
-    fn filter_by_type_returns_empty_for_no_match() {
+    fn get_many_enforced_returns_one_decision_per_view() {
         let org_id = Uuid::new_v4();
-        let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
-        let orgs = vec![organization(org_id)];
+        let views = [policy_view(
+            org_id,
+            PolicyType::MasterPassword,
+            Some(r#"{"minComplexity":3}"#),
+        )];
+        let contexts = [confirmed_member(org_id)];
 
-        let client = PolicyClient::new();
-        let result = client.filter_by_type(policies, orgs, PolicyType::TwoFactorAuthentication);
+        let results =
+            PolicyClient::new().get_many_enforced(MasterPasswordPolicy, &views, &contexts);
 
-        assert!(result.is_empty());
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].organization_id, org_id);
+        assert!(results[0].enforced);
+        assert_eq!(results[0].data.min_complexity, Some(3));
     }
 
     #[test]
-    fn filter_by_type_uses_registered_policy_definition() {
-        struct NoExemptionPolicy;
-        impl Policy for NoExemptionPolicy {
-            fn policy_type(&self) -> PolicyType {
-                PolicyType::MasterPassword
-            }
-            fn exempt_roles(&self) -> &[OrganizationUserType] {
-                &[]
-            }
-        }
-
+    fn get_enforced_erased_returns_erased_decision() {
         let org_id = Uuid::new_v4();
-        // Owner — normally exempt, but NoExemptionPolicy removes the exemption
-        let policies = vec![policy_view(org_id, PolicyType::MasterPassword, true)];
-        let orgs = vec![OrganizationUserPolicyContext {
-            id: org_id,
-            role: OrganizationUserType::Owner,
-            status: OrganizationUserStatusType::Confirmed,
-            enabled: true,
-            use_policies: true,
-            is_provider_user: false,
-        }];
+        let views = vec![policy_view(
+            org_id,
+            PolicyType::MasterPassword,
+            Some(r#"{"minComplexity":3}"#),
+        )];
+        let contexts = vec![confirmed_member(org_id)];
 
-        let registry = PolicyRegistry::builder()
-            .register(NoExemptionPolicy)
-            .build();
-        let client = PolicyClient { registry };
-        let result = client.filter_by_type(policies, orgs, PolicyType::MasterPassword);
+        let result = PolicyClient::new().get_enforced_erased(
+            PolicyType::MasterPassword,
+            OrganizationId::new(org_id),
+            views,
+            contexts,
+        );
 
-        assert_eq!(result.len(), 1);
+        assert_eq!(result.organization_id, org_id);
+        assert!(result.enforced);
+        assert_eq!(
+            result.data,
+            PolicyDataType::MasterPassword(MasterPasswordPolicyResponse {
+                min_complexity: Some(3),
+                ..Default::default()
+            })
+        );
+    }
+
+    #[test]
+    fn get_many_enforced_erased_returns_one_decision_per_view() {
+        let org_id = Uuid::new_v4();
+        let views = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+        let contexts = vec![confirmed_member(org_id)];
+
+        let results = PolicyClient::new().get_many_enforced_erased(
+            PolicyType::MasterPassword,
+            views,
+            contexts,
+        );
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].organization_id, org_id);
+        assert!(results[0].enforced);
+        assert_eq!(
+            results[0].data,
+            PolicyDataType::MasterPassword(MasterPasswordPolicyResponse::default())
+        );
     }
 }
