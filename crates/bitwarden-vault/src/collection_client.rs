@@ -78,7 +78,7 @@ impl CollectionsClient {
 
     /// Decrypts a list of collections, returning successes and failures separately.
     ///
-    /// Unlike [decrypt_list], a single collection that fails to decrypt (e.g. due to a missing
+    /// Unlike `decrypt_list`, a single collection that fails to decrypt (e.g. due to a missing
     /// organization key) does not abort the entire batch — it is returned in `failures` instead.
     pub fn decrypt_list_with_failures(
         &self,
