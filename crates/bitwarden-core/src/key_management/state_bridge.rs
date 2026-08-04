@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     Client,
     key_management::{
-        MasterPasswordUnlockData, V2UpgradeToken,
+        MasterPasswordUnlockData, V2UpgradeToken, WebAuthnPrfUnlockData,
         account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
@@ -148,5 +148,6 @@ bitwarden_state_bridge_macro::state_bridge! {
     v2_upgrade_token: V2UpgradeToken as ts "V2UpgradeToken",
     account_cryptographic_state: WrappedAccountCryptographicState as ts "WrappedAccountCryptographicState",
     masterpassword_unlock_data: MasterPasswordUnlockData as ts "MasterPasswordUnlockData",
+    webauthn_prf_unlock_data: WebAuthnPrfUnlockData as ts "WebAuthnPrfUnlockData",
     kdf_config: Kdf as ts "Kdf",
 }
