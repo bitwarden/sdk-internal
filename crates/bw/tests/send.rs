@@ -225,6 +225,12 @@ fn send_template_file_emits_json_template() {
         stdout.contains("fileName") || stdout.contains("file_name"),
         "expected file_name field in file template, got:\n{stdout}"
     );
+    // `"type": 1` is the file-Send discriminant; `#[derive(Default)]` would silently give 0
+    // (the text discriminant) here since that's `u8::default()`.
+    assert!(
+        stdout.contains("\"type\": 1"),
+        "expected the file-Send type discriminant (1), got:\n{stdout}"
+    );
 }
 
 #[test]
