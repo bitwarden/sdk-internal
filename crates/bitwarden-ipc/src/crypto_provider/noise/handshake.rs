@@ -83,11 +83,12 @@ pub(crate) struct ReadError;
 
 impl HandshakeInitiator {
     pub(crate) fn new(ciphersuite: &CipherSuite) -> Self {
-        let builder = snow::Builder::new(
+        let builder = snow::Builder::with_resolver(
             ciphersuite
                 .to_string()
                 .parse()
                 .expect("Ciphersuite should be valid"),
+            Box::new(bitwarden_random::SdkCryptoResolver),
         );
         let handshake_state = builder
             .build_initiator()
@@ -140,11 +141,12 @@ pub(crate) struct HandshakeResponder {
 
 impl HandshakeResponder {
     pub(crate) fn new(ciphersuite: &CipherSuite) -> Self {
-        let builder = snow::Builder::new(
+        let builder = snow::Builder::with_resolver(
             ciphersuite
                 .to_string()
                 .parse()
                 .expect("Ciphersuite should be valid"),
+            Box::new(bitwarden_random::SdkCryptoResolver),
         );
         let handshake_state = builder
             .build_responder()

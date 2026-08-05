@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
@@ -24,6 +24,7 @@ test-support = [] # Expose test utilities (InMemoryCommunicationBackend) for dow
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true }
+bitwarden-random = { workspace = true, features = ["snow"] }
 bitwarden-threading = { workspace = true }
 ciborium = { workspace = true }
 erased-serde = ">=0.4.6, <0.5"

@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// OrganizationUserPendingAutoConfirmResponseModelListResponseModel : A paginated list response
+/// wrapper.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUserPendingAutoConfirmResponseModelListResponseModel {
     #[serde(
@@ -35,6 +37,7 @@ pub struct OrganizationUserPendingAutoConfirmResponseModelListResponseModel {
 }
 
 impl OrganizationUserPendingAutoConfirmResponseModelListResponseModel {
+    /// A paginated list response wrapper.
     pub fn new() -> OrganizationUserPendingAutoConfirmResponseModelListResponseModel {
         OrganizationUserPendingAutoConfirmResponseModelListResponseModel {
             object: None,

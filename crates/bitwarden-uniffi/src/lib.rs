@@ -82,6 +82,11 @@ impl Client {
         self.0.user_crypto_management()
     }
 
+    /// Key management operations that run on every sync.
+    pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
+        self.0.crypto_sync_handler()
+    }
+
     /// Vault item operations
     pub fn vault(&self) -> VaultClient {
         VaultClient(self.0.vault())
@@ -115,6 +120,11 @@ impl Client {
     /// SSH operations
     pub fn ssh(&self) -> SshClient {
         SshClient()
+    }
+
+    /// Random-number generation operations
+    pub fn random(&self) -> bitwarden_random::SdkRandomNumberClient {
+        bitwarden_random::SdkRandomNumberClient::new()
     }
 
     /// Auth operations

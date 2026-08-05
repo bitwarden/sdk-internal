@@ -101,7 +101,9 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
     /// user key and the new password hash but does not update sdk state.
+    /// Note: This is deprecated. Please use the user-crypto-management client instead.
     pub async fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
+        #[allow(deprecated)]
         Ok(self.0.make_update_kdf(password, kdf).await?)
     }
 

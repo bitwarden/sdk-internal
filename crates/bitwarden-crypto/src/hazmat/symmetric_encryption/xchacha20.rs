@@ -82,7 +82,7 @@ pub(crate) struct XChaCha20Poly1305Nonce(Nonce<XChaCha20Poly1305Alg>);
 impl XChaCha20Poly1305Nonce {
     /// Generates a fresh, cryptographically random nonce.
     pub(crate) fn make() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         XChaCha20Poly1305Nonce(Nonce::<XChaCha20Poly1305Alg>::generate_from_rng(&mut rng))
     }
 

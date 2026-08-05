@@ -4,6 +4,8 @@ use bitwarden_encoding::{B64, FromStrVisitor};
 pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use super::{from_b64_vec, split_enc_string};
 use crate::{
@@ -140,6 +142,54 @@ impl Display for UnsignedSharedKey {
         write!(f, "{}.{}", self.enc_type(), encoded_parts.join("|"))?;
 
         Ok(())
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::describe::WasmDescribe for UnsignedSharedKey {
+    fn describe() {
+        <String as wasm_bindgen::describe::WasmDescribe>::describe();
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl FromWasmAbi for UnsignedSharedKey {
+    type Abi = <String as FromWasmAbi>::Abi;
+
+    unsafe fn from_abi(abi: Self::Abi) -> Self {
+        use wasm_bindgen::UnwrapThrowExt;
+
+        let s = unsafe { String::from_abi(abi) };
+        Self::from_str(&s).unwrap_throw()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl OptionFromWasmAbi for UnsignedSharedKey {
+    fn is_none(abi: &Self::Abi) -> bool {
+        <String as OptionFromWasmAbi>::is_none(abi)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl IntoWasmAbi for UnsignedSharedKey {
+    type Abi = <String as IntoWasmAbi>::Abi;
+
+    fn into_abi(self) -> Self::Abi {
+        self.to_string().into_abi()
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for UnsignedSharedKey {
+    type Error = CryptoError;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        let string = value
+            .as_string()
+            .ok_or(EncStringParseError::NoType)
+            .map_err(CryptoError::from)?;
+        Self::from_str(&string)
     }
 }
 

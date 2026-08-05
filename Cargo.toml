@@ -34,6 +34,7 @@ bitwarden-core = { path = "crates/bitwarden-core", version = "=3.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=3.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=3.0.0" }
 bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=3.0.0" }
+bitwarden-crypto-sync-handler = { path = "crates/bitwarden-crypto-sync-handler", version = "=3.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=3.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=3.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=3.0.0" }
@@ -49,8 +50,10 @@ bitwarden-logging-macro = { path = "crates/bitwarden-logging-macro", version = "
 bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=3.0.0" }
 bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
+bitwarden-pam = { path = "bitwarden_license/bitwarden-pam", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
+bitwarden-random = { path = "crates/bitwarden-random", version = "=3.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=3.0.0" }
 bitwarden-sensitive-value = { path = "crates/bitwarden-sensitive-value", version = "=3.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=3.0.0" }
@@ -81,7 +84,7 @@ hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
 js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.14", default-features = false }
-mockall = { version = ">=0.13.1, <0.15" }
+mockall = { version = ">=0.13.1, <0.16" }
 password-rules-parser = ">=1.1.0, <2"
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
@@ -170,8 +173,8 @@ cargo-hack = { version = "0.6.33", locked = true }
 cargo-llvm-cov = { version = "0.5.38", locked = true }
 cargo-release = { version = "0.25.20", locked = true }
 cargo-edit = { version = "0.13.6", locked = true, bins = ["cargo-set-version"] }
-cargo-dylint = { version = "5.0.0", locked = true }
-dylint-link = { version = "5.0.0", locked = true }
+cargo-dylint = { version = "6.0.0", locked = true }
+dylint-link = { version = "6.0.0", locked = true }
 cross = { version = "0.2.5", git = "https://github.com/cross-rs/cross.git", rev = "185398b1b885820515a212de720a306b08e2c8c9", locked = true }
 clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }

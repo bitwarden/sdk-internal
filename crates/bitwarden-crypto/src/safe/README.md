@@ -6,6 +6,13 @@ other parts of `bitwarden-crypto`.
 
 Usage examples of all safe APIs are provided in the crate's `examples` directory.
 
+## Key Hierarchy
+
+The safe module organizes cryptographic material into a strict hierarchy: which secrets cross the
+SDK boundary, how key-encryption-keys (KEKs) and content-encryption-keys (CEKs) relate, and worked
+examples for vault and send encryption. See [`key_hierarchy/README.md`](./key_hierarchy/README.md)
+for the full description and diagrams.
+
 ## Password-protected key envelope
 
 Use the password protected key envelope to protect a symmetric key with a password. Examples
@@ -16,6 +23,29 @@ include:
 
 Internally, the module uses a KDF to protect against brute-forcing, but it does not expose this to
 the consumer. The consumer only provides a password and key.
+
+## Secret-protected key envelope
+
+Use the secret-protected key envelope to protect a symmetric key with a **high-entropy** secret of
+arbitrary length. Examples include:
+
+- protecting a send's key with a random URL-fragment secret
+- protecting a key with PRF output
+- protecting a key with a key-connector-stored-secret
+- protecting a key with a biometric-derived-secret
+
+Because the secret is assumed to be high-entropy and not brute-forceable, this envelope uses a cheap
+KDF (HKDF) rather than the slow, memory-hard KDF used by the password-protected key envelope. The
+consumer only provides a secret and a key; the salt is stored in the envelope.
+
+Use the [password-protected key envelope](#password-protected-key-envelope) instead when the secret
+is low-entropy (a PIN or password).
+
+## Symmetric key envelope
+
+Use the symmetric key envelope to protect one symmetric key with another symmetric key. The wrapping
+key is a [key encryption key (KEK)](#key-hierarchy); the wrapped key is typically a content
+encryption key (CEK).
 
 ## Data envelope
 

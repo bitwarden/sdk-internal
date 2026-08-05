@@ -79,7 +79,7 @@ pub(crate) struct Aes256GcmNonce(Nonce<Aes256GcmAlg>);
 impl Aes256GcmNonce {
     /// Generates a fresh, cryptographically random nonce.
     pub(crate) fn make() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         Aes256GcmNonce(Nonce::<Aes256GcmAlg>::generate_from_rng(&mut rng))
     }
 
