@@ -47,10 +47,6 @@ pub enum EditCipherAdminError {
     Decrypt(#[from] DecryptError),
 }
 
-// `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
-// short-lived feature-rollout flags that will be removed once their migrations
-// complete, at which point the argument count drops back under the limit.
-#[allow(clippy::too_many_arguments)]
 async fn edit_cipher(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -58,7 +54,6 @@ async fn edit_cipher(
     original_cipher_view: CipherView,
     request: CipherEditRequest,
     use_strict_decryption: bool,
-    enable_cipher_key_encryption: bool,
     use_blob: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let cipher_id = request.id;
@@ -69,12 +64,6 @@ async fn edit_cipher(
 
     let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
-
-    // TODO: Once this flag is removed, the key generation logic should be
-    // moved directly into the CompositeEncryptable implementation.
-    if view.key.is_none() && enable_cipher_key_encryption {
-        view.generate_cipher_key(&mut key_store.context())?;
-    }
 
     // Admin endpoints operate on organization-owned ciphers, which aren't
     // expected to use blob encryption yet — `should_use_blob_encryption`
@@ -159,9 +148,6 @@ impl CipherAdminClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let enable_cipher_key_encryption =
-            self.client.flags().get().await.enable_cipher_key_encryption;
-
         let use_blob = should_use_blob_encryption(&key_store.context(), request.organization_id);
 
         edit_cipher(
@@ -171,7 +157,6 @@ impl CipherAdminClient {
             original_cipher_view,
             request,
             self.is_strict_decrypt().await,
-            enable_cipher_key_encryption,
             use_blob,
         )
         .await
@@ -319,7 +304,6 @@ mod tests {
             request,
             false,
             false,
-            false,
         )
         .await
         .unwrap();
@@ -375,7 +359,6 @@ mod tests {
             original_cipher_view,
             request,
             false,
-            false,
             true, // use_blob
         )
         .await
@@ -409,7 +392,6 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             orig_cipher_view,
             request,
-            false,
             false,
             false,
         )

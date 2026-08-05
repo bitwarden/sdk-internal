@@ -453,6 +453,8 @@ mod tests {
         }));
         let cipher = encrypt_import(&mut ctx, importing("GitHub", login), None).unwrap();
 
+        // Imported ciphers carry their own cipher key
+        assert!(cipher.key.is_some());
         assert_ne!(cipher.name.unwrap().to_string(), "GitHub");
     }
 }

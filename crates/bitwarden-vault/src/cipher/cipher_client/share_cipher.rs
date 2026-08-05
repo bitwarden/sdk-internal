@@ -814,14 +814,6 @@ mod tests {
 
         let client = Client::new_test(Some(settings));
 
-        client
-            .flags()
-            .load(std::collections::HashMap::from([(
-                "enableCipherKeyEncryption".to_owned(),
-                true,
-            )]))
-            .await;
-
         let user_request = InitUserCryptoRequest {
             user_id: Some(UserId::new(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8"))),
             kdf_params: Kdf::PBKDF2 {

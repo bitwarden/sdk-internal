@@ -104,13 +104,7 @@ impl CipherAdminClient {
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
 
-        let mut view: CipherView = convert_request_to_cipher_view(request);
-
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved directly into the CompositeEncryptable implementation.
-        if self.client.flags().get().await.enable_cipher_key_encryption {
-            view.generate_cipher_key(&mut key_store.context())?;
-        }
+        let view: CipherView = convert_request_to_cipher_view(request);
 
         let use_blob = should_use_blob_encryption(&key_store.context(), view.organization_id);
 
@@ -157,6 +151,7 @@ mod tests {
                             .and_then(|id| id.parse().ok()),
                         name: Some(request.cipher.name.clone()),
                         r#type: request.cipher.r#type,
+                        key: request.cipher.key.clone(),
                         creation_date: Some(
                             Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
                         ),
@@ -219,6 +214,7 @@ mod tests {
 
         assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
         assert_eq!(response.organization_id, view.organization_id);
+        assert_eq!(response.name, "Test Cipher");
         // Fields omitted from CipherMiniResponseModel must be preserved from the request.
         assert_eq!(response.collection_ids, view.collection_ids);
         assert_eq!(response.folder_id, view.folder_id);
