@@ -22,7 +22,7 @@ use bitwarden_auth::send_access::{
 use bitwarden_core::get_host_platform_info;
 use bitwarden_pm::PasswordManagerClient;
 use bitwarden_send::{SendAccessKey, SendAccessView, SendType};
-use color_eyre::eyre::{Context as _, Result, eyre};
+use color_eyre::eyre::{Context as _, Result, bail, eyre};
 use inquire::{Password, Text, validator::Validation};
 use url::Url;
 
@@ -353,6 +353,9 @@ async fn render_access(
                 inputs.output_path.as_deref(),
             )
             .await
+        }
+        Some(SendType::Item) => {
+            bail!("Accessing item Sends is not supported by the CLI.");
         }
         // Unknown or absent type: hand back everything we decrypted, as legacy does, rather
         // than guessing at which content field to print.
