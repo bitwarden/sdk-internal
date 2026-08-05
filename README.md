@@ -7,7 +7,7 @@ This repository houses the internal Bitwarden SDKs. We also provide a public
 >
 > The password manager SDK is not intended for public use and is not supported by Bitwarden at this
 > stage. It is solely intended to centralize the business logic and to provide a single source of
-> truth for the internal applications. As the SDK evolves into a more stable and feature complete
+> truth for the internal applications. As the SDK evolves into a more stable and feature-complete
 > state we will re-evaluate the possibility of publishing stable bindings for the public. **The
 > password manager interface is unstable and will change without warning.**
 
@@ -160,6 +160,15 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 
 ## Integrating into clients from published artifacts
 
+In addition to
+[linking to local builds](#integrating-builds-into-client-applications-for-local-development) during
+development, you will need to be able to integrate your `sdk-internal` changes into published
+artifacts, so that the client applications can be tested and published with the requisite SDK
+changes included.
+
+The process for doing so varies based on the client, as the method by which the `sdk-internal`
+package is consumed differs.
+
 > [!WARNING]
 >
 > **BREAKING CHANGES** When a pull request is opened to merge changes from `sdk-internal` into
@@ -170,19 +179,10 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 > integrations into clients will be blocked, as those other teams will not know how best to resolve
 > the breaking API contracts that you introduced.
 
-In addition to
-[linking to local builds](#integrating-builds-into-client-applications-for-local-development) during
-development, you will need to be able to integrate your `sdk-internal` changes into published
-artifacts, so that the client applications can be tested and published with the requisite SDK
-changes included.
-
-The process for doing so varies based on the client, as the method by which the `sdk-internal`
-package is consumed differs.
-
 ### Web clients
 
 For our web clients, the `sdk-internal` packages for our OSS- and commercially-licensed SDK versions
-with their WebAssembly bindings is published to npm at:
+with their WebAssembly bindings are published to npm at:
 
 - https://www.npmjs.com/package/@bitwarden/sdk-internal and
 - https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal
@@ -207,27 +207,123 @@ For example:
 
 > [!TIP]
 >
-> To see what version is published to `npm` for a given publish action, you can check the Summary of
-> the
-> [publish workflow run](https://github.com/bitwarden/deploy/actions/workflows/publish-wasm-internal.yml)
-> in Github (internal access only).
+> <a id="finding-the-published-sdk-version"></a>**Finding the published SDK version.** After your
+> `sdk-internal` PR merges, find the version that was published as follows:
+>
+> 1. Open the
+>    [publish workflow](https://github.com/bitwarden/deploy/actions/workflows/publish-wasm-internal.yml)
+>    in the `deploy` repo (internal access only).
+> 2. Find the workflow run whose commit SHA matches the merge commit of your `sdk-internal` PR (the
+>    run title includes the commit message).
+> 3. Open that run and read the **Summary** tab. The published version is printed there in the
+>    `{SemanticVersion}-main.{actionRunNumber}` format shown above (for example, `0.1.0-main.470`).
+>
+> Copy that value verbatim — it is what you supply to `npm install`, to the `clients` "SDK Update"
+> workflow, or to any other consumer that needs to pin to your build.
 
-When you have completed development of changes in `sdk-internal` and need to consume them in the
-client application, you will need to update the npm dependency in your feature branch to reference
-the new SDK version:
+#### Choosing the right integration path
 
-1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
-2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
-   You can do this either:
+The process for getting your `sdk-internal` changes into `clients` depends on two questions:
 
-- By updating to the latest version using `npm install @bitwarden/sdk-internal@latest` and
-  `npm install @bitwarden/commercial-sdk-internal@latest`, or
-- By referencing the specific published version, using
-  `npm install @bitwarden/sdk-internal@{version}` and
-  `npm install @bitwarden/commercial-sdk-internal@{version}`.
+1. Does the `clients` repo need corresponding changes to consume the new SDK version?
+2. Are the SDK changes breaking?
 
-3. Open a `clients` pull request to merge the client application changes that include this new
-   `sdk-internal` version.
+This produces three cases (a breaking change necessarily requires a corresponding client change, so
+the fourth case isn't considered):
+
+| Case | Client changes needed? | Breaking? | Coordination                                           |
+| ---- | ---------------------- | --------- | ------------------------------------------------------ |
+| 1    | No                     | No        | None, fully automated                                  |
+| 2    | Yes                    | No        | Order-independent, can be done at the developer's pace |
+| 3    | Yes                    | Yes       | Tight coordinationn required across the two repos      |
+
+The end-to-end flow, from opening an `sdk-internal` PR through merging into `clients`, looks like
+this:
+
+```mermaid
+flowchart TD
+    A[Open sdk-internal PR] --> B[Breaking Change Detection<br/>runs on PR, comments + labels]
+    B --> C{Do clients need<br/>corresponding changes?}
+    C -->|No| Case1[Case 1: SDK-only]
+    C -->|Yes| D{Are the SDK changes<br/>breaking?}
+    D -->|No| Case2[Case 2: non-breaking<br/>client changes]
+    D -->|Yes| Case3[Case 3: breaking<br/>client changes]
+
+    Case1 --> F1[Merge sdk-internal PR<br/>publishes to npm]
+    F1 --> F2[Auto-PR bumps SDK<br/>on clients main]
+    F2 --> F3[Merge auto-PR]
+    F3 --> Z([Done])
+
+    Case2 --> G1[Develop clients feature branch<br/>using local link]
+    G1 --> G2[Merge sdk-internal PR<br/>publishes to npm]
+    G2 --> G3[Auto-PR bumps SDK<br/>on clients main]
+    G3 --> G4[Merge auto-PR]
+    G4 --> G5[Merge main into<br/>clients feature branch]
+    G5 --> G6[Merge clients feature branch]
+    G6 --> Z
+
+    Case3 --> H1[Develop clients feature branch<br/>using local link]
+    H1 --> H2[Get clients PR reviewed<br/>and ready to merge]
+    H2 --> H3[Merge sdk-internal PR<br/>publishes to npm]
+    H3 --> H4[Manually run SDK Update workflow<br/>with published version,<br/>base = clients feature branch]
+    H4 --> H5[Merge SDK bump PR<br/>into clients feature branch]
+    H5 --> H6[Merge clients feature branch<br/>closes breaking-change window on main]
+    H6 --> Z
+```
+
+#### Case 1: SDK changes without corresponding client changes
+
+No action is required in `clients` other than updating the `sdk-internal` dependency.
+
+1. Merge the `sdk-internal` pull request. This triggers a publish of the new version to npm.
+2. An
+   [automated PR](https://github.com/bitwarden/clients/tree/main/.github/workflows/sdk-update.yml)
+   opens (or updates) in `clients` bumping the SDK dependency on `main`.
+3. Merge that PR to bring your SDK changes into `clients` `main`.
+
+#### Case 2: SDK changes with non-breaking client changes
+
+Because the change is non-breaking, `clients` `main` remains buildable at every point regardless of
+the order in which the SDK and client PRs merge.
+
+1. Develop the corresponding `clients` changes on a feature branch, using
+   [local linking](#integrating-builds-into-client-applications-for-local-development) to build
+   against your in-progress SDK.
+2. Merge the `sdk-internal` pull request. This triggers a publish of the new version to npm and the
+   creation or update of an
+   [automated PR](https://github.com/bitwarden/clients/tree/main/.github/workflows/sdk-update.yml)
+   bumping the SDK dependency on `clients` `main`.
+3. Merge that automated PR to bring the new SDK version into `main`.
+4. Merge `main` into your `clients` feature branch to pick up the new SDK version, then merge your
+   feature branch through the normal review process.
+
+#### Case 3: SDK changes with breaking client changes
+
+This is the only case that requires coordination across the two repos. Once the SDK breaking change
+merges to `main` and publishes, `clients` `main` cannot compile against the new version until the
+consuming client PR has merged. Your job is to keep that window as short as possible.
+
+**You must have a corresponding `clients` PR ready to merge before you merge the SDK PR.** If not,
+any subsequent `sdk-internal` integrations into `clients` will be blocked, as other teams will not
+know how to resolve the breaking API contracts you introduced.
+
+Recommended sequence:
+
+1. Develop the `clients` feature branch against the in-progress SDK using
+   [local linking](#integrating-builds-into-client-applications-for-local-development), and get it
+   reviewed and approved so it is ready to merge.
+2. Merge the `sdk-internal` pull request. This triggers a publish of the new version to npm.
+3. On the `clients` repo, trigger a manual workflow run of the "SDK Update" action against your
+   feature branch. This bumps the SDK dependency on your feature branch so CI compiles against the
+   published breaking change.
+
+   **Enter the sdk-internal version** to the version published in step 2 (see
+   [Finding the published SDK version](#finding-the-published-sdk-version)), and **Enter your
+   `clients` feature branch** as the base for your PR:
+
+   ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
+
+4. Merge the client feature branch to close the breaking-change window on `main`.
 
 ### Mobile clients
 
