@@ -217,9 +217,6 @@ For example:
 >    run title includes the commit message).
 > 3. Open that run and read the **Summary** tab. The published version is printed there in the
 >    `{SemanticVersion}-main.{actionRunNumber}` format shown above (for example, `0.1.0-main.470`).
->
-> Copy that value verbatim — it is what you supply to `npm install`, to the `clients` "SDK Update"
-> workflow, or to any other consumer that needs to pin to your build.
 
 #### Choosing the right integration path
 
