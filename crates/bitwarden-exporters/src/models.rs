@@ -95,7 +95,7 @@ impl From<PasswordHistoryView> for crate::PasswordHistory {
 /// Convert a `LoginView` into a `crate::Login`.
 fn from_login(
     view: &CipherView,
-    key_store: &KeyStore<KeySlotIds>,
+    _key_store: &KeyStore<KeySlotIds>,
 ) -> Result<crate::Login, MissingFieldError> {
     let l = require!(view.login.clone());
 
@@ -110,11 +110,16 @@ fn from_login(
             .collect(),
         totp: l.totp,
         fido2_credentials: l.fido2_credentials.as_ref().and_then(|_| {
-            let credentials = view.get_fido2_credentials(&mut key_store.context()).ok()?;
+            let credentials = view.get_fido2_credentials();
             if credentials.is_empty() {
                 None
             } else {
-                Some(credentials.into_iter().map(|c| c.into()).collect())
+                Some(
+                    credentials
+                        .into_iter()
+                        .map(|c| Fido2CredentialFullView::from(c).into())
+                        .collect(),
+                )
             }
         }),
     })

@@ -6,7 +6,7 @@ use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
-use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
+use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use thiserror::Error;

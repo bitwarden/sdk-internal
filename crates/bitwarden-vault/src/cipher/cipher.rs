@@ -909,15 +909,10 @@ impl CipherView {
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<(), CryptoError> {
-        let old_unwrapping_key = self.key_identifier();
-        let old_ciphers_key = self.load_cipher_key_slot(ctx, old_unwrapping_key)?;
-
         let new_key = ctx.generate_symmetric_key();
 
         // Attachment keys are stored as raw base64 on AttachmentView; re-wrapping under the
         // new cipher key happens inside CompositeEncryptable at encrypt time.
-        self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
-
         #[allow(deprecated)]
         let raw = ctx.dangerous_get_symmetric_key(new_key)?.clone();
         self.key = Some(raw.to_base64().to_string());
@@ -939,48 +934,34 @@ impl CipherView {
     }
 
     #[allow(missing_docs)]
-    pub fn decrypt_fido2_credentials(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<Vec<Fido2CredentialView>, CryptoError> {
-        let key = self.key_identifier();
-        let ciphers_key = self.load_cipher_key_slot(ctx, key)?;
-
-        Ok(self
-            .login
-            .as_ref()
-            .and_then(|l| l.fido2_credentials.as_ref())
-            .map(|f| f.decrypt(ctx, ciphers_key))
-            .transpose()?
-            .unwrap_or_default())
+    #[deprecated(
+        note = "Use `get_fido2_credentials` instead - Fido2Credentials are no longer encrypted in `CipherView`"
+    )]
+    pub fn decrypt_fido2_credentials(&self) -> Vec<Fido2CredentialView> {
+        self.get_fido2_credentials()
     }
 
-    fn reencrypt_fido2_credentials(
-        &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        old_key: SymmetricKeySlotId,
-        new_key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
-        if let Some(login) = self.login.as_mut() {
-            login.reencrypt_fido2_credentials(ctx, old_key, new_key)?;
-        }
-        Ok(())
+    #[allow(missing_docs)]
+    pub fn get_fido2_credentials(&self) -> Vec<Fido2CredentialView> {
+        self.login
+            .as_ref()
+            .and_then(|l| l.fido2_credentials.as_ref())
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Moves the cipher to an organization by re-encrypting the cipher keys with the organization
     /// key and assigning the organization ID to the cipher.
     ///
     /// # Arguments
-    /// * `ctx` - The key store context where the cipher keys will be re-encrypted
     /// * `organization_id` - The ID of the organization to move the cipher to
     pub fn move_to_organization(
         &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
         organization_id: OrganizationId,
     ) -> Result<(), CipherError> {
         let new_key = SymmetricKeySlotId::Organization(organization_id);
 
-        self.reencrypt_cipher_keys(ctx, new_key)?;
+        self.reencrypt_cipher_keys(new_key)?;
         self.organization_id = Some(organization_id);
 
         Ok(())
@@ -988,72 +969,37 @@ impl CipherView {
 
     /// Re-encrypt the cipher key(s) using a new wrapping key.
     ///
-    /// If the cipher has a cipher key, it will be re-encrypted with the new wrapping key.
-    /// Otherwise, the cipher will re-encrypt all attachment keys and FIDO2 credential keys
+    /// If any attachment is missing a key, returns an error because the attachment
+    /// keys cannot be re-encrypted.
     pub fn reencrypt_cipher_keys(
         &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        new_wrapping_key: SymmetricKeySlotId,
+        _new_wrapping_key: SymmetricKeySlotId,
     ) -> Result<(), CipherError> {
-        let old_key = self.key_identifier();
-
         // If any attachment is missing a key we can't reencrypt the attachment keys
         if self.attachments.iter().flatten().any(|a| a.key.is_none()) {
             return Err(CipherError::AttachmentsWithoutKeys);
         }
 
-        if self.key.is_none() {
-            // No cipher key: FIDO2 credentials are wrapped directly under the user/org key,
-            // so they must be explicitly re-encrypted here.
-            // Attachment keys and the cipher key itself are re-wrapped at encrypt time.
-            self.reencrypt_fido2_credentials(ctx, old_key, new_wrapping_key)?;
-        }
-        // When self.key.is_some(): raw key bytes are stored as base64; re-wrapping under the
+        // The cipher key (self.key) and attachment keys are raw base64; re-wrapping under the
         // new key happens at encrypt time inside CompositeEncryptable /
         // encrypt_legacy_field_encryption.
-
         Ok(())
     }
 
     #[allow(missing_docs)]
     pub fn set_new_fido2_credentials(
         &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
         creds: Vec<Fido2CredentialFullView>,
     ) -> Result<(), CipherError> {
-        let key = self.key_identifier();
-
-        let ciphers_key = self.load_cipher_key_slot(ctx, key)?;
-
         require!(self.login.as_mut()).fido2_credentials =
-            Some(creds.encrypt_composite(ctx, ciphers_key)?);
-
+            Some(creds.into_iter().map(Fido2CredentialView::from).collect());
         Ok(())
     }
 
     #[allow(missing_docs)]
-    pub fn get_fido2_credentials(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<Vec<Fido2CredentialFullView>, CipherError> {
-        let key = self.key_identifier();
-
-        let ciphers_key = self.load_cipher_key_slot(ctx, key)?;
-
-        let login = require!(self.login.as_ref());
-        let creds = require!(login.fido2_credentials.as_ref());
-        let res = creds.decrypt(ctx, ciphers_key)?;
-        Ok(res)
-    }
-
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_private_key(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<String, CipherError> {
-        let fido2_credential = self.get_fido2_credentials(ctx)?;
-
-        Ok(fido2_credential[0].key_value.clone())
+    pub fn decrypt_fido2_private_key(&self) -> Result<String, CipherError> {
+        let creds = self.get_fido2_credentials();
+        Ok(require!(creds.first()).key_value.clone())
     }
 
     pub(crate) fn update_password_history(&mut self, original_cipher: &CipherView) {
@@ -1082,13 +1028,7 @@ impl CipherView {
     /// Used by the blob decryption path: blob ciphers are fully unsealed to a
     /// `CipherView` by [`decrypt_blob_cipher`], and this method then derives the
     /// list-view shape without re-decrypting any sensitive fields.
-    pub(crate) fn to_list_view(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<CipherListView, CryptoError> {
-        let ciphers_key = self.load_cipher_key_slot(ctx, key)?;
-
+    pub(crate) fn to_list_view(&self) -> Result<CipherListView, CryptoError> {
         let all_attachments = || {
             self.attachments
                 .iter()
@@ -1104,7 +1044,7 @@ impl CipherView {
                     .login
                     .as_ref()
                     .ok_or(CryptoError::MissingField("login"))?;
-                CipherListViewType::Login(login.to_list_view(ctx, ciphers_key)?)
+                CipherListViewType::Login(login.to_list_view())
             }
             CipherType::SecureNote => CipherListViewType::SecureNote,
             CipherType::Card => {
@@ -1525,7 +1465,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key)?.to_list_view(),
             None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
@@ -1684,7 +1624,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx, key)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx, key)?.to_list_view(),
             None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }
@@ -2254,6 +2194,24 @@ mod tests {
         }
     }
 
+    fn generate_fido2_view() -> Fido2CredentialView {
+        Fido2CredentialView {
+            credential_id: "123".to_string(),
+            key_type: "public-key".to_string(),
+            key_algorithm: "ECDSA".to_string(),
+            key_curve: "P-256".to_string(),
+            key_value: "123".to_string(),
+            rp_id: "123".to_string(),
+            user_handle: None,
+            user_name: None,
+            counter: "123".to_string(),
+            rp_name: None,
+            user_display_name: None,
+            discoverable: "true".to_string(),
+            creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
+        }
+    }
+
     #[test]
     fn test_decrypt_cipher_list_view() {
         let key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
@@ -2561,7 +2519,7 @@ mod tests {
         // Re-encrypt the cipher key with a new wrapping key
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
-        cipher.reencrypt_cipher_keys(&mut ctx, new_key_id).unwrap();
+        cipher.reencrypt_cipher_keys(new_key_id).unwrap();
 
         // Raw key bytes are unchanged; verify they can be decoded
         assert!(cipher.key.is_some());
@@ -2578,9 +2536,7 @@ mod tests {
 
         // The cipher does not have a key, so re-encryption should not add one
         let new_cipher_key = ctx.generate_symmetric_key();
-        cipher
-            .reencrypt_cipher_keys(&mut ctx, new_cipher_key)
-            .unwrap();
+        cipher.reencrypt_cipher_keys(new_cipher_key).unwrap();
 
         // Check that the cipher key is still None
         assert!(cipher.key.is_none());
@@ -2599,9 +2555,7 @@ mod tests {
             .generate_cipher_key(&mut key_store.context())
             .unwrap();
 
-        cipher
-            .move_to_organization(&mut key_store.context(), org)
-            .unwrap();
+        cipher.move_to_organization(org).unwrap();
         assert_eq!(cipher.organization_id, Some(org));
 
         // Check that the cipher can be encrypted/decrypted with the new org key
@@ -2638,7 +2592,7 @@ mod tests {
         let org = OrganizationId::new_v4();
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
+        let _key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
 
         let mut cipher = generate_cipher();
         let attachment = AttachmentView {
@@ -2652,11 +2606,7 @@ mod tests {
         cipher.attachments = Some(vec![attachment]);
 
         // Neither cipher nor attachment have keys, so the cipher can't be moved
-        assert!(
-            cipher
-                .move_to_organization(&mut key_store.context(), org)
-                .is_err()
-        );
+        assert!(cipher.move_to_organization(org).is_err());
     }
 
     #[test]
@@ -2665,22 +2615,15 @@ mod tests {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
-        let org_key = SymmetricKeySlotId::Organization(org);
 
-        // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
-        let (attachment_key_enc, attachment_key_val) = {
+        // Attachment has a key stored as raw base64 on the view; the cipher itself has no key
+        let attachment_key_val = {
             let mut ctx = key_store.context();
             let attachment_key = ctx.generate_symmetric_key();
-            let attachment_key_enc = ctx
-                .wrap_symmetric_key(SymmetricKeySlotId::User, attachment_key)
-                .unwrap();
             #[allow(deprecated)]
-            let attachment_key_val = ctx
-                .dangerous_get_symmetric_key(attachment_key)
+            ctx.dangerous_get_symmetric_key(attachment_key)
                 .unwrap()
-                .clone();
-
-            (attachment_key_enc, attachment_key_val)
+                .clone()
         };
 
         let mut cipher = generate_cipher();
@@ -2693,12 +2636,10 @@ mod tests {
             key: Some(attachment_key_val.to_base64().to_string()),
         };
         cipher.attachments = Some(vec![attachment]);
-        let cred = generate_fido2(&mut key_store.context(), SymmetricKeySlotId::User);
+        let cred = generate_fido2_view();
         cipher.login.as_mut().unwrap().fido2_credentials = Some(vec![cred]);
 
-        cipher
-            .move_to_organization(&mut key_store.context(), org)
-            .unwrap();
+        cipher.move_to_organization(org).unwrap();
 
         assert!(cipher.key.is_none());
 
@@ -2707,15 +2648,14 @@ mod tests {
         let new_attachment_key_dec = SymmetricCryptoKey::try_from(new_attachment_key).unwrap();
         assert_eq!(new_attachment_key_dec, attachment_key_val);
 
-        let cred2: Fido2CredentialFullView = cipher
+        let cred2 = cipher
             .login
             .unwrap()
             .fido2_credentials
             .unwrap()
             .first()
             .unwrap()
-            .decrypt(&mut key_store.context(), org_key)
-            .unwrap();
+            .clone();
 
         assert_eq!(cred2.credential_id, "123");
     }
@@ -2726,7 +2666,6 @@ mod tests {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
-        let org_key = SymmetricKeySlotId::Organization(org);
 
         let mut ctx = key_store.context();
 
@@ -2755,10 +2694,10 @@ mod tests {
         };
         cipher.attachments = Some(vec![attachment]);
 
-        let cred = generate_fido2(&mut ctx, cipher_key);
+        let cred = generate_fido2_view();
         cipher.login.as_mut().unwrap().fido2_credentials = Some(vec![cred.clone()]);
 
-        cipher.move_to_organization(&mut ctx, org).unwrap();
+        cipher.move_to_organization(org).unwrap();
 
         // Raw cipher key bytes are unchanged (re-wrapping happens at encrypt time)
         let raw_b64 = cipher.key.clone().unwrap();
@@ -2771,7 +2710,7 @@ mod tests {
             &attachment_key_raw.to_base64().to_string()
         );
 
-        let cred2: Fido2Credential = cipher
+        let cred2 = cipher
             .login
             .unwrap()
             .fido2_credentials
@@ -2780,10 +2719,7 @@ mod tests {
             .unwrap()
             .clone();
 
-        assert_eq!(
-            cred2.credential_id.to_string(),
-            cred.credential_id.to_string()
-        );
+        assert_eq!(cred2.credential_id, cred.credential_id);
     }
 
     #[test]
@@ -2796,15 +2732,12 @@ mod tests {
         let mut cipher_view = generate_cipher();
         cipher_view.generate_cipher_key(&mut ctx).unwrap();
 
-        let key_id = cipher_view.key_identifier();
-        let ciphers_key = cipher_view.load_cipher_key_slot(&mut ctx, key_id).unwrap();
-
-        let fido2_credential = generate_fido2(&mut ctx, ciphers_key);
+        let fido2_credential = generate_fido2_view();
 
         cipher_view.login.as_mut().unwrap().fido2_credentials =
             Some(vec![fido2_credential.clone()]);
 
-        let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
+        let decrypted_key_value = cipher_view.decrypt_fido2_private_key().unwrap();
         assert_eq!(decrypted_key_value, "123");
     }
 

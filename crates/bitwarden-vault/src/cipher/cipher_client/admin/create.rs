@@ -2,7 +2,7 @@ use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
-use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
+use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "wasm")]

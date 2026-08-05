@@ -326,8 +326,6 @@ impl<'a> Fido2Authenticator<'a> {
     pub(super) fn get_selected_credential(
         &self,
     ) -> Result<SelectedCredential, GetSelectedCredentialError> {
-        let key_store = self.client.internal.get_key_store();
-
         let cipher = self
             .selected_cipher
             .lock()
@@ -335,7 +333,7 @@ impl<'a> Fido2Authenticator<'a> {
             .clone()
             .ok_or(GetSelectedCredentialError::NoSelectedCredential)?;
 
-        let creds = cipher.decrypt_fido2_credentials(&mut key_store.context())?;
+        let creds = cipher.get_fido2_credentials();
 
         let credential = creds
             .first()
@@ -480,9 +478,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .clone()
                 .ok_or(InnerError::NoSelectedCredential)?;
 
-            let key_store = this.authenticator.client.internal.get_key_store();
-
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+            selected.set_new_fido2_credentials(vec![cred])?;
 
             // Store the updated credential for later use
             this.authenticator
@@ -554,10 +550,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             let cred = fill_with_credential(&selected.credential, cred)?;
 
-            let key_store = this.authenticator.client.internal.get_key_store();
-
             let mut selected = selected.cipher;
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+            selected.set_new_fido2_credentials(vec![cred])?;
 
             // Store the updated credential for later use
             this.authenticator
@@ -681,15 +675,12 @@ fn map_ui_hint(hint: UiHint<'_, CipherViewContainer>) -> UiHint<'_, CipherView> 
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use bitwarden_core::{
-        Client,
-        key_management::{KeySlotIds, SymmetricKeySlotId},
-    };
-    use bitwarden_crypto::{KeyStoreContext, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_core::{Client, key_management::SymmetricKeySlotId};
+    use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_encoding::B64Url;
     use bitwarden_vault::{
         CipherListView, CipherRepromptType, CipherType, CipherView, EncryptionContext,
-        Fido2Credential, Fido2CredentialNewView, LoginView,
+        Fido2CredentialNewView, Fido2CredentialView, LoginView,
     };
     use passkey::authenticator::UiHint;
 
@@ -783,23 +774,22 @@ mod tests {
         0x84, 0x05, 0x71,
     ];
 
-    fn create_test_cipher(ctx: &mut KeyStoreContext<KeySlotIds>) -> CipherView {
-        let key = SymmetricKeySlotId::User;
+    fn create_test_cipher() -> CipherView {
         let key_value = B64Url::from(TEST_FIDO_P256_KEY).to_string();
 
-        let fido2_credential = Fido2Credential {
-            credential_id: TEST_FIDO_CREDENTIAL_ID.encrypt(ctx, key).unwrap(),
-            key_type: "public-key".to_string().encrypt(ctx, key).unwrap(),
-            key_algorithm: "ECDSA".to_string().encrypt(ctx, key).unwrap(),
-            key_curve: "P-256".to_string().encrypt(ctx, key).unwrap(),
-            key_value: key_value.encrypt(ctx, key).unwrap(),
-            rp_id: TEST_FIDO_RP_ID.encrypt(ctx, key).unwrap(),
-            user_handle: Some(TEST_FIDO_USER_HANDLE.encrypt(ctx, key).unwrap()),
+        let fido2_credential = Fido2CredentialView {
+            credential_id: TEST_FIDO_CREDENTIAL_ID.to_string(),
+            key_type: "public-key".to_string(),
+            key_algorithm: "ECDSA".to_string(),
+            key_curve: "P-256".to_string(),
+            key_value,
+            rp_id: TEST_FIDO_RP_ID.to_string(),
+            user_handle: Some(TEST_FIDO_USER_HANDLE.to_string()),
             user_name: None,
-            counter: "0".to_string().encrypt(ctx, key).unwrap(),
+            counter: "0".to_string(),
             rp_name: None,
             user_display_name: None,
-            discoverable: "true".to_string().encrypt(ctx, key).unwrap(),
+            discoverable: "true".to_string(),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
         };
 
@@ -867,10 +857,7 @@ mod tests {
             .set_symmetric_key(SymmetricKeySlotId::User, user_key)
             .unwrap();
 
-        let cipher = {
-            let mut ctx = client.internal.get_key_store().context();
-            create_test_cipher(&mut ctx)
-        };
+        let cipher = create_test_cipher();
 
         let user_interface = MockUserInterface;
         let credential_store = MockCredentialStore { cipher };

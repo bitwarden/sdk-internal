@@ -92,7 +92,7 @@ pub fn encrypt_import(
     if let Some(passkey) = passkey {
         let passkeys = passkey.into_iter().map(|p| p.into()).collect();
 
-        view.set_new_fido2_credentials(ctx, passkeys)?;
+        view.set_new_fido2_credentials(passkeys)?;
     }
 
     // Select the encryption format based on the account's current security state, matching how

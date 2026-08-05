@@ -44,7 +44,7 @@ fn seal_cipher(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     cipher_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
-    let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
+    let blob = CipherBlobLatest::from_cipher_view(view)?;
     seal_blob_content(blob, cipher_key, ctx)
 }
 
@@ -226,7 +226,7 @@ pub(crate) fn decrypt_blob_cipher(
         password_history: None,
     };
 
-    blob.apply_to_cipher_view(&mut view, ctx, cipher_key)?;
+    blob.apply_to_cipher_view(&mut view)?;
 
     Ok(view)
 }
