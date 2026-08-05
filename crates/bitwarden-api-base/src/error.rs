@@ -41,7 +41,10 @@ impl fmt::Display for ApiError {
             Error::ReqwestMiddleware(e) => ("reqwest-middleware", e.to_string()),
             Error::Serde(e) => ("serde", e.to_string()),
             Error::Io(e) => ("IO", e.to_string()),
-            Error::Response(e) => ("response", format!("status code {}", e.status)),
+            Error::Response(e) => (
+                "response",
+                format!("status code {}: {}", e.status, e.message),
+            ),
         };
         write!(f, "error in {}: {}", module, e)
     }
