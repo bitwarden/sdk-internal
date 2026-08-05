@@ -295,8 +295,9 @@ pub struct Cipher {
     pub organization_id: Option<OrganizationId>,
     pub folder_id: Option<FolderId>,
     pub collection_ids: Vec<CollectionId>,
-    /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
-    /// Cipher.
+    /// Per-cipher key, wrapped under the owning user or organization key, that protects the
+    /// cipher's fields. Always set on ciphers the SDK encrypts; `None` only on legacy
+    /// ciphers that predates per-cipher keys.
     pub key: Option<EncString>,
 
     /// Encrypted item name. `None` for blob-encrypted ciphers, where the name lives inside
@@ -648,60 +649,49 @@ impl CipherView {
     }
 
     fn encrypt_legacy_field_encryption(
-        &self,
+        &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
+        if self.key.is_none() {
+            self.generate_cipher_key(ctx)?;
+        }
+
         let ciphers_key = self.load_cipher_key_slot(ctx, key)?;
 
-        let mut cipher_view = self.clone();
-        cipher_view.generate_checksums();
+        self.generate_checksums();
 
         Ok(Cipher {
-            id: cipher_view.id,
-            organization_id: cipher_view.organization_id,
-            folder_id: cipher_view.folder_id,
-            collection_ids: cipher_view.collection_ids,
-            key: cipher_view
-                .key
-                .as_ref()
-                .map(|_| ctx.wrap_symmetric_key(key, ciphers_key))
-                .transpose()?,
-            name: Some(cipher_view.name.encrypt(ctx, ciphers_key)?),
-            notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
-            r#type: cipher_view.r#type,
-            login: cipher_view.login.encrypt_composite(ctx, ciphers_key)?,
-            identity: cipher_view.identity.encrypt_composite(ctx, ciphers_key)?,
-            card: cipher_view.card.encrypt_composite(ctx, ciphers_key)?,
-            secure_note: cipher_view
-                .secure_note
-                .encrypt_composite(ctx, ciphers_key)?,
-            ssh_key: cipher_view.ssh_key.encrypt_composite(ctx, ciphers_key)?,
-            bank_account: cipher_view
-                .bank_account
-                .encrypt_composite(ctx, ciphers_key)?,
-            drivers_license: cipher_view
-                .drivers_license
-                .encrypt_composite(ctx, ciphers_key)?,
-            passport: cipher_view.passport.encrypt_composite(ctx, ciphers_key)?,
-            favorite: cipher_view.favorite,
-            reprompt: cipher_view.reprompt,
-            organization_use_totp: cipher_view.organization_use_totp,
-            edit: cipher_view.edit,
-            view_password: cipher_view.view_password,
-            local_data: cipher_view.local_data.encrypt_composite(ctx, ciphers_key)?,
-            attachments: cipher_view
-                .attachments
-                .encrypt_composite(ctx, ciphers_key)?,
-            fields: cipher_view.fields.encrypt_composite(ctx, ciphers_key)?,
-            password_history: cipher_view
-                .password_history
-                .encrypt_composite(ctx, ciphers_key)?,
-            creation_date: cipher_view.creation_date,
-            deleted_date: cipher_view.deleted_date,
-            revision_date: cipher_view.revision_date,
-            permissions: cipher_view.permissions,
-            archived_date: cipher_view.archived_date,
+            id: self.id,
+            organization_id: self.organization_id,
+            folder_id: self.folder_id,
+            collection_ids: self.collection_ids.clone(),
+            key: Some(ctx.wrap_symmetric_key(key, ciphers_key)?),
+            name: Some(self.name.encrypt(ctx, ciphers_key)?),
+            notes: self.notes.encrypt(ctx, ciphers_key)?,
+            r#type: self.r#type,
+            login: self.login.encrypt_composite(ctx, ciphers_key)?,
+            identity: self.identity.encrypt_composite(ctx, ciphers_key)?,
+            card: self.card.encrypt_composite(ctx, ciphers_key)?,
+            secure_note: self.secure_note.encrypt_composite(ctx, ciphers_key)?,
+            ssh_key: self.ssh_key.encrypt_composite(ctx, ciphers_key)?,
+            bank_account: self.bank_account.encrypt_composite(ctx, ciphers_key)?,
+            drivers_license: self.drivers_license.encrypt_composite(ctx, ciphers_key)?,
+            passport: self.passport.encrypt_composite(ctx, ciphers_key)?,
+            favorite: self.favorite,
+            reprompt: self.reprompt,
+            organization_use_totp: self.organization_use_totp,
+            edit: self.edit,
+            view_password: self.view_password,
+            local_data: self.local_data.encrypt_composite(ctx, ciphers_key)?,
+            attachments: self.attachments.encrypt_composite(ctx, ciphers_key)?,
+            fields: self.fields.encrypt_composite(ctx, ciphers_key)?,
+            password_history: self.password_history.encrypt_composite(ctx, ciphers_key)?,
+            creation_date: self.creation_date,
+            deleted_date: self.deleted_date,
+            revision_date: self.revision_date,
+            permissions: self.permissions,
+            archived_date: self.archived_date,
             data: None, // TODO: Do we need to repopulate this on this on the cipher?
         })
     }
@@ -1720,16 +1710,18 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMod
         key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
         match self {
+            // Both paths take `&mut CipherView` to generate a cipher key when the view lacks one,
+            // so we hand them a local clone. Both wrap it under the explicit `key`, letting
+            // callers target a non-`User`/`Organization` slot (e.g. rotation's `Local` slot).
             Self::Blob(view) => {
-                // `encrypt_blob_cipher_with_wrapping_key` takes `&mut CipherView` because it may
-                // generate a cipher key; so we operate on a local clone. The explicit `key` is
-                // respected here so callers can target a non-`User`/`Organization` slot (e.g.
-                // a `Local` slot during key rotation).
                 let mut owned = view.clone();
                 encrypt_blob_cipher_with_wrapping_key(&mut owned, ctx, key)
                     .map_err(CryptoError::from)
             }
-            Self::Legacy(view) => view.encrypt_legacy_field_encryption(ctx, key),
+            Self::Legacy(view) => {
+                let mut owned = view.clone();
+                owned.encrypt_legacy_field_encryption(ctx, key)
+            }
         }
     }
 }
@@ -2479,11 +2471,12 @@ mod tests {
 
         let original_cipher = generate_cipher();
 
-        // Check that the cipher gets encrypted correctly without it's own key
+        // A keyless view has a cipher key generated for it at encrypt time
         let cipher = generate_cipher();
         let no_key_cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
+        assert!(no_key_cipher_enc.key.is_some());
         let no_key_cipher_dec: CipherView = key_store.decrypt(&no_key_cipher_enc).unwrap();
-        assert!(no_key_cipher_dec.key.is_none());
+        assert!(no_key_cipher_dec.key.is_some());
         assert_eq!(no_key_cipher_dec.name, original_cipher.name);
 
         let mut cipher = generate_cipher();
@@ -4161,6 +4154,42 @@ mod tests {
             assert!(try_parse_blob(&cipher).is_none());
             assert!(cipher.data.is_none());
             assert!(cipher.login.is_some());
+            assert!(
+                cipher.key.is_some(),
+                "legacy encrypt must always emit a cipher key"
+            );
+        }
+
+        /// Legacy encryption must wrap the generated cipher key under the wrapping key it is
+        /// handed, not the view's own `User`/`Organization` slot — key rotation passes a `Local`
+        /// slot holding the new user key.
+        #[test]
+        fn legacy_variant_wraps_cipher_key_under_explicit_key() {
+            let key_store = make_key_store();
+            let view = base_login_view();
+            let mut ctx = key_store.context();
+
+            let new_key = ctx.add_local_symmetric_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ));
+            let cipher = EncryptMode::Legacy(view.clone())
+                .encrypt_composite(&mut ctx, new_key)
+                .unwrap();
+
+            // The cipher key unwraps under the explicitly supplied key, and the data it protects
+            // round-trips.
+            let decrypted = lenient_decrypt_cipher_view(&cipher, &mut ctx, new_key).unwrap();
+            assert_eq!(decrypted.name, view.name);
+            assert_eq!(
+                decrypted.login.as_ref().unwrap().password,
+                view.login.as_ref().unwrap().password
+            );
+
+            // It does not unwrap under the view's natural slot.
+            assert!(
+                lenient_decrypt_cipher_view(&cipher, &mut ctx, view.key_identifier()).is_err(),
+                "cipher key must not be wrapped under the view's own slot"
+            );
         }
 
         /// Blob variant round-trips through decryption

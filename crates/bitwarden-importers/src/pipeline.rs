@@ -454,6 +454,8 @@ mod tests {
             encrypt_import(&mut ctx, importing("GitHub", login), None, user_id).unwrap();
 
         assert_eq!(encrypted.encrypted_for, user_id);
+        // Imported ciphers carry their own cipher key
+        assert!(encrypted.cipher.key.is_some());
         assert_ne!(encrypted.cipher.name.unwrap().to_string(), "GitHub");
     }
 }

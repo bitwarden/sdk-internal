@@ -61,14 +61,6 @@ impl Client {
 
     async fn init_test_account_on(client: Client, account: TestAccount) -> Self {
         client
-            .flags()
-            .load(HashMap::from([(
-                "enableCipherKeyEncryption".to_owned(),
-                true,
-            )]))
-            .await;
-
-        client
             .crypto()
             .initialize_user_crypto(account.user)
             .await
