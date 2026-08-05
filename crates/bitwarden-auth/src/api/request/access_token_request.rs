@@ -1,9 +1,10 @@
 use bitwarden_api_api::Configuration;
+use bitwarden_core::auth::login::LoginError;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use uuid::Uuid;
 
-use crate::auth::{api::response::IdentityTokenResponse, login::LoginError};
+use crate::api::response::IdentityTokenResponse;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct AccessTokenRequest {
@@ -29,6 +30,6 @@ impl AccessTokenRequest {
         &self,
         identity_config: &Configuration,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(identity_config, &self).await
+        super::send_identity_connect_request(identity_config, self).await
     }
 }

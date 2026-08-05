@@ -1,8 +1,3 @@
-#[cfg(feature = "secrets")]
-mod access_token_request;
-#[cfg(feature = "secrets")]
-pub(crate) use access_token_request::*;
-
 mod api_token_request;
 pub(crate) use api_token_request::*;
 

@@ -6,6 +6,9 @@ mod login_client;
 
 pub use login_client::LoginClient;
 
+#[allow(missing_docs)]
+pub mod access_token;
+
 pub mod models;
 
 pub mod login_via_password;

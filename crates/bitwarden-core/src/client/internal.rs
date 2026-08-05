@@ -1,7 +1,7 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "internal")]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
@@ -16,7 +16,7 @@ use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, error::UserIdAlreadySetError,
     key_management::KeySlotIds,
 };
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "internal")]
 use crate::{
     OrganizationId, client::encryption_settings::EncryptionSettings,
     client::login_method::LoginMethod,
@@ -106,7 +106,7 @@ impl ApiConfigurations {
 #[allow(missing_docs)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
-    #[cfg_attr(not(any(feature = "internal", feature = "secrets")), allow(dead_code))]
+    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
     pub(crate) token_handler: Arc<dyn TokenHandler>,
 
     pub(super) api_configurations: Arc<ApiConfigurations>,
@@ -148,23 +148,18 @@ impl InternalClient {
             .flatten()
     }
 
-    #[cfg(any(feature = "internal", feature = "secrets"))]
+    #[cfg(feature = "internal")]
     pub(crate) async fn set_login_method(&self, login_method: LoginMethod) {
         match login_method {
-            #[cfg(feature = "internal")]
             LoginMethod::User(lm) => {
                 if let Ok(setting) = self.state_registry.setting(USER_LOGIN_METHOD) {
                     setting.update(lm).await.ok();
                 }
             }
-            #[cfg(feature = "secrets")]
-            LoginMethod::ServiceAccount(lm) => {
-                self.token_handler.set_sm_login_method(lm).await;
-            }
         }
     }
 
-    #[cfg(any(feature = "internal", feature = "secrets"))]
+    #[cfg(feature = "internal")]
     pub(crate) async fn set_tokens(
         &self,
         token: String,
@@ -365,15 +360,6 @@ impl InternalClient {
             account_crypto_state,
             upgrade_token,
         )
-    }
-
-    #[cfg(feature = "secrets")]
-    pub(crate) fn initialize_crypto_single_org_key(
-        &self,
-        organization_id: OrganizationId,
-        key: SymmetricCryptoKey,
-    ) {
-        EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
     #[allow(missing_docs)]
