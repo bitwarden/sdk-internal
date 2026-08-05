@@ -6,9 +6,12 @@ use thiserror::Error;
 
 use crate::{NotAuthenticatedError, WrongPasswordError};
 
-mod access_token;
 // API is intentionally not visible outside of `auth` as these should be considered private.
 mod api;
+// Publicly re-exported so feature crates (e.g. `bitwarden-auth`) that parse Identity
+// `connect/token` responses can surface the server-provided failure reason via
+// `LoginError::IdentityFail`.
+pub use api::response::IdentityTokenFailResponse;
 #[cfg(feature = "internal")]
 pub(crate) use api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
 #[allow(missing_docs)]
@@ -25,7 +28,6 @@ pub mod password;
 pub mod pin;
 #[doc(hidden)]
 pub mod renew;
-pub use access_token::{AccessToken, AccessTokenInvalidError};
 pub use auth_tokens::{ClientManagedTokenHandler, ClientManagedTokens, TokenHandler};
 pub use jwt_token::*;
 

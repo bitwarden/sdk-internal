@@ -563,9 +563,11 @@ dependencies = [
  "http",
  "reqwest",
  "reqwest-middleware",
+ "schemars 1.2.1",
  "serde",
  "serde_bytes",
  "serde_json",
+ "serde_qs",
  "serde_repr",
  "serde_urlencoded",
  "thiserror 2.0.19",
@@ -577,6 +579,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -1214,12 +1217,16 @@ dependencies = [
 name = "bitwarden-sm"
 version = "3.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-api-api",
  "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-generators",
+ "bitwarden-state",
  "chrono",
+ "reqwest-middleware",
  "schemars 1.2.1",
  "serde",
  "serde_json",
