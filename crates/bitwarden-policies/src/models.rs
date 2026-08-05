@@ -129,6 +129,7 @@ impl<P: Policy> EnforcedPolicy<P> {
             None => false,
             Some(v) => context.map_or(true, |ctx| {
                 v.enabled
+                    && ctx.enabled
                     && ctx.use_policies
                     && policy.applicable_statuses().contains(&ctx.status)
                     && !policy.exempt_roles().contains(&ctx.role)
