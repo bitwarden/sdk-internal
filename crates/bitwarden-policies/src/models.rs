@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 
+use bitwarden_core::OrganizationId;
 use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,7 @@ pub struct PolicyView {
     /// The policy's unique ID.
     pub id: Uuid,
     /// The organization this policy belongs to.
-    pub organization_id: Uuid,
+    pub organization_id: OrganizationId,
     /// The type of policy.
     pub r#type: PolicyType,
     /// The policy's additional configuration data as a JSON string, if any.
@@ -46,7 +47,7 @@ pub struct PolicyView {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct OrganizationUserPolicyContext {
     /// The organization's unique ID.
-    pub id: Uuid,
+    pub id: OrganizationId,
     /// The user's membership status in the organization.
     pub status: OrganizationUserStatusType,
     /// The user's role within the organization.
@@ -72,7 +73,7 @@ pub struct OrganizationUserPolicyContext {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnforcedPolicy<P: Policy> {
     /// The organization this enforcement decision is for.
-    pub organization_id: Uuid,
+    pub organization_id: OrganizationId,
     /// The policy type.
     pub data: P::Data,
     /// Whether the policy is being enforced against the current user for this
@@ -86,7 +87,7 @@ pub struct EnforcedPolicy<P: Policy> {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct EnforcedPolicyErased {
     /// The organization this enforcement decision is for.
-    pub organization_id: Uuid,
+    pub organization_id: OrganizationId,
     /// The policy type.
     pub data: PolicyDataType,
     /// Whether the policy is being enforced against the current user for this
@@ -100,10 +101,10 @@ impl<P: Policy> EnforcedPolicy<P> {
     /// If the organization context is missing for the corresponding organization,
     /// it will be enforced by default (err on the side of enforcement).
     pub fn new(
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         policy: &P,
         policy_views: &[PolicyView],
-        organization_user_policy_contexts: &HashMap<Uuid, &OrganizationUserPolicyContext>,
+        organization_user_policy_contexts: &HashMap<OrganizationId, &OrganizationUserPolicyContext>,
     ) -> EnforcedPolicy<P> {
         // Resolve policy_view here so that a mismatch between the Policy.policy_type and
         // policy_view.type is not possible
@@ -164,9 +165,9 @@ pub(crate) trait ErasedPolicy {
     /// Evaluates enforcement for a single organization and erases the result.
     fn get_enforced_erased(
         &self,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         policy_views: &[PolicyView],
-        organization_user_policy_contexts: &HashMap<Uuid, &OrganizationUserPolicyContext>,
+        organization_user_policy_contexts: &HashMap<OrganizationId, &OrganizationUserPolicyContext>,
     ) -> EnforcedPolicyErased;
 
     /// Evaluates enforcement for every organization in `policy_views` and erases
@@ -174,16 +175,16 @@ pub(crate) trait ErasedPolicy {
     fn get_many_enforced_erased(
         &self,
         policy_views: &[PolicyView],
-        organization_user_policy_contexts: &HashMap<Uuid, &OrganizationUserPolicyContext>,
+        organization_user_policy_contexts: &HashMap<OrganizationId, &OrganizationUserPolicyContext>,
     ) -> Vec<EnforcedPolicyErased>;
 }
 
 impl<P: Policy> ErasedPolicy for P {
     fn get_enforced_erased(
         &self,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         policy_views: &[PolicyView],
-        organization_user_policy_contexts: &HashMap<Uuid, &OrganizationUserPolicyContext>,
+        organization_user_policy_contexts: &HashMap<OrganizationId, &OrganizationUserPolicyContext>,
     ) -> EnforcedPolicyErased {
         EnforcedPolicy::new(
             organization_id,
@@ -197,7 +198,7 @@ impl<P: Policy> ErasedPolicy for P {
     fn get_many_enforced_erased(
         &self,
         policy_views: &[PolicyView],
-        organization_user_policy_contexts: &HashMap<Uuid, &OrganizationUserPolicyContext>,
+        organization_user_policy_contexts: &HashMap<OrganizationId, &OrganizationUserPolicyContext>,
     ) -> Vec<EnforcedPolicyErased> {
         policy_views
             .iter()

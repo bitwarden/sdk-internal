@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 
 use bitwarden_core::{Client, OrganizationId};
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -43,7 +42,7 @@ impl PolicyClient {
         policy_views: Vec<PolicyView>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
     ) -> Vec<EnforcedPolicyErased> {
-        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+        let contexts: HashMap<OrganizationId, &OrganizationUserPolicyContext> =
             organization_user_policy_contexts
                 .iter()
                 .map(|ctx| (ctx.id, ctx))
@@ -63,16 +62,14 @@ impl PolicyClient {
         policy_views: Vec<PolicyView>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
     ) -> EnforcedPolicyErased {
-        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+        let contexts: HashMap<OrganizationId, &OrganizationUserPolicyContext> =
             organization_user_policy_contexts
                 .iter()
                 .map(|ctx| (ctx.id, ctx))
                 .collect();
-        policy_type.to_policy().get_enforced_erased(
-            organization_id.into(),
-            &policy_views,
-            &contexts,
-        )
+        policy_type
+            .to_policy()
+            .get_enforced_erased(organization_id, &policy_views, &contexts)
     }
 }
 
@@ -86,7 +83,7 @@ impl PolicyClient {
         policy_views: &[PolicyView],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
     ) -> Vec<EnforcedPolicy<P>> {
-        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+        let contexts: HashMap<OrganizationId, &OrganizationUserPolicyContext> =
             organization_user_policy_contexts
                 .iter()
                 .map(|ctx| (ctx.id, ctx))
@@ -100,13 +97,13 @@ impl PolicyClient {
     pub fn get_enforced<P: Policy>(
         &self,
         policy: P,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         // TODO: policy_views and ctx should come from state rather than being specified by the
         // caller
         policy_views: &[PolicyView],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
     ) -> EnforcedPolicy<P> {
-        let contexts: HashMap<Uuid, &OrganizationUserPolicyContext> =
+        let contexts: HashMap<OrganizationId, &OrganizationUserPolicyContext> =
             organization_user_policy_contexts
                 .iter()
                 .map(|ctx| (ctx.id, ctx))
@@ -130,12 +127,13 @@ impl PoliciesClientExt for Client {
 #[cfg(test)]
 mod tests {
     use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
+    use uuid::Uuid;
 
     use super::*;
     use crate::{MasterPasswordPolicy, MasterPasswordPolicyResponse, policy_type::PolicyDataType};
 
     fn policy_view(
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         policy_type: PolicyType,
         data: Option<&str>,
     ) -> PolicyView {
@@ -150,7 +148,7 @@ mod tests {
     }
 
     /// A confirmed, non-provider member of `organization_id` that a policy applies to.
-    fn confirmed_member(organization_id: Uuid) -> OrganizationUserPolicyContext {
+    fn confirmed_member(organization_id: OrganizationId) -> OrganizationUserPolicyContext {
         OrganizationUserPolicyContext {
             id: organization_id,
             status: OrganizationUserStatusType::Confirmed,
@@ -163,7 +161,7 @@ mod tests {
 
     #[test]
     fn get_enforced_returns_typed_decision() {
-        let org_id = Uuid::new_v4();
+        let org_id = OrganizationId::new_v4();
         let views = [policy_view(
             org_id,
             PolicyType::MasterPassword,
@@ -188,7 +186,7 @@ mod tests {
 
     #[test]
     fn get_many_enforced_returns_one_decision_per_view() {
-        let org_id = Uuid::new_v4();
+        let org_id = OrganizationId::new_v4();
         let views = [policy_view(
             org_id,
             PolicyType::MasterPassword,
@@ -207,7 +205,7 @@ mod tests {
 
     #[test]
     fn get_enforced_erased_returns_erased_decision() {
-        let org_id = Uuid::new_v4();
+        let org_id = OrganizationId::new_v4();
         let views = vec![policy_view(
             org_id,
             PolicyType::MasterPassword,
@@ -217,7 +215,7 @@ mod tests {
 
         let result = PolicyClient::new().get_enforced_erased(
             PolicyType::MasterPassword,
-            OrganizationId::new(org_id),
+            org_id,
             views,
             contexts,
         );
@@ -235,7 +233,7 @@ mod tests {
 
     #[test]
     fn get_many_enforced_erased_returns_one_decision_per_view() {
-        let org_id = Uuid::new_v4();
+        let org_id = OrganizationId::new_v4();
         let views = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
         let contexts = vec![confirmed_member(org_id)];
 
