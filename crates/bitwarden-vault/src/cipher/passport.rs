@@ -4,6 +4,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
     PrimitiveEncryptable,
 };
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -39,7 +40,7 @@ pub struct Passport {
 pub struct PassportView {
     pub surname: Option<String>,
     pub given_name: Option<String>,
-    pub date_of_birth: Option<String>,
+    pub date_of_birth: Option<NaiveDate>,
     pub sex: Option<String>,
     pub birth_place: Option<String>,
     pub nationality: Option<String>,
@@ -48,8 +49,8 @@ pub struct PassportView {
     pub passport_type: Option<String>,
     pub national_identification_number: Option<String>,
     pub issuing_authority: Option<String>,
-    pub issue_date: Option<String>,
-    pub expiration_date: Option<String>,
+    pub issue_date: Option<NaiveDate>,
+    pub expiration_date: Option<NaiveDate>,
 }
 
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Passport> for PassportView {
@@ -61,7 +62,10 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Passport> for Passport
         Ok(Passport {
             surname: self.surname.encrypt(ctx, key)?,
             given_name: self.given_name.encrypt(ctx, key)?,
-            date_of_birth: self.date_of_birth.encrypt(ctx, key)?,
+            date_of_birth: self
+                .date_of_birth
+                .map(|d| d.to_string())
+                .encrypt(ctx, key)?,
             sex: self.sex.encrypt(ctx, key)?,
             birth_place: self.birth_place.encrypt(ctx, key)?,
             nationality: self.nationality.encrypt(ctx, key)?,
@@ -72,8 +76,11 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Passport> for Passport
                 .national_identification_number
                 .encrypt(ctx, key)?,
             issuing_authority: self.issuing_authority.encrypt(ctx, key)?,
-            issue_date: self.issue_date.encrypt(ctx, key)?,
-            expiration_date: self.expiration_date.encrypt(ctx, key)?,
+            issue_date: self.issue_date.map(|d| d.to_string()).encrypt(ctx, key)?,
+            expiration_date: self
+                .expiration_date
+                .map(|d| d.to_string())
+                .encrypt(ctx, key)?,
         })
     }
 }
@@ -87,7 +94,12 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, PassportView> for Passport {
         Ok(PassportView {
             surname: self.surname.decrypt(ctx, key).ok().flatten(),
             given_name: self.given_name.decrypt(ctx, key).ok().flatten(),
-            date_of_birth: self.date_of_birth.decrypt(ctx, key).ok().flatten(),
+            date_of_birth: self
+                .date_of_birth
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
             sex: self.sex.decrypt(ctx, key).ok().flatten(),
             birth_place: self.birth_place.decrypt(ctx, key).ok().flatten(),
             nationality: self.nationality.decrypt(ctx, key).ok().flatten(),
@@ -100,8 +112,18 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, PassportView> for Passport {
                 .ok()
                 .flatten(),
             issuing_authority: self.issuing_authority.decrypt(ctx, key).ok().flatten(),
-            issue_date: self.issue_date.decrypt(ctx, key).ok().flatten(),
-            expiration_date: self.expiration_date.decrypt(ctx, key).ok().flatten(),
+            issue_date: self
+                .issue_date
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
+            expiration_date: self
+                .expiration_date
+                .decrypt(ctx, key)
+                .ok()
+                .flatten()
+                .and_then(|s: String| s.parse().ok()),
         })
     }
 }
@@ -245,7 +267,7 @@ mod tests {
         PassportView {
             surname: Some("Doe".to_string()),
             given_name: Some("Jane".to_string()),
-            date_of_birth: Some("1990-01-01".to_string()),
+            date_of_birth: NaiveDate::from_ymd_opt(1990, 1, 1),
             sex: Some("F".to_string()),
             birth_place: Some("New York".to_string()),
             nationality: Some("American".to_string()),
@@ -254,8 +276,8 @@ mod tests {
             passport_type: Some("P".to_string()),
             national_identification_number: Some("123-45-6789".to_string()),
             issuing_authority: Some("US State Department".to_string()),
-            issue_date: Some("2020-01-01".to_string()),
-            expiration_date: Some("2030-01-01".to_string()),
+            issue_date: NaiveDate::from_ymd_opt(2020, 1, 1),
+            expiration_date: NaiveDate::from_ymd_opt(2030, 1, 1),
         }
     }
 

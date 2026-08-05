@@ -1,6 +1,6 @@
 use bitwarden_api_base::AuthRequired;
-use bitwarden_core::{ApiError, MissingFieldError, require};
-use bitwarden_crypto::CryptoError;
+use bitwarden_core::{ApiError, MissingFieldError, key_management::SymmetricKeySlotId, require};
+use bitwarden_crypto::{CryptoError, EncString, OctetStreamBytes, PrimitiveEncryptable};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use serde::{Deserialize, Serialize};
@@ -59,6 +59,11 @@ pub struct CreateFileSendResponse {
     pub file_id: String,
     /// The encrypted file name string (e.g. `"2.ABCD..."`).
     pub encrypted_file_name: String,
+    /// The encrypted file bytes, ready to hand to [`SendClient::upload_send_file`]. These were
+    /// encrypted under the same send key recorded on the created send, and their length was used
+    /// to populate `file_length` on the create request (matching the legacy client, which sends
+    /// the encrypted buffer length so the server can enforce storage quotas up-front).
+    pub encrypted_file_buffer: Vec<u8>,
 }
 
 #[allow(missing_docs)]
@@ -95,6 +100,9 @@ pub enum UploadSendFileError {
     /// A reqwest error occurred when building the multipart form.
     #[error(transparent)]
     Reqwest(reqwest::Error),
+    /// The Azure blob upload URL could not be renewed after it expired.
+    #[error(transparent)]
+    RenewFileUploadUrl(#[from] RenewFileUploadUrlError),
 }
 
 #[allow(missing_docs)]
@@ -113,11 +121,18 @@ pub enum RenewFileUploadUrlError {
 impl SendClient {
     /// Create a new file [Send] and save it to the server.
     ///
-    /// Returns the created send along with metadata needed to upload the file data.
-    /// After calling this, use [`SendClient::upload_send_file`] to upload the encrypted file.
+    /// `file_buffer` is the *plaintext* file content. It is encrypted internally under the send key
+    /// derived for this send, and its ciphertext length is sent to the server as `file_length` so
+    /// the server can enforce storage quotas before the upload (matching the legacy client's
+    /// encrypt-then-create ordering).
+    ///
+    /// Returns the created send, the encrypted file bytes, and the metadata needed to upload them.
+    /// After calling this, hand [`CreateFileSendResponse::encrypted_file_buffer`] and the upload
+    /// metadata to [`SendClient::upload_send_file`].
     pub async fn create_file_send(
         &self,
         request: SendAddRequest,
+        file_buffer: Vec<u8>,
     ) -> Result<CreateFileSendResponse, CreateFileSendError> {
         request.auth.validate()?;
 
@@ -125,7 +140,15 @@ impl SendClient {
         let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
-        let send_request = key_store.encrypt(request)?;
+        let mut send_request = key_store.encrypt(request)?;
+
+        // Encrypt the file buffer under the send key that `send_request` just wrapped (its `key`
+        // field), so the ciphertext decrypts under the key the server records — and so we can send
+        // the true ciphertext length as `file_length`. Legacy: `new SendRequest(sendData,
+        // encBuffer.byteLength)`.
+        let encrypted_file_buffer =
+            encrypt_file_buffer_with_send_key(key_store, &send_request.key, &file_buffer)?;
+        send_request.file_length = Some(encrypted_file_buffer.len() as i64);
 
         let resp = config
             .api_client
@@ -162,6 +185,7 @@ impl SendClient {
             file_upload_type,
             file_id,
             encrypted_file_name,
+            encrypted_file_buffer,
         })
     }
 
@@ -169,7 +193,38 @@ impl SendClient {
     ///
     /// `data` must be the encrypted file content (encrypted with the send key).
     /// `encrypted_file_name` is the encrypted file name string from [`CreateFileSendResponse`].
+    ///
+    /// `file_upload_type` and `upload_url` come from [`CreateFileSendResponse`] and select the
+    /// upload backend:
+    /// - [`FileUploadType::Direct`] uploads directly to the Bitwarden server via a multipart POST.
+    ///   The `upload_url` is ignored in this case (the direct endpoint is derived from the send and
+    ///   file IDs).
+    /// - [`FileUploadType::Azure`] `PUT`s the ciphertext to the pre-signed Azure Blob Storage
+    ///   `upload_url`. If that URL has expired, it is renewed once via
+    ///   [`SendClient::renew_file_upload_url`] and the upload is retried.
     pub async fn upload_send_file(
+        &self,
+        send_id: SendId,
+        file_id: String,
+        encrypted_file_name: String,
+        file_upload_type: FileUploadType,
+        upload_url: String,
+        data: Vec<u8>,
+    ) -> Result<(), UploadSendFileError> {
+        match file_upload_type {
+            FileUploadType::Direct => {
+                self.upload_send_file_direct(send_id, file_id, encrypted_file_name, data)
+                    .await
+            }
+            FileUploadType::Azure => {
+                self.upload_send_file_azure(send_id, file_id, upload_url, data)
+                    .await
+            }
+        }
+    }
+
+    /// Direct upload: multipart `POST` of the encrypted bytes to the Bitwarden server.
+    async fn upload_send_file_direct(
         &self,
         send_id: SendId,
         file_id: String,
@@ -204,6 +259,61 @@ impl SendClient {
         Ok(())
     }
 
+    /// Azure upload: `PUT` the encrypted bytes to the pre-signed blob `upload_url`, retrying once
+    /// with a freshly renewed URL if the first attempt fails (the pre-signed URL is short-lived).
+    async fn upload_send_file_azure(
+        &self,
+        send_id: SendId,
+        file_id: String,
+        upload_url: String,
+        data: Vec<u8>,
+    ) -> Result<(), UploadSendFileError> {
+        match self.put_azure_blob(&upload_url, data.clone()).await {
+            Ok(()) => Ok(()),
+            // The pre-signed URL is short-lived; a failure is most likely an expired SAS token.
+            // Renew it once and retry before surfacing the error.
+            Err(_) => {
+                let renewed = self.renew_file_upload_url(send_id, file_id).await?;
+                self.put_azure_blob(&renewed, data).await
+            }
+        }
+    }
+
+    /// Single-blob `PUT` to an Azure Blob Storage pre-signed URL.
+    ///
+    /// Mirrors the TS client's `azureUploadBlob` single-shot path (see
+    /// `apps`/`libs/common/.../azure-file-upload.service.ts`): the `x-ms-blob-type: BlockBlob`
+    /// header is required by Azure for a whole-blob PUT, and `x-ms-version` is taken from the SAS
+    /// URL's `sv` query parameter when present. Send files are always well under the 256 MiB
+    /// single-blob limit, so the block-staging path is intentionally not reproduced.
+    async fn put_azure_blob(&self, url: &str, data: Vec<u8>) -> Result<(), UploadSendFileError> {
+        let config = self.client.internal.get_api_configurations();
+
+        let mut req = config
+            .api_config
+            .client
+            .put(url)
+            .header("x-ms-blob-type", "BlockBlob")
+            .header("content-type", "application/octet-stream");
+
+        // Azure requires the storage-service version for the SAS token; the SAS URL carries it in
+        // the `sv` query parameter. Forward it so the PUT is validated against the same version the
+        // server signed for.
+        if let Some(version) = reqwest::Url::parse(url).ok().and_then(|u| {
+            u.query_pairs()
+                .find(|(k, _)| k == "sv")
+                .map(|(_, v)| v.into_owned())
+        }) {
+            req = req.header("x-ms-version", version);
+        }
+
+        let req = req.body(data);
+
+        bitwarden_api_base::process_with_empty_response(req).await?;
+
+        Ok(())
+    }
+
     /// Renew the upload URL for a file [Send].
     ///
     /// Returns a fresh upload URL if the previous one has expired.
@@ -222,6 +332,23 @@ impl SendClient {
 
         Ok(require!(resp.url))
     }
+}
+
+/// Encrypt `buffer` under the send key wrapped in `wrapped_send_key` (the `key` field of a
+/// [`bitwarden_api_api::models::SendRequestModel`], which is the send key encrypted under the user
+/// key). Mirrors [`SendClient::encrypt_buffer`], but sources the key from the just-built create
+/// request instead of a round-tripped [`Send`], so the create request can carry the true ciphertext
+/// length before the send exists on the server.
+fn encrypt_file_buffer_with_send_key(
+    key_store: &bitwarden_crypto::KeyStore<bitwarden_core::key_management::KeySlotIds>,
+    wrapped_send_key: &str,
+    buffer: &[u8],
+) -> Result<Vec<u8>, CryptoError> {
+    let wrapped_send_key: EncString = wrapped_send_key.parse()?;
+    let mut ctx = key_store.context();
+    let send_key = Send::get_key(&mut ctx, &wrapped_send_key, SymmetricKeySlotId::User)?;
+    let encrypted = OctetStreamBytes::from(buffer).encrypt(&mut ctx, send_key)?;
+    encrypted.to_buffer()
 }
 
 #[cfg(test)]
@@ -245,9 +372,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::{
-        AuthType, Send, SendAuthType, SendClientExt, SendId, SendTextView, SendType, SendViewType,
-    };
+    use crate::{AuthType, Send, SendAuthType, SendClientExt, SendId, SendType, SendViewType};
 
     const SEND_ID: &str = "25afb11c-9c95-4db5-8bac-c21cb204a3f1";
     const FILE_ID: &str = "file-id-abc";
@@ -289,11 +414,14 @@ mod tests {
         SendAddRequest {
             name: "test-file-send".to_string(),
             notes: None,
-            // Even file sends use SendViewType::Text for the *request* body since the file
-            // content is uploaded separately; the server flips the type on the response.
-            view_type: SendViewType::Text(SendTextView {
-                text: None,
-                hidden: false,
+            // File create requests carry a `File` view type with `size: None` (the CLI leaves it
+            // unset; the server derives the real size from the uploaded blob). The encrypted-buffer
+            // length is threaded separately as `file_length` inside `create_file_send`.
+            view_type: SendViewType::File(crate::SendFileView {
+                id: None,
+                file_name: "secret.txt".to_string(),
+                size: None,
+                size_name: None,
             }),
             max_access_count: None,
             disabled: false,
@@ -328,6 +456,7 @@ mod tests {
                 size_name: Some("123 B".to_string()),
             })),
             text: None,
+            data: None,
             key: Some(request.key),
             max_access_count: request.max_access_count,
             access_count: Some(0),
@@ -345,11 +474,16 @@ mod tests {
     #[tokio::test]
     async fn test_create_file_send() {
         let upload_url = "https://upload.example.com/abc";
+        // Capture the create request body so we can assert on `file_length` and `file.size`.
+        let captured: Arc<std::sync::Mutex<Option<bitwarden_api_api::models::SendRequestModel>>> =
+            Arc::new(std::sync::Mutex::new(None));
+        let captured_mock = captured.clone();
         let mock = Mock::given(method("POST"))
             .and(path("/sends/file/v2"))
             .respond_with(move |req: &wiremock::Request| {
                 let body: bitwarden_api_api::models::SendRequestModel =
                     serde_json::from_slice(&req.body).expect("request body should be valid JSON");
+                *captured_mock.lock().unwrap() = Some(body.clone());
                 let send_response = echo_file_send_response(body);
                 let response = SendFileUploadDataResponseModel {
                     object: Some("send-fileUpload".to_string()),
@@ -363,9 +497,10 @@ mod tests {
         let (server, _config) = start_api_mock(vec![mock]).await;
         let (client, repository) = make_test_client(&server);
 
+        let plaintext = b"the quick brown fox".to_vec();
         let result = client
             .sends()
-            .create_file_send(sample_request())
+            .create_file_send(sample_request(), plaintext)
             .await
             .unwrap();
 
@@ -377,6 +512,24 @@ mod tests {
         assert_eq!(result.send.name, "test-file-send");
         assert_eq!(result.send.r#type, SendType::File);
         assert_eq!(result.send.auth_type, AuthType::None);
+
+        // The create request must carry the *encrypted* buffer length as `file_length`, and must
+        // NOT set `file.size` (the server derives that from the uploaded blob). This mirrors the
+        // legacy client: `new SendRequest(sendData, encBuffer.byteLength)` with no `file.size`.
+        let request_body = captured.lock().unwrap().clone().expect("request captured");
+        assert_eq!(
+            request_body.file_length,
+            Some(result.encrypted_file_buffer.len() as i64),
+            "file_length must equal the encrypted buffer length"
+        );
+        assert!(
+            request_body.file.and_then(|f| f.size).is_none(),
+            "file.size must not be set on the create request"
+        );
+
+        // The returned encrypted buffer must be non-empty and longer than the plaintext (the
+        // EncString framing adds an IV + MAC), confirming the bytes were actually encrypted.
+        assert!(result.encrypted_file_buffer.len() > b"the quick brown fox".len());
 
         // The created send should have been persisted to the repository.
         let stored: Option<Send> = repository
@@ -410,7 +563,7 @@ mod tests {
 
         let err = client
             .sends()
-            .create_file_send(sample_request())
+            .create_file_send(sample_request(), b"file-bytes".to_vec())
             .await
             .unwrap_err();
 
@@ -428,7 +581,7 @@ mod tests {
 
         let err = client
             .sends()
-            .create_file_send(sample_request())
+            .create_file_send(sample_request(), b"file-bytes".to_vec())
             .await
             .unwrap_err();
 
@@ -444,7 +597,11 @@ mod tests {
         let mut request = sample_request();
         request.auth = SendAuthType::Emails { emails: vec![] };
 
-        let err = client.sends().create_file_send(request).await.unwrap_err();
+        let err = client
+            .sends()
+            .create_file_send(request, b"file-bytes".to_vec())
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, CreateFileSendError::EmptyEmailList(_)));
         assert!(
@@ -471,7 +628,15 @@ mod tests {
 
         client
             .sends()
-            .upload_send_file(send_id, file_id, encrypted_file_name, data.clone())
+            .upload_send_file(
+                send_id,
+                file_id,
+                encrypted_file_name,
+                crate::FileUploadType::Direct,
+                // Direct uploads ignore the upload URL; it is derived from the send/file IDs.
+                "https://ignored.example.com".to_string(),
+                data.clone(),
+            )
             .await
             .unwrap();
 
@@ -524,12 +689,129 @@ mod tests {
                 send_id,
                 file_id,
                 "encrypted-name".to_string(),
+                crate::FileUploadType::Direct,
+                "https://ignored.example.com".to_string(),
                 b"data".to_vec(),
             )
             .await
             .unwrap_err();
 
         assert!(matches!(err, UploadSendFileError::Api(_)));
+    }
+
+    /// Azure happy path: the encrypted bytes are `PUT` to the pre-signed blob URL (pointed at the
+    /// mock server) with the `x-ms-blob-type: BlockBlob` header and the `sv`-derived
+    /// `x-ms-version` header. Azure returns 201 Created on success.
+    #[tokio::test]
+    async fn test_upload_send_file_azure() {
+        let send_id = SendId::new(SEND_ID.parse().unwrap());
+        let file_id = FILE_ID.to_string();
+        let data = b"encrypted-file-bytes".to_vec();
+
+        // A pre-signed blob path with a `sv` (storage version) query param, as Azure SAS URLs
+        // carry. `{server}` is substituted below once the mock server URI is known.
+        let blob_path = "/container/blob";
+
+        let mock = Mock::given(method("PUT"))
+            .and(path(blob_path))
+            .respond_with(move |req: &wiremock::Request| {
+                // The blob-type header is mandatory for a whole-blob PUT.
+                assert_eq!(
+                    req.headers
+                        .get("x-ms-blob-type")
+                        .map(|v| v.to_str().unwrap()),
+                    Some("BlockBlob")
+                );
+                // The `sv` query param must be forwarded as `x-ms-version`.
+                assert_eq!(
+                    req.headers.get("x-ms-version").map(|v| v.to_str().unwrap()),
+                    Some("2024-01-01")
+                );
+                // The encrypted bytes are the raw request body (no multipart wrapping).
+                assert_eq!(req.body, b"encrypted-file-bytes");
+                ResponseTemplate::new(201)
+            });
+
+        let (server, _config) = start_api_mock(vec![mock]).await;
+        let (client, _repository) = make_test_client(&server);
+
+        let upload_url = format!("{}{}?sv=2024-01-01&sig=abc", server.uri(), blob_path);
+
+        client
+            .sends()
+            .upload_send_file(
+                send_id,
+                file_id,
+                "encrypted-name".to_string(),
+                crate::FileUploadType::Azure,
+                upload_url,
+                data,
+            )
+            .await
+            .unwrap();
+    }
+
+    /// Azure retry path: the first `PUT` to the (expired) pre-signed URL fails, the SDK renews the
+    /// URL via `GET /sends/{id}/file/{fileId}`, and retries the `PUT` against the renewed URL,
+    /// which succeeds.
+    #[tokio::test]
+    async fn test_upload_send_file_azure_renews_and_retries_on_failure() {
+        let send_id = SendId::new(SEND_ID.parse().unwrap());
+        let file_id = FILE_ID.to_string();
+        let data = b"encrypted-file-bytes".to_vec();
+
+        // Start a bare server so we know its URI before building the renewal response (which must
+        // point the renewed blob URL back at this same server).
+        let (server, _config) = start_api_mock(vec![]).await;
+
+        // First PUT (the "expired" URL) returns 403; the renewed PUT returns 201.
+        Mock::given(method("PUT"))
+            .and(path("/container/expired"))
+            .respond_with(ResponseTemplate::new(403))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        Mock::given(method("PUT"))
+            .and(path("/container/renewed"))
+            .respond_with(ResponseTemplate::new(201))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        // Renewal call: GET /sends/{id}/file/{fileId} returns the fresh blob URL.
+        let renewed_url = format!("{}/container/renewed?sv=2024-01-01&sig=fresh", server.uri());
+        Mock::given(method("GET"))
+            .and(path_regex(r"^/sends/[a-f0-9-]+/file/[^/]+$"))
+            .respond_with(move |_req: &wiremock::Request| {
+                let response = SendFileUploadDataResponseModel {
+                    object: Some("send-fileUpload".to_string()),
+                    url: Some(renewed_url.clone()),
+                    file_upload_type: Some(FileUploadType::Azure),
+                    send_response: None,
+                };
+                ResponseTemplate::new(200).set_body_json(&response)
+            })
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let (client, _repository) = make_test_client(&server);
+
+        let expired_url = format!("{}/container/expired?sv=2024-01-01&sig=old", server.uri());
+
+        client
+            .sends()
+            .upload_send_file(
+                send_id,
+                file_id,
+                "encrypted-name".to_string(),
+                crate::FileUploadType::Azure,
+                expired_url,
+                data,
+            )
+            .await
+            .unwrap();
     }
 
     // ===== renew_file_upload_url =====

@@ -381,7 +381,9 @@ mod tests {
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         let cipher = make_cipher_view();
-        let encrypted_cipher = cipher.encrypt_composite(&mut ctx, user_key_old).unwrap();
+        let encrypted_cipher = EncryptMode::Legacy(cipher.clone())
+            .encrypt_composite(&mut ctx, user_key_old)
+            .unwrap();
 
         // Rotate it
         let ciphers = vec![encrypted_cipher];
@@ -402,7 +404,7 @@ mod tests {
         let user_key_old =
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
         let user_key_new =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XAes256Gcm);
 
         // A legacy cipher that already carries a per-item cipher key
         let mut cipher = make_cipher_view();
@@ -429,7 +431,7 @@ mod tests {
         let user_key_old =
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
         let user_key_new =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XAes256Gcm);
 
         // An already blob-encrypted cipher
         let cipher = make_cipher_view();

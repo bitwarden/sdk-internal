@@ -133,6 +133,14 @@ pub trait OrganizationUsersApi: Send + Sync {
         >,
     ) -> Result<(), Error>;
 
+    /// POST /organizations/users/invite-link/confirm
+    async fn confirm_invite_link<'a>(
+        &self,
+        confirm_organization_invite_link_request_model: Option<
+            models::ConfirmOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
     /// DELETE /organizations/{orgId}/users/{id}/delete-account
     async fn delete_account<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
@@ -158,6 +166,12 @@ pub trait OrganizationUsersApi: Send + Sync {
         include_groups: Option<bool>,
         include_collections: Option<bool>,
     ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error>;
+
+    /// POST /organizations/users/invite-link/invite
+    async fn get_invite<'a>(
+        &self,
+        get_organization_invite_request_model: Option<models::GetOrganizationInviteRequestModel>,
+    ) -> Result<models::OrganizationInviteResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users/mini-details
     async fn get_mini_details<'a>(
@@ -189,8 +203,9 @@ pub trait OrganizationUsersApi: Send + Sync {
     /// PUT /organizations/{orgId}/users/{id}
     async fn put<'a>(
         &self,
-        org_id: uuid::Uuid,
         id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
     ) -> Result<(), Error>;
 
@@ -584,6 +599,30 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
+    async fn confirm_invite_link<'a>(
+        &self,
+        confirm_organization_invite_link_request_model: Option<
+            models::ConfirmOrganizationInviteLinkRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/users/invite-link/confirm",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&confirm_organization_invite_link_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn delete_account<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -686,6 +725,27 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
+    async fn get_invite<'a>(
+        &self,
+        get_organization_invite_request_model: Option<models::GetOrganizationInviteRequestModel>,
+    ) -> Result<models::OrganizationInviteResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/users/invite-link/invite",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&get_organization_invite_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
     async fn get_mini_details<'a>(
         &self,
         org_id: uuid::Uuid,
@@ -782,8 +842,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
 
     async fn put<'a>(
         &self,
-        org_id: uuid::Uuid,
         id: uuid::Uuid,
+        org_id: &'a str,
+        organization: Option<models::Organization>,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
@@ -793,12 +854,16 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/users/{id}",
             local_var_configuration.base_path,
-            orgId = org_id,
-            id = id
+            id = id,
+            orgId = crate::apis::urlencode(org_id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = organization {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("organization", &serde_json::to_value(param_value)?)]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_update_request_model);
 

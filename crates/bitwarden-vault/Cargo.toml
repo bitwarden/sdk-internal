@@ -41,6 +41,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-logging = { workspace = true }
+bitwarden-ssh = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-uuid = { workspace = true }

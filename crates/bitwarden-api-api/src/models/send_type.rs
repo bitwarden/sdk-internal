@@ -16,6 +16,7 @@ use crate::models;
 pub enum SendType {
     Text,
     File,
+    Item,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -26,6 +27,7 @@ impl SendType {
         match self {
             Self::Text => 0,
             Self::File => 1,
+            Self::Item => 2,
             Self::__Unknown(v) => *v,
         }
     }
@@ -34,6 +36,7 @@ impl SendType {
         match value {
             0 => Self::Text,
             1 => Self::File,
+            2 => Self::Item,
             v => Self::__Unknown(v),
         }
     }

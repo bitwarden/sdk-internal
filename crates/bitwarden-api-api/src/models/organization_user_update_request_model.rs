@@ -52,6 +52,12 @@ pub struct OrganizationUserUpdateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub name: Option<String>,
+    #[serde(
+        rename = "defaultUserCollectionName",
+        alias = "DefaultUserCollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_user_collection_name: Option<String>,
 }
 
 impl OrganizationUserUpdateRequestModel {
@@ -64,6 +70,7 @@ impl OrganizationUserUpdateRequestModel {
             groups: None,
             email: None,
             name: None,
+            default_user_collection_name: None,
         }
     }
 }

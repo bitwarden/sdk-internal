@@ -7,10 +7,10 @@
 //! bytes) and uses a cheap KDF.
 
 use bitwarden_crypto::{
-    KeyStore, KeyStoreContext, SymmetricKeyAlgorithm, key_slot_ids,
+    KeyStore, KeyStoreContext, key_slot_ids,
     safe::{
-        HighEntropySecret, SecretProtectedKeyEnvelope, SecretProtectedKeyEnvelopeError,
-        SecretProtectedKeyEnvelopeNamespace,
+        ContentEncryptionKey, HighEntropySecret, SecretProtectedKeyEnvelope,
+        SecretProtectedKeyEnvelopeError, SecretProtectedKeyEnvelopeNamespace,
     },
 };
 
@@ -22,13 +22,16 @@ fn main() {
     // Alice wants to protect a key with a high-entropy secret.
     // For example to:
     // - Protect a send with a random URL fragment secret
-    // - Protect a key with another (derived) key
+    //   - Here, The secret key envelope wraps a KEK, the KEK wraps a CEK, and the CEK wraps the
+    //     data.
+    // - Protect a key with a (derived) secret, external to the SDK
+    //   - Here, the secret key envelope wraps a the key
     // For this, the `SecretProtectedKeyEnvelope` is used.
     // (For low-entropy secrets such as a PIN, use the `PasswordProtectedKeyEnvelope` instead.)
 
     // Alice has some data protected with a symmetric key. She wants the symmetric key protected
     // with a high-entropy secret (here, 16 random bytes).
-    let data_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let data_key = ContentEncryptionKey::make(&mut ctx);
     let secret = HighEntropySecret::make(16).expect("16 bytes is a valid size");
 
     // Seal the key with the secret.
@@ -37,7 +40,8 @@ fn main() {
     let envelope = SecretProtectedKeyEnvelope::seal(
         data_key,
         &secret,
-        SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+        // The namespace must be replaced with an appropriate namespace for the use-case
+        SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         &ctx,
     )
     .expect("Sealing should work");
@@ -55,7 +59,8 @@ fn main() {
     let _unsealed_data_key = deserialized
         .unseal(
             &secret,
-            SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+            // The namespace must be replaced with an appropriate namespace for the use-case
+            SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
             &mut ctx,
         )
         .expect("Unsealing should work");
@@ -66,17 +71,19 @@ fn main() {
         .reseal(
             &secret,
             &new_secret,
-            SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+            // The namespace must be replaced with an appropriate namespace for the use-case
+            SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         )
         .expect("The secret should be valid");
     disk.save("data_key_envelope", (&envelope).into());
 
     // Alice wants to change the protected key. This requires creating a new envelope
-    let data_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+    let data_key = ContentEncryptionKey::make(&mut ctx);
     let envelope = SecretProtectedKeyEnvelope::seal(
         data_key,
         &new_secret,
-        SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+        // The namespace must be replaced with an appropriate namespace for the use-case
+        SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
         &ctx,
     )
     .expect("Sealing should work");
@@ -87,7 +94,8 @@ fn main() {
     assert!(matches!(
         envelope.unseal(
             &wrong_secret,
-            SecretProtectedKeyEnvelopeNamespace::ExampleUse,
+            // The namespace must be replaced with an appropriate namespace for the use-case
+            SecretProtectedKeyEnvelopeNamespace::OrganizationInvite,
             &mut ctx
         ),
         Err(SecretProtectedKeyEnvelopeError::WrongSecret)
