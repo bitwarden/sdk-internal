@@ -142,22 +142,13 @@ jobs:
     runs-on: ubuntu-24.04
     needs: build
     permissions:
-      actions: write
+      id-token: write
     steps:
       - name: Trigger Swift release
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: bitwarden/gh-actions/trigger-actions@main
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: 'bitwarden',
-              repo: 'sdk-internal',
-              workflow_id: 'release-swift.yml',
-              ref: 'main',
-              inputs: {
-                'build-run-id': '${{ github.run_id }}',
-                'build-run-number': '${{ github.run_number }}',
-                'sdk-swift-branch-name': 'unstable',
-                'update-ios-repo': 'true',
-              }
-            })
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          task: release-sdk-swift
+          data: '{"run_number": "${{ github.run_number }}", "sdk_swift_branch_name": "unstable", "update_ios_repo": "true"}'
