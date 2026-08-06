@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use bitwarden_api_api::models::{
     AccessApprovalMode as ApiAccessApprovalMode, AccessDecisionVerdict as ApiAccessDecisionVerdict,
     AccessPreCheckResponseModel, AccessRequestCreateRequestModel,
@@ -422,7 +424,7 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestCreateRequest {
     /// How long the automatic path's lease should run, in seconds. None on the human path.
-    pub duration_seconds: Option<i32>,
+    pub duration_seconds: Option<NonZeroU32>,
     /// The start of the requested window (UTC). Required on the human path.
     pub start: Option<DateTime<Utc>>,
     /// The end of the requested window (UTC). Required on the human path.
@@ -434,7 +436,7 @@ pub struct AccessRequestCreateRequest {
 impl From<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
     fn from(request: AccessRequestCreateRequest) -> Self {
         Self {
-            duration_seconds: request.duration_seconds,
+            duration_seconds: request.duration_seconds.map(|d| d.get() as i32),
             start: request.start.map(|d| d.to_rfc3339()),
             end: request.end.map(|d| d.to_rfc3339()),
             reason: request.reason,
@@ -733,7 +735,7 @@ mod tests {
     #[test]
     fn access_request_create_request_converts_to_model() {
         let request = AccessRequestCreateRequest {
-            duration_seconds: Some(3600),
+            duration_seconds: NonZeroU32::new(3600),
             start: Some("2025-01-01T00:00:00Z".parse().unwrap()),
             end: Some("2025-01-01T01:00:00Z".parse().unwrap()),
             reason: Some("Need access".to_string()),

@@ -133,6 +133,8 @@ impl AccessRequestsClient {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
+
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{
@@ -371,7 +373,7 @@ mod tests {
         });
 
         let request = AccessRequestCreateRequest {
-            duration_seconds: Some(3600),
+            duration_seconds: NonZeroU32::new(3600),
             ..Default::default()
         };
 
