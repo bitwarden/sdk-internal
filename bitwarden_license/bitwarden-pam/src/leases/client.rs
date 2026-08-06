@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_core::{ApiError, FromClient, client::ApiConfigurations};
+use bitwarden_core::{FromClient, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -27,8 +27,7 @@ impl LeasesClient {
             .api_client
             .leases_api()
             .get_active()
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         response
             .data
@@ -45,8 +44,7 @@ impl LeasesClient {
             .api_client
             .leases_api()
             .get_mine()
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         response
             .data
@@ -67,8 +65,7 @@ impl LeasesClient {
             .api_client
             .leases_api()
             .extend(lease_id.into(), request.into())
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         AccessRequestView::try_from(response)
     }
@@ -83,8 +80,7 @@ impl LeasesClient {
             .api_client
             .leases_api()
             .revoke(lease_id.into(), request.into())
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         Ok(())
     }
