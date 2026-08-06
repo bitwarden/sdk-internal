@@ -280,13 +280,19 @@ pub(crate) fn decrypt_attachments_with_failures(
             Ok(decrypted) => successes.push(decrypted),
             Err(e) => {
                 tracing::warn!(attachment_id = ?attachment.id, error = %e, "Failed to decrypt attachment");
+                let recovered_key = attachment.key.as_ref().and_then(|attachment_key| {
+                    let slot = ctx.unwrap_symmetric_key(key, attachment_key).ok()?;
+                    #[allow(deprecated)]
+                    let raw = ctx.dangerous_get_symmetric_key(slot).ok()?.clone();
+                    Some(raw.to_base64().to_string())
+                });
                 failures.push(AttachmentView {
                     id: attachment.id.clone(),
                     url: attachment.url.clone(),
                     size: attachment.size.clone(),
                     size_name: attachment.size_name.clone(),
                     file_name: None,
-                    key: None,
+                    key: recovered_key,
                 });
             }
         }
