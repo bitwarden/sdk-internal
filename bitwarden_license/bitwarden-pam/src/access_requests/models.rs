@@ -53,31 +53,6 @@ impl From<ApiAccessRequestStatus> for AccessRequestStatus {
     }
 }
 
-/// What produced a decision on an access request.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[serde(rename_all = "snake_case")]
-pub enum AccessDeciderKind {
-    /// The decision was made automatically by the governing access rule; no human approval was
-    /// required.
-    Automatic,
-    /// The decision was made by a human approver.
-    Human,
-    /// A decider kind value this SDK version does not recognize. Kept as a distinct variant so
-    /// reading a request's decision log never fails on a newer server's decider kind.
-    Unknown,
-}
-
-impl From<ApiDeciderKind> for AccessDeciderKind {
-    fn from(kind: ApiDeciderKind) -> Self {
-        match kind {
-            ApiDeciderKind::Automatic => Self::Automatic,
-            ApiDeciderKind::Human => Self::Human,
-            ApiDeciderKind::__Unknown(_) => Self::Unknown,
-        }
-    }
-}
-
 /// An approver's verdict on an access request decision.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -104,42 +79,67 @@ impl From<ApiAccessDecisionVerdict> for AccessDecisionVerdict {
 
 /// A single decision recorded on an access request's decision log.
 ///
-/// For an [`Automatic`](AccessDeciderKind::Automatic) decision, `id`, `name`, and `email` are
-/// `None`; for a [`Human`](AccessDeciderKind::Human) decision they carry the approver's identity,
-/// denormalized by the server (`None` only when the user could not be resolved).
+/// Every decision carries a [`verdict`](Self::verdict), an optional [`comment`](Self::comment), and
+/// the time it was [`decided_at`](Self::decided_at). [`decider`](Self::decider) distinguishes an
+/// automatic (access-rule) decision from a human one and, for a human, carries the approver's
+/// identity.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestDecisionView {
     /// Who made the decision.
-    pub decider_kind: AccessDeciderKind,
-    /// The human approver's user id; `None` for an automatic decision.
-    pub id: Option<UserId>,
-    /// The human approver's display name; `None` for an automatic decision, or when the user
-    /// could not be resolved.
-    pub name: Option<String>,
-    /// The human approver's email; `None` for an automatic decision, or when the user could not
-    /// be resolved.
-    pub email: Option<String>,
-    /// The optional note the approver left with the decision.
-    pub comment: Option<String>,
+    pub decider: AccessDecider,
     /// The decision's verdict.
     pub verdict: AccessDecisionVerdict,
+    /// The optional note recorded with the decision.
+    pub comment: Option<String>,
     /// When the decision was recorded (UTC).
     pub decided_at: DateTime<Utc>,
+}
+
+/// Who made a decision on an access request.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub enum AccessDecider {
+    /// The decision was made automatically by the governing access rule; no human approval was
+    /// required.
+    Automatic,
+    /// The decision was made by a human approver, whose identity is denormalized by the server.
+    Human(AccessApprover),
+}
+
+/// The identity of a human approver, denormalized by the server.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct AccessApprover {
+    /// The approver's user id; `None` when the server omitted it.
+    pub id: Option<UserId>,
+    /// The approver's display name; `None` when the user could not be resolved.
+    pub name: Option<String>,
+    /// The approver's email; `None` when the user could not be resolved.
+    pub email: Option<String>,
 }
 
 impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
     type Error = LeasingError;
 
     fn try_from(response: AccessRequestDecisionResponseModel) -> Result<Self, Self::Error> {
+        let decider = match require!(response.decider_kind) {
+            ApiDeciderKind::Automatic => AccessDecider::Automatic,
+            ApiDeciderKind::Human => AccessDecider::Human(AccessApprover {
+                id: response.id.map(UserId::new),
+                name: response.name,
+                email: response.email,
+            }),
+            ApiDeciderKind::__Unknown(_) => return Err(LeasingError::UnrecognizedDeciderKind),
+        };
+
         Ok(Self {
-            decider_kind: AccessDeciderKind::from(require!(response.decider_kind)),
-            id: response.id.map(UserId::new),
-            name: response.name,
-            email: response.email,
-            comment: response.comment,
+            decider,
             verdict: AccessDecisionVerdict::from(require!(response.verdict)),
+            comment: response.comment,
             decided_at: require!(response.decided_at).parse()?,
         })
     }
@@ -304,22 +304,26 @@ mod tests {
         assert_eq!(view.requester_name, Some("Rea Quester".to_string()));
         assert_eq!(view.requester_email, Some("rea@example.com".to_string()));
 
-        let human = &view.decisions[1];
-        assert_eq!(human.decider_kind, AccessDeciderKind::Human);
-        assert_eq!(human.name, Some("Ana Approver".to_string()));
-        assert_eq!(human.email, Some("ana@example.com".to_string()));
-        assert_eq!(human.comment, Some("Looks fine".to_string()));
-        assert_eq!(human.verdict, AccessDecisionVerdict::Approve);
+        assert!(matches!(
+            view.decisions[0].decider,
+            AccessDecider::Automatic
+        ));
+
+        let decision = &view.decisions[1];
+        let AccessDecider::Human(approver) = &decision.decider else {
+            panic!("expected a human decision, got {:?}", decision.decider);
+        };
+        assert_eq!(approver.name.as_deref(), Some("Ana Approver"));
+        assert_eq!(approver.email.as_deref(), Some("ana@example.com"));
+        assert_eq!(decision.comment.as_deref(), Some("Looks fine"));
+        assert_eq!(decision.verdict, AccessDecisionVerdict::Approve);
     }
 
     #[test]
     fn automatic_decision_has_no_approver_identity() {
         let view = AccessRequestDecisionView::try_from(automatic_decision()).unwrap();
 
-        assert_eq!(view.decider_kind, AccessDeciderKind::Automatic);
-        assert_eq!(view.id, None);
-        assert_eq!(view.name, None);
-        assert_eq!(view.email, None);
+        assert!(matches!(view.decider, AccessDecider::Automatic));
     }
 
     #[test]
@@ -335,16 +339,46 @@ mod tests {
     }
 
     #[test]
-    fn unknown_decider_kind_and_verdict_map_to_unknown() {
+    fn unknown_decider_kind_is_rejected() {
         let response = AccessRequestDecisionResponseModel {
             decider_kind: Some(DeciderKind::__Unknown(99)),
+            ..human_decision()
+        };
+
+        assert!(AccessRequestDecisionView::try_from(response).is_err());
+    }
+
+    #[test]
+    fn unknown_verdict_maps_to_unknown() {
+        let response = AccessRequestDecisionResponseModel {
             verdict: Some(ApiAccessDecisionVerdict::__Unknown(99)),
             ..human_decision()
         };
 
         let view = AccessRequestDecisionView::try_from(response).unwrap();
 
-        assert_eq!(view.decider_kind, AccessDeciderKind::Unknown);
         assert_eq!(view.verdict, AccessDecisionVerdict::Unknown);
+    }
+
+    #[test]
+    fn human_decision_serializes_with_nested_approver() {
+        let view = AccessRequestDecisionView::try_from(human_decision()).unwrap();
+
+        let json = serde_json::to_value(&view).unwrap();
+
+        assert_eq!(json["decider"]["human"]["name"], "Ana Approver");
+        assert_eq!(json["decider"]["human"]["email"], "ana@example.com");
+        assert_eq!(json["verdict"], "approve");
+        assert!(json.get("decidedAt").is_some());
+    }
+
+    #[test]
+    fn automatic_decision_serializes_without_approver() {
+        let view = AccessRequestDecisionView::try_from(automatic_decision()).unwrap();
+
+        let json = serde_json::to_value(&view).unwrap();
+
+        assert_eq!(json["decider"], "automatic");
+        assert_eq!(json["verdict"], "approve");
     }
 }

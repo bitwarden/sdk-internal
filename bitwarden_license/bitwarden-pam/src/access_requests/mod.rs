@@ -22,6 +22,6 @@ mod models;
 
 pub use client::AccessRequestsClient;
 pub use models::{
-    AccessDeciderKind, AccessDecisionVerdict, AccessRequestDecisionView, AccessRequestStatus,
-    AccessRequestView,
+    AccessApprover, AccessDecider, AccessDecisionVerdict, AccessRequestDecisionView,
+    AccessRequestStatus, AccessRequestView,
 };

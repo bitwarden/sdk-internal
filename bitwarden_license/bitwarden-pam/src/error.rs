@@ -15,6 +15,9 @@ pub enum LeasingError {
     /// The server response was missing a field required to build the requested type.
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
+    /// The server returned an access-request decider kind this SDK version does not recognize.
+    #[error("The server returned an unrecognized access-request decider kind")]
+    UnrecognizedDeciderKind,
     /// A date field in the server response could not be parsed.
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),
