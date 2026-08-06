@@ -959,30 +959,20 @@ impl CipherView {
         &mut self,
         organization_id: OrganizationId,
     ) -> Result<(), CipherError> {
-        let new_key = SymmetricKeySlotId::Organization(organization_id);
-
-        self.reencrypt_cipher_keys(new_key)?;
+        self.validate_attachment_keys()?;
         self.organization_id = Some(organization_id);
 
         Ok(())
     }
 
-    /// Re-encrypt the cipher key(s) using a new wrapping key.
+    /// Validates that all attachments have keys, returning an error if any are missing.
     ///
-    /// If any attachment is missing a key, returns an error because the attachment
-    /// keys cannot be re-encrypted.
-    pub fn reencrypt_cipher_keys(
-        &mut self,
-        _new_wrapping_key: SymmetricKeySlotId,
-    ) -> Result<(), CipherError> {
-        // If any attachment is missing a key we can't reencrypt the attachment keys
+    /// Key re-wrapping under the new wrapping key happens at encrypt time inside
+    /// `CompositeEncryptable` / `encrypt_legacy_field_encryption`.
+    pub fn validate_attachment_keys(&mut self) -> Result<(), CipherError> {
         if self.attachments.iter().flatten().any(|a| a.key.is_none()) {
             return Err(CipherError::AttachmentsWithoutKeys);
         }
-
-        // The cipher key (self.key) and attachment keys are raw base64; re-wrapping under the
-        // new key happens at encrypt time inside CompositeEncryptable /
-        // encrypt_legacy_field_encryption.
         Ok(())
     }
 
@@ -2514,10 +2504,7 @@ mod tests {
         let mut cipher = generate_cipher();
         cipher.generate_cipher_key(&mut ctx).unwrap();
 
-        // Re-encrypt the cipher key with a new wrapping key
-        let new_key_id = ctx.add_local_symmetric_key(new_key);
-
-        cipher.reencrypt_cipher_keys(new_key_id).unwrap();
+        cipher.validate_attachment_keys().unwrap();
 
         // Raw key bytes are unchanged; verify they can be decoded
         assert!(cipher.key.is_some());
@@ -2532,9 +2519,8 @@ mod tests {
         let mut ctx = key_store.context_mut();
         let mut cipher = generate_cipher();
 
-        // The cipher does not have a key, so re-encryption should not add one
-        let new_cipher_key = ctx.generate_symmetric_key();
-        cipher.reencrypt_cipher_keys(new_cipher_key).unwrap();
+        // The cipher does not have a key, so validation should pass without error
+        cipher.validate_attachment_keys().unwrap();
 
         // Check that the cipher key is still None
         assert!(cipher.key.is_none());

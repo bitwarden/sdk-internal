@@ -148,7 +148,7 @@ impl CiphersClient {
         if cipher_view.key.is_none() && enable_cipher_key_encryption {
             cipher_view.generate_cipher_key(&mut ctx)?;
         } else {
-            cipher_view.reencrypt_cipher_keys(new_key_id)?;
+            cipher_view.validate_attachment_keys()?;
         }
 
         // Rotation installs the new key under a `Local` slot id (`new_key_id`), not the view's
