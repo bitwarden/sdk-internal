@@ -272,7 +272,7 @@ impl<'a> Fido2Authenticator<'a> {
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx)?)
+                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher)?)
                 },
             )
             .flatten_ok()
@@ -404,7 +404,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             if this.create_credential {
                 Ok(creds
                     .into_iter()
-                    .map(|c| CipherViewContainer::new(c, &mut key_store.context()))
+                    .map(|c| CipherViewContainer::new(c))
                     .collect::<Result<_, _>>()?)
             } else {
                 let picked = this
@@ -420,10 +420,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                     .expect("Mutex is not poisoned")
                     .replace(picked.clone());
 
-                Ok(vec![CipherViewContainer::new(
-                    picked,
-                    &mut key_store.context(),
-                )?])
+                Ok(vec![CipherViewContainer::new(picked)?])
             }
         }
 

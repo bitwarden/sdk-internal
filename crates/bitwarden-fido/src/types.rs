@@ -70,7 +70,6 @@ impl Fido2CredentialAutofillView {
     #[allow(missing_docs)]
     pub fn from_cipher_view(
         cipher: &CipherView,
-        _ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
         let credentials = cipher.get_fido2_credentials();
 

@@ -73,10 +73,7 @@ pub(crate) struct CipherViewContainer {
 }
 
 impl CipherViewContainer {
-    fn new(
-        cipher: CipherView,
-        _ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<Self, CipherError> {
+    fn new(cipher: CipherView) -> Result<Self, CipherError> {
         let fido2_credentials = cipher
             .get_fido2_credentials()
             .into_iter()

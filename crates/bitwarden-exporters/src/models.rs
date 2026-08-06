@@ -25,7 +25,7 @@ impl crate::Cipher {
         let view: CipherView = key_store.decrypt(&cipher)?;
 
         let r = match view.r#type {
-            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view, key_store)?)),
+            CipherType::Login => crate::CipherType::Login(Box::new(from_login(&view)?)),
             CipherType::SecureNote => {
                 let s = require!(view.secure_note);
                 crate::CipherType::SecureNote(Box::new(s.into()))
@@ -93,10 +93,7 @@ impl From<PasswordHistoryView> for crate::PasswordHistory {
 }
 
 /// Convert a `LoginView` into a `crate::Login`.
-fn from_login(
-    view: &CipherView,
-    _key_store: &KeyStore<KeySlotIds>,
-) -> Result<crate::Login, MissingFieldError> {
+fn from_login(view: &CipherView) -> Result<crate::Login, MissingFieldError> {
     let l = require!(view.login.clone());
 
     Ok(crate::Login {
@@ -320,7 +317,7 @@ mod tests {
             archived_date: None,
         };
 
-        let login = from_login(&view, &key_store).unwrap();
+        let login = from_login(&view).unwrap();
 
         assert_eq!(login.username, Some("test_username".to_string()));
         assert_eq!(login.password, Some("test_password".to_string()));

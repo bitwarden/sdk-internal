@@ -2497,7 +2497,6 @@ mod tests {
     #[test]
     fn test_reencrypt_cipher_key() {
         let old_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(old_key);
         let mut ctx = key_store.context_mut();
 
@@ -2514,9 +2513,6 @@ mod tests {
 
     #[test]
     fn test_reencrypt_cipher_key_ignores_missing_key() {
-        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let key_store = create_test_crypto_with_user_key(key);
-        let mut ctx = key_store.context_mut();
         let mut cipher = generate_cipher();
 
         // The cipher does not have a key, so validation should pass without error

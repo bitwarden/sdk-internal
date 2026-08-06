@@ -57,6 +57,6 @@ impl TotpClient {
     ) -> Result<TotpResponse, TotpError> {
         let key_store = self.client.internal.get_key_store();
 
-        generate_totp_cipher_view(&mut key_store.context(), view, time)
+        generate_totp_cipher_view(view, time)
     }
 }

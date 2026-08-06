@@ -86,7 +86,6 @@ pub fn generate_totp(key: String, time: Option<DateTime<Utc>>) -> Result<TotpRes
 ///
 /// See [generate_totp] for more information.
 pub fn generate_totp_cipher_view(
-    _ctx: &mut KeyStoreContext<KeySlotIds>,
     view: CipherListView,
     time: Option<DateTime<Utc>>,
 ) -> Result<TotpResponse, TotpError> {
@@ -783,8 +782,7 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
 
-        let response =
-            generate_totp_cipher_view(&mut key_store.context(), view, Some(time)).unwrap();
+        let response = generate_totp_cipher_view(view, Some(time)).unwrap();
         assert_eq!(response.code, "559388".to_string());
         assert_eq!(response.period, 30);
     }
