@@ -911,8 +911,6 @@ impl CipherView {
     ) -> Result<(), CryptoError> {
         let new_key = ctx.generate_symmetric_key();
 
-        // Attachment keys are stored as raw base64 on AttachmentView; re-wrapping under the
-        // new cipher key happens inside CompositeEncryptable at encrypt time.
         #[allow(deprecated)]
         let raw = ctx.dangerous_get_symmetric_key(new_key)?.clone();
         self.key = Some(raw.to_base64().to_string());
