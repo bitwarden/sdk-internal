@@ -83,7 +83,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::filter::Policy;
+    use crate::enforcement::Policy;
 
     fn policy_view(organization_id: Uuid, policy_type: PolicyType, enabled: bool) -> PolicyView {
         PolicyView {
