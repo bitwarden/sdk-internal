@@ -642,7 +642,10 @@ impl CipherView {
         wrapping_key: SymmetricKeySlotId,
     ) -> Result<SymmetricKeySlotId, CryptoError> {
         match &self.key {
-            Some(b64) => attachment::load_symmetric_key_slot(ctx, b64),
+            Some(b64) => {
+                let raw = SymmetricCryptoKey::try_from(b64.clone())?;
+                Ok(ctx.add_local_symmetric_key(raw))
+            }
             None => Ok(wrapping_key),
         }
     }
