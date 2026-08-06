@@ -209,10 +209,11 @@ pub struct ExportArgs {
     pub organization_id: Option<String>,
 }
 
-/// `bw receive <url>`. Field-identical to [`send::SendReceiveArgs`] (`bw send receive`) — the two
-/// are the same command reachable under two names, and both delegate to
+/// `bw receive <url>`. Also used directly as the payload of `SendCommands::Receive` (`bw send
+/// receive`) — the two are the same command reachable under two names, sharing this single arg
+/// struct (rather than a hand-synced copy) so the flag sets can't drift apart. Both delegate to
 /// [`receive::run_receive`].
-#[derive(Args, Clone)]
+#[derive(Args, Clone, Debug)]
 #[command(after_help = "Notes:
     If a password is required, the provided password is used or the user is prompted.")]
 pub struct ReceiveArgs {

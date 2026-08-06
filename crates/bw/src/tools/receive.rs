@@ -10,6 +10,17 @@
 //!
 //! Both `bw receive <url>` and `bw send receive <url>` are the same command; their arg structs
 //! are field-identical and both funnel into [`run_receive`].
+//!
+//! **Known security gap (PM-40120):** [`resolve_urls`] trusts a Send link's host
+//! unconditionally to resolve *both* the API and identity origin — the same class of bug the
+//! legacy CLI has, though the exact mechanism differs there (legacy always mints against the
+//! configured environment but can leak the resulting real token to an attacker-controlled host
+//! on the follow-up fetch). Here, a link pointing at an attacker-controlled host sends the
+//! token-mint request there directly, so a password-protected Send's hashed password (salted
+//! with the fragment key, which the attacker already knows — they crafted the link) goes
+//! straight to that host. A fix (reject, or prompt when the link's host doesn't match the
+//! configured deployment) is pending a product decision on the resulting UX; `resolve_urls` is
+//! where it belongs once decided.
 
 use bitwarden_auth::send_access::{
     SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest, SendEmailCredentials,
@@ -78,7 +89,9 @@ pub(crate) struct ReceiveInputs {
     pub full_object: bool,
 }
 
-/// Entry point shared by [`super::ReceiveArgs`] and [`super::send::SendReceiveArgs`].
+/// Entry point for [`super::ReceiveArgs`]'s `BwCommand` impl, reached both from the top-level
+/// `bw receive` command and from `SendCommands::Receive` (`bw send receive`), which reuses the
+/// same arg struct rather than a hand-synced copy.
 pub(crate) async fn run_receive(inputs: ReceiveInputs) -> CommandResult {
     let url = Url::parse(&inputs.url).wrap_err("Failed to parse the provided Send url")?;
     let (send_id, key_b64) = parse_send_url(&url)?;
@@ -131,6 +144,9 @@ fn parse_send_url(url: &Url) -> Result<(String, String)> {
 ///    the legacy CLI's final fallback.
 ///
 /// Pure so the precedence can be unit-tested without a client or a config file on disk.
+///
+/// See the module-level PM-40120 note: this unconditional host trust is the known security
+/// gap, and this is where its eventual fix belongs.
 fn resolve_urls(url: &Url, config: Option<&ConfigFile>) -> (String, String) {
     if let Some(host) = url.host_str()
         && let Some(region) = CLOUD_HOSTS
@@ -180,9 +196,12 @@ fn trimmed(value: Option<&str>) -> Option<String> {
 /// typed `send_access_error_type` the server returns.
 ///
 /// Legacy wraps every token request in a 3-attempt retry loop (`getTokenWithRetry`) for a
-/// `{kind: "expired"}` case that only exists because browser/extension storage caches tokens
-/// between calls. `bw receive` is a single-shot process with no token cache — the token is minted
-/// and consumed inside this one invocation — so there is nothing to expire and no retry here.
+/// `{kind: "expired"}` case tied to its persistent send-access-token cache — legacy's CLI
+/// caches tokens across invocations too, not just the browser/extension (see the module-level
+/// PM-40120 note: that cross-invocation cache is part of what's under security review). This
+/// port deliberately does not persist tokens across invocations: `bw receive` mints and
+/// consumes the token within one process, so there's nothing to expire and no retry to
+/// replicate.
 async fn attempt_access(
     client: &PasswordManagerClient,
     send_id: &str,
@@ -291,7 +310,11 @@ async fn request_token(
         .map(|response| response.token)
 }
 
-/// The `send_access_error_type` of an `invalid_request` response, if that's what this is.
+/// Extracts the typed `send_access_error_type` from an `invalid_request` response, or `None`
+/// if `err` isn't that shape. `attempt_access` and `access_with_email_otp` both need to branch
+/// on this one sub-field of a deeply nested error enum; centralizing the match here keeps
+/// those call sites down to a single `Some(...) => ...` comparison instead of repeating the
+/// full pattern.
 fn invalid_request_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenInvalidRequestError> {
     match err {
         SendAccessTokenError::Expected(SendAccessTokenApiErrorResponse::InvalidRequest {
@@ -302,7 +325,8 @@ fn invalid_request_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenIn
     }
 }
 
-/// The `send_access_error_type` of an `invalid_grant` response, if that's what this is.
+/// Same idea as [`invalid_request_type`], but for the `invalid_grant` response shape (used to
+/// detect an unknown Send id or an invalid password hash).
 fn invalid_grant_type(err: &SendAccessTokenError) -> Option<&SendAccessTokenInvalidGrantError> {
     match err {
         SendAccessTokenError::Expected(SendAccessTokenApiErrorResponse::InvalidGrant {
