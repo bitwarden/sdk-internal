@@ -225,6 +225,12 @@ fn send_template_file_emits_json_template() {
         stdout.contains("fileName") || stdout.contains("file_name"),
         "expected file_name field in file template, got:\n{stdout}"
     );
+    // `"type": 1` is the file-Send discriminant; `#[derive(Default)]` would silently give 0
+    // (the text discriminant) here since that's `u8::default()`.
+    assert!(
+        stdout.contains("\"type\": 1"),
+        "expected the file-Send type discriminant (1), got:\n{stdout}"
+    );
 }
 
 #[test]
@@ -311,13 +317,53 @@ fn send_edit_with_password_flag_parses() {
     );
 }
 
+// A full-object text `SendView` JSON payload, matching the wire shape `bw send get` and
+// `bw send create --fullObject` emit. Used to exercise the `encoded_json` input path. The
+// binary-driven tests can't reach a real API (no logged-in session/mock server here), so they
+// assert the input *parses* and falls through to the auth check; the field-level merge
+// semantics are unit-tested against the builder functions in `src/tools/send.rs`.
+const FULL_TEXT_SEND_JSON: &str = r#"{
+  "name": "My Send",
+  "hasPassword": false,
+  "type": 0,
+  "text": {"text": "hello", "hidden": false},
+  "accessCount": 0,
+  "disabled": false,
+  "hideEmail": false,
+  "revisionDate": "2025-01-01T00:00:00Z",
+  "deletionDate": "2030-01-01T00:00:00Z",
+  "emails": [],
+  "authType": 2
+}"#;
+
+/// Run `bw <args>` (logged out) piping `stdin_data` to the child's stdin.
+fn bw_with_stdin(args: &[&str], stdin_data: &str) -> std::process::Output {
+    use std::{io::Write as _, process::Stdio};
+
+    let mut child = bw()
+        .args(args)
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn");
+    child
+        .stdin
+        .take()
+        .expect("stdin is piped")
+        .write_all(stdin_data.as_bytes())
+        .expect("write to stdin");
+    child.wait_with_output().expect("wait for child")
+}
+
 #[test]
-fn send_create_encoded_json_returns_not_implemented_error() {
-    // full-object JSON input is not yet implemented. Supplying it should fail
-    // loudly (before the auth check) rather than silently discarding the input and creating
-    // a Send with the CLI-flag defaults.
+fn send_create_encoded_json_positional_parses_then_hits_auth() {
+    // A valid full-object JSON positional must parse and fall through to the auth check
+    // (which fails logged out) — proving the input is accepted, not rejected up-front.
     let output = bw()
-        .args(["send", "create", r#"{"name":"x","type":0}"#])
+        .args(["send", "create", FULL_TEXT_SEND_JSON])
         .env_remove("BW_EMAIL")
         .env_remove("BW_PASSWORD")
         .output()
@@ -325,21 +371,65 @@ fn send_create_encoded_json_returns_not_implemented_error() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("encoded_json") && stderr.contains("not yet implemented"),
-        "expected `encoded_json ... not yet implemented` error, got:\n{stderr}"
+        stderr.contains("not logged in") || stderr.contains("logged in"),
+        "valid JSON should parse and reach the auth check; got:\n{stderr}"
     );
-    // Crucially: the encoded_json error must fire *before* the auth check, so the user sees
-    // their input was unsupported rather than a confusing "not logged in" message.
     assert!(
-        !stderr.contains("not logged in"),
-        "encoded_json check should pre-empt the auth check; got:\n{stderr}"
+        !stderr.contains("Error parsing"),
+        "valid JSON should not produce a parse error; got:\n{stderr}"
     );
 }
 
 #[test]
-fn send_edit_encoded_json_returns_not_implemented_error() {
+fn send_create_encoded_json_via_stdin_matches_positional() {
+    // Piping the same JSON via stdin (no positional) takes the same path as the positional
+    // form: parse succeeds, then auth fails. Also proves the stdin read does not hang.
+    let output = bw_with_stdin(&["send", "create"], FULL_TEXT_SEND_JSON);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("not logged in") || stderr.contains("logged in"),
+        "stdin JSON should parse and reach the auth check; got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("Error parsing"),
+        "stdin JSON should not produce a parse error; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn send_edit_encoded_json_via_stdin_matches_positional() {
+    let id = "25afb11c-9c95-4db5-8bac-c21cb204a3f1";
+    let via_stdin = bw_with_stdin(&["send", "edit", "--itemid", id], FULL_TEXT_SEND_JSON);
+    let via_positional = bw()
+        .args(["send", "edit", "--itemid", id, FULL_TEXT_SEND_JSON])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+
+    for (label, output) in [("stdin", &via_stdin), ("positional", &via_positional)] {
+        assert!(!output.status.success(), "{label}: should fail logged out");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("not logged in") || stderr.contains("logged in"),
+            "{label}: JSON should parse and reach the auth check; got:\n{stderr}"
+        );
+        assert!(
+            !stderr.contains("Error parsing"),
+            "{label}: JSON should not produce a parse error; got:\n{stderr}"
+        );
+    }
+}
+
+#[test]
+fn send_create_encoded_json_base64_parses_like_raw() {
+    // The "accept both transparently" decision: base64-encoded JSON must parse just like raw
+    // JSON and reach the auth check.
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let b64 = STANDARD.encode(FULL_TEXT_SEND_JSON);
     let output = bw()
-        .args(["send", "edit", r#"{"name":"x"}"#])
+        .args(["send", "create", &b64])
         .env_remove("BW_EMAIL")
         .env_remove("BW_PASSWORD")
         .output()
@@ -347,12 +437,60 @@ fn send_edit_encoded_json_returns_not_implemented_error() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("encoded_json") && stderr.contains("not yet implemented"),
-        "expected `encoded_json ... not yet implemented` error, got:\n{stderr}"
+        stderr.contains("not logged in") || stderr.contains("logged in"),
+        "base64-encoded JSON should parse and reach the auth check; got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("Error parsing"),
+        "base64-encoded JSON should not produce a parse error; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn send_create_malformed_json_is_rejected_before_auth() {
+    // Input that is neither valid base64-of-JSON nor valid raw JSON must fail with a clear
+    // parse error that fires *before* the auth check (so the user sees the real problem).
+    let output = bw()
+        .args(["send", "create", "!!!not-base64-and-not-json!!!"])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Error parsing the encoded request data"),
+        "expected a clear parse error, got:\n{stderr}"
     );
     assert!(
         !stderr.contains("not logged in"),
-        "encoded_json check should pre-empt the auth check; got:\n{stderr}"
+        "the parse error must pre-empt the auth check; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn send_edit_malformed_json_is_rejected_before_auth() {
+    let output = bw()
+        .args([
+            "send",
+            "edit",
+            "--itemid",
+            "25afb11c-9c95-4db5-8bac-c21cb204a3f1",
+            "{not valid json",
+        ])
+        .env_remove("BW_EMAIL")
+        .env_remove("BW_PASSWORD")
+        .output()
+        .expect("Failed to execute");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Error parsing the encoded request data"),
+        "expected a clear parse error, got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("not logged in"),
+        "the parse error must pre-empt the auth check; got:\n{stderr}"
     );
 }
 

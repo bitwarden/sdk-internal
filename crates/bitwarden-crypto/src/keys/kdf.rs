@@ -135,6 +135,15 @@ pub enum Kdf {
     },
 }
 
+#[cfg(feature = "wasm")]
+impl TryFrom<wasm_bindgen::JsValue> for Kdf {
+    type Error = serde_wasm_bindgen::Error;
+
+    fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
+        serde_wasm_bindgen::from_value(value)
+    }
+}
+
 impl Kdf {
     /// Default KDF for new encryption V1 accounts.
     pub fn default_pbkdf2() -> Kdf {

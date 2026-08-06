@@ -6,25 +6,34 @@
 //! (which is part of the user contract) stays close to the rest of the
 //! `tools` family.
 
-use std::path::PathBuf;
+use std::{
+    io::{IsTerminal as _, Read as _},
+    path::PathBuf,
+};
 
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use bitwarden_core::{auth::JwtToken, client::persisted_state::AUTHENTICATION_TOKENS};
 use bitwarden_pm::PasswordManagerClient;
 use bitwarden_send::{
-    AuthEdit, SendAddRequest, SendAuthType, SendEditRequest, SendFileView, SendId, SendTextView,
-    SendViewType,
+    AuthEdit, AuthType, SendAddRequest, SendAuthType, SendEditRequest, SendFileView, SendId,
+    SendTextView, SendType, SendView, SendViewType,
 };
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use clap::{
     Args, Subcommand,
     builder::{PossibleValuesParser, TypedValueParser as _},
 };
 use color_eyre::eyre::{Context as _, eyre};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     client_state::{AnyState, BwCommand, BwCommandExt as _, ClientContext, LoggedIn},
     platform::read_config_json,
     render::{CommandOutput, CommandResult},
+    tools::{
+        file_output::reject_path_traversal,
+        receive::{ReceiveInputs, run_receive},
+    },
 };
 
 /// Allowed values for `--deleteInDays`, matching the legacy CLI's enumerated set.
@@ -146,15 +155,43 @@ pub struct SendGetArgs {
     pub text: bool,
 }
 
+/// `bw send receive <url>`. Must stay field-identical to [`super::ReceiveArgs`]
+/// (`bw receive`) — they are the same command under two names, and both delegate to
+/// [`super::receive::run_receive`].
 #[derive(Args, Clone, Debug)]
+#[command(after_help = "Notes:
+    If a password is required, the provided password is used or the user is prompted.")]
 pub struct SendReceiveArgs {
     pub url: String,
 
     #[arg(long, help = "Optional password for the Send.")]
     pub password: Option<String>,
 
-    #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-    pub obj: Option<String>,
+    #[arg(long, help = "Environment variable storing the Send's password.")]
+    pub passwordenv: Option<String>,
+
+    #[arg(
+        long,
+        help = "Path to a file containing the Send's password as its first line."
+    )]
+    pub passwordfile: Option<String>,
+
+    // The internal field is `output_path` (not `output`) to avoid clashing with the top-level
+    // `Cli::output` (the `-o` rendered-output-format arg) — same convention as
+    // `SendGetArgs::output_path`. User-facing long flag stays `--output` to match both that
+    // sibling command and the legacy CLI.
+    #[arg(
+        long = "output",
+        help = "Specify a file path to save a File-type Send to."
+    )]
+    pub output_path: Option<String>,
+
+    #[arg(
+        long = "fullObject",
+        alias = "full-object",
+        help = "Return the Send's json object rather than its content."
+    )]
+    pub full_object: bool,
 }
 
 #[derive(Args, Clone, Debug)]
@@ -278,29 +315,43 @@ impl BwCommand for SendArgs {
                 let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
                 create_shortcut(&user, self).await
             }
-            // `encoded_json` is intentionally pre-empted *before* `dispatch` extracts
-            // `LoggedIn`. The integration tests in `tests/send.rs` assert that supplying
-            // `encoded_json` to `create`/`edit` returns the "not yet implemented" error
-            // even when the caller is logged out — that signals the input is unsupported
-            // rather than burying it behind a confusing auth error.
-            Some(SendCommands::Create(args)) if args.encoded_json.is_some() => Err(eyre!(
-                "`encoded_json` input on `bw send create` is not yet implemented (tracked under PM-39240)."
-            )),
-            Some(SendCommands::Edit(args)) if args.encoded_json.is_some() => Err(eyre!(
-                "`encoded_json` input on `bw send edit` is not yet implemented (tracked under PM-39240)."
-            )),
-            // `--output` on `get` similarly fails before the auth check: silently
-            // emitting JSON to stdout while the requested file path goes uncreated would
-            // be a worse UX than an explicit "not implemented" error.
-            Some(SendCommands::Get(args)) if args.output_path.is_some() => Err(eyre!(
-                "`--output` on `bw send get` is not yet implemented (tracked under PM-39238)."
-            )),
+            // `--output` on `get` fails before the auth check: silently emitting JSON to
+            // stdout while the requested file path goes uncreated would be a worse UX than
+            // an explicit "not implemented" error.
+            Some(SendCommands::Get(args)) if args.output_path.is_some() => {
+                Err(eyre!("`--output` on `bw send get` is not yet implemented"))
+            }
+            // `create`/`edit` resolve and parse their full-object JSON input *before*
+            // extracting `LoggedIn`, so malformed input surfaces a clear parse error rather
+            // than a confusing "not logged in" message (the integration tests assert this
+            // ordering). Input comes from the positional `encoded_json` or, when absent and
+            // stdin is piped, from stdin. Stdin is only consulted when no other input source
+            // was given: a fully specified flag-only invocation must not block on (or
+            // consume) a caller's stdin pipe.
+            Some(SendCommands::Create(args)) => {
+                let stdin_eligible = args.text.is_none() && args.file.is_none();
+                let json = read_encoded_json_input(args.encoded_json.clone(), stdin_eligible)?
+                    .map(|raw| parse_encoded_send_view(&raw))
+                    .transpose()?;
+                let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
+                dispatch_create(&user, args, json).await
+            }
+            Some(SendCommands::Edit(args)) => {
+                let stdin_eligible = args.delete_in_days.is_none()
+                    && args.max_access_count.is_none()
+                    && !args.hidden
+                    && args.password.is_none()
+                    && args.emails.is_none();
+                let json = read_encoded_json_input(args.encoded_json.clone(), stdin_eligible)?
+                    .map(|raw| parse_encoded_send_view(&raw))
+                    .transpose()?;
+                let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
+                dispatch_edit(&user, args, json).await
+            }
             Some(SendCommands::List(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Template(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Get(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Receive(args)) => args.dispatch(ctx).await,
-            Some(SendCommands::Create(args)) => args.dispatch(ctx).await,
-            Some(SendCommands::Edit(args)) => args.dispatch(ctx).await,
             Some(SendCommands::RemovePassword(args)) => args.dispatch(ctx).await,
             Some(SendCommands::Delete(args)) => args.dispatch(ctx).await,
         }
@@ -332,98 +383,120 @@ impl BwCommand for SendGetArgs {
         // The `--output` early-error gate lives in [`SendArgs::run`] above so it can
         // fire *before* the `LoggedIn` typestate extractor — a logged-out caller passing
         // `--output` should see the precise "not yet implemented" error rather than
-        // a generic auth message. The file-decrypt pipeline follow-up is PM-39238.
+        // a generic auth message. See that gate for why it stays unimplemented.
         get_send(&user, self.id, self.text).await
     }
 }
 
 impl BwCommand for SendReceiveArgs {
-    // `bw send receive` is the legacy alias for the top-level `bw receive` command.
-    // Both are tracked under PM-34718 ("[SDK CLI] Receive Command"), a sibling to this
-    // ticket. Routed through `AnyState` so the not-yet-implemented error fires without
-    // an auth check.
+    // `bw send receive` is the legacy alias for the top-level `bw receive` command; both route
+    // into the same implementation. `AnyState` because receiving a Send needs no session — the
+    // decryption key comes from the url fragment, not the account key store.
     type Client = AnyState;
 
     async fn run(self, _: AnyState) -> CommandResult {
-        Err(eyre!(
-            "`bw send receive` is not yet implemented (tracked under PM-34718)."
-        ))
+        run_receive(ReceiveInputs {
+            url: self.url,
+            password: self.password,
+            passwordenv: self.passwordenv,
+            passwordfile: self.passwordfile,
+            output_path: self.output_path,
+            full_object: self.full_object,
+        })
+        .await
     }
 }
 
-impl BwCommand for SendCreateArgs {
-    type Client = LoggedIn;
+/// Run `bw send create`, either from a full-object `SendView` (`json`) or from the
+/// individual CLI flags. The JSON input, when present, has already been resolved and parsed
+/// in [`SendArgs::run`] so parse errors surface before the auth check.
+async fn dispatch_create(
+    user: &PasswordManagerClient,
+    args: SendCreateArgs,
+    json: Option<SendView>,
+) -> CommandResult {
+    let SendCreateArgs {
+        encoded_json: _,
+        file,
+        text,
+        delete_in_days,
+        max_access_count,
+        hidden,
+        name,
+        notes,
+        password,
+        emails,
+        full_object,
+    } = args;
 
-    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
-        // The `encoded_json` early-error gate lives in [`SendArgs::run`] above so it can
-        // fire *before* the `LoggedIn` typestate extractor. Encoded-JSON support is PM-39240.
-        let SendCreateArgs {
-            encoded_json: _,
-            file,
-            text,
-            delete_in_days,
-            max_access_count,
-            hidden,
-            name,
-            notes,
-            password,
-            emails,
-            full_object,
-        } = self;
-
-        let request = build_create_request(CreateInputs {
-            file,
-            text,
-            delete_in_days,
-            max_access_count,
-            hidden,
-            name,
-            notes,
-            password,
-            emails,
-        })?;
-
-        run_create(&user, request, full_object).await
-    }
-}
-
-impl BwCommand for SendEditArgs {
-    type Client = LoggedIn;
-
-    async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
-        // The `encoded_json` early-error gate lives in [`SendArgs::run`] above so it can
-        // fire *before* the `LoggedIn` typestate extractor. Encoded-JSON support is PM-39240.
-        let SendEditArgs {
-            encoded_json: _,
-            itemid,
-            delete_in_days,
-            max_access_count,
-            hidden,
-            password,
-            emails,
-        } = self;
-
-        let send_id = itemid.ok_or_else(|| {
-            eyre!("--itemid is required (or provide it via encoded JSON; see PM-39240).")
-        })?;
-
-        // PM-39240: support full-object JSON input and reject text↔file type changes on edit.
-        let existing = user.sends().get(send_id).await?;
-
-        let request = build_edit_request(
-            existing,
-            EditOverrides {
-                delete_in_days,
+    let request = match json {
+        Some(view) => build_create_request_from_view(
+            view,
+            CreateOverrides {
+                name,
+                notes,
                 max_access_count,
                 hidden,
                 password,
                 emails,
             },
-        )?;
+        )?,
+        None => build_create_request(CreateInputs {
+            file: file.clone(),
+            text,
+            delete_in_days,
+            max_access_count,
+            hidden,
+            name,
+            notes,
+            password,
+            emails,
+        })?,
+    };
 
-        let view = user.sends().edit(send_id, request).await?;
-        Ok(CommandOutput::Object(Box::new(view)))
-    }
+    run_create(user, request, file, full_object).await
+}
+
+/// Run `bw send edit`, either merging a full-object `SendView` (`json`) into the existing
+/// server row or applying the individual CLI-flag overrides. The JSON input, when present,
+/// has already been resolved and parsed in [`SendArgs::run`].
+async fn dispatch_edit(
+    user: &PasswordManagerClient,
+    args: SendEditArgs,
+    json: Option<SendView>,
+) -> CommandResult {
+    let SendEditArgs {
+        encoded_json: _,
+        itemid,
+        delete_in_days,
+        max_access_count,
+        hidden,
+        password,
+        emails,
+    } = args;
+
+    // `--itemid` overrides the `id` carried in the JSON object (legacy precedence); fall back
+    // to the JSON object's own `id` when the flag is absent.
+    let send_id = itemid
+        .or_else(|| json.as_ref().and_then(|v| v.id))
+        .ok_or_else(|| eyre!("--itemid is required (or provide `id` in the encoded JSON)."))?;
+
+    let existing = user.sends().get(send_id).await?;
+
+    let overrides = EditOverrides {
+        delete_in_days,
+        max_access_count,
+        hidden,
+        password,
+        emails,
+    };
+    let request = match json {
+        Some(req) => build_edit_request_from_json(existing, req, overrides)?,
+        None => build_edit_request(existing, overrides)?,
+    };
+
+    let view = user.sends().edit(send_id, request).await?;
+    Ok(CommandOutput::Object(Box::new(view)))
 }
 
 impl BwCommand for SendRemovePasswordArgs {
@@ -490,7 +563,7 @@ struct SendTextTemplateBody {
     hidden: bool,
 }
 
-#[derive(Serialize, Default)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SendFileTemplate {
     name: String,
@@ -501,10 +574,152 @@ struct SendFileTemplate {
     deletion_date: String,
 }
 
+impl Default for SendFileTemplate {
+    fn default() -> Self {
+        // `#[derive(Default)]` would give `send_type: 0`, the text-Send discriminant, since
+        // `u8::default()` is 0 — this struct needs the non-zero file discriminant instead.
+        Self {
+            name: String::new(),
+            notes: String::new(),
+            send_type: 1,
+            file: SendFileTemplateBody::default(),
+            deletion_date: String::new(),
+        }
+    }
+}
+
 #[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct SendFileTemplateBody {
     file_name: String,
+}
+
+/// Resolve the raw full-object JSON input for `create`/`edit`.
+///
+/// Precedence mirrors the legacy CLI: an explicit positional argument wins; otherwise, when
+/// `stdin_eligible` (the caller supplied no other flag that already fully specifies the
+/// command) and stdin is piped (not an interactive terminal), read it. When stdin is a TTY, no
+/// positional was given, or `stdin_eligible` is false, there is no JSON input and the
+/// flag-only path runs.
+///
+/// `stdin_eligible` exists so a fully flag-specified `create`/`edit` never touches stdin: an
+/// unconditional read would block (or silently swallow bytes) when stdin is a non-TTY pipe
+/// that stays open, e.g. `ssh host 'bw send edit --itemid <id> --deleteInDays 3'` or
+/// `docker run -i`. The `is_terminal` guard separately keeps an interactive shell (and the
+/// test harness, which doesn't pipe stdin) from blocking on a read.
+fn read_encoded_json_input(
+    positional: Option<String>,
+    stdin_eligible: bool,
+) -> color_eyre::eyre::Result<Option<String>> {
+    if let Some(raw) = positional {
+        return Ok(Some(raw));
+    }
+    if !stdin_eligible || std::io::stdin().is_terminal() {
+        return Ok(None);
+    }
+    let mut buf = String::new();
+    std::io::stdin().read_to_string(&mut buf)?;
+    if buf.trim().is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(buf))
+}
+
+/// CLI-local shape for the full-object JSON accepted by `create`/`edit`.
+///
+/// Deliberately distinct from [`SendView`] (`deny_unknown_fields`, no field defaults — the
+/// wire contract other SDK consumers rely on): the JSON this command accepts comes from three
+/// sources with different completeness —
+///   - `bw send template` output, which only carries the fields relevant to creation (`name`,
+///     `notes`, `type`, `text`/`file`, `deletionDate`)
+///   - `bw send get`/`--fullObject` output, a full `SendView` that also carries fields this CLI
+///     doesn't model (`object`, `accessUrl`, ...)
+///   - a hand-authored object supplying just the fields the caller cares about
+///
+/// Server-owned/read-only fields default when absent so all three shapes parse, and unknown
+/// keys are silently ignored (no `deny_unknown_fields`) so `bw send get` output round-trips.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SendJsonInput {
+    id: Option<SendId>,
+    access_id: Option<String>,
+    #[serde(default)]
+    name: String,
+    notes: Option<String>,
+    key: Option<String>,
+    new_password: Option<String>,
+    #[serde(default)]
+    has_password: bool,
+    r#type: SendType,
+    file: Option<SendFileView>,
+    text: Option<SendTextView>,
+    max_access_count: Option<u32>,
+    #[serde(default)]
+    access_count: u32,
+    #[serde(default)]
+    disabled: bool,
+    #[serde(default)]
+    hide_email: bool,
+    #[serde(default = "Utc::now")]
+    revision_date: DateTime<Utc>,
+    deletion_date: DateTime<Utc>,
+    expiration_date: Option<DateTime<Utc>>,
+    #[serde(default)]
+    emails: Vec<String>,
+    #[serde(default = "default_auth_type")]
+    auth_type: AuthType,
+}
+
+fn default_auth_type() -> AuthType {
+    AuthType::None
+}
+
+impl From<SendJsonInput> for SendView {
+    fn from(input: SendJsonInput) -> Self {
+        SendView {
+            id: input.id,
+            access_id: input.access_id,
+            name: input.name,
+            notes: input.notes,
+            key: input.key,
+            new_password: input.new_password,
+            has_password: input.has_password,
+            r#type: input.r#type,
+            file: input.file,
+            text: input.text,
+            max_access_count: input.max_access_count,
+            access_count: input.access_count,
+            disabled: input.disabled,
+            hide_email: input.hide_email,
+            revision_date: input.revision_date,
+            deletion_date: input.deletion_date,
+            expiration_date: input.expiration_date,
+            emails: input.emails,
+            auth_type: input.auth_type,
+        }
+    }
+}
+
+/// Decode and parse the full-object JSON input into a [`SendView`].
+///
+/// The input may be base64-encoded JSON (legacy CLI behavior) or raw JSON (this CLI's
+/// convenience). Real JSON text starts with `{` and contains characters outside the base64
+/// alphabet, so decoding as base64 fails fast on raw JSON; when decoding fails (or the decoded
+/// bytes aren't valid UTF-8) we fall back to treating the original string as the JSON text
+/// directly. Either way, JSON is parsed exactly once, so a deserialize failure (e.g. a missing
+/// required field) is always the *real* error — we never re-parse the encoded string as JSON
+/// and mask it behind a generic "expected value" message.
+fn parse_encoded_send_view(raw: &str) -> color_eyre::eyre::Result<SendView> {
+    let trimmed = raw.trim();
+    let json_text = STANDARD
+        .decode(trimmed)
+        .ok()
+        .and_then(|decoded| String::from_utf8(decoded).ok())
+        .unwrap_or_else(|| trimmed.to_string());
+
+    let input: SendJsonInput =
+        serde_json::from_str(&json_text).wrap_err("Error parsing the encoded request data.")?;
+    Ok(input.into())
 }
 
 struct CreateInputs {
@@ -536,13 +751,18 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
 
     let view_type = match (file.as_deref(), text.as_deref()) {
         (Some(path), None) => {
-            // File sends require a premium account; the precondition check is PM-39238.
+            // File sends require a premium account; the precondition is checked in `run_create`
+            // (against the access-token JWT) before the send is created on the server.
             let path = PathBuf::from(path);
             let file_name = path
                 .file_name()
                 .and_then(|s| s.to_str())
                 .ok_or_else(|| eyre!("Could not derive a file name from --file path"))?
                 .to_string();
+            // `size` is intentionally left `None` on create: the legacy client does not set
+            // `file.size` on the create request (a plaintext byte count would not match the
+            // uploaded ciphertext blob). The server derives the size from the uploaded blob; the
+            // ciphertext length is instead sent as `file_length` inside `create_file_send`.
             SendViewType::File(SendFileView {
                 id: None,
                 file_name,
@@ -589,6 +809,90 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
     })
 }
 
+/// CLI-flag overrides applied on top of a full-object JSON `create`.
+struct CreateOverrides {
+    name: Option<String>,
+    notes: Option<String>,
+    max_access_count: Option<u32>,
+    hidden: bool,
+    password: Option<String>,
+    emails: Option<String>,
+}
+
+/// Build a create request from a full-object [`SendView`] (the `encoded_json` path).
+///
+/// This builds the [`SendAddRequest`] directly from the parsed view rather than routing
+/// through [`CreateInputs`]/[`build_create_request`]: `CreateInputs` is flag-shaped (a
+/// relative `--deleteInDays`, a file *path*) and cannot represent the absolute `deletionDate`,
+/// `expirationDate`, `disabled`, or `hideEmail` a full JSON object carries. The JSON object is
+/// authoritative; a CLI flag, when explicitly provided, overrides the corresponding field.
+fn build_create_request_from_view(
+    view: SendView,
+    overrides: CreateOverrides,
+) -> color_eyre::eyre::Result<SendAddRequest> {
+    let CreateOverrides {
+        name,
+        notes,
+        max_access_count,
+        hidden,
+        password,
+        emails,
+    } = overrides;
+
+    let view_type = match view.r#type {
+        SendType::Text => {
+            let text = view.text.unwrap_or(SendTextView {
+                text: None,
+                hidden: false,
+            });
+            SendViewType::Text(SendTextView {
+                text: text.text,
+                hidden: text.hidden || hidden,
+            })
+        }
+        SendType::File => {
+            // Creating a file Send needs the local file bytes to encrypt and upload; a JSON
+            // object only carries the file name, so this can't be supported without a local
+            // `--file <path>`. (File-send creation over the Rust CLI is tracked under PM-39238
+            // regardless of input source.)
+            return Err(eyre!(
+                "Creating file Sends from JSON is not supported: the CLI needs a local file path \
+                 to read and encrypt the contents. Use `--file <path>` instead."
+            ));
+        }
+        SendType::Item => {
+            return Err(eyre!("Creating item Sends is not supported by the CLI."));
+        }
+    };
+
+    let resolved_name = name.unwrap_or(view.name);
+    if resolved_name.is_empty() {
+        return Err(eyre!("--name is required."));
+    }
+
+    // Auth precedence: CLI `--password`/`--emails` win as a unit; otherwise fall back to the
+    // auth carried in the JSON object (`newPassword` / `emails`).
+    let (password, emails) = if password.is_some() || emails.is_some() {
+        (password, emails)
+    } else {
+        let json_emails = (!view.emails.is_empty()).then(|| view.emails.join(","));
+        (view.new_password, json_emails)
+    };
+    let auth = build_auth(password, emails.as_deref())?;
+
+    Ok(SendAddRequest {
+        name: resolved_name,
+        notes: notes.or(view.notes),
+        view_type,
+        max_access_count: max_access_count.or(view.max_access_count),
+        disabled: view.disabled,
+        hide_email: view.hide_email,
+        deletion_date: view.deletion_date,
+        expiration_date: view.expiration_date,
+        auth,
+    })
+}
+
 struct EditOverrides {
     delete_in_days: Option<u64>,
     max_access_count: Option<u32>,
@@ -620,8 +924,13 @@ fn build_edit_request(
             hidden: if hidden { true } else { t.hidden },
         }),
         (None, Some(f)) => SendViewType::File(f),
-        // Sends should always carry exactly one of text/file; the API can in theory return
-        // both. The legacy CLI prefers text in that case, which is what we do here.
+        // Sends should always carry exactly one of text/file; the API can in theory return both.
+        // PM-39238 disambiguation finding (item #4): there is NO deviation from legacy to fix here.
+        // `get` returns the full [`SendView`] (both `text` and `file` preserved), so a caller
+        // reading a mixed-shape response loses nothing. `create` is built from the typed
+        // [`SendViewType`] enum and so is unambiguous by construction. The only place a choice is
+        // forced is `edit`, where a single variant must be reconstructed from the existing row —
+        // preferring text matches the legacy CLI (`SendView.text ?? SendView.file`).
         (Some(t), Some(_)) => SendViewType::Text(SendTextView {
             text: t.text,
             hidden: if hidden { true } else { t.hidden },
@@ -649,11 +958,93 @@ fn build_edit_request(
     })
 }
 
+/// Build an edit request by merging a full-object [`SendView`] (`req`) over the existing
+/// server row, replicating the legacy CLI's precedence.
+///
+/// Unlike the flag-only [`build_edit_request`], the JSON object is a *full replace*, not a
+/// sparse patch: every JSON-owned field (`name`, `notes`, `disabled`, `hideEmail`,
+/// `expirationDate`, `text`/`file`, ...) unconditionally overwrites the existing value, so a
+/// field absent from the JSON is cleared — matching legacy's documented "fetch the full
+/// object, edit it, resubmit the whole thing" workflow.
+///
+/// Precedence exceptions: `--deleteInDays`, `--maxAccessCount`, `--password`, and `--emails`
+/// CLI flags win over the JSON field when explicitly provided (`flag > JSON > existing`), and
+/// auth falls back to `AuthEdit::Preserve` when neither a flag nor the JSON supplies one — so
+/// a resubmit never silently strips a previously configured password/email gate.
+fn build_edit_request_from_json(
+    existing: SendView,
+    req: SendView,
+    overrides: EditOverrides,
+) -> color_eyre::eyre::Result<SendEditRequest> {
+    let EditOverrides {
+        delete_in_days,
+        max_access_count,
+        hidden,
+        password,
+        emails,
+    } = overrides;
+
+    // A Send's type is immutable. Legacy rejects a type change before any encryption/API call;
+    // do the same so the user gets a clear error rather than a server rejection.
+    if req.r#type != existing.r#type {
+        return Err(eyre!("Cannot change a Send's type."));
+    }
+
+    let view_type = match req.r#type {
+        SendType::Text => {
+            let text = req.text.unwrap_or(SendTextView {
+                text: None,
+                hidden: false,
+            });
+            SendViewType::Text(SendTextView {
+                text: text.text,
+                hidden: text.hidden || hidden,
+            })
+        }
+        SendType::File => SendViewType::File(req.file.ok_or_else(|| {
+            eyre!("JSON declares a file Send (type 1) but is missing the `file` object.")
+        })?),
+        SendType::Item => {
+            return Err(eyre!("Editing item Sends is not supported by the CLI."));
+        }
+    };
+
+    let deletion_date = match delete_in_days {
+        Some(d) => compute_deletion_date(d)?,
+        None => req.deletion_date,
+    };
+
+    // Auth precedence: CLI flag > JSON field > preserve existing. Routing through
+    // `build_auth_for_edit` keeps the preserve-by-default fix — `(None, None)` resolves to
+    // `AuthEdit::Preserve`, never a silent auth strip.
+    let (password, emails) = if password.is_some() || emails.is_some() {
+        (password, emails)
+    } else {
+        let json_emails = (!req.emails.is_empty()).then(|| req.emails.join(","));
+        (req.new_password, json_emails)
+    };
+    let auth = build_auth_for_edit(password, emails.as_deref())?;
+
+    Ok(SendEditRequest {
+        name: req.name,
+        notes: req.notes,
+        view_type,
+        max_access_count: max_access_count.or(req.max_access_count),
+        disabled: req.disabled,
+        hide_email: req.hide_email,
+        deletion_date,
+        expiration_date: req.expiration_date,
+        auth,
+    })
+}
+
 async fn create_shortcut(client: &PasswordManagerClient, args: SendArgs) -> CommandResult {
     let data = args
         .data
         .clone()
         .ok_or_else(|| eyre!("Missing <data> argument. Run `bw send --help` for usage."))?;
+
+    let file_path = if args.file { Some(data.clone()) } else { None };
 
     let inputs = if args.file {
         CreateInputs {
@@ -684,26 +1075,30 @@ async fn create_shortcut(client: &PasswordManagerClient, args: SendArgs) -> Comm
     };
 
     let request = build_create_request(inputs)?;
-    run_create(client, request, args.full_object).await
+    run_create(client, request, file_path, args.full_object).await
 }
 
 async fn run_create(
     client: &PasswordManagerClient,
     request: SendAddRequest,
+    file_path: Option<String>,
     full_object: bool,
 ) -> CommandResult {
     let is_file = matches!(request.view_type, SendViewType::File(_));
 
-    // For file sends, the create flow has to follow up with `upload_send_file` using the
-    // encrypted file bytes. The CLI doesn't have the encrypted bytes yet — the file-
-    // encryption step is tracked in PM-39238. For now we surface the gap explicitly.
-    if is_file {
-        return Err(eyre!(
-            "Creating file Sends from the Rust CLI is not yet implemented (tracked under PM-39238)."
-        ));
-    }
+    let view = if is_file {
+        // File sends require a premium membership. Match the legacy CLI's pre-check so the user
+        // gets a clear error before any file is read or any request is sent to the server, rather
+        // than a generic server-side rejection mid-upload.
+        require_premium(client).await?;
 
-    let view = client.sends().create(request).await?;
+        let path = file_path.ok_or_else(|| {
+            eyre!("Internal error: file Send created without a source file path.")
+        })?;
+        run_create_file(client, request, &path).await?
+    } else {
+        client.sends().create(request).await?
+    };
 
     if full_object {
         return Ok(CommandOutput::Object(Box::new(view)));
@@ -713,6 +1108,75 @@ async fn run_create(
     // hand to a recipient. `--fullObject` opts back into the full JSON view.
     let url = build_access_url(client, &view)?;
     Ok(url.into())
+}
+
+/// Full file-send create pipeline:
+/// 1. Read the plaintext file bytes.
+/// 2. `create_file_send` encrypts them under the send key it derives, sends the ciphertext length
+///    as `file_length`, registers the send, and returns the encrypted bytes plus upload metadata
+///    (URL + backend).
+/// 3. The ciphertext is uploaded via `upload_send_file`, which dispatches to the Direct or Azure
+///    backend based on the `file_upload_type` from step 2.
+async fn run_create_file(
+    client: &PasswordManagerClient,
+    request: SendAddRequest,
+    path: &str,
+) -> color_eyre::eyre::Result<bitwarden_send::SendView> {
+    reject_path_traversal("--file", path)?;
+
+    // Read the plaintext before creating the send so a read failure aborts before we register a
+    // send that would then have no content.
+    let bytes = std::fs::read(path).wrap_err_with(|| format!("Could not read file {path}"))?;
+
+    // `create_file_send` performs the encryption internally (so `file_length` on the create request
+    // reflects the true ciphertext length) and hands back the encrypted bytes for the upload.
+    let resp = client.sends().create_file_send(request, bytes).await?;
+
+    let send_id = resp
+        .send
+        .id
+        .ok_or_else(|| eyre!("Server did not return an id for the created file Send."))?;
+
+    client
+        .sends()
+        .upload_send_file(
+            send_id,
+            resp.file_id,
+            resp.encrypted_file_name,
+            resp.file_upload_type,
+            resp.url,
+            resp.encrypted_file_buffer,
+        )
+        .await?;
+
+    Ok(resp.send)
+}
+
+/// Enforce the premium-membership precondition for file Sends by inspecting the `premium` claim on
+/// the current user's access-token JWT (option a from PM-39238). Reads the persisted
+/// [`AUTHENTICATION_TOKENS`] state — the same source the auth middleware attaches to requests — so
+/// no additional token accessor is needed on the client.
+async fn require_premium(client: &PasswordManagerClient) -> color_eyre::eyre::Result<()> {
+    let tokens = client
+        .platform()
+        .state()
+        .setting(AUTHENTICATION_TOKENS)?
+        .get()
+        .await?
+        .ok_or_else(|| eyre!("You must be logged in to create a file Send."))?;
+
+    let claims: JwtToken = tokens
+        .access_token
+        .parse()
+        .wrap_err("Could not parse the current access token.")?;
+
+    if claims.premium == Some(true) {
+        Ok(())
+    } else {
+        Err(eyre!(
+            "A premium membership is required to create file Sends."
+        ))
+    }
 }
 
 /// Build the shareable Send access URL from a decrypted [`bitwarden_send::SendView`].
@@ -1107,6 +1571,9 @@ mod tests {
         assert!(compute_deletion_date(0).is_err());
     }
 
+    // `reject_path_traversal` moved to `tools::file_output` when `bw receive` needed the same
+    // check for `--passwordfile` and its output path; its tests moved with it.
+
     // ---- build_auth ----
 
     #[test]
@@ -1184,8 +1651,15 @@ mod tests {
         assert!(err.to_string().contains("--name is required"));
     }
 
+    /// File create derives the name from the path and leaves `SendFileView.size` unset (`None`):
+    /// the legacy client does not set `file.size` on create (the server derives it from the
+    /// uploaded blob), and a plaintext byte count would not match the uploaded ciphertext. The
+    /// encrypted-buffer length is sent separately as `file_length` inside `create_file_send`.
+    ///
+    /// `build_create_request` does not touch the filesystem, so a placeholder path is fine here;
+    /// the actual file read happens later in `run_create_file`.
     #[test]
-    fn build_create_request_file_derives_name() {
+    fn build_create_request_file_derives_name_and_leaves_size_unset() {
         let req = build_create_request(CreateInputs {
             file: Some("/tmp/secrets.txt".into()),
             text: None,
@@ -1201,7 +1675,10 @@ mod tests {
 
         assert_eq!(req.name, "secrets.txt");
         match req.view_type {
-            SendViewType::File(f) => assert_eq!(f.file_name, "secrets.txt"),
+            SendViewType::File(f) => {
+                assert_eq!(f.file_name, "secrets.txt");
+                assert_eq!(f.size, None, "file.size must be unset on create");
+            }
             other => panic!("expected File, got {other:?}"),
         }
     }
@@ -1459,6 +1936,31 @@ mod tests {
         }
     }
 
+    /// PM-39238 item #4 (disambiguation): when the server returns a Send carrying *both* `text`
+    /// and `file` content, `edit` must reconstruct a single [`SendViewType`] and — matching the
+    /// legacy CLI — prefer text. This pins that behavior so a future refactor can't silently flip
+    /// it to file (which would drop the text body on a partial edit).
+    #[test]
+    fn build_edit_request_prefers_text_when_both_present() {
+        let mut existing = make_existing(AuthType::None, false, vec![]);
+        existing.text = Some(SendTextView {
+            text: Some("the text body".to_string()),
+            hidden: false,
+        });
+        existing.file = Some(SendFileView {
+            id: Some("file-id".to_string()),
+            file_name: "attachment.bin".to_string(),
+            size: Some("10".to_string()),
+            size_name: Some("10 B".to_string()),
+        });
+
+        let req = build_edit_request(existing, no_override_edit()).unwrap();
+        match req.view_type {
+            SendViewType::Text(t) => assert_eq!(t.text.as_deref(), Some("the text body")),
+            other => panic!("expected Text (legacy prefers text on mixed-shape), got {other:?}"),
+        }
+    }
+
     #[test]
     fn build_edit_request_rejects_both_auth_flags() {
         let existing = make_existing(AuthType::None, false, vec![]);
@@ -1474,5 +1976,355 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("mutually exclusive"));
+    }
+
+    // ---- encoded_json parsing ----
+
+    /// A full-object text `SendView` in raw JSON, matching `bw send get`/`create --fullObject`
+    /// output.
+    const RAW_TEXT_SEND_JSON: &str = r#"{"name":"My Send","hasPassword":false,"type":0,"text":{"text":"hello","hidden":false},"accessCount":0,"disabled":false,"hideEmail":false,"revisionDate":"2025-01-01T00:00:00Z","deletionDate":"2030-01-01T00:00:00Z","emails":[],"authType":2}"#;
+
+    /// The "accept both transparently" decision: raw JSON and base64-of-JSON must parse to the
+    /// same `SendView`.
+    #[test]
+    fn parse_encoded_send_view_accepts_raw_and_base64_equivalently() {
+        let from_raw = parse_encoded_send_view(RAW_TEXT_SEND_JSON).unwrap();
+        let b64 = STANDARD.encode(RAW_TEXT_SEND_JSON);
+        let from_b64 = parse_encoded_send_view(&b64).unwrap();
+        assert_eq!(from_raw, from_b64);
+        assert_eq!(from_raw.name, "My Send");
+        assert_eq!(from_raw.r#type, SendType::Text);
+    }
+
+    #[test]
+    fn parse_encoded_send_view_rejects_garbage() {
+        let err = parse_encoded_send_view("!!!not-base64-and-not-json!!!").unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Error parsing the encoded request data")
+        );
+    }
+
+    /// Mirrors `bw send template send.text` output with only the fields the template emits
+    /// (`name`, `notes`, `type`, `text`, `deletionDate`) filled in — the documented
+    /// template -> create round trip. Server-owned fields (`hasPassword`, `accessCount`,
+    /// `revisionDate`, `emails`, `authType`, `disabled`, `hideEmail`) must not be required.
+    #[test]
+    fn parse_encoded_send_view_accepts_template_shaped_json() {
+        let json = r#"{
+            "name": "My Send",
+            "notes": "",
+            "type": 0,
+            "text": {"text": "hello", "hidden": false},
+            "deletionDate": "2030-01-01T00:00:00Z"
+        }"#;
+
+        let view = parse_encoded_send_view(json).expect("template-shaped JSON should parse");
+        assert_eq!(view.name, "My Send");
+        assert!(!view.has_password);
+        assert_eq!(view.access_count, 0);
+        assert!(!view.disabled);
+        assert!(!view.hide_email);
+        assert!(view.emails.is_empty());
+        assert!(matches!(view.auth_type, AuthType::None));
+    }
+
+    /// `bw send get` output carries fields (`object`, `accessUrl`, ...) this CLI doesn't model.
+    /// Rejecting them outright would break the `bw send get <id> | bw send edit` workflow.
+    #[test]
+    fn parse_encoded_send_view_tolerates_unknown_fields() {
+        let json = r#"{
+            "object": "send",
+            "accessUrl": "https://vault.bitwarden.com/#/send/abc/def",
+            "name": "My Send",
+            "hasPassword": false,
+            "type": 0,
+            "text": {"text": "hello", "hidden": false},
+            "accessCount": 0,
+            "disabled": false,
+            "hideEmail": false,
+            "revisionDate": "2025-01-01T00:00:00Z",
+            "deletionDate": "2030-01-01T00:00:00Z",
+            "emails": [],
+            "authType": 2
+        }"#;
+
+        let view = parse_encoded_send_view(json).expect("unknown fields should be ignored");
+        assert_eq!(view.name, "My Send");
+    }
+
+    /// When the input decodes cleanly as base64 but the resulting JSON fails to deserialize,
+    /// the *real* error (e.g. a missing required field) must surface — not a generic
+    /// "expected value" error from re-parsing the base64 string itself as JSON.
+    #[test]
+    fn parse_encoded_send_view_surfaces_real_error_for_valid_base64_invalid_json() {
+        let b64 = STANDARD.encode(r#"{"name": "My Send"}"#);
+        let err = parse_encoded_send_view(&b64).unwrap_err();
+        // `to_string()` only shows the top-level `wrap_err` message; the underlying
+        // serde_json cause (what actually pins this down as the *real* error, not a
+        // re-parse-as-JSON failure) is in the `{:?}` chain.
+        let chain = format!("{err:?}");
+        assert!(
+            chain.contains("missing field"),
+            "expected the real deserialize error, got: {chain}"
+        );
+    }
+
+    // ---- build_create_request_from_view ----
+
+    fn make_text_json(name: &str, notes: Option<&str>, hidden: bool, max: Option<u32>) -> SendView {
+        SendView {
+            id: None,
+            access_id: None,
+            name: name.to_string(),
+            notes: notes.map(String::from),
+            key: None,
+            new_password: None,
+            has_password: false,
+            r#type: SendType::Text,
+            file: None,
+            text: Some(SendTextView {
+                text: Some("body".to_string()),
+                hidden,
+            }),
+            max_access_count: max,
+            access_count: 0,
+            disabled: false,
+            hide_email: false,
+            revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
+            deletion_date: "2030-06-01T00:00:00Z".parse().unwrap(),
+            expiration_date: None,
+            emails: Vec::new(),
+            auth_type: AuthType::None,
+        }
+    }
+
+    fn no_create_overrides() -> CreateOverrides {
+        CreateOverrides {
+            name: None,
+            notes: None,
+            max_access_count: None,
+            hidden: false,
+            password: None,
+            emails: None,
+        }
+    }
+
+    #[test]
+    fn build_create_request_from_view_honors_json_fields() {
+        let view = make_text_json("JSON Name", Some("json notes"), true, Some(9));
+        let req = build_create_request_from_view(view, no_create_overrides()).unwrap();
+
+        assert_eq!(req.name, "JSON Name");
+        assert_eq!(req.notes.as_deref(), Some("json notes"));
+        assert_eq!(req.max_access_count, Some(9));
+        assert_eq!(
+            req.deletion_date,
+            "2030-06-01T00:00:00Z"
+                .parse::<chrono::DateTime<Utc>>()
+                .unwrap()
+        );
+        match req.view_type {
+            SendViewType::Text(t) => {
+                assert_eq!(t.text.as_deref(), Some("body"));
+                assert!(t.hidden);
+            }
+            other => panic!("expected Text, got {other:?}"),
+        }
+        assert!(matches!(req.auth, SendAuthType::None));
+    }
+
+    #[test]
+    fn build_create_request_from_view_flags_override_json() {
+        let view = make_text_json("JSON Name", Some("json notes"), false, Some(9));
+        let req = build_create_request_from_view(
+            view,
+            CreateOverrides {
+                name: Some("Flag Name".into()),
+                notes: Some("flag notes".into()),
+                max_access_count: Some(3),
+                hidden: true,
+                password: Some("pw".into()),
+                emails: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(req.name, "Flag Name");
+        assert_eq!(req.notes.as_deref(), Some("flag notes"));
+        assert_eq!(req.max_access_count, Some(3));
+        match req.view_type {
+            SendViewType::Text(t) => assert!(t.hidden, "--hidden must OR in over JSON"),
+            other => panic!("expected Text, got {other:?}"),
+        }
+        assert!(matches!(req.auth, SendAuthType::Password { .. }));
+    }
+
+    #[test]
+    fn build_create_request_from_view_uses_json_auth_when_no_flags() {
+        let mut view = make_text_json("n", None, false, None);
+        view.emails = vec!["a@b.com".into(), "c@d.com".into()];
+        let req = build_create_request_from_view(view, no_create_overrides()).unwrap();
+        match req.auth {
+            SendAuthType::Emails { emails } => assert_eq!(emails.len(), 2),
+            other => panic!("expected Emails from JSON, got {other:?}"),
+        }
+    }
+
+    /// File Sends can't be created from JSON alone — the CLI needs the local file bytes. This
+    /// must produce a clear, documented error rather than a confusing downstream failure.
+    #[test]
+    fn build_create_request_from_view_rejects_file_type() {
+        let mut view = make_text_json("f", None, false, None);
+        view.r#type = SendType::File;
+        view.text = None;
+        view.file = Some(SendFileView {
+            id: None,
+            file_name: "secret.txt".into(),
+            size: None,
+            size_name: None,
+        });
+        let err = build_create_request_from_view(view, no_create_overrides()).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("file Sends from JSON is not supported"),
+            "got: {err}"
+        );
+    }
+
+    // ---- build_edit_request_from_json ----
+
+    /// Full-object edit honors every JSON-owned field (name, notes, maxAccessCount, deletion
+    /// date, disabled, hideEmail, text/hidden). No auth source → `AuthEdit::Preserve`.
+    #[test]
+    fn build_edit_request_from_json_honors_every_field() {
+        let existing = make_existing(AuthType::None, false, vec![]);
+        let mut req = make_text_json("New Name", Some("new notes"), true, Some(7));
+        req.disabled = true;
+        req.hide_email = true;
+        req.deletion_date = "2031-02-02T00:00:00Z".parse().unwrap();
+
+        let out = build_edit_request_from_json(existing, req, no_override_edit()).unwrap();
+
+        assert_eq!(out.name, "New Name");
+        assert_eq!(out.notes.as_deref(), Some("new notes"));
+        assert_eq!(out.max_access_count, Some(7));
+        assert!(out.disabled);
+        assert!(out.hide_email);
+        assert_eq!(
+            out.deletion_date,
+            "2031-02-02T00:00:00Z"
+                .parse::<chrono::DateTime<Utc>>()
+                .unwrap()
+        );
+        match out.view_type {
+            SendViewType::Text(t) => {
+                assert_eq!(t.text.as_deref(), Some("body"));
+                assert!(t.hidden);
+            }
+            other => panic!("expected Text, got {other:?}"),
+        }
+        assert!(matches!(out.auth, AuthEdit::Preserve));
+    }
+
+    /// Full replace, not sparse patch: a field absent from the JSON is cleared, not carried
+    /// over from the existing server row. (`make_existing` has notes + maxAccessCount set.)
+    #[test]
+    fn build_edit_request_from_json_clears_fields_absent_from_json() {
+        let existing = make_existing(AuthType::None, false, vec![]);
+        let req = make_text_json("n", None, false, None);
+        let out = build_edit_request_from_json(existing, req, no_override_edit()).unwrap();
+        assert_eq!(out.notes, None, "notes absent from JSON must be cleared");
+        assert_eq!(
+            out.max_access_count, None,
+            "maxAccessCount absent from JSON must be cleared"
+        );
+    }
+
+    /// Type is immutable on edit: a text→file (or file→text) change is rejected before any
+    /// API call.
+    #[test]
+    fn build_edit_request_from_json_rejects_type_change() {
+        let existing = make_existing(AuthType::None, false, vec![]);
+        let mut req = make_text_json("n", None, false, None);
+        req.r#type = SendType::File;
+        req.text = None;
+        req.file = Some(SendFileView {
+            id: None,
+            file_name: "f".into(),
+            size: None,
+            size_name: None,
+        });
+        let err = build_edit_request_from_json(existing, req, no_override_edit()).unwrap_err();
+        assert!(
+            err.to_string().contains("Cannot change a Send's type"),
+            "got: {err}"
+        );
+    }
+
+    /// Auth precedence: a CLI `--password` flag beats a JSON-provided email gate.
+    #[test]
+    fn build_edit_request_from_json_cli_flag_beats_json_auth() {
+        let existing = make_existing(AuthType::None, false, vec![]);
+        let mut req = make_text_json("n", None, false, None);
+        req.emails = vec!["a@b.com".into()];
+        let out = build_edit_request_from_json(
+            existing,
+            req,
+            EditOverrides {
+                delete_in_days: None,
+                max_access_count: None,
+                hidden: false,
+                password: Some("pw".into()),
+                emails: None,
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            out.auth,
+            AuthEdit::Set {
+                auth: SendAuthType::Password { .. }
+            }
+        ));
+    }
+
+    /// Auth precedence: with no CLI flags, a JSON-provided email gate is applied (Set).
+    #[test]
+    fn build_edit_request_from_json_uses_json_auth_when_no_flags() {
+        let existing = make_existing(AuthType::Password, true, vec![]);
+        let mut req = make_text_json("n", None, false, None);
+        req.emails = vec!["a@b.com".into(), "c@d.com".into()];
+        let out = build_edit_request_from_json(existing, req, no_override_edit()).unwrap();
+        match out.auth {
+            AuthEdit::Set {
+                auth: SendAuthType::Emails { emails },
+            } => assert_eq!(emails.len(), 2),
+            other => panic!("expected AuthEdit::Set {{ Emails }}, got {other:?}"),
+        }
+    }
+
+    /// `--deleteInDays` overrides the JSON's absolute `deletionDate` (flag > JSON).
+    #[test]
+    fn build_edit_request_from_json_delete_in_days_flag_overrides_json_date() {
+        let existing = make_existing(AuthType::None, false, vec![]);
+        let mut req = make_text_json("n", None, false, None);
+        req.deletion_date = "2031-01-01T00:00:00Z".parse().unwrap();
+        let out = build_edit_request_from_json(
+            existing,
+            req,
+            EditOverrides {
+                delete_in_days: Some(7),
+                max_access_count: None,
+                hidden: false,
+                password: None,
+                emails: None,
+            },
+        )
+        .unwrap();
+        let diff = out.deletion_date - Utc::now();
+        assert!(
+            diff.num_days() >= 6 && diff.num_days() <= 7,
+            "flag deletion date should win over JSON's 2031 date"
+        );
     }
 }

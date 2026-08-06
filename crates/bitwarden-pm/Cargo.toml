@@ -20,6 +20,7 @@ no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto-cipher-suite/uniffi",
+    "bitwarden-crypto-sync-handler/uniffi",
     "bitwarden-exporters/uniffi",
     "bitwarden-fido/uniffi",
     "bitwarden-generators/uniffi",
@@ -35,6 +36,7 @@ wasm = [
     "bitwarden-commercial-vault/wasm",
     "bitwarden-core/wasm",
     "bitwarden-crypto-cipher-suite/wasm",
+    "bitwarden-crypto-sync-handler/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
     "bitwarden-importers/wasm",
@@ -58,6 +60,7 @@ bitwarden-commercial-vault = { workspace = true, optional = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-crypto-cipher-suite = { workspace = true }
+bitwarden-crypto-sync-handler = { workspace = true }
 bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }

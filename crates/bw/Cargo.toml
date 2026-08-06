@@ -23,7 +23,7 @@ bitwarden-api-api = { workspace = true }
 bitwarden-auth = { workspace = true }
 bitwarden-cli = { workspace = true }
 bitwarden-collections = { workspace = true }
-bitwarden-core = { workspace = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-generators = { workspace = true }
 bitwarden-pm = { workspace = true, features = ["cli"] }
 bitwarden-send = { workspace = true }
@@ -43,12 +43,14 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 bitwarden-crypto = { workspace = true }
 bitwarden-test = { workspace = true }
 uuid = { workspace = true }
 wiremock = { workspace = true }
+zeroize = { workspace = true }
 
 [lints]
 workspace = true

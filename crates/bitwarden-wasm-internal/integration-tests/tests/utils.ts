@@ -6,6 +6,8 @@ import {
   V2UpgradeToken,
   WrappedAccountCryptographicState,
   MasterPasswordUnlockData,
+  WebAuthnPrfUnlockData,
+  Kdf,
   PasswordManagerClient,
   init_sdk,
   TokenProvider,
@@ -23,6 +25,7 @@ import {
   SharedUnlockLeader,
   InitUserCryptoMethod,
   ClientSettings,
+  Kdf,
 } from "@bitwarden/sdk-internal";
 import {
   ORG_ACCOUNT_KDF_PARAMS,
@@ -31,6 +34,14 @@ import {
   TEST_ORGANIZATION_ID,
   TEST_ORGANIZATION_KEY,
 } from "./org-fixtures";
+import {
+  V2_DECRYPTED_USER_KEY,
+  V2_KDF_PARAMS,
+  V2_PRIVATE_KEY,
+  V2_SECURITY_STATE,
+  V2_SIGNED_PUBLIC_KEY,
+  V2_SIGNING_KEY,
+} from "./v2-fixtures";
 
 export const encstring = (s: string) => s as unknown as EncString;
 const userId = (s: string) => s as unknown as UserId;
@@ -46,6 +57,10 @@ export function makeStateBridge(): WasmStateBridge {
   let v2UpgradeToken: V2UpgradeToken | null;
   let accountCryptographicState: WrappedAccountCryptographicState | null;
   let masterPasswordUnlockData: MasterPasswordUnlockData | null;
+  let webauthnPrfUnlockData: WebAuthnPrfUnlockData | null;
+  // Initialized, unlike the slots above, so an untouched bridge reports `null` rather than
+  // `undefined` — tests assert on the absence of a KDF config after a failed change.
+  let kdfConfig: Kdf | null = null;
 
   return {
     set_user_key: async (v: SymmetricKey) => {
@@ -103,6 +118,22 @@ export function makeStateBridge(): WasmStateBridge {
     clear_masterpassword_unlock_data: async () => {
       masterPasswordUnlockData = null;
     },
+
+    set_webauthn_prf_unlock_data: async (v: WebAuthnPrfUnlockData) => {
+      webauthnPrfUnlockData = v;
+    },
+    get_webauthn_prf_unlock_data: async () => webauthnPrfUnlockData,
+    clear_webauthn_prf_unlock_data: async () => {
+      webauthnPrfUnlockData = null;
+    },
+
+    set_kdf_config: async (v: Kdf) => {
+      kdfConfig = v;
+    },
+    get_kdf_config: async () => kdfConfig,
+    clear_kdf_config: async () => {
+      kdfConfig = null;
+    },
   };
 }
 
@@ -159,13 +190,25 @@ export function initializeCryptoDefault(client: PasswordManagerClient) {
 export function initializeUserCrypto(
   client: PasswordManagerClient,
   initUserCryptoMethod: InitUserCryptoMethod,
+  kdfParams: Kdf = TEST_KDF_PARAMS,
 ) {
   return client.crypto().initialize_user_crypto({
     userId: TEST_USER_ID,
-    kdfParams: TEST_KDF_PARAMS,
+    kdfParams,
     email: TEST_EMAIL,
     accountCryptographicState: { V1: { private_key: encstring(PRIVATE_KEY) } },
     method: initUserCryptoMethod,
+  });
+}
+
+export function seedMasterPasswordUnlockData(
+  stateBridge: WasmStateBridge,
+  kdf: Kdf = TEST_KDF_PARAMS,
+): Promise<void> {
+  return stateBridge.set_masterpassword_unlock_data({
+    kdf,
+    masterKeyWrappedUserKey: encstring(MASTER_KEY_WRAPPED_USER_KEY),
+    salt: TEST_EMAIL,
   });
 }
 
@@ -174,9 +217,35 @@ export function initializeUserCrypto(
  */
 export async function makeInitializedPasswordmanagerClient(
   stateBridge: WasmStateBridge,
+  settings?: ClientSettings,
 ): Promise<PasswordManagerClient> {
-  const client = makePasswordManagerClient(stateBridge);
+  const client = makePasswordManagerClient(stateBridge, settings);
   await initializeCryptoDefault(client);
+  return client;
+}
+
+/**
+ * Makes a password manager client with the V2 account (see `v2-fixtures.ts`) unlocked.
+ */
+export async function makeV2AccountClient(
+  stateBridge: WasmStateBridge,
+  settings?: ClientSettings,
+): Promise<PasswordManagerClient> {
+  const client = makePasswordManagerClient(stateBridge, settings);
+  await client.crypto().initialize_user_crypto({
+    userId: TEST_USER_ID,
+    kdfParams: V2_KDF_PARAMS,
+    email: TEST_EMAIL,
+    accountCryptographicState: {
+      V2: {
+        private_key: V2_PRIVATE_KEY,
+        signing_key: V2_SIGNING_KEY,
+        security_state: V2_SECURITY_STATE,
+        signed_public_key: V2_SIGNED_PUBLIC_KEY,
+      },
+    },
+    method: { decryptedKey: { decrypted_user_key: V2_DECRYPTED_USER_KEY } },
+  });
   return client;
 }
 
