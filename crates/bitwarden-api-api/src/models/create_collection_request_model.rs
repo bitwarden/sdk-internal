@@ -34,6 +34,12 @@ pub struct CreateCollectionRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub users: Option<Vec<models::SelectionReadOnlyRequestModel>>,
+    #[serde(
+        rename = "accessRuleId",
+        alias = "AccessRuleId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_rule_id: Option<uuid::Uuid>,
 }
 
 impl CreateCollectionRequestModel {
@@ -43,6 +49,7 @@ impl CreateCollectionRequestModel {
             external_id: None,
             groups: None,
             users: None,
+            access_rule_id: None,
         }
     }
 }
