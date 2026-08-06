@@ -123,6 +123,7 @@ pub struct CipherPartialEditRequest {
 /// as the `CipherView` produced will not have all fields populated (e.g. `collection_ids`).
 pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView {
     CipherView {
+        partial: false,
         id: Some(r.id),
         organization_id: r.organization_id,
         folder_id: r.folder_id,
@@ -365,6 +366,7 @@ mod tests {
 
     fn generate_test_cipher() -> CipherView {
         CipherView {
+            partial: false,
             id: Some(TEST_CIPHER_ID.parse().unwrap()),
             organization_id: None,
             folder_id: None,
@@ -425,6 +427,7 @@ mod tests {
             let mut ctx = store.context();
 
             Cipher {
+                partial_data: None,
                 id: Some(cipher_id),
                 organization_id: None,
                 folder_id: None,

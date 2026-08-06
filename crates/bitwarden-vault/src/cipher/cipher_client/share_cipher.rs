@@ -77,6 +77,7 @@ async fn share_ciphers_bulk(
             .await?;
 
         let cipher: Cipher = Cipher {
+            partial_data: None,
             id: cipher_mini.id.map(CipherId::new),
             organization_id: cipher_mini.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(cipher_mini.key)?,
@@ -321,6 +322,7 @@ mod tests {
 
     fn test_cipher_view_without_org() -> CipherView {
         CipherView {
+            partial: false,
             r#type: CipherType::Login,
             login: Some(LoginView {
                 username: Some("test@example.com".to_string()),
@@ -521,6 +523,7 @@ mod tests {
 
         // Create a minimal encrypted cipher for testing the API logic
         let cipher = Cipher {
+                partial_data: None,
                 r#type: CipherType::Login,
                 login: Some(Login {
                     username: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
@@ -687,6 +690,7 @@ mod tests {
 
         // Pre-populate repository with original cipher data that will be used for missing fields
         let original_cipher = Cipher {
+                partial_data: None,
                 r#type: CipherType::Login,
                 login: Some(crate::cipher::Login {
                     username: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
