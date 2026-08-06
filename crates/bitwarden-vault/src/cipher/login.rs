@@ -128,10 +128,9 @@ pub struct Fido2CredentialView {
     pub key_type: String,
     pub key_algorithm: String,
     pub key_curve: String,
-    /// The raw EC private key material for this passkey credential.
-    /// Previously kept as `EncString` until explicitly requested; it is now decrypted eagerly as
-    /// part of the view-layer migration. Callers that receive `Fido2CredentialView` over a binding
-    /// boundary should treat this field with the same care as any private key material.
+    /// The raw private key material for this passkey credential.
+    /// Callers that receive `Fido2CredentialView` over a binding boundary should
+    /// treat this field with the same care as any private key material.
     pub key_value: String,
     pub rp_id: String,
     pub user_handle: Option<String>,
