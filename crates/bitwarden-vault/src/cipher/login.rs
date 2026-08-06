@@ -489,7 +489,8 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, LoginView> for Login {
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
-                .and_then(|c| c.decrypt(ctx, key).ok()),
+                .map(|c| c.decrypt(ctx, key))
+                .transpose()?,
         })
     }
 }
