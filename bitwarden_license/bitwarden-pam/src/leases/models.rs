@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use bitwarden_api_api::models::{
     AccessLeaseExtensionRequestModel, AccessLeaseResponseModel, AccessLeaseRevokeRequestModel,
     AccessLeaseStatus as ApiAccessLeaseStatus,
@@ -101,7 +103,7 @@ impl TryFrom<AccessLeaseResponseModel> for AccessLeaseView {
 pub struct AccessLeaseExtensionRequest {
     /// How much further to push out the lease's end, in seconds. None asks the server to apply the
     /// governing rule's default extension. Must be positive and within the rule's maximum.
-    pub duration_seconds: Option<i32>,
+    pub duration_seconds: Option<NonZeroU32>,
     /// The justification recorded with the extension. Required by the server to be non-empty.
     pub reason: String,
 }
@@ -109,7 +111,7 @@ pub struct AccessLeaseExtensionRequest {
 impl From<AccessLeaseExtensionRequest> for AccessLeaseExtensionRequestModel {
     fn from(request: AccessLeaseExtensionRequest) -> Self {
         Self {
-            duration_seconds: request.duration_seconds,
+            duration_seconds: request.duration_seconds.map(|d| d.get() as i32),
             reason: request.reason,
         }
     }
@@ -129,5 +131,25 @@ impl From<AccessLeaseRevokeRequest> for AccessLeaseRevokeRequestModel {
         Self {
             reason: request.reason,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroU32;
+
+    use super::*;
+
+    #[test]
+    fn access_lease_extension_request_converts_to_model() {
+        let request = AccessLeaseExtensionRequest {
+            duration_seconds: NonZeroU32::new(3600),
+            reason: "Need more time".to_string(),
+        };
+
+        let model = AccessLeaseExtensionRequestModel::from(request);
+
+        assert_eq!(model.duration_seconds, Some(3600));
+        assert_eq!(model.reason, "Need more time".to_string());
     }
 }
