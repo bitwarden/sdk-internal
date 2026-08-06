@@ -258,6 +258,7 @@ impl From<ImportingCipher> for CipherView {
         };
 
         Self {
+            partial: false,
             id: None,
             organization_id: None,
             folder_id: value.folder_id.map(FolderId::new),

@@ -214,6 +214,7 @@ mod tests {
 
     fn generate_test_cipher() -> CipherView {
         CipherView {
+            partial: false,
             id: Some(TEST_CIPHER_ID.parse().unwrap()),
             organization_id: None,
             folder_id: None,

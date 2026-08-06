@@ -104,6 +104,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
 
     Ok(Cipher {
+        partial_data: None,
         // Metadata
         id: view.id,
         organization_id: view.organization_id,
@@ -170,6 +171,7 @@ pub(crate) fn decrypt_blob_cipher(
     let local_data = cipher.local_data.decrypt(ctx, cipher_key).ok().flatten();
 
     let mut view = CipherView {
+        partial: false,
         // Metadata
         id: cipher.id,
         organization_id: cipher.organization_id,
@@ -245,6 +247,7 @@ mod tests {
             )
             .unwrap();
         Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,
