@@ -41,6 +41,9 @@ pub enum CryptoError {
     #[error("Insufficient KDF parameters")]
     InsufficientKdfParameters,
 
+    #[error("Salt must not be empty")]
+    InvalidSalt,
+
     #[error("EncString error, {0}")]
     EncString(#[from] EncStringParseError),
 
