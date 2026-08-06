@@ -224,6 +224,7 @@ mod tests {
 
     fn make_test_cipher(attachments: Option<Vec<Attachment>>) -> Cipher {
         Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,
@@ -316,6 +317,7 @@ mod tests {
     fn make_cipher_view() -> bitwarden_vault::CipherView {
         use bitwarden_vault::{CipherView, LoginView};
         CipherView {
+            partial: false,
             id: None,
             organization_id: None,
             folder_id: None,

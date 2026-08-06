@@ -329,6 +329,7 @@ mod tests {
 
     fn cipher_with(name: EncString, attachments: Option<Vec<Attachment>>) -> Cipher {
         Cipher {
+            partial_data: None,
             id: TEST_CIPHER_ID.parse().ok(),
             name: Some(name),
             r#type: CipherType::Login,
