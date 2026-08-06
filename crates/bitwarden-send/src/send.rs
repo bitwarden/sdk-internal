@@ -93,6 +93,8 @@ pub enum SendType {
     Text = 0,
     /// File-based send
     File = 1,
+    /// Item-based send
+    Item = 2,
 }
 
 /// Indicates the authentication strategy to use when accessing a Send
@@ -310,6 +312,8 @@ impl From<Send> for SendWithIdRequestModel {
             deletion_date: send.deletion_date.to_rfc3339(),
             file: send.file.map(|file| Box::new(file.into())),
             text: send.text.map(|text| Box::new(text.into())),
+            // TODO: Implement logic for item-based Sends
+            data: None,
             password: send.password,
             emails: send.emails,
             disabled: send.disabled,
@@ -653,6 +657,7 @@ impl TryFrom<bitwarden_api_api::models::SendType> for SendType {
         Ok(match t {
             bitwarden_api_api::models::SendType::Text => SendType::Text,
             bitwarden_api_api::models::SendType::File => SendType::File,
+            bitwarden_api_api::models::SendType::Item => SendType::Item,
             bitwarden_api_api::models::SendType::__Unknown(_) => {
                 return Err(bitwarden_core::MissingFieldError("type"));
             }
@@ -665,6 +670,7 @@ impl From<SendType> for bitwarden_api_api::models::SendType {
         match t {
             SendType::Text => bitwarden_api_api::models::SendType::Text,
             SendType::File => bitwarden_api_api::models::SendType::File,
+            SendType::Item => bitwarden_api_api::models::SendType::Item,
         }
     }
 }

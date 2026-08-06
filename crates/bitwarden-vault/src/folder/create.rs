@@ -78,8 +78,7 @@ impl FoldersClient {
             .api_client
             .folders_api()
             .post(Some(folder_request))
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         let folder: Folder = resp.try_into()?;
 

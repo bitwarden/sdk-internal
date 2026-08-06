@@ -89,8 +89,7 @@ impl InviteLinkClient {
                     supports_confirmation: invite.supports_confirmation(),
                 }),
             )
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         OrganizationInviteLink::try_from(response)
     }
@@ -117,8 +116,7 @@ impl InviteLinkClient {
                     supports_confirmation: invite.supports_confirmation(),
                 }),
             )
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         OrganizationInviteLink::try_from(response)
     }
@@ -160,8 +158,7 @@ impl InviteLinkClient {
                 .api_client
                 .organizations_api()
                 .get_public_key(&organization_id.to_string())
-                .await
-                .map_err(ApiError::from)?;
+                .await?;
             Some(
                 require!(response.public_key)
                     .parse::<B64>()
@@ -179,8 +176,7 @@ impl InviteLinkClient {
                 organization_id: organization_id.into(),
                 code,
             }))
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         let invite: Invite = require!(invite_response.invite).parse()?;
 
@@ -245,14 +241,16 @@ impl InviteLinkClient {
 
         let organization_users_api = self.api_configurations.api_client.organization_users_api();
         match request {
-            PendingPost::Confirm(model) => organization_users_api
-                .confirm_invite_link(Some(model))
-                .await
-                .map_err(ApiError::from)?,
-            PendingPost::Accept(model) => organization_users_api
-                .accept_invite_link(Some(model))
-                .await
-                .map_err(ApiError::from)?,
+            PendingPost::Confirm(model) => {
+                organization_users_api
+                    .confirm_invite_link(Some(model))
+                    .await?
+            }
+            PendingPost::Accept(model) => {
+                organization_users_api
+                    .accept_invite_link(Some(model))
+                    .await?
+            }
         }
 
         Ok(())
@@ -269,8 +267,7 @@ impl InviteLinkClient {
             .api_client
             .organizations_api()
             .get_private_key(organization_id.into())
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         let wrapped_private_key: EncString =
             require!(wrapped_private_key_response.private_key).parse()?;

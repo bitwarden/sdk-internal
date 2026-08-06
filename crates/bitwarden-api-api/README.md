@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`f15fee9e1d2f7e9d9502876e773cf1413f6519f0`](https://github.com/bitwarden/server/commit/f15fee9e1d2f7e9d9502876e773cf1413f6519f0)
+  [`5fb52be87ba94df49b5d53caf53907f72bf1cc4c`](https://github.com/bitwarden/server/commit/5fb52be87ba94df49b5d53caf53907f72bf1cc4c)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -120,6 +120,9 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AuthRequestsApi_                         | [**post**](docs/AuthRequestsApi.md#auth_requests_post)                                                                                                           | **POST** /auth-requests                                                                                  |
 | _AuthRequestsApi_                         | [**post_admin_request**](docs/AuthRequestsApi.md#auth_requests_post_admin_request)                                                                               | **POST** /auth-requests/admin-request                                                                    |
 | _AuthRequestsApi_                         | [**put**](docs/AuthRequestsApi.md#auth_requests_put)                                                                                                             | **PUT** /auth-requests/{id}                                                                              |
+| _CipherLeaseApi_                          | [**post**](docs/CipherLeaseApi.md#pam_cipher_lease_post)                                                                                                         | **POST** /leases/ciphers/{id}                                                                            |
+| _CipherLeaseApi_                          | [**pre_check**](docs/CipherLeaseApi.md#pam_cipher_lease_pre_check)                                                                                               | **GET** /leases/ciphers/{id}/pre-check                                                                   |
+| _CipherLeaseApi_                          | [**state**](docs/CipherLeaseApi.md#pam_cipher_lease_state)                                                                                                       | **GET** /leases/ciphers/{id}/state                                                                       |
 | _CiphersApi_                              | [**azure_validate_file**](docs/CiphersApi.md#ciphers_azure_validate_file)                                                                                        | **POST** /ciphers/attachment/validate/azure                                                              |
 | _CiphersApi_                              | [**delete**](docs/CiphersApi.md#ciphers_delete)                                                                                                                  | **DELETE** /ciphers/{id}                                                                                 |
 | _CiphersApi_                              | [**delete_admin**](docs/CiphersApi.md#ciphers_delete_admin)                                                                                                      | **DELETE** /ciphers/{id}/admin                                                                           |
@@ -485,13 +488,11 @@ All URIs are relative to *https://api.bitwarden.com*
 | _SelfHostedOrganizationSponsorshipsApi_   | [**create_sponsorship**](docs/SelfHostedOrganizationSponsorshipsApi.md#self_hosted_organization_sponsorships_create_sponsorship)                                 | **POST** /organization/sponsorship/self-hosted/{sponsoringOrgId}/families-for-enterprise                 |
 | _SelfHostedOrganizationSponsorshipsApi_   | [**get_sponsored_organizations**](docs/SelfHostedOrganizationSponsorshipsApi.md#self_hosted_organization_sponsorships_get_sponsored_organizations)               | **GET** /organization/sponsorship/self-hosted/{orgId}/sponsored                                          |
 | _SelfHostedOrganizationSponsorshipsApi_   | [**revoke_sponsorship**](docs/SelfHostedOrganizationSponsorshipsApi.md#self_hosted_organization_sponsorships_revoke_sponsorship)                                 | **DELETE** /organization/sponsorship/self-hosted/{sponsoringOrgId}                                       |
-| _SendsApi_                                | [**access**](docs/SendsApi.md#sends_access)                                                                                                                      | **POST** /sends/access/{id}                                                                              |
 | _SendsApi_                                | [**access_using_auth**](docs/SendsApi.md#sends_access_using_auth)                                                                                                | **POST** /sends/access                                                                                   |
 | _SendsApi_                                | [**azure_validate_file**](docs/SendsApi.md#sends_azure_validate_file)                                                                                            | **POST** /sends/file/validate/azure                                                                      |
 | _SendsApi_                                | [**delete**](docs/SendsApi.md#sends_delete)                                                                                                                      | **DELETE** /sends/{id}                                                                                   |
 | _SendsApi_                                | [**get**](docs/SendsApi.md#sends_get)                                                                                                                            | **GET** /sends/{id}                                                                                      |
 | _SendsApi_                                | [**get_all**](docs/SendsApi.md#sends_get_all)                                                                                                                    | **GET** /sends                                                                                           |
-| _SendsApi_                                | [**get_send_file_download_data**](docs/SendsApi.md#sends_get_send_file_download_data)                                                                            | **POST** /sends/{encodedSendId}/access/file/{fileId}                                                     |
 | _SendsApi_                                | [**get_send_file_download_data_using_auth**](docs/SendsApi.md#sends_get_send_file_download_data_using_auth)                                                      | **POST** /sends/access/file/{fileId}                                                                     |
 | _SendsApi_                                | [**post**](docs/SendsApi.md#sends_post)                                                                                                                          | **POST** /sends                                                                                          |
 | _SendsApi_                                | [**post_file**](docs/SendsApi.md#sends_post_file)                                                                                                                | **POST** /sends/file/v2                                                                                  |
@@ -559,6 +560,7 @@ All URIs are relative to *https://api.bitwarden.com*
 ## Documentation For Models
 
 - [AcceptOrganizationInviteLinkRequestModel](docs/AcceptOrganizationInviteLinkRequestModel.md)
+- [AccessApprovalMode](docs/AccessApprovalMode.md)
 - [AccessDecisionRequestModel](docs/AccessDecisionRequestModel.md)
 - [AccessDecisionVerdict](docs/AccessDecisionVerdict.md)
 - [AccessLeaseExtensionRequestModel](docs/AccessLeaseExtensionRequestModel.md)
@@ -567,9 +569,12 @@ All URIs are relative to *https://api.bitwarden.com*
 - [AccessLeaseRevokeRequestModel](docs/AccessLeaseRevokeRequestModel.md)
 - [AccessLeaseStatus](docs/AccessLeaseStatus.md)
 - [AccessPolicyRequest](docs/AccessPolicyRequest.md)
+- [AccessPreCheckResponseModel](docs/AccessPreCheckResponseModel.md)
+- [AccessRequestCreateRequestModel](docs/AccessRequestCreateRequestModel.md)
 - [AccessRequestDecisionResponseModel](docs/AccessRequestDecisionResponseModel.md)
 - [AccessRequestDetailsResponseModel](docs/AccessRequestDetailsResponseModel.md)
 - [AccessRequestDetailsResponseModelListResponseModel](docs/AccessRequestDetailsResponseModelListResponseModel.md)
+- [AccessRequestResultResponseModel](docs/AccessRequestResultResponseModel.md)
 - [AccessRequestStatus](docs/AccessRequestStatus.md)
 - [AccessRuleRequestModel](docs/AccessRuleRequestModel.md)
 - [AccessRuleResponseModel](docs/AccessRuleResponseModel.md)
@@ -623,6 +628,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ChangeKdfRequestModel](docs/ChangeKdfRequestModel.md)
 - [ChangePlanFrequencyRequest](docs/ChangePlanFrequencyRequest.md)
 - [CheckoutBillingAddressRequest](docs/CheckoutBillingAddressRequest.md)
+- [CipherAccessStateResponseModel](docs/CipherAccessStateResponseModel.md)
 - [CipherAttachmentModel](docs/CipherAttachmentModel.md)
 - [CipherBankAccountModel](docs/CipherBankAccountModel.md)
 - [CipherBulkArchiveRequestModel](docs/CipherBulkArchiveRequestModel.md)
@@ -1006,7 +1012,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SelectionReadOnlyRequestModel](docs/SelectionReadOnlyRequestModel.md)
 - [SelectionReadOnlyResponseModel](docs/SelectionReadOnlyResponseModel.md)
 - [SelfHostedOrganizationLicenseRequestModel](docs/SelfHostedOrganizationLicenseRequestModel.md)
-- [SendAccessRequestModel](docs/SendAccessRequestModel.md)
 - [SendAccessResponseModel](docs/SendAccessResponseModel.md)
 - [SendFileDownloadDataResponseModel](docs/SendFileDownloadDataResponseModel.md)
 - [SendFileModel](docs/SendFileModel.md)
