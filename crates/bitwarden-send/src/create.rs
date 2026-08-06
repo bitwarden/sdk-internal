@@ -109,6 +109,8 @@ impl
             deletion_date: self.deletion_date.to_rfc3339(),
             file,
             text,
+            // TODO: Implement logic for item-based Sends
+            data: None,
             password,
             emails,
             disabled: self.disabled,
@@ -133,11 +135,7 @@ async fn create_send<R: Repository<Send> + ?Sized>(
 
     let send_request = key_store.encrypt(request)?;
 
-    let resp = api_client
-        .sends_api()
-        .post(Some(send_request))
-        .await
-        .map_err(ApiError::from)?;
+    let resp = api_client.sends_api().post(Some(send_request)).await?;
 
     let send: Send = resp.try_into()?;
 
@@ -196,6 +194,7 @@ mod tests {
                         notes: model.notes,
                         file: model.file,
                         text: model.text,
+                        data: model.data,
                         key: Some(model.key),
                         max_access_count: model.max_access_count,
                         access_count: Some(0),

@@ -15,7 +15,7 @@ pub enum LogLevel {
     Error,
 }
 
-fn convert_level(level: LogLevel) -> Level {
+pub(crate) fn convert_level(level: LogLevel) -> Level {
     match level {
         LogLevel::Trace => Level::TRACE,
         LogLevel::Debug => Level::DEBUG,

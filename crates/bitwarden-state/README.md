@@ -245,3 +245,47 @@ async fn example(client: &TestClient) -> Result<(), Box<dyn std::error::Error>> 
 The `Key<T>` type associates a string key name with a value type at compile time, preventing type
 mismatches while maintaining ergonomic usage. The `Setting<T>` handle provides async methods to get,
 update, and delete the setting value.
+
+## Testing
+
+Most tests run as standard `cargo test` against the native target — the SQLite backend uses
+in-memory connections and the in-memory backend needs no special setup.
+
+```bash
+cargo test -p bitwarden-state --all-features
+```
+
+### IndexedDB browser tests
+
+The IndexedDB backend is only reachable on `wasm32-unknown-unknown` and requires a real browser
+because IndexedDB is a browser API. These tests live under
+[tests/indexed_db.rs](./tests/indexed_db.rs) and are gated behind the `browser-tests` feature so
+they don't break the default WASM build for contributors without a webdriver installed.
+
+To run them locally:
+
+```bash
+cargo test --target wasm32-unknown-unknown -p bitwarden-state --features wasm,browser-tests
+```
+
+The `wasm-bindgen-test-runner` will pick the first webdriver it finds on `PATH`. On macOS the
+easiest option is geckodriver:
+
+```bash
+brew install geckodriver
+brew install --cask firefox   # if not already installed
+```
+
+Alternatives:
+
+- **Chrome**: `brew install --cask chromedriver` (and `google-chrome`). Chromedriver and Chrome
+  versions must match.
+- **Safari**: ships with macOS. Enable with `sudo safaridriver --enable` and then in Safari: Develop
+  → Allow Remote Automation.
+
+To force a specific driver regardless of what else is on `PATH`:
+
+```bash
+GECKODRIVER=$(which geckodriver) cargo test --target wasm32-unknown-unknown \
+    -p bitwarden-state --features wasm,browser-tests
+```

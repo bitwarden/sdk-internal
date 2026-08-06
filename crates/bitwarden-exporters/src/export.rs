@@ -1,7 +1,9 @@
 use bitwarden_collections::collection::Collection;
-use bitwarden_core::{Client, key_management::KeySlotIds};
+use bitwarden_core::{Client, OrganizationId, key_management::KeySlotIds};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
-use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
+use bitwarden_vault::{
+    Cipher, CipherView, EncryptMode, Folder, FolderView, should_use_blob_encryption,
+};
 
 use crate::{
     ExportError, ExportFormat, ImportingCipher,
@@ -69,11 +71,17 @@ pub(crate) fn export_cxf(
     Ok(build_cxf(account, ciphers)?)
 }
 
-fn encrypt_import(
+/// Encrypts a parsed/imported cipher for the user's vault, or for an organization when
+/// `organization_id` is set. Shared by the importers (`import_kdbx`) and by CXF import; lives here
+/// alongside the `ImportingCipher` interchange model and the `From<ImportingCipher> for CipherView`
+/// bridge.
+pub fn encrypt_import(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     cipher: ImportingCipher,
+    organization_id: Option<OrganizationId>,
 ) -> Result<Cipher, ExportError> {
     let mut view: CipherView = cipher.clone().into();
+    view.organization_id = organization_id;
 
     // Get passkey from cipher if cipher is type login
     let passkey = match cipher.r#type {
@@ -87,7 +95,15 @@ fn encrypt_import(
         view.set_new_fido2_credentials(ctx, passkeys)?;
     }
 
-    let new_cipher = view.encrypt_composite(ctx, view.key_identifier())?;
+    // Select the encryption format based on the account's current security state, matching how
+    // regular cipher saves choose between the blob and legacy field-level formats.
+    let key = view.key_identifier();
+    let mode = if should_use_blob_encryption(ctx, organization_id) {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let new_cipher = mode.encrypt_composite(ctx, key)?;
 
     Ok(new_cipher)
 }
@@ -100,7 +116,7 @@ pub(crate) fn import_cxf(client: &Client, payload: String) -> Result<Vec<Cipher>
     let ciphers = parse_cxf(payload)?;
     let ciphers: Result<Vec<Cipher>, _> = ciphers
         .into_iter()
-        .map(|c| encrypt_import(&mut ctx, c))
+        .map(|c| encrypt_import(&mut ctx, c, None))
         .collect();
 
     ciphers

@@ -14,36 +14,22 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordRequestModel {
+    #[serde(rename = "masterPasswordHash", alias = "MasterPasswordHash")]
+    pub master_password_hash: String,
     #[serde(
-        rename = "masterPasswordHash",
-        alias = "MasterPasswordHash",
+        rename = "newMasterPasswordHash",
+        alias = "NewMasterPasswordHash",
         skip_serializing_if = "Option::is_none"
     )]
-    pub master_password_hash: Option<String>,
-    #[serde(rename = "otp", alias = "Otp", skip_serializing_if = "Option::is_none")]
-    pub otp: Option<String>,
-    #[serde(
-        rename = "authRequestAccessCode",
-        alias = "AuthRequestAccessCode",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub auth_request_access_code: Option<String>,
-    #[serde(
-        rename = "secret",
-        alias = "Secret",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub secret: Option<String>,
-    #[serde(rename = "newMasterPasswordHash", alias = "NewMasterPasswordHash")]
-    pub new_master_password_hash: String,
+    pub new_master_password_hash: Option<String>,
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
     #[serde(
         rename = "masterPasswordHint",
         alias = "MasterPasswordHint",
         skip_serializing_if = "Option::is_none"
     )]
     pub master_password_hint: Option<String>,
-    #[serde(rename = "key", alias = "Key")]
-    pub key: String,
     #[serde(
         rename = "authenticationData",
         alias = "AuthenticationData",
@@ -59,15 +45,12 @@ pub struct PasswordRequestModel {
 }
 
 impl PasswordRequestModel {
-    pub fn new(new_master_password_hash: String, key: String) -> PasswordRequestModel {
+    pub fn new(master_password_hash: String) -> PasswordRequestModel {
         PasswordRequestModel {
-            master_password_hash: None,
-            otp: None,
-            auth_request_access_code: None,
-            secret: None,
-            new_master_password_hash,
+            master_password_hash,
+            new_master_password_hash: None,
+            key: None,
             master_password_hint: None,
-            key,
             authentication_data: None,
             unlock_data: None,
         }

@@ -34,18 +34,10 @@ pub struct TrialSendVerificationEmailRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub from_marketing: Option<String>,
-    #[serde(
-        rename = "productTier",
-        alias = "ProductTier",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub product_tier: Option<models::ProductTierType>,
-    #[serde(
-        rename = "products",
-        alias = "Products",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub products: Option<Vec<models::ProductType>>,
+    #[serde(rename = "productTier", alias = "ProductTier")]
+    pub product_tier: models::ProductTierType,
+    #[serde(rename = "products", alias = "Products")]
+    pub products: Vec<models::ProductType>,
     #[serde(
         rename = "trialLength",
         alias = "TrialLength",
@@ -61,14 +53,18 @@ pub struct TrialSendVerificationEmailRequestModel {
 }
 
 impl TrialSendVerificationEmailRequestModel {
-    pub fn new(email: Option<String>) -> TrialSendVerificationEmailRequestModel {
+    pub fn new(
+        email: Option<String>,
+        product_tier: models::ProductTierType,
+        products: Vec<models::ProductType>,
+    ) -> TrialSendVerificationEmailRequestModel {
         TrialSendVerificationEmailRequestModel {
             name: None,
             email,
             receive_marketing_emails: None,
             from_marketing: None,
-            product_tier: None,
-            products: None,
+            product_tier,
+            products,
             trial_length: None,
             payment_optional: None,
         }

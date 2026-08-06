@@ -48,6 +48,17 @@ pub struct BillingCustomerDiscount {
         skip_serializing_if = "Option::is_none"
     )]
     pub amount_off: Option<f64>,
+    /// The instant the discount stops applying (Stripe Discount.end). Null = no end date /
+    /// perpetual.
+    #[serde(rename = "end", alias = "End", skip_serializing_if = "Option::is_none")]
+    pub end: Option<String>,
+    /// For a repeating coupon, the number of months it applies. Null for once/forever.
+    #[serde(
+        rename = "durationInMonths",
+        alias = "DurationInMonths",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub duration_in_months: Option<i64>,
     /// List of Stripe product IDs that this discount applies to (e.g., [\"prod_premium\",
     /// \"prod_families\"]).  Null: discount applies to all products with no restrictions
     /// (AppliesTo not specified in Stripe). Empty list: discount restricted to zero products (edge
@@ -59,6 +70,15 @@ pub struct BillingCustomerDiscount {
         skip_serializing_if = "Option::is_none"
     )]
     pub applies_to: Option<Vec<String>>,
+    /// True when this discount was surfaced from a price-migration schedule's Phase 2 coupon
+    /// rather than a genuine customer- or subscription-level discount. Lets clients distinguish a
+    /// deferred price-migration coupon from a real discount.
+    #[serde(
+        rename = "isFromSchedule",
+        alias = "IsFromSchedule",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_from_schedule: Option<bool>,
 }
 
 impl BillingCustomerDiscount {
@@ -69,7 +89,10 @@ impl BillingCustomerDiscount {
             active: None,
             percent_off: None,
             amount_off: None,
+            end: None,
+            duration_in_months: None,
             applies_to: None,
+            is_from_schedule: None,
         }
     }
 }

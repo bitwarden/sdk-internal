@@ -172,7 +172,7 @@ pub fn fill_with_credential(
         user_name: view.user_name.clone(),
         user_display_name: view.user_display_name.clone(),
         discoverable: "true".to_owned(),
-        creation_date: chrono::offset::Utc::now(),
+        creation_date: view.creation_date,
     })
 }
 

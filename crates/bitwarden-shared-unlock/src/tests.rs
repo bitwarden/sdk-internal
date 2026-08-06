@@ -560,6 +560,306 @@ async fn test_web_source_lock_state_update_with_matching_origin_is_accepted() {
     );
 }
 
+/// Tests that exercise the full encrypted (Noise) transport, including reconnection after the
+/// leader has been offline. Unlike the manual-pump harness above (which uses
+/// [`NoEncryptionCryptoProvider`] and hand-delivers already-decoded payloads), these tests run real
+/// [`IpcClient`] receive loops over a controllable in-memory link so the Noise handshake and
+/// session-cleanup-on-send-failure logic are actually driven.
+mod reconnect {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use bitwarden_ipc::{
+        CommunicationBackend, CommunicationBackendReceiver, Endpoint, ErrorKind, IpcClient,
+        IpcClientImpl, IpcErrorKind, NoiseCryptoProvider, NoiseCryptoProviderState,
+        OutgoingMessage,
+    };
+    use bitwarden_threading::{cancellation_token::CancellationToken, time::sleep};
+    use tokio::sync::{Mutex, RwLock, broadcast};
+
+    use super::*;
+
+    /// Send error for [`Link`]. When the link is offline the destination is unreachable, which the
+    /// Noise provider treats as a benign, non-fatal condition.
+    #[derive(Debug)]
+    enum LinkError {
+        Unreachable,
+    }
+
+    impl IpcErrorKind for LinkError {
+        fn kind(&self) -> ErrorKind {
+            match self {
+                LinkError::Unreachable => ErrorKind::Unreachable,
+            }
+        }
+    }
+
+    /// One end of a bidirectional in-memory transport between two peers. `send` pushes onto the
+    /// peer's incoming channel and `subscribe` reads from our own; a shared `online` flag lets a
+    /// test simulate the peer going offline (sends then fail as unreachable).
+    #[derive(Clone)]
+    struct Link {
+        online: Arc<AtomicBool>,
+        /// The peer's incoming channel: what our sends are delivered into.
+        to_peer: broadcast::Sender<OutgoingMessage>,
+        /// Our own incoming channel: receivers subscribe to this.
+        from_peer: broadcast::Sender<OutgoingMessage>,
+        /// Identity stamped onto messages we receive (i.e. the peer's source).
+        peer_source: Source,
+    }
+
+    struct LinkReceiver {
+        incoming: Mutex<broadcast::Receiver<OutgoingMessage>>,
+        peer_source: Source,
+    }
+
+    impl Link {
+        /// Create a connected pair of links plus the shared online flag that controls both.
+        fn pair() -> (Link, Link, Arc<AtomicBool>) {
+            let online = Arc::new(AtomicBool::new(true));
+            let (follower_incoming, _) = broadcast::channel(256);
+            let (leader_incoming, _) = broadcast::channel(256);
+
+            let follower = Link {
+                online: online.clone(),
+                to_peer: leader_incoming.clone(),
+                from_peer: follower_incoming.clone(),
+                // The follower only ever talks to the leader (desktop).
+                peer_source: Source::DesktopMain,
+            };
+            let leader = Link {
+                online: online.clone(),
+                to_peer: follower_incoming,
+                from_peer: leader_incoming,
+                peer_source: follower_source(),
+            };
+            (follower, leader, online)
+        }
+    }
+
+    impl CommunicationBackend for Link {
+        type SendError = LinkError;
+        type Receiver = LinkReceiver;
+
+        async fn send(&self, message: OutgoingMessage) -> Result<(), Self::SendError> {
+            if !self.online.load(Ordering::SeqCst) {
+                return Err(LinkError::Unreachable);
+            }
+            // A missing receiver just means the message is dropped, not that the peer is
+            // unreachable, so the error is intentionally ignored.
+            let _ = self.to_peer.send(message);
+            Ok(())
+        }
+
+        async fn subscribe(&self) -> Self::Receiver {
+            LinkReceiver {
+                incoming: Mutex::new(self.from_peer.subscribe()),
+                peer_source: self.peer_source.clone(),
+            }
+        }
+    }
+
+    impl CommunicationBackendReceiver for LinkReceiver {
+        type ReceiveError = LinkError;
+
+        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
+            loop {
+                let received = { self.incoming.lock().await.recv().await };
+                match received {
+                    Ok(message) => {
+                        return Ok(IncomingMessage {
+                            payload: message.payload,
+                            destination: message.destination,
+                            source: self.peer_source.clone(),
+                            topic: message.topic,
+                        });
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    // The channel is only closed when the harness is torn down; block forever
+                    // rather than reporting a fatal error mid-test.
+                    Err(broadcast::error::RecvError::Closed) => std::future::pending().await,
+                }
+            }
+        }
+    }
+
+    /// A session repository whose backing store can be inspected and cleared by the test, used to
+    /// simulate a leader that restarted (and thus lost its Noise session) while offline.
+    #[derive(Clone, Default)]
+    struct SharedSessions(Arc<RwLock<HashMap<Endpoint, NoiseCryptoProviderState>>>);
+
+    impl bitwarden_ipc::SessionRepository<NoiseCryptoProviderState> for SharedSessions {
+        type GetError = ();
+        type SaveError = ();
+        type RemoveError = ();
+
+        async fn get(
+            &self,
+            destination: Endpoint,
+        ) -> Result<Option<NoiseCryptoProviderState>, Self::GetError> {
+            Ok(self.0.read().await.get(&destination).cloned())
+        }
+
+        async fn save(
+            &self,
+            destination: Endpoint,
+            session: NoiseCryptoProviderState,
+        ) -> Result<(), Self::SaveError> {
+            self.0.write().await.insert(destination, session);
+            Ok(())
+        }
+
+        async fn remove(&self, destination: Endpoint) -> Result<(), Self::RemoveError> {
+            self.0.write().await.remove(&destination);
+            Ok(())
+        }
+    }
+
+    /// Poll a driver's lock state until it matches `expected` or a generous timeout elapses.
+    async fn wait_for_state(driver: &MockDriver, user: UserId, expected: &LockState) -> bool {
+        for _ in 0..250 {
+            if &driver.get_state(user) == expected {
+                return true;
+            }
+            sleep(Duration::from_millis(20)).await;
+        }
+        &driver.get_state(user) == expected
+    }
+
+    /// A leader + follower connected over an encrypted link, each running real IPC receive loops.
+    struct EncryptedHarness {
+        follower: Follower<MockDriver>,
+        leader_lock: MockDriver,
+        leader_sessions: SharedSessions,
+        online: Arc<AtomicBool>,
+        // Retained for the harness's lifetime; the spawned IPC/leader tasks are torn down when the
+        // test's tokio runtime shuts down at the end of the test.
+        _token: CancellationToken,
+    }
+
+    impl EncryptedHarness {
+        async fn new(
+            leader_states: HashMap<UserId, LockState>,
+            follower_driver: MockDriver,
+        ) -> Self {
+            let (follower_link, leader_link, online) = Link::pair();
+            let token = CancellationToken::new();
+
+            // Leader: an IPC client whose internal loop performs the Noise handshake, plus the
+            // shared-unlock leader that reacts to decoded follower messages.
+            let leader_lock = MockDriver::new(leader_states);
+            let leader_sessions = SharedSessions::default();
+            let leader_ipc: Arc<dyn IpcClient> = Arc::new(IpcClientImpl::new(
+                NoiseCryptoProvider,
+                leader_link,
+                leader_sessions.clone(),
+            ));
+            leader_ipc
+                .start(Some(token.clone()))
+                .await
+                .expect("Leader IPC client should start");
+            let leader = Leader::create(leader_lock.clone(), leader_ipc);
+            leader
+                .start(Some(token.clone()))
+                .await
+                .expect("Leader should start");
+
+            // Follower: only ever sends, so its IPC client does not need its own receive loop.
+            let follower_ipc: Arc<dyn IpcClient> = Arc::new(IpcClientImpl::new(
+                NoiseCryptoProvider,
+                follower_link,
+                bitwarden_ipc::InMemorySessionRepository::<NoiseCryptoProviderState>::new(
+                    HashMap::new(),
+                ),
+            ));
+            let follower = Follower::create(follower_driver, follower_ipc);
+
+            Self {
+                follower,
+                leader_lock,
+                leader_sessions,
+                online,
+                _token: token,
+            }
+        }
+
+        fn set_online(&self, online: bool) {
+            self.online.store(online, Ordering::SeqCst);
+        }
+    }
+
+    /// Full reconnection cycle:
+    /// 1. The follower shares its unlocked state; the leader unlocks.
+    /// 2. The leader goes offline. The follower's next send fails, which clears the follower's
+    ///    Noise session. The (restarted) leader loses its session too.
+    /// 3. The leader comes back online. The follower's first send re-handshakes and successfully
+    ///    re-shares the unlock without needing a second attempt.
+    #[tokio::test]
+    async fn test_reconnect_after_leader_offline_reshares_unlock() {
+        let user = user_a();
+        let key = test_user_key();
+
+        // Leader starts locked; the follower is unlocked and will share its state.
+        let follower_driver = MockDriver::new(HashMap::from([(
+            user,
+            LockState::Unlocked {
+                user_key: key.clone(),
+            },
+        )]));
+        let harness =
+            EncryptedHarness::new(HashMap::from([(user, LockState::Locked)]), follower_driver)
+                .await;
+
+        // --- 1. Share unlock over a freshly established encrypted session ---
+        harness.follower.start_sessions().await;
+        assert!(
+            wait_for_state(
+                &harness.leader_lock,
+                user,
+                &LockState::Unlocked {
+                    user_key: key.clone()
+                }
+            )
+            .await,
+            "Leader should unlock after the follower shares its unlocked state"
+        );
+
+        // --- 2. Leader goes offline; the follower's send fails and clears its crypto state ---
+        harness.set_online(false);
+        // Simulate the leader relocking and losing its Noise session (e.g. a restart) while down.
+        harness
+            .leader_lock
+            .states
+            .lock()
+            .unwrap()
+            .insert(user, LockState::Locked);
+        harness.leader_sessions.0.write().await.clear();
+
+        // This send cannot be delivered; the Noise provider discards the follower's session so the
+        // next send is forced to re-handshake. The follower swallows the unreachable error.
+        harness.follower.start_sessions().await;
+        assert_eq!(
+            harness.leader_lock.get_state(user),
+            LockState::Locked,
+            "Leader must stay locked while offline"
+        );
+
+        // --- 3. Leader is back; the first reconnect attempt re-handshakes and re-shares unlock ---
+        harness.set_online(true);
+        harness.follower.start_sessions().await;
+        assert!(
+            wait_for_state(
+                &harness.leader_lock,
+                user,
+                &LockState::Unlocked {
+                    user_key: key.clone()
+                }
+            )
+            .await,
+            "Leader should unlock again after the follower reconnects on the first attempt"
+        );
+    }
+}
+
 #[tokio::test]
 async fn test_non_web_source_skips_origin_validation() {
     let user = user_a();

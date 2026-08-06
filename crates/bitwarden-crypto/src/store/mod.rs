@@ -29,9 +29,11 @@ use rayon::{iter::Either, prelude::*};
 use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds};
 
 mod backend;
+mod cipher_suite;
 mod context;
 
 use backend::{StoreBackend, create_store};
+pub use cipher_suite::CipherSuite;
 use context::GlobalKeys;
 pub use context::KeyStoreContext;
 
@@ -76,7 +78,7 @@ pub use key_rotation::*;
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeySlotIds::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+/// store.context_mut().set_symmetric_key(SymmKeySlotIds::User, SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac));
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
@@ -122,6 +124,7 @@ struct KeyStoreInner<Ids: KeySlotIds> {
     private_keys: Box<dyn StoreBackend<Ids::Private>>,
     signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
     security_state_version: u64,
+    cipher_suite: CipherSuite,
 }
 
 /// Create a new key store with the best available implementation for the current platform.
@@ -133,6 +136,7 @@ impl<Ids: KeySlotIds> Default for KeyStore<Ids> {
                 private_keys: create_store(),
                 signing_keys: create_store(),
                 security_state_version: 1,
+                cipher_suite: CipherSuite::default(),
             })),
         }
     }
@@ -152,6 +156,14 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     pub fn set_security_state_version(&self, version: u64) {
         let mut data = self.inner.write().expect("RwLock is poisoned");
         data.security_state_version = version;
+    }
+
+    /// Sets the [CipherSuite] for this store, which determines the algorithms operations are
+    /// allowed to use (e.g. the KDF for a new account). This should be set once when the store
+    /// is constructed, based on the client's environment.
+    pub fn set_cipher_suite(&self, cipher_suite: CipherSuite) {
+        let mut data = self.inner.write().expect("RwLock is poisoned");
+        data.cipher_suite = cipher_suite;
     }
 
     /// Initiate an encryption/decryption context. This context will have read only access to the
@@ -187,12 +199,14 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         let data = self.inner.read().expect("RwLock is poisoned");
         let security_state_version = data.security_state_version;
+        let cipher_suite = data.cipher_suite;
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(data),
             local_symmetric_keys: create_store(),
             local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
+            cipher_suite,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -220,12 +234,14 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     pub fn context_mut(&'_ self) -> KeyStoreContext<'_, Ids> {
         let inner = self.inner.write().expect("RwLock is poisoned");
         let security_state_version = inner.security_state_version;
+        let cipher_suite = inner.cipher_suite;
         KeyStoreContext {
             global_keys: GlobalKeys::ReadWrite(inner),
             local_symmetric_keys: create_store(),
             local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
+            cipher_suite,
             _phantom: std::marker::PhantomData,
         }
     }

@@ -2,20 +2,23 @@
 
 use std::{error, fmt};
 
+use serde::{Deserialize, Serialize};
+
 /// Response content from a failed API call.
-#[derive(Debug)]
-pub struct ResponseContent<T = ()> {
+#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct ResponseContent {
     /// HTTP status code of the response.
+    #[serde(with = "crate::status_code_serializer")]
     pub status: reqwest::StatusCode,
-    /// Raw response body content.
-    pub content: String,
-    /// Deserialized entity from the response.
-    pub entity: Option<T>,
+    /// Response body content.
+    pub message: String,
 }
 
 /// Errors that can occur during API operations.
 #[derive(Debug)]
-pub enum Error<T = ()> {
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+pub enum ApiError {
     /// Error from the reqwest HTTP client.
     Reqwest(reqwest::Error),
     /// Error from the reqwest middleware.
@@ -25,54 +28,66 @@ pub enum Error<T = ()> {
     /// I/O error.
     Io(std::io::Error),
     /// API returned an error response.
-    ResponseError(ResponseContent<T>),
+    Response(ResponseContent),
 }
 
-impl<T> fmt::Display for Error<T> {
+/// Error alias for backwards compatibility, prefer `ApiError` instead.
+pub type Error = ApiError;
+
+impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (module, e) = match self {
             Error::Reqwest(e) => ("reqwest", e.to_string()),
             Error::ReqwestMiddleware(e) => ("reqwest-middleware", e.to_string()),
             Error::Serde(e) => ("serde", e.to_string()),
             Error::Io(e) => ("IO", e.to_string()),
-            Error::ResponseError(e) => ("response", format!("status code {}", e.status)),
+            Error::Response(e) => (
+                "response",
+                format!("status code {}: {}", e.status, e.message),
+            ),
         };
         write!(f, "error in {}: {}", module, e)
     }
 }
 
-impl<T: fmt::Debug> error::Error for Error<T> {
+impl error::Error for ApiError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(match self {
             Error::Reqwest(e) => e,
             Error::ReqwestMiddleware(e) => e,
             Error::Serde(e) => e,
             Error::Io(e) => e,
-            Error::ResponseError(_) => return None,
+            Error::Response(_) => return None,
         })
     }
 }
 
-impl<T> From<reqwest::Error> for Error<T> {
+impl From<reqwest::Error> for ApiError {
     fn from(e: reqwest::Error) -> Self {
-        Error::Reqwest(e)
+        Self::Reqwest(e)
     }
 }
 
-impl<T> From<reqwest_middleware::Error> for Error<T> {
+impl From<reqwest_middleware::Error> for ApiError {
     fn from(e: reqwest_middleware::Error) -> Self {
-        Error::ReqwestMiddleware(e)
+        Self::ReqwestMiddleware(e)
     }
 }
 
-impl<T> From<serde_json::Error> for Error<T> {
+impl From<serde_json::Error> for ApiError {
     fn from(e: serde_json::Error) -> Self {
-        Error::Serde(e)
+        Self::Serde(e)
     }
 }
 
-impl<T> From<std::io::Error> for Error<T> {
+impl From<std::io::Error> for ApiError {
     fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
+        Self::Io(e)
+    }
+}
+
+impl From<ResponseContent> for ApiError {
+    fn from(value: ResponseContent) -> Self {
+        Self::Response(value)
     }
 }

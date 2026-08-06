@@ -27,6 +27,7 @@ pub struct SecretPutRequest {
     #[validate(length(max = 7_000), custom(function = validate_only_whitespaces))]
     pub note: String,
     pub project_ids: Option<Vec<Uuid>>,
+    pub value_changed: bool,
 }
 
 pub(crate) async fn update_secret(
@@ -52,7 +53,7 @@ pub(crate) async fn update_secret(
                 .to_string(),
             project_ids: input.project_ids.clone(),
             access_policies_requests: None,
-            value_changed: None,
+            value_changed: Some(input.value_changed),
         })
     };
 
@@ -82,6 +83,7 @@ mod tests {
             value: value.unwrap_or_else(|| "test value".into()),
             note: note.unwrap_or_else(|| "test note".into()),
             project_ids: Some(vec![Uuid::new_v4()]),
+            value_changed: false,
         };
 
         super::update_secret(&SecretsManagerClient::new(None), &input).await

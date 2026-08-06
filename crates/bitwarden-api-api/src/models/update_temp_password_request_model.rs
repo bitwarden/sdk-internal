@@ -15,18 +15,6 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateTempPasswordRequestModel {
     #[serde(
-        rename = "resetMasterPassword",
-        alias = "ResetMasterPassword",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub reset_master_password: Option<bool>,
-    #[serde(
-        rename = "resetTwoFactor",
-        alias = "ResetTwoFactor",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub reset_two_factor: Option<bool>,
-    #[serde(
         rename = "newMasterPasswordHash",
         alias = "NewMasterPasswordHash",
         skip_serializing_if = "Option::is_none"
@@ -40,16 +28,28 @@ pub struct UpdateTempPasswordRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub master_password_hint: Option<String>,
+    #[serde(
+        rename = "unlockData",
+        alias = "UnlockData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unlock_data: Option<Box<models::MasterPasswordUnlockDataRequestModel>>,
+    #[serde(
+        rename = "authenticationData",
+        alias = "AuthenticationData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub authentication_data: Option<Box<models::MasterPasswordAuthenticationDataRequestModel>>,
 }
 
 impl UpdateTempPasswordRequestModel {
     pub fn new() -> UpdateTempPasswordRequestModel {
         UpdateTempPasswordRequestModel {
-            reset_master_password: None,
-            reset_two_factor: None,
             new_master_password_hash: None,
             key: None,
             master_password_hint: None,
+            unlock_data: None,
+            authentication_data: None,
         }
     }
 }

@@ -88,6 +88,9 @@
 //! The follower sends a `HeartBeat` for each logged-in user every [`HEARTBEAT_INTERVAL`]
 //! On receiving the echo, the follower suppresses its vault timeout timer,
 //! keeping the vault unlocked as long as the session is active. Stale sessions are pruned.
+//! If the leader receives a `HeartBeat` from a user it does not know (for example due to a process
+//! reload), it responds with a `RequestSessionStart` message to request the follower to start a
+//! session.
 //!
 //! ## Security Definitions
 //!
@@ -129,7 +132,7 @@ pub use message::*;
 pub mod wasm;
 
 /// Interval used by followers to send heartbeat keep-alive messages to their leader.
-pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
 /// Additional grace period added to the vault timeout when suppressing it on heartbeat
 pub const VAULT_TIMEOUT_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(1);
 

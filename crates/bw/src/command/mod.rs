@@ -10,6 +10,7 @@
 //! command's logic and returns a [`crate::render::CommandOutput`].
 
 use bitwarden_cli::Color;
+use bitwarden_pm::SessionKey;
 use clap::{Parser, Subcommand};
 
 use crate::{
@@ -43,9 +44,10 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 
-    #[arg(short = 'o', long, global = true, value_enum, default_value_t = Output::JSON)]
+    #[arg(short = 'o', global = true, value_enum, default_value_t = Output::JSON)]
     pub output: Output,
 
+    /// Color
     #[arg(short = 'c', long, global = true, value_enum, default_value_t = Color::Auto)]
     pub color: Color,
 
@@ -56,7 +58,7 @@ pub struct Cli {
         env = SESSION_ENV,
         help = "The session key used to decrypt your vault data. Can be obtained with `bw login` or `bw unlock`."
     )]
-    pub session: Option<String>,
+    pub session: Option<SessionKey>,
 
     #[arg(
         long,

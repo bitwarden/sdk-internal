@@ -1,5 +1,5 @@
 use bitwarden_exporters::ExportError;
-use bitwarden_generators::{PassphraseError, PasswordError, UsernameError};
+use bitwarden_generators::{PassphraseError, PasswordError, PasswordRulesError, UsernameError};
 
 pub type Result<T, E = BitwardenError> = std::result::Result<T, E>;
 pub type Error = BitwardenError;
@@ -22,6 +22,8 @@ pub enum BitwardenError {
     ),
     #[error(transparent)]
     MobileCrypto(#[from] bitwarden_core::key_management::crypto::CryptoClientError),
+    #[error(transparent)]
+    ReinitUserCrypto(#[from] bitwarden_core::key_management::crypto::ReinitUserCryptoError),
     #[error(transparent)]
     AuthValidate(#[from] bitwarden_core::auth::AuthValidateError),
     #[error(transparent)]
@@ -49,6 +51,8 @@ pub enum BitwardenError {
     Passphrase(#[from] PassphraseError),
     #[error(transparent)]
     Password(#[from] PasswordError),
+    #[error(transparent)]
+    PasswordRules(#[from] PasswordRulesError),
 
     // Vault
     #[error(transparent)]
@@ -76,6 +80,8 @@ pub enum BitwardenError {
 
     #[error(transparent)]
     Export(#[from] ExportError),
+    #[error(transparent)]
+    Import(#[from] bitwarden_importers::ImportError),
 
     // Fido
     #[error(transparent)]

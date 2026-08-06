@@ -30,6 +30,7 @@ impl PinSettingsClient {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl PinSettingsClient {
     /// Sets or updates the account PIN and stores the corresponding unlock state.
     ///
@@ -79,6 +80,7 @@ impl PinSettingsClient {
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl UserCryptoManagementClient {
     /// Returns the PIN settings sub-client.
     pub fn pin_settings(&self) -> PinSettingsClient {

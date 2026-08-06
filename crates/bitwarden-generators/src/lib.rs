@@ -13,6 +13,8 @@ pub use password::{
     MAXIMUM_MIN_CHAR_COUNT, MAXIMUM_PASSWORD_LENGTH, MINIMUM_MIN_CHAR_COUNT,
     MINIMUM_PASSWORD_LENGTH, PasswordError, PasswordGeneratorRequest,
 };
+pub(crate) mod passwordrules;
+pub use passwordrules::{PasswordRulesError, parse_password_rules};
 pub(crate) mod username;
 pub use username::{ForwarderServiceType, UsernameError, UsernameGeneratorRequest};
 mod util;

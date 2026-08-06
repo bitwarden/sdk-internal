@@ -1,8 +1,9 @@
-use bitwarden_core::key_management::KeySlotIds;
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, IdentifyKey, KeyStoreContext,
     PrimitiveEncryptable,
 };
+use bitwarden_logging::instrument;
 use thiserror::Error;
 
 use super::{CipherBlob, CipherBlobLatest, SealedCipherBlob, SealedCipherBlobError};
@@ -11,79 +12,94 @@ use crate::cipher::{
     cipher::{Cipher, CipherView},
 };
 
+/// Errors produced while sealing or unsealing a blob-format cipher.
 #[derive(Debug, Error)]
-pub(crate) enum BlobEncryptionError {
+pub enum BlobEncryptionError {
+    /// A cryptographic primitive (wrap, unwrap, encrypt, decrypt) failed.
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    /// The sealed blob container could not be encoded or decoded.
     #[error(transparent)]
     SealedBlob(#[from] SealedCipherBlobError),
-    #[error("Cipher does not contain blob data")]
-    NoBlobData,
 }
 
-/// Returns `true` if the cipher's `data` field contains a valid sealed blob.
-pub(crate) fn is_blob_encrypted(cipher: &Cipher) -> bool {
-    cipher
-        .data
-        .as_ref()
-        .is_some_and(|s| SealedCipherBlob::from_opaque_string(s).is_ok())
+/// Maps the blob module's error type onto [`CryptoError`]. Format and envelope
+/// errors collapse to [`CryptoError::Decrypt`]; the specific cause is preserved
+/// in the log.
+impl From<BlobEncryptionError> for CryptoError {
+    fn from(err: BlobEncryptionError) -> Self {
+        tracing::warn!(error = %err, error_debug = ?err, "blob operation failed");
+        match err {
+            BlobEncryptionError::Crypto(c) => c,
+            BlobEncryptionError::SealedBlob(_) => CryptoError::Decrypt,
+        }
+    }
 }
 
-/// Returns `true` if the cipher is not blob-encrypted (i.e. uses legacy field-level encryption).
-pub(crate) fn is_legacy_cipher(cipher: &Cipher) -> bool {
-    !is_blob_encrypted(cipher)
-}
-
-/// Seals a `CipherView` into an opaque blob string.
+/// Seals a `CipherView` into an opaque blob string, using `wrapping_key` as
+/// the outer key that protects the cipher's wrapped CEK.
 fn seal_cipher(
     view: &CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
-    let outer_key = view.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &view.key)?;
-
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
     let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
+    seal_blob_content(blob, cipher_key, ctx)
+}
+
+/// Seals a constructed `CipherBlobLatest` under `cipher_key`, returning the
+/// opaque string form. Shared by all `CipherBlobLatest` producers so they
+/// don't each re-implement the versioned-enum wrap + COSE seal + base64 chain.
+fn seal_blob_content(
+    blob: CipherBlobLatest,
+    cipher_key: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+) -> Result<String, BlobEncryptionError> {
     let versioned: CipherBlob = blob.into();
     let sealed = SealedCipherBlob::seal(versioned, &cipher_key, ctx)?;
     Ok(sealed.to_opaque_string()?)
 }
 
-/// Unseals a cipher's blob data, returning the latest blob version.
-fn unseal_cipher(
-    cipher: &Cipher,
-    ctx: &mut KeyStoreContext<KeySlotIds>,
-) -> Result<CipherBlobLatest, BlobEncryptionError> {
-    let outer_key = cipher.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &cipher.key)?;
-
-    let data = cipher
-        .data
-        .as_ref()
-        .ok_or(BlobEncryptionError::NoBlobData)?;
-    let sealed = SealedCipherBlob::from_opaque_string(data)?;
-    let blob = sealed.unseal(&cipher_key, ctx)?;
-
-    match blob {
-        CipherBlob::CipherBlobV1(v1) => Ok(v1),
-    }
+/// Returns the parsed [`SealedCipherBlob`] if `cipher.data` holds one. Returns
+/// `None` for legacy ciphers (missing or unparseable `data`).
+pub(crate) fn try_parse_blob(cipher: &Cipher) -> Option<SealedCipherBlob> {
+    let data = cipher.data.as_deref()?;
+    SealedCipherBlob::from_opaque_string(data).ok()
 }
 
-/// Encrypts a `CipherView` into a blob-encrypted `Cipher`
+/// Encrypts a `CipherView` into a blob-encrypted `Cipher`.
 ///
 /// Generates a cipher key if missing, seals the sensitive data into a single blob,
-/// and encrypts attachments and local data separately.
+/// and encrypts attachments and local data separately. The outer wrapping key is
+/// derived from `view.key_identifier()`; see
+/// [`encrypt_blob_cipher_with_wrapping_key`] for the rotation case where the
+/// caller supplies an explicit wrapping key.
 pub(crate) fn encrypt_blob_cipher(
     view: &mut CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Cipher, BlobEncryptionError> {
+    let wrapping_key = view.key_identifier();
+    encrypt_blob_cipher_with_wrapping_key(view, ctx, wrapping_key)
+}
+
+/// Variant of [`encrypt_blob_cipher`] that accepts an explicit outer wrapping
+/// key. Used by key rotation, where the new user/org key is installed under a
+/// `Local` slot id and `view.key` has been rewrapped under that slot — calling
+/// `key_identifier()` would resolve to the original `User`/`Organization` slot
+/// and fail to unwrap the CEK.
+pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
+    view: &mut CipherView,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
+) -> Result<Cipher, BlobEncryptionError> {
     if view.key.is_none() {
-        view.generate_cipher_key(ctx, view.key_identifier())?;
+        view.generate_cipher_key(ctx, wrapping_key)?;
     }
 
-    let outer_key = view.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &view.key)?;
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
 
-    let sealed_string = seal_cipher(view, ctx)?;
+    let sealed_string = seal_cipher(view, ctx, wrapping_key)?;
 
     let attachments = view.attachments.encrypt_composite(ctx, cipher_key)?;
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
@@ -117,7 +133,7 @@ pub(crate) fn encrypt_blob_cipher(
 
         // Obsolete fields — sensitive data lives in the blob
         // TODO: Remove `name` once the server no longer requires it
-        name,
+        name: Some(name),
         notes: None,
         login: None,
         identity: None,
@@ -132,18 +148,22 @@ pub(crate) fn encrypt_blob_cipher(
     })
 }
 
-/// Decrypts a blob-encrypted `Cipher` into a `CipherView`.
+/// Decrypts a pre-parsed blob-encrypted `Cipher` into a `CipherView`. Callers
+/// should obtain the [`SealedCipherBlob`] via [`try_parse_blob`].
 ///
-/// Unseals the blob data, decrypts attachments and local data, then applies
-/// the blob content fields onto the view.
+/// `wrapping_key` is the outer key under which the cipher's CEK is wrapped —
+/// usually the user/organization key, but during key rotation it can be a
+/// `Local` slot containing the new user key.
+#[instrument(err, fields(cipher_id = ?cipher.id, org_id = ?cipher.organization_id))]
 pub(crate) fn decrypt_blob_cipher(
     cipher: &Cipher,
+    sealed: &SealedCipherBlob,
     ctx: &mut KeyStoreContext<KeySlotIds>,
+    wrapping_key: SymmetricKeySlotId,
 ) -> Result<CipherView, BlobEncryptionError> {
-    let outer_key = cipher.key_identifier();
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, outer_key, &cipher.key)?;
+    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &cipher.key)?;
 
-    let blob = unseal_cipher(cipher, ctx)?;
+    let CipherBlob::CipherBlobV1(blob) = sealed.unseal(&cipher_key, ctx)?;
 
     let (attachments, attachment_decryption_failures) =
         attachment::decrypt_attachments_with_failures(
@@ -235,7 +255,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name,
+            name: Some(name),
             notes: None,
             r#type: CipherType::SecureNote,
             login: None,
@@ -265,7 +285,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_blob_encrypted_true() {
+    fn test_try_parse_blob_returns_some_after_encrypt() {
         let (key_store, _) = create_test_key_store();
         let mut ctx = key_store.context_mut();
 
@@ -276,23 +296,7 @@ mod tests {
         });
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
-        assert!(is_blob_encrypted(&cipher));
-    }
-
-    #[test]
-    fn test_is_blob_encrypted_false_no_data() {
-        let (key_store, _) = create_test_key_store();
-        let mut ctx = key_store.context_mut();
-        let cipher = make_test_cipher_with_data(&mut ctx, None);
-        assert!(!is_blob_encrypted(&cipher));
-    }
-
-    #[test]
-    fn test_is_blob_encrypted_false_invalid_data() {
-        let (key_store, _) = create_test_key_store();
-        let mut ctx = key_store.context_mut();
-        let cipher = make_test_cipher_with_data(&mut ctx, Some("not a valid blob".to_string()));
-        assert!(!is_blob_encrypted(&cipher));
+        assert!(try_parse_blob(&cipher).is_some());
     }
 
     #[test]
@@ -309,14 +313,20 @@ mod tests {
         view.generate_cipher_key(&mut ctx, view.key_identifier())
             .unwrap();
 
-        let sealed_string = seal_cipher(&view, &mut ctx).unwrap();
+        let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();
 
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
         cipher.key = view.key.clone();
 
-        let blob = unseal_cipher(&cipher, &mut ctx).unwrap();
-        assert_eq!(blob.name, "Round Trip");
-        assert_eq!(blob.notes, Some("Some notes".to_string()));
+        let view = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
+        assert_eq!(view.name, "Round Trip");
+        assert_eq!(view.notes, Some("Some notes".to_string()));
     }
 
     #[test]
@@ -543,10 +553,15 @@ mod tests {
         }]);
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
-        assert!(is_blob_encrypted(&cipher));
-        assert!(!is_legacy_cipher(&cipher));
+        assert!(try_parse_blob(&cipher).is_some());
 
-        let restored = decrypt_blob_cipher(&cipher, &mut ctx).unwrap();
+        let restored = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
 
         assert_eq!(restored.name, "My Login");
         assert_eq!(restored.notes, Some("Secret notes".to_string()));
@@ -584,7 +599,13 @@ mod tests {
         });
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
-        let restored = decrypt_blob_cipher(&cipher, &mut ctx).unwrap();
+        let restored = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
 
         assert_eq!(restored.name, "My Card");
         assert_eq!(restored.notes, Some("Card notes".to_string()));
@@ -616,7 +637,13 @@ mod tests {
         let revision_date = view.revision_date;
 
         let cipher = encrypt_blob_cipher(&mut view, &mut ctx).unwrap();
-        let restored = decrypt_blob_cipher(&cipher, &mut ctx).unwrap();
+        let restored = decrypt_blob_cipher(
+            &cipher,
+            &try_parse_blob(&cipher).unwrap(),
+            &mut ctx,
+            cipher.key_identifier(),
+        )
+        .unwrap();
 
         assert_eq!(restored.id, Some(cipher_id));
         assert!(restored.favorite);
@@ -631,17 +658,14 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_blob_cipher_no_blob_data() {
+    fn test_try_parse_blob_returns_none_for_legacy() {
         let (key_store, _) = create_test_key_store();
         let mut ctx = key_store.context_mut();
 
         let cipher = make_test_cipher_with_data(&mut ctx, None);
-        let result = decrypt_blob_cipher(&cipher, &mut ctx);
+        assert!(try_parse_blob(&cipher).is_none());
 
-        assert!(result.is_err());
-        assert!(
-            matches!(&result.unwrap_err(), BlobEncryptionError::NoBlobData),
-            "Expected NoBlobData error"
-        );
+        let cipher = make_test_cipher_with_data(&mut ctx, Some("not a blob".to_string()));
+        assert!(try_parse_blob(&cipher).is_none());
     }
 }

@@ -63,6 +63,12 @@ pub struct OrganizationUser {
     )]
     pub status: Option<models::OrganizationUserStatusType>,
     #[serde(
+        rename = "statusNew",
+        alias = "StatusNew",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub status_new: Option<models::OrganizationUserStatusTypeNew>,
+    #[serde(
         rename = "type",
         alias = "R#type",
         skip_serializing_if = "Option::is_none"
@@ -108,6 +114,14 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub access_secrets_manager: Option<bool>,
+    /// True if the User has access to Privileged Access Management for this Organization, false
+    /// otherwise.
+    #[serde(
+        rename = "accessPam",
+        alias = "AccessPam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_pam: Option<bool>,
     #[serde(
         rename = "revocationReason",
         alias = "RevocationReason",
@@ -129,12 +143,14 @@ impl OrganizationUser {
             key: None,
             reset_password_key: None,
             status: None,
+            status_new: None,
             r#type: None,
             external_id: None,
             creation_date: None,
             revision_date: None,
             permissions: None,
             access_secrets_manager: None,
+            access_pam: None,
             revocation_reason: None,
         }
     }

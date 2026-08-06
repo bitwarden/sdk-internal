@@ -7,35 +7,13 @@
 
 use std::collections::HashMap;
 
-use bitwarden_organizations::{
-    OrganizationUserStatusType, OrganizationUserType, ProfileOrganization,
-};
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
+use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
 use uuid::Uuid;
 
-/// A newtype representing the policy type.
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Copy, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct PolicyType(
-    /// The raw integer value as defined by the server.
-    pub u8,
-);
-
-/// An organization policy.
-#[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct PolicyView {
-    pub id: Uuid,
-    pub organization_id: Uuid,
-    pub r#type: PolicyType,
-    /// The policy's raw configuration data as a JSON string, if any.
-    pub data: Option<String>,
-    pub enabled: bool,
-}
+use crate::{
+    models::{OrganizationUserPolicyContext, PolicyView},
+    policy_type::PolicyType,
+};
 
 /// Defines the filtering behavior for a specific policy type.
 ///
@@ -79,15 +57,18 @@ pub trait PolicyFilter: Policy {
     /// This evaluates common business rules (e.g. the policy is enabled),
     /// as well as policy-specific rules according to its [`Policy`].
     ///
-    /// If a policy's organization is not present in `organizations`, the policy is enforced by
-    /// default.
+    /// If a policy's organization is not present in `organization_user_policy_contexts`, the policy
+    /// is enforced by default.
     fn filter<'a>(
         &self,
         policies: &'a [PolicyView],
-        organizations: &[ProfileOrganization],
+        organization_user_policy_contexts: &[OrganizationUserPolicyContext],
     ) -> Vec<&'a PolicyView> {
-        let org_map: HashMap<&Uuid, &ProfileOrganization> =
-            organizations.iter().map(|o| (&o.id, o)).collect();
+        let org_map: HashMap<&Uuid, &OrganizationUserPolicyContext> =
+            organization_user_policy_contexts
+                .iter()
+                .map(|o| (&o.id, o))
+                .collect();
 
         policies
             .iter()
@@ -99,7 +80,7 @@ pub trait PolicyFilter: Policy {
                         org.enabled
                             && org.use_policies
                             && self.applicable_statuses().contains(&org.status)
-                            && !self.exempt_roles().contains(&org.r#type)
+                            && !self.exempt_roles().contains(&org.role)
                             && !(org.is_provider_user && self.exempt_providers())
                     }
                     None => true, // Unknown org: enforce by default
@@ -115,13 +96,14 @@ impl<T: Policy> PolicyFilter for T {}
 mod tests {
     use super::*;
 
-    fn policy_view(organization_id: Uuid, policy_type: u8, enabled: bool) -> PolicyView {
+    fn policy_view(organization_id: Uuid, policy_type: PolicyType, enabled: bool) -> PolicyView {
         PolicyView {
             id: Uuid::new_v4(),
             organization_id,
-            r#type: PolicyType(policy_type),
+            r#type: policy_type,
             data: None,
             enabled,
+            revision_date: Default::default(),
         }
     }
 
@@ -130,21 +112,21 @@ mod tests {
         user_type: OrganizationUserType,
         status: OrganizationUserStatusType,
         provider: bool,
-    ) -> ProfileOrganization {
-        ProfileOrganization {
+    ) -> OrganizationUserPolicyContext {
+        OrganizationUserPolicyContext {
             id,
-            r#type: user_type,
+            role: user_type,
             status,
+            enabled: true,
             use_policies: true,
             is_provider_user: provider,
-            ..Default::default()
         }
     }
 
     struct TestPolicy;
     impl Policy for TestPolicy {
         fn policy_type(&self) -> PolicyType {
-            PolicyType(1)
+            PolicyType::MasterPassword
         }
 
         // These happen to match the default impl, but repeating here
@@ -168,7 +150,7 @@ mod tests {
     #[test]
     fn matching_policy_is_returned() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = [organization(
             org_id,
             OrganizationUserType::User,
@@ -183,16 +165,15 @@ mod tests {
     #[test]
     fn disabled_organization_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let orgs = [ProfileOrganization {
+        let orgs = [OrganizationUserPolicyContext {
             enabled: false,
             id: org_id,
-            r#type: OrganizationUserType::User,
+            role: OrganizationUserType::User,
             status: OrganizationUserStatusType::Confirmed,
             use_policies: true,
             is_provider_user: false,
-            ..Default::default()
         }];
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
 
         let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
@@ -201,7 +182,7 @@ mod tests {
     #[test]
     fn disabled_policy_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1, false)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, false)];
         let orgs = [organization(
             org_id,
             OrganizationUserType::User,
@@ -216,7 +197,7 @@ mod tests {
     #[test]
     fn wrong_policy_type_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 2, true)];
+        let policies = [policy_view(org_id, PolicyType::PasswordGenerator, true)];
         let orgs = [organization(
             org_id,
             OrganizationUserType::User,
@@ -231,15 +212,15 @@ mod tests {
     #[test]
     fn use_policies_false_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let orgs = [ProfileOrganization {
+        let orgs = [OrganizationUserPolicyContext {
             id: org_id,
-            r#type: OrganizationUserType::User,
+            role: OrganizationUserType::User,
             status: OrganizationUserStatusType::Confirmed,
+            enabled: true,
             use_policies: false,
             is_provider_user: false,
-            ..Default::default()
         }];
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
 
         let result = TestPolicy.filter(&policies, &orgs);
         assert!(result.is_empty());
@@ -248,7 +229,7 @@ mod tests {
     #[test]
     fn exempt_role_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = [organization(
             org_id,
             OrganizationUserType::Owner,
@@ -263,7 +244,7 @@ mod tests {
     #[test]
     fn non_applicable_status_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = [organization(
             org_id,
             OrganizationUserType::User,
@@ -278,7 +259,7 @@ mod tests {
     #[test]
     fn provider_is_filtered_out() {
         let org_id = Uuid::new_v4();
-        let policies = [policy_view(org_id, 1, true)];
+        let policies = [policy_view(org_id, PolicyType::MasterPassword, true)];
         let orgs = [organization(
             org_id,
             OrganizationUserType::User,
@@ -292,7 +273,11 @@ mod tests {
 
     #[test]
     fn missing_org_enforces_by_default() {
-        let policies = [policy_view(Uuid::new_v4(), 1, true)];
+        let policies = [policy_view(
+            Uuid::new_v4(),
+            PolicyType::MasterPassword,
+            true,
+        )];
 
         let result = TestPolicy.filter(&policies, &[]);
         assert_eq!(result.len(), 1);

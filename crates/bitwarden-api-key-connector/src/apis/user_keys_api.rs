@@ -106,11 +106,7 @@ mod tests {
     async fn setup_mock_server_with_auth() -> (MockServer, Configuration) {
         let server = MockServer::start().await;
 
-        let configuration = Configuration {
-            base_path: format!("http://{}", server.address()),
-            client: reqwest::Client::new().into(),
-        };
-
+        let configuration = Configuration::new(format!("http://{}", server.address()));
         (server, configuration)
     }
 

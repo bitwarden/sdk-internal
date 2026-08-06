@@ -153,6 +153,7 @@ mod tests {
                         },
                     ],
 
+                    password_history: None,
                     revision_date: "2024-01-30T14:09:33.753Z".parse().unwrap(),
                     creation_date: "2024-01-30T11:23:54.416Z".parse().unwrap(),
                     deleted_date: None,
@@ -173,6 +174,7 @@ mod tests {
 
                     fields: vec![],
 
+                    password_history: None,
                     revision_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
                     creation_date: "2024-01-30T11:25:25.466Z".parse().unwrap(),
                     deleted_date: None,
@@ -198,6 +200,7 @@ mod tests {
 
                     fields: vec![],
 
+                    password_history: None,
                     revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
                     creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
                     deleted_date: None,
@@ -235,6 +238,7 @@ mod tests {
 
                     fields: vec![],
 
+                    password_history: None,
                     revision_date: "2024-01-30T17:54:50.706Z".parse().unwrap(),
                     creation_date: "2024-01-30T17:54:50.706Z".parse().unwrap(),
                     deleted_date: None,

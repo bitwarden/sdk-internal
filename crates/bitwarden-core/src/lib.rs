@@ -30,7 +30,7 @@ pub use client::{
     get_host_platform_info, init_host_platform_info,
 };
 #[cfg(feature = "internal")]
-pub use client::{RehydrationError, SaveStateData};
+pub use client::{FetchFlagsError, FlagsClient, RehydrationError, SaveStateData};
 pub use global::GlobalClient;
 
 mod ids;

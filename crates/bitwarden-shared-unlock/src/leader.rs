@@ -9,7 +9,7 @@ use std::{
 
 use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
-use bitwarden_threading::cancellation_token;
+use bitwarden_threading::{cancellation_token, time::sleep};
 use thiserror::Error;
 use tracing::{info, warn};
 #[cfg(feature = "wasm")]
@@ -142,6 +142,13 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                     Err(bitwarden_ipc::TypedReceiveError::Cancelled) => {
                         tracing::info!("Shared unlock leader stopped by cancellation");
                         break;
+                    }
+                    // This is required because otherwise the browser may freeze in this loop
+                    Err(bitwarden_ipc::TypedReceiveError::Channel(
+                        tokio::sync::broadcast::error::RecvError::Closed,
+                    )) => {
+                        tracing::info!("Transport channel closed. Waiting for it to open");
+                        sleep(std::time::Duration::from_secs(1)).await;
                     }
                     Err(error) => {
                         tracing::error!(?error, "Failed to receive shared unlock IPC message");
@@ -287,6 +294,24 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 Ok(())
             }
             FollowerMessage::HeartBeat { user_id } => {
+                if self
+                    .0
+                    .follower_sessions
+                    .sessions
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .get(&endpoint)
+                    .is_none()
+                {
+                    tracing::info!(
+                        "Received heartbeat from unknown shared-unlock client {:?}, asking for session start",
+                        endpoint
+                    );
+                    let response = LeaderMessage::RequestSessionStart { user_id };
+                    self.send_message(response, endpoint.clone()).await;
+                    return Ok(());
+                }
+
                 self.0.follower_sessions.upsert(endpoint.clone());
 
                 // Echo back the heartbeat to confirm liveness

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use bitwarden_core::{Client, platform::FingerprintRequest};
 use bitwarden_fido::ClientFido2Ext;
-use repository::{UniffiRepositoryBridge, create_uniffi_repositories};
+use repository::create_uniffi_repositories;
 
 use crate::error::Result;
 
@@ -37,7 +37,7 @@ impl PlatformClient {
 
     /// Load feature flags into the client
     pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) -> Result<()> {
-        self.0.internal.load_flags(flags).await;
+        self.0.flags().load(flags).await;
         Ok(())
     }
 
@@ -69,12 +69,6 @@ bitwarden_pm::create_client_managed_repositories!(Repositories, create_uniffi_re
 
 #[uniffi::export]
 impl StateClient {
-    #[deprecated(note = "Use `register_client_managed_repositories` instead")]
-    pub fn register_cipher_repository(&self, repository: Arc<dyn CipherRepository>) {
-        let cipher = UniffiRepositoryBridge::new(repository);
-        self.0.platform().state().register_client_managed(cipher);
-    }
-
     pub fn register_client_managed_repositories(&self, repositories: Repositories) {
         repositories.register_all(&self.0.platform().state());
     }

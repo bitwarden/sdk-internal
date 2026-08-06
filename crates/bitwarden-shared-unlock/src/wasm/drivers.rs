@@ -40,7 +40,7 @@ extern "C" {
     async fn get_user_key(
         this: &RawJsSharedUnlockDriver,
         user_id: UserId,
-    ) -> Result<Option<SymmetricCryptoKey>, JsValue>;
+    ) -> Result<JsValue, JsValue>;
 
     /// Supress the vault timeout for the given duration (in milliseconds).
     #[wasm_bindgen(method, catch)]
@@ -114,12 +114,16 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
         self.runner
             .run_in_thread(move |driver| async move {
-                match driver.get_user_key(user_id).await.ok().flatten() {
-                    Some(user_key) => LockState::Unlocked { user_key },
-                    None => LockState::Locked,
+                let js_value = driver.get_user_key(user_id).await.ok()?;
+                if js_value.is_null() || js_value.is_undefined() {
+                    return None;
                 }
+                let user_key = SymmetricCryptoKey::try_from(js_value).ok()?;
+                Some(LockState::Unlocked { user_key })
             })
             .await
+            .ok()
+            .flatten()
             .unwrap_or(LockState::Locked)
     }
 

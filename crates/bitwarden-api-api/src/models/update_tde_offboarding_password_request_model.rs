@@ -14,27 +14,42 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateTdeOffboardingPasswordRequestModel {
-    #[serde(rename = "newMasterPasswordHash", alias = "NewMasterPasswordHash")]
-    pub new_master_password_hash: String,
-    #[serde(rename = "key", alias = "Key")]
-    pub key: String,
+    #[serde(
+        rename = "newMasterPasswordHash",
+        alias = "NewMasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub new_master_password_hash: Option<String>,
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
     #[serde(
         rename = "masterPasswordHint",
         alias = "MasterPasswordHint",
         skip_serializing_if = "Option::is_none"
     )]
     pub master_password_hint: Option<String>,
+    #[serde(
+        rename = "authenticationData",
+        alias = "AuthenticationData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub authentication_data: Option<Box<models::MasterPasswordAuthenticationDataRequestModel>>,
+    #[serde(
+        rename = "unlockData",
+        alias = "UnlockData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unlock_data: Option<Box<models::MasterPasswordUnlockDataRequestModel>>,
 }
 
 impl UpdateTdeOffboardingPasswordRequestModel {
-    pub fn new(
-        new_master_password_hash: String,
-        key: String,
-    ) -> UpdateTdeOffboardingPasswordRequestModel {
+    pub fn new() -> UpdateTdeOffboardingPasswordRequestModel {
         UpdateTdeOffboardingPasswordRequestModel {
-            new_master_password_hash,
-            key,
+            new_master_password_hash: None,
+            key: None,
             master_password_hint: None,
+            authentication_data: None,
+            unlock_data: None,
         }
     }
 }

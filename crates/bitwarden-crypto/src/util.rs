@@ -43,7 +43,7 @@ where
     StandardUniform: Distribution<T>,
     T: Zeroize,
 {
-    Zeroizing::new(rand::rng().random::<T>())
+    Zeroizing::new(bitwarden_random::rng().random::<T>())
 }
 
 /// Generate a random alphanumeric string of a given length
@@ -51,7 +51,7 @@ where
 /// Note: Do not use this generating user facing passwords. Use the `bitwarden-generator` crate for
 /// that.
 pub fn generate_random_alphanumeric(len: usize) -> String {
-    Alphanumeric.sample_string(&mut rand::rng(), len)
+    Alphanumeric.sample_string(&mut bitwarden_random::rng(), len)
 }
 
 /// Derive pbkdf2 of a given password and salt

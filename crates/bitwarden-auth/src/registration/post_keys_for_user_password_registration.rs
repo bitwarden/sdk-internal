@@ -33,6 +33,8 @@ pub struct UserMasterPasswordRegistrationRequest {
     pub master_password_hint: Option<String>,
     /// Optional token for email verification
     pub email_verification_token: Option<String>,
+    /// Optional token for sales-assisted trial/registration
+    pub sales_assisted_token: Option<String>,
     /// Optional organization user ID for organization invitations
     pub organization_user_id: Option<OrganizationId>,
     /// Optional organization invite token for joining an organization
@@ -106,6 +108,7 @@ async fn internal_post_keys_for_user_password_registration(
         )),
         account_keys,
         email_verification_token: request.email_verification_token,
+        sales_assisted_token: request.sales_assisted_token,
         organization_user_id: request.organization_user_id.map(Into::into),
         org_invite_token: (request.org_invite_token),
         org_sponsored_free_family_plan_token: (request.org_sponsored_free_family_plan_token),
@@ -279,6 +282,7 @@ mod tests {
 
                         // verify master password registration specific information
                         assert!(req.email_verification_token.is_none());
+                        assert!(req.sales_assisted_token.is_none());
                         assert!(req.organization_user_id.is_none());
                         assert!(req.org_invite_token.is_none());
                         assert!(req.org_sponsored_free_family_plan_token.is_none());
@@ -300,6 +304,7 @@ mod tests {
             master_password: test_password.to_string(),
             master_password_hint: Some(test_hint.to_string()),
             email_verification_token: None,
+            sales_assisted_token: None,
             organization_user_id: None,
             org_invite_token: None,
             org_sponsored_free_family_plan_token: None,
@@ -348,6 +353,7 @@ mod tests {
             master_password: test_password.to_string(),
             master_password_hint: Some(test_hint.to_string()),
             email_verification_token: None,
+            sales_assisted_token: None,
             organization_user_id: None,
             org_invite_token: None,
             org_sponsored_free_family_plan_token: None,

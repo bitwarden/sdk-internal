@@ -35,7 +35,7 @@ pub use platform::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
     ServerCommunicationConfigRepository, SsoCookieVendorConfig,
 };
-use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
+use tool::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
 use vault::VaultClient;
 
 #[allow(missing_docs)]
@@ -67,6 +67,26 @@ impl Client {
         CryptoClient(self.0.crypto())
     }
 
+    /// Returns the key-management state bridge client used to register a
+    /// host-supplied storage implementation.
+    pub fn km_state_bridge(
+        &self,
+    ) -> bitwarden_core::key_management::state_bridge::StateBridgeClient {
+        self.0.0.km_state_bridge()
+    }
+
+    /// Returns the user-crypto-management sub-client (PIN settings, key rotation, etc).
+    pub fn user_crypto_management(
+        &self,
+    ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
+        self.0.user_crypto_management()
+    }
+
+    /// Key management operations that run on every sync.
+    pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
+        self.0.crypto_sync_handler()
+    }
+
     /// Vault item operations
     pub fn vault(&self) -> VaultClient {
         VaultClient(self.0.vault())
@@ -87,6 +107,11 @@ impl Client {
         ExporterClient(self.0.exporters())
     }
 
+    /// Importers
+    pub fn importers(&self) -> ImporterClient {
+        ImporterClient(self.0.importers())
+    }
+
     /// Sends operations
     pub fn sends(&self) -> SendClient {
         SendClient(self.0.sends())
@@ -97,9 +122,19 @@ impl Client {
         SshClient()
     }
 
+    /// Random-number generation operations
+    pub fn random(&self) -> bitwarden_random::SdkRandomNumberClient {
+        bitwarden_random::SdkRandomNumberClient::new()
+    }
+
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
         AuthClient(self.0.0.clone())
+    }
+
+    /// Whether the client is in Gov Mode.
+    pub fn gov_mode(&self) -> bool {
+        self.0.0.gov_mode()
     }
 
     /// Policy operations

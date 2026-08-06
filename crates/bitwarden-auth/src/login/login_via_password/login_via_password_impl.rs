@@ -38,7 +38,10 @@ impl LoginClient {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::{ClientSettings, DeviceType};
+    use bitwarden_core::{
+        ClientSettings, DeviceType,
+        key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+    };
     use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
@@ -204,6 +207,17 @@ mod tests {
 
                 // Verify master password policy is present
                 assert!(success_response.master_password_policy.is_some());
+
+                // TEST_PRIVATE_KEY is an AesCbc256_HmacSha256_B64 EncString, so the conversion
+                // produces the V1 variant rather than V2.
+                match &success_response.wrapped_account_crypto_state {
+                    Some(WrappedAccountCryptographicState::V1 { private_key }) => {
+                        assert_eq!(private_key.to_string(), TEST_PRIVATE_KEY);
+                    }
+                    other => panic!(
+                        "Expected Some(WrappedAccountCryptographicState::V1), got: {other:?}"
+                    ),
+                }
             }
         }
     }
@@ -229,6 +243,65 @@ mod tests {
             assert!(result.is_ok(), "Failed for KDF type: {kdf_type:?}");
             let login_response = result.unwrap();
             assert_login_success_response(&login_response);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_success_without_account_keys() {
+        let mut raw_success = make_mock_success_response();
+        raw_success
+            .as_object_mut()
+            .expect("mock response is a JSON object")
+            .remove("AccountKeys");
+
+        let mock = add_standard_login_headers(
+            Mock::given(matchers::method("POST")).and(matchers::path("identity/connect/token")),
+        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let login_client = make_login_client(&mock_server);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = login_client.login_via_password(request).await;
+
+        assert!(result.is_ok());
+        let LoginResponse::Authenticated(success_response) = result.unwrap();
+        assert!(success_response.wrapped_account_crypto_state.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_malformed_account_keys() {
+        let mut raw_success = make_mock_success_response();
+        raw_success["AccountKeys"] = serde_json::json!({
+            "publicKeyEncryptionKeyPair": {
+                "wrappedPrivateKey": "not-a-valid-encstring",
+                "publicKey": TEST_PUBLIC_KEY,
+                "Object": "publicKeyEncryptionKeyPair"
+            },
+            "Object": "privateKeys"
+        });
+
+        let mock = add_standard_login_headers(
+            Mock::given(matchers::method("POST")).and(matchers::path("identity/connect/token")),
+        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let login_client = make_login_client(&mock_server);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = login_client.login_via_password(request).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            PasswordLoginError::Unknown(msg) => {
+                assert!(
+                    msg.contains("AccountKeys"),
+                    "Expected error message to reference AccountKeys, got: {msg}"
+                );
+            }
+            other => panic!("Expected Unknown error, got: {other:?}"),
         }
     }
 

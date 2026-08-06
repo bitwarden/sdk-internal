@@ -259,6 +259,7 @@ mod tests {
                 },
             ],
 
+            password_history: None,
             revision_date: "2024-01-30T14:09:33.753Z".parse().unwrap(),
             creation_date: "2024-01-30T11:23:54.416Z".parse().unwrap(),
             deleted_date: None,

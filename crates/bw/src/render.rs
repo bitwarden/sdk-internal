@@ -45,7 +45,7 @@ pub struct RenderConfig {
 impl RenderConfig {
     pub fn new(cli: &Cli) -> Self {
         Self {
-            output: cli.output,
+            output: Output::JSON,
             color: cli.color,
             clean_exit: cli.clean_exit,
             quiet: cli.quiet,

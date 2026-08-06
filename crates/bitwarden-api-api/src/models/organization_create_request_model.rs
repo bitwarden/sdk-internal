@@ -151,6 +151,12 @@ pub struct OrganizationCreateRequestModel {
     )]
     pub skip_trial: Option<bool>,
     #[serde(
+        rename = "trialLength",
+        alias = "TrialLength",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub trial_length: Option<i32>,
+    #[serde(
         rename = "coupons",
         alias = "Coupons",
         skip_serializing_if = "Option::is_none"
@@ -193,6 +199,7 @@ impl OrganizationCreateRequestModel {
             is_from_secrets_manager_trial: None,
             initiation_path: None,
             skip_trial: None,
+            trial_length: None,
             coupons: None,
         }
     }

@@ -12,6 +12,8 @@ crate-type = ["cdylib"]
 [dependencies]
 bitwarden_error_enum = { path = "error_enum", features = ["rlib"] }
 bitwarden_error_suffix = { path = "error_suffix", features = ["rlib"] }
+bitwarden_repr_with_tsify = { path = "repr_with_tsify", features = ["rlib"] }
+bitwarden_tracing_instrument = { path = "tracing_instrument", features = ["rlib"] }
 bitwarden_uniffi_async_export = { path = "uniffi_async_export", features = ["rlib"] }
 dylint_linting = { workspace = true }
 
@@ -24,5 +26,5 @@ exclude = [".cargo", "src", "target"]
 
 [workspace.dependencies]
 clippy_utils = { git = "https://github.com/rust-lang/rust-clippy", rev = "334fb906aef13d20050987b13448f37391bb97a2" }
-dylint_linting = "5.0.0"
-dylint_testing = "5.0.0"
+dylint_linting = "6.0.0"
+dylint_testing = "6.0.0"

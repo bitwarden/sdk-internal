@@ -1,0 +1,35 @@
+warning: `BadEnum` derives both `serde_repr` and `tsify::Tsify`
+  --> $DIR/main.rs:8:10
+   |
+LL | pub enum BadEnum {
+   |          ^^^^^^^
+   |
+   = help: serde_repr serializes this as its `#[repr(..)]` integer, but Tsify generates a TypeScript type from the Rust shape — they disagree at the WASM boundary. Use `#[cfg_attr(feature = "wasm", wasm_bindgen)]` instead of Tsify for repr-encoded enums.
+   = note: `#[warn(repr_with_tsify)]` on by default
+
+warning: `BadEnumDeOnly` derives both `serde_repr` and `tsify::Tsify`
+  --> $DIR/main.rs:15:10
+   |
+LL | pub enum BadEnumDeOnly {
+   |          ^^^^^^^^^^^^^
+   |
+   = help: serde_repr serializes this as its `#[repr(..)]` integer, but Tsify generates a TypeScript type from the Rust shape — they disagree at the WASM boundary. Use `#[cfg_attr(feature = "wasm", wasm_bindgen)]` instead of Tsify for repr-encoded enums.
+
+warning: `BadEnumQualified` derives both `serde_repr` and `tsify::Tsify`
+  --> $DIR/main.rs:21:10
+   |
+LL | pub enum BadEnumQualified {
+   |          ^^^^^^^^^^^^^^^^
+   |
+   = help: serde_repr serializes this as its `#[repr(..)]` integer, but Tsify generates a TypeScript type from the Rust shape — they disagree at the WASM boundary. Use `#[cfg_attr(feature = "wasm", wasm_bindgen)]` instead of Tsify for repr-encoded enums.
+
+warning: `BadEnumSplit` derives both `serde_repr` and `tsify::Tsify`
+  --> $DIR/main.rs:27:10
+   |
+LL | pub enum BadEnumSplit {
+   |          ^^^^^^^^^^^^
+   |
+   = help: serde_repr serializes this as its `#[repr(..)]` integer, but Tsify generates a TypeScript type from the Rust shape — they disagree at the WASM boundary. Use `#[cfg_attr(feature = "wasm", wasm_bindgen)]` instead of Tsify for repr-encoded enums.
+
+warning: 4 warnings emitted
+

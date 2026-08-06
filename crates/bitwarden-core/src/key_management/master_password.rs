@@ -104,7 +104,7 @@ impl MasterPasswordUnlockData {
     }
 
     /// Derive master password unlock data from a password and user key in the key store.
-    #[tracing::instrument(skip(password, salt, ctx))]
+    #[bitwarden_logging::instrument(fields(kdf = ?kdf, user_key_id = ?user_key_id))]
     pub fn derive<Ids: KeySlotIds>(
         password: &str,
         kdf: &Kdf,
@@ -197,7 +197,7 @@ pub struct MasterPasswordAuthenticationData {
 
 impl MasterPasswordAuthenticationData {
     /// Derive master password authentication data from a password, KDF, and salt.
-    #[tracing::instrument(skip(password, kdf, salt))]
+    #[bitwarden_logging::instrument]
     pub fn derive(password: &str, kdf: &Kdf, salt: &str) -> Result<Self, MasterPasswordError> {
         tracing::event!(Level::INFO, "deriving master password authentication data");
         let master_key = MasterKey::derive(password, salt, kdf)
@@ -286,7 +286,7 @@ fn kdf_to_identity_kdf_request_model(kdf: &Kdf) -> bitwarden_api_identity::model
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::{KdfType, MasterPasswordUnlockKdfResponseModel};
-    use bitwarden_crypto::KeyStore;
+    use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
@@ -304,7 +304,7 @@ mod tests {
             iterations: NonZeroU32::new(600_000).unwrap(),
         };
         let salt = TEST_SALT.to_string();
-        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, &salt, &user_key)
             .expect("Failed to derive master password unlock data");
         assert_eq!(data.salt, salt);
@@ -564,7 +564,7 @@ mod tests {
         let kdf = Kdf::PBKDF2 {
             iterations: NonZeroU32::new(600_000).expect("non-zero"),
         };
-        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
             .expect("Failed to derive master password unlock data");
 
@@ -592,7 +592,7 @@ mod tests {
         let kdf = Kdf::PBKDF2 {
             iterations: NonZeroU32::new(600_000).expect("non-zero"),
         };
-        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
             .expect("Failed to derive master password unlock data");
 
@@ -610,7 +610,7 @@ mod tests {
         let kdf = Kdf::PBKDF2 {
             iterations: NonZeroU32::new(600_000).expect("non-zero"),
         };
-        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
             .expect("Failed to derive master password unlock data");
 

@@ -165,7 +165,7 @@ mod tests {
         let provider = Arc::new(MockTokenProvider { token });
         let handler = ClientManagedTokenHandler::new(provider);
 
-        let client = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
+        let client = reqwest_middleware::ClientBuilder::new(bitwarden_api_base::new_http_client())
             .with((*handler).clone())
             .build();
 

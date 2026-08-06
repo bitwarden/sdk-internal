@@ -8,5 +8,7 @@ Read any available documentation: [README.md](./README.md) for architecture,
 **SDK-managed types require serialization**: Types must implement `Serialize + DeserializeOwned` to
 use SDK-managed storage.
 
-**Initialize database before access**: Call `initialize_database()` before accessing SDK-managed
-repositories or `get_sdk_managed()` returns `DatabaseNotInitialized` error.
+**Choose the right constructor**: Use `StateRegistry::new_with_memory_db()` for in-memory storage
+(sync, suitable for tests or apps that use only client-managed storage). Use
+`StateRegistry::new_with_db(configuration, migrations)` (async) for persistent storage — pass all
+migrations at construction time, not after the fact.

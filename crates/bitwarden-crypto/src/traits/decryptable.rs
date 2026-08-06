@@ -1,17 +1,19 @@
-use tracing::instrument;
-
 use crate::{CryptoError, EncString, KeySlotId, KeySlotIds, store::KeyStoreContext};
 
 /// A decryption operation that takes the input value and decrypts it into the output value.
 /// Implementations should generally consist of calling [Decryptable::decrypt] for all the fields of
 /// the type.
+///
+/// Decrypt must decrypt the item fully, and not leave parts encrypted. That is,
+/// decrypt(K1) -> encrypt(K2) -> decrypt(K2) MUST succed.
 pub trait Decryptable<Ids: KeySlotIds, Key: KeySlotId, Output> {
-    #[allow(missing_docs)]
+    /// Decrypts `self` into an `Output` under `key`. See the trait-level contract: the result must
+    /// contain no cipher text.
     fn decrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
 impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -22,7 +24,7 @@ impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
 }
 
 impl<Ids: KeySlotIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
-    #[instrument(err, skip_all)]
+    #[bitwarden_logging::instrument(err)]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,

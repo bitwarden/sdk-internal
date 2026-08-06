@@ -16,6 +16,10 @@ pub struct Flags {
     /// Enable strict cipher field decryption (propagates errors instead of nulling fields).
     #[serde(alias = "pm-34500-strict-cipher-decryption")]
     pub strict_cipher_decryption: bool,
+
+    /// Enable FedRAMP government region behavior.
+    #[serde(alias = "fedrampGovRegion")]
+    pub fedramp_gov_region: bool,
 }
 
 impl Flags {

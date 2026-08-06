@@ -7,7 +7,10 @@ use tokio::select;
 
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
-    error::{AlreadyRunningError, ReceiveError, SendError, SubscribeError, TypedReceiveError},
+    error::{
+        AlreadyRunningError, ErrorKind, IpcErrorKind, ReceiveError, SendError, SubscribeError,
+        TypedReceiveError,
+    },
     message::{
         IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
         TypedOutgoingMessage,
@@ -156,9 +159,12 @@ where
                                     break;
                                 };
                             }
-                            Err(error) => {
-                                tracing::error!(?error, "Error receiving message");
+                            Err(error) if matches!(error.kind(), ErrorKind::Fatal) => {
+                                tracing::error!(?error, "Fatal error receiving message, stopping IPC client");
                                 break;
+                            }
+                            Err(error) => {
+                                tracing::warn!(?error, "Recoverable error receiving message, continuing");
                             }
                         }
                     }
@@ -203,11 +209,27 @@ where
             .await;
 
         if let Err(ref error) = result {
-            tracing::error!(?error, "Error sending message");
-            stop_inner(&self.inner);
+            match error.kind() {
+                ErrorKind::Fatal => {
+                    tracing::error!(?error, "Fatal error sending message, stopping IPC client");
+                    stop_inner(&self.inner);
+                }
+                // An unreachable destination is an expected condition and not logged
+                ErrorKind::Unreachable => {}
+                // Every other recoverable send failure is still surfaced.
+                ErrorKind::Other => {
+                    tracing::warn!(
+                        ?error,
+                        "Recoverable error sending message, IPC client will continue running"
+                    );
+                }
+            }
         }
 
-        result.map_err(|e| SendError(format!("{e:?}")))
+        result.map_err(|e| match e.kind() {
+            ErrorKind::Unreachable => SendError::Unreachable,
+            _ => SendError::Other(format!("{e:?}")),
+        })
     }
 
     async fn subscribe(
@@ -388,18 +410,39 @@ mod tests {
         traits::{InMemorySessionRepository, NoEncryptionCryptoProvider, TestCommunicationBackend},
     };
 
+    /// Error type for [`TestCryptoProvider`] that carries an explicit fatal/recoverable
+    /// classification so tests can exercise both control-flow paths.
+    #[derive(Debug, Clone)]
+    struct TestCryptoError {
+        // Read only through the derived `Debug` impl (the outer `SendError` wraps it via
+        // `{e:?}`), which dead-code analysis does not count as a use.
+        #[allow(dead_code)]
+        message: String,
+        fatal: bool,
+    }
+
+    impl IpcErrorKind for TestCryptoError {
+        fn kind(&self) -> ErrorKind {
+            if self.fatal {
+                ErrorKind::Fatal
+            } else {
+                ErrorKind::Other
+            }
+        }
+    }
+
     struct TestCryptoProvider {
         /// Simulate a send result. Set to `None` wait indefinitely
-        send_result: Option<Result<(), String>>,
+        send_result: Option<Result<(), TestCryptoError>>,
         /// Simulate a receive result. Set to `None` wait indefinitely
-        receive_result: Option<Result<IncomingMessage, String>>,
+        receive_result: Option<Result<IncomingMessage, TestCryptoError>>,
     }
 
     type TestSessionRepository = InMemorySessionRepository<String>;
     impl CryptoProvider<TestCommunicationBackend, TestSessionRepository> for TestCryptoProvider {
         type Session = String;
-        type SendError = String;
-        type ReceiveError = String;
+        type SendError = TestCryptoError;
+        type ReceiveError = TestCryptoError;
 
         async fn receive(
             &self,
@@ -408,11 +451,21 @@ mod tests {
             _sessions: &TestSessionRepository,
         ) -> Result<IncomingMessage, Self::ReceiveError> {
             match &self.receive_result {
-                Some(result) => result.clone(),
+                Some(result) => {
+                    // Yield (and throttle) so a recoverable error that makes the processing loop
+                    // `continue` doesn't busy-spin and starve the single-threaded test runtime.
+                    // Real backends await their underlying transport here, which has the same
+                    // effect.
+                    sleep(Duration::from_millis(5)).await;
+                    result.clone()
+                }
                 None => {
                     // Simulate waiting for a message but never returning
                     sleep(Duration::from_secs(600)).await;
-                    Err("Simulated timeout".to_string())
+                    Err(TestCryptoError {
+                        message: "Simulated timeout".to_string(),
+                        fatal: true,
+                    })
                 }
             }
         }
@@ -428,7 +481,10 @@ mod tests {
                 None => {
                     // Simulate waiting for a message to be send but never returning
                     sleep(Duration::from_secs(600)).await;
-                    Err("Simulated timeout".to_string())
+                    Err(TestCryptoError {
+                        message: "Simulated timeout".to_string(),
+                        fatal: true,
+                    })
                 }
             }
         }
@@ -442,8 +498,14 @@ mod tests {
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
-            send_result: Some(Err("Crypto error".to_string())),
-            receive_result: Some(Err("Should not have be called".to_string())),
+            send_result: Some(Err(TestCryptoError {
+                message: "Crypto error".to_string(),
+                fatal: false,
+            })),
+            receive_result: Some(Err(TestCryptoError {
+                message: "Should not have be called".to_string(),
+                fatal: false,
+            })),
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
@@ -642,14 +704,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ipc_client_stops_if_crypto_returns_send_error() {
+    async fn ipc_client_stops_if_crypto_returns_fatal_send_error() {
         let message = OutgoingMessage {
             payload: vec![],
             destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
-            send_result: Some(Err("Crypto error".to_string())),
+            send_result: Some(Err(TestCryptoError {
+                message: "Crypto error".to_string(),
+                fatal: true,
+            })),
             receive_result: None,
         };
         let communication_provider = TestCommunicationBackend::new();
@@ -665,10 +730,44 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ipc_client_stops_if_crypto_returns_receive_error() {
+    async fn ipc_client_keeps_running_if_crypto_returns_recoverable_send_error() {
+        let message = OutgoingMessage {
+            payload: vec![],
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            topic: None,
+        };
+        let crypto_provider = TestCryptoProvider {
+            // A recoverable send error (e.g. a handshake timeout because the peer is down) must
+            // not tear down the shared client.
+            send_result: Some(Err(TestCryptoError {
+                message: "Crypto error".to_string(),
+                fatal: false,
+            })),
+            // Block forever on receive so the loop stays alive while we inspect it.
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
+        let _ = client.start(None).await;
+
+        let error = client.send(message).await.unwrap_err();
+        let is_running = client.is_running();
+
+        // The error is still surfaced to the caller...
+        assert!(error.to_string().contains("Crypto error"));
+        // ...but the client keeps running so future sends/requests can succeed.
+        assert!(is_running);
+    }
+
+    #[tokio::test]
+    async fn ipc_client_stops_if_crypto_returns_fatal_receive_error() {
         let crypto_provider = TestCryptoProvider {
             send_result: None,
-            receive_result: Some(Err("Crypto error".to_string())),
+            receive_result: Some(Err(TestCryptoError {
+                message: "Crypto error".to_string(),
+                fatal: true,
+            })),
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
@@ -682,6 +781,30 @@ mod tests {
 
         assert!(!is_running);
         assert!(cancellation_token.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn ipc_client_keeps_running_if_crypto_returns_recoverable_receive_error() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            // A recoverable receive error must not stop the processing loop.
+            receive_result: Some(Err(TestCryptoError {
+                message: "Crypto error".to_string(),
+                fatal: false,
+            })),
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
+        let cancellation_token = CancellationToken::new();
+        let _ = client.start(Some(cancellation_token.clone())).await;
+
+        // Give the client time to hit the recoverable receive error (repeatedly).
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running();
+
+        assert!(is_running);
+        assert!(!cancellation_token.is_cancelled());
     }
 
     #[tokio::test]

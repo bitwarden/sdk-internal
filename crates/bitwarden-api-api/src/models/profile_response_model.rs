@@ -120,6 +120,15 @@ pub struct ProfileResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub organizations: Option<Vec<models::ProfileOrganizationResponseModel>>,
+    /// Organizations where the user is in the Confirmed or Accepted status. New clients should
+    /// prefer this property and fall back to
+    /// Bit.Api.Models.Response.ProfileResponseModel.Organizations if absent.
+    #[serde(
+        rename = "organizationsNew",
+        alias = "OrganizationsNew",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub organizations_new: Option<Vec<models::ProfileOrganizationResponseModel>>,
     #[serde(
         rename = "providers",
         alias = "Providers",
@@ -156,6 +165,7 @@ impl ProfileResponseModel {
             creation_date: None,
             verify_devices: None,
             organizations: None,
+            organizations_new: None,
             providers: None,
             provider_organizations: None,
         }
