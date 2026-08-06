@@ -568,7 +568,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serde_urlencoded",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -600,7 +600,7 @@ dependencies = [
  "bitwarden-uuid",
  "serde",
  "serde_repr",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "uuid",
@@ -659,7 +659,7 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_repr",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -724,7 +724,7 @@ dependencies = [
  "sha1",
  "sha2 0.11.0",
  "subtle",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -776,7 +776,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -806,7 +806,7 @@ dependencies = [
  "quote",
  "serde",
  "syn 2.0.119",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tsify",
  "wasm-bindgen",
 ]
@@ -829,7 +829,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "url",
@@ -876,7 +876,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uniffi",
@@ -899,7 +899,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -922,7 +922,7 @@ dependencies = [
  "data-encoding",
  "keepass",
  "serde",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -948,7 +948,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "snow",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -995,7 +995,7 @@ dependencies = [
  "serde",
  "serde_json",
  "subtle",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tsify",
  "uuid",
  "wasm-bindgen",
@@ -1014,7 +1014,7 @@ dependencies = [
  "bitwarden-organization-crypto",
  "chrono",
  "serde",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uuid",
@@ -1049,7 +1049,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uuid",
@@ -1083,7 +1083,7 @@ dependencies = [
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "reqwest-middleware",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tracing",
  "tsify",
  "uniffi",
@@ -1117,7 +1117,7 @@ dependencies = [
  "rand 0.10.2",
  "rand_chacha 0.10.0",
  "snow",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "uniffi",
  "uuid",
  "wasm-bindgen",
@@ -1143,7 +1143,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "sha2 0.11.0",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -1178,7 +1178,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -1200,7 +1200,7 @@ dependencies = [
  "bitwarden-threading",
  "js-sys",
  "serde",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -1223,7 +1223,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
@@ -1251,7 +1251,7 @@ dependencies = [
  "serde",
  "ssh-cipher",
  "ssh-key",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -1269,7 +1269,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -1300,7 +1300,7 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "serde",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
 ]
@@ -1318,7 +1318,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
@@ -1344,7 +1344,7 @@ dependencies = [
  "gloo-timers",
  "js-sys",
  "serde",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-test",
  "tokio-util",
@@ -1385,7 +1385,7 @@ dependencies = [
  "jni 0.21.1",
  "libloading",
  "rustls-platform-verifier 0.6.2",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tracing",
  "tracing-android",
  "tracing-oslog",
@@ -1408,7 +1408,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-state",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -1436,7 +1436,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -1497,7 +1497,7 @@ dependencies = [
  "sha1",
  "sha2 0.11.0",
  "subtle",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-util",
  "tracing",
@@ -1695,7 +1695,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "thiserror 2.0.19",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -3365,14 +3365,17 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+dependencies = [
+ "foldhash 0.2.0",
+]
 
 [[package]]
 name = "hashlink"
-version = "0.11.1"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "824e001ac4f3012dd16a264bec811403a67ca9deb6c102fc5049b32c4574b35f"
+checksum = "32069d97bb81e38fa67eab65e3393bf804bb85969f2bc06bf13f64aef5aba248"
 dependencies = [
- "hashbrown 0.16.1",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -4051,9 +4054,9 @@ checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.37.0"
+version = "0.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f111c8c41e7c61a49cd34e44c7619462967221a6443b0ec299e0ac30cfb9b1"
+checksum = "f6c19a05435c21ac299d71b6a9c13db3e3f47c520517d58990a462a1397a61db"
 dependencies = [
  "cc",
  "pkg-config",
@@ -5247,9 +5250,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.39.0"
+version = "0.40.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0d2b0146dd9661bf67bb107c0bb2a55064d556eeb3fc314151b957f313bcd4e"
+checksum = "11438310b19e3109b6446c33d1ed5e889428cf2e278407bc7896bc4aaea43323"
 dependencies = [
  "bitflags 2.13.1",
  "fallible-iterator",
