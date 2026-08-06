@@ -31,8 +31,11 @@ wasm = [
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-organizations = { workspace = true }
+bitwarden-send = { workspace = true }
+bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde_repr = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }

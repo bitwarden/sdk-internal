@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::policy_type::PolicyType;
 
-/// An organization policy.
+/// An organization policy - raw format that comes over the wire, with untyped json data.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
