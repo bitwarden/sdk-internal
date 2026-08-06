@@ -66,12 +66,6 @@ pub enum CipherUpgradeAttachmentError {
     Upload,
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherUpgradeAttachmentError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
     /// Upgrades a legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
@@ -276,7 +270,7 @@ impl AttachmentsClient {
                     .multipart(form);
                 bitwarden_api_base::process_with_empty_response(request)
                     .await
-                    .map_err(|_: bitwarden_api_api::apis::Error<()>| {
+                    .map_err(|_: bitwarden_api_api::ApiError| {
                         CipherUpgradeAttachmentError::Upload
                     })?;
             }

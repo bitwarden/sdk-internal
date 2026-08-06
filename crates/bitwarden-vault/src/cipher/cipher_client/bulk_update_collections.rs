@@ -21,12 +21,6 @@ pub enum BulkUpdateCollectionsCipherError {
     Repository(#[from] RepositoryError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for BulkUpdateCollectionsCipherError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Updates collection membership for multiple [`Cipher`](crate::Cipher) objects.
