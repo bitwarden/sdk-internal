@@ -1341,8 +1341,6 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
-        // `lenient_decrypt_cipher_view`.
         key: if cipher.key.is_some() {
             #[allow(deprecated)]
             Some(
