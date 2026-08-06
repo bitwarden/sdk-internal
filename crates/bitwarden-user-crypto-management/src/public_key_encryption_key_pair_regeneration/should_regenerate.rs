@@ -779,6 +779,7 @@ mod tests {
                 .encrypt(&mut ctx, cipher_key)
                 .unwrap();
             Cipher {
+                partial_data: None,
                 id: None,
                 organization_id: None,
                 folder_id: None,
