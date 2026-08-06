@@ -13,8 +13,10 @@ uuid_newtype!(pub AccessRequestId);
 uuid_newtype!(pub AccessRuleId);
 
 pub use access_requests::{
-    AccessApprover, AccessDecider, AccessDecisionVerdict, AccessRequestDecisionView,
-    AccessRequestStatus, AccessRequestView, AccessRequestsClient,
+    AccessApprovalMode, AccessApprover, AccessDecider, AccessDecisionVerdict, AccessPreCheckView,
+    AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestResultView,
+    AccessRequestStatus, AccessRequestSummaryView, AccessRequestView, AccessRequestsClient,
+    CipherAccessStateView,
 };
 pub use access_rules::{
     AccessCondition, AccessRuleAddEditRequest, AccessRuleError, AccessRuleValidationError,
