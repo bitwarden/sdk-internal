@@ -4,8 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use bitwarden_core::key_management::KeySlotIds;
-use bitwarden_crypto::{CryptoError, KeyStoreContext};
+use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use data_encoding::BASE32_NOPAD;
@@ -372,8 +371,6 @@ fn decode_b32(s: &str) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::{SymmetricKeySlotId, create_test_crypto_with_user_key};
-    use bitwarden_crypto::{Decryptable, EncString, SymmetricCryptoKey};
     use chrono::Utc;
 
     use super::*;
@@ -729,18 +726,6 @@ mod tests {
 
     #[test]
     fn test_generate_totp_cipher_view() {
-        let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();
-        let key_store = create_test_crypto_with_user_key(key);
-
-        // Decrypt the TOTP URI which was previously stored as an EncString in LoginListView.totp
-        let enc_totp: EncString = "2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap();
-        let totp_str: String = {
-            let mut ctx = key_store.context();
-            enc_totp
-                .decrypt(&mut ctx, SymmetricKeySlotId::User)
-                .unwrap()
-        };
-
         let view = CipherListView {
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
@@ -753,7 +738,7 @@ mod tests {
                 fido2_credentials: None,
                 has_fido2: true,
                 username: None,
-                totp: Some(totp_str),
+                totp: Some("DKWOW4PCP3MYFWLN53BLYAMYQEQJU4MJ".to_string()),
                 uris: None,
             }),
             favorite: false,
