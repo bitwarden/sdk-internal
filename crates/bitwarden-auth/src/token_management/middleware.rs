@@ -13,10 +13,12 @@ const TOKEN_RENEW_MARGIN_SECONDS: i64 = 5 * 60;
 /// The inner [tokio::sync::Mutex] serializes token reads and renewals, ensuring at most one
 /// in-flight renewal and that no request goes out with a potentially-invalidated token while a
 /// renewal is in progress.
-pub(crate) struct MiddlewareWrapper<T>(tokio::sync::Mutex<T>);
+pub struct MiddlewareWrapper<T>(tokio::sync::Mutex<T>);
 
 impl<T> MiddlewareWrapper<T> {
-    pub(crate) fn new(inner: T) -> Self {
+    /// Wrap a [MiddlewareExt] implementation so it can be installed as a
+    /// [reqwest_middleware::Middleware].
+    pub fn new(inner: T) -> Self {
         Self(tokio::sync::Mutex::new(inner))
     }
 }
@@ -25,7 +27,7 @@ impl<T> MiddlewareWrapper<T> {
 /// owns the coalescing decision under the [MiddlewareWrapper] mutex.
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
-pub(crate) trait MiddlewareExt: 'static + Send + Sync {
+pub trait MiddlewareExt: 'static + Send + Sync {
     /// Returns the stored access token and its expiration timestamp (Unix seconds), or `None` if
     /// no token state is available.
     async fn current_token(&self) -> Option<(String, i64)>;
