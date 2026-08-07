@@ -4,7 +4,7 @@ use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::KeySlotIds, require,
 };
-use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
+use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -174,8 +174,7 @@ impl CiphersClient {
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
         if self.client.flags().get().await.enable_cipher_key_encryption {
-            let key = view.key_identifier();
-            view.generate_cipher_key(&mut key_store.context(), key)?;
+            view.generate_cipher_key(&mut key_store.context())?;
         }
 
         let use_blob = self.should_use_blob_encryption(view.organization_id);

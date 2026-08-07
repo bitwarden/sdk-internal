@@ -32,9 +32,6 @@ mod tests {
 
     #[test]
     fn test_identity_cipher_round_trip() {
-        let (key_store, key_id) = create_test_key_store();
-        let mut ctx = key_store.context_mut();
-
         let original = crate::CipherView {
             name: "My Identity".to_string(),
             notes: Some("Identity notes".to_string()),
@@ -62,10 +59,9 @@ mod tests {
             ..create_shell_cipher_view(CipherType::Identity)
         };
 
-        let blob = CipherBlobV1::from_cipher_view(&original, &mut ctx, key_id).unwrap();
+        let blob = CipherBlobV1::from_cipher_view(&original).unwrap();
         let mut restored = create_shell_cipher_view(CipherType::Identity);
-        blob.apply_to_cipher_view(&mut restored, &mut ctx, key_id)
-            .unwrap();
+        blob.apply_to_cipher_view(&mut restored).unwrap();
 
         assert_eq!(restored.name, "My Identity");
         assert_eq!(restored.r#type, CipherType::Identity);

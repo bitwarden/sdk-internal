@@ -67,10 +67,7 @@ impl ClientFido2 {
     ) -> Result<Vec<Fido2CredentialAutofillView>, DecryptFido2AutofillCredentialsError> {
         let key_store = self.client.internal.get_key_store();
 
-        Ok(Fido2CredentialAutofillView::from_cipher_view(
-            &cipher_view,
-            &mut key_store.context(),
-        )?)
+        Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher_view)?)
     }
 }
 

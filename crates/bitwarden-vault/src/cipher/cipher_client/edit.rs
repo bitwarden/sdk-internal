@@ -6,7 +6,7 @@ use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::KeySlotIds, require,
 };
-use bitwarden_crypto::{CryptoError, EncString, IdentifyKey, KeyStore};
+use bitwarden_crypto::{CryptoError, KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -66,7 +66,7 @@ pub struct CipherEditRequest {
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
     pub attachments: Vec<AttachmentView>,
-    pub key: Option<EncString>,
+    pub key: Option<String>,
 }
 
 impl TryFrom<CipherView> for CipherEditRequest {
@@ -89,7 +89,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
             folder_id: value.folder_id,
             favorite: value.favorite,
             reprompt: value.reprompt,
-            key: value.key,
+            key: value.key.as_ref().map(|k| k.to_base64().to_string()),
             name: value.name,
             notes: value.notes,
             fields: value.fields.unwrap_or_default(),
@@ -121,14 +121,16 @@ pub struct CipherPartialEditRequest {
 ///
 /// This conversion is lossy and intended for use only within the edit flow,
 /// as the `CipherView` produced will not have all fields populated (e.g. `collection_ids`).
-pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView {
-    CipherView {
+pub(crate) fn convert_request_to_cipher_view(
+    r: CipherEditRequest,
+) -> Result<CipherView, CryptoError> {
+    Ok(CipherView {
         id: Some(r.id),
         organization_id: r.organization_id,
         folder_id: r.folder_id,
         // `collection_ids` is empty because collections are updated via a separate endpoint.
         collection_ids: vec![],
-        key: r.key,
+        key: r.key.map(SymmetricCryptoKey::try_from).transpose()?,
         name: r.name,
         notes: r.notes,
         r#type: r.r#type.get_cipher_type(),
@@ -156,7 +158,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView
         deleted_date: None,
         revision_date: r.revision_date,
         archived_date: r.archived_date,
-    }
+    })
 }
 
 // `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
@@ -182,14 +184,13 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         key_store.decrypt(&original_cipher)?
     };
 
-    let mut view: CipherView = convert_request_to_cipher_view(request);
+    let mut view: CipherView = convert_request_to_cipher_view(request)?;
     view.update_password_history(&original_cipher_view);
 
     // TODO: Once this flag is removed, the key generation logic should be
     // moved directly into the CompositeEncryptable implementation.
     if view.key.is_none() && enable_cipher_key_encryption {
-        let key = view.key_identifier();
-        view.generate_cipher_key(&mut key_store.context(), key)?;
+        view.generate_cipher_key(&mut key_store.context())?;
     }
 
     let mode = if use_blob {
@@ -751,7 +752,8 @@ mod tests {
     /// fold in password history against the decrypted original.
     fn edit_view_with_history(new_cipher: CipherView, original: &CipherView) -> CipherView {
         let mut view: CipherView =
-            convert_request_to_cipher_view(CipherEditRequest::try_from(new_cipher).unwrap());
+            convert_request_to_cipher_view(CipherEditRequest::try_from(new_cipher).unwrap())
+                .unwrap();
         view.update_password_history(original);
         view
     }

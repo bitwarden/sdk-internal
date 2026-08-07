@@ -36,28 +36,28 @@ impl From<BlobEncryptionError> for CryptoError {
     }
 }
 
-/// Seals a `CipherView` into an opaque blob string, using `wrapping_key` as
-/// the outer key that protects the cipher's wrapped CEK.
+/// Seals a `CipherView` into an opaque blob string under the given `wrapping_key` slot.
+/// The caller is responsible for loading the key slot before calling (e.g. via
+/// `CipherView::load_cipher_key_slot`); this avoids allocating a duplicate slot.
 fn seal_cipher(
     view: &CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
-    let blob = CipherBlobLatest::from_cipher_view(view, ctx, cipher_key)?;
-    seal_blob_content(blob, cipher_key, ctx)
+    let blob = CipherBlobLatest::from_cipher_view(view)?;
+    seal_blob_content(blob, wrapping_key, ctx)
 }
 
-/// Seals a constructed `CipherBlobLatest` under `cipher_key`, returning the
+/// Seals a constructed `CipherBlobLatest` under `wrapping_key`, returning the
 /// opaque string form. Shared by all `CipherBlobLatest` producers so they
 /// don't each re-implement the versioned-enum wrap + COSE seal + base64 chain.
 fn seal_blob_content(
     blob: CipherBlobLatest,
-    cipher_key: SymmetricKeySlotId,
+    wrapping_key: SymmetricKeySlotId,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<String, BlobEncryptionError> {
     let versioned: CipherBlob = blob.into();
-    let sealed = SealedCipherBlob::seal(versioned, &cipher_key, ctx)?;
+    let sealed = SealedCipherBlob::seal(versioned, &wrapping_key, ctx)?;
     Ok(sealed.to_opaque_string()?)
 }
 
@@ -94,12 +94,12 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<Cipher, BlobEncryptionError> {
     if view.key.is_none() {
-        view.generate_cipher_key(ctx, wrapping_key)?;
+        view.generate_cipher_key(ctx)?;
     }
 
-    let cipher_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &view.key)?;
+    let cipher_key = view.load_cipher_key_slot(ctx, wrapping_key)?;
 
-    let sealed_string = seal_cipher(view, ctx, wrapping_key)?;
+    let sealed_string = seal_cipher(view, ctx, cipher_key)?;
 
     let attachments = view.attachments.encrypt_composite(ctx, cipher_key)?;
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
@@ -113,7 +113,11 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         organization_id: view.organization_id,
         folder_id: view.folder_id,
         collection_ids: view.collection_ids.clone(),
-        key: view.key.clone(),
+        key: view
+            .key
+            .as_ref()
+            .map(|_| ctx.wrap_symmetric_key(wrapping_key, cipher_key))
+            .transpose()?,
         r#type: view.r#type,
         favorite: view.favorite,
         reprompt: view.reprompt,
@@ -180,7 +184,12 @@ pub(crate) fn decrypt_blob_cipher(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        key: cipher.key.clone(),
+        key: if cipher.key.is_some() {
+            #[allow(deprecated)]
+            Some(ctx.dangerous_get_symmetric_key(cipher_key)?.clone())
+        } else {
+            None
+        },
         r#type: cipher.r#type,
         favorite: cipher.favorite,
         reprompt: cipher.reprompt,
@@ -213,14 +222,14 @@ pub(crate) fn decrypt_blob_cipher(
         password_history: None,
     };
 
-    blob.apply_to_cipher_view(&mut view, ctx, cipher_key)?;
+    blob.apply_to_cipher_view(&mut view)?;
 
     Ok(view)
 }
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::IdentifyKey;
+    use bitwarden_crypto::{IdentifyKey, SymmetricCryptoKey};
     use uuid::Uuid;
 
     use super::*;
@@ -310,13 +319,19 @@ mod tests {
         view.secure_note = Some(SecureNoteView {
             r#type: SecureNoteType::Generic,
         });
-        view.generate_cipher_key(&mut ctx, view.key_identifier())
-            .unwrap();
+        view.generate_cipher_key(&mut ctx).unwrap();
 
-        let sealed_string = seal_cipher(&view, &mut ctx, view.key_identifier()).unwrap();
+        let cipher_key = view
+            .load_cipher_key_slot(&mut ctx, view.key_identifier())
+            .unwrap();
+        let sealed_string = seal_cipher(&view, &mut ctx, cipher_key).unwrap();
 
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
-        cipher.key = view.key.clone();
+        if let Some(b64) = &view.key {
+            let raw = SymmetricCryptoKey::try_from(b64.clone()).unwrap();
+            let slot = ctx.add_local_symmetric_key(raw);
+            cipher.key = Some(ctx.wrap_symmetric_key(view.key_identifier(), slot).unwrap());
+        }
 
         let view = decrypt_blob_cipher(
             &cipher,
