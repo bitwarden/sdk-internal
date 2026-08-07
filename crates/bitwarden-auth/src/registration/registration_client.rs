@@ -38,4 +38,7 @@ pub enum RegistrationError {
     /// Cryptography initialization failed.
     #[error("Cryptography initialization failed")]
     Crypto,
+    /// Caller-provided input failed validation (e.g. malformed UUID).
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }
