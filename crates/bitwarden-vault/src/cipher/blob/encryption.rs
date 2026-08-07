@@ -36,28 +36,28 @@ impl From<BlobEncryptionError> for CryptoError {
     }
 }
 
-/// Seals a `CipherView` into an opaque blob string under the given `cipher_key` slot.
+/// Seals a `CipherView` into an opaque blob string under the given `wrapping_key` slot.
 /// The caller is responsible for loading the key slot before calling (e.g. via
 /// `CipherView::load_cipher_key_slot`); this avoids allocating a duplicate slot.
 fn seal_cipher(
     view: &CipherView,
     ctx: &mut KeyStoreContext<KeySlotIds>,
-    cipher_key: SymmetricKeySlotId,
+    wrapping_key: SymmetricKeySlotId,
 ) -> Result<String, BlobEncryptionError> {
     let blob = CipherBlobLatest::from_cipher_view(view)?;
-    seal_blob_content(blob, cipher_key, ctx)
+    seal_blob_content(blob, wrapping_key, ctx)
 }
 
-/// Seals a constructed `CipherBlobLatest` under `cipher_key`, returning the
+/// Seals a constructed `CipherBlobLatest` under `wrapping_key`, returning the
 /// opaque string form. Shared by all `CipherBlobLatest` producers so they
 /// don't each re-implement the versioned-enum wrap + COSE seal + base64 chain.
 fn seal_blob_content(
     blob: CipherBlobLatest,
-    cipher_key: SymmetricKeySlotId,
+    wrapping_key: SymmetricKeySlotId,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<String, BlobEncryptionError> {
     let versioned: CipherBlob = blob.into();
-    let sealed = SealedCipherBlob::seal(versioned, &cipher_key, ctx)?;
+    let sealed = SealedCipherBlob::seal(versioned, &wrapping_key, ctx)?;
     Ok(sealed.to_opaque_string()?)
 }
 
@@ -186,11 +186,7 @@ pub(crate) fn decrypt_blob_cipher(
         collection_ids: cipher.collection_ids.clone(),
         key: if cipher.key.is_some() {
             #[allow(deprecated)]
-            Some(
-                ctx.dangerous_get_symmetric_key(cipher_key)?
-                    .to_base64()
-                    .to_string(),
-            )
+            Some(ctx.dangerous_get_symmetric_key(cipher_key)?.clone())
         } else {
             None
         },

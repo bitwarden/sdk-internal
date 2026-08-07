@@ -437,7 +437,8 @@ pub struct CipherView {
     pub folder_id: Option<FolderId>,
     pub collection_ids: Vec<CollectionId>,
 
-    pub key: Option<String>,
+    #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey | undefined"))]
+    pub key: Option<SymmetricCryptoKey>,
 
     pub name: String,
     pub notes: Option<String>,
@@ -636,10 +637,7 @@ impl CipherView {
         wrapping_key: SymmetricKeySlotId,
     ) -> Result<SymmetricKeySlotId, CryptoError> {
         match &self.key {
-            Some(b64) => {
-                let raw = SymmetricCryptoKey::try_from(b64.clone())?;
-                Ok(ctx.add_local_symmetric_key(raw))
-            }
+            Some(key) => Ok(ctx.add_local_symmetric_key(key.clone())),
             None => Ok(wrapping_key),
         }
     }
@@ -731,11 +729,7 @@ pub(crate) fn lenient_decrypt_cipher_view(
         collection_ids: cipher.collection_ids.clone(),
         key: if cipher.key.is_some() {
             #[allow(deprecated)]
-            Some(
-                ctx.dangerous_get_symmetric_key(ciphers_key)?
-                    .to_base64()
-                    .to_string(),
-            )
+            Some(ctx.dangerous_get_symmetric_key(ciphers_key)?.clone())
         } else {
             None
         },
@@ -907,10 +901,9 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<(), CryptoError> {
         let new_key = ctx.generate_symmetric_key();
-
         #[allow(deprecated)]
-        let raw = ctx.dangerous_get_symmetric_key(new_key)?.clone();
-        self.key = Some(raw.to_base64().to_string());
+        let new_key_raw = ctx.dangerous_get_symmetric_key(new_key)?.clone();
+        self.key = Some(new_key_raw);
         Ok(())
     }
 
@@ -1062,7 +1055,7 @@ impl CipherView {
             organization_id: self.organization_id,
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
-            key: self.key.clone(),
+            key: self.key.as_ref().map(|k| k.to_base64().to_string()),
             name: self.name.clone(),
             subtitle: self.subtitle(),
             r#type: list_type,
@@ -1528,11 +1521,7 @@ fn strict_decrypt_cipher_view(
         collection_ids: cipher.collection_ids.clone(),
         key: if cipher.key.is_some() {
             #[allow(deprecated)]
-            Some(
-                ctx.dangerous_get_symmetric_key(ciphers_key)?
-                    .to_base64()
-                    .to_string(),
-            )
+            Some(ctx.dangerous_get_symmetric_key(ciphers_key)?.clone())
         } else {
             None
         },
@@ -2455,16 +2444,14 @@ mod tests {
             let cipher_key = ctx.generate_symmetric_key();
             #[allow(deprecated)]
             let raw = ctx.dangerous_get_symmetric_key(cipher_key).unwrap().clone();
-            original_cipher.key = Some(raw.to_base64().to_string());
+            original_cipher.key = Some(raw);
         }
 
         original_cipher
             .generate_cipher_key(&mut key_store.context())
             .unwrap();
 
-        // Make sure that the raw cipher key is decodable
-        let raw_key = original_cipher.key.unwrap();
-        let _ = SymmetricCryptoKey::try_from(raw_key).unwrap();
+        assert!(original_cipher.key.is_some());
     }
 
     #[test]
@@ -2500,10 +2487,7 @@ mod tests {
 
         cipher.validate_attachment_keys().unwrap();
 
-        // Raw key bytes are unchanged; verify they can be decoded
         assert!(cipher.key.is_some());
-        let raw_key = cipher.key.unwrap();
-        assert!(SymmetricCryptoKey::try_from(raw_key).is_ok());
     }
 
     #[test]
@@ -2657,7 +2641,7 @@ mod tests {
             .clone();
 
         let mut cipher = generate_cipher();
-        cipher.key = Some(cipher_key_raw.to_base64().to_string());
+        cipher.key = Some(cipher_key_raw.clone());
 
         let attachment = AttachmentView {
             id: None,
@@ -2675,9 +2659,7 @@ mod tests {
         cipher.move_to_organization(org).unwrap();
 
         // Raw cipher key bytes are unchanged (re-wrapping happens at encrypt time)
-        let raw_b64 = cipher.key.clone().unwrap();
-        let new_cipher_key_dec = SymmetricCryptoKey::try_from(raw_b64).unwrap();
-        assert_eq!(new_cipher_key_dec, cipher_key_raw);
+        assert_eq!(cipher.key.clone().unwrap(), cipher_key_raw);
 
         // Attachment raw key bytes are unchanged (re-wrapping happens at encrypt time)
         assert_eq!(
