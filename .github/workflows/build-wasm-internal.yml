@@ -103,6 +103,53 @@ jobs:
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*
           if-no-files-found: error
 
+  typecheck-debug:
+    name: Typecheck generated TypeScript (debug profile)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Set Rust Toolchain
+        id: toolchain
+        run: |
+          RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' ../../rust-toolchain.toml)"
+          echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: NPM setup
+        run: npm ci
+        working-directory: crates/bitwarden-wasm-internal/npm
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
+          targets: wasm32-unknown-unknown
+          components: rust-src
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: wasm-debug-cargo-cache
+
+      # Debug puts each module in its own object file, and the linker skips the ones nothing
+      # references. Any wasm-bindgen custom section inside them is dropped with them, leaving a
+      # generated .d.ts that references types it never declares. Release hides this with
+      # codegen-units = 1, so the `build` job above cannot catch it.
+      # See https://github.com/wasm-bindgen/wasm-bindgen/issues/5137.
+      - name: Build and typecheck
+        run: ./build.sh -c
+
   integration-tests:
     name: Integration tests
     runs-on: ubuntu-24.04
