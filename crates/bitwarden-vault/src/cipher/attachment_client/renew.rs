@@ -16,12 +16,6 @@ pub enum CipherRenewFileUploadUrlError {
     MissingField(#[from] MissingFieldError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherRenewFileUploadUrlError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
     /// Returns a renewed upload URL for an attachment.
@@ -123,8 +117,8 @@ mod tests {
             mock.ciphers_api
                 .expect_renew_file_upload_url()
                 .returning(|_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
                             message: "boom".to_string(),
                         },
