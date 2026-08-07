@@ -731,6 +731,7 @@ mod tests {
     #[test]
     fn test_generate_totp_cipher_view() {
         let view = CipherListView {
+            partial: false,
             id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
             organization_id: None,
             folder_id: None,
