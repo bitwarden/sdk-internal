@@ -30,6 +30,8 @@ pub enum CryptoError {
     MissingKeyId(String),
     #[error("Key operation not supported by key: {0:?}")]
     KeyOperationNotSupported(KeyOperation),
+    #[error("Cannot encrypt a restricted (partial) view; its secret fields were never decrypted")]
+    EncryptRestrictedView,
 
     // Note: These variants will be moved into their own key store error in a follow up ticket,
     // since the crypto error is growing too large
