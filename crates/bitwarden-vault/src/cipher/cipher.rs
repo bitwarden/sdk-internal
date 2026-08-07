@@ -922,14 +922,6 @@ impl CipherView {
     }
 
     #[allow(missing_docs)]
-    #[deprecated(
-        note = "Use `get_fido2_credentials` instead - Fido2Credentials are no longer encrypted in `CipherView`"
-    )]
-    pub fn decrypt_fido2_credentials(&self) -> Vec<Fido2CredentialView> {
-        self.get_fido2_credentials()
-    }
-
-    #[allow(missing_docs)]
     pub fn get_fido2_credentials(&self) -> Vec<Fido2CredentialView> {
         self.login
             .as_ref()
@@ -938,8 +930,7 @@ impl CipherView {
             .unwrap_or_default()
     }
 
-    /// Moves the cipher to an organization by re-encrypting the cipher keys with the organization
-    /// key and assigning the organization ID to the cipher.
+    /// Moves the cipher to an organization by assigning the organization ID to the cipher.
     ///
     /// # Arguments
     /// * `organization_id` - The ID of the organization to move the cipher to

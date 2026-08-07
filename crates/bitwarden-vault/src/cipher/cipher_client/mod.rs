@@ -291,7 +291,7 @@ impl CiphersClient {
         &self,
         cipher_view: CipherView,
     ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        Ok(cipher_view.decrypt_fido2_credentials())
+        Ok(cipher_view.get_fido2_credentials())
     }
 
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
