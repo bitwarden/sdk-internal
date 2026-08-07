@@ -29,11 +29,39 @@ use crate::{
  * Parse CXF payload in the format compatible with Apple (At the Account-level)
  */
 pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfError> {
-    let account: CxfAccount = serde_json::from_str(&payload)?;
+    let sanitized = sanitize_timestamps(&payload);
+    let account: CxfAccount = serde_json::from_str(&sanitized)?;
 
     let items: Vec<ImportingCipher> = account.items.into_iter().flat_map(parse_item).collect();
 
     Ok(items)
+}
+
+/// Replace negative `creationAt` and `modifiedAt` values with 0.
+///
+/// Some credential managers (e.g., Google Password Manager) export timestamps
+/// as the Windows FILETIME epoch (-11644473600) when no real date exists. The
+/// `credential-exchange-format` crate deserializes these fields as `u64` and
+/// cannot handle negative values.
+pub(crate) fn sanitize_timestamps(payload: &str) -> String {
+    let mut value: serde_json::Value = match serde_json::from_str(payload) {
+        Ok(v) => v,
+        Err(_) => return payload.to_string(),
+    };
+
+    if let Some(items) = value.get_mut("items").and_then(|v| v.as_array_mut()) {
+        for item in items {
+            for key in &["creationAt", "modifiedAt"] {
+                if let Some(n) = item.get(key).and_then(|v| v.as_i64()) {
+                    if n < 0 {
+                        item[key] = serde_json::Value::Number(0.into());
+                    }
+                }
+            }
+        }
+    }
+
+    serde_json::to_string(&value).unwrap_or_else(|_| payload.to_string())
 }
 
 /// Convert a CXF timestamp to a [`DateTime<Utc>`].
