@@ -33,7 +33,7 @@ use super::{
     cipher_permissions::CipherPermissions,
     drivers_license, field, identity,
     local_data::{LocalData, LocalDataView},
-    login::{LoginListView, LoginUri, LoginUriView},
+    login::{LoginListView, LoginUri},
     passport, secure_note, ssh_key,
 };
 use crate::{
@@ -341,12 +341,10 @@ pub struct Cipher {
     pub archived_date: Option<DateTime<Utc>>,
     pub data: Option<String>,
 
-    /// Raw JSON envelope for a server-restricted (PAM-gated) cipher: the encrypted name and,
-    /// for logins, the encrypted URIs — every secret field is withheld by the server. Its
-    /// presence marks the cipher restricted; the decrypt path parses only these allowlisted
-    /// fields and produces a view with `partial = true`, never reading the secret payloads.
-    /// Distinct from `data` (the full sealed blob) and from the unrelated `PartialCipher`
-    /// merge trait.
+    /// Raw JSON envelope for a server-restricted (PAM-gated) cipher: only contains a sub-set of
+    /// non sensitive fields, all other fields are withheld by the server. Its presence marks the
+    /// cipher restricted; the decrypt path parses only these allowlisted fields and produces a
+    /// view with `partial = true`, never reading the secret payloads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub partial_data: Option<String>,
 }
@@ -496,8 +494,8 @@ pub struct CipherView {
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
 
-    /// True when this view was produced from a server-restricted (PAM-gated) cipher: only the
-    /// name and (for logins) URIs are populated; every secret field is absent. See
+    /// True when this view was produced from a server-restricted (PAM-gated) cipher. Only a
+    /// sub-set of fields are populated; every secret field is absent. See
     /// [`Cipher::partial_data`].
     #[serde(default)]
     pub partial: bool,
@@ -594,8 +592,8 @@ pub struct CipherListView {
 
     pub local_data: Option<LocalDataView>,
 
-    /// True when this view was produced from a server-restricted (PAM-gated) cipher: only the
-    /// name and (for logins) URIs are populated. See [`Cipher::partial_data`].
+    /// True when this view was produced from a server-restricted (PAM-gated) cipher. Only a
+    /// sub-set of fields are populated. See [`Cipher::partial_data`].
     #[serde(default)]
     pub partial: bool,
 
@@ -1548,33 +1546,18 @@ impl IdentifyKey<SymmetricKeySlotId> for Cipher {
 }
 
 /// The server's reduced payload for a restricted (PAM-gated) cipher, produced by
-/// `PartialCipherData.Strip` on the server. The server emits a purpose-built camelCase envelope
-/// carrying the same [`LoginUri`] fields the full decrypt path uses, so the URIs deserialize
-/// straight into [`LoginUri`] with no parallel representation.
+/// `PartialCipherData.Strip` on the server.
 ///
 /// This struct is the single authoritative allowlist for what a gated view may expose: the
 /// encrypted name and, for logins, the encrypted URIs — nothing else. It is deliberately NOT
-/// `deny_unknown_fields`: an over-sharing server blob (e.g. a stray `password` or `totp`) is
-/// silently dropped by the allowlist rather than surfaced onto the view or failing the parse.
+/// `deny_unknown_fields`: the server may decide to include additional non sensitive fields in the
+/// future; these are silently dropped by the allowlist rather than surfaced onto the view or
+/// failing the parse.
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct RestrictedCipherData {
     name: Option<EncString>,
     uris: Option<Vec<LoginUri>>,
-}
-
-/// Decrypt the allowlisted URIs from a restricted envelope. A URI that fails to decrypt is
-/// dropped rather than failing the whole cipher.
-fn decrypt_restricted_uris(
-    uris: Option<Vec<LoginUri>>,
-    ctx: &mut KeyStoreContext<KeySlotIds>,
-    ciphers_key: SymmetricKeySlotId,
-) -> Option<Vec<LoginUriView>> {
-    uris.map(|list| {
-        list.into_iter()
-            .filter_map(|u| u.decrypt(ctx, ciphers_key).ok())
-            .collect()
-    })
 }
 
 /// Decrypt a restricted (PAM-gated) cipher into a [`CipherView`].
@@ -1604,7 +1587,7 @@ fn decrypt_restricted_cipher_view(
         username: None,
         password: None,
         password_revision_date: None,
-        uris: decrypt_restricted_uris(restricted.uris, ctx, ciphers_key),
+        uris: restricted.uris.decrypt(ctx, ciphers_key).ok().flatten(),
         totp: None,
         autofill_on_page_load: None,
         fido2_credentials: None,
@@ -1683,7 +1666,7 @@ fn decrypt_restricted_cipher_list_view(
             has_fido2: false,
             username: None,
             totp: None,
-            uris: decrypt_restricted_uris(restricted.uris, ctx, ciphers_key),
+            uris: restricted.uris.decrypt(ctx, ciphers_key).ok().flatten(),
         }),
         CipherType::SecureNote => CipherListViewType::SecureNote,
         CipherType::Card => CipherListViewType::Card(CardListView { brand: None }),
