@@ -9,6 +9,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use crate::{
     OrganizationUserPolicyContext, Policy, PolicyType, PolicyView,
     models::{EnforcedPolicy, EnforcedPolicyErased},
+    policy::EnforceablePolicy,
 };
 
 /// Client for policy domain operations.
@@ -90,7 +91,7 @@ impl PolicyClient {
                 .collect();
         policy_views
             .iter()
-            .map(|p| EnforcedPolicy::new(p.organization_id, &policy, policy_views, &contexts))
+            .map(|p| policy.get_enforced(p.organization_id, policy_views, &contexts))
             .collect()
     }
 
@@ -108,7 +109,7 @@ impl PolicyClient {
                 .iter()
                 .map(|ctx| (ctx.id, ctx))
                 .collect();
-        EnforcedPolicy::new(organization_id, &policy, policy_views, &contexts)
+        policy.get_enforced(organization_id, policy_views, &contexts)
     }
 }
 

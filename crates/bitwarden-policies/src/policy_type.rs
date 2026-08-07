@@ -7,7 +7,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{MasterPasswordPolicyResponse, models::ErasedPolicy, policy_overrides::*};
+use crate::{MasterPasswordPolicyResponse, policy::ErasedPolicy, policy_overrides::*};
 
 /// The type of an organization policy.
 ///
