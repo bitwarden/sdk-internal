@@ -680,7 +680,8 @@ impl CipherView {
         key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
         // Fail closed: a restricted (partial) view has all secret fields stripped; re-encrypting it
-        // would overwrite the item's secrets with empty values. See `decrypt_restricted_cipher_view`.
+        // would overwrite the item's secrets with empty values. See
+        // `decrypt_restricted_cipher_view`.
         if self.partial {
             return Err(CryptoError::EncryptRestrictedView);
         }

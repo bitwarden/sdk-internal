@@ -95,7 +95,9 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     // Fail closed: a restricted (partial) view has all secret fields stripped; re-encrypting it
     // would overwrite the item's secrets with empty values. See `decrypt_restricted_cipher_view`.
     if view.partial {
-        return Err(BlobEncryptionError::Crypto(CryptoError::EncryptRestrictedView));
+        return Err(BlobEncryptionError::Crypto(
+            CryptoError::EncryptRestrictedView,
+        ));
     }
 
     if view.key.is_none() {
