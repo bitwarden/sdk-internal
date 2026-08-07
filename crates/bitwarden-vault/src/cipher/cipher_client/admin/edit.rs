@@ -47,12 +47,6 @@ pub enum EditCipherAdminError {
     Decrypt(#[from] DecryptError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherAdminError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 // `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
 // short-lived feature-rollout flags that will be removed once their migrations
 // complete, at which point the argument count drops back under the limit.
@@ -107,8 +101,7 @@ async fn edit_cipher(
     let mut cipher: Cipher = api_client
         .ciphers_api()
         .put_admin(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(orig_cipher))?;
 
     cipher.folder_id = folder_id;
