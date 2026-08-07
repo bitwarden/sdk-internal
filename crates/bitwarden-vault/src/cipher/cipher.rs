@@ -497,6 +497,9 @@ pub struct CipherView {
     /// True when this view was produced from a server-restricted (PAM-gated) cipher. Only a
     /// sub-set of fields are populated; every secret field is absent. See
     /// [`Cipher::partial_data`].
+    /// Such a view is fail-closed against re-encryption: passing it to any encrypt path returns
+    /// [`bitwarden_crypto::CryptoError::EncryptRestrictedView`] rather than silently stripping
+    /// secrets.
     #[serde(default)]
     pub partial: bool,
 }
@@ -684,6 +687,12 @@ impl CipherView {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
+        // Fail closed: a restricted (partial) view has all secret fields stripped; re-encrypting it
+        // would overwrite the item's secrets with empty values. See `decrypt_restricted_cipher_view`.
+        if self.partial {
+            return Err(CryptoError::EncryptRestrictedView);
+        }
+
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         let mut cipher_view = self.clone();
@@ -2978,6 +2987,48 @@ mod tests {
             strict_result.is_err(),
             "Strict decryption should fail when login username is encrypted with a different key"
         );
+    }
+
+    #[test]
+    fn test_encrypt_legacy_fails_closed_for_partial_view() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        let mut view = generate_cipher();
+        view.partial = true;
+
+        let result = key_store.encrypt(EncryptMode::Legacy(view));
+        assert!(matches!(result, Err(CryptoError::EncryptRestrictedView)));
+    }
+
+    #[test]
+    fn test_encrypt_blob_fails_closed_for_partial_view() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        let mut view = generate_cipher();
+        view.partial = true;
+
+        let result = key_store.encrypt(EncryptMode::Blob(view));
+        assert!(matches!(result, Err(CryptoError::EncryptRestrictedView)));
+    }
+
+    #[test]
+    fn test_encrypt_succeeds_for_non_partial_view() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        // Control: the same shape of view, but with `partial: false`, must still encrypt
+        // successfully — proving the guard is specific to `partial` rather than some other
+        // difference between test fixtures.
+        let view = generate_cipher();
+        assert!(!view.partial);
+
+        let result = key_store.encrypt(EncryptMode::Legacy(view));
+        assert!(result.is_ok());
     }
 
     #[test]
