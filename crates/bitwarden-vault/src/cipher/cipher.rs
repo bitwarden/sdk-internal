@@ -33,7 +33,7 @@ use super::{
     cipher_permissions::CipherPermissions,
     drivers_license, field, identity,
     local_data::{LocalData, LocalDataView},
-    login::{LoginListView, LoginUri, LoginUriView, UriMatchType},
+    login::{LoginListView, LoginUri, LoginUriView},
     passport, secure_note, ssh_key,
 };
 use crate::{
@@ -1563,48 +1563,32 @@ impl IdentifyKey<SymmetricKeySlotId> for Cipher {
     }
 }
 
-/// The server's reduced payload for a restricted (PAM-gated) cipher, mirroring
-/// `PartialCipherData.Strip` on the server. Deserialized with PascalCase to match the server's
-/// wire shape. This struct is the single authoritative allowlist for what a gated view may
-/// expose: the encrypted name and, for logins, the encrypted URIs — nothing else, so an
-/// over-sharing server blob can never leak a password or TOTP onto a gated view.
+/// The server's reduced payload for a restricted (PAM-gated) cipher, produced by
+/// `PartialCipherData.Strip` on the server. The server emits a purpose-built camelCase envelope
+/// carrying the same [`LoginUri`] fields the full decrypt path uses, so the URIs deserialize
+/// straight into [`LoginUri`] with no parallel representation.
+///
+/// This struct is the single authoritative allowlist for what a gated view may expose: the
+/// encrypted name and, for logins, the encrypted URIs — nothing else. It is deliberately NOT
+/// `deny_unknown_fields`: an over-sharing server blob (e.g. a stray `password` or `totp`) is
+/// silently dropped by the allowlist rather than surfaced onto the view or failing the parse.
 #[derive(Deserialize, Default)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "camelCase")]
 struct RestrictedCipherData {
     name: Option<EncString>,
-    uris: Option<Vec<RestrictedLoginUri>>,
-}
-
-/// A single URI entry inside [`RestrictedCipherData`] (server PascalCase shape). Structurally a
-/// [`LoginUri`]; converted to one for decryption.
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct RestrictedLoginUri {
-    uri: Option<EncString>,
-    r#match: Option<UriMatchType>,
-    uri_checksum: Option<EncString>,
-}
-
-impl From<RestrictedLoginUri> for LoginUri {
-    fn from(u: RestrictedLoginUri) -> Self {
-        LoginUri {
-            uri: u.uri,
-            r#match: u.r#match,
-            uri_checksum: u.uri_checksum,
-        }
-    }
+    uris: Option<Vec<LoginUri>>,
 }
 
 /// Decrypt the allowlisted URIs from a restricted envelope. A URI that fails to decrypt is
 /// dropped rather than failing the whole cipher.
 fn decrypt_restricted_uris(
-    uris: Option<Vec<RestrictedLoginUri>>,
+    uris: Option<Vec<LoginUri>>,
     ctx: &mut KeyStoreContext<KeySlotIds>,
     ciphers_key: SymmetricKeySlotId,
 ) -> Option<Vec<LoginUriView>> {
     uris.map(|list| {
         list.into_iter()
-            .filter_map(|u| LoginUri::from(u).decrypt(ctx, ciphers_key).ok())
+            .filter_map(|u| u.decrypt(ctx, ciphers_key).ok())
             .collect()
     })
 }
@@ -2572,8 +2556,8 @@ mod tests {
             .encrypt(&mut key_store.context(), SymmetricKeySlotId::User)
             .unwrap();
         let envelope = serde_json::json!({
-            "Name": enc_name,
-            "Uris": [{ "Uri": enc_uri, "UriChecksum": null, "Match": null }],
+            "name": enc_name,
+            "uris": [{ "uri": enc_uri, "uriChecksum": null, "match": null }],
         })
         .to_string();
 
@@ -2619,9 +2603,9 @@ mod tests {
             .encrypt(&mut key_store.context(), SymmetricKeySlotId::User)
             .unwrap();
         let envelope = serde_json::json!({
-            "Name": enc_name,
-            "Uris": [{ "Uri": enc_uri, "UriChecksum": null, "Match": null }],
-            "Password": enc_pw,
+            "name": enc_name,
+            "uris": [{ "uri": enc_uri, "uriChecksum": null, "match": null }],
+            "password": enc_pw,
         })
         .to_string();
 
@@ -2653,7 +2637,7 @@ mod tests {
             .to_string()
             .encrypt(&mut key_store.context(), SymmetricKeySlotId::User)
             .unwrap();
-        let envelope = serde_json::json!({ "Name": enc_name }).to_string();
+        let envelope = serde_json::json!({ "name": enc_name }).to_string();
         let cipher = restricted_cipher(CipherType::SecureNote, envelope);
 
         let list: CipherListView = key_store.decrypt(&cipher).unwrap();
@@ -2694,7 +2678,7 @@ mod tests {
             .to_string()
             .encrypt(&mut key_store.context(), SymmetricKeySlotId::User)
             .unwrap();
-        let envelope = serde_json::json!({ "Name": enc_name }).to_string();
+        let envelope = serde_json::json!({ "name": enc_name }).to_string();
         // A Card with no card payload would hit `MissingField("card")` under strict decrypt —
         // the restricted branch must short-circuit before that.
         let cipher = restricted_cipher(CipherType::Card, envelope);
