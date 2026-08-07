@@ -2583,7 +2583,7 @@ mod tests {
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
-            key: Some(attachment_key_val.to_base64().to_string()),
+            key: Some(attachment_key_val.clone()),
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2_view();
@@ -2594,9 +2594,10 @@ mod tests {
         assert!(cipher.key.is_none());
 
         // Attachment raw key bytes are preserved (re-wrapping happens at encrypt time)
-        let new_attachment_key = cipher.attachments.unwrap()[0].key.clone().unwrap();
-        let new_attachment_key_dec = SymmetricCryptoKey::try_from(new_attachment_key).unwrap();
-        assert_eq!(new_attachment_key_dec, attachment_key_val);
+        assert_eq!(
+            cipher.attachments.unwrap()[0].key.clone().unwrap(),
+            attachment_key_val
+        );
 
         let cred2 = cipher
             .login
@@ -2640,7 +2641,7 @@ mod tests {
             size: None,
             size_name: None,
             file_name: Some("Attachment test name".into()),
-            key: Some(attachment_key_raw.to_base64().to_string()),
+            key: Some(attachment_key_raw.clone()),
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -2655,7 +2656,7 @@ mod tests {
         // Attachment raw key bytes are unchanged (re-wrapping happens at encrypt time)
         assert_eq!(
             cipher.attachments.unwrap()[0].key.as_ref().unwrap(),
-            &attachment_key_raw.to_base64().to_string()
+            &attachment_key_raw
         );
 
         let cred2 = cipher

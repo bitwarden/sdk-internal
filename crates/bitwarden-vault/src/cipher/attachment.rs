@@ -75,7 +75,8 @@ pub struct AttachmentView {
     pub size: Option<String>,
     pub size_name: Option<String>,
     pub file_name: Option<String>,
-    pub key: Option<String>,
+    #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey | undefined"))]
+    pub key: Option<SymmetricCryptoKey>,
 }
 
 #[allow(missing_docs)]
@@ -136,7 +137,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, AttachmentEncryptResul
             OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
         #[allow(deprecated)]
         let raw_attachment_key = ctx.dangerous_get_symmetric_key(attachment_key)?.clone();
-        attachment.key = Some(raw_attachment_key.to_base64().to_string());
+        attachment.key = Some(raw_attachment_key);
 
         let contents = encrypted_contents.to_buffer()?;
 
@@ -161,33 +162,15 @@ fn size_name(size: usize) -> String {
     format!("{} {}", size_round, units[unit])
 }
 
-/// Parses a base64-encoded raw symmetric key and loads it into an ephemeral key-store slot.
-/// Used by both the attachment encrypt and decrypt paths.
-pub(super) fn load_symmetric_key_slot(
-    ctx: &mut KeyStoreContext<KeySlotIds>,
-    b64: &str,
-) -> Result<SymmetricKeySlotId, CryptoError> {
-    let raw = SymmetricCryptoKey::try_from(b64.to_owned())?;
-    Ok(ctx.add_local_symmetric_key(raw))
-}
-
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Vec<u8>, CryptoError> {
-        // Version 2 or 3: attachment view already holds the raw key as base64
-        if let Some(b64) = &self.attachment.key {
-            let content_key = load_symmetric_key_slot(ctx, b64).map_err(|e| {
-                tracing::warn!(
-                    attachment_id = ?self.attachment.id,
-                    cipher_id = ?self.cipher.id,
-                    error = %e,
-                    "Failed to parse attachment key (v2/v3)"
-                );
-                e
-            })?;
+        // Version 2 or 3: attachment view already holds the raw attachment key
+        if let Some(attachment_key) = &self.attachment.key {
+            let content_key = ctx.add_local_symmetric_key(attachment_key.clone());
             self.contents.decrypt(ctx, content_key).map_err(|e| {
                 tracing::warn!(
                     attachment_id = ?self.attachment.id,
@@ -226,9 +209,9 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Attachment> for Attach
             file_name: self.file_name.encrypt(ctx, key)?,
             key: self
                 .key
-                .as_deref()
-                .map(|b64| {
-                    let slot = load_symmetric_key_slot(ctx, b64)?;
+                .as_ref()
+                .map(|k| {
+                    let slot = ctx.add_local_symmetric_key(k.clone());
                     ctx.wrap_symmetric_key(key, slot)
                 })
                 .transpose()?,
@@ -247,8 +230,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, AttachmentView> for Attachment 
         let decrypted_key = if let Some(attachment_key) = &self.key {
             let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
             #[allow(deprecated)]
-            let actual_key = ctx.dangerous_get_symmetric_key(content_key_id)?.clone();
-            Some(actual_key.to_base64().to_string())
+            Some(ctx.dangerous_get_symmetric_key(content_key_id)?.clone())
         } else {
             None
         };
@@ -283,8 +265,7 @@ pub(crate) fn decrypt_attachments_with_failures(
                 let recovered_key = attachment.key.as_ref().and_then(|attachment_key| {
                     let slot = ctx.unwrap_symmetric_key(key, attachment_key).ok()?;
                     #[allow(deprecated)]
-                    let raw = ctx.dangerous_get_symmetric_key(slot).ok()?.clone();
-                    Some(raw.to_base64().to_string())
+                    Some(ctx.dangerous_get_symmetric_key(slot).ok()?.clone())
                 });
                 failures.push(AttachmentView {
                     id: attachment.id.clone(),
@@ -407,9 +388,7 @@ mod tests {
         let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
         let key_store = create_test_crypto_with_user_key(user_key);
 
-        // Decrypt the attachment key from the original EncString so the test still exercises
-        // real crypto, but stores it as raw base64 as the new AttachmentView.key type requires.
-        let attachment_key_b64 = {
+        let attachment_key = {
             let mut ctx = key_store.context();
             let cipher_key_enc: EncString = "2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap();
             let cipher_key_slot = Cipher::decrypt_cipher_key(
@@ -425,8 +404,7 @@ mod tests {
             #[allow(deprecated)]
             ctx.dangerous_get_symmetric_key(att_key_slot)
                 .unwrap()
-                .to_base64()
-                .to_string()
+                .clone()
         };
 
         let attachment = AttachmentView {
@@ -435,7 +413,7 @@ mod tests {
             size: Some("161".into()),
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
-            key: Some(attachment_key_b64),
+            key: Some(attachment_key),
         };
 
         let cipher  = Cipher {

@@ -665,12 +665,6 @@ mod tests {
         let attachment_view = attachments.first().unwrap().clone();
         assert!(attachment_view.key.is_some());
 
-        // Ensure attachment key is updated since it's now protected by the cipher key
-        assert_ne!(
-            attachment.clone().key.unwrap().to_string(),
-            attachment_view.clone().key.unwrap().to_string()
-        );
-
         assert_eq!(attachment_view.file_name.as_deref(), Some("h.txt"));
 
         let buf = vec![
