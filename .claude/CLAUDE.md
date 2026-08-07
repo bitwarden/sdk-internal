@@ -47,12 +47,11 @@ Generated code:
   or the "Update API Bindings" GitHub workflow.
 - WASM npm packages (`@bitwarden/sdk-internal`, `@bitwarden/commercial-sdk-internal`) build via
   `crates/bitwarden-wasm-internal/build.sh` (`-r` release, `-b` commercial).
-- WASM TS aliases via `#[wasm_bindgen(typescript_custom_section)]` only reliably survive `wasm-ld`
-  in debug builds when colocated in the same source file as an externally-referenced struct/fn.
-  Debug uses many codegen units and can drop the whole unit containing the section; release masks
-  this via `codegen-units = 1` + `lto = true`. CI runs release (`-r`) — CI-green does not prove the
-  local debug build passes; run `build.sh` without `-r` when adding one. For types with no
-  downstream Rust consumer, declare the alias in `bitwarden-wasm-internal/src/custom_types.rs`.
+- WASM TS aliases via `#[wasm_bindgen(typescript_custom_section)]` are dropped by `wasm-ld` in debug
+  unless colocated with a non-generic fn reachable from a `#[wasm_bindgen]` export. Release masks
+  this via `codegen-units = 1`, so CI-green != local-green — run `build.sh` without `-r` when adding
+  one. For types with no such reachable fn, declare the alias in
+  `bitwarden-wasm-internal/src/custom_types.rs`.
 
 ## Architecture
 
