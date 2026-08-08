@@ -11,7 +11,7 @@ mod tests {
     fn test_sanitize_negative_creation_at() {
         let input = r#"{"id":"test","items":[{"id":"1","creationAt":-11644473600,"modifiedAt":1759783057,"title":"Test","credentials":[]}]}"#;
         let result = sanitize_timestamps(input);
-        assert!(result.contains(r#""creationAt":0"#));
+        assert!(result.contains(r#""creationAt":null"#));
         assert!(result.contains(r#""modifiedAt":1759783057"#));
     }
 
@@ -20,15 +20,15 @@ mod tests {
         let input = r#"{"id":"test","items":[{"id":"1","creationAt":1759783057,"modifiedAt":-11644473600,"title":"Test","credentials":[]}]}"#;
         let result = sanitize_timestamps(input);
         assert!(result.contains(r#""creationAt":1759783057"#));
-        assert!(result.contains(r#""modifiedAt":0"#));
+        assert!(result.contains(r#""modifiedAt":null"#));
     }
 
     #[test]
     fn test_sanitize_both_negative() {
         let input = r#"{"id":"test","items":[{"id":"1","creationAt":-11644473600,"modifiedAt":-11644473600,"title":"Test","credentials":[]}]}"#;
         let result = sanitize_timestamps(input);
-        assert!(result.contains(r#""creationAt":0"#));
-        assert!(result.contains(r#""modifiedAt":0"#));
+        assert!(result.contains(r#""creationAt":null"#));
+        assert!(result.contains(r#""modifiedAt":null"#));
     }
 
     #[test]
@@ -37,6 +37,14 @@ mod tests {
         let result = sanitize_timestamps(input);
         assert!(result.contains(r#""creationAt":1759783057"#));
         assert!(result.contains(r#""modifiedAt":1759783057"#));
+    }
+
+    #[test]
+    fn test_sanitize_no_modification_returns_original() {
+        let input = r#"{"id":"test","items":[{"id":"1","creationAt":1759783057,"modifiedAt":1759783057,"title":"Test","credentials":[]}]}"#;
+        let result = sanitize_timestamps(input);
+        // When no modification is needed, should return a borrowed reference to the original
+        assert_eq!(result.as_ref(), input);
     }
 
     #[test]
