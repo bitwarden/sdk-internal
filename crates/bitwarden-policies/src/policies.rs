@@ -1,4 +1,7 @@
 //! Concrete [`Policy`] implementations, one per [`PolicyType`].
+//! Future note: once the policies crate is stable, this file will be
+//! broken up and each Policy implementation distributed to the team
+//! that owns its domain.
 
 use bitwarden_organizations::OrganizationUserType;
 

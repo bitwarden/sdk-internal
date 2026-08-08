@@ -114,6 +114,8 @@ impl PolicyType {
 ///
 /// Each variant carries the strongly-typed data for one policy, mirroring the
 /// generic [`Policy::Data`](crate::Policy) used on the native side.
+///
+/// TODO: add wrapped data for each policy type.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
