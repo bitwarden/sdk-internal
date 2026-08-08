@@ -43,25 +43,48 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfErro
 /// as the Windows FILETIME epoch (-11644473600) when no real date exists. The
 /// `credential-exchange-format` crate deserializes these fields as `u64` and
 /// cannot handle negative values.
-pub(crate) fn sanitize_timestamps(payload: &str) -> String {
-    let mut value: serde_json::Value = match serde_json::from_str(payload) {
-        Ok(v) => v,
-        Err(_) => return payload.to_string(),
+pub(crate) fn sanitize_timestamps(payload: &str) -> std::borrow::Cow<'_, str> {
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(payload) else {
+        return std::borrow::Cow::Borrowed(payload);
     };
+
+    let mut modified = false;
 
     if let Some(items) = value.get_mut("items").and_then(|v| v.as_array_mut()) {
         for item in items {
-            for key in &["creationAt", "modifiedAt"] {
-                if let Some(n) = item.get(key).and_then(|v| v.as_i64()) {
-                    if n < 0 {
-                        item[key] = serde_json::Value::Number(0.into());
-                    }
-                }
-            }
+            clamp_timestamps(item, &mut modified);
+        }
+    }
+    if let Some(collections) = value.get_mut("collections").and_then(|v| v.as_array_mut()) {
+        for collection in collections {
+            clamp_collection_timestamps(collection, &mut modified);
         }
     }
 
-    serde_json::to_string(&value).unwrap_or_else(|_| payload.to_string())
+    if !modified {
+        return std::borrow::Cow::Borrowed(payload);
+    }
+    serde_json::to_string(&value)
+        .map(std::borrow::Cow::Owned)
+        .unwrap_or(std::borrow::Cow::Borrowed(payload))
+}
+
+fn clamp_timestamps(item: &mut serde_json::Value, modified: &mut bool) {
+    for key in ["creationAt", "modifiedAt"] {
+        if item.get(key).and_then(|v| v.as_i64()).is_some_and(|n| n < 0) {
+            item[key] = serde_json::Value::Null;
+            *modified = true;
+        }
+    }
+}
+
+fn clamp_collection_timestamps(collection: &mut serde_json::Value, modified: &mut bool) {
+    clamp_timestamps(collection, modified);
+    if let Some(subs) = collection.get_mut("subCollections").and_then(|v| v.as_array_mut()) {
+        for sub in subs {
+            clamp_collection_timestamps(sub, modified);
+        }
+    }
 }
 
 /// Convert a CXF timestamp to a [`DateTime<Utc>`].
