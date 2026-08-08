@@ -1,5 +1,7 @@
 //! [`PolicyClient`] and its associated extension trait.
 
+use std::collections::HashMap;
+
 use bitwarden_core::{Client, OrganizationId};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -61,6 +63,41 @@ impl PolicyClient {
             &policy_views,
             &organization_user_policy_contexts,
         )
+    }
+
+    /// Filter policies of the given type for the current user.
+    ///
+    /// Untyped FFI path: native/WASM callers pass a runtime `policy_type` integer.
+    /// Delegates to the registry, falling back to default rules for unknown types.
+    // TODO: implement against the strongly-typed enforcement path (resolve_policy /
+    // get_all_enforced) introduced on this branch.
+    pub fn filter_by_type(
+        &self,
+        policies: Vec<PolicyView>,
+        organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
+        policy_type: PolicyType,
+    ) -> Vec<PolicyView> {
+        // Use the enforced path as the canonical logic, then use it to filter the PolicyViews for
+        // return
+        let enforced: HashMap<OrganizationId, EnforcedPolicyErased> = policy_type
+            .resolve_policy()
+            .get_many_enforced_erased(&policies, &organization_user_policy_contexts)
+            .into_iter()
+            .map(|e| (e.organization_id, e))
+            .collect();
+
+        policies
+            .into_iter()
+            .filter(|p| {
+                p.r#type == policy_type
+                    && match enforced.get(&p.organization_id) {
+                        Some(e) => e.enforced, /* TODO: this is defensive, but get_many should
+                                                 * probably return 1 per orgContext for
+                                                 * consistency with the single method */
+                        None => false,
+                    }
+            })
+            .collect()
     }
 }
 
@@ -299,5 +336,32 @@ mod tests {
             results[0].data,
             PolicyDataType::MasterPassword(MasterPasswordPolicyResponse::default())
         );
+    }
+
+    #[test]
+    fn filter_by_type_returns_specified_type() {
+        let org_id = OrganizationId::new_v4();
+        let policies = vec![
+            policy_view(org_id, PolicyType::MasterPassword, None),
+            policy_view(org_id, PolicyType::PasswordGenerator, None),
+        ];
+        let orgs = vec![confirmed_member(org_id)];
+
+        let result = PolicyClient::new().filter_by_type(policies, orgs, PolicyType::MasterPassword);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].r#type, PolicyType::MasterPassword);
+    }
+
+    #[test]
+    fn filter_by_type_returns_empty_for_no_match() {
+        let org_id = OrganizationId::new_v4();
+        let policies = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
+        let orgs = vec![confirmed_member(org_id)];
+
+        let result =
+            PolicyClient::new().filter_by_type(policies, orgs, PolicyType::TwoFactorAuthentication);
+
+        assert!(result.is_empty());
     }
 }
