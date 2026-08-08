@@ -3,6 +3,8 @@
 //! These are the inputs to the policy filtering API and are exposed across the
 //! FFI boundary.
 
+use std::collections::HashMap;
+
 use bitwarden_core::OrganizationId;
 use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
 use chrono::{DateTime, Utc};
@@ -79,6 +81,28 @@ pub struct EnforcedPolicy<P: Policy> {
     pub enforced: bool,
 }
 
+impl<P: Policy> EnforcedPolicy<P> {
+    /// The decision for an organization that has no matching policy: not
+    /// enforced, with [`Default`] data.
+    pub(crate) fn not_enforced(organization_id: OrganizationId) -> Self {
+        Self {
+            organization_id,
+            data: Default::default(),
+            enforced: false,
+        }
+    }
+
+    /// Consumes this decision into its FFI-friendly form, erasing the
+    /// strongly-typed `data` into a [`PolicyDataType`] via [`Policy::to_erased`].
+    pub(crate) fn into_erased(self, policy: &P) -> EnforcedPolicyErased {
+        EnforcedPolicyErased {
+            organization_id: self.organization_id,
+            data: policy.to_erased(self.data),
+            enforced: self.enforced,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -91,4 +115,78 @@ pub struct EnforcedPolicyErased {
     /// Whether the policy is being enforced against the current user for this
     /// organization.
     pub enforced: bool,
+}
+
+/// A [`PolicyView`] resolved against the concrete [`Policy`] that handles it.
+///
+/// This is the typed domain value the untyped wire [`PolicyView`] collapses into
+/// at the boundary: the `r#type` discriminant has been matched and the untyped
+/// `data` blob parsed into [`Policy::Data`], so a policy can only ever be paired
+/// with its own data type.
+pub(crate) struct ResolvedPolicyView<P: Policy> {
+    organization_id: OrganizationId,
+    enabled: bool,
+    data: P::Data,
+}
+
+impl<P: Policy> ResolvedPolicyView<P> {
+    /// Resolves `view` against `policy`, returning `Some` only when the view is
+    /// the type handled by `policy`.
+    ///
+    /// Collapses the untyped `data` blob into `P::Data`, falling back to
+    /// [`Default`] (with a warning) when it is absent or fails to parse.
+    pub(crate) fn resolve(policy: &P, view: &PolicyView) -> Option<Self> {
+        if view.r#type != policy.policy_type() {
+            return None;
+        }
+
+        let data = match view.data.as_deref() {
+            Some(raw) => serde_json::from_str(raw).unwrap_or_else(|e| {
+                tracing::warn!(
+                    policy_type = ?policy.policy_type(),
+                    organization_id = %view.organization_id,
+                    "Failed to parse policy data, falling back to default: {e}"
+                );
+                Default::default()
+            }),
+            None => Default::default(),
+        };
+
+        Some(Self {
+            organization_id: view.organization_id,
+            enabled: view.enabled,
+            data,
+        })
+    }
+
+    /// Consumes the resolved view into an [`EnforcedPolicy`], evaluating whether
+    /// `policy` is enforced against the user.
+    ///
+    /// The context is looked up by this view's own organization, so a context
+    /// for a different organization cannot be paired with the decision. If no
+    /// context is present for the organization, the policy is enforced by default
+    /// (err on the side of enforcement).
+    pub(crate) fn into_enforced(
+        self,
+        policy: &P,
+        organization_user_policy_contexts: &HashMap<OrganizationId, &OrganizationUserPolicyContext>,
+    ) -> EnforcedPolicy<P> {
+        let context = organization_user_policy_contexts
+            .get(&self.organization_id)
+            .copied();
+        let enforced = context.is_none_or(|ctx| {
+            self.enabled
+                && ctx.enabled
+                && ctx.use_policies
+                && policy.applicable_statuses().contains(&ctx.status)
+                && !policy.exempt_roles().contains(&ctx.role)
+                && !(ctx.is_provider_user && policy.exempt_providers())
+        });
+
+        EnforcedPolicy {
+            organization_id: self.organization_id,
+            data: self.data,
+            enforced,
+        }
+    }
 }

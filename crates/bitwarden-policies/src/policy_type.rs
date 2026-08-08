@@ -78,7 +78,7 @@ impl PolicyType {
     /// Dispatches this runtime policy type to its concrete (zero-sized)
     /// [`Policy`] implementation, erased behind [`ErasedPolicy`] so the
     /// differing associated `Data` types can be handled uniformly.
-    pub(crate) fn to_policy(&self) -> Box<dyn ErasedPolicy> {
+    pub(crate) fn resolve_policy(self) -> Box<dyn ErasedPolicy> {
         match self {
             PolicyType::MasterPassword => Box::new(MasterPasswordPolicy),
             PolicyType::PasswordGenerator => Box::new(PasswordGeneratorPolicy),
