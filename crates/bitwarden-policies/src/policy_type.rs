@@ -7,7 +7,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{MasterPasswordPolicyResponse, policy::ErasedPolicy, policy_overrides::*};
+use crate::{MasterPasswordPolicyResponse, policies::*, policy::ErasedPolicy};
 
 /// The type of an organization policy.
 ///
@@ -80,17 +80,32 @@ impl PolicyType {
     /// differing associated `Data` types can be handled uniformly.
     pub(crate) fn resolve_policy(self) -> Box<dyn ErasedPolicy> {
         match self {
+            PolicyType::TwoFactorAuthentication => Box::new(TwoFactorAuthenticationPolicy),
             PolicyType::MasterPassword => Box::new(MasterPasswordPolicy),
             PolicyType::PasswordGenerator => Box::new(PasswordGeneratorPolicy),
+            PolicyType::SingleOrg => Box::new(SingleOrgPolicy),
+            PolicyType::RequireSso => Box::new(RequireSsoPolicy),
+            PolicyType::OrganizationDataOwnership => Box::new(OrganizationDataOwnershipPolicy),
+            PolicyType::DisableSend => Box::new(DisableSendPolicy),
+            PolicyType::SendOptions => Box::new(SendOptionsPolicy),
+            PolicyType::ResetPassword => Box::new(ResetPasswordPolicy),
             PolicyType::MaximumVaultTimeout => Box::new(MaximumVaultTimeoutPolicy),
+            PolicyType::DisablePersonalVaultExport => Box::new(DisablePersonalVaultExportPolicy),
+            PolicyType::ActivateAutofill => Box::new(ActivateAutofillPolicy),
+            PolicyType::AutomaticAppLogIn => Box::new(AutomaticAppLogInPolicy),
             PolicyType::FreeFamiliesSponsorship => Box::new(FreeFamiliesSponsorshipPolicy),
             PolicyType::RemoveUnlockWithPin => Box::new(RemoveUnlockWithPinPolicy),
             PolicyType::RestrictedItemTypes => Box::new(RestrictedItemTypesPolicy),
+            PolicyType::UriMatchDefaults => Box::new(UriMatchDefaultsPolicy),
+            PolicyType::AutotypeDefaultSetting => Box::new(AutotypeDefaultSettingPolicy),
             PolicyType::AutomaticUserConfirmation => Box::new(AutomaticUserConfirmationPolicy),
+            PolicyType::BlockClaimedDomainAccountCreation => {
+                Box::new(BlockClaimedDomainAccountCreationPolicy)
+            }
             PolicyType::OrganizationUserNotification => {
                 Box::new(OrganizationUserNotificationPolicy)
             }
-            _ => todo!("policy type {self:?} is not yet supported"),
+            PolicyType::SendControls => Box::new(SendControlsPolicy),
         }
     }
 }
@@ -104,12 +119,26 @@ impl PolicyType {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum PolicyDataType {
+    TwoFactorAuthentication,
     MasterPassword(MasterPasswordPolicyResponse),
     PasswordGenerator,
+    SingleOrg,
+    RequireSso,
+    OrganizationDataOwnership,
+    DisableSend,
+    SendOptions,
+    ResetPassword,
     MaximumVaultTimeout,
+    DisablePersonalVaultExport,
+    ActivateAutofill,
+    AutomaticAppLogIn,
     FreeFamiliesSponsorship,
     RemoveUnlockWithPin,
     RestrictedItemTypes,
+    UriMatchDefaults,
+    AutotypeDefaultSetting,
     AutomaticUserConfirmation,
+    BlockClaimedDomainAccountCreation,
     OrganizationUserNotification,
+    SendControls,
 }

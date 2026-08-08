@@ -18,7 +18,7 @@ use crate::{
 /// Admins, exempt provider users, apply to Accepted and Confirmed members.
 ///
 /// Ready-made implementations for the built-in policy types live in
-/// [`policy_overrides`](crate::policy_overrides).
+/// [`policies`](crate::policies).
 pub trait Policy: Send + Sync + 'static {
     /// Returns the policy type this definition handles.
     fn policy_type(&self) -> PolicyType;
