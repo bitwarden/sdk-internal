@@ -234,9 +234,8 @@ jobs:
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
           # Push via the GH App token so pull_request synchronize cascades to CI —
           # GITHUB_TOKEN pushes are silently ignored by the recursion guard.
-          git push --force-with-lease \
-            "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            "$_BRANCH_NAME"
+          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force-with-lease origin "$_BRANCH_NAME"
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -350,9 +349,8 @@ jobs:
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
           # Push via the GH App token so pull_request synchronize cascades to CI —
           # GITHUB_TOKEN pushes are silently ignored by the recursion guard.
-          git push --force-with-lease \
-            "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            "$_BRANCH_NAME"
+          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force-with-lease origin "$_BRANCH_NAME"
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
