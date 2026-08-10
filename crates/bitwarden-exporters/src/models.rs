@@ -271,9 +271,6 @@ mod tests {
 
     #[test]
     fn test_from_login() {
-        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let key_store = create_test_crypto_with_user_key(key);
-
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         let view = CipherView {
             r#type: CipherType::Login,

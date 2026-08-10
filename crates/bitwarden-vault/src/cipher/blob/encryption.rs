@@ -229,7 +229,7 @@ pub(crate) fn decrypt_blob_cipher(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{IdentifyKey, SymmetricCryptoKey};
+    use bitwarden_crypto::IdentifyKey;
     use uuid::Uuid;
 
     use super::*;
@@ -327,9 +327,8 @@ mod tests {
         let sealed_string = seal_cipher(&view, &mut ctx, cipher_key).unwrap();
 
         let mut cipher = make_test_cipher_with_data(&mut ctx, Some(sealed_string));
-        if let Some(b64) = &view.key {
-            let raw = SymmetricCryptoKey::try_from(b64.clone()).unwrap();
-            let slot = ctx.add_local_symmetric_key(raw);
+        if let Some(key) = &view.key {
+            let slot = ctx.add_local_symmetric_key(key.clone());
             cipher.key = Some(ctx.wrap_symmetric_key(view.key_identifier(), slot).unwrap());
         }
 
