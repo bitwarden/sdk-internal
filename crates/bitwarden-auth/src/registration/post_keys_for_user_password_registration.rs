@@ -29,6 +29,13 @@ pub struct RegistrationFinishOpenOrgInviteData {
     pub code: String,
 }
 
+// TODO PM-41828: consider annotating every `Option<T>` field below with
+// `#[cfg_attr(feature = "uniffi", uniffi(default = None))]` and
+// `#[cfg_attr(feature = "wasm", tsify(optional))]`
+// Doing so makes each field optional in the generated
+// Kotlin/Swift/TypeScript bindings, so future additive `Option<T>` fields land as non-breaking
+// changes on mobile and clients (rather than forcing a coordinated PR across every consumer
+// repo whenever a field is added).
 /// Request parameters for master password registration
 #[cfg_attr(
     feature = "wasm",
