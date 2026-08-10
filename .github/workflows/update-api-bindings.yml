@@ -232,12 +232,13 @@ jobs:
           echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
-          # Push authenticated as the GH App so pull_request synchronize on the
-          # bindings PR isn't gated as action_required. Overrides actions/checkout's
-          # persisted GITHUB_TOKEN extraheader for just this git invocation.
-          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${_APP_TOKEN}" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=${AUTH_HEADER}" \
-            push --force-with-lease origin "$_BRANCH_NAME"
+          # Push authenticated as the GH App (not GITHUB_TOKEN) so pull_request
+          # synchronize on the bindings PR isn't gated as action_required.
+          # actions/checkout persists a GITHUB_TOKEN extraheader — drop it first
+          # so the app-token URL isn't sent alongside a duplicate Authorization.
+          git config --local --unset-all http.https://github.com/.extraheader
+          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force-with-lease origin "$_BRANCH_NAME"
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -349,11 +350,12 @@ jobs:
           echo "👀 Committing Identity bindings update..."
           git add crates/bitwarden-api-identity
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
-          # Push authenticated as the GH App so pull_request synchronize on the
-          # bindings PR isn't gated as action_required.
-          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${_APP_TOKEN}" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=${AUTH_HEADER}" \
-            push --force-with-lease origin "$_BRANCH_NAME"
+          # Push authenticated as the GH App. Idempotent with the API step above —
+          # if API ran, the extraheader is already unset and origin URL already
+          # rewritten; if only identity runs, this step does it.
+          git config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force-with-lease origin "$_BRANCH_NAME"
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
