@@ -167,6 +167,7 @@ impl From<&MasterPasswordUnlockData>
             kdf: Box::new(kdf_to_identity_kdf_request_model(&data.kdf)),
             master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
             salt: data.salt.to_owned(),
+            contained_key_id: None,
         }
     }
 }
