@@ -66,7 +66,8 @@ pub struct CipherEditRequest {
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
     pub attachments: Vec<AttachmentView>,
-    pub key: Option<String>,
+    #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey | undefined"))]
+    pub key: Option<SymmetricCryptoKey>,
 }
 
 impl TryFrom<CipherView> for CipherEditRequest {
@@ -89,7 +90,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
             folder_id: value.folder_id,
             favorite: value.favorite,
             reprompt: value.reprompt,
-            key: value.key.as_ref().map(|k| k.to_base64().to_string()),
+            key: value.key,
             name: value.name,
             notes: value.notes,
             fields: value.fields.unwrap_or_default(),
@@ -121,16 +122,14 @@ pub struct CipherPartialEditRequest {
 ///
 /// This conversion is lossy and intended for use only within the edit flow,
 /// as the `CipherView` produced will not have all fields populated (e.g. `collection_ids`).
-pub(crate) fn convert_request_to_cipher_view(
-    r: CipherEditRequest,
-) -> Result<CipherView, CryptoError> {
-    Ok(CipherView {
+pub(crate) fn convert_request_to_cipher_view(r: CipherEditRequest) -> CipherView {
+    CipherView {
         id: Some(r.id),
         organization_id: r.organization_id,
         folder_id: r.folder_id,
         // `collection_ids` is empty because collections are updated via a separate endpoint.
         collection_ids: vec![],
-        key: r.key.map(SymmetricCryptoKey::try_from).transpose()?,
+        key: r.key,
         name: r.name,
         notes: r.notes,
         r#type: r.r#type.get_cipher_type(),
@@ -158,7 +157,7 @@ pub(crate) fn convert_request_to_cipher_view(
         deleted_date: None,
         revision_date: r.revision_date,
         archived_date: r.archived_date,
-    })
+    }
 }
 
 // `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
@@ -184,7 +183,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         key_store.decrypt(&original_cipher)?
     };
 
-    let mut view: CipherView = convert_request_to_cipher_view(request)?;
+    let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
 
     // TODO: Once this flag is removed, the key generation logic should be
@@ -752,8 +751,7 @@ mod tests {
     /// fold in password history against the decrypted original.
     fn edit_view_with_history(new_cipher: CipherView, original: &CipherView) -> CipherView {
         let mut view: CipherView =
-            convert_request_to_cipher_view(CipherEditRequest::try_from(new_cipher).unwrap())
-                .unwrap();
+            convert_request_to_cipher_view(CipherEditRequest::try_from(new_cipher).unwrap());
         view.update_password_history(original);
         view
     }

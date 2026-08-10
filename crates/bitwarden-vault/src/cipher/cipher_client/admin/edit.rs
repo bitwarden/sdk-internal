@@ -67,7 +67,7 @@ async fn edit_cipher(
     let folder_id = request.folder_id;
     let favorite = request.favorite;
 
-    let mut view: CipherView = convert_request_to_cipher_view(request)?;
+    let mut view: CipherView = convert_request_to_cipher_view(request);
     view.update_password_history(&original_cipher_view);
 
     // TODO: Once this flag is removed, the key generation logic should be
