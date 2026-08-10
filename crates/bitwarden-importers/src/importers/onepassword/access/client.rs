@@ -199,17 +199,14 @@ async fn download_vault_items(
     }
 }
 
-/// Decrypts and parses an item into the native model. Every category is kept, not only logins.
+/// Decrypts both payloads. Every category is kept, not only logins.
 fn parse_item(item: &VaultItem, keychain: &Keychain) -> Result<Item, OnePasswordError> {
-    let category = ItemCategory::from_template_id(&item.template_uuid);
-    let overview: VaultItemOverview = keychain.decrypt_json(&item.enc_overview)?;
-    let details: VaultItemDetails = keychain.decrypt_json(&item.enc_details)?;
-    Ok(Item::from_wire(
-        item.uuid.clone(),
-        category,
-        &overview,
-        &details,
-    ))
+    Ok(Item {
+        id: item.uuid.clone(),
+        category: ItemCategory::from_template_id(&item.template_uuid),
+        overview: keychain.decrypt_json(&item.enc_overview)?,
+        details: keychain.decrypt_json(&item.enc_details)?,
+    })
 }
 
 /// Finds a readable access entry whose vault key the keychain can already decrypt.

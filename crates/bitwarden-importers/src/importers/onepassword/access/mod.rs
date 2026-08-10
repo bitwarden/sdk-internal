@@ -19,13 +19,14 @@ mod keychain;
 mod login;
 mod mac;
 pub mod model;
-pub use model::{Field, Item, ItemCategory, Otp, SshKey, Url, Vault};
+pub use model::{Item, ItemCategory, Vault};
 mod opdata;
-mod parse;
 mod rest;
 mod rsa;
 mod session;
 mod srp;
 mod two_factor;
 pub use two_factor::{TotpResult, TwoFactorUi};
-mod wire;
+// The DTO fields are named after the JSON keys they carry; documenting each one adds nothing.
+#[allow(missing_docs)]
+pub mod wire;

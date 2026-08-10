@@ -1,12 +1,13 @@
-//! Native 1Password model: Vault, Item, Field and friends.
+//! What a download yields: vaults holding items, each item still in its decrypted 1Password shape.
 //!
-//! The model stays faithful to 1Password rather than Bitwarden; mapping it onto Bitwarden ciphers
-//! is the importer's job. `parse` builds these from the wire DTOs.
+//! Mapping these onto Bitwarden ciphers is the importer's job and happens elsewhere.
 
 use std::fmt;
 
+use super::wire::{VaultItemDetails, VaultItemOverview};
+
 /// A decrypted vault with its items.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Vault {
     /// The vault's 1Password uuid.
     pub id: String,
@@ -16,6 +17,19 @@ pub struct Vault {
     pub description: String,
     /// Every item in the vault except the trashed ones.
     pub items: Vec<Item>,
+}
+
+/// A decrypted item: its identity plus both payloads exactly as 1Password sends them.
+#[derive(Debug)]
+pub struct Item {
+    /// The item's 1Password uuid.
+    pub id: String,
+    /// The item's category, derived from its template id.
+    pub category: ItemCategory,
+    /// The decrypted `encOverview`: title, subtitle, websites, tags.
+    pub overview: VaultItemOverview,
+    /// The decrypted `encDetails`: login fields, sections, note, password history.
+    pub details: VaultItemDetails,
 }
 
 /// The kind of a vault item, mapped from its template id. The ids are 1Password's standard
@@ -128,98 +142,4 @@ impl fmt::Display for ItemCategory {
         };
         f.write_str(name)
     }
-}
-
-/// A decrypted vault item in the native 1Password model.
-///
-/// Nothing is dropped: whatever has no dedicated home stays in [`Item::fields`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Item {
-    /// The item's 1Password uuid.
-    pub id: String,
-    /// The item's category, derived from its template id.
-    pub category: ItemCategory,
-    /// The item's title.
-    pub title: String,
-    /// The subtitle 1Password shows under the title, usually the username.
-    pub additional_info: String,
-    /// The item's plain-text note.
-    pub note: String,
-    /// The username, for login-style categories only.
-    pub username: String,
-    /// The password, for login-style categories only.
-    pub password: String,
-    /// The primary website, for login-style categories only.
-    pub url: String,
-    /// Every website associated with the item.
-    pub urls: Vec<Url>,
-    /// Every one-time-password field found on the item.
-    pub otps: Vec<Otp>,
-    /// Every section field, flattened with its section and metadata preserved.
-    pub fields: Vec<Field>,
-    /// The raw SSH key, for SSH key items only.
-    pub ssh_key: Option<SshKey>,
-    /// The item's tags, which 1Password also uses to record how an item was imported.
-    pub tags: Vec<String>,
-    /// Superseded passwords, oldest first as the server sends them.
-    pub password_history: Vec<PastPassword>,
-}
-
-/// A password the item used before the current one.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PastPassword {
-    /// The old password.
-    pub password: String,
-    /// When it was replaced, as a unix timestamp, or 0 when the server omits it.
-    pub changed_at: i64,
-}
-
-/// A flattened section field with all of its metadata preserved.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Field {
-    /// 1Password's internal field id.
-    pub id: String,
-    /// The field's display label.
-    pub label: String,
-    /// The field's value, rendered as text.
-    pub value: String,
-    /// 1Password's field kind, such as `string`, `concealed` or `menu`.
-    pub kind: String,
-    /// The title of the section the field belongs to, empty for the unnamed section.
-    pub section: String,
-    /// Whether 1Password marks the field as guarded, meaning it holds a secret.
-    pub guarded: bool,
-}
-
-/// A website associated with an item.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Url {
-    /// The URL's label, empty when unset.
-    pub label: String,
-    /// The URL itself.
-    pub value: String,
-}
-
-/// A one-time-password field.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Otp {
-    /// The field's display label.
-    pub label: String,
-    /// The TOTP secret, usually an `otpauth://` URI or a bare base32 seed.
-    pub secret: String,
-    /// The title of the section the field belongs to.
-    pub section: String,
-}
-
-/// A raw SSH key, exactly as 1Password stores it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SshKey {
-    /// The private key in whichever format 1Password stored it.
-    pub private_key: String,
-    /// The public key in OpenSSH format.
-    pub public_key: String,
-    /// The key's fingerprint.
-    pub fingerprint: String,
-    /// The key type, such as `ed25519` or `rsa-4096`.
-    pub key_type: String,
 }
