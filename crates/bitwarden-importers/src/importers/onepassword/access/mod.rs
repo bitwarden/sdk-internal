@@ -1,0 +1,31 @@
+//! Read access to a 1Password account: log in with the master password and Secret Key, then
+//! download and decrypt every accessible vault into a native 1Password model.
+//!
+//! A port of the OnePassword module in Bitwarden's C# `password-manager-access` library. See
+//! `README.md` for the porting notes and open questions.
+
+mod account_key;
+mod client;
+pub use client::Client;
+mod credentials;
+pub use credentials::{Credentials, Region};
+mod device;
+pub use device::generate_device_uuid;
+mod error;
+pub use error::OnePasswordError;
+mod identity;
+mod kdf;
+mod keychain;
+mod login;
+mod mac;
+pub mod model;
+pub use model::{Field, Item, ItemCategory, Otp, SshKey, Url, Vault};
+mod opdata;
+mod parse;
+mod rest;
+mod rsa;
+mod session;
+mod srp;
+mod two_factor;
+pub use two_factor::{TotpResult, TwoFactorUi};
+mod wire;
