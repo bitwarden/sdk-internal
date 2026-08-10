@@ -232,10 +232,12 @@ jobs:
           echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
-          # Push via the GH App token so pull_request synchronize cascades to CI —
-          # GITHUB_TOKEN pushes are silently ignored by the recursion guard.
-          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force-with-lease origin "$_BRANCH_NAME"
+          # Push authenticated as the GH App so pull_request synchronize on the
+          # bindings PR isn't gated as action_required. Overrides actions/checkout's
+          # persisted GITHUB_TOKEN extraheader for just this git invocation.
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${_APP_TOKEN}" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=${AUTH_HEADER}" \
+            push --force-with-lease origin "$_BRANCH_NAME"
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -347,10 +349,11 @@ jobs:
           echo "👀 Committing Identity bindings update..."
           git add crates/bitwarden-api-identity
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
-          # Push via the GH App token so pull_request synchronize cascades to CI —
-          # GITHUB_TOKEN pushes are silently ignored by the recursion guard.
-          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force-with-lease origin "$_BRANCH_NAME"
+          # Push authenticated as the GH App so pull_request synchronize on the
+          # bindings PR isn't gated as action_required.
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "${_APP_TOKEN}" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=${AUTH_HEADER}" \
+            push --force-with-lease origin "$_BRANCH_NAME"
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
