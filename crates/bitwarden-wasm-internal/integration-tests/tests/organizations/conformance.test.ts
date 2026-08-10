@@ -1,4 +1,14 @@
-import { ClientSettings, PasswordManagerClient } from "@bitwarden/sdk-internal";
+// Low-level assertions on the three organization subjects: the shape of the committed vectors, the
+// invite-link wire protocol, and the sealed open-org invite context.
+//
+// The invite-link suite is the reason most of this file reads request bodies. An invite is a bundle of
+// five sealed envelopes that the admin posts and the invitee later redeems, and almost every property
+// worth asserting — which envelopes are present, that the secret never leaves the client, that
+// confirming and merely accepting post different fields — is only visible on the wire. It runs against
+// its own route table (`invite-link-server.ts`) rather than the model server, so route sequences are
+// asserted directly here.
+
+import { ClientSettings, CryptoClient, PasswordManagerClient } from "@bitwarden/sdk-internal";
 
 import { HttpMock, installHttpMock } from "../http-mock";
 import {
@@ -7,8 +17,85 @@ import {
   TEST_INVITE_SECRET,
   TEST_ORGANIZATION_ID,
 } from "../org-fixtures";
-import { makeOrgAccountClient, makeOrgInitializedClient, makeStateBridge } from "../utils";
+import {
+  makeOrgAccountClient,
+  makeOrgInitializedClient,
+  makePasswordManagerClient,
+  makeStateBridge,
+} from "../utils";
 import { CREATION_DATE, LINK_CODE, LINK_ID, ROUTES, inviteLinkRoutes } from "./invite-link-server";
+import { memberVector, organizationCases } from "./vault-support";
+
+describe("organization test vectors", () => {
+  describe.each(organizationCases)("%s", (_name, vector) => {
+    it("covers both the keyed and keyless organization cipher shapes", () => {
+      // The two are decrypted along different paths: a keyed item's fields sit under a per-item key
+      // that the organization key unwraps, a keyless item's sit directly under the organization key.
+      // Both must work, so the vault is expected to carry one of each.
+      const keyed = vector.vault.ciphers.filter((cipher) => cipher.keys.cipherKey !== null);
+      const keyless = vector.vault.ciphers.filter((cipher) => cipher.keys.cipherKey === null);
+
+      expect(keyed.length).toBeGreaterThan(0);
+      expect(keyless.length).toBeGreaterThan(0);
+    });
+
+    it("records an organization key whose id matches the key material", () => {
+      const keyId = CryptoClient.get_key_id_for_symmetric_key(
+        Buffer.from(vector.organizationKey, "base64"),
+      );
+
+      if (vector.organizationKeyId === null) {
+        // A V1 `Aes256CbcHmac` organization key carries no key id at all.
+        expect(keyId).toBeUndefined();
+      } else {
+        expect(keyId === undefined ? undefined : Buffer.from(keyId).toString("hex")).toBe(
+          vector.organizationKeyId,
+        );
+      }
+    });
+
+    it("seals the organization key to every member, agreeing with that member's own vector", () => {
+      expect(vector.members.length).toBeGreaterThan(0);
+
+      for (const [index, member] of vector.members.entries()) {
+        const user = memberVector(vector, index);
+        // `organizationKeys` is keyed by the plain id string; `OrganizationId` is branded, so it
+        // needs widening before it can index the record.
+        const fromUserVector = (user.account.organizationKeys ?? {})[String(vector.organizationId)];
+
+        // The two files are generated independently; if they ever disagree about the sealed key, one
+        // of them is stale and the member below would fail to unseal it.
+        expect(fromUserVector?.toString()).toBe(member.organizationKeySealedToMember.toString());
+      }
+    });
+
+    it("never blob-encrypts organization ciphers, even when a member is a V2 account", () => {
+      // Blob encryption is individual-vault only until PM-32430; `should_use_blob_encryption`
+      // returns false whenever `organization_id` is set, regardless of the member's security version.
+      for (const cipher of vector.vault.ciphers) {
+        expect(cipher.blobEncrypted).toBe(false);
+      }
+
+      // Without a V2 member the assertion above would hold trivially.
+      const securityVersions = vector.members.map(
+        (_member, index) => memberVector(vector, index).account.securityVersion,
+      );
+      expect(Math.max(...securityVersions)).toBeGreaterThanOrEqual(2);
+    });
+
+    it("enrolls at least one member in account recovery", () => {
+      const enrolled = vector.members.filter((member) => member.accountRecoveryKey != null);
+      expect(enrolled.length).toBeGreaterThan(0);
+
+      // The enrolled member's user key sealed to the organization's public key, which is what lets an
+      // admin recover them. Unsealing it needs the organization private key, so it is asserted for
+      // shape here and exercised on the Rust side.
+      for (const member of enrolled) {
+        expect(member.accountRecoveryKey!.toString()).toMatch(/^\d+\./);
+      }
+    });
+  });
+});
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
 // SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
@@ -272,15 +359,14 @@ describe("invite link client", () => {
     expect(persisted).toBe(link.invite);
 
     // The invitee holds no organization key; everything they send is derived from the secret.
-    await invitee
-      .invite_link()
-      .accept_and_optionally_confirm(
-        TEST_ORGANIZATION_ID,
-        link.code,
-        secret,
-        COLLECTION_NAME,
-        true,
-      );
+    await invitee.invite_link().accept_and_optionally_confirm(
+      TEST_ORGANIZATION_ID,
+      // The response model types `code` loosely; this parameter takes a plain string.
+      String(link.code),
+      secret,
+      COLLECTION_NAME,
+      true,
+    );
 
     expect(mock.routes()).toEqual([
       ROUTES.privateKey,
@@ -300,5 +386,58 @@ describe("invite link client", () => {
     for (const request of mock.requests) {
       expect(request.body).not.toContain(secret);
     }
+  });
+});
+
+const SAMPLE_INPUT = {
+  organizationId: "1bc9ac1e-f5aa-45f2-94bf-b181009709b8",
+  inviteLinkCode: "abcd1234efgh5678",
+  inviteSecret: "raw-invite-secret-material-base64url",
+};
+
+describe("open org invite registration seal/unseal", () => {
+  it("seal_open_org_invite_data returns a non-empty sealedData and paired highEntropySecret", async () => {
+    const client = makePasswordManagerClient(makeStateBridge());
+
+    const sealed = client.auth().registration().seal_open_org_invite_data(SAMPLE_INPUT);
+
+    expect(sealed.sealedData).not.toEqual("");
+    expect(sealed.highEntropySecret).not.toEqual("");
+  });
+
+  it("unseal_open_org_invite_data recovers the plaintext invite context with fields intact", () => {
+    const client = makePasswordManagerClient(makeStateBridge());
+    const registration = client.auth().registration();
+
+    const sealed = registration.seal_open_org_invite_data(SAMPLE_INPUT);
+    const unsealed = registration.unseal_open_org_invite_data(sealed);
+
+    expect(unsealed.organizationId).toEqual(SAMPLE_INPUT.organizationId);
+    expect(unsealed.inviteLinkCode).toEqual(SAMPLE_INPUT.inviteLinkCode);
+    expect(unsealed.inviteSecret).toEqual(SAMPLE_INPUT.inviteSecret);
+  });
+
+  it("two independent seals produce different highEntropySecret values (per-registration randomness)", () => {
+    const client = makePasswordManagerClient(makeStateBridge());
+    const registration = client.auth().registration();
+
+    const first = registration.seal_open_org_invite_data(SAMPLE_INPUT);
+    const second = registration.seal_open_org_invite_data(SAMPLE_INPUT);
+
+    expect(first.highEntropySecret).not.toEqual(second.highEntropySecret);
+    expect(first.sealedData).not.toEqual(second.sealedData);
+  });
+
+  it("the sealedData serializes as base64url that crosses the FFI boundary intact", async () => {
+    const client = makePasswordManagerClient(makeStateBridge());
+
+    const sealed = client.auth().registration().seal_open_org_invite_data(SAMPLE_INPUT);
+
+    // Wire-format sanity: sealedData must round-trip through Node's native "base64url"
+    // encoding (available since Node 16) without drift.
+    const sealedStr = sealed.sealedData as unknown as string;
+    expect(sealedStr).not.toEqual("");
+    const reencoded = Buffer.from(sealedStr, "base64url").toString("base64url");
+    expect(reencoded).toEqual(sealedStr);
   });
 });

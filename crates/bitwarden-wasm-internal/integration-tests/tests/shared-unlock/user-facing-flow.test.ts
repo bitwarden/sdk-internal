@@ -1,13 +1,114 @@
-import { UserId } from "@bitwarden/sdk-internal";
+// Unlock state shared between two clients on one device, over IPC.
+//
+// Two subjects, both driven end to end through a real transport pair rather than by calling the handlers
+// directly. Biometrics: a requester asks the responder for its status, for an unlock, and for a user
+// verification check, and gets back whatever the responder's driver decided. Shared unlock: a leader and
+// a follower mirror each other's lock and unlock events, and keep doing so after either side is
+// process-reloaded.
+
 import {
-  sleep,
-  setupSharedUnlockPair,
+  BiometricsStatus,
+  IpcClient,
+  ipcRegisterBiometricsHandlers,
+  ipcRequestAuthenticateBiometrics,
+  ipcRequestGetBiometricsStatus,
+  ipcRequestUnlockBiometrics,
+  init_sdk,
+} from "@bitwarden/sdk-internal";
+
+import { asUserId } from "../type-assertion-helpers";
+import {
+  makeMockBiometricsDriver,
+  makeMockTransportPair,
   reloadFollower,
   reloadLeader,
+  setupSharedUnlockPair,
+  sleep,
+  TEST_USER_ID,
   testSymmetricKey,
 } from "../utils";
 
-const USER_A = "00000000-0000-0000-0000-000000000001" as unknown as UserId;
+async function setupClientPair(driver = makeMockBiometricsDriver()) {
+  init_sdk();
+
+  const [requesterBackend, responderBackend] = makeMockTransportPair();
+  const requester = IpcClient.newWithSdkInMemorySessions(requesterBackend);
+  const responder = IpcClient.newWithSdkInMemorySessions(responderBackend);
+
+  await requester.start();
+  await responder.start();
+
+  await ipcRegisterBiometricsHandlers(responder, driver);
+
+  return { requester, responder };
+}
+
+describe("biometrics ipc", () => {
+  it("returns the responder's biometrics status", async () => {
+    const { requester } = await setupClientPair(
+      makeMockBiometricsDriver({
+        userKey: testSymmetricKey(),
+        uvResult: true,
+        status: BiometricsStatus.UnlockNeeded,
+      }),
+    );
+
+    const status = await ipcRequestGetBiometricsStatus(requester, TEST_USER_ID);
+
+    expect(status).toBe(BiometricsStatus.UnlockNeeded);
+  });
+
+  it("returns the user key on successful biometric unlock", async () => {
+    const userKey = testSymmetricKey(0x37);
+    const { requester } = await setupClientPair(
+      makeMockBiometricsDriver({ userKey, uvResult: true, status: BiometricsStatus.Available }),
+    );
+
+    const response = await ipcRequestUnlockBiometrics(requester, TEST_USER_ID);
+
+    expect(response.user_key).toBe(userKey);
+  });
+
+  it("returns undefined when biometric unlock is canceled or fails", async () => {
+    const { requester } = await setupClientPair(
+      makeMockBiometricsDriver({
+        userKey: undefined,
+        uvResult: false,
+        status: BiometricsStatus.UnlockNeeded,
+      }),
+    );
+
+    const response = await ipcRequestUnlockBiometrics(requester, TEST_USER_ID);
+
+    expect(response.user_key).toBeUndefined();
+  });
+
+  it("forwards a successful biometrics UV check", async () => {
+    const { requester } = await setupClientPair(
+      makeMockBiometricsDriver({
+        userKey: undefined,
+        uvResult: true,
+        status: BiometricsStatus.Available,
+      }),
+    );
+
+    expect(await ipcRequestAuthenticateBiometrics(requester)).toBe(true);
+  });
+
+  it("forwards a failed biometrics UV check", async () => {
+    const { requester } = await setupClientPair(
+      makeMockBiometricsDriver({
+        userKey: undefined,
+        uvResult: false,
+        status: BiometricsStatus.Available,
+      }),
+    );
+
+    expect(await ipcRequestAuthenticateBiometrics(requester)).toBe(false);
+  });
+});
+
+const USER_A = asUserId("00000000-0000-0000-0000-000000000001");
 const USER_KEY = testSymmetricKey(0x11);
 const USER_A_LOCKED_STATE = new Map([[USER_A, undefined]]);
 const USER_A_UNLOCKED_STATE = new Map([[USER_A, USER_KEY]]);
