@@ -35,12 +35,6 @@ pub enum CreateCipherAdminError {
     NotAuthenticated(#[from] NotAuthenticatedError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherAdminError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Wraps the API call to create a cipher using the admin endpoint, for easier testing.
 async fn create_cipher(
     view: CipherView,
@@ -119,7 +113,7 @@ impl CipherAdminClient {
             view.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        let use_blob = should_use_blob_encryption(&self.client, view.organization_id);
+        let use_blob = should_use_blob_encryption(&key_store.context(), view.organization_id);
 
         create_cipher(
             view,

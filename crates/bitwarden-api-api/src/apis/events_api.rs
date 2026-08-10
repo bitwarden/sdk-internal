@@ -93,6 +93,16 @@ pub trait EventsApi: Send + Sync {
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
+    /// GET /organizations/{orgId}/sends/{id}/events
+    async fn get_send<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        start: Option<String>,
+        end: Option<String>,
+        continuation_token: Option<&'a str>,
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
+
     /// GET /organization/{orgId}/service-account/{id}/events
     async fn get_service_accounts<'a>(
         &self,
@@ -364,6 +374,44 @@ impl EventsApi for EventsApiClient {
             local_var_configuration.base_path,
             id = id,
             orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = start {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("start", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = end {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("end", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = continuation_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("continuationToken", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_send<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        start: Option<String>,
+        end: Option<String>,
+        continuation_token: Option<&'a str>,
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/sends/{id}/events",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());

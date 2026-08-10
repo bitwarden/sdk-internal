@@ -1,15 +1,17 @@
 //! A high-entropy secret is a wrapper around secret bytes that are guaranteed to be high-entropy,
 //! and therefore safe to use as input keying material for a cheap KDF (such as the one used by the
-//! `SecretProtectedKeyEnvelope`).
+//! [crate::safe::SecretProtectedKeyEnvelope]).
 //!
 //! Examples of high-entropy secrets are a random URL-fragment secret, a derived key, or random
 //! bytes. They are unlike low-entropy secrets such as PINs or passwords, which can be brute-forced
 //! and therefore require a memory- or compute-hard KDF.
 
-#[cfg(feature = "wasm")]
-use bitwarden_encoding::B64;
+use std::str::FromStr;
+
+use bitwarden_encoding::{B64, FromStrVisitor};
 use bitwarden_sensitive_value::{ExposeSensitive, Sensitive, SensitiveSlice};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
@@ -70,7 +72,7 @@ impl HighEntropySecret {
         }
 
         let mut secret = Zeroizing::new(vec![0u8; desired_size]);
-        rand::rng().fill_bytes(secret.as_mut_slice());
+        bitwarden_random::rng().fill_bytes(secret.as_mut_slice());
         Ok(Self { secret })
     }
 
@@ -80,6 +82,42 @@ impl HighEntropySecret {
     #[allow(dead_code)]
     pub(crate) fn as_bytes(&self) -> SensitiveSlice<'_> {
         Sensitive::from(self.secret.as_slice())
+    }
+}
+
+impl FromStr for HighEntropySecret {
+    type Err = HighEntropySecretError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = B64::try_from(s).map_err(|_| HighEntropySecretError::Malformed)?;
+        if bytes.as_bytes().len() < MIN_SECRET_LENGTH {
+            return Err(HighEntropySecretError::TooShort);
+        }
+        Ok(Self::from_internal(bytes.as_bytes()))
+    }
+}
+
+impl From<HighEntropySecret> for String {
+    fn from(val: HighEntropySecret) -> Self {
+        B64::from(val.secret.as_slice()).to_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for HighEntropySecret {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl Serialize for HighEntropySecret {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&B64::from(self.secret.as_slice()).to_string())
     }
 }
 
@@ -96,12 +134,15 @@ pub enum HighEntropySecretError {
     /// The provided secret is too short to be used as a high-entropy secret.
     #[error("Secret is too short")]
     TooShort,
+    /// The provided string could not be decoded as standardized base64.
+    #[error("Secret is not valid base64")]
+    Malformed,
 }
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type HighEntropySecret = Tagged<String, "HighEntropySecret">;
+export type HighEntropySecret = Tagged<string, "HighEntropySecret">;
 "#;
 
 #[cfg(feature = "wasm")]
@@ -118,8 +159,7 @@ impl FromWasmAbi for HighEntropySecret {
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        let b64 = B64::try_from(string).unwrap_throw();
-        HighEntropySecret::from_internal(b64.as_bytes())
+        HighEntropySecret::from_str(&string).unwrap_throw()
     }
 }
 
@@ -212,5 +252,60 @@ mod tests {
             secret.as_bytes().expose_owned(),
             cloned.as_bytes().expose_owned()
         );
+    }
+
+    #[test]
+    fn test_base64_round_trip_preserves_bytes() {
+        let secret = HighEntropySecret::make(32).unwrap();
+        let bytes = secret.as_bytes().expose_owned().to_vec();
+        let encoded = String::from(secret);
+        let decoded: HighEntropySecret = encoded.parse().unwrap();
+        assert_eq!(decoded.as_bytes().expose_owned(), bytes.as_slice());
+    }
+
+    #[test]
+    fn test_from_str_rejects_malformed_input() {
+        assert!(matches!(
+            "!!!not-base64!!!".parse::<HighEntropySecret>(),
+            Err(HighEntropySecretError::Malformed)
+        ));
+    }
+
+    #[test]
+    fn test_from_str_rejects_below_minimum_length() {
+        // Any successfully-decoded input shorter than MIN_SECRET_LENGTH bytes must be rejected
+        // so the type's length floor holds regardless of the constructor used.
+        for byte_len in 0..MIN_SECRET_LENGTH {
+            let bytes = vec![0u8; byte_len];
+            let encoded = B64::from(bytes.as_slice()).to_string();
+            assert!(
+                matches!(
+                    encoded.parse::<HighEntropySecret>(),
+                    Err(HighEntropySecretError::TooShort)
+                ),
+                "expected decoded length {byte_len} to be rejected as too short"
+            );
+        }
+    }
+
+    #[test]
+    fn test_from_str_accepts_input_at_minimum_length() {
+        let bytes = vec![7u8; MIN_SECRET_LENGTH];
+        let encoded = B64::from(bytes.as_slice()).to_string();
+        let secret: HighEntropySecret = encoded
+            .parse()
+            .expect("input at minimum length is accepted");
+        assert_eq!(secret.as_bytes().expose_owned().len(), MIN_SECRET_LENGTH);
+    }
+
+    #[test]
+    fn test_serde_json_round_trip_preserves_bytes() {
+        // Locks the serde impls directly. Without this, a regression in `Serialize` /
+        // `Deserialize` would only surface via a downstream crate's integration test.
+        let secret = HighEntropySecret::make(32).unwrap();
+        let bytes = secret.as_bytes().expose_owned().to_vec();
+        let json = serde_json::to_string(&secret).expect("serialize");
+        let round_tripped: HighEntropySecret = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(round_tripped.as_bytes().expose_owned(), bytes.as_slice());
     }
 }

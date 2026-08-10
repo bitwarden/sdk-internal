@@ -2,6 +2,7 @@ extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
 use bitwarden_core::{ClientSettings, key_management::state_bridge::StateBridgeClient};
+use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
 use bitwarden_policies::PolicyClient;
@@ -78,6 +79,11 @@ impl PasswordManagerClient {
         self.0.0.crypto()
     }
 
+    /// Key management operations that run on every sync.
+    pub fn crypto_sync_handler(&self) -> CryptoSyncHandlerClient {
+        self.0.crypto_sync_handler()
+    }
+
     /// Key management state bridge operations.
     pub fn km_state_bridge(&self) -> StateBridgeClient {
         self.0.0.km_state_bridge()
@@ -131,6 +137,11 @@ impl PasswordManagerClient {
     /// Crypto cipher suite operations.
     pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
         self.0.crypto_cipher_suite()
+    }
+
+    /// Whether the client is in Gov Mode.
+    pub fn gov_mode(&self) -> bool {
+        self.0.0.gov_mode()
     }
 }
 

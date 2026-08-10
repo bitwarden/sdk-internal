@@ -29,15 +29,17 @@ pub use attachment_client::{
     CipherRenewFileUploadUrlError, CipherUpgradeAttachmentError, CreateAttachmentRequest,
     CreatedAttachment, DecryptFileError, DeleteAttachmentAdminError, EncryptFileError,
 };
-pub use bank_account::BankAccountView;
+pub use bank_account::{BankAccountListView, BankAccountView};
 pub use blob::{BlobEncryptionError, SealedCipherBlobError};
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
-    CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptionContext,
-    ListOrganizationCiphersResult,
+    CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptMode,
+    EncryptionContext, ListOrganizationCiphersResult,
 };
-pub use cipher_client::{CiphersClient, GetAssignedOrgCiphersAdminError};
+pub use cipher_client::{
+    CiphersClient, GetAssignedOrgCiphersAdminError, should_use_blob_encryption,
+};
 pub use cipher_view_type::CipherViewType;
 pub use drivers_license::DriversLicenseView;
 #[cfg(feature = "wasm")]

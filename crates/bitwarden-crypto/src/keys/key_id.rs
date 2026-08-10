@@ -29,7 +29,7 @@ impl ConstantTimeEq for KeyId {
 impl KeyId {
     /// Creates a new random key ID randomly, sampled from the crates CSPRNG.
     pub fn make() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         let mut key_id = [0u8; KEY_ID_SIZE];
         rng.fill(&mut key_id);
         Self(key_id)

@@ -19,6 +19,11 @@ export type Uuid = unknown;
 export type DateTime<T = unknown> = string;
 
 /**
+ * ISO 8601 compliant date string (yyyy-mm-dd).
+ */
+export type NaiveDate = string;
+
+/**
  * UTC date-time string. Not used in JavaScript.
  */
 export type Utc = unknown;
