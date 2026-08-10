@@ -43,19 +43,6 @@ jobs:
           exit 0
           fi
 
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Capture base commit
-        id: base-commit
-        run: |
-          BASE_SHA=$(git rev-parse HEAD)
-          echo "sha=$BASE_SHA" >> $GITHUB_OUTPUT
-          echo "📌 Base commit: $BASE_SHA"
-
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
         with:
@@ -83,6 +70,24 @@ jobs:
           repositories: sdk-internal
           permission-contents: write
           permission-pull-requests: write
+
+      # Check out with the GH App token so subsequent pushes are attributed to
+      # bw-ghapp[bot], which lets pull_request synchronize on the bindings PR
+      # cascade into CI without an action_required approval gate. Using
+      # GITHUB_TOKEN here would gate the downstream WASM/Android builds.
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Capture base commit
+        id: base-commit
+        run: |
+          BASE_SHA=$(git rev-parse HEAD)
+          echo "sha=$BASE_SHA" >> $GITHUB_OUTPUT
+          echo "📌 Base commit: $BASE_SHA"
 
       - name: Download json artifacts from server for updated bindings
         uses: bitwarden/gh-actions/download-artifacts@main
@@ -227,18 +232,11 @@ jobs:
         env:
           _HASH: ${{ steps.commit-info.outputs.HASH }}
           _BRANCH_NAME: ${{ steps.switch-api-branch.outputs.branch_name }}
-          _APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
-          # Push authenticated as the GH App (not GITHUB_TOKEN) so pull_request
-          # synchronize on the bindings PR isn't gated as action_required.
-          # actions/checkout persists a GITHUB_TOKEN extraheader — drop it first
-          # so the app-token URL isn't sent alongside a duplicate Authorization.
-          git config --local --unset-all http.https://github.com/.extraheader
-          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force-with-lease origin "$_BRANCH_NAME"
+          git push --force-with-lease origin $_BRANCH_NAME
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -345,17 +343,11 @@ jobs:
         env:
           _HASH: ${{ steps.commit-info.outputs.HASH }}
           _BRANCH_NAME: ${{ steps.switch-identity-branch.outputs.branch_name }}
-          _APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "👀 Committing Identity bindings update..."
           git add crates/bitwarden-api-identity
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
-          # Push authenticated as the GH App. Idempotent with the API step above —
-          # if API ran, the extraheader is already unset and origin URL already
-          # rewritten; if only identity runs, this step does it.
-          git config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-          git remote set-url origin "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force-with-lease origin "$_BRANCH_NAME"
+          git push --force-with-lease origin $_BRANCH_NAME
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
