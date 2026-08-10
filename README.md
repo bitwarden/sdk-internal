@@ -102,48 +102,59 @@ The end-to-end workflow, from starting SDK work through merging into a client re
 moves through at each phase:
 
 ```mermaid
-flowchart TD
-    Start([Start SDK work]) --> M1["Mode 1: develop SDK locally\nlocally link into a client if needed"]
-    M1 --> OpenPR[Open sdk-internal PR]
-    OpenPR --> BCD["Breaking Change Detection\nruns on PR, comments + labels"]
-    BCD --> C{"Do clients need\ncorresponding changes?"}
-    C -->|No| Case1[Case 1: SDK-only]
-    C -->|Yes| Q{"Does QA need to gate\nthe merge?"}
-    Q -->|Yes| Case4["Case 4: QA-gated\nchanges"]
-    Q -->|No| D{"Are the SDK changes\nbreaking?"}
-    D -->|No| Case2["Case 2: non-breaking\nclient changes"]
-    D -->|Yes| Case3["Case 3: breaking\nclient changes"]
+flowchart TB
+    Start([Start SDK work])
 
-    Case1 --> F1["Mode 3: merge sdk-internal PR\npublishes to npm"]
-    F1 --> F2["Auto-PR bumps SDK\non clients main"]
-    F2 --> F3[Merge auto-PR]
-    F3 --> Z([Done])
+    subgraph M1["Mode 1: local development"]
+        direction TB
+        SDKdev["Develop SDK locally"]
+        Clientdev["Develop clients feature branch\nusing local link"]
+    end
 
-    Case2 --> G1["Mode 1: develop clients feature branch\nusing local link"]
-    G1 --> G2["Mode 3: merge sdk-internal PR\npublishes to npm"]
-    G2 --> G3["Auto-PR bumps SDK\non clients main"]
-    G3 --> G4[Merge auto-PR]
-    G4 --> G5["Merge main into\nclients feature branch"]
-    G5 --> G6[Merge clients feature branch]
-    G6 --> Z
+    subgraph M2["Mode 2: unpublished CI artifacts"]
+        direction TB
+        M2Build["Build client CI artifact\nsdk_branch = SDK feature branch"]
+        QA{"QA validates\ncombined state"}
+        M2Build --> QA
+    end
 
-    Case3 --> H1["Mode 1: develop clients feature branch\nusing local link"]
-    H1 --> H2["Get clients PR reviewed\nand ready to merge"]
-    H2 --> H3["Mode 3: merge sdk-internal PR\npublishes to npm"]
-    H3 --> H4["Manually run SDK Update workflow\nwith published version,\nbase = clients feature branch"]
-    H4 --> H5["Merge SDK bump PR\ninto clients feature branch"]
-    H5 --> H6["Merge clients feature branch\ncloses breaking-change window on main"]
-    H6 --> Z
+    subgraph M3["Mode 3: published artifacts"]
+        direction TB
+        MergeSDK["Merge sdk-internal PR\npublishes to npm"]
+        AutoPR["Auto-PR bumps SDK on clients main\nmerge auto-PR"]
+        MergeMain["Merge main into\nclients feature branch"]
+        ManualBump["Run SDK Update workflow\nmerge SDK bump PR into\nclients feature branch"]
+        MergeFeature["Merge clients feature branch"]
+    end
 
-    Case4 --> I1["Mode 1: develop clients feature branch\nusing local link"]
-    I1 --> I2["Mode 2: build client CI artifact\nwith sdk_branch = SDK feature branch"]
-    I2 --> I3{"QA validates\ncombined state"}
-    I3 -->|Iterate| I1
-    I3 -->|Sign-off| I4["Mode 3: merge sdk-internal PR\npublishes to npm"]
-    I4 --> I5["Manually run SDK Update workflow\nwith published version,\nbase = clients feature branch"]
-    I5 --> I6["Merge SDK bump PR\ninto clients feature branch"]
-    I6 --> I7["Merge clients feature branch"]
-    I7 --> Z
+    Start --> SDKdev
+    SDKdev --> OpenPR["Open sdk-internal PR\nBreaking Change Detection runs"]
+    OpenPR --> Q1{"Client changes\nneeded?"}
+    Q1 -->|No| Case1[Case 1]
+    Q1 -->|Yes| Clientdev
+    Clientdev --> Q2{"QA gates\nmerge?"}
+    Q2 -->|Yes| Case4[Case 4]
+    Q2 -->|No| Q3{"Breaking?"}
+    Q3 -->|No| Case2[Case 2]
+    Q3 -->|Yes| Case3[Case 3]
+
+    Case1 --> MergeSDK
+    Case2 -.optional QA.-> M2Build
+    Case2 --> MergeSDK
+    Case3 -.optional QA.-> M2Build
+    Case3 --> MergeSDK
+    Case4 --> M2Build
+
+    QA -->|iterate| Clientdev
+    QA -->|sign-off| MergeSDK
+
+    MergeSDK -->|Cases 1, 2| AutoPR
+    AutoPR -->|Case 1| Done([Done])
+    AutoPR -->|Case 2| MergeMain
+    MergeMain --> MergeFeature
+    MergeSDK -->|Cases 3, 4| ManualBump
+    ManualBump --> MergeFeature
+    MergeFeature --> Done
 ```
 
 The diagram describes the flow for web clients (`bitwarden/clients`). Mobile clients follow the same
