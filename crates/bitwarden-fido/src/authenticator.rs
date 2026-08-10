@@ -261,13 +261,11 @@ impl<'a> Fido2Authenticator<'a> {
         rp_id: String,
         user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-        let key_store = self.client.internal.get_key_store();
         let result = self
             .credential_store
             .find_credentials(None, rp_id, user_handle)
             .await?;
 
-        let mut ctx = key_store.context();
         result
             .into_iter()
             .map(
@@ -398,13 +396,11 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 })
                 .collect();
 
-            let key_store = this.authenticator.client.internal.get_key_store();
-
             // When using the credential for authentication we have to ask the user to pick one.
             if this.create_credential {
                 Ok(creds
                     .into_iter()
-                    .map(|c| CipherViewContainer::new(c))
+                    .map(CipherViewContainer::new)
                     .collect::<Result<_, _>>()?)
             } else {
                 let picked = this
