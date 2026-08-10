@@ -81,7 +81,7 @@ different phase of development:
 ### Choosing the right integration path
 
 Depending on the situation, an SDK change moves through some subset of the three modes. The path
-depends on three questions:
+depends on several questions:
 
 1. Does the client repo need corresponding changes to consume the new SDK version?
 2. Are the SDK changes breaking?
@@ -91,12 +91,13 @@ depends on three questions:
 This produces four cases (a breaking change necessarily requires a corresponding client change, so
 some combinations are not considered):
 
-| Case | Client changes needed? | Breaking? | QA gates merge? | Coordination                                             |
-| ---- | ---------------------- | --------- | --------------- | -------------------------------------------------------- |
-| 1    | No                     | No        | No              | None, fully automated                                    |
-| 2    | Yes                    | No        | No              | Order-independent, can be done at the developer's pace   |
-| 3    | Yes                    | Yes       | No              | Tight coordination required across the two repos         |
-| 4    | Yes                    | Any       | Yes             | QA validates combined state via mode 2 before SDK merges |
+| Case | Client changes needed? | Breaking? | QA before client merge? | Coordination                                                    |
+| ---- | ---------------------- | --------- | ----------------------- | --------------------------------------------------------------- |
+| 1    | No                     | No        | No                      | None, fully automated                                           |
+| 2    | No                     | No        | Yes                     | QA validates via mode 2 against client `main` before SDK merges |
+| 3    | Yes                    | No        | No                      | Order-independent, can be done at the developer's pace          |
+| 4    | Yes                    | Yes       | No                      | Tight coordination required across the two repos                |
+| 5    | Yes                    | Yes/No    | Yes                     | QA validates combined state via mode 2 before SDK merges        |
 
 The end-to-end workflow, from starting SDK work through merging into a client repo, and the modes it
 moves through at each phase:
@@ -130,29 +131,33 @@ flowchart TB
     Start --> SDKdev
     SDKdev --> OpenPR["Open sdk-internal PR\nBreaking Change Detection runs"]
     OpenPR --> Q1{"Client changes\nneeded?"}
-    Q1 -->|No| Case1[Case 1]
+    Q1 -->|No| Q4{"QA gates\nmerge?"}
+    Q4 -->|No| Case1[Case 1]
+    Q4 -->|Yes| Case2[Case 2]
     Q1 -->|Yes| Clientdev
     Clientdev --> Q2{"QA gates\nmerge?"}
-    Q2 -->|Yes| Case4[Case 4]
     Q2 -->|No| Q3{"Breaking?"}
-    Q3 -->|No| Case2[Case 2]
-    Q3 -->|Yes| Case3[Case 3]
+    Q3 -->|No| Case3[Case 3]
+    Q3 -->|Yes| Case4[Case 4]
+    Q2 -->|Yes| Case5[Case 5]
 
+    Case1 -.if Mode 2 criteria met.-> M2Build
     Case1 --> MergeSDK
-    Case2 -.optional QA.-> M2Build
-    Case2 --> MergeSDK
-    Case3 -.optional QA.-> M2Build
+    Case2 --> M2Build
+    Case3 -.if Mode 2 criteria met.-> M2Build
     Case3 --> MergeSDK
-    Case4 --> M2Build
+    Case4 -.if Mode 2 criteria met.-> M2Build
+    Case4 --> MergeSDK
+    Case5 --> M2Build
 
     QA -->|iterate| Clientdev
     QA -->|sign-off| MergeSDK
 
-    MergeSDK -->|Cases 1, 2| AutoPR
-    AutoPR -->|Case 1| Done([Done])
-    AutoPR -->|Case 2| MergeMain
+    MergeSDK -->|Cases 1, 2, 3| AutoPR
+    AutoPR -->|Cases 1, 2| Done([Done])
+    AutoPR -->|Case 3| MergeMain
     MergeMain --> MergeFeature
-    MergeSDK -->|Cases 3, 4| ManualBump
+    MergeSDK -->|Cases 4, 5| ManualBump
     ManualBump --> MergeFeature
     MergeFeature --> Done
 ```
@@ -163,7 +168,7 @@ update workflows.
 
 Two operational details worth calling out that the diagram doesn't capture:
 
-- **Case 3 requires a client PR ready to merge before the SDK PR merges.** Once the breaking SDK
+- **Case 4 requires a client PR ready to merge before the SDK PR merges.** Once the breaking SDK
   change lands on `main`, `clients` `main` cannot compile against it until the consuming client PR
   merges. If you don't have that PR ready, any subsequent `sdk-internal` integrations into `clients`
   will be blocked. When triggering the manual "SDK Update" workflow, enter the published SDK version
@@ -172,10 +177,16 @@ Two operational details worth calling out that the diagram doesn't capture:
 
   ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
 
-- **Case 4 requires mode 2**, not just recommends it. QA cannot validate the combined state without
-  the CI artifact produced by
+- **Cases 2 and 5 require mode 2**, not just recommend it. QA cannot validate the combined state
+  without the CI artifact produced by
   [unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci); a
   locally-linked build is not sufficient.
+
+- **Cases 1, 3, and 4 should opt into Mode 2** when the change touches packaging or WASM, has
+  cross-platform or cross-browser surface, changes UniFFI binding shape, is a cross-cutting
+  refactor, or needs a QA hand-off. See the
+  [Mode 2 tip](#integrating-unpublished-sdk-builds-via-client-ci) for the full criteria and
+  heuristic. Otherwise, Mode 1 is sufficient.
 
 ## Integrating builds into client applications for local development
 
@@ -283,9 +294,34 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 
 > [!TIP]
 >
-> **When do I use this mode?** Use this mode when QA or CI needs to validate the combined state of
-> an in-progress SDK change against an in-progress client change, or when a change cannot be
-> feature-flagged and must be QA-validated before it lands on `main`.
+> **When do I use this mode?** Use Mode 2 when the change has failure modes that only surface in a
+> real CI build, or when someone downstream needs an installable artifact:
+>
+> - **Packaging, bundling, or WASM changes** — asset paths, tree-shaking, worker instantiation, CSP
+>   interaction. Local link routinely hides these.
+> - **Cross-platform or cross-browser surface** — IPC, threading, storage, crypto worker changes
+>   that a single dev machine can't reproduce (Firefox MV2, Safari extension, Windows desktop,
+>   mobile packaging).
+> - **UniFFI binding shape changes** — generated Swift or Kotlin bindings that need to compile
+>   against the real mobile client build, not just `cargo check`.
+> - **Cross-cutting refactors** — renames, module reorganizations, error-type restructuring.
+>   Compile-clean locally doesn't guarantee the client fleet stays clean.
+> - **Breaking changes with subtle runtime semantics** — where "it compiles" doesn't mean "it
+>   works," and the breaking-change window on `main` is stressful enough that catching this ahead of
+>   merge pays for itself.
+> - **QA hand-offs** — QA cannot validate against a local-linked build; they need an installable
+>   artifact.
+>
+> Skip Mode 2 (Mode 1 is enough) when:
+>
+> - The change is small and additive with narrow surface area (a new struct field or method) that
+>   you've verified locally against the consuming client.
+> - The change is gated behind a well-established feature flag that lets it land on `main` disabled,
+>   with QA validating on `main` behind the flag later.
+> - There are no client-side counterparts (Case 1).
+> - The change is pure documentation, comments, or internal refactors with no API surface change.
+>
+> **Heuristic:** "Could this bug hide until QA installs a real build?" If yes, Mode 2.
 
 Between [local linking](#integrating-builds-into-client-applications-for-local-development) and
 [published artifacts on `main`](#integrating-into-clients-from-published-artifacts)), each client
