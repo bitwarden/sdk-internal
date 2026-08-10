@@ -97,12 +97,12 @@ The instructions are different depending on the client that will be consuming th
 >
 > If your repository directory structure differs you will need to adjust the commands accordingly.
 
-### When do I use this mode?
-
-Use this mode when you are actively developing SDK changes and want the fastest inner loop for
-iteration. Local links reflect uncommitted changes immediately, without pushing to GitHub or waiting
-for CI. It is not suitable for QA or CI validation, since the linked artifact only exists on your
-machine.
+> [!TIP]
+>
+> **When do I use this mode?** Use this mode when you are actively developing SDK changes and want
+> the fastest inner loop for iteration. Local links reflect uncommitted changes immediately, without
+> pushing to GitHub or waiting for CI. It is not suitable for QA or CI validation, since the linked
+> artifact only exists on your machine.
 
 ### Web clients
 
@@ -184,11 +184,11 @@ Between [local linking](#integrating-builds-into-client-applications-for-local-d
 repository provides a way for **client CI** to build against SDK artifacts produced by an
 `sdk-internal` feature-branch CI run, without the SDK being published and consumed as a dependency.
 
-### When do I use this mode?
-
-Use this mode when QA or CI needs to validate the combined state of an in-progress SDK change
-against an in-progress client change, or when a change cannot be feature-flagged and must be
-QA-validated before it lands on `main`.
+> [!TIP]
+>
+> **When do I use this mode?** Use this mode when QA or CI needs to validate the combined state of
+> an in-progress SDK change against an in-progress client change, or when a change cannot be
+> feature-flagged and must be QA-validated before it lands on `main`.
 
 ### Web clients
 
@@ -234,13 +234,13 @@ changes included.
 The process for doing so varies based on the client, as the method by which the `sdk-internal`
 package is consumed differs.
 
-### When do I use this mode?
-
-Use this mode when `sdk-internal` changes are ready to ship into client production releases.
-Publishing happens automatically on merge to `main`, and from there each client picks up the new
-version through automated update PRs. This is the merge-and-release path; for validating in-progress
-work against an unpublished SDK, use [this](#integrating-unpublished-sdk-builds-via-client-ci) model
-instead.
+> [!TIP]
+>
+> **When do I use this mode?** Use this mode when `sdk-internal` changes are ready to ship into
+> client production releases. Publishing happens automatically on merge to `main`, and from there
+> each client picks up the new version through automated update PRs. This is the merge-and-release
+> path; for validating in-progress work against an unpublished SDK, use
+> [this](#integrating-unpublished-sdk-builds-via-client-ci) model instead.
 
 > [!WARNING]
 >
@@ -251,6 +251,91 @@ instead.
 > corresponding PR in the client application repository**. If not, any subsequent `sdk-internal`
 > integrations into clients will be blocked, as those other teams will not know how best to resolve
 > the breaking API contracts that you introduced.
+
+### Choosing the right integration path
+
+The process for getting your `sdk-internal` changes into a client repo depends on three questions:
+
+1. Does the client repo need corresponding changes to consume the new SDK version?
+2. Are the SDK changes breaking?
+3. Does QA need to validate the combined state before either side merges, typically because the
+   change cannot be feature-flagged?
+
+This produces four cases (a breaking change necessarily requires a corresponding client change, so
+some combinations are not considered):
+
+| Case | Client changes needed? | Breaking? | QA gates merge? | Coordination                                             |
+| ---- | ---------------------- | --------- | --------------- | -------------------------------------------------------- |
+| 1    | No                     | No        | No              | None, fully automated                                    |
+| 2    | Yes                    | No        | No              | Order-independent, can be done at the developer's pace   |
+| 3    | Yes                    | Yes       | No              | Tight coordination required across the two repos         |
+| 4    | Yes                    | Any       | Yes             | QA validates combined state via mode 2 before SDK merges |
+
+The end-to-end flow, from opening an `sdk-internal` PR through merging into a client repo, looks
+like this:
+
+```mermaid
+flowchart TD
+    A[Open sdk-internal PR] --> B["Breaking Change Detection\nruns on PR, comments + labels"]
+    B --> C{"Do clients need\ncorresponding changes?"}
+    C -->|No| Case1[Case 1: SDK-only]
+    C -->|Yes| Q{"Does QA need to gate\nthe merge?"}
+    Q -->|Yes| Case4["Case 4: QA-gated\nchanges"]
+    Q -->|No| D{"Are the SDK changes\nbreaking?"}
+    D -->|No| Case2["Case 2: non-breaking\nclient changes"]
+    D -->|Yes| Case3["Case 3: breaking\nclient changes"]
+
+    Case1 --> F1["Merge sdk-internal PR\npublishes to npm"]
+    F1 --> F2["Auto-PR bumps SDK\non clients main"]
+    F2 --> F3[Merge auto-PR]
+    F3 --> Z([Done])
+
+    Case2 --> G1["Develop clients feature branch\nusing local link"]
+    G1 --> G2["Merge sdk-internal PR\npublishes to npm"]
+    G2 --> G3["Auto-PR bumps SDK\non clients main"]
+    G3 --> G4[Merge auto-PR]
+    G4 --> G5["Merge main into\nclients feature branch"]
+    G5 --> G6[Merge clients feature branch]
+    G6 --> Z
+
+    Case3 --> H1["Develop clients feature branch\nusing local link"]
+    H1 --> H2["Get clients PR reviewed\nand ready to merge"]
+    H2 --> H3["Merge sdk-internal PR\npublishes to npm"]
+    H3 --> H4["Manually run SDK Update workflow\nwith published version,\nbase = clients feature branch"]
+    H4 --> H5["Merge SDK bump PR\ninto clients feature branch"]
+    H5 --> H6["Merge clients feature branch\ncloses breaking-change window on main"]
+    H6 --> Z
+
+    Case4 --> I1["Develop clients feature branch\nusing local link"]
+    I1 --> I2["Build client CI artifact via mode 2\nwith sdk_branch = SDK feature branch"]
+    I2 --> I3{"QA validates\ncombined state"}
+    I3 -->|Iterate| I1
+    I3 -->|Sign-off| I4["Merge sdk-internal PR\npublishes to npm"]
+    I4 --> I5["Manually run SDK Update workflow\nwith published version,\nbase = clients feature branch"]
+    I5 --> I6["Merge SDK bump PR\ninto clients feature branch"]
+    I6 --> I7["Merge clients feature branch"]
+    I7 --> Z
+```
+
+The diagram describes the flow for web clients (`bitwarden/clients`). Mobile clients follow the same
+framework with different workflow names; see [Mobile clients](#mobile-clients) for their specific
+update workflows.
+
+Two operational details worth calling out that the diagram doesn't capture:
+
+- **Case 3 requires a client PR ready to merge before the SDK PR merges.** Once the breaking SDK
+  change lands on `main`, `clients` `main` cannot compile against it until the consuming client PR
+  merges. If you don't have that PR ready, any subsequent `sdk-internal` integrations into `clients`
+  will be blocked. When triggering the manual "SDK Update" workflow, enter the published SDK version
+  (see [Finding the published SDK version](#finding-the-published-sdk-version)) and your `clients`
+  feature branch as the base:
+
+  ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
+
+- **Case 4 requires mode 2**, not just recommends it. QA cannot validate the combined state without
+  the CI artifact produced by
+  [unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci); a
+  locally-linked build is not sufficient.
 
 ### Web clients
 
@@ -290,156 +375,6 @@ For example:
 >    run title includes the commit message).
 > 3. Open that run and read the **Summary** tab. The published version is printed there in the
 >    `{SemanticVersion}-main.{actionRunNumber}` format shown above (for example, `0.1.0-main.470`).
-
-#### Choosing the right integration path
-
-The process for getting your `sdk-internal` changes into `clients` depends on three questions:
-
-1. Does the `clients` repo need corresponding changes to consume the new SDK version?
-2. Are the SDK changes breaking?
-3. Does QA need to validate the combined state before either side merges, typically because the
-   change cannot be feature-flagged?
-
-This produces four cases (a breaking change necessarily requires a corresponding client change, so
-some combinations are not considered):
-
-| Case | Client changes needed? | Breaking? | QA gates merge? | Coordination                                             |
-| ---- | ---------------------- | --------- | --------------- | -------------------------------------------------------- |
-| 1    | No                     | No        | No              | None, fully automated                                    |
-| 2    | Yes                    | No        | No              | Order-independent, can be done at the developer's pace   |
-| 3    | Yes                    | Yes       | No              | Tight coordination required across the two repos         |
-| 4    | Yes                    | Any       | Yes             | QA validates combined state via mode 2 before SDK merges |
-
-The end-to-end flow, from opening an `sdk-internal` PR through merging into `clients`, looks like
-this:
-
-```mermaid
-flowchart TD
-    A[Open sdk-internal PR] --> B["Breaking Change Detection<br/>runs on PR, comments + labels"]
-    B --> C{"Do clients need<br/>corresponding changes?"}
-    C -->|No| Case1[Case 1: SDK-only]
-    C -->|Yes| Q{"Does QA need to gate<br/>the merge?"}
-    Q -->|Yes| Case4["Case 4: QA-gated<br/>changes"]
-    Q -->|No| D{"Are the SDK changes<br/>breaking?"}
-    D -->|No| Case2["Case 2: non-breaking<br/>client changes"]
-    D -->|Yes| Case3["Case 3: breaking<br/>client changes"]
-
-    Case1 --> F1["Merge sdk-internal PR<br/>publishes to npm"]
-    F1 --> F2["Auto-PR bumps SDK<br/>on clients main"]
-    F2 --> F3[Merge auto-PR]
-    F3 --> Z([Done])
-
-    Case2 --> G1["Develop clients feature branch<br/>using local link"]
-    G1 --> G2["Merge sdk-internal PR<br/>publishes to npm"]
-    G2 --> G3["Auto-PR bumps SDK<br/>on clients main"]
-    G3 --> G4[Merge auto-PR]
-    G4 --> G5["Merge main into<br/>clients feature branch"]
-    G5 --> G6[Merge clients feature branch]
-    G6 --> Z
-
-    Case3 --> H1["Develop clients feature branch<br/>using local link"]
-    H1 --> H2["Get clients PR reviewed<br/>and ready to merge"]
-    H2 --> H3["Merge sdk-internal PR<br/>publishes to npm"]
-    H3 --> H4["Manually run SDK Update workflow<br/>with published version,<br/>base = clients feature branch"]
-    H4 --> H5["Merge SDK bump PR<br/>into clients feature branch"]
-    H5 --> H6["Merge clients feature branch<br/>closes breaking-change window on main"]
-    H6 --> Z
-
-    Case4 --> I1["Develop clients feature branch<br/>using local link"]
-    I1 --> I2["Build client CI artifact via mode 2<br/>with sdk_branch = SDK feature branch"]
-    I2 --> I3{"QA validates<br/>combined state"}
-    I3 -->|Iterate| I1
-    I3 -->|Sign-off| I4["Merge sdk-internal PR<br/>publishes to npm"]
-    I4 --> I5["Manually run SDK Update workflow<br/>with published version,<br/>base = clients feature branch"]
-    I5 --> I6["Merge SDK bump PR<br/>into clients feature branch"]
-    I6 --> I7["Merge clients feature branch"]
-    I7 --> Z
-```
-
-#### Case 1: SDK changes without corresponding client changes
-
-No action is required in `clients` other than updating the `sdk-internal` dependency and performing
-feature testing on the consuming client.
-
-1. Merge the `sdk-internal` pull request. This triggers a publish of the new version to npm.
-2. An
-   [automated PR](https://github.com/bitwarden/clients/tree/main/.github/workflows/sdk-update.yml)
-   opens (or updates) in `clients` bumping the SDK dependency on `main`.
-3. Merge that PR to bring your SDK changes into `clients` `main`.
-4. Validate
-
-#### Case 2: SDK changes with non-breaking client changes
-
-Because the change is non-breaking, `clients` `main` remains buildable at every point regardless of
-the order in which the SDK and client PRs merge.
-
-1. Develop the corresponding `clients` changes on a feature branch, using
-   [local linking](#integrating-builds-into-client-applications-for-local-development) to build
-   against your in-progress SDK. For QA or CI validation of the combined state before either side
-   merges, use
-   [unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci).
-2. Merge the `sdk-internal` pull request. This triggers a publish of the new version to npm and the
-   creation or update of an
-   [automated PR](https://github.com/bitwarden/clients/tree/main/.github/workflows/sdk-update.yml)
-   bumping the SDK dependency on `clients` `main`.
-3. Merge that automated PR to bring the new SDK version into `main`.
-4. Merge `main` into your `clients` feature branch to pick up the new SDK version, then merge your
-   feature branch through the normal review process.
-
-#### Case 3: SDK changes with breaking client changes
-
-This is the only case that requires coordination across the two repos. Once the SDK breaking change
-merges to `main` and publishes, `clients` `main` cannot compile against the new version until the
-consuming client PR has merged. Your job is to keep that window as short as possible.
-
-**You must have a corresponding `clients` PR ready to merge before you merge the SDK PR.** If not,
-any subsequent `sdk-internal` integrations into `clients` will be blocked, as other teams will not
-know how to resolve the breaking API contracts you introduced.
-
-Recommended sequence:
-
-1. Develop the `clients` feature branch against the in-progress SDK using
-   [local linking](#integrating-builds-into-client-applications-for-local-development), and get it
-   reviewed and approved so it is ready to merge. For QA or CI validation of the combined state
-   before merging, use
-   [unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci).
-2. Merge the `sdk-internal` pull request. This triggers a publish of the new version to npm.
-3. On the `clients` repo, trigger a manual workflow run of the "SDK Update" action against your
-   feature branch. This bumps the SDK dependency on your feature branch so CI compiles against the
-   published breaking change.
-
-   **Enter the sdk-internal version** to the version published in step 2 (see
-   [Finding the published SDK version](#finding-the-published-sdk-version)), and **Enter your
-   `clients` feature branch** as the base for your PR:
-
-   ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
-
-4. Merge the client feature branch to close the breaking-change window on `main`.
-
-#### Case 4: QA-gated changes
-
-Use this flow when QA must validate the combined state of the SDK and client changes before either
-side merges, typically because the change cannot be feature-flagged. Mode 2 (unpublished SDK builds
-via client CI) is required here to produce a CI artifact that combines both in-progress branches
-without publishing.
-
-Recommended sequence:
-
-1. Develop the `clients` feature branch against the in-progress SDK using
-   [local linking](#integrating-builds-into-client-applications-for-local-development).
-2. Build a QA-validatable CI artifact by manually dispatching the appropriate client build workflow
-   with `sdk_branch` set to your `sdk-internal` feature branch (see
-   [unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci)).
-3. QA validates the combined state against that CI artifact. Iterate on both branches as needed,
-   rebuilding the CI artifact for each round of validation.
-4. Once QA signs off, merge the `sdk-internal` pull request. This triggers a publish of the new
-   version to npm.
-5. On the `clients` repo, trigger a manual workflow run of the "SDK Update" action against your
-   feature branch, entering the published SDK version and your feature branch as the base (see
-   [Finding the published SDK version](#finding-the-published-sdk-version)).
-6. Merge the SDK bump PR into your `clients` feature branch.
-7. Merge the `clients` feature branch. If the SDK change is breaking, this closes the
-   breaking-change window on `main`.
 
 ### Mobile clients
 
