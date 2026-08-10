@@ -882,8 +882,8 @@ mod tests {
         for generate_key in [false, true] {
             let mut cipher_view = test_cipher_view();
             if generate_key {
-                cipher_view
-                    .generate_cipher_key(&mut client.internal.get_key_store().context())
+                let _ = cipher_view
+                    .load_cipher_key_slot(&mut client.internal.get_key_store().context())
                     .unwrap();
             }
             cipher_view.attachments = Some(vec![AttachmentView {
