@@ -436,7 +436,7 @@ mod tests {
 
         // A legacy cipher that already carries a per-item cipher key
         let mut cipher = make_cipher_view();
-        cipher.generate_cipher_key(&mut ctx).unwrap();
+        let _ = cipher.load_cipher_key_slot(&mut ctx).unwrap();
         let encrypted = EncryptMode::Legacy(cipher.clone())
             .encrypt_composite(&mut ctx, user_key_old)
             .unwrap();

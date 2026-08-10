@@ -630,27 +630,12 @@ impl CipherListView {
 }
 
 impl CipherView {
-    pub(crate) fn load_cipher_key_slot(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        wrapping_key: SymmetricKeySlotId,
-    ) -> Result<SymmetricKeySlotId, CryptoError> {
-        match &self.key {
-            Some(key) => Ok(ctx.add_local_symmetric_key(key.clone())),
-            None => Ok(wrapping_key),
-        }
-    }
-
     fn encrypt_legacy_field_encryption(
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
-        if self.key.is_none() {
-            self.generate_cipher_key(ctx)?;
-        }
-
-        let ciphers_key = self.load_cipher_key_slot(ctx, key)?;
+        let ciphers_key = self.load_cipher_key_slot(ctx)?;
 
         self.generate_checksums();
 
@@ -883,16 +868,21 @@ impl Cipher {
     }
 }
 impl CipherView {
-    #[allow(missing_docs)]
-    pub fn generate_cipher_key(
+    /// Returns the context slot holding the cipher's own key, generating and storing one if the
+    /// view doesn't have it yet. Every cipher the SDK encrypts carries its own key.
+    pub fn load_cipher_key_slot(
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<(), CryptoError> {
+    ) -> Result<SymmetricKeySlotId, CryptoError> {
+        if let Some(key) = &self.key {
+            return Ok(ctx.add_local_symmetric_key(key.clone()));
+        }
+
         let new_key = ctx.generate_symmetric_key();
         #[allow(deprecated)]
         let new_key_raw = ctx.dangerous_get_symmetric_key(new_key)?.clone();
         self.key = Some(new_key_raw);
-        Ok(())
+        Ok(new_key)
     }
 
     #[allow(missing_docs)]
@@ -2367,55 +2357,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cipher_key() {
-        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let key_store = create_test_crypto_with_user_key(key);
-
-        let original_cipher = generate_cipher();
-
-        // A keyless view has a cipher key generated for it at encrypt time
-        let cipher = generate_cipher();
-        let no_key_cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
-        assert!(no_key_cipher_enc.key.is_some());
-        let no_key_cipher_dec: CipherView = key_store.decrypt(&no_key_cipher_enc).unwrap();
-        assert!(no_key_cipher_dec.key.is_some());
-        assert_eq!(no_key_cipher_dec.name, original_cipher.name);
-
-        let mut cipher = generate_cipher();
-        cipher
-            .generate_cipher_key(&mut key_store.context())
-            .unwrap();
-
-        // Check that the cipher gets encrypted correctly when it's assigned it's own key
-        let key_cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
-        let key_cipher_dec: CipherView = key_store.decrypt(&key_cipher_enc).unwrap();
-        assert!(key_cipher_dec.key.is_some());
-        assert_eq!(key_cipher_dec.name, original_cipher.name);
-    }
-
-    #[test]
-    fn test_generate_cipher_key_when_a_cipher_key_already_exists() {
-        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let key_store = create_test_crypto_with_user_key(key);
-
-        let mut original_cipher = generate_cipher();
-        {
-            let mut ctx = key_store.context();
-            let cipher_key = ctx.generate_symmetric_key();
-            #[allow(deprecated)]
-            let raw = ctx.dangerous_get_symmetric_key(cipher_key).unwrap().clone();
-            original_cipher.key = Some(raw);
-        }
-
-        original_cipher
-            .generate_cipher_key(&mut key_store.context())
-            .unwrap();
-
-        assert!(original_cipher.key.is_some());
-    }
-
-    #[test]
-    fn test_generate_cipher_key_ignores_attachments_without_key() {
+    fn test_load_cipher_key_slot_ignores_attachments_without_key() {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
@@ -2430,35 +2372,34 @@ mod tests {
         };
         cipher.attachments = Some(vec![attachment]);
 
-        cipher
-            .generate_cipher_key(&mut key_store.context())
+        let _ = cipher
+            .load_cipher_key_slot(&mut key_store.context())
             .unwrap();
         assert!(cipher.attachments.unwrap()[0].key.is_none());
     }
 
     #[test]
-    fn test_reencrypt_cipher_key() {
+    fn test_validate_attachment_keys_with_cipher_key() {
         let old_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(old_key);
         let mut ctx = key_store.context_mut();
 
         let mut cipher = generate_cipher();
-        cipher.generate_cipher_key(&mut ctx).unwrap();
+        let _ = cipher.load_cipher_key_slot(&mut ctx).unwrap();
 
         cipher.validate_attachment_keys().unwrap();
 
         assert!(cipher.key.is_some());
     }
 
+    /// A keyless cipher with no attachments has nothing to orphan, so it must stay rotatable.
     #[test]
-    fn test_reencrypt_cipher_key_ignores_missing_key() {
+    fn test_validate_attachment_keys_without_attachments() {
         let mut cipher = generate_cipher();
-
-        // The cipher does not have a key, so validation should pass without error
-        cipher.validate_attachment_keys().unwrap();
-
-        // Check that the cipher key is still None
         assert!(cipher.key.is_none());
+        assert!(cipher.attachments.is_none());
+
+        cipher.validate_attachment_keys().unwrap();
     }
 
     #[test]
@@ -2470,8 +2411,8 @@ mod tests {
 
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
-        cipher
-            .generate_cipher_key(&mut key_store.context())
+        let _ = cipher
+            .load_cipher_key_slot(&mut key_store.context())
             .unwrap();
 
         cipher.move_to_organization(org).unwrap();
@@ -2493,8 +2434,8 @@ mod tests {
 
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
-        cipher
-            .generate_cipher_key(&mut key_store.context())
+        let _ = cipher
+            .load_cipher_key_slot(&mut key_store.context())
             .unwrap();
 
         cipher.organization_id = Some(org);
@@ -2648,7 +2589,7 @@ mod tests {
         let mut ctx = key_store.context();
 
         let mut cipher_view = generate_cipher();
-        cipher_view.generate_cipher_key(&mut ctx).unwrap();
+        let _ = cipher_view.load_cipher_key_slot(&mut ctx).unwrap();
 
         let fido2_credential = generate_fido2_view();
 
@@ -4110,6 +4051,38 @@ mod tests {
             assert!(
                 lenient_decrypt_cipher_view(&cipher, &mut ctx, view.key_identifier()).is_err(),
                 "cipher key must not be wrapped under the view's own slot"
+            );
+        }
+
+        /// An already-keyed view keeps its cipher key through encryption.
+        #[test]
+        fn legacy_variant_preserves_existing_cipher_key() {
+            let key_store = make_key_store();
+            let mut view = base_login_view();
+            let mut ctx = key_store.context();
+
+            let _ = view.load_cipher_key_slot(&mut ctx).unwrap();
+            let original_key = view
+                .key
+                .clone()
+                .expect("load_cipher_key_slot stores the key");
+
+            let wrapping_key = ctx.add_local_symmetric_key(SymmetricCryptoKey::make(
+                SymmetricKeyAlgorithm::Aes256CbcHmac,
+            ));
+            let cipher = EncryptMode::Legacy(view)
+                .encrypt_composite(&mut ctx, wrapping_key)
+                .unwrap();
+
+            let unwrapped = ctx
+                .unwrap_symmetric_key(wrapping_key, &cipher.key.expect("cipher key is emitted"))
+                .unwrap();
+            #[allow(deprecated)]
+            let unwrapped_raw = ctx.dangerous_get_symmetric_key(unwrapped).unwrap().clone();
+
+            assert_eq!(
+                unwrapped_raw, original_key,
+                "encryption must wrap the view's existing cipher key, not a new one"
             );
         }
 
