@@ -731,7 +731,6 @@ mod tests {
             organization_id: None,
             folder_id: None,
             collection_ids: vec![],
-            key: None,
             name: "My test login".to_string(),
             subtitle: "test_username".to_string(),
             r#type: CipherListViewType::Login(LoginListView {

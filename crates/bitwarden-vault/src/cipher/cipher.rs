@@ -533,8 +533,6 @@ pub struct CipherListView {
     pub folder_id: Option<FolderId>,
     pub collection_ids: Vec<CollectionId>,
 
-    pub key: Option<String>,
-
     pub name: String,
     pub subtitle: String,
 
@@ -1046,7 +1044,6 @@ impl CipherView {
             organization_id: self.organization_id,
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
-            key: self.key.as_ref().map(|k| k.to_base64().to_string()),
             name: self.name.clone(),
             subtitle: self.subtitle(),
             r#type: list_type,
@@ -1310,16 +1307,6 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        key: if cipher.key.is_some() {
-            #[allow(deprecated)]
-            Some(
-                ctx.dangerous_get_symmetric_key(ciphers_key)?
-                    .to_base64()
-                    .to_string(),
-            )
-        } else {
-            None
-        },
         name: cipher
             .name
             .as_ref()
@@ -1607,16 +1594,6 @@ fn strict_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
-        key: if cipher.key.is_some() {
-            #[allow(deprecated)]
-            Some(
-                ctx.dangerous_get_symmetric_key(ciphers_key)?
-                    .to_base64()
-                    .to_string(),
-            )
-        } else {
-            None
-        },
         name: cipher
             .name
             .as_ref()
@@ -2234,7 +2211,6 @@ mod tests {
                 organization_id: cipher.organization_id,
                 folder_id: cipher.folder_id,
                 collection_ids: cipher.collection_ids,
-                key: None,
                 name: "My test login".to_string(),
                 subtitle: "test_username".to_string(),
                 r#type: CipherListViewType::Login(LoginListView {
