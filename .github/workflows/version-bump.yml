@@ -160,6 +160,7 @@ jobs:
             --head "$PR_BRANCH" \
             --label "version update" \
             --label "automated pr" \
+            --label "t:misc" \
             --body "Automated $PROJECT version bump to $VERSION_NUMBER.")
           echo "pr_number=${PR_URL##*/}" >> $GITHUB_OUTPUT
 

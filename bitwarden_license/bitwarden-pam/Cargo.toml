@@ -19,6 +19,7 @@ wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-vault/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -30,6 +31,7 @@ bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-error = { workspace = true }
 bitwarden-uuid = { workspace = true }
+bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

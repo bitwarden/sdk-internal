@@ -264,6 +264,7 @@ jobs:
               --body-file - \
               --base main \
               --head $_BRANCH_NAME \
+              --label "t:misc" \
               $REVIEWER_FLAG)
             echo "## 🚀 Created API PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi
@@ -365,6 +366,7 @@ jobs:
               --title "$PR_TITLE" \
               --body-file - \
               --base main \
-              --head $_BRANCH_NAME)
+              --head $_BRANCH_NAME \
+              --label "t:misc")
             echo "## 🚀 Created Identity PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi

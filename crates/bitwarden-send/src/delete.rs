@@ -22,11 +22,7 @@ async fn delete_send<R: Repository<Send> + ?Sized>(
     repository: &R,
     send_id: SendId,
 ) -> Result<(), DeleteSendError> {
-    api_client
-        .sends_api()
-        .delete(&send_id.to_string())
-        .await
-        .map_err(ApiError::from)?;
+    api_client.sends_api().delete(&send_id.to_string()).await?;
 
     repository.remove(send_id).await?;
 
@@ -131,7 +127,7 @@ mod tests {
             mock.sends_api
                 .expect_delete()
                 .returning(move |_id| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
                         "Simulated error",
                     )))
                 })
