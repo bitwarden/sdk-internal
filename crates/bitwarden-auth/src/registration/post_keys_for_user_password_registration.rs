@@ -25,8 +25,8 @@ use crate::registration::{RegistrationClient, RegistrationError};
 pub struct RegistrationFinishOpenOrgInviteData {
     /// The organization the registrant is joining via the open invite link.
     pub organization_id: OrganizationId,
-    /// The bearer code from the shared invite URL. Must be a UUID.
-    pub code: String,
+    /// The bearer code from the shared invite URL.
+    pub code: uuid::Uuid,
 }
 
 // TODO PM-41828: consider annotating every `Option<T>` field below with
@@ -122,20 +122,12 @@ async fn internal_post_keys_for_user_password_registration(
             .map_err(|_| RegistrationError::Crypto)?,
     ));
 
-    let open_org_invite = request
-        .open_org_invite
-        .map(|d| {
-            let code = uuid::Uuid::parse_str(&d.code).map_err(|_| {
-                RegistrationError::InvalidInput("open_org_invite.code must be a UUID".into())
-            })?;
-            Ok::<_, RegistrationError>(Box::new(
-                bitwarden_api_identity::models::OpenOrgInviteRequestModel {
-                    organization_id: d.organization_id.into(),
-                    code,
-                },
-            ))
+    let open_org_invite = request.open_org_invite.map(|d| {
+        Box::new(bitwarden_api_identity::models::OpenOrgInviteRequestModel {
+            organization_id: d.organization_id.into(),
+            code: d.code,
         })
-        .transpose()?;
+    });
 
     let api_request = RegisterFinishRequestModel {
         email: Some(request.email),
@@ -431,8 +423,8 @@ mod tests {
         let test_email = "test@example.com";
         let test_hint = "test hint";
         let test_password = "test-password-123";
-        let test_org_id = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
-        let test_code = "9e0a4c2d-4c9f-4d3b-9a8b-2f7f2b6c4e1a";
+        let test_org_id: uuid::Uuid = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8".parse().unwrap();
+        let test_code: uuid::Uuid = "9e0a4c2d-4c9f-4d3b-9a8b-2f7f2b6c4e1a".parse().unwrap();
 
         let identity_client = IdentityApiClient::new_mocked(|mock| {
             mock.accounts_api
@@ -444,11 +436,8 @@ mod tests {
                         .open_org_invite
                         .as_ref()
                         .expect("open_org_invite must be set");
-                    assert_eq!(
-                        invite.organization_id,
-                        uuid::Uuid::parse_str(test_org_id).unwrap()
-                    );
-                    assert_eq!(invite.code, uuid::Uuid::parse_str(test_code).unwrap());
+                    assert_eq!(invite.organization_id, test_org_id);
+                    assert_eq!(invite.code, test_code);
                     true
                 })
                 .returning(move |_body| Ok(RegisterFinishResponseModel { object: None }));
@@ -469,8 +458,8 @@ mod tests {
             provider_invite_token: None,
             provider_user_id: None,
             open_org_invite: Some(RegistrationFinishOpenOrgInviteData {
-                organization_id: test_org_id.parse().unwrap(),
-                code: test_code.to_string(),
+                organization_id: OrganizationId::new(test_org_id),
+                code: test_code,
             }),
         };
 

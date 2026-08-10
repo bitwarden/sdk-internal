@@ -3,6 +3,8 @@
 // Enable uniffi scaffolding when the "uniffi" feature is enabled.
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
+#[cfg(feature = "uniffi")]
+mod uniffi_support;
 
 mod auth_client;
 
