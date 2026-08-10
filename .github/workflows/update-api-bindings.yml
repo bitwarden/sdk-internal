@@ -79,6 +79,9 @@ jobs:
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: sdk-internal
+          permission-contents: write
           permission-pull-requests: write
 
       - name: Download json artifacts from server for updated bindings
@@ -224,11 +227,16 @@ jobs:
         env:
           _HASH: ${{ steps.commit-info.outputs.HASH }}
           _BRANCH_NAME: ${{ steps.switch-api-branch.outputs.branch_name }}
+          _APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
-          git push --force-with-lease origin $_BRANCH_NAME
+          # Push via the GH App token so pull_request synchronize cascades to CI —
+          # GITHUB_TOKEN pushes are silently ignored by the recursion guard.
+          git push --force-with-lease \
+            "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "$_BRANCH_NAME"
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -335,11 +343,16 @@ jobs:
         env:
           _HASH: ${{ steps.commit-info.outputs.HASH }}
           _BRANCH_NAME: ${{ steps.switch-identity-branch.outputs.branch_name }}
+          _APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "👀 Committing Identity bindings update..."
           git add crates/bitwarden-api-identity
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
-          git push --force-with-lease origin $_BRANCH_NAME
+          # Push via the GH App token so pull_request synchronize cascades to CI —
+          # GITHUB_TOKEN pushes are silently ignored by the recursion guard.
+          git push --force-with-lease \
+            "https://x-access-token:${_APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "$_BRANCH_NAME"
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
