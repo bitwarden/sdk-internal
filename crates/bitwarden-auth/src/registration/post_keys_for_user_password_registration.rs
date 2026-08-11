@@ -116,6 +116,7 @@ async fn internal_post_keys_for_user_password_registration(
         accept_emergency_access_id: request.accept_emergency_access_id.map(Into::into),
         provider_invite_token: (request.provider_invite_token),
         provider_user_id: request.provider_user_id.map(Into::into),
+        open_org_invite: None,
         // TODO remove deprecated fields below with https://bitwarden.atlassian.net/browse/PM-27326
         kdf: None,
         kdf_memory: None,
