@@ -83,10 +83,12 @@ different phase of development:
 
 > [!TIP]
 >
-> **When do I use this?** Use local linking when you are actively developing SDK changes and want
-> the fastest inner loop for iteration. Local links reflect uncommitted changes immediately, without
-> pushing to GitHub or waiting for CI. It is not suitable for QA or CI validation, since the linked
-> artifact only exists on your machine.
+> **When do I use this?**
+>
+> Use local linking when you are actively developing SDK changes and want the fastest inner loop for
+> iteration. Local links reflect uncommitted changes immediately, without pushing to GitHub or
+> waiting for CI. It is not suitable for QA or CI validation, since the linked artifact only exists
+> on your machine.
 
 Integrating the SDK into client applications for local development requires two steps:
 
@@ -185,9 +187,11 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 
 > [!TIP]
 >
-> **When do I use this?** Use a client CI build against pre-publish SDK artifacts when the
-> `sdk-internal` change needs to be tested outside of a local developer's environment _before it
-> lands in the `sdk-internal` `main` branch_.
+> **When do I use this?**
+>
+> Use a client CI build against pre-publish SDK artifacts when the `sdk-internal` change needs to be
+> tested outside of a local developer's environment _before it lands in the `sdk-internal` `main`
+> branch_.
 
 Between [local linking](#integrating-builds-into-client-applications-for-local-development) and
 [published artifacts on `main`](#integrating-into-clients-from-published-artifacts)), each client
@@ -209,7 +213,6 @@ Manually dispatch the appropriate build workflow against the desired `clients` b
 `build-wasm-internal.yml` artifacts from that branch and npm-links them into the client build,
 producing a CI artifact that combines both in-progress branches without any publish step.
 
-For example:
 ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
 
 ### Android
@@ -235,8 +238,10 @@ xcframework artifacts, then manually dispatch
 
 > [!TIP]
 >
-> **When do I use this?** Use published artifacts when `sdk-internal` changes are either ready to
-> ship into client production releases, or are flagged to allow testing in the clients `main`.
+> **When do I use this?**
+>
+> Use published artifacts when `sdk-internal` changes are either ready to ship into client
+> production releases, or are flagged to allow testing in the clients `main`.
 
 The process for integrating SDK changes into clients varies based on the client, as the method by
 which the `sdk-internal` package is consumed differs.
