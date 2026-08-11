@@ -65,134 +65,25 @@ For Windows on ARM, you will need the following in your `PATH`:
 
 ## Integrating builds into client applications
 
-`sdk-internal` changes can be integrated with clients in three progressive modes, each suited to a
+`sdk-internal` changes can be integrated with clients in three progressive ways, each suited to a
 different phase of development:
 
 1. **[Local builds during development](#integrating-builds-into-client-applications-for-local-development)**:
-   build the SDK on your machine and link it directly into a client checkout. Fastest inner loop for
-   individual dev iteration.
+   build the SDK on your machine and link it directly into a client checkout. This is the fastest
+   inner loop for individual developer iteration developing on `clients` and `sdk-internal`
+   together.
 2. **[Unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci)**:
-   have each client's CI build a client artifact against an unmerged `sdk-internal` branch. Right
-   for QA or CI validation of the combined state before either side merges.
+   have each client's CI build a client artifact against an unmerged `sdk-internal` branch. This
+   works for QA or CI validation of the combined state before either side merges.
 3. **[Published artifacts on `main`](#integrating-into-clients-from-published-artifacts)**: the
    merge-and-release path where `sdk-internal` publishes on merge to `main`, and each client picks
    up the new version through an automated PR.
-
-### Choosing the right integration path
-
-Depending on the situation, an SDK change moves through some subset of the three modes. The path
-depends on several questions:
-
-1. Does the client repo need corresponding changes to consume the new SDK version?
-2. Are the SDK changes breaking?
-3. Does QA need to validate the combined state before either side merges, typically because the
-   change cannot be feature-flagged?
-
-This produces four cases (a breaking change necessarily requires a corresponding client change, so
-some combinations are not considered):
-
-| Case | Client changes needed? | Breaking? | QA before client merge? | Coordination                                                    |
-| ---- | ---------------------- | --------- | ----------------------- | --------------------------------------------------------------- |
-| 1    | No                     | No        | No                      | None, fully automated                                           |
-| 2    | No                     | No        | Yes                     | QA validates via mode 2 against client `main` before SDK merges |
-| 3    | Yes                    | No        | No                      | Order-independent, can be done at the developer's pace          |
-| 4    | Yes                    | Yes       | No                      | Tight coordination required across the two repos                |
-| 5    | Yes                    | Yes/No    | Yes                     | QA validates combined state via mode 2 before SDK merges        |
-
-The end-to-end workflow, from starting SDK work through merging into a client repo, and the modes it
-moves through at each phase:
-
-```mermaid
-flowchart TB
-    Start([Start SDK work])
-
-    subgraph M1["Mode 1: local development"]
-        direction TB
-        SDKdev["Develop SDK locally"]
-        Clientdev["Develop clients feature branch\nusing local link"]
-    end
-
-    subgraph M2["Mode 2: unpublished CI artifacts"]
-        direction TB
-        M2Build["Build client CI artifact\nsdk_branch = SDK feature branch"]
-        QA{"QA validates\ncombined state"}
-        M2Build --> QA
-    end
-
-    subgraph M3["Mode 3: published artifacts"]
-        direction TB
-        MergeSDK["Merge sdk-internal PR\npublishes to npm"]
-        AutoPR["Auto-PR bumps SDK on clients main\nmerge auto-PR"]
-        MergeMain["Merge main into\nclients feature branch"]
-        ManualBump["Run SDK Update workflow\nmerge SDK bump PR into\nclients feature branch"]
-        MergeFeature["Merge clients feature branch"]
-    end
-
-    Start --> SDKdev
-    SDKdev --> OpenPR["Open sdk-internal PR\nBreaking Change Detection runs"]
-    OpenPR --> Q1{"Client changes\nneeded?"}
-    Q1 -->|No| Q4{"QA gates\nmerge?"}
-    Q4 -->|No| Case1[Case 1]
-    Q4 -->|Yes| Case2[Case 2]
-    Q1 -->|Yes| Clientdev
-    Clientdev --> Q2{"QA gates\nmerge?"}
-    Q2 -->|No| Q3{"Breaking?"}
-    Q3 -->|No| Case3[Case 3]
-    Q3 -->|Yes| Case4[Case 4]
-    Q2 -->|Yes| Case5[Case 5]
-
-    Case1 -.if Mode 2 criteria met.-> M2Build
-    Case1 --> MergeSDK
-    Case2 --> M2Build
-    Case3 -.if Mode 2 criteria met.-> M2Build
-    Case3 --> MergeSDK
-    Case4 -.if Mode 2 criteria met.-> M2Build
-    Case4 --> MergeSDK
-    Case5 --> M2Build
-
-    QA -->|iterate| Clientdev
-    QA -->|sign-off| MergeSDK
-
-    MergeSDK -->|Cases 1, 2, 3| AutoPR
-    AutoPR -->|Cases 1, 2| Done([Done])
-    AutoPR -->|Case 3| MergeMain
-    MergeMain --> MergeFeature
-    MergeSDK -->|Cases 4, 5| ManualBump
-    ManualBump --> MergeFeature
-    MergeFeature --> Done
-```
-
-The diagram describes the flow for web clients (`bitwarden/clients`). Mobile clients follow the same
-framework with different workflow names; see [Mobile clients](#mobile-clients) for their specific
-update workflows.
-
-Two operational details worth calling out that the diagram doesn't capture:
-
-- **Case 4 requires a client PR ready to merge before the SDK PR merges.** Once the breaking SDK
-  change lands on `main`, `clients` `main` cannot compile against it until the consuming client PR
-  merges. If you don't have that PR ready, any subsequent `sdk-internal` integrations into `clients`
-  will be blocked. When triggering the manual "SDK Update" workflow, enter the published SDK version
-  (see [Finding the published SDK version](#finding-the-published-sdk-version)) and your `clients`
-  feature branch as the base:
-
-  ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
-
-- **Cases 2 and 5 require mode 2**, not just recommend it. QA cannot validate the combined state
-  without the CI artifact produced by
-  [unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci); a
-  locally-linked build is not sufficient.
-
-- **Cases 1, 3, and 4 should opt into Mode 2** when the change touches packaging or WASM, has
-  cross-platform or cross-browser surface, changes UniFFI binding shape, is a cross-cutting
-  refactor, or needs a QA hand-off. See the
-  [Mode 2 tip](#integrating-unpublished-sdk-builds-via-client-ci) for the full criteria and
-  heuristic. Otherwise, Mode 1 is sufficient.
 
 ## Integrating builds into client applications for local development
 
 > [!TIP]
 >
-> **When do I use this mode?** Use this mode when you are actively developing SDK changes and want
+> **When do I use this?** Use local linking when you are actively developing SDK changes and want
 > the fastest inner loop for iteration. Local links reflect uncommitted changes immediately, without
 > pushing to GitHub or waiting for CI. It is not suitable for QA or CI validation, since the linked
 > artifact only exists on your machine.
@@ -294,39 +185,15 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 
 > [!TIP]
 >
-> **When do I use this mode?** Use Mode 2 when the change has failure modes that only surface in a
-> real CI build, or when someone downstream needs an installable artifact:
->
-> - **Packaging, bundling, or WASM changes** — asset paths, tree-shaking, worker instantiation, CSP
->   interaction. Local link routinely hides these.
-> - **Cross-platform or cross-browser surface** — IPC, threading, storage, crypto worker changes
->   that a single dev machine can't reproduce (Firefox MV2, Safari extension, Windows desktop,
->   mobile packaging).
-> - **UniFFI binding shape changes** — generated Swift or Kotlin bindings that need to compile
->   against the real mobile client build, not just `cargo check`.
-> - **Cross-cutting refactors** — renames, module reorganizations, error-type restructuring.
->   Compile-clean locally doesn't guarantee the client fleet stays clean.
-> - **Breaking changes with subtle runtime semantics** — where "it compiles" doesn't mean "it
->   works," and the breaking-change window on `main` is stressful enough that catching this ahead of
->   merge pays for itself.
-> - **QA hand-offs** — QA cannot validate against a local-linked build; they need an installable
->   artifact.
->
-> Skip Mode 2 (Mode 1 is enough) when:
->
-> - The change is small and additive with narrow surface area (a new struct field or method) that
->   you've verified locally against the consuming client.
-> - The change is gated behind a well-established feature flag that lets it land on `main` disabled,
->   with QA validating on `main` behind the flag later.
-> - There are no client-side counterparts (Case 1).
-> - The change is pure documentation, comments, or internal refactors with no API surface change.
->
-> **Heuristic:** "Could this bug hide until QA installs a real build?" If yes, Mode 2.
+> **When do I use this?** Use a client CI build against pre-publish SDK artifacts when the
+> `sdk-internal` change needs to be tested outside of a local developer's environment _before it
+> lands in the `sdk-internal` `main` branch_.
 
 Between [local linking](#integrating-builds-into-client-applications-for-local-development) and
 [published artifacts on `main`](#integrating-into-clients-from-published-artifacts)), each client
-repository provides a way for **client CI** to build against SDK artifacts produced by an
-`sdk-internal` feature-branch CI run, without the SDK being published and consumed as a dependency.
+repository provides a way for client CI (and its resulting artifacts) to run against SDK artifacts
+produced by an `sdk-internal` feature-branch CI run, without the SDK being published and consumed as
+a dependency.
 
 ### Web clients
 
@@ -337,10 +204,13 @@ The `bitwarden/clients` build workflows expose an `sdk_branch` `workflow_dispatc
 - [`build-desktop.yml`](https://github.com/bitwarden/clients/actions/workflows/build-desktop.yml)
 - [`build-cli.yml`](https://github.com/bitwarden/clients/actions/workflows/build-cli.yml)
 
-Manually dispatch the appropriate build workflow against your `clients` feature branch and set
+Manually dispatch the appropriate build workflow against the desired `clients` branch and set
 `sdk_branch` to your `sdk-internal` feature branch. The workflow downloads the latest successful
 `build-wasm-internal.yml` artifacts from that branch and npm-links them into the client build,
 producing a CI artifact that combines both in-progress branches without any publish step.
+
+For example:
+![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
 
 ### Android
 
@@ -365,24 +235,86 @@ xcframework artifacts, then manually dispatch
 
 > [!TIP]
 >
-> **When do I use this mode?** Use this mode when `sdk-internal` changes are ready to ship into
-> client production releases. Publishing happens automatically on merge to `main`, and from there
-> each client picks up the new version through automated update PRs. This is the merge-and-release
-> path; for validating in-progress work against an unpublished SDK, use
-> [this](#integrating-unpublished-sdk-builds-via-client-ci) model instead.
+> **When do I use this?** Use published artifacts when `sdk-internal` changes are either ready to
+> ship into client production releases, or are flagged to allow testing in the clients `main`.
 
 The process for integrating SDK changes into clients varies based on the client, as the method by
 which the `sdk-internal` package is consumed differs.
 
 > [!WARNING]
 >
-> **BREAKING CHANGES** When a pull request is opened to merge changes from `sdk-internal` into
-> `main`, a [Breaking Change Detection ](./.github/workflows/detect-breaking-changes.yml) workflow
-> will run and comment on the PR if breaking changes are detected on any clients. If your PR
-> includes breaking changes **you must be prepared to address them as soon as they merge with a
-> corresponding PR in the client application repository**. If not, any subsequent `sdk-internal`
-> integrations into clients will be blocked, as those other teams will not know how best to resolve
-> the breaking API contracts that you introduced.
+> **BREAKING CHANGES** require tight coordination between `sdk-internal` and the consuming client
+> repo. See [Handling breaking SDK changes](#handling-breaking-sdk-changes) for the full workflow.
+
+### What happens when an SDK PR merges to `main`
+
+Merging an `sdk-internal` PR to `main` triggers a chain of automation across the SDK, deploy, and
+client repositories:
+
+1. The
+   [publish workflow](https://github.com/bitwarden/deploy/blob/main/.github/workflows/publish-wasm-internal.yml)
+   (internal access only) in the `deploy` repo publishes the OSS and commercial npm packages with a
+   version of the form `{SemanticVersion}-main.{actionRunNumber}` (e.g., `0.1.0-main.470`).
+2. The
+   [SDK Update workflow](https://github.com/bitwarden/clients/tree/main/.github/workflows/sdk-update.yml)
+   in `bitwarden/clients` opens or updates an automated PR that bumps `@bitwarden/sdk-internal` and
+   `@bitwarden/commercial-sdk-internal` on client `main` to the newly published version.
+3. The [Android](./.github/workflows/build-android.yml) and
+   [iOS](./.github/workflows/build-swift.yml) build workflows publish mobile artifacts and trigger
+   corresponding SDK update workflows in `bitwarden/android` and `bitwarden/ios`.
+
+The client auto-PR is a **rolling update**: it stays open until merged and refreshes to the latest
+published SDK version on each subsequent `sdk-internal` merge. Your SDK change may therefore ride
+into `clients` bundled with other teams' SDK changes.
+
+### Downstream impact of an SDK merge and client version bump
+
+- **Other client feature branches** built against an older SDK version pick up your change when they
+  merge `main` into their branch or manually run the "SDK Update" workflow. Non-breaking changes are
+  absorbed transparently; breaking changes surface as build failures on their branch and require
+  adjustment.
+- **Leaving a breaking-change window open blocks everyone.** Once an SDK breaking change lands on
+  `main`, the client auto-PR fails to build — **blocking every other team's SDK-update PR from
+  merging to client `main` until the client-side fix ships**. This is why breaking changes require a
+  client PR ready to merge before the SDK PR merges.
+
+### Handling breaking SDK changes
+
+When an `sdk-internal` PR includes API breaking changes, the
+[Breaking Change Detection](./.github/workflows/detect-breaking-changes.yml) workflow will flag it
+on the PR by running client builds against the SDK branch and commenting the results. Breaking
+changes require tighter coordination than other changes because once the SDK merges to `main`,
+client `main` cannot build against it until the consuming client PR ships — and that open window
+blocks every other team's SDK-update PR (see
+[Downstream impact of an SDK merge and client version bump](#downstream-impact-of-an-sdk-merge-and-client-version-bump)).
+
+Recommended sequence:
+
+1. **Develop the SDK change** on a feature branch. Prepare the corresponding client change on a
+   `clients` feature branch, using
+   [local linking](#integrating-builds-into-client-applications-for-local-development) so the client
+   build compiles against your in-progress SDK.
+2. **Get the client PR reviewed and approved** so it's ready to merge. Do not merge it yet — the SDK
+   version it consumes doesn't exist in npm until step 3.
+3. **Merge the `sdk-internal` PR.** This triggers the publish workflow (see
+   [What happens when an SDK PR merges to `main`](#what-happens-when-an-sdk-pr-merges-to-main)) and
+   opens or updates the client auto-PR. The auto-PR will fail to build until step 5 lands — this is
+   the breaking-change window, so keep it short.
+4. **Bump the SDK on your client feature branch** by manually running the
+   [SDK Update workflow](https://github.com/bitwarden/clients/actions/workflows/sdk-update.yml)
+   against your feature branch: enter the published SDK version (see
+   [Finding the published SDK version](#finding-the-published-sdk-version)) and your feature branch
+   as the base. The workflow only edits `package.json` and runs `npm install`, so you can make those
+   edits by hand and commit them to your feature branch directly when the automation isn't a fit
+   (e.g. bundling the SDK bump into a larger client commit).
+5. **Merge the SDK bump PR into your client feature branch.** Because this adds new commits to the
+   client PR, branch protection will dismiss the earlier approval. Re-request review and get the
+   client PR approved again.
+6. **Merge the client feature branch to `main`.** This closes the breaking-change window: the client
+   auto-PR will now build clean and all other teams' pending SDK-update PRs unblock.
+
+This describes the flow for web clients. Mobile clients follow the same pattern with their
+respective SDK update workflows (see [Mobile clients](#mobile-clients)).
 
 ### Web clients
 
@@ -392,23 +324,14 @@ with their WebAssembly bindings are published to npm at:
 - https://www.npmjs.com/package/@bitwarden/sdk-internal and
 - https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal
 
-These npm packages are referenced as
-[dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
 See [Licensing](#licensing) for details on why we have multiple packages.
 
-Every commit to `main` in `sdk-internal` will trigger a
-[publish](https://github.com/bitwarden/deploy/blob/main/.github/workflows/publish-wasm-internal.yml)
-(internal access only) of these packages, with versions structured as follows:
+These npm packages are referenced as
+[dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
 
-```
-{SemanticVersion}-main.{actionRunNumber}
-```
-
-For example:
-
-```
-0.1.0-main.470
-```
+When an SDK update merges to `sdk-internal` `main` branch, an auto-generated PR will open - or
+update if already open - to bump the SDK version on `clients`. This PR is the recommended and
+easiest way to integrate your changes into `clients`.
 
 > [!TIP]
 >
