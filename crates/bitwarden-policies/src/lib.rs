@@ -7,14 +7,14 @@ mod uniffi_support;
 
 mod master_password_policy_response;
 mod models;
-pub mod policies;
+mod policies;
 pub mod policy;
 mod policy_client;
 mod policy_type;
 
 pub use master_password_policy_response::MasterPasswordPolicyResponse;
-pub use models::{OrganizationUserPolicyContext, PolicyView};
-pub use policies::*;
-pub use policy::Policy;
+pub use models::{EnforcedPolicyErased, OrganizationUserPolicyContext, PolicyView};
+pub(crate) use policies::*;
+pub(crate) use policy::Policy;
 pub use policy_client::{PoliciesClientExt, PolicyClient};
-pub use policy_type::PolicyType;
+pub use policy_type::{PolicyDataType, PolicyType};

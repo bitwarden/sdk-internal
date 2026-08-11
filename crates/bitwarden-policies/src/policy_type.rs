@@ -1,10 +1,13 @@
 //! The [`PolicyType`] enum.
 
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{policies::*, policy::PolicyFilter};
+use crate::{MasterPasswordPolicyResponse, policies::*, policy::ErasedPolicy};
 
 /// The type of an organization policy.
 ///
@@ -77,9 +80,9 @@ pub enum PolicyType {
 
 impl PolicyType {
     /// Dispatches this runtime policy type to its concrete (zero-sized)
-    /// [`crate::Policy`] implementation, boxed behind [`PolicyFilter`] so any
-    /// policy type can be filtered uniformly.
-    pub(crate) fn resolve_policy(self) -> Box<dyn PolicyFilter> {
+    /// [`crate::Policy`] implementation, erased behind [`ErasedPolicy`] so the
+    /// differing associated `Data` types can be handled uniformly.
+    pub(crate) fn resolve_policy(self) -> Box<dyn ErasedPolicy> {
         match self {
             PolicyType::TwoFactorAuthentication => Box::new(TwoFactorAuthenticationPolicy),
             PolicyType::MasterPassword => Box::new(MasterPasswordPolicy),
@@ -110,4 +113,44 @@ impl PolicyType {
             PolicyType::FillAssist => Box::new(FillAssistPolicy),
         }
     }
+}
+
+/// Type-erased policy type + data for crossing the FFI boundary.
+///
+/// Each variant carries the strongly-typed data for one policy, mirroring the
+/// generic [`Policy::Data`](crate::Policy) used on the native side. Variants are
+/// named identically to (and documented by) the matching [`PolicyType`] variant.
+///
+/// TODO: this is missing policy data for current policies.
+// Variants mirror the already-documented `PolicyType`, so per-variant docs would
+// be redundant boilerplate.
+#[allow(missing_docs)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum PolicyDataType {
+    TwoFactorAuthentication,
+    MasterPassword(MasterPasswordPolicyResponse),
+    PasswordGenerator,
+    SingleOrg,
+    RequireSso,
+    OrganizationDataOwnership,
+    DisableSend,
+    SendOptions,
+    ResetPassword,
+    MaximumVaultTimeout,
+    DisablePersonalVaultExport,
+    ActivateAutofill,
+    AutomaticAppLogIn,
+    FreeFamiliesSponsorship,
+    RemoveUnlockWithPin,
+    RestrictedItemTypes,
+    UriMatchDefaults,
+    AutotypeDefaultSetting,
+    AutomaticUserConfirmation,
+    BlockClaimedDomainAccountCreation,
+    OrganizationUserNotification,
+    SendControls,
+    FillAssist,
 }
