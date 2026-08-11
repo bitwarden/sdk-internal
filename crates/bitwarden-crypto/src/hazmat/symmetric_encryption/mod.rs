@@ -2,8 +2,8 @@
 //!
 //! Low-level ("hazmat") authenticated symmetric ciphers, exposed behind two traits:
 //! - [`Aead`]: authenticated encryption *with* associated data. Implemented by AES-256-GCM
-//!   ([`Aes256Gcm`]), XAES-256-GCM ([`XAes256Gcm`]), and XChaCha20-Poly1305
-//!   ([`XChaCha20Poly1305`]).
+//!   ([`Aes256Gcm`]), XAES-256-GCM ([`XAes256Gcm`]), XChaCha20-Poly1305 ([`XChaCha20Poly1305`]),
+//!   and AES-256-CBC-HMAC-SHA256 ([`Aes256CbcHmacSha256Aead`]).
 //!
 //! These are dangerous primitives that operate directly on raw key material. In most cases you
 //! should use the higher-level [`safe`](crate::safe) module (e.g. the password-protected key
@@ -29,7 +29,6 @@ impl From<SymmetricEncryptionError> for CryptoError {
     }
 }
 pub(crate) mod aes256_cbc_hmac_sha256_ae;
-#[allow(dead_code)]
 pub(crate) mod aes256_cbc_hmac_sha256_aead;
 pub(crate) mod aes_gcm;
 pub(crate) mod xaes_256_gcm;
