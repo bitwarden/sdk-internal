@@ -19,6 +19,7 @@ fn build_policy_registry() -> PolicyRegistry {
         .register(RestrictedItemTypesPolicy)
         .register(AutomaticUserConfirmationPolicy)
         .register(OrganizationUserNotificationPolicy)
+        .register(FillAssistPolicy)
         .build()
 }
 
