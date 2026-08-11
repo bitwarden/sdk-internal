@@ -276,7 +276,7 @@ into `clients` bundled with other teams' SDK changes.
 
 - **Other client feature branches** built against an older SDK version pick up your change when they
   merge `main` into their branch or manually run the "SDK Update" workflow. Non-breaking changes are
-  absorbed transparently; breaking changes surface as build failures on their branch and require
+  absorbed transparently, but breaking changes surface as build failures on their branch and require
   adjustment.
 - **Leaving a breaking-change window open blocks everyone.** Once an SDK breaking change lands on
   `main`, the client auto-PR fails to build — **blocking every other team's SDK-update PR from
@@ -289,7 +289,7 @@ When an `sdk-internal` PR includes API breaking changes, the
 [Breaking Change Detection](./.github/workflows/detect-breaking-changes.yml) workflow will flag it
 on the PR by running client builds against the SDK branch and commenting the results. Breaking
 changes require tighter coordination than other changes because once the SDK merges to `main`,
-client `main` cannot build against it until the consuming client PR ships — and that open window
+client `main` cannot build against it until the consuming client PR ships, and that open window
 blocks every other team's SDK-update PR (see
 [Downstream impact of an SDK merge and client version bump](#downstream-impact-of-an-sdk-merge-and-client-version-bump)).
 
@@ -303,8 +303,8 @@ Recommended sequence:
    version it consumes doesn't exist in npm until step 3.
 3. **Merge the `sdk-internal` PR.** This triggers the publish workflow (see
    [What happens when an SDK PR merges to `main`](#what-happens-when-an-sdk-pr-merges-to-main)) and
-   opens or updates the client auto-PR. The auto-PR will fail to build until step 5 lands — this is
-   the breaking-change window, so keep it short.
+   opens or updates the client auto-PR. The auto-PR will fail to build until step 5 lands. This is
+   the breaking-change window.
 4. **Bump the SDK on your client feature branch** by manually running the
    [SDK Update workflow](https://github.com/bitwarden/clients/actions/workflows/sdk-update.yml)
    against your feature branch: enter the published SDK version (see
