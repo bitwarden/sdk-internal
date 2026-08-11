@@ -1,4 +1,5 @@
 use bitwarden_commercial_vault::CommercialVaultClientExt as _;
+use bitwarden_pam::PamClientExt as _;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -17,5 +18,10 @@ impl CommercialPasswordManagerClient {
     /// Vault item operations
     pub fn vault(&self) -> bitwarden_commercial_vault::CommercialVaultClient {
         self.0.vault()
+    }
+
+    /// Privileged Access Management (PAM) operations
+    pub fn pam(&self) -> bitwarden_pam::PamClient {
+        self.0.pam()
     }
 }

@@ -106,6 +106,25 @@ impl StateRegistry {
 
         self.get_sdk_managed::<T>()
     }
+
+    /// Wipes all state from this registry, and deletes any files or databases associated with it.
+    /// Intended to be used during logout, where the Client will be dropped right after.
+    ///
+    /// # Warning
+    ///
+    /// This closes the SDK-managed database and deletes persistent storage (SQLite file + WAL/SHM,
+    /// IndexedDB database). Outstanding [`Repository`] handles will return
+    /// [`DatabaseError::Closed`] on subsequent operations. Client-managed repositories are also
+    /// cleared.
+    pub async fn wipe(&self) -> Result<(), DatabaseError> {
+        // Clear client-managed first so a failure in the persistent-store wipe
+        // still releases the in-memory Arc references.
+        self.client_managed
+            .write()
+            .expect("RwLock should not be poisoned")
+            .clear();
+        self.database.wipe().await
+    }
 }
 
 #[cfg(test)]
@@ -114,6 +133,7 @@ mod tests {
     use crate::{
         register_repository_item,
         repository::{RepositoryError, RepositoryItem},
+        sdk_managed::DatabaseError,
     };
 
     macro_rules! impl_repository {
@@ -229,6 +249,46 @@ mod tests {
         // Should return Ok(None) — key not found, not an error
         // (Note: TestItem<usize> is registered in this test module already)
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_wipe_disconnects_outstanding_repository_handles() {
+        let registry = StateRegistry::new_with_memory_db();
+        let repo = registry.get::<TestItem<usize>>().unwrap();
+        repo.set(String::new(), TestItem(42usize)).await.unwrap();
+
+        registry.wipe().await.unwrap();
+
+        assert!(matches!(
+            repo.get(String::new()).await,
+            Err(RepositoryError::Database(DatabaseError::Closed))
+        ));
+        assert!(matches!(
+            repo.list().await,
+            Err(RepositoryError::Database(DatabaseError::Closed))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_wipe_clears_client_managed() {
+        let registry = StateRegistry::new_with_memory_db();
+        registry.register_client_managed(Arc::new(TestA(99)));
+
+        registry.wipe().await.unwrap();
+
+        // Client-managed is gone; falls through to SDK-managed (now closed).
+        let repo = registry.get::<TestItem<usize>>().unwrap();
+        assert!(matches!(
+            repo.get(String::new()).await,
+            Err(RepositoryError::Database(DatabaseError::Closed))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_wipe_is_idempotent() {
+        let registry = StateRegistry::new_with_memory_db();
+        registry.wipe().await.unwrap();
+        registry.wipe().await.unwrap();
     }
 
     #[tokio::test]

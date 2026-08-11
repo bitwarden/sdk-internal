@@ -40,7 +40,7 @@ pub trait {{{classname}}}: Send + Sync {
 {{^vendorExtensions.x-group-parameters}}
     async fn {{{vendorExtensions.x-action-name-snake-case}}}{{!
     ### Lifetimes
-    }}{{#hasParams}}<'a>{{/hasParams}}{{!
+    }}{{#hasParams}}<'a>{{/hasParams}}{{^hasParams}}{{#hasAuthMethods}}{{#authMethods}}{{#-first}}{{#vendorExtensions.x-explicit-bearer-token}}<'a>{{/vendorExtensions.x-explicit-bearer-token}}{{/-first}}{{/authMethods}}{{/hasAuthMethods}}{{/hasParams}}{{!
     ### Function parameter names
     }}(&self, {{#allParams}}{{{paramName}}}: {{!
     ### Option Start
@@ -55,6 +55,8 @@ pub trait {{{classname}}}: Send + Sync {
     }}{{^required}}>{{/required}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{!
     ### Comma for next arguement
     }}{{^-last}}, {{/-last}}{{/allParams}}{{!
+    ### Explicit bearer token parameter
+    }}{{#hasAuthMethods}}{{#authMethods}}{{#-first}}{{#vendorExtensions.x-explicit-bearer-token}}{{#hasParams}}, {{/hasParams}}access_token: &'a str{{/vendorExtensions.x-explicit-bearer-token}}{{/-first}}{{/authMethods}}{{/hasAuthMethods}}{{!
     ### Function return type
     }}) -> Result<{{!
     ### Multi response support
@@ -154,7 +156,7 @@ impl {{classname}} for {{classname}}Client {
     {{^vendorExtensions.x-group-parameters}}
     async fn {{{vendorExtensions.x-action-name-snake-case}}}{{!
     ### Lifetimes
-    }}{{#hasParams}}<'a>{{/hasParams}}{{!
+    }}{{#hasParams}}<'a>{{/hasParams}}{{^hasParams}}{{#hasAuthMethods}}{{#authMethods}}{{#-first}}{{#vendorExtensions.x-explicit-bearer-token}}<'a>{{/vendorExtensions.x-explicit-bearer-token}}{{/-first}}{{/authMethods}}{{/hasAuthMethods}}{{/hasParams}}{{!
     ### Function parameter names
     }}(&self, {{#allParams}}{{{paramName}}}: {{!
     ### Option Start
@@ -169,6 +171,8 @@ impl {{classname}} for {{classname}}Client {
     }}{{^required}}>{{/required}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{!
     ### Comma for next arguement
     }}{{^-last}}, {{/-last}}{{/allParams}}{{!
+    ### Explicit bearer token parameter
+    }}{{#hasAuthMethods}}{{#authMethods}}{{#-first}}{{#vendorExtensions.x-explicit-bearer-token}}{{#hasParams}}, {{/hasParams}}access_token: &'a str{{/vendorExtensions.x-explicit-bearer-token}}{{/-first}}{{/authMethods}}{{/hasAuthMethods}}{{!
     ### Function return type
     }}) -> Result<{{!
     ### Multi response support
@@ -324,7 +328,12 @@ impl {{classname}} for {{classname}}Client {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Basic);
         {{/isBasicBasic}}
         {{#isBasicBearer}}
+        {{#vendorExtensions.x-explicit-bearer-token}}
+        local_var_req_builder = local_var_req_builder.header(reqwest::header::AUTHORIZATION, format!("Bearer {}", access_token));
+        {{/vendorExtensions.x-explicit-bearer-token}}
+        {{^vendorExtensions.x-explicit-bearer-token}}
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        {{/vendorExtensions.x-explicit-bearer-token}}
         {{/isBasicBearer}}
         {{/isBasic}}
         {{#isOAuth}}

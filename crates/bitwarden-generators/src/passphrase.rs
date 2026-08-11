@@ -87,7 +87,7 @@ impl PassphraseGeneratorRequest {
 /// Implementation of the random passphrase generator.
 pub(crate) fn passphrase(request: PassphraseGeneratorRequest) -> Result<String, PassphraseError> {
     let options = request.validate_options()?;
-    Ok(passphrase_with_rng(rand::rng(), options))
+    Ok(passphrase_with_rng(bitwarden_random::rng(), options))
 }
 
 fn passphrase_with_rng(mut rng: impl Rng, options: ValidPassphraseGeneratorOptions) -> String {

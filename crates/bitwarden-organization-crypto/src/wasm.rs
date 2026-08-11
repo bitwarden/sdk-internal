@@ -1,43 +1,37 @@
 //! The wasm module holds serialization/encoding needed wasm bindings for
-//! any types related to InviteKeyEnvelope. This means base64url for the
-//! InviteKeyData type, and  base64 for the InviteKey type. In order to minimize
-//! complexity, the actual  B64/B64Url encoding/decoding are limited to the
-//! `From<String>` and `FromStr`  implementations. All other serialization
-//! goes through String to simplify maintenance.
+//! any types related to Invite. In order to minimize complexity, the actual
+//! encoding/decoding is limited to the `From<String>` and `FromStr`
+//! implementations. All other serialization goes through String to simplify
+//! maintenance.
 use std::str::FromStr;
 
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
-use crate::{InviteKeyBundleError, InviteKeyData, InviteKeyEnvelope};
+use crate::invite::{Invite, InviteKeyBundleError, InviteSecret};
 
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type InviteKeyData = Tagged<string, "InviteKeyData">;
-"#;
-
-impl wasm_bindgen::describe::WasmDescribe for InviteKeyData {
+impl wasm_bindgen::describe::WasmDescribe for Invite {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
-impl FromWasmAbi for InviteKeyData {
+impl FromWasmAbi for Invite {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        InviteKeyData::from_str(&string).unwrap_throw()
+        Invite::from_str(&string).unwrap_throw()
     }
 }
 
-impl OptionFromWasmAbi for InviteKeyData {
+impl OptionFromWasmAbi for Invite {
     fn is_none(abi: &Self::Abi) -> bool {
         <String as OptionFromWasmAbi>::is_none(abi)
     }
 }
 
-impl IntoWasmAbi for InviteKeyData {
+impl IntoWasmAbi for Invite {
     type Abi = <String as IntoWasmAbi>::Abi;
 
     fn into_abi(self) -> Self::Abi {
@@ -45,7 +39,7 @@ impl IntoWasmAbi for InviteKeyData {
     }
 }
 
-impl TryFrom<wasm_bindgen::JsValue> for InviteKeyData {
+impl TryFrom<wasm_bindgen::JsValue> for Invite {
     type Error = InviteKeyBundleError;
 
     fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
@@ -56,34 +50,29 @@ impl TryFrom<wasm_bindgen::JsValue> for InviteKeyData {
     }
 }
 
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type InviteKeyEnvelope = Tagged<string, "InviteKeyEnvelope">;
-"#;
-
-impl wasm_bindgen::describe::WasmDescribe for InviteKeyEnvelope {
+impl wasm_bindgen::describe::WasmDescribe for InviteSecret {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
-impl FromWasmAbi for InviteKeyEnvelope {
+impl FromWasmAbi for InviteSecret {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        InviteKeyEnvelope::from_str(&string).unwrap_throw()
+        InviteSecret::from_str(&string).unwrap_throw()
     }
 }
 
-impl OptionFromWasmAbi for InviteKeyEnvelope {
+impl OptionFromWasmAbi for InviteSecret {
     fn is_none(abi: &Self::Abi) -> bool {
         <String as OptionFromWasmAbi>::is_none(abi)
     }
 }
 
-impl IntoWasmAbi for InviteKeyEnvelope {
+impl IntoWasmAbi for InviteSecret {
     type Abi = <String as IntoWasmAbi>::Abi;
 
     fn into_abi(self) -> Self::Abi {
@@ -91,7 +80,7 @@ impl IntoWasmAbi for InviteKeyEnvelope {
     }
 }
 
-impl TryFrom<wasm_bindgen::JsValue> for InviteKeyEnvelope {
+impl TryFrom<wasm_bindgen::JsValue> for InviteSecret {
     type Error = InviteKeyBundleError;
 
     fn try_from(value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
@@ -99,5 +88,19 @@ impl TryFrom<wasm_bindgen::JsValue> for InviteKeyEnvelope {
             .as_string()
             .ok_or(InviteKeyBundleError::DecodingFailed)?;
         Self::from_str(&string)
+    }
+}
+
+// Returning these types from `async` `#[wasm_bindgen]` methods (which resolve to JS Promises)
+// requires `Into<JsValue>`, not just `IntoWasmAbi`. Both delegate through their base64 string form.
+impl From<Invite> for wasm_bindgen::JsValue {
+    fn from(value: Invite) -> Self {
+        wasm_bindgen::JsValue::from_str(&String::from(&value))
+    }
+}
+
+impl From<InviteSecret> for wasm_bindgen::JsValue {
+    fn from(value: InviteSecret) -> Self {
+        wasm_bindgen::JsValue::from_str(&String::from(&value))
     }
 }

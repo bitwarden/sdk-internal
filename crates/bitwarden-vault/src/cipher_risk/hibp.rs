@@ -71,6 +71,8 @@ pub(super) async fn check_password_exposed(
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_api_api::new_http_client;
+
     use super::*;
 
     #[test]
@@ -163,8 +165,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let result =
-            check_password_exposed(&reqwest::Client::new(), "password", &server.uri()).await;
+        let result = check_password_exposed(&new_http_client(), "password", &server.uri()).await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CipherRiskError::Reqwest(_)));

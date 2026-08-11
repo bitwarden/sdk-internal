@@ -109,6 +109,21 @@ impl Policy for AutomaticUserConfirmationPolicy {
     }
 }
 
+/// Organization User Notification policy.
+///
+/// Applies to **everyone**, including Owners and Admins.
+pub struct OrganizationUserNotificationPolicy;
+
+impl Policy for OrganizationUserNotificationPolicy {
+    fn policy_type(&self) -> PolicyType {
+        PolicyType::OrganizationUserNotification
+    }
+
+    fn exempt_roles(&self) -> &[OrganizationUserType] {
+        &[]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
@@ -247,6 +262,40 @@ mod tests {
         let orgs = [org(org_id, OrganizationUserType::Owner)];
         assert_eq!(
             AutomaticUserConfirmationPolicy
+                .filter(&policies, &orgs)
+                .len(),
+            1
+        );
+    }
+
+    // --- OrganizationUserNotificationPolicy ---
+
+    #[test]
+    fn organization_user_notification_applies_to_owner() {
+        let org_id = Uuid::new_v4();
+        let policies = [policy_view(
+            org_id,
+            PolicyType::OrganizationUserNotification,
+        )];
+        let orgs = [org(org_id, OrganizationUserType::Owner)];
+        assert_eq!(
+            OrganizationUserNotificationPolicy
+                .filter(&policies, &orgs)
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn organization_user_notification_applies_to_admin() {
+        let org_id = Uuid::new_v4();
+        let policies = [policy_view(
+            org_id,
+            PolicyType::OrganizationUserNotification,
+        )];
+        let orgs = [org(org_id, OrganizationUserType::Admin)];
+        assert_eq!(
+            OrganizationUserNotificationPolicy
                 .filter(&policies, &orgs)
                 .len(),
             1

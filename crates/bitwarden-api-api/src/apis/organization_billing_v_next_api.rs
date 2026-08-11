@@ -36,6 +36,9 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
     /// GET /organizations/{organizationId}/billing/vnext/address
     async fn get_billing_address<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
+    /// GET /organizations/{organizationId}/billing/vnext/churn-mitigation-offer
+    async fn get_churn_mitigation_offer<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
+
     /// GET /organizations/{organizationId}/billing/vnext/credit
     async fn get_credit<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
@@ -47,6 +50,12 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
 
     /// GET /organizations/{organizationId}/billing/vnext/warnings
     async fn get_warnings<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
+
+    /// POST /organizations/{organizationId}/billing/vnext/churn-mitigation-offer/redeem
+    async fn redeem_churn_mitigation_offer<'a>(
+        &self,
+        organization_id: &'a str,
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{organizationId}/billing/vnext/subscription/restart
     async fn restart_subscription<'a>(
@@ -124,6 +133,24 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
+    async fn get_churn_mitigation_offer<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/billing/vnext/churn-mitigation-offer",
+            local_var_configuration.base_path,
+            organizationId = crate::apis::urlencode(organization_id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn get_credit<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -190,6 +217,27 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn redeem_churn_mitigation_offer<'a>(
+        &self,
+        organization_id: &'a str,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/billing/vnext/churn-mitigation-offer/redeem",
+            local_var_configuration.base_path,
+            organizationId = crate::apis::urlencode(organization_id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 

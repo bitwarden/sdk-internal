@@ -65,6 +65,13 @@ impl FromClientPart<Arc<ApiConfigurations>> for Client {
 }
 
 #[cfg(feature = "internal")]
+impl FromClientPart<reqwest::Client> for Client {
+    fn get_part(&self) -> reqwest::Client {
+        self.internal.get_http_client().clone()
+    }
+}
+
+#[cfg(feature = "internal")]
 impl<T: RepositoryItem> FromClientPart<Option<Arc<dyn Repository<T>>>> for Client {
     fn get_part(&self) -> Option<Arc<dyn Repository<T>>> {
         self.platform().state().get::<T>().ok()

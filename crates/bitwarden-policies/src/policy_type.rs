@@ -67,4 +67,8 @@ pub enum PolicyType {
     /// Supersedes [`DisableSend`](Self::DisableSend) and [`SendOptions`](Self::SendOptions) when
     /// the `pm-31885-send-controls` feature flag is active on the server.
     SendControls = 21,
+    /// Enables the Fill Assist targeting-rules autofill engine as the default for members who
+    /// have not explicitly set their Fill Assist preference, and optionally overrides the default
+    /// rules feed URL.
+    FillAssist = 22,
 }

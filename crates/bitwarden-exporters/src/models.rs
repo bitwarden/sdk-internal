@@ -246,8 +246,8 @@ impl From<crate::SecureNoteType> for SecureNoteType {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
-    use bitwarden_crypto::SymmetricCryptoKey;
-    use bitwarden_vault::{CipherId, CipherRepromptType, FolderId, LoginView};
+    use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
+    use bitwarden_vault::{CipherId, CipherRepromptType, EncryptMode, FolderId, LoginView};
     use chrono::{DateTime, Utc};
 
     use super::*;
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_from_login() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_from_cipher_login() {
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
         let test_id: uuid::Uuid = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -370,7 +370,7 @@ mod tests {
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
         };
-        let encrypted = key_store.encrypt(cipher_view).unwrap();
+        let encrypted = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
 
         let cipher: crate::Cipher = crate::Cipher::from_cipher(&key_store, encrypted).unwrap();
 

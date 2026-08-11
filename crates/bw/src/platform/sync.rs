@@ -44,7 +44,7 @@ impl BwCommand for SyncArgs {
             Err(SyncError::AccountDeleted) => {
                 // TODO: This should wipe the session in the same way as bw logout, but it's not
                 // implemented yet
-                user.invalidate_session_key().await.ok();
+                user.unlock().invalidate_session_key().await.ok();
                 Err(eyre!(
                     "This account has been deleted. Local session state has been cleared."
                 ))

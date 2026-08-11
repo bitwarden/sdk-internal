@@ -25,6 +25,7 @@ pub use exporter_client::{ExporterClient, ExporterClientExt};
 mod error;
 mod export;
 pub use error::ExportError;
+pub use export::encrypt_import;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]

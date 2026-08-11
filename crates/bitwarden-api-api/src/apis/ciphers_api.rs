@@ -196,6 +196,13 @@ pub trait CiphersApi: Send + Sync {
         cipher_bulk_archive_request_model: Option<models::CipherBulkArchiveRequestModel>,
     ) -> Result<models::CipherResponseModelListResponseModel, Error>;
 
+    /// PUT /ciphers/{id}/collections
+    async fn put_collections<'a>(
+        &self,
+        id: uuid::Uuid,
+        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
+    ) -> Result<models::CipherDetailsResponseModel, Error>;
+
     /// PUT /ciphers/{id}/collections-admin
     async fn put_collections_admin<'a>(
         &self,
@@ -918,6 +925,29 @@ impl CiphersApi for CiphersApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_archive_request_model);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn put_collections<'a>(
+        &self,
+        id: uuid::Uuid,
+        cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
+    ) -> Result<models::CipherDetailsResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/ciphers/{id}/collections",
+            local_var_configuration.base_path,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&cipher_collections_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }

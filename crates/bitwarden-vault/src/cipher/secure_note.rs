@@ -158,7 +158,7 @@ mod tests {
             collection_ids: vec![],
             r#type: CipherType::Login,
             key: None,
-            name: "2.iovOJUb186UXu+0AlQggjw==|LeWZhrT0B7rqFtDufOJMlJsftwmMGuaoBxf/Cig4D4A9XHhUqacd8uOYP7M5bd/k|++gmrHIyt8hvvPP9dwFS/CGd+POfzmeXzKOsuyJpDDc=".parse().unwrap(),
+            name: Some("2.iovOJUb186UXu+0AlQggjw==|LeWZhrT0B7rqFtDufOJMlJsftwmMGuaoBxf/Cig4D4A9XHhUqacd8uOYP7M5bd/k|++gmrHIyt8hvvPP9dwFS/CGd+POfzmeXzKOsuyJpDDc=".parse().unwrap()),
             notes: None,
             login: None,
             identity: None,

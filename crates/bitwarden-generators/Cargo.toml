@@ -11,21 +11,19 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-uniffi = ["dep:uniffi"] # Uniffi bindings
-wasm = [
-    "bitwarden-core/wasm",
-    "dep:tsify",
-    "dep:wasm-bindgen",
-] # WebAssembly bindings
+uniffi = ["dep:uniffi"]
+wasm = ["bitwarden-core/wasm", "dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-random = { workspace = true }
+password-rules-parser = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }
 schemars = { workspace = true }
@@ -37,6 +35,7 @@ uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-api-base = { workspace = true }
 rand_chacha = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }

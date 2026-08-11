@@ -248,7 +248,10 @@ impl CipherKind for Identity {
 }
 
 /// Builds the subtitle for a card cipher
-fn build_subtitle_identity(first_name: Option<String>, last_name: Option<String>) -> String {
+pub(super) fn build_subtitle_identity(
+    first_name: Option<String>,
+    last_name: Option<String>,
+) -> String {
     let len = match (first_name.as_ref(), last_name.as_ref()) {
         (Some(first_name), Some(last_name)) => first_name.len() + last_name.len() + 1,
         (Some(first_name), None) => first_name.len(),

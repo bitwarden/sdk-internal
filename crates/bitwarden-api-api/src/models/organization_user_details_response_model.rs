@@ -106,6 +106,14 @@ pub struct OrganizationUserDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub groups: Option<Vec<uuid::Uuid>>,
+    /// The date the organization user was created, i.e. when the user was first invited to the
+    /// organization.
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub creation_date: Option<String>,
 }
 
 impl OrganizationUserDetailsResponseModel {
@@ -127,6 +135,7 @@ impl OrganizationUserDetailsResponseModel {
             sso_external_id: None,
             collections: None,
             groups: None,
+            creation_date: None,
         }
     }
 }

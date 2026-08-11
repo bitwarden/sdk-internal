@@ -6,7 +6,7 @@
 //!
 //! V1 users have only a private key protected by an AES256-CBC-HMAC user key.
 //! V2 users have a private key, a signing key, a signed public key and a signed security state,
-//! all protected by a Cose serialized AEAD key, currently XChaCha20-Poly1305.
+//! all protected by a COSE-serialized XAES-256-GCM key.
 
 use std::sync::RwLock;
 
@@ -22,7 +22,7 @@ use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{info, instrument};
+use tracing::info;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -53,10 +53,6 @@ pub enum AccountCryptographyInitializationError {
     /// The decrypted data is corrupt.
     #[error("Signature or mac verification failed, the data may have been tampered with")]
     TamperedData,
-    /// The key store is already initialized with account keys. Currently, updating keys is not a
-    /// supported operation
-    #[error("Key store is already initialized")]
-    KeyStoreAlreadyInitialized,
     /// A generic cryptographic error occurred.
     #[error("A generic cryptographic error occurred: {0}")]
     GenericCrypto(CryptoError),
@@ -263,7 +259,7 @@ impl WrappedAccountCryptographicState {
     /// Converts to a AccountKeysRequestModel in order to make API requests. Since the
     /// [WrappedAccountCryptographicState] is encrypted, the key store needs to contain the
     /// user key required to unlock this state.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn to_request_model(
         &self,
         user_key: &SymmetricKeySlotId,
@@ -339,7 +335,7 @@ impl WrappedAccountCryptographicState {
     pub fn make(
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<(SymmetricKeySlotId, Self), AccountCryptographyInitializationError> {
-        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let signing_key = ctx.make_signing_key(SignatureAlgorithm::MlDsa44);
         let signed_public_key = ctx.make_signed_public_key(private_key, signing_key)?;
@@ -379,7 +375,7 @@ impl WrappedAccountCryptographicState {
     /// Currently only supports V1 accounts.
     ///
     /// This is useful for obtaining the wrapped state after an asymmetric key regeneration.
-    #[instrument(skip_all, err)]
+    #[bitwarden_logging::instrument(err)]
     pub fn get_from_key_store(
         ctx: &KeyStoreContext<KeySlotIds>,
     ) -> Result<Self, RotateCryptographyStateError> {
@@ -399,7 +395,7 @@ impl WrappedAccountCryptographicState {
 
     /// Re-wraps the account cryptographic state with a new user key. If the cryptographic state is
     /// a V1 state, it gets upgraded to a V2 state
-    #[instrument(skip(self, ctx), err)]
+    #[bitwarden_logging::instrument(err, fields(current_user_key = ?current_user_key, new_user_key = ?new_user_key))]
     pub fn rotate(
         &self,
         current_user_key: &SymmetricKeySlotId,
@@ -491,13 +487,6 @@ impl WrappedAccountCryptographicState {
         store: &KeyStore<KeySlotIds>,
         mut ctx: KeyStoreContext<KeySlotIds>,
     ) -> Result<(), AccountCryptographyInitializationError> {
-        if ctx.has_symmetric_key(SymmetricKeySlotId::User)
-            || ctx.has_private_key(PrivateKeySlotId::UserPrivateKey)
-            || ctx.has_signing_key(SigningKeySlotId::UserSigningKey)
-        {
-            return Err(AccountCryptographyInitializationError::KeyStoreAlreadyInitialized);
-        }
-
         match self {
             WrappedAccountCryptographicState::V1 { private_key } => {
                 info!(state = ?self, "Initializing V1 account cryptographic state");
@@ -543,9 +532,10 @@ impl WrappedAccountCryptographicState {
                 security_state,
             } => {
                 info!(state = ?self, "Initializing V2 account cryptographic state");
-                if ctx.get_symmetric_key_algorithm(user_key)?
-                    != SymmetricKeyAlgorithm::XChaCha20Poly1305
-                {
+                if !matches!(
+                    ctx.get_symmetric_key_algorithm(user_key)?,
+                    SymmetricKeyAlgorithm::XAes256Gcm
+                ) {
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 
@@ -706,8 +696,8 @@ mod tests {
         let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
 
-        // Create a V2-style user key (XChaCha20Poly1305) and add to temp context
-        let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        // Create a V2-style XAES-256-GCM user key and add it to the temporary context
+        let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         // Make keys
         let private_key_id = temp_ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
@@ -1073,7 +1063,7 @@ mod tests {
         // Create a V1-style user key and add to context
         let (old_user_key_id, wrapped_state) =
             WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         #[allow(deprecated)]
         let new_user_key_owned = ctx
             .dangerous_get_symmetric_key(new_user_key_id)
@@ -1134,7 +1124,7 @@ mod tests {
         // Create a V2-style user key and add to context
         let (old_user_key_id, wrapped_state) =
             WrappedAccountCryptographicState::make(&mut ctx).unwrap();
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
         #[allow(deprecated)]
         let new_user_key_owned = ctx
             .dangerous_get_symmetric_key(new_user_key_id)
@@ -1298,8 +1288,8 @@ mod tests {
         let mut ctx = store.context_mut();
         let (_user_key_id, wrapped) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
 
-        // Create a different XChaCha20Poly1305 user key that wasn't used to wrap these keys
-        let wrong_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        // Create a different XAES-256-GCM user key that wasn't used to wrap these keys
+        let wrong_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         let result = wrapped.to_wrapped_request_model(&wrong_user_key_id, &mut ctx);
         assert!(result.is_err());

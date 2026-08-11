@@ -1,6 +1,6 @@
 use bitwarden_crypto::{
     DeviceKey, EncString, Kdf, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
-    TrustDeviceResponse, UnsignedSharedKey, UserKey,
+    SymmetricKeyAlgorithm, TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
 use bitwarden_encoding::B64;
 
@@ -20,7 +20,9 @@ pub(super) async fn make_register_tde_keys(
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
     let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
 
-    let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+    let user_key = UserKey::new(SymmetricCryptoKey::make(
+        SymmetricKeyAlgorithm::Aes256CbcHmac,
+    ));
     let key_pair = user_key.make_key_pair()?;
 
     #[expect(deprecated)]

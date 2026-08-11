@@ -1,0 +1,32 @@
+[package]
+name = "bitwarden_tracing_instrument"
+version = "0.1.0"
+authors = ["Bitwarden Inc"]
+description = "Lints forbidding `#[tracing::instrument]` in favor of `#[bitwarden_logging::instrument]`"
+edition = "2021"
+publish = false
+
+[features]
+rlib = ["dylint_linting/constituent"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[example]]
+name = "ui"
+path = "ui/main.rs"
+
+[dependencies]
+clippy_utils = { workspace = true }
+dylint_linting = { workspace = true }
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+
+[dev-dependencies]
+bitwarden-logging-macro = { path = "../../../crates/bitwarden-logging-macro" }
+dylint_testing = { workspace = true }
+tracing = "0.1"
+
+[package.metadata.rust-analyzer]
+rustc_private = true

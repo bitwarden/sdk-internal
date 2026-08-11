@@ -1,13 +1,20 @@
+use std::str::FromStr;
+
 use bitwarden_api_api::models::{
-    OtherDeviceKeysUpdateRequestModel, WebAuthnLoginRotateKeyRequestModel,
+    OtherDeviceKeysUpdateRequestModel, PasskeyKeyDataResponseModel,
+    TrustedDeviceKeyDataResponseModel, WebAuthnLoginRotateKeyRequestModel,
 };
 #[cfg(test)]
 use bitwarden_core::key_management::PrivateKeySlotId;
-use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
+use bitwarden_core::{
+    key_management::{KeySlotIds, SymmetricKeySlotId},
+    require,
+};
 use bitwarden_crypto::{
     Decryptable, EncString, KeyStoreContext, PrimitiveEncryptable, PublicKey, UnsignedSharedKey,
 };
-use tracing::instrument;
+
+use crate::key_rotation::KeyRotationDataParseError;
 
 /// A version of a rotateable keyset, missing the upstream-key-encrypted-private-key.
 /// This can only be used to re-share the downstream-key (in this case the user-key) with the
@@ -38,11 +45,35 @@ impl From<PartialRotateableKeyset> for WebAuthnLoginRotateKeyRequestModel {
     }
 }
 
+impl TryFrom<TrustedDeviceKeyDataResponseModel> for PartialRotateableKeyset {
+    type Error = KeyRotationDataParseError;
+
+    fn try_from(d: TrustedDeviceKeyDataResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: require!(d.id),
+            encrypted_public_key: EncString::from_str(&require!(d.encrypted_public_key))?,
+            encrypted_user_key: UnsignedSharedKey::from_str(&require!(d.encrypted_user_key))?,
+        })
+    }
+}
+
+impl TryFrom<PasskeyKeyDataResponseModel> for PartialRotateableKeyset {
+    type Error = KeyRotationDataParseError;
+
+    fn try_from(p: PasskeyKeyDataResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: require!(p.id),
+            encrypted_public_key: EncString::from_str(&require!(p.encrypted_public_key))?,
+            encrypted_user_key: UnsignedSharedKey::from_str(&require!(p.encrypted_user_key))?,
+        })
+    }
+}
+
 impl PartialRotateableKeyset {
     /// Makes a new `PartialRotateableKeyset` by re-encrypting the user-key. Specifically,
     /// the user-key-encrypted-public-key is re-encrypted for the new user-key, and the
     /// public-key-encrypted-user-key is re-created for the new user-key.
-    #[instrument(skip(self, ctx))]
+    #[bitwarden_logging::instrument(fields(current_user_key_id = ?current_user_key_id, new_user_key_id = ?new_user_key_id))]
     pub(super) fn rotate_userkey(
         &self,
         current_user_key_id: SymmetricKeySlotId,

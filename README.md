@@ -435,10 +435,36 @@ The list of developer tools is:
 This repository uses various tools to check formatting and linting before it's merged. It's
 recommended to run the checks before submitting a PR.
 
+### Running the checks
+
+```
+npm run lint           # run every check (check-only, matches CI)
+npm run lint:fix       # auto-fix where supported, then run the rest
+
+# Run a single check:
+npm run lint -- --only fmt
+npm run lint -- --only clippy
+```
+
+The list of available checks: `fmt`, `clippy`, `sort`, `udeps`, `dylint`, `doc`, `prettier`,
+`dep-ownership`, `cargo-lock`.
+
+The command is implemented in [scripts/lint.sh](./scripts/lint.sh) and mirrors
+[.github/workflows/lint.yml](./.github/workflows/lint.yml), so a local pass means CI will pass.
+
 ### Installation
 
-Please see the [lint.yml](./.github/workflows/lint.yml) file, for example, installation commands and
-versions. Here are the cli tools we use:
+Binary cargo tools (cargo-sort, cargo-udeps, cargo-dylint, etc.) are pinned in the root `Cargo.toml`
+under `[workspace.metadata.bin]` and installed lazily by
+[`cargo-run-bin`](https://crates.io/crates/cargo-run-bin), so dev and CI versions stay in sync.
+Bootstrap once:
+
+```bash
+cargo install cargo-run-bin --locked
+```
+
+After that, `npm run lint` (or `scripts/lint.sh` directly) handles installation of any missing tool
+on first invocation. The underlying tools are:
 
 - Nightly [cargo fmt](https://github.com/rust-lang/rustfmt) and
   [cargo udeps](https://github.com/est31/cargo-udeps)
@@ -447,20 +473,7 @@ versions. Here are the cli tools we use:
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
 - [prettier](https://github.com/prettier/prettier)
 
-### Checks
-
-To verify if changes need to be made, here are examples for the above tools:
-
-```
-export RUSTFLAGS="-D warnings"
-
-cargo +nightly fmt --check
-cargo +nightly udeps --workspace --all-features
-cargo clippy --all-features --all-targets
-cargo dylint --all -- --all-features --all-targets
-cargo sort --workspace --grouped --check
-npm run lint
-```
+If `cargo-run-bin` itself is missing locally, `npm run lint` will tell you how to install it.
 
 ## Documentation
 

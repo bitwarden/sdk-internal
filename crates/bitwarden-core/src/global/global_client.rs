@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use crate::{
-    client::{build_default_headers, new_http_client_builder},
-    global::GlobalInternalClient,
-};
+use bitwarden_api_base::new_http_client_builder;
+
+use crate::{client::build_default_headers, global::GlobalInternalClient};
 
 /// The entry point for unauthenticated SDK operations.
 ///
@@ -64,7 +63,7 @@ mod tests {
     fn dummy_client() -> GlobalClient {
         GlobalClient {
             internal: Arc::new(GlobalInternalClient {
-                http_client: ClientBuilder::new(reqwest::Client::new()).build(),
+                http_client: ClientBuilder::new(bitwarden_api_base::new_http_client()).build(),
             }),
         }
     }

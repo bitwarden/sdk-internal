@@ -12,56 +12,28 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
-/// ChangeKdfRequestModel : Dual-shape request: validation accepts either the legacy
-/// (Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.NewMasterPasswordHash,
-/// Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.Key) or new
-/// (Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.AuthenticationData,
-/// Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.UnlockData) payload so the wire
-/// contract can stabilize ahead of caller wiring. `PostKdf` currently honors only the new shape;
-/// legacy-shape dispatch arrives with `ChangeKdfCommand`'s dual-path refactor. All legacy fields
-/// are removed in PM-33141.
+/// ChangeKdfRequestModel : Request model for changing the KDF settings for a user's account.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChangeKdfRequestModel {
     #[serde(rename = "masterPasswordHash", alias = "MasterPasswordHash")]
     pub master_password_hash: String,
-    #[serde(
-        rename = "newMasterPasswordHash",
-        alias = "NewMasterPasswordHash",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub new_master_password_hash: Option<String>,
-    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
-    pub key: Option<String>,
-    #[serde(
-        rename = "authenticationData",
-        alias = "AuthenticationData",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub authentication_data: Option<Box<models::MasterPasswordAuthenticationDataRequestModel>>,
-    #[serde(
-        rename = "unlockData",
-        alias = "UnlockData",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub unlock_data: Option<Box<models::MasterPasswordUnlockDataRequestModel>>,
+    #[serde(rename = "authenticationData", alias = "AuthenticationData")]
+    pub authentication_data: Box<models::MasterPasswordAuthenticationDataRequestModel>,
+    #[serde(rename = "unlockData", alias = "UnlockData")]
+    pub unlock_data: Box<models::MasterPasswordUnlockDataRequestModel>,
 }
 
 impl ChangeKdfRequestModel {
-    /// Dual-shape request: validation accepts either the legacy
-    /// (Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.NewMasterPasswordHash,
-    /// Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.Key) or new
-    /// (Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.AuthenticationData,
-    /// Bit.Api.Auth.Models.Request.Accounts.ChangeKdfRequestModel.UnlockData) payload so the wire
-    /// contract can stabilize ahead of caller wiring. `PostKdf` currently honors only the new
-    /// shape; legacy-shape dispatch arrives with `ChangeKdfCommand`'s dual-path refactor. All
-    /// legacy fields are removed in PM-33141.
-    pub fn new(master_password_hash: String) -> ChangeKdfRequestModel {
+    /// Request model for changing the KDF settings for a user's account.
+    pub fn new(
+        master_password_hash: String,
+        authentication_data: models::MasterPasswordAuthenticationDataRequestModel,
+        unlock_data: models::MasterPasswordUnlockDataRequestModel,
+    ) -> ChangeKdfRequestModel {
         ChangeKdfRequestModel {
             master_password_hash,
-            new_master_password_hash: None,
-            key: None,
-            authentication_data: None,
-            unlock_data: None,
+            authentication_data: Box::new(authentication_data),
+            unlock_data: Box::new(unlock_data),
         }
     }
 }

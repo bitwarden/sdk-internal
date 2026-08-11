@@ -135,13 +135,7 @@ mod tests {
     }
 
     fn create_identity_config(mock_server: &wiremock::MockServer) -> Configuration {
-        let reqwest_client = reqwest::Client::new();
-        let client = reqwest_middleware::ClientBuilder::new(reqwest_client).build();
-
-        Configuration {
-            base_path: format!("http://{}/identity", mock_server.address()),
-            client,
-        }
+        Configuration::new(format!("http://{}/identity", mock_server.address()))
     }
 
     fn add_standard_request_matchers(mock_builder: wiremock::MockBuilder) -> wiremock::MockBuilder {
@@ -342,15 +336,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_login_request_network_error() {
-        let reqwest_client = reqwest::Client::new();
-        let client = reqwest_middleware::ClientBuilder::new(reqwest_client).build();
-
         // Verify that network errors are propagated as UnexpectedError.
         // This test confirms the error conversion mechanism works.
-        let identity_config = Configuration {
-            base_path: "http://127.0.0.1:1/identity".to_string(), // Port 1 will refuse connections
-            client,
-        };
+        let identity_config = Configuration::new("http://127.0.0.1:1/identity"); // Port 1 will refuse connections
 
         let login_request = create_test_login_request();
         let result = send_login_request(&identity_config, &login_request).await;

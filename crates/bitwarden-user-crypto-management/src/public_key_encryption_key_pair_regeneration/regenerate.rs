@@ -2,13 +2,13 @@ use bitwarden_api_api::models::KeyRegenerationRequestModel;
 use bitwarden_core::key_management::{KeySlotIds, PrivateKeySlotId, SymmetricKeySlotId};
 use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm};
 use bitwarden_encoding::B64;
-use tracing::{error, info, instrument};
+use tracing::{error, info};
 
 use super::KeyPairRegenerationError;
 
 /// Generates a new public key encryption key pair, submits it to the server, and
 /// persists the new private key in the key store.
-#[instrument(name = "regenerate_public_key_encryption_key_pair", skip_all, err)]
+#[bitwarden_logging::instrument(name = "regenerate_public_key_encryption_key_pair", err)]
 pub(super) async fn internal_regenerate_public_key_encryption_key_pair(
     key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -229,7 +229,7 @@ mod tests {
         let key_store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = key_store.context_mut();
-            let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             let _ = ctx.persist_symmetric_key(key, SymmetricKeySlotId::User);
         }
 

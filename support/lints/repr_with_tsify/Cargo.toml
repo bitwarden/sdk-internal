@@ -1,0 +1,31 @@
+[package]
+name = "bitwarden_repr_with_tsify"
+version = "0.1.0"
+authors = ["Bitwarden Inc"]
+description = "Lint forbidding combining serde_repr derives with tsify::Tsify"
+edition = "2021"
+publish = false
+
+[features]
+rlib = ["dylint_linting/constituent"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[example]]
+name = "ui"
+path = "ui/main.rs"
+
+[dependencies]
+clippy_utils = { workspace = true }
+dylint_linting = { workspace = true }
+
+[dev-dependencies]
+dylint_testing = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_repr = "0.1"
+tsify = { version = "0.5", default-features = false, features = ["js"] }
+wasm-bindgen = "0.2"
+
+[package.metadata.rust-analyzer]
+rustc_private = true

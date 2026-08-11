@@ -293,6 +293,12 @@ pub struct OrganizationLicense {
     )]
     pub use_invite_links: Option<bool>,
     #[serde(
+        rename = "usePam",
+        alias = "UsePam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_pam: Option<bool>,
+    #[serde(
         rename = "hash",
         alias = "Hash",
         skip_serializing_if = "Option::is_none"
@@ -362,6 +368,7 @@ impl OrganizationLicense {
             use_disable_sm_ads_for_users: None,
             use_my_items: None,
             use_invite_links: None,
+            use_pam: None,
             hash: None,
             signature: None,
             token: None,

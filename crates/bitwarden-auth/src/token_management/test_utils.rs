@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bitwarden_api_api::apis::AuthRequired;
+use bitwarden_api_api::{apis::AuthRequired, new_http_client};
 use bitwarden_core::{auth::TokenHandler, key_management::KeySlotIds};
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::registry::StateRegistry;
@@ -106,13 +106,10 @@ pub fn build_client<H: TokenHandler>(
 ) -> reqwest_middleware::ClientWithMiddleware {
     let middleware = handler.initialize_middleware(
         registry,
-        bitwarden_api_api::Configuration {
-            base_path: identity_server.uri(),
-            client: reqwest::Client::new().into(),
-        },
+        bitwarden_api_api::Configuration::new(identity_server.uri()),
         KeyStore::<KeySlotIds>::default(),
     );
-    reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
+    reqwest_middleware::ClientBuilder::new(new_http_client())
         .with_arc(middleware)
         .build()
 }

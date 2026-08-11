@@ -19,6 +19,10 @@ use super::crypto::{
     make_user_password_registration, verify_asymmetric_keys,
 };
 use crate::key_management::V2UpgradeToken;
+#[cfg(feature = "uniffi")]
+use crate::key_management::crypto::{
+    ReinitUserCryptoError, ReinitUserCryptoRequest, reinit_user_crypto,
+};
 #[cfg(feature = "internal")]
 use crate::key_management::{
     SymmetricKeySlotId,
@@ -102,6 +106,8 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the re-encrypted
     /// user key and the new password hash but does not update sdk state.
+    ///
+    /// Note: This is deprecated. Please use the user-crypto-management client instead.
     pub async fn make_update_kdf(
         &self,
         password: String,
@@ -317,7 +323,7 @@ impl CryptoClient {
 
         match (algorithm, upgrade_token) {
             // Already V2, return current key
-            (SymmetricKeyAlgorithm::XChaCha20Poly1305, _) => {
+            (SymmetricKeyAlgorithm::XAes256Gcm, _) => {
                 #[allow(deprecated)]
                 let current_key = ctx
                     .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
@@ -339,7 +345,24 @@ impl CryptoClient {
             (SymmetricKeyAlgorithm::Aes256CbcHmac, None) => {
                 Err(CryptoClientError::UpgradeTokenRequired)
             }
+            (SymmetricKeyAlgorithm::XChaCha20Poly1305 | SymmetricKeyAlgorithm::Aes256Gcm, _) => {
+                Err(CryptoClientError::InvalidKeyType)
+            }
         }
+    }
+}
+
+#[cfg(feature = "uniffi")]
+impl CryptoClient {
+    /// Re-initialize the user's cryptographic state during an unlock session.
+    ///
+    /// Requires the SDK to be unlocked. Replaces the in-memory account
+    /// cryptographic state with the provided one, and upgrades the active user key from V1 to V2.
+    pub async fn reinit_user_crypto(
+        &self,
+        req: ReinitUserCryptoRequest,
+    ) -> Result<(), ReinitUserCryptoError> {
+        reinit_user_crypto(&self.client, req).await
     }
 }
 
@@ -418,7 +441,7 @@ mod tests {
         // Add a fresh V2 key to the client's keystore and build a token linking it to the V1 key
         let (token, expected_v2_b64) = {
             let mut ctx = client.internal.get_key_store().context_mut();
-            let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             #[allow(deprecated)]
             let v2_key = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap().clone();
             let token = V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap();
@@ -438,7 +461,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let wrong_v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(wrong_v1_id, v2_id, &ctx).unwrap()
         };
 
@@ -458,7 +481,7 @@ mod tests {
         let result = client.crypto().get_upgraded_user_key(None).unwrap();
         let result_key = SymmetricCryptoKey::try_from(result).unwrap();
         assert!(
-            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            matches!(result_key, SymmetricCryptoKey::XAes256GcmKey(_)),
             "V2 user should receive a V2 key"
         );
     }
@@ -472,7 +495,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(v1_id, v2_id, &ctx).unwrap()
         };
 

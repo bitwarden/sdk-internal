@@ -206,6 +206,21 @@ pub fn get_host_platform_info() -> &'static HostPlatformInfo {
         .expect("host platform info to be initialized")
 }
 
+impl HostPlatformInfo {
+    /// Derive a [`ClientSettings`] from this platform info, for use in client initialization.
+    pub fn to_client_settings(&self, api_url: String, identity_url: String) -> ClientSettings {
+        ClientSettings {
+            user_agent: self.user_agent.clone(),
+            device_type: self.device_type,
+            device_identifier: self.device_identifier.clone(),
+            bitwarden_client_version: self.bitwarden_client_version.clone(),
+            bitwarden_package_type: self.bitwarden_package_type.clone(),
+            api_url,
+            identity_url,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

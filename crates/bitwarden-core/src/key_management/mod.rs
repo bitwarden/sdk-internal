@@ -45,6 +45,10 @@ pub use user_decryption::UserDecryptionData;
 mod v2_upgrade_token;
 #[cfg(feature = "internal")]
 pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
+#[cfg(feature = "internal")]
+mod webauthn_prf;
+#[cfg(feature = "internal")]
+pub use webauthn_prf::{WebAuthnPrfError, WebAuthnPrfUnlockData, WebAuthnPrfUnlockOption};
 
 #[cfg(all(feature = "internal", feature = "wasm"))]
 mod wasm_unlock_state;

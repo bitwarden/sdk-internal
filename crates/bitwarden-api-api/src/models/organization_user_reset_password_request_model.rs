@@ -34,6 +34,18 @@ pub struct OrganizationUserResetPasswordRequestModel {
     pub new_master_password_hash: Option<String>,
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    #[serde(
+        rename = "authenticationData",
+        alias = "AuthenticationData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub authentication_data: Option<Box<models::MasterPasswordAuthenticationDataRequestModel>>,
+    #[serde(
+        rename = "unlockData",
+        alias = "UnlockData",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unlock_data: Option<Box<models::MasterPasswordUnlockDataRequestModel>>,
 }
 
 impl OrganizationUserResetPasswordRequestModel {
@@ -43,6 +55,8 @@ impl OrganizationUserResetPasswordRequestModel {
             reset_two_factor: None,
             new_master_password_hash: None,
             key: None,
+            authentication_data: None,
+            unlock_data: None,
         }
     }
 }

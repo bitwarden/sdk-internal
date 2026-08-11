@@ -1,7 +1,7 @@
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
-use crate::CipherError;
+use crate::{CipherError, cipher::blob::BlobEncryptionError};
 
 /// Generic error type for vault encryption errors.
 #[allow(missing_docs)]
@@ -10,6 +10,8 @@ use crate::CipherError;
 pub enum EncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error(transparent)]
+    BlobEncryption(#[from] BlobEncryptionError),
     #[error("Client User Id has not been set")]
     MissingUserId,
 }

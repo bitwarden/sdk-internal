@@ -3,7 +3,6 @@ use std::pin::Pin;
 use bitwarden_encoding::B64;
 use hybrid_array::Array;
 use rand::RngExt;
-use tracing::instrument;
 use typenum::U32;
 
 use super::{
@@ -13,6 +12,7 @@ use super::{
 use crate::{
     BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
     UserKey,
+    hazmat::symmetric_encryption::Aes256Cbc,
     util::{self},
 };
 
@@ -59,13 +59,25 @@ impl MasterKey {
     /// Derives a users master key from their password, email and KDF.
     ///
     /// Note: the email is trimmed and converted to lowercase before being used.
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument)]
+    // Only instrumented under `dangerous-crypto-debug`, where it intentionally logs key
+    // material, so it uses `tracing::instrument` directly (the `bitwarden_logging` wrapper
+    // enforces `skip_all`). There is no production instrumentation. The `allow` only applies
+    // when the dangerous arm is active.
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument)]
     pub fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
         Ok(KdfDerivedKeyMaterial::derive(password, email, kdf)?.into())
     }
 
     /// Derive the master key hash, used for local and remote password validation.
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument)]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument)]
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> B64 {
         let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
 
@@ -74,19 +86,33 @@ impl MasterKey {
 
     /// Generate a new random user key and encrypt it with the master key.
     pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
-        make_user_key(rand::rng(), self)
+        make_user_key(bitwarden_random::rng(), self)
     }
 
     /// Encrypt the users user key
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
         encrypt_user_key(self.inner_bytes(), user_key)
     }
 
     /// Decrypt the users user key
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    #[cfg_attr(
+        feature = "dangerous-crypto-debug",
+        allow(unknown_lints, tracing_instrument)
+    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", tracing::instrument(err))]
+    #[cfg_attr(
+        not(feature = "dangerous-crypto-debug"),
+        bitwarden_logging::instrument(err)
+    )]
     pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
         decrypt_user_key(self.inner_bytes(), user_key)
     }
@@ -147,8 +173,7 @@ pub(super) fn decrypt_user_key(
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
         EncString::Aes256Cbc_B64 { iv, ref data } => {
-            crate::aes::decrypt_aes256(&iv, data.clone(), &key.clone())
-                .map_err(|_| CryptoError::Decrypt)?
+            Aes256Cbc::decrypt(&iv, data, &(**key).into()).map_err(|_| CryptoError::Decrypt)?
         }
         EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key));

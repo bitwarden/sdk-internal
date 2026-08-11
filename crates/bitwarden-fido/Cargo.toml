@@ -11,7 +11,7 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
@@ -26,7 +26,7 @@ bitwarden-encoding = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 coset = ">=0.3.7, <0.5"
-itertools = ">=0.13.0, <0.15"
+itertools = ">=0.13.0, <0.16"
 p256 = ">=0.13.2, <0.14"
 passkey = { git = "https://github.com/bitwarden/passkey-rs", rev = "043279e92e2eb5f509bf87eb7fa50987fd377e32" }
 passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "043279e92e2eb5f509bf87eb7fa50987fd377e32", features = [
