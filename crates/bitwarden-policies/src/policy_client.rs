@@ -4,32 +4,13 @@ use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{
-    OrganizationUserPolicyContext, PolicyType, PolicyView, policy_overrides::*,
-    registry::PolicyRegistry,
-};
-
-fn build_policy_registry() -> PolicyRegistry {
-    PolicyRegistry::builder()
-        .register(MasterPasswordPolicy)
-        .register(PasswordGeneratorPolicy)
-        .register(MaximumVaultTimeoutPolicy)
-        .register(FreeFamiliesSponsorshipPolicy)
-        .register(RemoveUnlockWithPinPolicy)
-        .register(RestrictedItemTypesPolicy)
-        .register(AutomaticUserConfirmationPolicy)
-        .register(OrganizationUserNotificationPolicy)
-        .register(FillAssistPolicy)
-        .build()
-}
+use crate::{OrganizationUserPolicyContext, PolicyType, PolicyView};
 
 /// Client for policy domain operations.
 ///
 /// Obtained via [`PoliciesClientExt::policies`] on a [`Client`].
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub struct PolicyClient {
-    registry: PolicyRegistry,
-}
+pub struct PolicyClient;
 
 impl Default for PolicyClient {
     fn default() -> Self {
@@ -38,11 +19,9 @@ impl Default for PolicyClient {
 }
 
 impl PolicyClient {
-    /// Creates a new [`PolicyClient`] with a freshly built registry.
+    /// Creates a new [`PolicyClient`].
     pub fn new() -> Self {
-        Self {
-            registry: build_policy_registry(),
-        }
+        Self
     }
 }
 
@@ -51,15 +30,16 @@ impl PolicyClient {
     /// Filter policies of the given type for the current user.
     ///
     /// Untyped FFI path: native/WASM callers pass a runtime `policy_type` integer.
-    /// Delegates to the registry, falling back to default rules for unknown types.
+    /// Dispatches to the resolved [`crate::Policy`] for that type.
     pub fn filter_by_type(
         &self,
         policies: Vec<PolicyView>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
         policy_type: PolicyType,
     ) -> Vec<PolicyView> {
-        self.registry
-            .filter_by_type(&policies, &organization_user_policy_contexts, policy_type)
+        policy_type
+            .resolve_policy()
+            .filter(&policies, &organization_user_policy_contexts)
             .into_iter()
             .cloned()
             .collect()

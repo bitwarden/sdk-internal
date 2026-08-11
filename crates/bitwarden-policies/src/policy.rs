@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 //! Policy filtering logic.
 //!
 //! Provides the [`Policy`] trait for determining which policies

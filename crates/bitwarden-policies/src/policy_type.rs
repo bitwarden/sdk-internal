@@ -4,6 +4,8 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
+use crate::{policies::*, policy::PolicyFilter};
+
 /// The type of an organization policy.
 ///
 /// The integer value matches the server's wire format.
@@ -71,4 +73,41 @@ pub enum PolicyType {
     /// have not explicitly set their Fill Assist preference, and optionally overrides the default
     /// rules feed URL.
     FillAssist = 22,
+}
+
+impl PolicyType {
+    /// Dispatches this runtime policy type to its concrete (zero-sized)
+    /// [`crate::Policy`] implementation, boxed behind [`PolicyFilter`] so any
+    /// policy type can be filtered uniformly.
+    pub(crate) fn resolve_policy(self) -> Box<dyn PolicyFilter> {
+        match self {
+            PolicyType::TwoFactorAuthentication => Box::new(TwoFactorAuthenticationPolicy),
+            PolicyType::MasterPassword => Box::new(MasterPasswordPolicy),
+            PolicyType::PasswordGenerator => Box::new(PasswordGeneratorPolicy),
+            PolicyType::SingleOrg => Box::new(SingleOrgPolicy),
+            PolicyType::RequireSso => Box::new(RequireSsoPolicy),
+            PolicyType::OrganizationDataOwnership => Box::new(OrganizationDataOwnershipPolicy),
+            PolicyType::DisableSend => Box::new(DisableSendPolicy),
+            PolicyType::SendOptions => Box::new(SendOptionsPolicy),
+            PolicyType::ResetPassword => Box::new(ResetPasswordPolicy),
+            PolicyType::MaximumVaultTimeout => Box::new(MaximumVaultTimeoutPolicy),
+            PolicyType::DisablePersonalVaultExport => Box::new(DisablePersonalVaultExportPolicy),
+            PolicyType::ActivateAutofill => Box::new(ActivateAutofillPolicy),
+            PolicyType::AutomaticAppLogIn => Box::new(AutomaticAppLogInPolicy),
+            PolicyType::FreeFamiliesSponsorship => Box::new(FreeFamiliesSponsorshipPolicy),
+            PolicyType::RemoveUnlockWithPin => Box::new(RemoveUnlockWithPinPolicy),
+            PolicyType::RestrictedItemTypes => Box::new(RestrictedItemTypesPolicy),
+            PolicyType::UriMatchDefaults => Box::new(UriMatchDefaultsPolicy),
+            PolicyType::AutotypeDefaultSetting => Box::new(AutotypeDefaultSettingPolicy),
+            PolicyType::AutomaticUserConfirmation => Box::new(AutomaticUserConfirmationPolicy),
+            PolicyType::BlockClaimedDomainAccountCreation => {
+                Box::new(BlockClaimedDomainAccountCreationPolicy)
+            }
+            PolicyType::OrganizationUserNotification => {
+                Box::new(OrganizationUserNotificationPolicy)
+            }
+            PolicyType::SendControls => Box::new(SendControlsPolicy),
+            PolicyType::FillAssist => Box::new(FillAssistPolicy),
+        }
+    }
 }
