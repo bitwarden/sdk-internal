@@ -194,7 +194,7 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 > branch_.
 
 Between [local linking](#integrating-builds-into-client-applications-for-local-development) and
-[published artifacts on `main`](#integrating-into-clients-from-published-artifacts)), each client
+[published artifacts on `main`](#integrating-into-clients-from-published-artifacts), each client
 repository provides a way for client CI (and its resulting artifacts) to run against SDK artifacts
 produced by an `sdk-internal` feature-branch CI run, without the SDK being published and consumed as
 a dependency.
@@ -212,8 +212,6 @@ Manually dispatch the appropriate build workflow against the desired `clients` b
 `sdk_branch` to your `sdk-internal` feature branch. The workflow downloads the latest successful
 `build-wasm-internal.yml` artifacts from that branch and npm-links them into the client build,
 producing a CI artifact that combines both in-progress branches without any publish step.
-
-![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
 
 ### Android
 
@@ -303,15 +301,20 @@ Recommended sequence:
    version it consumes doesn't exist in npm until step 3.
 3. **Merge the `sdk-internal` PR.** This triggers the publish workflow (see
    [What happens when an SDK PR merges to `main`](#what-happens-when-an-sdk-pr-merges-to-main)) and
-   opens or updates the client auto-PR. The auto-PR will fail to build until step 5 lands. This is
+   opens or updates the client auto-PR. The auto-PR will fail to build until step 6 lands. This is
    the breaking-change window.
 4. **Bump the SDK on your client feature branch** by manually running the
    [SDK Update workflow](https://github.com/bitwarden/clients/actions/workflows/sdk-update.yml)
    against your feature branch: enter the published SDK version (see
    [Finding the published SDK version](#finding-the-published-sdk-version)) and your feature branch
-   as the base. The workflow only edits `package.json` and runs `npm install`, so you can make those
-   edits by hand and commit them to your feature branch directly when the automation isn't a fit
-   (e.g. bundling the SDK bump into a larger client commit).
+   as the base.
+
+   ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
+
+   The workflow only edits `package.json` and runs `npm install`, so you can make those edits by
+   hand and commit them to your feature branch directly when the automation isn't a fit (e.g.
+   bundling the SDK bump into a larger client commit).
+
 5. **Merge the SDK bump PR into your client feature branch.** Because this adds new commits to the
    client PR, branch protection will dismiss the earlier approval. Re-request review and get the
    client PR approved again.
