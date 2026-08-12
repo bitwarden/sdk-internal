@@ -118,7 +118,7 @@ impl PolicyType {
 /// Type-erased policy type + data for crossing the FFI boundary.
 ///
 /// Each variant carries the strongly-typed data for one policy, mirroring the
-/// generic [`Policy::Data`](crate::Policy) used on the native side. Variants are
+/// generic `Policy::Data` used on the native side. Variants are
 /// named identically to (and documented by) the matching [`PolicyType`] variant.
 ///
 /// TODO: this is missing policy data for current policies.
