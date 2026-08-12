@@ -37,7 +37,8 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfErro
     Ok(items)
 }
 
-/// Replace negative `creationAt` and `modifiedAt` values with null, so that `Utc::now()` will be used downstream 
+/// Replace negative `creationAt` and `modifiedAt` values with null, so that `Utc::now()` will be
+/// used downstream
 ///
 /// Some credential managers (e.g., Google Password Manager) export timestamps
 /// as the Windows FILETIME epoch (-11644473600) when no real date exists. The
@@ -71,7 +72,11 @@ pub(crate) fn sanitize_timestamps(payload: &str) -> std::borrow::Cow<'_, str> {
 
 fn clamp_timestamps(item: &mut serde_json::Value, modified: &mut bool) {
     for key in ["creationAt", "modifiedAt"] {
-        if item.get(key).and_then(|v| v.as_i64()).is_some_and(|n| n < 0) {
+        if item
+            .get(key)
+            .and_then(|v| v.as_i64())
+            .is_some_and(|n| n < 0)
+        {
             item[key] = serde_json::Value::Null;
             *modified = true;
         }
@@ -80,7 +85,10 @@ fn clamp_timestamps(item: &mut serde_json::Value, modified: &mut bool) {
 
 fn clamp_collection_timestamps(collection: &mut serde_json::Value, modified: &mut bool) {
     clamp_timestamps(collection, modified);
-    if let Some(subs) = collection.get_mut("subCollections").and_then(|v| v.as_array_mut()) {
+    if let Some(subs) = collection
+        .get_mut("subCollections")
+        .and_then(|v| v.as_array_mut())
+    {
         for sub in subs {
             clamp_collection_timestamps(sub, modified);
         }

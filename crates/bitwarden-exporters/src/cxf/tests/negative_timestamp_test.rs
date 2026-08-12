@@ -97,7 +97,11 @@ mod tests {
             }]
         }"#;
         let result = parse_cxf(input.to_string());
-        assert!(result.is_ok(), "parse_cxf should not error on negative timestamps: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "parse_cxf should not error on negative timestamps: {:?}",
+            result.err()
+        );
     }
 
     #[test]
