@@ -528,6 +528,8 @@ src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
 src/models/self_hosted_organization_license_request_model.rs
 src/models/send_access_response_model.rs
+src/models/send_data_model.rs
+src/models/send_encryption_type.rs
 src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs

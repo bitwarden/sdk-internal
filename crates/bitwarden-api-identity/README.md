@@ -22,7 +22,7 @@ client.
 - API version: v1
 - Package version: 3.0.0
 - Server Git commit:
-  [`c2d97d5ff2019c524405c36f7f3afc992ec0ef03`](https://github.com/bitwarden/server/commit/c2d97d5ff2019c524405c36f7f3afc992ec0ef03)
+  [`4f8c0f010712cbd860c29b225bec84b2592a331c`](https://github.com/bitwarden/server/commit/4f8c0f010712cbd860c29b225bec84b2592a331c)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -39,7 +39,6 @@ All URIs are relative to *https://identity.bitwarden.com*
 | _AccountsApi_ | [**post_register_verification_email_clicked**](docs/AccountsApi.md#accounts_post_register_verification_email_clicked)           | **POST** /accounts/register/verification-email-clicked |
 | _AccountsApi_ | [**post_trial_initiation_send_verification_email**](docs/AccountsApi.md#accounts_post_trial_initiation_send_verification_email) | **POST** /accounts/trial/send-verification-email       |
 | _InfoApi_     | [**get_alive**](docs/InfoApi.md#info_get_alive)                                                                                 | **GET** /alive                                         |
-| _InfoApi_     | [**get_version**](docs/InfoApi.md#info_get_version)                                                                             | **GET** /version                                       |
 | _SsoApi_      | [**external_callback**](docs/SsoApi.md#sso_external_callback)                                                                   | **GET** /sso/ExternalCallback                          |
 | _SsoApi_      | [**external_challenge**](docs/SsoApi.md#sso_external_challenge)                                                                 | **GET** /sso/ExternalChallenge                         |
 | _SsoApi_      | [**login**](docs/SsoApi.md#sso_login)                                                                                           | **GET** /sso/Login                                     |
