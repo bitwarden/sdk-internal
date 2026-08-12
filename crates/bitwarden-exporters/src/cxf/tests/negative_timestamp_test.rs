@@ -42,10 +42,10 @@ mod tests {
     }
 
     #[test]
-    fn test_sanitize_no_modification_returns_original() {
+    fn test_sanitize_valid_timestamps_unchanged_returns_borrowed() {
         let input = r#"{"id":"test","items":[{"id":"1","creationAt":1759783057,"modifiedAt":1759783057,"title":"Test","credentials":[]}]}"#;
         let result = sanitize_timestamps(input);
-        assert_eq!(result.as_ref(), input);
+        assert!(matches!(result, std::borrow::Cow::Borrowed(_)));
     }
 
     #[test]
