@@ -275,25 +275,26 @@ mod tests {
         /// Convenience for the single-org gate tests: resolves against the org of the first view.
         /// Multi-org resolution is covered by
         /// `get_all_enforced::resolves_each_org_independently`.
-        fn is_enforced(views: &[PolicyView], contexts: &[OrganizationUserPolicyContext]) -> bool {
-            let org_id = views[0].organization_id;
+        fn is_enforced(
+            org_id: OrganizationId,
+            views: &[PolicyView],
+            contexts: &[OrganizationUserPolicyContext],
+        ) -> bool {
             TestPolicy.get_enforced(org_id, views, contexts).enforced
         }
-
-        // --- Enforcement gates (ported from the pre-refactor `filter.rs` tests) ---
 
         #[test]
         fn enforced_for_confirmed_member() {
             let org = OrganizationId::new_v4();
             let views = [policy_view(org, PolicyType::SingleOrg, true)];
-            assert!(is_enforced(&views, &[confirmed_member(org)]));
+            assert!(is_enforced(org, &views, &[confirmed_member(org)]));
         }
 
         #[test]
         fn not_enforced_when_policy_disabled() {
             let org = OrganizationId::new_v4();
             let views = [policy_view(org, PolicyType::SingleOrg, false)];
-            assert!(!is_enforced(&views, &[confirmed_member(org)]));
+            assert!(!is_enforced(org, &views, &[confirmed_member(org)]));
         }
 
         #[test]
@@ -304,7 +305,7 @@ mod tests {
                 enabled: false,
                 ..confirmed_member(org)
             };
-            assert!(!is_enforced(&views, &[ctx]));
+            assert!(!is_enforced(org, &views, &[ctx]));
         }
 
         #[test]
@@ -315,7 +316,7 @@ mod tests {
                 use_policies: false,
                 ..confirmed_member(org)
             };
-            assert!(!is_enforced(&views, &[ctx]));
+            assert!(!is_enforced(org, &views, &[ctx]));
         }
 
         #[test]
@@ -331,7 +332,7 @@ mod tests {
                     ..confirmed_member(org)
                 };
                 assert!(
-                    !is_enforced(&views, &[ctx]),
+                    !is_enforced(org, &views, &[ctx]),
                     "role {label} should be exempt"
                 );
             }
@@ -351,7 +352,7 @@ mod tests {
                     ..confirmed_member(org)
                 };
                 assert!(
-                    !is_enforced(&views, &[ctx]),
+                    !is_enforced(org, &views, &[ctx]),
                     "status {label} should not be applicable"
                 );
             }
@@ -369,7 +370,10 @@ mod tests {
                     status,
                     ..confirmed_member(org)
                 };
-                assert!(is_enforced(&views, &[ctx]), "status {label} should apply");
+                assert!(
+                    is_enforced(org, &views, &[ctx]),
+                    "status {label} should apply"
+                );
             }
         }
 
@@ -381,7 +385,7 @@ mod tests {
                 is_provider_user: true,
                 ..confirmed_member(org)
             };
-            assert!(!is_enforced(&views, &[ctx]));
+            assert!(!is_enforced(org, &views, &[ctx]));
         }
 
         #[test]
@@ -389,14 +393,21 @@ mod tests {
             let org = OrganizationId::new_v4();
             // A view for a different policy type must not resolve for TestPolicy.
             let views = [policy_view(org, PolicyType::PasswordGenerator, true)];
-            assert!(!is_enforced(&views, &[confirmed_member(org)]));
+            assert!(!is_enforced(org, &views, &[confirmed_member(org)]));
         }
 
         #[test]
-        fn missing_org_context_enforces_by_default() {
+        fn missing_org_context_enforces_enabled_policy_by_default() {
             let org = OrganizationId::new_v4();
             let views = [policy_view(org, PolicyType::SingleOrg, true)];
-            assert!(is_enforced(&views, &[]));
+            assert!(is_enforced(org, &views, &[]));
+        }
+
+        #[test]
+        fn missing_org_context_does_not_enforce_disabled_policy() {
+            let org = OrganizationId::new_v4();
+            let views = [policy_view(org, PolicyType::SingleOrg, false)];
+            assert!(!is_enforced(org, &views, &[]));
         }
 
         // --- Data parsing via `ResolvedPolicyView::resolve` (uses the real MasterPasswordPolicy)

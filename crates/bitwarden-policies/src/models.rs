@@ -176,14 +176,14 @@ impl<P: Policy> ResolvedPolicyView<P> {
     ) -> EnforcedPolicy<P> {
         let context = organization_user_policy_contexts.get(&self.organization_id);
 
-        let enforced = context.is_none_or(|ctx| {
-            self.enabled
-                && ctx.enabled
-                && ctx.use_policies
-                && policy.enforced_statuses().contains(&ctx.status)
-                && !policy.exempt_roles().contains(&ctx.role)
-                && !(ctx.is_provider_user && policy.exempt_providers())
-        });
+        let enforced = self.enabled
+            && context.is_none_or(|ctx| {
+                ctx.enabled
+                    && ctx.use_policies
+                    && policy.enforced_statuses().contains(&ctx.status)
+                    && !policy.exempt_roles().contains(&ctx.role)
+                    && !(ctx.is_provider_user && policy.exempt_providers())
+            });
 
         if enforced {
             EnforcedPolicy {
