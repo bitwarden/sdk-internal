@@ -21,6 +21,7 @@ mod pipeline;
 ///
 /// Exposed only under the `test-utils` feature, for the out-of-tree CLI that drives it against
 /// a real account. Not part of this crate's supported API, and no stability is promised.
+// TODO: Remove once the importer consumes the module directly.
 #[cfg(feature = "test-utils")]
 pub use importers::onepassword::access as onepassword_access;
 
