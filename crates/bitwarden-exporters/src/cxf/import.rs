@@ -37,7 +37,7 @@ pub(crate) fn parse_cxf(payload: String) -> Result<Vec<ImportingCipher>, CxfErro
     Ok(items)
 }
 
-/// Replace negative `creationAt` and `modifiedAt` values with 0.
+/// Replace negative `creationAt` and `modifiedAt` values with null, so that `Utc::now()` will be used downstream 
 ///
 /// Some credential managers (e.g., Google Password Manager) export timestamps
 /// as the Windows FILETIME epoch (-11644473600) when no real date exists. The
