@@ -295,6 +295,7 @@ mod tests {
                         password_history: body.password_history,
                         attachments: None,
                         data: None,
+                        partial_data: None,
                     })
                 })
                 .once();
