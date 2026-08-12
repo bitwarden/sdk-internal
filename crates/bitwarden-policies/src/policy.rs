@@ -98,20 +98,23 @@ impl<P: Policy> EnforceablePolicy for P {
         policy_views: &[PolicyView],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
     ) -> EnforcedPolicy<P> {
-        let contexts: HashMap<OrganizationId, &OrganizationUserPolicyContext> =
-            organization_user_policy_contexts
-                .iter()
-                .map(|ctx| (ctx.id, ctx))
-                .collect();
-
         let resolved = policy_views
             .iter()
             .filter(|v| v.organization_id == organization_id)
             .find_map(|v| ResolvedPolicyView::resolve(self, v));
 
         match resolved {
-            Some(resolved) => resolved.into_enforced(self, &contexts),
-            // If there is no matching organization, enforce by default.
+            // Matching policy of this type: evaluate
+            Some(resolved) => {
+                let contexts: HashMap<OrganizationId, &OrganizationUserPolicyContext> =
+                    organization_user_policy_contexts
+                        .iter()
+                        .map(|ctx| (ctx.id, ctx))
+                        .collect();
+
+                resolved.into_enforced(self, &contexts)
+            }
+            // No matching policy of this type: not enforced
             None => EnforcedPolicy::not_enforced(organization_id),
         }
     }
