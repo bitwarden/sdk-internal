@@ -97,9 +97,7 @@ impl PolicyClient {
             .filter(|p| {
                 p.r#type == policy_type
                     && match enforced.get(&p.organization_id) {
-                        Some(e) => e.enforced, /* TODO: this is defensive, but get_all should */
-                        // probably return 1 per orgContext for
-                        // consistency with the single method
+                        Some(e) => e.enforced,
                         None => false,
                     }
             })
