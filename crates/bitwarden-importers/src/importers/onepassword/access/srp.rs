@@ -22,8 +22,9 @@ const SRP_METHOD: &str = "SRPg-4096";
 const G: u32 = 5;
 
 /// The 4096-bit SRP group prime (RFC 3526).
-static N: LazyLock<BigUint> =
-    LazyLock::new(|| BigUint::parse_bytes(N_HEX.as_bytes(), 16).expect("valid SRP N"));
+static N: LazyLock<BigUint> = LazyLock::new(|| {
+    BigUint::parse_bytes(N_HEX.as_bytes(), 16).expect("N_HEX is a compile-time hex constant")
+});
 
 const N_HEX: &str = concat!(
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22",

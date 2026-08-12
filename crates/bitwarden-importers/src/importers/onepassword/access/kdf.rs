@@ -12,7 +12,7 @@ pub fn hkdf_sha256(method: &str, ikm: &[u8], salt: &[u8]) -> [u8; 32] {
     let hk = Hkdf::<Sha256>::new(Some(salt), ikm);
     let mut okm = [0u8; 32];
     hk.expand(method.as_bytes(), &mut okm)
-        .expect("HKDF-SHA256 expand of 32 bytes never fails");
+        .expect("okm is a fixed 32 bytes, under HKDF's 255-block limit");
     okm
 }
 
@@ -41,7 +41,7 @@ pub fn pbes2(
         }
     };
 
-    Ok(derived.expect("PBKDF2 output size is valid"))
+    Ok(derived.expect("HMAC accepts any password length"))
 }
 
 /// Derives the 32-byte master unlock key (kid `"mp"`).
