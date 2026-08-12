@@ -3,13 +3,11 @@
 
 extern crate rustc_errors;
 extern crate rustc_hir;
-extern crate rustc_span;
 
-use clippy_utils::{diagnostics::span_lint_and_sugg, ty::implements_trait};
+use clippy_utils::{diagnostics::span_lint_and_sugg, sym, ty::implements_trait};
 use rustc_errors::Applicability;
 use rustc_hir::{Item, ItemKind};
 use rustc_lint::LateLintPass;
-use rustc_span::symbol::sym;
 
 dylint_linting::declare_late_lint! {
     pub ERROR_SUFFIX,
@@ -28,7 +26,11 @@ impl<'tcx> LateLintPass<'tcx> for ErrorSuffix {
 
         match &item.kind {
             ItemKind::Enum(..) | ItemKind::Struct(..) => {
-                let ty = cx.tcx.type_of(item.owner_id.def_id).instantiate_identity();
+                let ty = cx
+                    .tcx
+                    .type_of(item.owner_id.def_id)
+                    .instantiate_identity()
+                    .skip_norm_wip();
                 let implements_error = cx
                     .tcx
                     .get_diagnostic_item(sym::Error)

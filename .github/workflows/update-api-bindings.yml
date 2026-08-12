@@ -43,19 +43,6 @@ jobs:
           exit 0
           fi
 
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Capture base commit
-        id: base-commit
-        run: |
-          BASE_SHA=$(git rev-parse HEAD)
-          echo "sha=$BASE_SHA" >> $GITHUB_OUTPUT
-          echo "📌 Base commit: $BASE_SHA"
-
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
         with:
@@ -79,7 +66,28 @@ jobs:
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: sdk-internal
+          permission-contents: write
           permission-pull-requests: write
+
+      # Check out with the GH App token so subsequent pushes are attributed to
+      # bw-ghapp[bot], which lets pull_request synchronize on the bindings PR
+      # cascade into CI without an action_required approval gate. Using
+      # GITHUB_TOKEN here would gate the downstream WASM/Android builds.
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Capture base commit
+        id: base-commit
+        run: |
+          BASE_SHA=$(git rev-parse HEAD)
+          echo "sha=$BASE_SHA" >> $GITHUB_OUTPUT
+          echo "📌 Base commit: $BASE_SHA"
 
       - name: Download json artifacts from server for updated bindings
         uses: bitwarden/gh-actions/download-artifacts@main
