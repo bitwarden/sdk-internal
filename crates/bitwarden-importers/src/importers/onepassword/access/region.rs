@@ -1,63 +1,30 @@
-//! The 1Password sign-in region.
+//! The standard 1Password sign-in regions.
 
-/// A 1Password sign-in region, or a custom Enterprise sign-in address. Determines the API host.
-#[derive(Debug, Clone)]
+/// One of the three regions 1Password operates. Each stores its accounts in a different
+/// jurisdiction, and an account belongs to exactly one of them.
+///
+/// A convenience for callers offering a region to pick from: [`Region::domain`] gives the string
+/// that goes into [`super::credentials::Credentials::domain`]. An Enterprise account on a custom
+/// sign-in domain skips this and supplies that domain directly.
+///
+/// See <https://support.1password.com/regions/>.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Region {
-    /// `my.1password.com`, the default.
+    /// `my.1password.com`, the default. Data hosted in the United States.
     Global,
-    /// `my.1password.eu`.
+    /// `my.1password.eu`. Data hosted in the European Union.
     Europe,
-    /// `my.1password.ca`.
+    /// `my.1password.ca`. Data hosted in Canada.
     Canada,
-    /// A custom Enterprise sign-in address.
-    Custom(String),
 }
 
 impl Region {
     /// The API host for this region.
-    pub fn domain(&self) -> &str {
+    pub fn domain(&self) -> &'static str {
         match self {
             Region::Global => "my.1password.com",
             Region::Europe => "my.1password.eu",
             Region::Canada => "my.1password.ca",
-            Region::Custom(domain) => domain,
         }
-    }
-
-    /// Interprets a region shorthand (`global`/`eu`/`ca`) or a full custom sign-in domain.
-    pub fn parse(value: &str) -> Region {
-        match value.to_lowercase().as_str() {
-            "global" | "com" | "us" | "my.1password.com" => Region::Global,
-            "europe" | "eu" | "my.1password.eu" => Region::Europe,
-            "canada" | "ca" | "my.1password.ca" => Region::Canada,
-            _ => Region::Custom(value.to_string()),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn region_maps_to_domain() {
-        assert_eq!(Region::Global.domain(), "my.1password.com");
-        assert_eq!(Region::Europe.domain(), "my.1password.eu");
-        assert_eq!(Region::Canada.domain(), "my.1password.ca");
-        assert_eq!(
-            Region::Custom("my.company.1password.com".into()).domain(),
-            "my.company.1password.com"
-        );
-    }
-
-    #[test]
-    fn region_parses_shorthands_and_custom_domains() {
-        assert!(matches!(Region::parse("eu"), Region::Europe));
-        assert!(matches!(Region::parse("Canada"), Region::Canada));
-        assert!(matches!(Region::parse("com"), Region::Global));
-        assert!(matches!(
-            Region::parse("acme.1password.com"),
-            Region::Custom(_)
-        ));
     }
 }

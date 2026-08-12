@@ -13,7 +13,8 @@ pub struct Credentials {
     pub password: String,
     /// The account's Secret Key (Account Key), such as `A3-XXXXXX-...`.
     pub account_key: String,
-    /// The sign-in host, usually [`super::region::Region::domain`].
+    /// The sign-in host: [`super::region::Region::domain`] for a standard region, or the
+    /// account's custom Enterprise domain.
     pub domain: String,
     /// The device id for this import. See `device::generate_device_uuid`.
     pub device_uuid: String,
