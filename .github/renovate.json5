@@ -77,7 +77,7 @@
     },
     {
       matchManagers: ["cargo"],
-      matchPackageNames: ["keepass"],
+      matchPackageNames: ["aes-gcm", "hkdf", "icu_normalizer", "keepass", "num-bigint", "pbkdf2"],
       commitMessagePrefix: "[deps] Tools:",
       reviewers: ["team:team-tools-dev"],
     },
@@ -90,7 +90,6 @@
     {
       matchManagers: ["cargo"],
       matchPackageNames: [
-        "aes-gcm",
         "async-trait",
         "cargo-dylint",
         "cargo-sort",
@@ -103,15 +102,11 @@
         "dylint_testing",
         "ed25519-dalek",
         "futures",
-        "hkdf",
         "hmac",
         "http",
-        "icu_normalizer",
         "js-sys",
         "mockall",
-        "num-bigint",
         "password-rules-parser",
-        "pbkdf2",
         "proc-macro2",
         "quote",
         "rand_chacha",
