@@ -18,6 +18,7 @@ keywords.workspace = true
 cli = ["bitwarden-unlock/cli"]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
+    "bitwarden-collections/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-crypto-cipher-suite/uniffi",
     "bitwarden-crypto-sync-handler/uniffi",
@@ -33,6 +34,7 @@ uniffi = [
 ]
 wasm = [
     "bitwarden-auth/wasm",
+    "bitwarden-collections/wasm",
     "bitwarden-commercial-vault/wasm",
     "bitwarden-core/wasm",
     "bitwarden-crypto-cipher-suite/wasm",
@@ -56,6 +58,7 @@ bitwarden-license = ["dep:bitwarden-commercial-vault", "dep:bitwarden-pam"]
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-auth = { workspace = true }
+bitwarden-collections = { workspace = true }
 bitwarden-commercial-vault = { workspace = true, optional = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
