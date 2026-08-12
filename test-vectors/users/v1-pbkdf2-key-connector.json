@@ -1,0 +1,232 @@
+{
+  "account": {
+    "accountCryptographicState": {
+      "V1": {
+        "private_key": "2.5ViWCwTVpqLHnAJaATTNTw==|l5O/hwsjAhgOGA6/IsKpGS4DhAh8j3+MV+86zZPAlL8eFq9IswJZDgbeYWOmNtFrTLyWnZ2aVApkdSgUsVLUCvVwc6FqGPG58jKovIO0d27Va/mZPkRIPSat+PzHi4ETzi1AveONM6lzNkui2L+niLANvtmpCfsbHyIXTYX4WJmdVTf0JKcBAZ07qjsqOzBDCT/0YBjaXKL6BPs6eg0dUm0BM5DtbaEP0b2In/9aVyo/8ilQAaxtVZTl2qHZo4V6jFptdmnCJV1BnUttWC1ocWhqb8myKxH1nSjloZSDMLw7zRhd3fsz1Etgads+vfOikf2pX2XWbBoIB5cN69oUjLjDuA4GaU5fkzCvuLY07DiOSyTNjukTCEKzeobdyWermrrdhmQuGxVvGmlBOvkY58FXHJb7VIJv63IQN+hJ1lsG+03gLRhtnC9WSoYdle2UC/35QZWL+3WnfF1PBn/kqMn+INCMWKhHNtSs6tL8LWwKpwVrq0CX8CUvhbvY1yN934+NiEtgwW4MjADrXWK0U0xCcXk/wvUa1iMUwfLw1Mjhi/V16fmvY0WRhQHi0wtRwFychIkQZofBKqCjZgpj9XnT24xny7wPvsMnrMYgbKWSW+GNo3bmOfWE3Nx2W6TqVnBkuFpl4E1+Pi487RwlSa11DZzXc+SrSIpfMzn01PRh8a1jLxOez1R0nDeTwlMcwUbABRVjn8GBfmQtAT2HJ16TNb1z50vptU4T0DIM59GuGqYzwisPWTF8UdZLSLha8Z0PS64vAxWBEqp0zJT8LlGO8a/2KnKqzJs1aNsDsFLMX/tl8XfXFOFoC9aeuMj5U4FjoL4TK4/z9Ea5NipTuhqigCQSTd+Yi26lKuQj6ywyiaIMxkoP0bPVRlq9l6nO6k5FWF+3SOt6TE6fn76Z707rfSSmXlvioWS/vYk7sQz9pLH0xWpTdAJiqUnJZM5uXSLaHOP6XgWqMbLJX8idlzhyAXSRcUTz3CK3U53GCKy1PAEaXVjm16VLFx8annWjGcKrrs+WbP+stenvuzncy2189KF4ghkhURoRjTpDfsw/uwR8AYJR64jg/Uh2MaD3sZBMhTDekgTt52Ps5BjbgSA4NRKF5DcFdnTF9ljdTyqxkLA5mFC54rlDHtzE9BeaO0UQTNJq4q1eqH9C0M8Pbts9dZPxIvtD6SfCO+nV0fj9oWJecw3nYzLd+XARBPOjHUMTvCQcWCGq2TRgo89jdOKywySs6Liez68LMeRVkagYwBojMdbObv288ZJ10BmESmEfQ/v2pHSIFCzFlv7s2r54K5gRiHCGq+7L0telDpiPkDhhr/8n06XH1g1jMdvFtxNHVvEVYZj6dlYKo19XkjYRjc9iDl0rKZUFW0XeTUaAwgooJeCI/GvRJWSJT/ZfTQepD2YVV9TMA4M5PA11ocwGKWS/c632I4fCDRfeebzNsN0Piwf/flaZo4wQ0nNjMODIswetK6xLEO6nQlkdWi4tW5H9ffg3Xhw8xuQs/4GUYb09nuOgYJQI56pFWLSHANBlRAwkl6M3STu3Uyt8x9FkiLI7+JuS6FXSttivABDSs6/ZCPM5sdLGMESgeM55v9K1V3g7pHuEc8Z2H9/jb/FBrs6SRVACKoQM7pnSpVU=|dDtNmPz+PSNxOad5JbwoTQmWqCTisZRiBvmNghhJz7Y="
+      }
+    },
+    "email": "v1-pbkdf2-key-connector@test.bitwarden.com",
+    "kdf": {
+      "pBKDF2": {
+        "iterations": 600000
+      }
+    },
+    "password": "password-v1-pbkdf2-key-connector",
+    "securityVersion": 1,
+    "userId": "bc010400-0000-4000-8000-000000000000"
+  },
+  "description": "V1 account unlocked through a key connector, with no master password. Mixed vault.",
+  "name": "v1-pbkdf2-key-connector",
+  "rawCryptographicState": {
+    "fingerprint": "engine-gallows-lustiness-uneaten-chooser",
+    "keyPairThumbprint": "da60a67aede90fdd9bc4a51fd957ddeb546268a0f707a02432ad155273d9c3eb",
+    "masterKey": null,
+    "privateKey": "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDOpepOiqcfUOrC2XD0Qaykp6MMtvfvvI7ibwd7pXqlnHbXKJY54pOwY9nVzElk8APGLNn9UMql+S36q3vq/K6xfuopqe3+FJv5IJjXJzZSzlNRYEszMXNQPC5hGHgiuWaLSZ95OoUuh0ozgLTjymFZteLQ9XTmth22jtOWiNRzljqaEWW45IF7vG+CmgnUz9BSVfb1oZ61j4AmiL+bAsh07SuVm7Cj/8VqEpkjiM3FBrgrw9xq9hR1dcRCVEXCW4SfWCTbA6Tw6aj+znwslSYTrm9ZxjtMiPVFrKOfINTdBI5ZayjAf8uFWl7+LeK3kEgjbj73ttsRiJZmviMZT85LAgMBAAECggEBAIpsYXOTNTepAFjdRuiXRYpWMMZHmfWhHSVYsm6E/o8JLCIcMeU8fSne+QBaA5/1ltGdIbip8dUUAVS0oiFaebq0BS87gQx9ya0rxLX6skztoKoWEsmMCm5oobiwp2i7QJF1E7olFSmBvpaZVJJx8pwhVnoaseAJhgXPzrQ7m/SALNK8VPcTtXMuspBSFNXS0K7BMW0FO+eHBXekZ5p3XLupXIKx5YMVUQeEt8OqRYXZLLZ9oFKx8kiwNPch13TFQkcniKZWIVhKPPlE2ZTim1/df0CvxADNBEKv2yKvB5EBOFVDAUNkMxyrzTEY8S+vg7aW861Ct5WLAhP+QRGgjKECgYEA8rb9PV1nSkw3yCW3mWL1ZZ3VDqEik5s0j+8QbdZePtwVFu2O6hVrclpaTz9jR7cksOfeqxOPVay9ILsmiQ8awKbCW5Q8HaZOfFYAehTNyfsL4+I8pj2UbHQ/krzDGLy/oFTWUk/LS9M82eciY3sYf70UefZ/W/0HJ+j5rBSkyFUCgYEA2fWLxhboUwUKiIgsYAYjD9eZDHLfywvIbG8dQpb0ISxj9tKPBnyyBHjctE0Ny2Csbyj2t6A2CQ+p4yQk/4lbFR5upZPC72dGonUOvmov/1yryXQ7HEZBLTg4zkBJSdRozASP2sPOYDNwhnv8fDk4tqj0FFWYaPFEw3kHxtzpXB8CgYAZEZ9sZCZT/TVRvduNwzPXcArefPQmTMSMDUQkJB0N3wtql9TIBrhXUk+7ma92a8slXn2YK+gFEFdkdxAO3fmEZnTyoofnBBNdMkDQWy+6Kezbd7WN8hRPc15RmJ+KAYzFUZ3lWIqF5WaGlyHtJnysTOo9gqE67hJ8I8sN4//1FQKBgQCvXqVPBkF6AvVds4tY27c8WPGZFZjBa8KglKrLWGAnjOsFvpc71fr6JDEYlWMC/87eRex1BOBVXBgKXZuzS9ZQYMMQUJqpO8SWlG7/gLsL0YmbNv0Um+Z3NuRl903ArLqBZS5GDAQyXVEts/cMEJJ0Te7Nqa1OysnUKb67ICZXawKBgQDXV/jGtSQx0V3pvcZWSX8cEJIehQVuxfH4T7cogyjND7WGgztjUf1hfjmXxkAMb/VOKFBUikxg7T2GxDEqV89zcZxG8RBzNHYw+DBn7wAaBLf1Ha52qCAo/df8hL4hhwaDGpspUkcXNdxNlrdIsHJtbVWW7npFaNjnKhwLXhaLLw==",
+    "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzqXqToqnH1Dqwtlw9EGspKejDLb377yO4m8He6V6pZx21yiWOeKTsGPZ1cxJZPADxizZ/VDKpfkt+qt76vyusX7qKant/hSb+SCY1yc2Us5TUWBLMzFzUDwuYRh4Irlmi0mfeTqFLodKM4C048phWbXi0PV05rYdto7TlojUc5Y6mhFluOSBe7xvgpoJ1M/QUlX29aGetY+AJoi/mwLIdO0rlZuwo//FahKZI4jNxQa4K8PcavYUdXXEQlRFwluEn1gk2wOk8Omo/s58LJUmE65vWcY7TIj1RayjnyDU3QSOWWsowH/LhVpe/i3it5BII24+97bbEYiWZr4jGU/OSwIDAQAB",
+    "signingKey": null,
+    "signingKeyId": null,
+    "signingKeyThumbprint": null,
+    "userKey": "rZoUG2DJh4alp9/e9+ZpBv43VffmPXvxDghdD/7KFyfWva4sxxm5Uf4eAUZhgfFPDnigMPh2gkdg5Hiuwqy/4w==",
+    "userKeyId": null,
+    "verifyingKey": null
+  },
+  "rngSeed": "RUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2Q=",
+  "schemaVersion": 1,
+  "unlockMethods": [
+    {
+      "keyConnector": {
+        "master_key": "L+QqBeb0EnesNKFS0k0wDdORo+aULRzmcLf6Rdia3Ls=",
+        "user_key": "2.SM1hsRSj6lKJ5gKLDf1w7w==|KTepdrkGHgzrSEXFf/UozDxNpKMRtTz4d4ZpeO/CAJoG2bhhA16kEy3FnJcTR8EOHmviDE5GJk8T8xT8HiIfC/9KPFogQUDZHwZR8GRb1n8=|YYf6blckdLm50ZHOlmYKlJpb/K3p+D3Dt/70J8tG/k0="
+      }
+    }
+  ],
+  "vault": {
+    "ciphers": [
+      {
+        "blobEncrypted": false,
+        "decrypted": {
+          "archivedDate": null,
+          "attachmentDecryptionFailures": [],
+          "attachments": [],
+          "bankAccount": null,
+          "card": null,
+          "collectionIds": [],
+          "creationDate": "2024-01-08T00:00:00Z",
+          "deletedDate": null,
+          "driversLicense": null,
+          "edit": true,
+          "favorite": false,
+          "fields": null,
+          "folderId": null,
+          "id": "bc020400-0000-4000-8000-000000000000",
+          "identity": null,
+          "key": null,
+          "localData": null,
+          "login": {
+            "autofillOnPageLoad": null,
+            "fido2Credentials": null,
+            "password": "keyless-password",
+            "passwordRevisionDate": null,
+            "totp": null,
+            "uris": null,
+            "username": "keyless@example.com"
+          },
+          "name": "Keyless Login",
+          "notes": "Encrypted directly under the user key",
+          "organizationId": null,
+          "organizationUseTotp": false,
+          "passport": null,
+          "passwordHistory": null,
+          "permissions": null,
+          "reprompt": 0,
+          "revisionDate": "2024-06-15T12:30:00Z",
+          "secureNote": null,
+          "sshKey": null,
+          "type": 1,
+          "viewPassword": true
+        },
+        "encrypted": {
+          "archivedDate": null,
+          "attachments": null,
+          "bankAccount": null,
+          "card": null,
+          "collectionIds": [],
+          "creationDate": "2024-01-08T00:00:00Z",
+          "data": null,
+          "deletedDate": null,
+          "driversLicense": null,
+          "edit": true,
+          "favorite": false,
+          "fields": null,
+          "folderId": null,
+          "id": "bc020400-0000-4000-8000-000000000000",
+          "identity": null,
+          "key": null,
+          "localData": null,
+          "login": {
+            "autofillOnPageLoad": null,
+            "fido2Credentials": null,
+            "password": "2.N7+GeIxVzr3hf6nU5WNRzA==|wuTSscK87/rBfGYtShZe5DmIWvmwpMcKsxDXEbzdmDA=|OhDQOts+X+niL6xQXf0mgw1MkwRTsqVvsFDy2Fk1dIs=",
+            "passwordRevisionDate": null,
+            "totp": null,
+            "uris": null,
+            "username": "2.zmb4Ta5d/qPZSVCo4SOSzg==|KsylIBvQPZ9afJ5HhB4I/+SQ/k+qhXQmn6U1X1k1g3Q=|TV0lVdLh/d25dt8qXLX4O9cYSkvGTeZQFpZY6VH6o0s="
+          },
+          "name": "2.4OlHgQwmkmqZgHU2U0veMw==|QRSU0MWfqrR2qB02wbYm9w==|dpusZS7SnFmJWmPJJQModSx1OxogI+uXjcatmFE79eQ=",
+          "notes": "2.tLFqvWmDjxR6Anr6IhCl7Q==|sXztAbjULtC0T637YknM0IPHJibdsjjIa1Yk/KHKwbShR1CZYWVXFqaYJaSKcgra|5FGY5Mh+SPLgKklH6ZrIao+U54etJKHk998B3sCIGFY=",
+          "organizationId": null,
+          "organizationUseTotp": false,
+          "passport": null,
+          "passwordHistory": null,
+          "permissions": null,
+          "reprompt": 0,
+          "revisionDate": "2024-06-15T12:30:00Z",
+          "secureNote": null,
+          "sshKey": null,
+          "type": 1,
+          "viewPassword": true
+        },
+        "id": "bc020400-0000-4000-8000-000000000000",
+        "keys": {
+          "attachments": {},
+          "cipherKey": null,
+          "cipherKeyId": null
+        }
+      },
+      {
+        "blobEncrypted": false,
+        "decrypted": {
+          "archivedDate": null,
+          "attachmentDecryptionFailures": [],
+          "attachments": [],
+          "bankAccount": null,
+          "card": null,
+          "collectionIds": [],
+          "creationDate": "2024-01-08T00:00:00Z",
+          "deletedDate": null,
+          "driversLicense": null,
+          "edit": true,
+          "favorite": false,
+          "fields": null,
+          "folderId": null,
+          "id": "bc020401-0000-4000-8000-000000000000",
+          "identity": null,
+          "key": "2.x5M0ZTHdnp+rZKyCy0vmrQ==|ZqtYluIDpYAwd0p0HmTdn3a+oe7m/uss38ePodytZl3l6UQ75jSLL0De61hJugaxEo/L/Qc8Qo8ZcCOABMr+UtFBfim+gLWQVlAUe1XqxOI=|Yd0D7u2IeY/hOZHXDtPNTmTZvFTBr0CY6DzSlYKG/ms=",
+          "localData": null,
+          "login": {
+            "autofillOnPageLoad": null,
+            "fido2Credentials": null,
+            "password": "keyed-password",
+            "passwordRevisionDate": null,
+            "totp": null,
+            "uris": null,
+            "username": "keyed@example.com"
+          },
+          "name": "Keyed Login",
+          "notes": "Encrypted under a per-item cipher key",
+          "organizationId": null,
+          "organizationUseTotp": false,
+          "passport": null,
+          "passwordHistory": null,
+          "permissions": null,
+          "reprompt": 0,
+          "revisionDate": "2024-06-15T12:30:00Z",
+          "secureNote": null,
+          "sshKey": null,
+          "type": 1,
+          "viewPassword": true
+        },
+        "encrypted": {
+          "archivedDate": null,
+          "attachments": null,
+          "bankAccount": null,
+          "card": null,
+          "collectionIds": [],
+          "creationDate": "2024-01-08T00:00:00Z",
+          "data": null,
+          "deletedDate": null,
+          "driversLicense": null,
+          "edit": true,
+          "favorite": false,
+          "fields": null,
+          "folderId": null,
+          "id": "bc020401-0000-4000-8000-000000000000",
+          "identity": null,
+          "key": "2.x5M0ZTHdnp+rZKyCy0vmrQ==|ZqtYluIDpYAwd0p0HmTdn3a+oe7m/uss38ePodytZl3l6UQ75jSLL0De61hJugaxEo/L/Qc8Qo8ZcCOABMr+UtFBfim+gLWQVlAUe1XqxOI=|Yd0D7u2IeY/hOZHXDtPNTmTZvFTBr0CY6DzSlYKG/ms=",
+          "localData": null,
+          "login": {
+            "autofillOnPageLoad": null,
+            "fido2Credentials": null,
+            "password": "2.KbXQtKc47zDNm/lpd0v14A==|AfkQfIqirZrambSh74MSmg==|nkzgrGegdvnLfSx0Hwg+U/I9n0PAYC00SnEZ8Z0ml4U=",
+            "passwordRevisionDate": null,
+            "totp": null,
+            "uris": null,
+            "username": "2.hTShVTMkkWJOZ4VL1yWG/A==|JupAsAOYfwhDGeigzgNJUKzZHmbEb+FnS6JHvqwc158=|f9ifPMfIPCeDoUiDVgG80vSKJkfmx3wvTOIX52jcohc="
+          },
+          "name": "2.gG9rew7pQo65+kN/K8JE3g==|3RVR4LZE7oQsPE+t7QI5Nw==|CAg4+u1K8fQgRVjydebzcEhixFoWX+J1VA0ce41q5CA=",
+          "notes": "2.5rPrL9qgG8MZtLe2E5VmLg==|ywftyeAtkWnQja8jSQ39wfrMNBkH5Yx/dth72ZEGn4AOvu+pMAEWOko53Ilj8HiY|sLR/TwmBsPsm1Fgm2CzIqGeUmJiaki6QSN0Vrz8w6U0=",
+          "organizationId": null,
+          "organizationUseTotp": false,
+          "passport": null,
+          "passwordHistory": null,
+          "permissions": null,
+          "reprompt": 0,
+          "revisionDate": "2024-06-15T12:30:00Z",
+          "secureNote": null,
+          "sshKey": null,
+          "type": 1,
+          "viewPassword": true
+        },
+        "id": "bc020401-0000-4000-8000-000000000000",
+        "keys": {
+          "attachments": {},
+          "cipherKey": "LKu0xKfx4toq0NhtaWdD4wVZcs+ihXMCG9SmNWeofNUNlIw6tp3xlhqyeDiU8q73LInv63ek04ySWHMmLjrDPw==",
+          "cipherKeyId": null
+        }
+      }
+    ],
+    "collections": [],
+    "folders": [],
+    "sends": []
+  }
+}
