@@ -604,9 +604,7 @@ mod tests {
         }
 
         #[test]
-        fn unregistered_policy_type_exempts_owners_and_admins_via_default_rules() {
-            // TwoFactorAuthentication has no registered policy, so it falls back to the default
-            // rules: exempt roles [Owner, Admin].
+        fn two_factor_authentication_exempts_owners_and_admins_via_default_impl() {
             let org_id = OrganizationId::new_v4();
             for role in [OrganizationUserType::Owner, OrganizationUserType::Admin] {
                 let label = format!("expected {role:?} to be exempt");
@@ -627,7 +625,7 @@ mod tests {
         }
 
         #[test]
-        fn unregistered_policy_type_applies_to_a_regular_user_via_default_rules() {
+        fn two_factor_authentication_applies_to_a_regular_user_via_default_impl() {
             let org_id = OrganizationId::new_v4();
             let policies = vec![policy_view(
                 org_id,
