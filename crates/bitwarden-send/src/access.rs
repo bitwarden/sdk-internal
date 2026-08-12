@@ -614,6 +614,7 @@ mod tests {
                     text: Some(text.to_owned()),
                     hidden: false,
                 }),
+                data: None,
                 max_access_count: None,
                 access_count: 0,
                 disabled: false,

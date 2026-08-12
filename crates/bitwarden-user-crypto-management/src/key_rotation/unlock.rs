@@ -6,8 +6,8 @@ use std::str::FromStr;
 use bitwarden_api_api::models::{
     self, CommonUnlockDataRequestModel, EmergencyAccessKeyDataResponseModel,
     EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
-    OrganizationPasswordResetKeyDataResponseModel, OtherDeviceKeysUpdateRequestModel,
-    ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel, V2UpgradeTokenRequestModel,
+    OrganizationPasswordResetKeyDataResponseModel, OrganizationUserAccountRecoveryRequestModel,
+    OtherDeviceKeysUpdateRequestModel, UnlockDataRequestModel, V2UpgradeTokenRequestModel,
     WebAuthnLoginRotateKeyRequestModel,
 };
 use bitwarden_core::{
@@ -271,7 +271,7 @@ fn reencrypt_organization_memberships(
     trusted_organization_keys: Vec<V1OrganizationMembership>,
     new_user_key_id: SymmetricKeySlotId,
     ctx: &mut KeyStoreContext<KeySlotIds>,
-) -> Result<Vec<ResetPasswordWithOrgIdRequestModel>, ReencryptError> {
+) -> Result<Vec<OrganizationUserAccountRecoveryRequestModel>, ReencryptError> {
     trusted_organization_keys
         .into_iter()
         .map(|org_membership| {
@@ -281,9 +281,8 @@ fn reencrypt_organization_memberships(
             // Share the key to the organization. Note: No sender authentication
             // and the passed in public-key must be verified/trusted.
             match UnsignedSharedKey::encapsulate(new_user_key_id, &org_membership.public_key, ctx) {
-                Ok(reencrypted_key) => Ok(ResetPasswordWithOrgIdRequestModel {
+                Ok(reencrypted_key) => Ok(OrganizationUserAccountRecoveryRequestModel {
                     reset_password_key: Some(reencrypted_key.to_string()),
-                    master_password_hash: None,
                     organization_id: org_membership.organization_id,
                 }),
                 Err(_) => Err(ReencryptError::KeySharingError),
@@ -298,7 +297,7 @@ fn reencrypt_organization_memberships(
 /// Leaving them out would look like the user is no longer enrolled.
 fn defer_organization_account_recovery_to_admins(
     organization_memberships: Vec<V1OrganizationMembership>,
-) -> Vec<ResetPasswordWithOrgIdRequestModel> {
+) -> Vec<OrganizationUserAccountRecoveryRequestModel> {
     organization_memberships
         .into_iter()
         .map(|org_membership| {
@@ -306,9 +305,8 @@ fn defer_organization_account_recovery_to_admins(
                 organization = ?org_membership.organization_id,
                 "Leaving account recovery for organization admins to update",
             );
-            ResetPasswordWithOrgIdRequestModel {
+            OrganizationUserAccountRecoveryRequestModel {
                 reset_password_key: None,
-                master_password_hash: None,
                 organization_id: org_membership.organization_id,
             }
         })
@@ -777,7 +775,6 @@ mod tests {
             org_membership_unlock[0].reset_password_key.is_none(),
             "account recovery is left for organization admins to update"
         );
-        assert!(org_membership_unlock[0].master_password_hash.is_none());
     }
 
     #[test]
