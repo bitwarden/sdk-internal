@@ -59,7 +59,7 @@ The interfaces are:
 
 - `get_enforced` (`get_enforced_erased` for FFI): evaluate a specific `Policy` for a specific
   organization ID. Returns a single `EnforcedPolicy`.
-- `get_many_enforced` (`get_many_enforced_erased` for FFI): evaluate the `Policy` type across all
+- `get_all_enforced` (`get_all_enforced_erased` for FFI): evaluate the `Policy` type across all
   organizations. Returns a collection of `EnforcedPolicy`s, one for each organization.
 
 Note that no interfaces return None/null: you will always recieve an enforcement decision, even if

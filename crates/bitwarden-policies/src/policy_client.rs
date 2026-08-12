@@ -40,8 +40,8 @@ impl PolicyClient {
     ///
     /// Not yet intended for consumer use: exposed across the FFI boundary for
     /// testing and iteration only. Use [`filter_by_type`](Self::filter_by_type) for now.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(js_name = "get_many_enforced"))]
-    pub fn get_many_enforced_erased(
+    #[cfg_attr(feature = "wasm", wasm_bindgen(js_name = "get_all_enforced"))]
+    pub fn get_all_enforced_erased(
         &self,
         policy_type: PolicyType,
         // TODO: policy_views and ctx should come from state rather than being specified by the
@@ -51,7 +51,7 @@ impl PolicyClient {
     ) -> Vec<EnforcedPolicyErased> {
         policy_type
             .resolve_policy()
-            .get_many_enforced_erased(&policy_views, &organization_user_policy_contexts)
+            .get_all_enforced_erased(&policy_views, &organization_user_policy_contexts)
     }
 
     /// Evaluate enforcement of the given policy type for a single organization,
@@ -87,7 +87,7 @@ impl PolicyClient {
         // return
         let enforced: HashMap<OrganizationId, EnforcedPolicyErased> = policy_type
             .resolve_policy()
-            .get_many_enforced_erased(&policies, &organization_user_policy_contexts)
+            .get_all_enforced_erased(&policies, &organization_user_policy_contexts)
             .into_iter()
             .map(|e| (e.organization_id, e))
             .collect();
@@ -97,7 +97,7 @@ impl PolicyClient {
             .filter(|p| {
                 p.r#type == policy_type
                     && match enforced.get(&p.organization_id) {
-                        Some(e) => e.enforced, /* TODO: this is defensive, but get_many should */
+                        Some(e) => e.enforced, /* TODO: this is defensive, but get_all should */
                         // probably return 1 per orgContext for
                         // consistency with the single method
                         None => false,
@@ -114,7 +114,7 @@ impl PolicyClient {
 impl PolicyClient {
     /// Evaluate enforcement of the given policy across all organizations,
     /// returning strongly-typed enforcement results.
-    fn get_many_enforced<P: Policy>(
+    fn get_all_enforced<P: Policy>(
         &self,
         policy: P,
         // TODO: policy_views and ctx should come from state rather than being specified by the
@@ -220,7 +220,7 @@ mod tests {
         }
     }
 
-    mod get_many_enforced {
+    mod get_all_enforced {
         use super::*;
 
         #[test]
@@ -234,7 +234,7 @@ mod tests {
             let contexts = [confirmed_member(org_id)];
 
             let results =
-                PolicyClient::new().get_many_enforced(MasterPasswordPolicy, &views, &contexts);
+                PolicyClient::new().get_all_enforced(MasterPasswordPolicy, &views, &contexts);
 
             assert_eq!(results.len(), 1);
             assert_eq!(results[0].organization_id, org_id);
@@ -313,7 +313,7 @@ mod tests {
         }
     }
 
-    mod get_many_enforced_erased {
+    mod get_all_enforced_erased {
         use super::*;
 
         #[test]
@@ -322,7 +322,7 @@ mod tests {
             let views = vec![policy_view(org_id, PolicyType::MasterPassword, None)];
             let contexts = vec![confirmed_member(org_id)];
 
-            let results = PolicyClient::new().get_many_enforced_erased(
+            let results = PolicyClient::new().get_all_enforced_erased(
                 PolicyType::MasterPassword,
                 views,
                 contexts,
@@ -359,7 +359,7 @@ mod tests {
                 },
             ];
 
-            let results = PolicyClient::new().get_many_enforced_erased(
+            let results = PolicyClient::new().get_all_enforced_erased(
                 PolicyType::MaximumVaultTimeout,
                 views,
                 contexts,

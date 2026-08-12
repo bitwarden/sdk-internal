@@ -172,7 +172,7 @@ pub(crate) trait ErasedPolicy {
     ) -> EnforcedPolicyErased;
 
     /// Type erased variant of [`EnforceablePolicy::get_all_enforced`].
-    fn get_many_enforced_erased(
+    fn get_all_enforced_erased(
         &self,
         policy_views: &[PolicyView],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
@@ -194,7 +194,7 @@ impl<P: Policy> ErasedPolicy for P {
         .into_erased(self)
     }
 
-    fn get_many_enforced_erased(
+    fn get_all_enforced_erased(
         &self,
         policy_views: &[PolicyView],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],

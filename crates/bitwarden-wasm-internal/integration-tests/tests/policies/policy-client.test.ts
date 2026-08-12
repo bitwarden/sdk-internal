@@ -122,7 +122,7 @@ describe("PolicyClient", () => {
     });
   });
 
-  // `get_enforced` / `get_many_enforced` are the new type-erased enforcement interfaces. As with
+  // `get_enforced` / `get_all_enforced` are the new type-erased enforcement interfaces. As with
   // `filter_by_type`, these tests prove the FFI round trip rather than re-proving the enforcement
   // logic (which is covered by the crate's Rust unit tests). The load-bearing new shape is the
   // `EnforcedPolicyErased` struct and the internally-tagged `PolicyDataType` union: unit variants
@@ -208,7 +208,7 @@ describe("PolicyClient", () => {
     });
   });
 
-  describe("get_many_enforced", () => {
+  describe("get_all_enforced", () => {
     let client: PasswordManagerClient;
 
     beforeAll(() => {
@@ -218,7 +218,7 @@ describe("PolicyClient", () => {
     it("returns one decision per matching view and excludes other types", () => {
       const result = client
         .policies()
-        .get_many_enforced(
+        .get_all_enforced(
           PolicyType.MasterPassword,
           [
             policyView(ORG_A, PolicyType.MasterPassword),
@@ -234,7 +234,7 @@ describe("PolicyClient", () => {
 
     it("evaluates each organization independently", () => {
       // ORG_A's member is a subject User; ORG_B's member is an Owner, exempt from MaximumVaultTimeout.
-      const result = client.policies().get_many_enforced(
+      const result = client.policies().get_all_enforced(
         PolicyType.MaximumVaultTimeout,
         [
           policyView(ORG_A, PolicyType.MaximumVaultTimeout, {
