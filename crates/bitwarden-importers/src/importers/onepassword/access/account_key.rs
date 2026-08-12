@@ -25,9 +25,10 @@ impl AccountKey {
         let s = input.to_uppercase().replace('-', "");
 
         let Some(format) = s.get(..2) else {
-            return Err(OnePasswordError::Internal(
-                "invalid account key: too short".into(),
-            ));
+            return Err(OnePasswordError::Internal(format!(
+                "invalid account key: too short, got {}",
+                s.len()
+            )));
         };
 
         // Only A3 has ever been seen on a real account. A2 comes from reverse-engineered code and
@@ -36,14 +37,16 @@ impl AccountKey {
             "A2" if s.len() == 33 => {}
             "A3" if s.len() == 34 => {}
             "A2" => {
-                return Err(OnePasswordError::Internal(
-                    "invalid account key: incorrect length for 'A2' format".into(),
-                ));
+                return Err(OnePasswordError::Internal(format!(
+                    "invalid account key: 'A2' needs 33 characters without dashes, got {}",
+                    s.len()
+                )));
             }
             "A3" => {
-                return Err(OnePasswordError::Internal(
-                    "invalid account key: incorrect length for 'A3' format".into(),
-                ));
+                return Err(OnePasswordError::Internal(format!(
+                    "invalid account key: 'A3' needs 34 characters without dashes, got {}",
+                    s.len()
+                )));
             }
             _ => {
                 return Err(OnePasswordError::Internal(format!(
