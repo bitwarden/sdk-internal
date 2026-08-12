@@ -56,15 +56,18 @@ impl ClientInfo {
     }
 
     /// The device descriptor sent to `v1/device` and inside `v2/auth/complete`.
+    ///
+    /// The real 1Password clients also send `model` and `osVersion`. The server accepted their
+    /// removal when this was tested, so they are left out, but add them back if it starts
+    /// rejecting the request.
     pub fn device_body(&self) -> Value {
         json!({
             "uuid": self.device_uuid,
             "clientName": self.client_name,
             "clientVersion": self.client_version,
-            "name": "", // TODO: Do we need to identify us here somehow?
-            "model": "", // TODO: Do we need to identify us here somehow?
+            // Shown in the account's device list, so it names us rather than a 1Password client.
+            "name": "Bitwarden",
             "osName": PLATFORM.os_name,
-            "osVersion": "", // TODO: Is blank in C#. Do we want to send this like 1P client does?
             "userAgent": self.user_agent,
         })
     }
