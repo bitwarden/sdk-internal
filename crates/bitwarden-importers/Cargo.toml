@@ -3,6 +3,7 @@ name = "bitwarden-importers"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
+exclude = ["**/resources"]
 
 version.workspace = true
 authors.workspace = true
@@ -17,6 +18,7 @@ keywords.workspace = true
 [features]
 # Re-exports the 1Password access module so the out-of-tree CLI can drive it against a real
 # account. Never enable in production builds.
+# TODO: Remove once the importer consumes the module directly.
 test-utils = []
 uniffi = [
     "dep:uniffi",
