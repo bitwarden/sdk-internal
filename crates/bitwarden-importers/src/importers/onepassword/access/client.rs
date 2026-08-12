@@ -144,6 +144,8 @@ async fn unlock(
     )?;
 
     // A vault whose key we do not hold is one the account can see but not open.
+    // TODO: Report skipped vaults and failed items instead of dropping them silently or failing the
+    // entire import.
     let mut vaults = Vec::new();
     for vault in &account_info.vaults {
         let Some(enc_key) = find_working_key(&vault.access, &keychain)? else {

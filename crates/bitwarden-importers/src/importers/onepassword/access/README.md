@@ -6,6 +6,10 @@ accessible vault into a native 1Password model.
 
 A Rust port of the OnePassword module in Bitwarden's C# `password-manager-access` library.
 
+The 1P and BW name things differently. 1P has vaults that are independent, could be shared
+separately, could have different access rights, encrypted with different keys. They will be imported
+into Bitwarden collections. 1P doesn't have folders, only tags.
+
 ## Notes
 
 - Supports TOTP 2FA only ATM
