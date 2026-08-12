@@ -96,18 +96,61 @@ impl Keychain {
         let plaintext = self.decrypt(&Encrypted::parse(envelope)?)?;
         serde_json::from_slice(&plaintext).map_err(|_| OnePasswordError::Parse)
     }
-}
 
-/// Derives the master key from the credentials, then decrypts every keyset into the keychain.
-pub fn decrypt_keysets(
-    keysets: &[KeysetInfo],
-    username: &str,
-    password: &str,
-    account_key: &AccountKey,
-    keychain: &mut Keychain,
-) -> Result<(), OnePasswordError> {
-    let master_key = derive_master_key(keysets, username, password, account_key)?;
-    decrypt_reachable(keysets, master_key, keychain)
+    /// Derives the master key from the credentials, then decrypts every keyset into the keychain.
+    pub fn decrypt_keysets(
+        &mut self,
+        keysets: &[KeysetInfo],
+        username: &str,
+        password: &str,
+        account_key: &AccountKey,
+    ) -> Result<(), OnePasswordError> {
+        let master_key = derive_master_key(keysets, username, password, account_key)?;
+        self.decrypt_reachable(keysets, master_key)
+    }
+
+    /// Seeds `root_key` and decrypts everything reachable from it.
+    fn decrypt_reachable(
+        &mut self,
+        keysets: &[KeysetInfo],
+        root_key: AesKey,
+    ) -> Result<(), OnePasswordError> {
+        let order = decryption_order(keysets, &root_key.id);
+        self.add_aes(root_key);
+
+        for index in order {
+            self.decrypt_keyset(&keysets[index])?;
+        }
+
+        Ok(())
+    }
+
+    /// Decrypts a keyset's symmetric key then its private key into the keychain.
+    fn decrypt_keyset(&mut self, keyset: &KeysetInfo) -> Result<(), OnePasswordError> {
+        self.decrypt_aes_key(&keyset.enc_sym_key.envelope())?;
+        self.decrypt_rsa_key(&keyset.enc_pri_key)
+    }
+
+    /// Decrypts an encrypted AES key and adds it to the keychain.
+    pub fn decrypt_aes_key(
+        &mut self,
+        envelope: &EncryptedEnvelope,
+    ) -> Result<(), OnePasswordError> {
+        let plaintext = self.decrypt(&Encrypted::parse(envelope)?)?;
+        let json: AesKeyJson =
+            serde_json::from_slice(&plaintext).map_err(|_| OnePasswordError::Parse)?;
+        self.add_aes(AesKey::new(json.kid, decode64_loose(&json.k)?));
+        Ok(())
+    }
+
+    /// Decrypts an encrypted RSA key and adds it to the keychain.
+    fn decrypt_rsa_key(&mut self, envelope: &EncryptedEnvelope) -> Result<(), OnePasswordError> {
+        let plaintext = self.decrypt(&Encrypted::parse(envelope)?)?;
+        let jwk: RsaKeyJwk =
+            serde_json::from_slice(&plaintext).map_err(|_| OnePasswordError::Parse)?;
+        self.add_rsa(RsaKey::parse(&jwk)?);
+        Ok(())
+    }
 }
 
 /// Derives the key of the newest master keyset, the only one carrying KDF parameters.
@@ -140,22 +183,6 @@ fn derive_master_key(
     let key = kdf::derive_master_key(algorithm, info.p2c, &salt, username, password, account_key)?;
 
     Ok(AesKey::new(MASTER_KEY_ID, key.to_vec()))
-}
-
-/// Seeds `root_key` and decrypts everything reachable from it.
-fn decrypt_reachable(
-    keysets: &[KeysetInfo],
-    root_key: AesKey,
-    keychain: &mut Keychain,
-) -> Result<(), OnePasswordError> {
-    let order = decryption_order(keysets, &root_key.id);
-    keychain.add_aes(root_key);
-
-    for index in order {
-        decrypt_keyset(&keysets[index], keychain)?;
-    }
-
-    Ok(())
 }
 
 /// Orders keysets so each one comes after the key that encrypts it, starting from `root_id`.
@@ -198,35 +225,6 @@ fn encrypted_by(keyset: &KeysetInfo) -> &str {
     }
 }
 
-/// Decrypts a keyset's symmetric key then its private key into the keychain.
-fn decrypt_keyset(keyset: &KeysetInfo, keychain: &mut Keychain) -> Result<(), OnePasswordError> {
-    decrypt_aes_key(&keyset.enc_sym_key.envelope(), keychain)?;
-    decrypt_rsa_key(&keyset.enc_pri_key, keychain)
-}
-
-/// Decrypts an encrypted AES key and adds it to the keychain.
-pub fn decrypt_aes_key(
-    envelope: &EncryptedEnvelope,
-    keychain: &mut Keychain,
-) -> Result<(), OnePasswordError> {
-    let plaintext = keychain.decrypt(&Encrypted::parse(envelope)?)?;
-    let json: AesKeyJson =
-        serde_json::from_slice(&plaintext).map_err(|_| OnePasswordError::Parse)?;
-    keychain.add_aes(AesKey::new(json.kid, decode64_loose(&json.k)?));
-    Ok(())
-}
-
-/// Decrypts an encrypted RSA key and adds it to the keychain.
-fn decrypt_rsa_key(
-    envelope: &EncryptedEnvelope,
-    keychain: &mut Keychain,
-) -> Result<(), OnePasswordError> {
-    let plaintext = keychain.decrypt(&Encrypted::parse(envelope)?)?;
-    let jwk: RsaKeyJwk = serde_json::from_slice(&plaintext).map_err(|_| OnePasswordError::Parse)?;
-    keychain.add_rsa(RsaKey::parse(&jwk)?);
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use data_encoding::HEXLOWER;
@@ -248,7 +246,7 @@ mod tests {
         let envelope: EncryptedEnvelope =
             serde_json::from_str(include_str!("resources/encrypted-aes-key.json"))
                 .expect("valid fixture");
-        decrypt_aes_key(&envelope, &mut keychain).expect("decrypts");
+        keychain.decrypt_aes_key(&envelope).expect("decrypts");
 
         assert!(keychain.get_aes("szerdhg2ww2ahjo4ilz57x7cce").is_some());
     }
@@ -264,7 +262,7 @@ mod tests {
         let envelope: EncryptedEnvelope =
             serde_json::from_str(include_str!("resources/encrypted-rsa-key.json"))
                 .expect("valid fixture");
-        decrypt_rsa_key(&envelope, &mut keychain).expect("decrypts");
+        keychain.decrypt_rsa_key(&envelope).expect("decrypts");
 
         assert!(keychain.get_rsa("szerdhg2ww2ahjo4ilz57x7cce").is_some());
     }
@@ -283,7 +281,9 @@ mod tests {
             MASTER_KEY_ID,
             hex("44c38e8fedb84a1ab5ba74ed98dde931f6500ae39c1d9c85e20a7268ab2074f0"),
         );
-        decrypt_reachable(&keysets.keysets, master_key, &mut keychain).expect("decrypts keysets");
+        keychain
+            .decrypt_reachable(&keysets.keysets, master_key)
+            .expect("decrypts keysets");
 
         assert!(keychain.get_aes("mp").is_some());
         for id in [

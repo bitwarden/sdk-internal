@@ -5,7 +5,7 @@ use super::{
     credentials::Credentials,
     device::ClientInfo,
     error::OnePasswordError,
-    keychain::{self, Keychain},
+    keychain::Keychain,
     login::{self, LoginOutcome},
     model::{Item, ItemCategory, Vault},
     opdata::Encrypted,
@@ -135,12 +135,11 @@ async fn unlock(
 
     // Everything else hangs off the master key, which only the credentials can produce.
     let mut keychain = Keychain::new();
-    keychain::decrypt_keysets(
+    keychain.decrypt_keysets(
         &keysets.keysets,
         &credentials.username,
         &credentials.password,
         account_key,
-        &mut keychain,
     )?;
 
     // A vault whose key we do not hold is one the account can see but not open.
@@ -151,7 +150,7 @@ async fn unlock(
         let Some(enc_key) = find_working_key(&vault.access, &keychain)? else {
             continue;
         };
-        keychain::decrypt_aes_key(enc_key, &mut keychain)?;
+        keychain.decrypt_aes_key(enc_key)?;
 
         let attributes: VaultAttributes = keychain.decrypt_json(&vault.enc_attrs)?;
         vaults.push(VaultInfo {
