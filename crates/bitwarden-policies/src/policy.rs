@@ -144,8 +144,10 @@ impl<P: Policy> EnforceablePolicy for P {
             .iter()
             .map(|c| c.id)
             .collect();
-        let policy_organization_ids: HashSet<OrganizationId> =
-            policy_views.iter().map(|c| c.organization_id).collect();
+        let policy_organization_ids: HashSet<OrganizationId> = enforced_policies
+            .iter()
+            .map(|p| p.organization_id)
+            .collect();
         let organizations_without_policies = context_organization_ids
             .difference(&policy_organization_ids)
             .map(|id| EnforcedPolicy::not_enforced(*id));
@@ -519,14 +521,23 @@ mod tests {
         fn given_organization_without_policy_returns_unenforced_policy() {
             let org_a = OrganizationId::new_v4();
             let org_b = OrganizationId::new_v4();
+            let org_c = OrganizationId::new_v4();
 
-            // Policy for org_a only
-            let views = [policy_view(org_a, PolicyType::SingleOrg, true)];
+            // Matching policy for org_a only. org_b has a different policy and org_c has no
+            // policies.
+            let views = [
+                policy_view(org_a, PolicyType::SingleOrg, true),
+                policy_view(org_b, PolicyType::MasterPassword, true),
+            ];
 
-            let contexts = [confirmed_member(org_a), confirmed_member(org_b)];
+            let contexts = [
+                confirmed_member(org_a),
+                confirmed_member(org_b),
+                confirmed_member(org_c),
+            ];
 
             let result = TestPolicy.get_all_enforced(&views, &contexts);
-            assert!(result.len() == 2);
+            assert!(result.len() == 3);
             assert!(
                 result
                     .iter()
@@ -539,6 +550,13 @@ mod tests {
                     .iter()
                     .find(|p| p.organization_id == org_b)
                     .expect("a decision for org_b")
+                    .enforced
+            );
+            assert!(
+                !result
+                    .iter()
+                    .find(|p| p.organization_id == org_c)
+                    .expect("a decision for org_c")
                     .enforced
             );
         }
