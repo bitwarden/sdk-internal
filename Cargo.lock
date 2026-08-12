@@ -648,6 +648,7 @@ dependencies = [
  "getrandom 0.3.4",
  "getrandom 0.4.3",
  "http",
+ "mockall",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
  "reqwest",
