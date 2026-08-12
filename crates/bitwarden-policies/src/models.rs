@@ -1,6 +1,6 @@
 //! Data models for the policy domain.
 
-use std::collections::HashMap;
+use std::{any::TypeId, collections::HashMap};
 
 use bitwarden_core::OrganizationId;
 use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
@@ -145,11 +145,21 @@ impl<P: Policy> ResolvedPolicyView<P> {
 
         let data = match view.data.as_deref() {
             Some(raw) => serde_json::from_str(raw).unwrap_or_else(|e| {
-                tracing::warn!(
-                    policy_type = ?policy.policy_type(),
-                    organization_id = %view.organization_id,
-                    "Failed to parse policy data, falling back to default: {e}"
-                );
+                if TypeId::of::<P::Data>() == TypeId::of::<()>() {
+                    // Any non-null value will fail to deserialize to ().
+                    // This is a separate case to receiving malformed data - log it separately.
+                    tracing::debug!(
+                        policy_type = ?policy.policy_type(),
+                        organization_id = %view.organization_id,
+                        "Ignoring unexpected data for a policy type that models none"
+                    );
+                } else {
+                    tracing::warn!(
+                        policy_type = ?policy.policy_type(),
+                        organization_id = %view.organization_id,
+                        "Failed to parse policy data, falling back to default: {e}"
+                    );
+                }
                 Default::default()
             }),
             None => Default::default(),
