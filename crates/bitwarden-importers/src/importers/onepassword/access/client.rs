@@ -22,6 +22,8 @@ const PASSWORD_SK_METHOD: &str = "PASSWORD+SK";
 const MAX_OTP_ATTEMPTS: u32 = 3;
 const ACCOUNT_INFO_ENDPOINT: &str =
     "v1/account?attrs=billing,counts,groups,invite,me,settings,tier,user-flags,users,vaults";
+const KEYSETS_ENDPOINT: &str = "v1/account/keysets";
+const VAULT_ENDPOINT: &str = "v1/vault";
 
 /// The 1Password client. Holds the injected HTTP transport so tests can point it at a mock host.
 pub struct Client {
@@ -128,7 +130,7 @@ async fn unlock(
         .await?;
     let keysets: KeysetsInfo = session
         .rest
-        .get_encrypted_json("v1/account/keysets", &session.key)
+        .get_encrypted_json(KEYSETS_ENDPOINT, &session.key)
         .await?;
 
     // Everything else hangs off the master key, which only the credentials can produce.
@@ -172,7 +174,7 @@ async fn download_vault_items(
         let batch: VaultItemsBatch = session
             .rest
             .get_encrypted_json(
-                &format!("v1/vault/{vault_id}/{batch_id}/items"),
+                &format!("{VAULT_ENDPOINT}/{vault_id}/{batch_id}/items"),
                 &session.key,
             )
             .await?;

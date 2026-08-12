@@ -20,6 +20,8 @@ use super::{
 
 const SRP_METHOD: &str = "SRPg-4096";
 const G: u32 = 5;
+const AUTH_ENDPOINT: &str = "v2/auth";
+const CONFIRM_KEY_ENDPOINT: &str = "v2/auth/confirm-key";
 
 /// The 4096-bit SRP group prime (RFC 3526).
 static N: LazyLock<BigUint> = LazyLock::new(|| {
@@ -171,7 +173,7 @@ async fn exchange_a_for_b(
 ) -> Result<BigUint, OnePasswordError> {
     let response: AForB = rest
         .post_json(
-            "v2/auth",
+            AUTH_ENDPOINT,
             json!({ "userA": to_server_hex(&BigInt::from(shared_a.clone())) }),
         )
         .await?;
@@ -284,7 +286,7 @@ async fn verify_key(
         calculate_client_hash(session_key, username, key_uuid, salt, shared_a, shared_b);
     let response: ServerHash = rest
         .post_json(
-            "v2/auth/confirm-key",
+            CONFIRM_KEY_ENDPOINT,
             json!({ "clientVerifyHash": BASE64URL_NOPAD.encode(&client_hash) }),
         )
         .await?;

@@ -12,6 +12,7 @@ use super::{
 
 const BASE32_ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
 const DEVICE_UUID_LENGTH: usize = 26;
+const DEVICE_ENDPOINT: &str = "v1/device";
 
 /// Generates a 26-character 1Password device id from the lowercase base32 alphabet.
 ///
@@ -75,7 +76,7 @@ pub async fn register_device(
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {
     let response: SuccessStatus = rest
-        .post_json("v1/device", client_info.device_body())
+        .post_json(DEVICE_ENDPOINT, client_info.device_body())
         .await?;
     check_success(response, "register", client_info)
 }
@@ -87,7 +88,7 @@ pub async fn reauthorize_device(
 ) -> Result<(), OnePasswordError> {
     let response: SuccessStatus = rest
         .put(&format!(
-            "v1/device/{}/reauthorize",
+            "{DEVICE_ENDPOINT}/{}/reauthorize",
             client_info.device_uuid
         ))
         .await?;

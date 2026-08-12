@@ -23,6 +23,9 @@ use super::{
 /// How many times the server may send us back to register or reauthorize the device before we give
 /// up. One round is the normal case.
 const MAX_DEVICE_ATTEMPTS: u32 = 2;
+const AUTH_METHODS_ENDPOINT: &str = "v2/auth/methods";
+const AUTH_START_ENDPOINT: &str = "v3/auth/start";
+const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
 
 /// The result of a single login attempt: a finished session, or a rejected OTP that asks for a full
 /// restart.
@@ -38,7 +41,7 @@ pub async fn fetch_auth_methods(
     username: &str,
     rest: &RestClient,
 ) -> Result<LoginInfo, OnePasswordError> {
-    rest.post_json("v2/auth/methods", json!({ "email": username }))
+    rest.post_json(AUTH_METHODS_ENDPOINT, json!({ "email": username }))
         .await
 }
 
@@ -114,7 +117,7 @@ async fn start_new_session(
         // Step 1: Request to initiate a new session
         let response: NewSession = rest
             .post_json(
-                "v3/auth/start",
+                AUTH_START_ENDPOINT,
                 json!({
                     "email": credentials.username,
                     "skformat": account_key.format,
@@ -188,7 +191,7 @@ async fn verify_session_key(
         "device": client_info.device_body(),
     });
     let response: AuthComplete = rest
-        .post_encrypted_json("v2/auth/complete", params, session_key)
+        .post_encrypted_json(AUTH_COMPLETE_ENDPOINT, params, session_key)
         .await?;
     Ok(response.mfa)
 }

@@ -11,6 +11,8 @@ use super::{
     device::ClientInfo, error::OnePasswordError, opdata::AesKey, rest::RestClient, wire::MfaInfo,
 };
 
+const MFA_ENDPOINT: &str = "v1/auth/mfa";
+
 /// The outcome of a two-factor prompt.
 pub enum TotpResult {
     /// A passcode entered (or generated) by the user.
@@ -79,7 +81,7 @@ async fn submit_totp(
         "totp": { "code": passcode },
     });
     let _: IgnoredAny = rest
-        .post_encrypted_json("v1/auth/mfa", params, session_key)
+        .post_encrypted_json(MFA_ENDPOINT, params, session_key)
         .await?;
     Ok(())
 }
