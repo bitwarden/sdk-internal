@@ -39,7 +39,9 @@ pub use send::{
     SendTextView, SendType, SendView, SendViewType,
 };
 mod send_sync_handler;
-pub use send_sync_handler::SendSyncHandler;
+pub use send_sync_handler::{
+    SendSyncError, SendSyncHandler, SendSyncHandlerClient, SendSyncHandlerClientExt,
+};
 mod fetch;
 pub use fetch::FetchSendError;
 mod rotate;
