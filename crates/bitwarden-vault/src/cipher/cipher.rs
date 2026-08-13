@@ -33,7 +33,7 @@ use super::{
     cipher_permissions::CipherPermissions,
     drivers_license, field, identity,
     local_data::{LocalData, LocalDataView},
-    login::{LoginListView, LoginUri},
+    login::{LoginListView, LoginUri, LoginUriView},
     passport, secure_note, ssh_key,
 };
 use crate::{
@@ -1562,38 +1562,75 @@ struct RestrictedCipherData {
     uris: Option<Vec<LoginUri>>,
 }
 
+/// Decrypt the restricted `name`. An absent field is legitimate and stays empty in both modes; a
+/// field that is present but fails to decrypt is a real decryption failure (wrong key / corruption
+/// / tampering) — it propagates in strict mode and degrades to empty in lenient mode.
+fn decrypt_restricted_name(
+    restricted: &RestrictedCipherData,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    ciphers_key: SymmetricKeySlotId,
+    strict: bool,
+) -> Result<String, CryptoError> {
+    let Some(name) = restricted.name.as_ref() else {
+        return Ok(String::new());
+    };
+    if strict {
+        name.decrypt(ctx, ciphers_key)
+    } else {
+        Ok(name.decrypt(ctx, ciphers_key).ok().unwrap_or_default())
+    }
+}
+
+/// Decrypt the restricted login `uris`. Absent → `None` in both modes; present-but-undecryptable →
+/// error in strict mode, `None` in lenient mode. See [`decrypt_restricted_name`].
+fn decrypt_restricted_uris(
+    restricted: &RestrictedCipherData,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
+    ciphers_key: SymmetricKeySlotId,
+    strict: bool,
+) -> Result<Option<Vec<LoginUriView>>, CryptoError> {
+    if strict {
+        restricted.uris.decrypt(ctx, ciphers_key)
+    } else {
+        Ok(restricted.uris.decrypt(ctx, ciphers_key).ok().flatten())
+    }
+}
+
 /// Decrypt a restricted (PAM-gated) cipher into a [`CipherView`].
 ///
 /// Parses `partial_data` and decrypts ONLY the allowlisted fields — the name and, for logins,
 /// the URIs. It never reads the cipher's secret payloads (`login.password`, `card`, …), which
-/// the server withholds anyway. Fail-closed: a malformed envelope or an undecryptable field
-/// degrades to empty rather than un-gating the row — the view is always `partial = true`.
+/// the server withholds anyway. Fail-closed: a malformed envelope always degrades to empty
+/// rather than un-gating the row (the view is always `partial = true`). A field that is present
+/// but fails to decrypt degrades to empty in lenient mode, but propagates as an error under
+/// strict decryption (`strict = true`).
 fn decrypt_restricted_cipher_view(
     cipher: &Cipher,
     raw: &str,
     ctx: &mut KeyStoreContext<KeySlotIds>,
     key: SymmetricKeySlotId,
+    strict: bool,
 ) -> Result<CipherView, CryptoError> {
     let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
     let restricted: RestrictedCipherData = serde_json::from_str(raw).unwrap_or_default();
 
-    let name = restricted
-        .name
-        .as_ref()
-        .and_then(|n| n.decrypt(ctx, ciphers_key).ok())
-        .unwrap_or_default();
+    let name = decrypt_restricted_name(&restricted, ctx, ciphers_key, strict)?;
 
     // Only logins carry URIs; expose them so the partial view can render a domain
     // (favicon / launch). Every other login field stays absent.
-    let login = matches!(cipher.r#type, CipherType::Login).then(|| LoginView {
-        username: None,
-        password: None,
-        password_revision_date: None,
-        uris: restricted.uris.decrypt(ctx, ciphers_key).ok().flatten(),
-        totp: None,
-        autofill_on_page_load: None,
-        fido2_credentials: None,
-    });
+    let login = if matches!(cipher.r#type, CipherType::Login) {
+        Some(LoginView {
+            username: None,
+            password: None,
+            password_revision_date: None,
+            uris: decrypt_restricted_uris(&restricted, ctx, ciphers_key, strict)?,
+            totp: None,
+            autofill_on_page_load: None,
+            fido2_credentials: None,
+        })
+    } else {
+        None
+    };
 
     let mut view = CipherView {
         id: cipher.id,
@@ -1652,15 +1689,12 @@ fn decrypt_restricted_cipher_list_view(
     raw: &str,
     ctx: &mut KeyStoreContext<KeySlotIds>,
     key: SymmetricKeySlotId,
+    strict: bool,
 ) -> Result<CipherListView, CryptoError> {
     let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &cipher.key)?;
     let restricted: RestrictedCipherData = serde_json::from_str(raw).unwrap_or_default();
 
-    let name = restricted
-        .name
-        .as_ref()
-        .and_then(|n| n.decrypt(ctx, ciphers_key).ok())
-        .unwrap_or_default();
+    let name = decrypt_restricted_name(&restricted, ctx, ciphers_key, strict)?;
 
     let r#type = match cipher.r#type {
         CipherType::Login => CipherListViewType::Login(LoginListView {
@@ -1668,7 +1702,7 @@ fn decrypt_restricted_cipher_list_view(
             has_fido2: false,
             username: None,
             totp: None,
-            uris: restricted.uris.decrypt(ctx, ciphers_key).ok().flatten(),
+            uris: decrypt_restricted_uris(&restricted, ctx, ciphers_key, strict)?,
         }),
         CipherType::SecureNote => CipherListViewType::SecureNote,
         CipherType::Card => CipherListViewType::Card(CardListView { brand: None }),
@@ -1731,7 +1765,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
             if self.organization_id.is_none() {
                 return Err(CryptoError::RestrictedCipherRequiresOrganization);
             }
-            return decrypt_restricted_cipher_view(self, raw, ctx, key);
+            return decrypt_restricted_cipher_view(self, raw, ctx, key, false);
         }
         match try_parse_blob(self) {
             Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key).map_err(CryptoError::from),
@@ -1753,7 +1787,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
             if self.organization_id.is_none() {
                 return Err(CryptoError::RestrictedCipherRequiresOrganization);
             }
-            return decrypt_restricted_cipher_list_view(self, raw, ctx, key);
+            return decrypt_restricted_cipher_list_view(self, raw, ctx, key, false);
         }
         match try_parse_blob(self) {
             Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key)?.to_list_view(ctx, key),
@@ -1808,7 +1842,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
             if self.0.organization_id.is_none() {
                 return Err(CryptoError::RestrictedCipherRequiresOrganization);
             }
-            return decrypt_restricted_cipher_view(&self.0, raw, ctx, key);
+            return decrypt_restricted_cipher_view(&self.0, raw, ctx, key, true);
         }
         match try_parse_blob(&self.0) {
             Some(sealed) => {
@@ -1920,7 +1954,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
             if self.0.organization_id.is_none() {
                 return Err(CryptoError::RestrictedCipherRequiresOrganization);
             }
-            return decrypt_restricted_cipher_list_view(&self.0, raw, ctx, key);
+            return decrypt_restricted_cipher_list_view(&self.0, raw, ctx, key, true);
         }
         match try_parse_blob(&self.0) {
             Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx, key)?.to_list_view(ctx, key),
@@ -2665,6 +2699,12 @@ mod tests {
         let view: CipherView = key_store.decrypt(&cipher).unwrap();
         assert!(view.partial);
         assert!(view.name.is_empty());
+
+        // A malformed envelope is a wire-shape problem, not a crypto failure: lenient even in
+        // strict mode.
+        let strict_view: CipherView = key_store.decrypt(&StrictDecrypt(cipher.clone())).unwrap();
+        assert!(strict_view.partial);
+        assert!(strict_view.name.is_empty());
     }
 
     #[test]
@@ -2685,6 +2725,35 @@ mod tests {
         let view: CipherView = key_store.decrypt(&StrictDecrypt(cipher)).unwrap();
         assert!(view.partial);
         assert!(view.card.is_none());
+    }
+
+    #[test]
+    fn test_decrypt_restricted_strict_propagates_field_decrypt_error() {
+        let (org, key_store) = restricted_test_key_store();
+        // Encrypt a name under an UNRELATED key so it is present in the envelope but cannot be
+        // decrypted with the organization key.
+        let wrong_key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+        let bad_name = "boom"
+            .to_string()
+            .encrypt(&mut wrong_key_store.context(), SymmetricKeySlotId::User)
+            .unwrap();
+        let envelope = serde_json::json!({ "name": bad_name }).to_string();
+        let cipher = restricted_cipher(org, CipherType::Login, envelope);
+
+        // Lenient degrades to an empty name, still gated.
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+        assert!(view.partial);
+        assert!(view.name.is_empty());
+
+        // Strict surfaces the present-but-undecryptable field as an error (both view and list).
+        let view_result: Result<CipherView, CryptoError> =
+            key_store.decrypt(&StrictDecrypt(cipher.clone()));
+        assert!(view_result.is_err());
+        let list_result: Result<CipherListView, CryptoError> =
+            key_store.decrypt(&StrictDecrypt(cipher));
+        assert!(list_result.is_err());
     }
 
     #[test]
