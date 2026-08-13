@@ -42,3 +42,4 @@ mod send_sync_handler;
 pub use send_sync_handler::SendSyncHandler;
 mod fetch;
 pub use fetch::FetchSendError;
+mod rotate;
