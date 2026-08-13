@@ -10,8 +10,8 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use crate::{Send, SendView, send_client::SendClient, send_client::SendEncryptError};
 
-/// Re-encrypt a send using the provided key. Only the per-send key is re-wrapped under `new_key`;
-/// the send's content stays encrypted under the send's own (unchanged) derived key.
+/// Re-wraps a send's per-item key under `new_key`; the send's content stays under its own
+/// unchanged key.
 #[cfg(feature = "wasm")]
 fn encrypt_send_for_rotation(
     key_store: &KeyStore<KeySlotIds>,
@@ -22,10 +22,7 @@ fn encrypt_send_for_rotation(
 
     let mut ctx = key_store.context();
 
-    // Install the new key under a `Local` slot id rather than the view's natural `User` slot, then
-    // pass it explicitly to `encrypt_composite`. Unlike ciphers, a send always carries its own
-    // per-item key (`Send::key`), so rotation simply re-wraps that key under `new_key` — there is
-    // no "generate a new item key" branch to handle.
+    // `Local` slot, not the view's natural `User` slot — passed explicitly to `encrypt_composite`.
     let new_key_id = ctx.add_local_symmetric_key(new_key);
 
     Ok(send_view.encrypt_composite(&mut ctx, new_key_id)?)
@@ -39,12 +36,7 @@ impl SendClient {
     ///
     /// Until key rotation is fully implemented in the SDK, this method must be provided the new
     /// symmetric key in base64 format. See PM-23084
-    ///
-    /// The send's per-item key is re-encrypted with the new key. The send's content is not
-    /// re-encrypted, as it is encrypted under the send's own key which does not change during
-    /// rotation.
-    // `async` mirrors `encrypt_cipher_for_rotation` and lets callers await rotation methods
-    // uniformly; the underlying send rotation performs no async work.
+    // `async` mirrors `encrypt_cipher_for_rotation`; this rotation does no async work itself.
     #[allow(clippy::unused_async)]
     pub async fn encrypt_send_for_rotation(
         &self,
@@ -105,14 +97,13 @@ mod tests {
 
         let rotated = encrypt_send_for_rotation(&store, send_view.clone(), new_key_b64).unwrap();
 
-        // Decrypting with a key store holding the new key succeeds and round-trips the view.
+        // Round-trips under the new key.
         let new_store = create_test_crypto_with_user_key(new_key);
         let decrypted: SendView = new_store.decrypt(&rotated).unwrap();
         assert_eq!(decrypted.name, send_view.name);
         assert_eq!(decrypted.text, send_view.text);
 
-        // Decrypting with the original key store fails because the send key was re-wrapped under
-        // the new key.
+        // Fails under the old key, since the send key was re-wrapped.
         assert!(matches!(
             store.decrypt::<_, Send, SendView>(&rotated).err(),
             Some(CryptoError::Decrypt)
