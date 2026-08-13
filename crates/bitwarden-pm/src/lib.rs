@@ -19,7 +19,7 @@ use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
-use bitwarden_send::SendClientExt as _;
+use bitwarden_send::{SendClientExt as _, SendSyncHandler};
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_unlock::UnlockClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
@@ -93,6 +93,7 @@ impl PasswordManagerClient {
         #[cfg(not(target_arch = "wasm32"))]
         sync.register_sync_handler(Arc::new(CryptoSyncHandler::new(client.0.clone())));
         sync.register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
+        sync.register_sync_handler(Arc::new(SendSyncHandler::from_client(&client.0)));
 
         // TODO: Add more sync handlers here!
 
