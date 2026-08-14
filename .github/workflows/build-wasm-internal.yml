@@ -146,7 +146,7 @@ jobs:
 
   trigger-wasm-publish:
     name: Trigger WASM publish
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     needs: build
     permissions:
