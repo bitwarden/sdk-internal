@@ -72,6 +72,14 @@ impl From<[u8; KEY_ID_SIZE]> for KeyId {
     }
 }
 
+/// Key ids travel on the wire as a lowercase hex encoding of the 16 raw bytes, giving a fixed
+/// 32-character string. The server rejects any other encoding.
+impl std::fmt::Display for KeyId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
+    }
+}
+
 impl std::fmt::Debug for KeyId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "KeyId({})", hex::encode(self.0))

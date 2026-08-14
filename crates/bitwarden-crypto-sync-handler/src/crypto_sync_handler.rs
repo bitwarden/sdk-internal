@@ -307,6 +307,7 @@ mod tests {
             }),
             master_key_encrypted_user_key,
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         }
     }
 

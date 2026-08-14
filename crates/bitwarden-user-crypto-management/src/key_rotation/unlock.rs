@@ -355,6 +355,7 @@ fn to_authentication_and_unlock_data(
         ),
         master_password_hint: hint,
         master_password_salt: Some(master_password_unlock_data.salt.clone()),
+        contained_key_id: None,
     })
 }
 
