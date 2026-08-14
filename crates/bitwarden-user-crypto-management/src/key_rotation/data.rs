@@ -370,6 +370,35 @@ mod tests {
         );
     }
 
+    /// Builds a legacy cipher whose fields are encrypted directly under `key`, with no per-cipher
+    /// key. Encrypting a `CipherView` always produces one now, so this shape — which still exists
+    /// server-side for vaults predating per-cipher keys — has to be constructed by hand.
+    fn make_keyless_legacy_cipher(
+        view: &bitwarden_vault::CipherView,
+        key: bitwarden_core::key_management::SymmetricKeySlotId,
+        ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+    ) -> Cipher {
+        use bitwarden_crypto::PrimitiveEncryptable;
+        use bitwarden_vault::Login;
+
+        let login = view.login.as_ref().unwrap();
+
+        Cipher {
+            name: Some(view.name.encrypt(ctx, key).unwrap()),
+            notes: view.notes.encrypt(ctx, key).unwrap(),
+            login: Some(Login {
+                username: login.username.encrypt(ctx, key).unwrap(),
+                password: login.password.encrypt(ctx, key).unwrap(),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            ..make_test_cipher(None)
+        }
+    }
+
     #[test]
     fn test_ciphers() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -381,9 +410,8 @@ mod tests {
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         let cipher = make_cipher_view();
-        let encrypted_cipher = EncryptMode::Legacy(cipher.clone())
-            .encrypt_composite(&mut ctx, user_key_old)
-            .unwrap();
+        let encrypted_cipher = make_keyless_legacy_cipher(&cipher, user_key_old, &mut ctx);
+        assert!(encrypted_cipher.key.is_none());
 
         // Rotate it
         let ciphers = vec![encrypted_cipher];
@@ -408,7 +436,7 @@ mod tests {
 
         // A legacy cipher that already carries a per-item cipher key
         let mut cipher = make_cipher_view();
-        cipher.generate_cipher_key(&mut ctx).unwrap();
+        let _ = cipher.load_cipher_key_slot(&mut ctx).unwrap();
         let encrypted = EncryptMode::Legacy(cipher.clone())
             .encrypt_composite(&mut ctx, user_key_old)
             .unwrap();

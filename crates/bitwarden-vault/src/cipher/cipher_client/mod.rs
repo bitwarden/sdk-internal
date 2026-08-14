@@ -83,9 +83,11 @@ impl CiphersClient {
     }
 
     #[allow(missing_docs)]
+    // The signature is part of the UniFFI and wasm public surface; keep it `async`.
+    #[allow(clippy::unused_async)]
     pub async fn encrypt(
         &self,
-        mut cipher_view: CipherView,
+        cipher_view: CipherView,
     ) -> Result<EncryptionContext, EncryptError> {
         let user_id = self
             .client
@@ -93,13 +95,6 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-
-        // TODO: Once this flag is removed, the key generation logic should
-        // be moved directly into the KeyEncryptable implementation
-        if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
-        {
-            cipher_view.generate_cipher_key(&mut key_store.context())?;
-        }
 
         let mode = if self.should_use_blob_encryption(cipher_view.organization_id) {
             EncryptMode::Blob(cipher_view)
@@ -119,11 +114,13 @@ impl CiphersClient {
     /// Until key rotation is fully implemented in the SDK, this method must be provided the new
     /// symmetric key in base64 format. See PM-23084
     ///
-    /// If the cipher has a CipherKey, it will be re-encrypted with the new key.
-    /// If the cipher does not have a CipherKey and CipherKeyEncryption is enabled, one will be
-    /// generated using the new key. Otherwise, the cipher's data will be encrypted with the new
-    /// key directly.
+    /// The cipher key is wrapped with the new key. A cipher key is generated if the cipher
+    /// does not already have one.
+    ///
+    /// Returns [`CipherError::AttachmentsWithoutKeys`] if any attachment lacks its own key.
     #[cfg(feature = "wasm")]
+    // The signature is part of the wasm public surface; keep it `async`.
+    #[allow(clippy::unused_async)]
     pub async fn encrypt_cipher_for_rotation(
         &self,
         mut cipher_view: CipherView,
@@ -136,8 +133,6 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
-        let enable_cipher_key_encryption =
-            self.client.flags().get().await.enable_cipher_key_encryption;
 
         let key_store = self.client.internal.get_key_store();
         let mut ctx = key_store.context();
@@ -145,11 +140,7 @@ impl CiphersClient {
         // Set the new key in the key store context
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
-        if cipher_view.key.is_none() && enable_cipher_key_encryption {
-            cipher_view.generate_cipher_key(&mut ctx)?;
-        } else {
-            cipher_view.validate_attachment_keys()?;
-        }
+        cipher_view.validate_attachment_keys()?;
 
         // Rotation installs the new key under a `Local` slot id (`new_key_id`), not the view's
         // natural `User`/`Organization` slot — so pass it explicitly to `encrypt_composite` rather
@@ -172,6 +163,8 @@ impl CiphersClient {
     /// This method attempts to encrypt all ciphers in the list. If any cipher
     /// fails to encrypt, the entire operation fails and an error is returned.
     #[cfg(feature = "wasm")]
+    // The signature is part of the wasm public surface; keep it `async`.
+    #[allow(clippy::unused_async)]
     pub async fn encrypt_list(
         &self,
         cipher_views: Vec<CipherView>,
@@ -182,24 +175,17 @@ impl CiphersClient {
             .get_user_id()
             .ok_or(EncryptError::MissingUserId)?;
         let key_store = self.client.internal.get_key_store();
-        let enable_cipher_key = self.client.flags().get().await.enable_cipher_key_encryption;
-
-        let mut ctx = key_store.context();
 
         let prepared_modes: Vec<EncryptMode<CipherView>> = cipher_views
             .into_iter()
-            .map(|mut cv| {
-                if cv.key.is_none() && enable_cipher_key {
-                    cv.generate_cipher_key(&mut ctx)?;
-                }
-                let mode = if self.should_use_blob_encryption(cv.organization_id) {
+            .map(|cv| {
+                if self.should_use_blob_encryption(cv.organization_id) {
                     EncryptMode::Blob(cv)
                 } else {
                     EncryptMode::Legacy(cv)
-                };
-                Ok(mode)
+                }
             })
-            .collect::<Result<Vec<_>, bitwarden_crypto::CryptoError>>()?;
+            .collect();
 
         let ciphers: Vec<Cipher> = key_store.encrypt_list(&prepared_modes)?;
 
@@ -356,10 +342,9 @@ mod tests {
     use bitwarden_crypto::{CryptoError, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{
-        Attachment, CipherRepromptType, CipherType, Login, VaultClientExt,
-        cipher::blob::try_parse_blob,
-    };
+    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
+    #[cfg(feature = "wasm")]
+    use crate::{AttachmentView, cipher::blob::try_parse_blob};
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -821,6 +806,45 @@ mod tests {
         ));
     }
 
+    /// Attachments that carry no key of their own are encrypted under the old user key, so
+    /// rotation must reject them regardless of whether the view already has a cipher key.
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_encrypt_cipher_for_rotation_with_keyless_attachment_fails() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        for generate_key in [false, true] {
+            let mut cipher_view = test_cipher_view();
+            if generate_key {
+                let _ = cipher_view
+                    .load_cipher_key_slot(&mut client.internal.get_key_store().context())
+                    .unwrap();
+            }
+            cipher_view.attachments = Some(vec![AttachmentView {
+                id: None,
+                url: None,
+                size: None,
+                size_name: None,
+                file_name: Some("h.txt".to_string()),
+                key: None,
+            }]);
+
+            let new_key =
+                SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac).to_base64();
+
+            let result = client
+                .vault()
+                .ciphers()
+                .encrypt_cipher_for_rotation(cipher_view, new_key)
+                .await;
+
+            assert!(matches!(
+                result.err(),
+                Some(CipherError::AttachmentsWithoutKeys)
+            ));
+        }
+    }
+
     #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list() {
@@ -834,7 +858,7 @@ mod tests {
         let contexts = result.unwrap();
         assert_eq!(contexts.len(), 2);
 
-        // Verify each encrypted cipher has a key (cipher key encryption is enabled)
+        // Every encrypted cipher gets a cipher key
         for ctx in &contexts {
             assert!(ctx.cipher.key.is_some());
         }
