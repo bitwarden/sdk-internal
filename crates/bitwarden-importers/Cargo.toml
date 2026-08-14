@@ -3,7 +3,7 @@ name = "bitwarden-importers"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
-exclude = ["**/resources"]
+exclude = ["**/fixtures"]
 
 version.workspace = true
 authors.workspace = true

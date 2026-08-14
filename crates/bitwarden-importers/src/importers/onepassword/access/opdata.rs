@@ -248,7 +248,7 @@ mod tests {
         let key = AesKey::new("mp", master_key);
 
         let envelope: EncryptedEnvelope =
-            serde_json::from_str(include_str!("resources/encrypted-aes-key.json"))
+            serde_json::from_str(include_str!("fixtures/encrypted-aes-key.json"))
                 .expect("valid fixture");
         let encrypted = Encrypted::parse(&envelope).expect("decodes envelope");
 

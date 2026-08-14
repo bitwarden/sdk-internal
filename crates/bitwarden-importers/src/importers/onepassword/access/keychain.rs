@@ -244,7 +244,7 @@ mod tests {
         ));
 
         let envelope: EncryptedEnvelope =
-            serde_json::from_str(include_str!("resources/encrypted-aes-key.json"))
+            serde_json::from_str(include_str!("fixtures/encrypted-aes-key.json"))
                 .expect("valid fixture");
         keychain.decrypt_aes_key(&envelope).expect("decrypts");
 
@@ -260,7 +260,7 @@ mod tests {
         ));
 
         let envelope: EncryptedEnvelope =
-            serde_json::from_str(include_str!("resources/encrypted-rsa-key.json"))
+            serde_json::from_str(include_str!("fixtures/encrypted-rsa-key.json"))
                 .expect("valid fixture");
         keychain.decrypt_rsa_key(&envelope).expect("decrypts");
 
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn decrypt_keysets_decrypts_all_keys() {
         let keysets: KeysetsInfo =
-            serde_json::from_str(include_str!("resources/get-keysets-response.json"))
+            serde_json::from_str(include_str!("fixtures/get-keysets-response.json"))
                 .expect("valid fixture");
         let mut keychain = Keychain::new();
 

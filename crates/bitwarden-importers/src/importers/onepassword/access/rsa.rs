@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn parses_sha1_key() {
         assert_eq!(
-            key(include_str!("resources/rsa-key.json")).id,
+            key(include_str!("fixtures/rsa-key.json")).id,
             "szerdhg2ww2ahjo4ilz57x7cce"
         );
     }
@@ -99,14 +99,14 @@ mod tests {
     #[test]
     fn parses_sha256_key() {
         assert_eq!(
-            key(include_str!("resources/rsa-key-oaep-256.json")).id,
+            key(include_str!("fixtures/rsa-key-oaep-256.json")).id,
             "sfaijsnbchbtznlar7mx6yrhae"
         );
     }
 
     #[test]
     fn decrypts_oaep_sha1() {
-        let key = key(include_str!("resources/rsa-key.json"));
+        let key = key(include_str!("fixtures/rsa-key.json"));
         let ciphertext = BASE64.decode(SHA1_CIPHERTEXT.as_bytes()).expect("base64");
         let encrypted = envelope("szerdhg2ww2ahjo4ilz57x7cce", "RSA-OAEP", ciphertext);
         let plain = key.decrypt(&encrypted).expect("decrypts");
@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn decrypts_oaep_sha256() {
-        let key = key(include_str!("resources/rsa-key-oaep-256.json"));
+        let key = key(include_str!("fixtures/rsa-key-oaep-256.json"));
         let ciphertext = BASE64.decode(SHA256_CIPHERTEXT.as_bytes()).expect("base64");
         let encrypted = envelope("sfaijsnbchbtznlar7mx6yrhae", "RSA-OAEP-256", ciphertext);
         let plain = key.decrypt(&encrypted).expect("decrypts");
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn rejects_mismatching_key_id() {
-        let key = key(include_str!("resources/rsa-key.json"));
+        let key = key(include_str!("fixtures/rsa-key.json"));
         let encrypted = envelope("invalid-id", "RSA-OAEP", b"ciphertext".to_vec());
         let err = key.decrypt(&encrypted).expect_err("mismatch");
         assert!(err.to_string().contains("mismatching key id"));
