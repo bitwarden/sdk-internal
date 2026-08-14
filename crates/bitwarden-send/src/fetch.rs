@@ -1,12 +1,11 @@
-use bitwarden_core::{ApiError, MissingFieldError, key_management::KeySlotIds, require};
-use bitwarden_crypto::{CryptoError, KeyStore};
+use bitwarden_core::{ApiError, MissingFieldError, require};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendId, SendView, error::SendParseError, send_client::SendClient};
+use crate::{Send, SendId, error::SendParseError, send_client::SendClient};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -14,8 +13,6 @@ use crate::{Send, SendId, SendView, error::SendParseError, send_client::SendClie
 pub enum FetchSendError {
     #[error(transparent)]
     Api(#[from] ApiError),
-    #[error(transparent)]
-    Crypto(#[from] CryptoError),
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
@@ -25,33 +22,33 @@ pub enum FetchSendError {
 }
 
 async fn fetch_send<R: Repository<Send> + ?Sized>(
-    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     send_id: SendId,
-) -> Result<SendView, FetchSendError> {
+) -> Result<Send, FetchSendError> {
     let resp = api_client.sends_api().get(&send_id.to_string()).await?;
 
     let send: Send = resp.try_into()?;
 
     repository.set(require!(send.id), send.clone()).await?;
 
-    Ok(key_store.decrypt(&send)?)
+    Ok(send)
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl SendClient {
-    /// Fetch a single [Send] by its ID from the server, persist it to local state, and decrypt it
-    /// to a [SendView].
+    /// Fetch a single [Send] by its ID from the server and persist it to local state.
     ///
     /// Unlike [`SendClient::get`], which only reads from local state, this makes a network request
-    /// and refreshes the locally stored copy.
-    pub async fn fetch(&self, send_id: SendId) -> Result<SendView, FetchSendError> {
-        let key_store = self.client.internal.get_key_store();
+    /// and refreshes the locally stored copy. Returns the still-encrypted [Send] — matching what a
+    /// sync-notification diff needs to compare `revision_date` and update encrypted state without
+    /// a decrypt round-trip — rather than a [`SendView`](crate::SendView); callers that want the
+    /// decrypted form can pass the result to [`SendClient::decrypt`].
+    pub async fn fetch(&self, send_id: SendId) -> Result<Send, FetchSendError> {
         let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
-        fetch_send(key_store, &config.api_client, repository.as_ref(), send_id).await
+        fetch_send(&config.api_client, repository.as_ref(), send_id).await
     }
 }
 
@@ -64,7 +61,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{AuthType, Send, SendId, SendTextView, SendType, SendView};
+    use crate::{AuthType, SendTextView, SendType, SendView};
 
     /// Builds a key store with a user key and returns an encrypted send (not yet stored) so tests
     /// can hand realistic encrypted fields back through the mocked API.
@@ -160,14 +157,19 @@ mod tests {
 
         let repository = MemoryRepository::<Send>::default();
 
-        let result = fetch_send(&store, &api_client, &repository, SendId::new(send_id))
+        let result = fetch_send(&api_client, &repository, SendId::new(send_id))
             .await
             .unwrap();
 
         assert_eq!(result.id, Some(SendId::new(send_id)));
-        assert_eq!(result.name, "Test Send");
+        assert_eq!(result.name, send.name);
+
+        // The result is still encrypted, not a decrypted view: decrypting it (with the store that
+        // has the matching key) reproduces the original plaintext send.
+        let decrypted: SendView = store.decrypt(&result).unwrap();
+        assert_eq!(decrypted.name, "Test Send");
         assert_eq!(
-            result.text,
+            decrypted.text,
             Some(SendTextView {
                 text: Some("Secret text".to_string()),
                 hidden: false,
@@ -186,9 +188,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_send_http_error() {
-        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
-        let (store, _send) = make_store_and_encrypted_send(send_id);
-
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
                 .expect_get()
@@ -201,8 +200,9 @@ mod tests {
         });
 
         let repository = MemoryRepository::<Send>::default();
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
-        let result = fetch_send(&store, &api_client, &repository, SendId::new(send_id)).await;
+        let result = fetch_send(&api_client, &repository, SendId::new(send_id)).await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), FetchSendError::Api(_)));
