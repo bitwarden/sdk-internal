@@ -8,6 +8,7 @@ pub mod account_billing_v_next_api;
 pub mod accounts_api;
 pub mod accounts_billing_api;
 pub mod accounts_key_management_api;
+pub mod api_api;
 pub mod auth_requests_api;
 pub mod cipher_lease_api;
 pub mod ciphers_api;
@@ -39,6 +40,12 @@ pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
 pub mod organization_users_api;
 pub mod organizations_api;
+pub mod pam_rotation_attempts_api;
+pub mod pam_rotation_configs_api;
+pub mod pam_rotation_daemon_jobs_api;
+pub mod pam_rotation_daemons_api;
+pub mod pam_rotation_jobs_api;
+pub mod pam_rotation_target_systems_api;
 pub mod plans_api;
 pub mod policies_api;
 pub mod preview_invoice_api;
@@ -96,6 +103,7 @@ struct ApiClientReal {
     accounts_api: accounts_api::AccountsApiClient,
     accounts_billing_api: accounts_billing_api::AccountsBillingApiClient,
     accounts_key_management_api: accounts_key_management_api::AccountsKeyManagementApiClient,
+    api_api: api_api::ApiApiClient,
     auth_requests_api: auth_requests_api::AuthRequestsApiClient,
     cipher_lease_api: cipher_lease_api::CipherLeaseApiClient,
     ciphers_api: ciphers_api::CiphersApiClient,
@@ -130,6 +138,13 @@ struct ApiClientReal {
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
     organization_users_api: organization_users_api::OrganizationUsersApiClient,
     organizations_api: organizations_api::OrganizationsApiClient,
+    pam_rotation_attempts_api: pam_rotation_attempts_api::PamRotationAttemptsApiClient,
+    pam_rotation_configs_api: pam_rotation_configs_api::PamRotationConfigsApiClient,
+    pam_rotation_daemon_jobs_api: pam_rotation_daemon_jobs_api::PamRotationDaemonJobsApiClient,
+    pam_rotation_daemons_api: pam_rotation_daemons_api::PamRotationDaemonsApiClient,
+    pam_rotation_jobs_api: pam_rotation_jobs_api::PamRotationJobsApiClient,
+    pam_rotation_target_systems_api:
+        pam_rotation_target_systems_api::PamRotationTargetSystemsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
     preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient,
@@ -179,6 +194,7 @@ pub struct ApiClientMock {
     pub accounts_api: accounts_api::MockAccountsApi,
     pub accounts_billing_api: accounts_billing_api::MockAccountsBillingApi,
     pub accounts_key_management_api: accounts_key_management_api::MockAccountsKeyManagementApi,
+    pub api_api: api_api::MockApiApi,
     pub auth_requests_api: auth_requests_api::MockAuthRequestsApi,
     pub cipher_lease_api: cipher_lease_api::MockCipherLeaseApi,
     pub ciphers_api: ciphers_api::MockCiphersApi,
@@ -215,6 +231,13 @@ pub struct ApiClientMock {
         organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_users_api: organization_users_api::MockOrganizationUsersApi,
     pub organizations_api: organizations_api::MockOrganizationsApi,
+    pub pam_rotation_attempts_api: pam_rotation_attempts_api::MockPamRotationAttemptsApi,
+    pub pam_rotation_configs_api: pam_rotation_configs_api::MockPamRotationConfigsApi,
+    pub pam_rotation_daemon_jobs_api: pam_rotation_daemon_jobs_api::MockPamRotationDaemonJobsApi,
+    pub pam_rotation_daemons_api: pam_rotation_daemons_api::MockPamRotationDaemonsApi,
+    pub pam_rotation_jobs_api: pam_rotation_jobs_api::MockPamRotationJobsApi,
+    pub pam_rotation_target_systems_api:
+        pam_rotation_target_systems_api::MockPamRotationTargetSystemsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
     pub preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi,
@@ -265,6 +288,7 @@ impl ApiClient {
             accounts_api: accounts_api::AccountsApiClient::new(configuration.clone()),
             accounts_billing_api: accounts_billing_api::AccountsBillingApiClient::new(configuration.clone()),
             accounts_key_management_api: accounts_key_management_api::AccountsKeyManagementApiClient::new(configuration.clone()),
+            api_api: api_api::ApiApiClient::new(configuration.clone()),
             auth_requests_api: auth_requests_api::AuthRequestsApiClient::new(configuration.clone()),
             cipher_lease_api: cipher_lease_api::CipherLeaseApiClient::new(configuration.clone()),
             ciphers_api: ciphers_api::CiphersApiClient::new(configuration.clone()),
@@ -296,6 +320,12 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
             organization_users_api: organization_users_api::OrganizationUsersApiClient::new(configuration.clone()),
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
+            pam_rotation_attempts_api: pam_rotation_attempts_api::PamRotationAttemptsApiClient::new(configuration.clone()),
+            pam_rotation_configs_api: pam_rotation_configs_api::PamRotationConfigsApiClient::new(configuration.clone()),
+            pam_rotation_daemon_jobs_api: pam_rotation_daemon_jobs_api::PamRotationDaemonJobsApiClient::new(configuration.clone()),
+            pam_rotation_daemons_api: pam_rotation_daemons_api::PamRotationDaemonsApiClient::new(configuration.clone()),
+            pam_rotation_jobs_api: pam_rotation_jobs_api::PamRotationJobsApiClient::new(configuration.clone()),
+            pam_rotation_target_systems_api: pam_rotation_target_systems_api::PamRotationTargetSystemsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
             preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient::new(configuration.clone()),
@@ -343,6 +373,7 @@ impl ApiClient {
             accounts_api: accounts_api::MockAccountsApi::new(),
             accounts_billing_api: accounts_billing_api::MockAccountsBillingApi::new(),
             accounts_key_management_api: accounts_key_management_api::MockAccountsKeyManagementApi::new(),
+            api_api: api_api::MockApiApi::new(),
             auth_requests_api: auth_requests_api::MockAuthRequestsApi::new(),
             cipher_lease_api: cipher_lease_api::MockCipherLeaseApi::new(),
             ciphers_api: ciphers_api::MockCiphersApi::new(),
@@ -374,6 +405,12 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
             organization_users_api: organization_users_api::MockOrganizationUsersApi::new(),
             organizations_api: organizations_api::MockOrganizationsApi::new(),
+            pam_rotation_attempts_api: pam_rotation_attempts_api::MockPamRotationAttemptsApi::new(),
+            pam_rotation_configs_api: pam_rotation_configs_api::MockPamRotationConfigsApi::new(),
+            pam_rotation_daemon_jobs_api: pam_rotation_daemon_jobs_api::MockPamRotationDaemonJobsApi::new(),
+            pam_rotation_daemons_api: pam_rotation_daemons_api::MockPamRotationDaemonsApi::new(),
+            pam_rotation_jobs_api: pam_rotation_jobs_api::MockPamRotationJobsApi::new(),
+            pam_rotation_target_systems_api: pam_rotation_target_systems_api::MockPamRotationTargetSystemsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
             preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi::new(),
@@ -466,6 +503,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.accounts_key_management_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.accounts_key_management_api,
+        }
+    }
+    pub fn api_api(&self) -> &dyn api_api::ApiApi {
+        match self {
+            ApiClient::Real(real) => &real.api_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.api_api,
         }
     }
     pub fn auth_requests_api(&self) -> &dyn auth_requests_api::AuthRequestsApi {
@@ -702,6 +746,54 @@ impl ApiClient {
             ApiClient::Real(real) => &real.organizations_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organizations_api,
+        }
+    }
+    pub fn pam_rotation_attempts_api(
+        &self,
+    ) -> &dyn pam_rotation_attempts_api::PamRotationAttemptsApi {
+        match self {
+            ApiClient::Real(real) => &real.pam_rotation_attempts_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.pam_rotation_attempts_api,
+        }
+    }
+    pub fn pam_rotation_configs_api(&self) -> &dyn pam_rotation_configs_api::PamRotationConfigsApi {
+        match self {
+            ApiClient::Real(real) => &real.pam_rotation_configs_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.pam_rotation_configs_api,
+        }
+    }
+    pub fn pam_rotation_daemon_jobs_api(
+        &self,
+    ) -> &dyn pam_rotation_daemon_jobs_api::PamRotationDaemonJobsApi {
+        match self {
+            ApiClient::Real(real) => &real.pam_rotation_daemon_jobs_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.pam_rotation_daemon_jobs_api,
+        }
+    }
+    pub fn pam_rotation_daemons_api(&self) -> &dyn pam_rotation_daemons_api::PamRotationDaemonsApi {
+        match self {
+            ApiClient::Real(real) => &real.pam_rotation_daemons_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.pam_rotation_daemons_api,
+        }
+    }
+    pub fn pam_rotation_jobs_api(&self) -> &dyn pam_rotation_jobs_api::PamRotationJobsApi {
+        match self {
+            ApiClient::Real(real) => &real.pam_rotation_jobs_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.pam_rotation_jobs_api,
+        }
+    }
+    pub fn pam_rotation_target_systems_api(
+        &self,
+    ) -> &dyn pam_rotation_target_systems_api::PamRotationTargetSystemsApi {
+        match self {
+            ApiClient::Real(real) => &real.pam_rotation_target_systems_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.pam_rotation_target_systems_api,
         }
     }
     pub fn plans_api(&self) -> &dyn plans_api::PlansApi {

@@ -53,6 +53,12 @@ pub struct CollectionAccessDetailsResponseModel {
     )]
     pub default_user_collection_email: Option<String>,
     #[serde(
+        rename = "accessRuleId",
+        alias = "AccessRuleId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_rule_id: Option<uuid::Uuid>,
+    #[serde(
         rename = "groups",
         alias = "Groups",
         skip_serializing_if = "Option::is_none"
@@ -107,6 +113,7 @@ impl CollectionAccessDetailsResponseModel {
             external_id: None,
             r#type: None,
             default_user_collection_email: None,
+            access_rule_id: None,
             groups: None,
             users: None,
             assigned: None,

@@ -90,6 +90,7 @@
     {
       matchManagers: ["cargo"],
       matchPackageNames: [
+        "anyhow",
         "async-trait",
         "cargo-dylint",
         "cargo-sort",
@@ -128,6 +129,7 @@
         "syn",
         "thiserror",
         "tokio",
+        "toml",
         "tracing",
         "tracing-subscriber",
         "tsify",
