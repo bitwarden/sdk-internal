@@ -1,7 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_core::key_management::KeySlotIds;
-use bitwarden_crypto::KeyStoreContext;
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
@@ -73,8 +71,12 @@ pub(crate) struct CipherViewContainer {
 }
 
 impl CipherViewContainer {
-    fn new(cipher: CipherView, ctx: &mut KeyStoreContext<KeySlotIds>) -> Result<Self, CipherError> {
-        let fido2_credentials = cipher.get_fido2_credentials(ctx)?;
+    fn new(cipher: CipherView) -> Result<Self, CipherError> {
+        let fido2_credentials = cipher
+            .get_fido2_credentials()
+            .into_iter()
+            .map(Fido2CredentialFullView::from)
+            .collect();
         Ok(Self {
             cipher,
             fido2_credentials,

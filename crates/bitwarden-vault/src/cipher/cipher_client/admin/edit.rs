@@ -6,7 +6,7 @@ use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
-use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
+use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use thiserror::Error;
@@ -73,8 +73,7 @@ async fn edit_cipher(
     // TODO: Once this flag is removed, the key generation logic should be
     // moved directly into the CompositeEncryptable implementation.
     if view.key.is_none() && enable_cipher_key_encryption {
-        let key = view.key_identifier();
-        view.generate_cipher_key(&mut key_store.context(), key)?;
+        view.generate_cipher_key(&mut key_store.context())?;
     }
 
     // Admin endpoints operate on organization-owned ciphers, which aren't
