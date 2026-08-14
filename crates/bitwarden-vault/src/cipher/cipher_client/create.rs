@@ -285,6 +285,7 @@ mod tests {
                         attachments: None,
                         permissions: None,
                         data: None,
+                        partial_data: None,
                         archived_date: None,
                     })
                 })

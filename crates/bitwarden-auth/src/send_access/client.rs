@@ -43,10 +43,7 @@ impl SendAccessClient {
         let configurations = self.client.internal.get_api_configurations();
 
         // save off url in variable for re-use
-        let url = format!(
-            "{}/connect/token",
-            &configurations.identity_config.base_path
-        );
+        let url = format!("{}/connect/token", configurations.identity_config.base_path);
 
         let request: reqwest_middleware::RequestBuilder = configurations
             .identity_config
