@@ -86,7 +86,7 @@ pub enum ItemCategory {
 impl ItemCategory {
     /// Maps a 1Password template id to a category. Extends the `TemplateId` handling in
     /// `Client.ConvertVaultItem` to the full standard template set.
-    pub fn from_template_id(id: &str) -> ItemCategory {
+    pub(super) fn from_template_id(id: &str) -> ItemCategory {
         match id {
             "001" => ItemCategory::Login,
             "002" => ItemCategory::CreditCard,

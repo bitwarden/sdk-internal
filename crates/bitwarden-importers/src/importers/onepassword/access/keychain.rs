@@ -10,7 +10,7 @@ use super::{
     kdf,
     opdata::{AesKey, Encrypted, decode64_loose},
     rsa::RsaKey,
-    wire::{AesKeyJson, EncryptedEnvelope, KeysetInfo, KeysetsInfo, RsaKeyJwk},
+    wire::{AesKeyJson, EncryptedEnvelope, KeysetInfo, RsaKeyJwk},
 };
 
 const AES_SCHEME: &str = "A256GCM";
@@ -19,21 +19,21 @@ const MASTER_KEY_ID: &str = "mp";
 
 /// A store of AES and RSA keys keyed by their kid.
 #[derive(Default)]
-pub struct Keychain {
+pub(super) struct Keychain {
     aes: HashMap<String, AesKey>,
     rsa: HashMap<String, RsaKey>,
 }
 
 impl Keychain {
-    pub fn new() -> Keychain {
+    pub(super) fn new() -> Keychain {
         Keychain::default()
     }
 
-    pub fn add_aes(&mut self, key: AesKey) {
+    pub(super) fn add_aes(&mut self, key: AesKey) {
         self.aes.insert(key.id.clone(), key);
     }
 
-    pub fn add_rsa(&mut self, key: RsaKey) {
+    pub(super) fn add_rsa(&mut self, key: RsaKey) {
         self.rsa.insert(key.id.clone(), key);
     }
 
@@ -48,7 +48,7 @@ impl Keychain {
     }
 
     /// Decrypts an envelope by dispatching on its scheme to the AES or RSA key named by its kid.
-    pub fn decrypt(&self, encrypted: &Encrypted) -> Result<Vec<u8>, OnePasswordError> {
+    pub(super) fn decrypt(&self, encrypted: &Encrypted) -> Result<Vec<u8>, OnePasswordError> {
         if encrypted.scheme == AES_SCHEME {
             let key = self.aes.get(&encrypted.key_id).ok_or_else(|| {
                 OnePasswordError::Internal(format!("AES key '{}' not found", encrypted.key_id))
@@ -73,7 +73,7 @@ impl Keychain {
     ///
     /// A scheme this module does not implement is an error, not a `false`: the caller cannot tell
     /// "we lack the key" from "we cannot read this format" otherwise, and would silently drop data.
-    pub fn can_decrypt(&self, encrypted: &Encrypted) -> Result<bool, OnePasswordError> {
+    pub(super) fn can_decrypt(&self, encrypted: &Encrypted) -> Result<bool, OnePasswordError> {
         if encrypted.scheme == AES_SCHEME {
             return Ok(self.aes.contains_key(&encrypted.key_id));
         }
@@ -89,7 +89,7 @@ impl Keychain {
     }
 
     /// Decrypts an envelope and parses its JSON plaintext.
-    pub fn decrypt_json<T: DeserializeOwned>(
+    pub(super) fn decrypt_json<T: DeserializeOwned>(
         &self,
         envelope: &EncryptedEnvelope,
     ) -> Result<T, OnePasswordError> {
@@ -98,7 +98,7 @@ impl Keychain {
     }
 
     /// Derives the master key from the credentials, then decrypts every keyset into the keychain.
-    pub fn decrypt_keysets(
+    pub(super) fn decrypt_keysets(
         &mut self,
         keysets: &[KeysetInfo],
         username: &str,
@@ -132,7 +132,7 @@ impl Keychain {
     }
 
     /// Decrypts an encrypted AES key and adds it to the keychain.
-    pub fn decrypt_aes_key(
+    pub(super) fn decrypt_aes_key(
         &mut self,
         envelope: &EncryptedEnvelope,
     ) -> Result<(), OnePasswordError> {
@@ -229,7 +229,7 @@ fn encrypted_by(keyset: &KeysetInfo) -> &str {
 mod tests {
     use data_encoding::HEXLOWER;
 
-    use super::*;
+    use super::{super::wire::KeysetsInfo, *};
 
     fn hex(s: &str) -> Vec<u8> {
         HEXLOWER.decode(s.as_bytes()).expect("valid hex")

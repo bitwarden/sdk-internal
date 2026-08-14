@@ -29,7 +29,7 @@ const AUTH_COMPLETE_ENDPOINT: &str = "v2/auth/complete";
 
 /// The result of a single login attempt: a finished session, or a rejected OTP that asks for a full
 /// restart.
-pub enum LoginOutcome {
+pub(super) enum LoginOutcome {
     /// Authentication succeeded.
     Success(Box<Session>),
     /// The submitted TOTP code was rejected; the caller should retry from the start.
@@ -37,7 +37,7 @@ pub enum LoginOutcome {
 }
 
 /// Confirms the account offers a given auth method.
-pub async fn fetch_auth_methods(
+pub(super) async fn fetch_auth_methods(
     username: &str,
     rest: &RestClient,
 ) -> Result<LoginInfo, OnePasswordError> {
@@ -47,7 +47,7 @@ pub async fn fetch_auth_methods(
 
 /// Runs one full login sequence: start a session, exchange SRP, verify the key, and drive 2FA if
 /// the server asks for it.
-pub async fn login_attempt(
+pub(super) async fn login_attempt(
     credentials: &Credentials,
     account_key: &AccountKey,
     client_info: &ClientInfo,

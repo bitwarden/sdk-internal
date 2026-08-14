@@ -65,7 +65,7 @@ const N_HEX: &str = concat!(
 /// Validated on construction, so [`compute_x`] cannot fail on an unsupported method or a zero
 /// iteration count. These are public KDF parameters and carry no secret.
 #[derive(Debug, PartialEq)]
-pub struct SrpInfo {
+pub(super) struct SrpInfo {
     srp_method: String,
     key_method: String,
     iterations: u32,
@@ -74,7 +74,7 @@ pub struct SrpInfo {
 
 impl SrpInfo {
     /// Rejects parameters this module cannot honour.
-    pub fn new(
+    pub(super) fn new(
         srp_method: String,
         key_method: String,
         iterations: u32,
@@ -100,13 +100,13 @@ impl SrpInfo {
     }
 
     /// The salt, also mixed into the client verification hash.
-    pub fn salt(&self) -> &[u8] {
+    pub(super) fn salt(&self) -> &[u8] {
         &self.salt
     }
 }
 
 /// Runs the SRP exchange and labels the resulting key with the session id.
-pub async fn perform_and_verify(
+pub(super) async fn perform_and_verify(
     credentials: &Credentials,
     account_key: &AccountKey,
     srp_info: &SrpInfo,

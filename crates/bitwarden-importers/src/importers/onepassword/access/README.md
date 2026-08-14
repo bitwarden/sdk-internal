@@ -35,3 +35,4 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - The sign-in domain is taken as a raw string and never validated
 - A vault we hold no key for is skipped silently, and one undecryptable item aborts the whole import
 - The module is under a blanket `allow(dead_code, unused_imports)` until the conversion layer lands
+- Only the item DTOs in `wire` are public; the auth and session ones are `pub(super)`

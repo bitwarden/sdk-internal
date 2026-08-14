@@ -6,7 +6,7 @@ use super::{error::OnePasswordError, kdf};
 
 /// A parsed 1Password Account Key (also called the Secret Key), split into its format, uuid, and
 /// key.
-pub struct AccountKey {
+pub(super) struct AccountKey {
     pub format: String,
     pub uuid: String,
     pub key: String,
@@ -21,7 +21,7 @@ impl Drop for AccountKey {
 impl AccountKey {
     /// Parses a key string such as `A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9`. The string is uppercased
     /// and its dashes removed before splitting into `format` (2), `uuid` (6), and `key` (the rest).
-    pub fn parse(input: &str) -> Result<AccountKey, OnePasswordError> {
+    pub(super) fn parse(input: &str) -> Result<AccountKey, OnePasswordError> {
         let s = input.to_uppercase().replace('-', "");
 
         let Some(format) = s.get(..2) else {
@@ -64,12 +64,12 @@ impl AccountKey {
     }
 
     /// `HKDF-SHA256(ikm = key, salt = uuid, info = format)`, 32 bytes.
-    pub fn hash(&self) -> [u8; 32] {
+    pub(super) fn hash(&self) -> [u8; 32] {
         kdf::hkdf_sha256(&self.format, self.key.as_bytes(), self.uuid.as_bytes())
     }
 
     /// XORs the hash with `bytes`, which must be exactly 32 bytes long.
-    pub fn combine_with(&self, bytes: &[u8]) -> Result<[u8; 32], OnePasswordError> {
+    pub(super) fn combine_with(&self, bytes: &[u8]) -> Result<[u8; 32], OnePasswordError> {
         let mut h = self.hash();
         if h.len() != bytes.len() {
             return Err(OnePasswordError::Internal(

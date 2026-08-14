@@ -13,7 +13,7 @@ use super::{error::OnePasswordError, opdata::AesKey};
 const SESSION_HMAC_SECRET: &str = "He never wears a Mac, in the pouring rain. Very strange.";
 
 /// Signs requests with the per-session MAC header, bumping the request id on each signature.
-pub struct MacSigner {
+pub(super) struct MacSigner {
     session_id: String,
     salt: [u8; 32],
     request_id: AtomicU32,
@@ -21,7 +21,7 @@ pub struct MacSigner {
 
 impl MacSigner {
     /// Creates a signer from the session key, starting from a random request id.
-    pub fn new(session_key: &AesKey) -> MacSigner {
+    pub(super) fn new(session_key: &AesKey) -> MacSigner {
         Self::with_request_id(session_key, bitwarden_random::rng().next_u32())
     }
 
@@ -36,7 +36,7 @@ impl MacSigner {
     /// Returns the `X-AgileBits-MAC` header value for a request and takes the next request id.
     ///
     /// The id only has to differ between requests, so nothing needs ordering against other threads.
-    pub fn sign(&self, url: &str, method: &str) -> Result<String, OnePasswordError> {
+    pub(super) fn sign(&self, url: &str, method: &str) -> Result<String, OnePasswordError> {
         let id = self.request_id.fetch_add(1, Ordering::Relaxed);
 
         let message = self.calculate_auth_message(url, method, id)?;

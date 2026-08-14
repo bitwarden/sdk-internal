@@ -31,7 +31,7 @@ pub trait TwoFactorUi: Send + Sync {
 
 /// The result of submitting a second factor: verified, or a rejected code that asks for a restart.
 #[derive(Debug)]
-pub enum MfaOutcome {
+pub(super) enum MfaOutcome {
     /// The code was accepted and the session is authenticated.
     Verified,
     /// The code was rejected. 1Password invalidates the session, so the login has to start over.
@@ -39,7 +39,7 @@ pub enum MfaOutcome {
 }
 
 /// Prompts for and submits a TOTP code. WebAuthn and Duo are not supported yet.
-pub async fn perform_second_factor_authentication(
+pub(super) async fn perform_second_factor_authentication(
     mfa: &MfaInfo,
     client_info: &ClientInfo,
     session_key: &AesKey,

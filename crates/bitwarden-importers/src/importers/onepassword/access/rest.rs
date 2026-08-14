@@ -24,7 +24,7 @@ const IV_SIZE: usize = 12;
 
 /// An HTTP client bound to a base URL, carrying the 1Password identity headers and an optional MAC
 /// signer. Requests are signed automatically once a signer is attached.
-pub struct RestClient {
+pub(super) struct RestClient {
     http: reqwest::Client,
     base_url: String,
     headers: HeaderMap,
@@ -33,7 +33,7 @@ pub struct RestClient {
 
 impl RestClient {
     /// Builds the base client with the identity headers derived from `ClientInfo`.
-    pub fn new(
+    pub(super) fn new(
         http: reqwest::Client,
         base_url: impl Into<String>,
         client_id: &str,
@@ -54,7 +54,7 @@ impl RestClient {
     }
 
     /// Derives a client that adds the session id header.
-    pub fn with_session_id(&self, session_id: &str) -> Result<RestClient, OnePasswordError> {
+    pub(super) fn with_session_id(&self, session_id: &str) -> Result<RestClient, OnePasswordError> {
         let mut headers = self.headers.clone();
         insert_header(&mut headers, SESSION_ID_HEADER, session_id)?;
 
@@ -68,7 +68,7 @@ impl RestClient {
 
     /// Derives a client that signs every request. The signer carries the session id already, so
     /// this keeps whatever headers the receiver has.
-    pub fn with_signer(&self, signer: MacSigner) -> RestClient {
+    pub(super) fn with_signer(&self, signer: MacSigner) -> RestClient {
         RestClient {
             http: self.http.clone(),
             base_url: self.base_url.clone(),
@@ -78,7 +78,7 @@ impl RestClient {
     }
 
     /// POSTs a JSON body and parses the JSON response.
-    pub async fn post_json<T: DeserializeOwned>(
+    pub(super) async fn post_json<T: DeserializeOwned>(
         &self,
         endpoint: &str,
         body: Value,
@@ -87,12 +87,15 @@ impl RestClient {
     }
 
     /// PUTs with no body and parses the JSON response.
-    pub async fn put<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T, OnePasswordError> {
+    pub(super) async fn put<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+    ) -> Result<T, OnePasswordError> {
         self.request_json(Method::PUT, endpoint, None).await
     }
 
     /// GETs an opdata envelope, decrypts it, and parses the JSON plaintext.
-    pub async fn get_encrypted_json<T: DeserializeOwned>(
+    pub(super) async fn get_encrypted_json<T: DeserializeOwned>(
         &self,
         endpoint: &str,
         session_key: &AesKey,
@@ -102,7 +105,7 @@ impl RestClient {
     }
 
     /// Encrypts `params`, POSTs the opdata envelope, then decrypts and parses the response.
-    pub async fn post_encrypted_json<T: DeserializeOwned>(
+    pub(super) async fn post_encrypted_json<T: DeserializeOwned>(
         &self,
         endpoint: &str,
         params: Value,

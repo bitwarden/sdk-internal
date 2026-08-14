@@ -26,7 +26,7 @@ pub fn generate_device_uuid() -> String {
 }
 
 /// Client identity headers sent with every request.
-pub struct ClientInfo {
+pub(super) struct ClientInfo {
     client_name: String,
     client_version: String,
     pub user_agent: String,
@@ -36,7 +36,7 @@ pub struct ClientInfo {
 
 impl ClientInfo {
     /// Impersonates the 1Password desktop client for the current platform.
-    pub fn for_desktop(device_uuid: &str) -> ClientInfo {
+    pub(super) fn for_desktop(device_uuid: &str) -> ClientInfo {
         let platform = PLATFORM;
 
         ClientInfo {
@@ -51,7 +51,7 @@ impl ClientInfo {
         }
     }
 
-    pub fn client_id(&self) -> String {
+    pub(super) fn client_id(&self) -> String {
         format!("{}/{}", self.client_name, self.client_version)
     }
 
@@ -60,7 +60,7 @@ impl ClientInfo {
     /// The real 1Password clients also send `model` and `osVersion`. The server accepted their
     /// removal when this was tested, so they are left out, but add them back if it starts
     /// rejecting the request.
-    pub fn device_body(&self) -> Value {
+    pub(super) fn device_body(&self) -> Value {
         json!({
             "uuid": self.device_uuid,
             "clientName": self.client_name,
@@ -74,7 +74,7 @@ impl ClientInfo {
 }
 
 /// Registers the device with the server.
-pub async fn register_device(
+pub(super) async fn register_device(
     client_info: &ClientInfo,
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {
@@ -85,7 +85,7 @@ pub async fn register_device(
 }
 
 /// Reauthorizes a previously deleted device.
-pub async fn reauthorize_device(
+pub(super) async fn reauthorize_device(
     client_info: &ClientInfo,
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// It is also serialized back to the server as the request body of the encrypted POST endpoints.
 #[derive(Debug, Deserialize, Serialize)]
-pub struct EncryptedEnvelope {
+pub(super) struct EncryptedEnvelope {
     pub kid: String,
     pub enc: String,
     pub cty: String,
@@ -23,7 +23,7 @@ pub struct EncryptedEnvelope {
 /// Extra JWK members (`dp`, `dq`, `qi`, `alg`, `kty`, `ext`) are ignored: the CRT values are
 /// recomputed from `p` and `q` when the key is built.
 #[derive(Debug, Deserialize)]
-pub struct RsaKeyJwk {
+pub(super) struct RsaKeyJwk {
     pub kid: String,
     pub e: String,
     pub n: String,
@@ -34,20 +34,20 @@ pub struct RsaKeyJwk {
 
 /// The decrypted AES key JSON.
 #[derive(Deserialize)]
-pub struct AesKeyJson {
+pub(super) struct AesKeyJson {
     pub kid: String,
     pub k: String,
 }
 
 /// The `v1/account/keysets` payload.
 #[derive(Debug, Deserialize)]
-pub struct KeysetsInfo {
+pub(super) struct KeysetsInfo {
     pub keysets: Vec<KeysetInfo>,
 }
 
 /// A single keyset.
 #[derive(Debug, Deserialize)]
-pub struct KeysetInfo {
+pub(super) struct KeysetInfo {
     pub uuid: String,
     #[serde(default, rename = "encryptedBy")]
     pub encrypted_by: String,
@@ -61,7 +61,7 @@ pub struct KeysetInfo {
 /// An encrypted symmetric key envelope that additionally carries the KDF parameters for the master
 /// keyset (`alg`/`p2s`/`p2c`).
 #[derive(Debug, Deserialize)]
-pub struct KeyDerivationInfo {
+pub(super) struct KeyDerivationInfo {
     pub kid: String,
     pub enc: String,
     pub cty: String,
@@ -78,7 +78,7 @@ pub struct KeyDerivationInfo {
 
 impl KeyDerivationInfo {
     /// The envelope half, without the KDF parameters.
-    pub fn envelope(&self) -> EncryptedEnvelope {
+    pub(super) fn envelope(&self) -> EncryptedEnvelope {
         EncryptedEnvelope {
             kid: self.kid.clone(),
             enc: self.enc.clone(),
@@ -91,14 +91,14 @@ impl KeyDerivationInfo {
 
 /// Response from `v2/auth/methods`.
 #[derive(Debug, Deserialize)]
-pub struct LoginInfo {
+pub(super) struct LoginInfo {
     #[serde(rename = "authMethods")]
     pub auth_methods: Vec<AuthMethod>,
 }
 
 /// A single auth method offered for an account.
 #[derive(Debug, Deserialize)]
-pub struct AuthMethod {
+pub(super) struct AuthMethod {
     #[serde(rename = "type")]
     pub kind: String,
 }
@@ -109,7 +109,7 @@ pub struct AuthMethod {
 /// `device-not-registered` and `device-deleted` ask the client to (re)authorize the device and
 /// retry.
 #[derive(Debug, Deserialize)]
-pub struct NewSession {
+pub(super) struct NewSession {
     pub status: String,
     #[serde(rename = "sessionID")]
     pub session_id: String,
@@ -123,7 +123,7 @@ pub struct NewSession {
 
 /// The SRP parameters carried by a successful `NewSession`.
 #[derive(Debug, Deserialize)]
-pub struct UserAuth {
+pub(super) struct UserAuth {
     pub method: String,
     #[serde(rename = "alg")]
     pub algorithm: String,
@@ -133,27 +133,27 @@ pub struct UserAuth {
 
 /// Response from `v1/device` and `v1/device/{uuid}/reauthorize`.
 #[derive(Debug, Deserialize)]
-pub struct SuccessStatus {
+pub(super) struct SuccessStatus {
     pub success: i32,
 }
 
 /// Response from `v2/auth` (the SRP A -> B exchange).
 #[derive(Debug, Deserialize)]
-pub struct AForB {
+pub(super) struct AForB {
     #[serde(rename = "userB")]
     pub b: String,
 }
 
 /// Response from `v2/auth/confirm-key`.
 #[derive(Debug, Deserialize)]
-pub struct ServerHash {
+pub(super) struct ServerHash {
     #[serde(rename = "serverVerifyHash")]
     pub server_verify_hash: String,
 }
 
 /// Response from `v2/auth/complete` (decrypted).
 #[derive(Debug, Deserialize)]
-pub struct AuthComplete {
+pub(super) struct AuthComplete {
     pub mfa: Option<MfaInfo>,
 }
 
@@ -162,7 +162,7 @@ pub struct AuthComplete {
 /// Only the enabled flags are modelled: TOTP is the one interactive method implemented, so the
 /// per-method parameters (WebAuthn challenge, Duo host, and so on) are not read.
 #[derive(Debug, Deserialize)]
-pub struct MfaInfo {
+pub(super) struct MfaInfo {
     #[serde(rename = "totp")]
     pub google_auth: Option<BasicMfa>,
     #[serde(rename = "webAuthn")]
@@ -174,12 +174,12 @@ pub struct MfaInfo {
 
 impl MfaInfo {
     /// Whether TOTP (Google Authenticator) is enabled, the only interactive method supported.
-    pub fn totp_enabled(&self) -> bool {
+    pub(super) fn totp_enabled(&self) -> bool {
         self.google_auth.as_ref().is_some_and(|f| f.enabled)
     }
 
     /// Names of the enabled 2FA methods, in the order 1Password reports them.
-    pub fn enabled_methods(&self) -> Vec<&'static str> {
+    pub(super) fn enabled_methods(&self) -> Vec<&'static str> {
         let mut methods = Vec::new();
         for (factor, name) in [
             (&self.google_auth, "TOTP"),
@@ -197,13 +197,13 @@ impl MfaInfo {
 
 /// The `{ "enabled": bool }` shared by every 2FA method entry.
 #[derive(Debug, Deserialize)]
-pub struct BasicMfa {
+pub(super) struct BasicMfa {
     pub enabled: bool,
 }
 
 /// A server error body.
 #[derive(Debug, Deserialize)]
-pub struct ErrorResponse {
+pub(super) struct ErrorResponse {
     #[serde(rename = "errorCode")]
     pub code: i32,
     #[serde(rename = "errorMessage")]
@@ -212,19 +212,19 @@ pub struct ErrorResponse {
 
 /// A server failure body used by some endpoints instead of `Error`.
 #[derive(Debug, Deserialize)]
-pub struct FailureReason {
+pub(super) struct FailureReason {
     pub reason: String,
 }
 
 /// Response from `v1/account` (decrypted). Only the vault list is used.
 #[derive(Debug, Deserialize)]
-pub struct AccountInfo {
+pub(super) struct AccountInfo {
     pub vaults: Vec<VaultInfo>,
 }
 
 /// A vault entry in the account info.
 #[derive(Debug, Deserialize)]
-pub struct VaultInfo {
+pub(super) struct VaultInfo {
     pub uuid: String,
     #[serde(rename = "encAttrs")]
     pub enc_attrs: EncryptedEnvelope,
@@ -233,7 +233,7 @@ pub struct VaultInfo {
 
 /// An access-control entry carrying the vault key encrypted for a key we may hold.
 #[derive(Debug, Deserialize)]
-pub struct VaultAccess {
+pub(super) struct VaultAccess {
     pub acl: i32,
     #[serde(rename = "encVaultKey")]
     pub enc_vault_key: EncryptedEnvelope,
@@ -241,14 +241,14 @@ pub struct VaultAccess {
 
 /// Decrypted vault attributes.
 #[derive(Debug, Deserialize)]
-pub struct VaultAttributes {
+pub(super) struct VaultAttributes {
     pub name: Option<String>,
     pub desc: Option<String>,
 }
 
 /// A page of vault items. The last page is marked `batchComplete`.
 #[derive(Debug, Deserialize)]
-pub struct VaultItemsBatch {
+pub(super) struct VaultItemsBatch {
     #[serde(rename = "contentVersion")]
     pub version: i64,
     #[serde(rename = "batchComplete")]
@@ -258,7 +258,7 @@ pub struct VaultItemsBatch {
 
 /// A single encrypted vault item.
 #[derive(Debug, Deserialize)]
-pub struct VaultItem {
+pub(super) struct VaultItem {
     pub uuid: String,
     #[serde(rename = "templateUuid")]
     pub template_uuid: String,

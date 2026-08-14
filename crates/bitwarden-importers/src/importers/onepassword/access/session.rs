@@ -3,7 +3,7 @@
 use super::{opdata::AesKey, rest::RestClient};
 
 /// The session key and a client that MAC-signs and encrypts every request with it.
-pub struct Session {
+pub(super) struct Session {
     pub key: AesKey,
     pub rest: RestClient,
 }

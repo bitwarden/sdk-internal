@@ -17,14 +17,14 @@ const OAEP_SHA1: &str = "RSA-OAEP";
 const OAEP_SHA256: &str = "RSA-OAEP-256";
 
 /// An RSA private key identified by its kid.
-pub struct RsaKey {
+pub(super) struct RsaKey {
     pub id: String,
     key: RsaPrivateKey,
 }
 
 impl RsaKey {
     /// Builds the private key from the base64 JWK components.
-    pub fn parse(jwk: &RsaKeyJwk) -> Result<RsaKey, OnePasswordError> {
+    pub(super) fn parse(jwk: &RsaKeyJwk) -> Result<RsaKey, OnePasswordError> {
         let uint = |s: &str| -> Result<BoxedUint, OnePasswordError> {
             Ok(BoxedUint::from_be_slice_vartime(&decode64_loose(s)?))
         };
@@ -44,7 +44,7 @@ impl RsaKey {
     }
 
     /// Decrypts an envelope encrypted for this key, dispatching on the OAEP scheme.
-    pub fn decrypt(&self, encrypted: &Encrypted) -> Result<Vec<u8>, OnePasswordError> {
+    pub(super) fn decrypt(&self, encrypted: &Encrypted) -> Result<Vec<u8>, OnePasswordError> {
         if encrypted.key_id != self.id {
             return Err(OnePasswordError::Internal("mismatching key id".into()));
         }

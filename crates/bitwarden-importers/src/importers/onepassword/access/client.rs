@@ -14,7 +14,7 @@ use super::{
     two_factor::TwoFactorUi,
     wire::{
         AccountInfo, EncryptedEnvelope, KeysetsInfo, VaultAccess, VaultAttributes, VaultItem,
-        VaultItemDetails, VaultItemOverview, VaultItemsBatch,
+        VaultItemsBatch,
     },
 };
 

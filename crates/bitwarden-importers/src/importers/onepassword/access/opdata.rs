@@ -16,7 +16,7 @@ const ENCRYPTION_SCHEME: &str = "A256GCM";
 const CONTAINER_TYPE: &str = "b5+jwk+json";
 
 /// AES-256-GCM encrypt, returning `ciphertext || tag`.
-pub fn encrypt(
+pub(super) fn encrypt(
     key: &[u8],
     plaintext: &[u8],
     iv: &[u8],
@@ -38,7 +38,7 @@ pub fn encrypt(
 }
 
 /// AES-256-GCM decrypt of `ciphertext || tag`.
-pub fn decrypt(
+pub(super) fn decrypt(
     key: &[u8],
     ciphertext: &[u8],
     iv: &[u8],
@@ -68,7 +68,7 @@ pub fn decrypt(
 ///
 /// The envelope's container type (`cty`) is dropped: nothing dispatches on it.
 #[derive(Debug)]
-pub struct Encrypted {
+pub(super) struct Encrypted {
     pub key_id: String,
     pub scheme: String,
     pub iv: Vec<u8>,
@@ -77,7 +77,7 @@ pub struct Encrypted {
 
 impl Encrypted {
     /// Decodes the base64 `iv`/`data` fields (the `iv` is optional).
-    pub fn parse(envelope: &EncryptedEnvelope) -> Result<Encrypted, OnePasswordError> {
+    pub(super) fn parse(envelope: &EncryptedEnvelope) -> Result<Encrypted, OnePasswordError> {
         Ok(Encrypted {
             key_id: envelope.kid.clone(),
             scheme: envelope.enc.clone(),
@@ -91,7 +91,7 @@ impl Encrypted {
 }
 
 /// A symmetric AES-256-GCM key identified by its kid.
-pub struct AesKey {
+pub(super) struct AesKey {
     pub id: String,
     pub key: Vec<u8>,
 }
@@ -103,13 +103,13 @@ impl Drop for AesKey {
 }
 
 impl AesKey {
-    pub fn new(id: impl Into<String>, key: Vec<u8>) -> AesKey {
+    pub(super) fn new(id: impl Into<String>, key: Vec<u8>) -> AesKey {
         AesKey { id: id.into(), key }
     }
 
     /// Encrypts `plaintext` into a wire envelope using the given 12-byte IV and empty associated
     /// data.
-    pub fn encrypt(
+    pub(super) fn encrypt(
         &self,
         plaintext: &[u8],
         iv: &[u8],
@@ -125,7 +125,7 @@ impl AesKey {
     }
 
     /// Decrypts an envelope encrypted for this key, with empty associated data.
-    pub fn decrypt(&self, encrypted: &Encrypted) -> Result<Vec<u8>, OnePasswordError> {
+    pub(super) fn decrypt(&self, encrypted: &Encrypted) -> Result<Vec<u8>, OnePasswordError> {
         if encrypted.key_id != self.id {
             return Err(OnePasswordError::Internal("mismatching key id".into()));
         }
@@ -140,7 +140,7 @@ impl AesKey {
 }
 
 /// Decodes URL-safe, standard, or mixed base64 with or without padding.
-pub fn decode64_loose(s: &str) -> Result<Vec<u8>, OnePasswordError> {
+pub(super) fn decode64_loose(s: &str) -> Result<Vec<u8>, OnePasswordError> {
     let normalized: String = s
         .trim_end_matches('=')
         .chars()

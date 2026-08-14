@@ -13,16 +13,16 @@
 //! an open question. See the development notes in this module's README.
 
 /// The desktop app's build number, sent as the client version and inside the op user agent.
-pub const VERSION: &str = "81210036";
+pub(super) const VERSION: &str = "81210036";
 
 /// The HTTP library the desktop app reports. That app is itself written in Rust, so this is *its*
 /// reqwest version, not ours. Do not sync it with the workspace's reqwest pin; it is part of the
 /// fingerprint, and the two are unrelated.
-pub const HTTP_LIB: &str = "reqwest|0.12.24";
+pub(super) const HTTP_LIB: &str = "reqwest|0.12.24";
 
 /// The per-platform half of the identity. The version and HTTP library above are the same
 /// everywhere, so only these four fields vary.
-pub struct Platform {
+pub(super) struct Platform {
     /// Names the client: `1Password for Mac`.
     pub os: &'static str,
     /// Single-letter platform code, the second field of the op user agent.
@@ -34,7 +34,7 @@ pub struct Platform {
 }
 
 #[cfg(target_os = "macos")]
-pub const PLATFORM: Platform = Platform {
+pub(super) const PLATFORM: Platform = Platform {
     os: "Mac",
     op_code: "M",
     os_suffix: "MacOSX|26.3.1|aarch64",
@@ -42,7 +42,7 @@ pub const PLATFORM: Platform = Platform {
 };
 
 #[cfg(target_os = "linux")]
-pub const PLATFORM: Platform = Platform {
+pub(super) const PLATFORM: Platform = Platform {
     os: "Linux",
     op_code: "L",
     os_suffix: "Linux|Ubuntu 24.04|x86_64",
@@ -51,7 +51,7 @@ pub const PLATFORM: Platform = Platform {
 
 // Every other target, wasm32 included, presents as the Windows build.
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-pub const PLATFORM: Platform = Platform {
+pub(super) const PLATFORM: Platform = Platform {
     os: "Windows",
     op_code: "W",
     os_suffix: "Windows|25H2 11.0.26200|x86_64",

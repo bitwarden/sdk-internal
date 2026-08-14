@@ -8,7 +8,7 @@ use sha2::{Sha256, Sha512};
 use super::{account_key::AccountKey, error::OnePasswordError};
 
 /// HKDF-SHA256 producing 32 bytes, with `method` as the `info` parameter.
-pub fn hkdf_sha256(method: &str, ikm: &[u8], salt: &[u8]) -> [u8; 32] {
+pub(super) fn hkdf_sha256(method: &str, ikm: &[u8], salt: &[u8]) -> [u8; 32] {
     let hk = Hkdf::<Sha256>::new(Some(salt), ikm);
     let mut okm = [0u8; 32];
     hk.expand(method.as_bytes(), &mut okm)
@@ -20,7 +20,7 @@ pub fn hkdf_sha256(method: &str, ikm: &[u8], salt: &[u8]) -> [u8; 32] {
 ///
 /// `PBES2[g]-HS256` uses PBKDF2-HMAC-SHA256, `PBES2[g]-HS512` uses PBKDF2-HMAC-SHA512, both 32
 /// bytes.
-pub fn pbes2(
+pub(super) fn pbes2(
     method: &str,
     password: &str,
     salt: &[u8],
@@ -48,7 +48,7 @@ pub fn pbes2(
 ///
 /// `k1 = HKDF(info = algorithm, ikm = salt, salt = lower(username))`; `k2 = PBES2(algorithm,
 /// NFC(password), k1, iterations)`; result `= account_key.combine_with(k2)`.
-pub fn derive_master_key(
+pub(super) fn derive_master_key(
     algorithm: &str,
     iterations: u32,
     salt: &[u8],
