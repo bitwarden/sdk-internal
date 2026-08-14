@@ -11,6 +11,14 @@ on:
         description: "Update Android Repo - Opens a PR updating the SDK in bitwarden/android"
         type: boolean
         default: false
+  workflow_call:
+    secrets:
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_CLIENT_ID:
+        required: true
 
 defaults:
   run:

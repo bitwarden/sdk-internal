@@ -11,8 +11,6 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
-      - rc
-      - hotfix-rc
 
 defaults:
   run:

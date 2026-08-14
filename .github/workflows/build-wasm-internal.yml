@@ -8,6 +8,14 @@ on:
       - "rc"
       - "hotfix-rc"
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_CLIENT_ID:
+        required: true
 
 permissions: {}
 
