@@ -81,6 +81,7 @@ mod tests {
                 }),
                 master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some("test@example.com".to_string()),
+                contained_key_id: None,
             }),
             trusted_device_option: None,
             key_connector_option: None,
@@ -124,6 +125,7 @@ mod tests {
                 }),
                 master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some(SALT.to_string()),
+                contained_key_id: None,
             }),
             // Note: the trusted device option && the key connector option are mutually exclusive
             // from the server, but this test is just verifying that the conversion logic works
@@ -328,6 +330,7 @@ mod tests {
                 }),
                 master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some("test@example.com".to_string()),
+                contained_key_id: None,
             }),
             trusted_device_option: Some(TrustedDeviceUserDecryptionOptionApiResponse {
                 has_admin_approval: true,
@@ -363,6 +366,7 @@ mod tests {
                 }),
                 master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some("test@example.com".to_string()),
+                contained_key_id: None,
             }),
             trusted_device_option: None,
             key_connector_option: Some(KeyConnectorUserDecryptionOptionApiResponse {
@@ -394,6 +398,7 @@ mod tests {
                 }),
                 master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some("test@example.com".to_string()),
+                contained_key_id: None,
             }),
             trusted_device_option: None,
             key_connector_option: None,

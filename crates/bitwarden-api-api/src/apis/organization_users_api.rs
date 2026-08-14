@@ -88,6 +88,13 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
     ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
+    /// PUT /organizations/{orgId}/users/enable-pam
+    async fn bulk_enable_pam<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+    ) -> Result<(), Error>;
+
     /// PUT /organizations/{orgId}/users/enable-secrets-manager
     async fn bulk_enable_secrets_manager<'a>(
         &self,
@@ -454,6 +461,29 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn bulk_enable_pam<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/enable-pam",
+            local_var_configuration.base_path,
+            orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn bulk_enable_secrets_manager<'a>(

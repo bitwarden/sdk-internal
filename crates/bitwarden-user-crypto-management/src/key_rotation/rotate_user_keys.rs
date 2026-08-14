@@ -221,6 +221,10 @@ async fn internal_rotate_user_keys(
                 account_data: Box::new(account_data_model),
                 unlock_data: Box::new(common_unlock_data.clone()),
                 unlock_method_data: Box::new(unlock_method_data),
+                // Only V2 (COSE-encoded) user keys carry a key id; V1 rotations omit the field.
+                new_user_key_id: ctx
+                    .get_symmetric_key_id(rotation_context.new_user_key_id)
+                    .map(|id| id.to_string()),
             },
             StateUpdate {
                 #[allow(deprecated)]
