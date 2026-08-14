@@ -2,8 +2,11 @@
 
 use std::sync::LazyLock;
 
-use data_encoding::BASE64URL_NOPAD;
-use num_bigint::{BigInt, BigUint, Sign};
+use crypto_bigint::{
+    BoxedUint, ConcatenatingMul, Odd, Resize,
+    modular::{BoxedMontyForm, BoxedMontyParams},
+};
+use data_encoding::{BASE64URL_NOPAD, HEXLOWER};
 use rand::Rng;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -19,14 +22,27 @@ use super::{
 };
 
 const SRP_METHOD: &str = "SRPg-4096";
-const G: u32 = 5;
 const AUTH_ENDPOINT: &str = "v2/auth";
 const CONFIRM_KEY_ENDPOINT: &str = "v2/auth/confirm-key";
 
+/// The width of the SRP group, and so of every value reduced modulo it.
+const N_BITS: u32 = 4096;
+
+/// The width of the SHA-256 values SRP uses as scalars: `u`, `k` and `x`.
+const SCALAR_BITS: u32 = 256;
+
 /// The 4096-bit SRP group prime (RFC 3526).
-static N: LazyLock<BigUint> = LazyLock::new(|| {
-    BigUint::parse_bytes(N_HEX.as_bytes(), 16).expect("N_HEX is a compile-time hex constant")
+static N: LazyLock<Odd<BoxedUint>> = LazyLock::new(|| {
+    Odd::new(BoxedUint::from_be_hex(N_HEX, N_BITS).expect("N_HEX is a compile-time hex constant"))
+        .expect("the SRP group prime is odd")
 });
+
+/// The Montgomery form of [`N`], built once.
+static N_PARAMS: LazyLock<BoxedMontyParams> =
+    LazyLock::new(|| BoxedMontyParams::new_vartime(N.clone()));
+
+/// The SRP group generator.
+static G: LazyLock<BoxedUint> = LazyLock::new(|| BoxedUint::from(5u32));
 
 const N_HEX: &str = concat!(
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22",
@@ -110,7 +126,7 @@ pub async fn perform_and_verify(
 
 /// The exchange itself, with `secret_a` taken as an argument so tests can pin it.
 async fn perform(
-    secret_a: &BigUint,
+    secret_a: &BoxedUint,
     credentials: &Credentials,
     account_key: &AccountKey,
     srp_info: &SrpInfo,
@@ -145,20 +161,20 @@ async fn perform(
 }
 
 /// Generates the ephemeral secret `a` as a random 256-bit value.
-fn generate_secret_a() -> BigUint {
+fn generate_secret_a() -> BoxedUint {
     let mut bytes = [0u8; 32];
     bitwarden_random::rng().fill_bytes(&mut bytes);
-    BigUint::from_bytes_be(&bytes)
+    scalar(&bytes)
 }
 
 /// `A = g^a mod N`.
-fn compute_shared_a(secret_a: &BigUint) -> BigUint {
-    BigUint::from(G).modpow(secret_a, &N)
+fn compute_shared_a(secret_a: &BoxedUint) -> BoxedUint {
+    mod_pow(&G, secret_a)
 }
 
 /// Rejects a server `B` that is a multiple of `N`.
-fn validate_b(shared_b: &BigUint) -> Result<(), OnePasswordError> {
-    if shared_b % &*N == BigUint::from(0u32) {
+fn validate_b(shared_b: &BoxedUint) -> Result<(), OnePasswordError> {
+    if bool::from(shared_b.rem(N.as_nz_ref()).is_zero()) {
         return Err(OnePasswordError::Internal(
             "Shared B validation failed".into(),
         ));
@@ -168,100 +184,107 @@ fn validate_b(shared_b: &BigUint) -> Result<(), OnePasswordError> {
 
 /// Sends `userA` and returns the server's `userB`.
 async fn exchange_a_for_b(
-    shared_a: &BigUint,
+    shared_a: &BoxedUint,
     rest: &RestClient,
-) -> Result<BigUint, OnePasswordError> {
+) -> Result<BoxedUint, OnePasswordError> {
     let response: AForB = rest
-        .post_json(
-            AUTH_ENDPOINT,
-            json!({ "userA": to_server_hex(&BigInt::from(shared_a.clone())) }),
-        )
+        .post_json(AUTH_ENDPOINT, json!({ "userA": to_server_hex(shared_a) }))
         .await?;
     from_server_hex(&response.b)
 }
 
+/// `base ^ exponent mod N`, constant time in `exponent`.
+fn mod_pow(base: &BoxedUint, exponent: &BoxedUint) -> BoxedUint {
+    BoxedMontyForm::new(base.resize(N_BITS), &N_PARAMS)
+        .pow(exponent)
+        .retrieve()
+}
+
+/// A SHA-256 output as an SRP scalar.
+fn scalar(hash: &[u8]) -> BoxedUint {
+    BoxedUint::from_be_slice(hash, SCALAR_BITS).expect("an SRP scalar is a 32-byte hash")
+}
+
 /// Computes the SRP session key `K`.
 fn compute_key(
-    secret_a: &BigUint,
-    shared_a: &BigUint,
-    shared_b: &BigUint,
+    secret_a: &BoxedUint,
+    shared_a: &BoxedUint,
+    shared_b: &BoxedUint,
     srp_x: &[u8],
 ) -> [u8; 32] {
-    let n = &*N;
-
     // The multiplier k = H(N, g), always
     // 3509477ea9fca66eadb7cf7b1bd0eb508f54d3989a9c988006a7d0b338374dd2 for this group.
-    let mut g_mod_n_input = to_compatible_byte_array(n);
-    g_mod_n_input.extend_from_slice(&mod_bytes(&BigUint::from(G), n));
+    let mut g_mod_n_input = to_compatible_byte_array(&N);
+    g_mod_n_input.extend_from_slice(&mod_n_bytes(&G));
     let g_mod_n = sha256(&g_mod_n_input);
 
     // The scrambling parameter u = H(A, B), which ties the key to both ephemerals.
-    let mut ab = mod_bytes(shared_a, n);
-    ab.extend_from_slice(&mod_bytes(shared_b, n));
+    let mut ab = mod_n_bytes(shared_a);
+    ab.extend_from_slice(&mod_n_bytes(shared_b));
     let ab_sha256 = sha256(&ab);
 
     // a + u*x, the half only we can build.
-    let x = BigUint::from_bytes_be(srp_x);
-    let exponent = secret_a.clone() + BigUint::from_bytes_be(&ab_sha256) * &x;
+    let x = scalar(srp_x);
+    let exponent = scalar(&ab_sha256)
+        .concatenating_mul(&x)
+        .wrapping_add(secret_a);
 
-    // B - k*g^x, which strips the server's verifier back out of B.
-    let g_pow_x = BigUint::from(G).modpow(&x, n);
-    let g_mod_n_int = BigUint::from_bytes_be(&g_mod_n);
-    let base = BigInt::from(shared_b.clone()) - BigInt::from(&g_pow_x * &g_mod_n_int);
-
-    // That subtraction can go negative, and modpow needs a base in [0, N).
-    let n_int = BigInt::from(n.clone());
-    let base = ((&base % &n_int) + &n_int) % &n_int;
-    let base = base
-        .to_biguint()
-        .expect("value reduced into [0, N) is non-negative");
+    // shared_b - k*g^x strips the verifier term out of the server's ephemeral, leaving g^b. The
+    // difference is almost always negative, so each operand is reduced mod N first and `sub_mod`
+    // adds N back when the subtraction underflows.
+    let k_g_pow_x = mod_pow(&G, &x)
+        .concatenating_mul(&scalar(&g_mod_n))
+        .rem(N.as_nz_ref());
+    let base = shared_b
+        .rem(N.as_nz_ref())
+        .sub_mod(&k_g_pow_x, N.as_nz_ref());
 
     // K is the premaster secret hashed in the server's hex encoding.
-    let premaster = base.modpow(&exponent, n);
-    sha256(to_server_hex(&BigInt::from(premaster)).as_bytes())
+    sha256(to_server_hex(&mod_pow(&base, &exponent)).as_bytes())
 }
 
-/// `BigInt` to hex in the exact format 1Password's server expects: lowercase, with all leading zero
-/// nibbles stripped. The output may be odd-length; that is intentional. Both `userA` (sent over the
-/// wire) and `u` (the SRP shared secret hashed into the session key) use this encoding, and
-/// changing it would break wire compatibility or session-key agreement with the server.
+/// Hex in the exact format 1Password's server expects: lowercase, with all leading zero nibbles
+/// stripped. The output may be odd-length; that is intentional. Both `userA` (sent over the wire)
+/// and `u` (the SRP shared secret hashed into the session key) use this encoding, and changing it
+/// would break wire compatibility or session-key agreement with the server.
 ///
 /// Mirrors the official 1Password JS client (webapi bundle):
 ///   `q = e => e.toString(16).replace(/^(0x)?0*/, "")`
-fn to_server_hex(value: &BigInt) -> String {
-    match value.sign() {
-        Sign::NoSign => "0".to_string(),
-        Sign::Plus => format!("{:x}", value.magnitude()),
-        Sign::Minus => format!("-{:x}", value.magnitude()),
+fn to_server_hex(value: &BoxedUint) -> String {
+    let hex = HEXLOWER.encode(&value.to_be_bytes());
+    match hex.trim_start_matches('0') {
+        "" => "0".to_string(),
+        trimmed => trimmed.to_string(),
     }
 }
 
 /// Parses a value the server sent in the encoding above.
-fn from_server_hex(hex: &str) -> Result<BigUint, OnePasswordError> {
-    BigUint::parse_bytes(hex.as_bytes(), 16)
-        .ok_or_else(|| OnePasswordError::Internal("invalid shared value from server".into()))
-}
+fn from_server_hex(hex: &str) -> Result<BoxedUint, OnePasswordError> {
+    let invalid = || OnePasswordError::Internal("invalid shared value from server".into());
 
-/// Fixed-width big-endian bytes of `dividend mod divisor`, padded to the divisor's byte length.
-fn mod_bytes(dividend: &BigUint, divisor: &BigUint) -> Vec<u8> {
-    let divisor_size = divisor.to_bytes_be().len();
-    let remainder = (dividend % divisor).to_bytes_be();
-    let remainder_size = remainder.len();
-
-    if divisor_size == remainder_size {
-        remainder
-    } else if divisor_size < remainder_size {
-        remainder[remainder_size - 2..].to_vec()
-    } else {
-        let mut padded = vec![0u8; divisor_size - remainder_size];
-        padded.extend_from_slice(&remainder);
-        padded
+    if hex.is_empty() || hex.len() > N_HEX.len() {
+        return Err(invalid());
     }
+
+    // The server strips leading zeros, `from_be_hex` wants the full width of the group.
+    let padded = format!("{hex:0>width$}", width = N_HEX.len());
+    BoxedUint::from_be_hex(&padded, N_BITS)
+        .into_option()
+        .ok_or_else(invalid)
 }
 
-/// Big-endian minimal bytes of a non-negative integer.
-fn to_compatible_byte_array(value: &BigUint) -> Vec<u8> {
-    value.to_bytes_be()
+/// `value mod N` as big-endian bytes, always the full width of `N`.
+fn mod_n_bytes(value: &BoxedUint) -> Vec<u8> {
+    value.rem(N.as_nz_ref()).to_be_bytes().into_vec()
+}
+
+/// Big-endian bytes with leading zeros stripped, the encoding the server hashes over.
+fn to_compatible_byte_array(value: &BoxedUint) -> Vec<u8> {
+    let bytes = value.to_be_bytes();
+    match bytes.iter().position(|byte| *byte != 0) {
+        Some(first_significant) => bytes[first_significant..].to_vec(),
+        None => vec![0],
+    }
 }
 
 /// `SHA256(SHA256(uuid) || SHA256(lower(username)))`, url-safe base64.
@@ -278,8 +301,8 @@ async fn verify_key(
     username: &str,
     key_uuid: &str,
     salt: &[u8],
-    shared_a: &BigUint,
-    shared_b: &BigUint,
+    shared_a: &BoxedUint,
+    shared_b: &BoxedUint,
     rest: &RestClient,
 ) -> Result<(), OnePasswordError> {
     let client_hash =
@@ -305,11 +328,11 @@ fn calculate_client_hash(
     username: &str,
     key_uuid: &str,
     salt: &[u8],
-    shared_a: &BigUint,
-    shared_b: &BigUint,
+    shared_a: &BoxedUint,
+    shared_b: &BoxedUint,
 ) -> [u8; 32] {
     let sirp_n = sha256(&to_compatible_byte_array(&N));
-    let sirp_g = sha256(&to_compatible_byte_array(&BigUint::from(G)));
+    let sirp_g = sha256(&to_compatible_byte_array(&G));
     let identity = sha256(calculate_identity(username, key_uuid).as_bytes());
 
     // Opens with the group both sides agreed on.
@@ -365,13 +388,13 @@ mod tests {
     const SHARED_A: &str = "843c9c4977cf9c767452c90708c3dbdf3508c0016f8a56abc20c2e654dbd74c2c04b9412528a0927f499b245f9ad6742052662de2f725bf2a6c84913062842b4b2aaa8d41598c0d11424745bbae928d8e00e3c2c831c5ae90e128b719adb8be3845561186826462f0dbbdba272666c039f075b3da18c866c61a208cb9aed5ade03e6570818b7146c789f2e2928958ec7bebffbf2cc06cbb83b77ed80eae95e194502dead2e945e885d145d4521b74b8669211ffe718b20f04253d19550e0f9e8f1f0381caa2200223904a94d1e70f7db7cfa7d10d415bf7571f656a2e7bac3d142a2fa60b5a4e2fec4a82348fb46e03b65938f960373eefb95e50b1dd38134593b2f3ed0a19ae8684b4b54a04e0e022e01abc03072aa2e0096b209eaadb8dae57acd607a46e27bc5bfa66c3887e03441b4628135f830d1d78c7a60366d88cb42ed7ddd2dc32049f9dd3a1f459b610d41d25e8615f3271fcadcd37bf1b13c84c049d57d14ded500290b430c33d1d1dc3b04af66862ca3b4d501e2827355f68eaaf063a131c2436aa0a75519b7ac4d79845b6235898dcd9bef1093618b7c5bc5d73a7fc2a5ef8bca638e922152e459e89652b4a7d7d19cfd24de93f72f20e3a6f4325abf5ca1aec3ef3f392cc356c80b72e43a577775d2bf613b60d9f46d130e9881534e7548241e612901f61d5c5acb62100b8371c8dc42747437cd9ddcf9debf";
     const SHARED_B: &str = "7112742e3035eca37656e1ad2171516e3e154bcbabbcb5f52787aa53ad882cffd8e952bd67dbc8059025be23a0b86914bf8ec4c08cac0b3448a99d8c097e4b0c6942870b2cd2c56a58499c81c294bf2f64de408535f0a36ba416177519dcb5a54b7a403459abb1bfe8aecb92048e84a55ba48f1672f6ee3f30abff81868e88c8bb25c7c17292e535f91debda167af8f12d1e1073a48a9257b443dacd8ba47270051b03940117d2cec29f6521a3e78e575634db5bc87d479a4327db1b30578c90553edd3de58af08e9157a11b352b0bd7fca70d469809b3d516fed4edc989b78c6f330e553947111c563cb8c8ff184179cf7b8733494e16f3e38ed7cd42651c5bb4d81548c4b320996445b6f1a4c34a6211b5f65e561c04009c7422e289d7035085e21258513040b16bea0d3e91304879fa61f48af4daefce65d0917e4af106d868c6189dfd9031c8a3b2d97fa2a50445d6a818341fed7ad2a986f5aa691626426dc2b1047e1db8a1984f8fda526f21e825df6b4cc60cd31300181a3782e53d039f85164e417b419cde581826b08887f25277f9f7c0933aa596f5a4bb27af7bffb095027e326d1c02544357eaa553ac93b564bb5953b8fc498044d65b8003ad93f95c319ce6af0a0327151935e860c3e5dad17cd65ae4318e76905ce2a3ae239c12ab207313af3c0c7744e7aee2584043ae71dfc3e376bf747f92fa5a94bd36cb";
 
-    fn big(hex: &str) -> BigUint {
-        BigUint::parse_bytes(hex.as_bytes(), 16).expect("valid hex")
+    fn big(hex: &str) -> BoxedUint {
+        from_server_hex(hex).expect("valid hex")
     }
 
     #[test]
     fn to_server_hex_returns_hex_string() {
-        let cases: [(i32, &str); 15] = [
+        let cases: [(u32, &str); 8] = [
             (0, "0"),
             (1, "1"),
             (0xD, "d"),
@@ -380,22 +403,26 @@ mod tests {
             (0xDEAD, "dead"),
             (0x80, "80"),
             (0xFF, "ff"),
-            (-1, "-1"),
-            (-0xD, "-d"),
-            (-0xDE, "-de"),
-            (-0xDEA, "-dea"),
-            (-0xDEAD, "-dead"),
-            (-0x80, "-80"),
-            (-0xFF, "-ff"),
         ];
         for (number, expected) in cases {
-            assert_eq!(to_server_hex(&BigInt::from(number)), expected);
+            assert_eq!(to_server_hex(&BoxedUint::from(number)), expected);
+        }
+    }
+
+    #[test]
+    fn from_server_hex_rejects_malformed_values() {
+        for input in ["", "not hex", &"f".repeat(N_HEX.len() + 1)] {
+            from_server_hex(input).expect_err("malformed values are rejected");
         }
     }
 
     #[test]
     fn compute_key_returns_key() {
-        let secret_a = big("37bbf7bf6a51f902673556ea6a2db91dd9987554ab74c3bc089b213693d9c06e");
+        let secret_a = BoxedUint::from_be_hex(
+            "37bbf7bf6a51f902673556ea6a2db91dd9987554ab74c3bc089b213693d9c06e",
+            SCALAR_BITS,
+        )
+        .expect("valid hex");
         let srp_x = HEXLOWER
             .decode(b"9559afc0581390b1190a57dd281729baa237760982c7369c4c14d42157703a0f")
             .expect("valid hex");
@@ -453,8 +480,8 @@ mod tests {
         let x = compute_x(&credentials, &account_key, &srp_info).expect("derivation succeeds");
 
         assert_eq!(
-            BigUint::from_bytes_be(&x).to_string(),
-            "104882354933197857481625453411657638660079750214611069684692024916274069892339"
+            HEXLOWER.encode(&x),
+            "e7e14f282b01332cc193dc42f8501e3ffe8afdbf4b431ed4bfd885ff0bdfecf3"
         );
     }
 
@@ -484,8 +511,8 @@ mod tests {
             "user@example.com",
             "RTN9SA",
             b"salt",
-            &BigUint::from(2u32),
-            &BigUint::from(3u32),
+            &BoxedUint::from(2u32),
+            &BoxedUint::from(3u32),
             &rest,
         )
         .await

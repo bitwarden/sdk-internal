@@ -47,12 +47,12 @@ bitwarden-exporters = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
+crypto-bigint = { workspace = true }
 data-encoding = { workspace = true }
 hkdf = { workspace = true }
 hmac = { workspace = true }
 icu_normalizer = { workspace = true }
 keepass = { workspace = true }
-num-bigint = { workspace = true }
 pbkdf2 = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }

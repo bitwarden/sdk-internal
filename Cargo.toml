@@ -78,6 +78,7 @@ chrono = { version = ">=0.4.26, <0.5", features = [
     "std",
 ], default-features = false }
 ciborium = ">=0.2.2, <0.3"
+crypto-bigint = { version = "0.7.5", features = ["alloc"], default-features = false }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = "3.0.0-pre.7" }
 futures = ">=0.3.31, <0.4"
@@ -91,7 +92,6 @@ icu_normalizer = { version = "2.2.0", features = [
 js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.14", default-features = false }
 mockall = { version = ">=0.13.1, <0.16" }
-num-bigint = ">=0.4, <0.5"
 password-rules-parser = ">=1.1.0, <2"
 pbkdf2 = { version = "0.13.0", default-features = false }
 proc-macro2 = ">=1.0.89, <2"
@@ -213,9 +213,3 @@ opt-level = 3
 # Stripping the binary reduces the size by ~30%, but the stacktraces won't be usable anymore.
 # This is fine as long as we don't have any unhandled panics, but let's keep it disabled for now
 # strip = true
-
-# crypto-bigint 0.7.0-0.7.4 were yanked and 0.7.5 has not yet propagated to the sparse index,
-# so `rsa`/`ssh-key` (which require `^0.7`) cannot be resolved from crates.io. Pin to the 0.7.5
-# tag until the registry index catches up, then remove this patch.
-[patch.crates-io]
-crypto-bigint = { git = "https://github.com/RustCrypto/crypto-bigint", tag = "v0.7.5" }

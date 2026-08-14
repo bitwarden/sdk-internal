@@ -16,8 +16,9 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - No SSO support
 - No service account support (they are not so good for export/import)
 - One entry point, `Client::download_all_vaults`. No vault selection, no random access
-- Added `aes-gcm`, `hkdf`, `pbkdf2`, `num-bigint` and `icu_normalizer` to the workspace, will
-  increase the wasm size
+- Added `aes-gcm`, `hkdf`, `pbkdf2`, `crypto-bigint` and `icu_normalizer` to the workspace, will
+  increase the wasm size. `crypto-bigint` is the exception, `rsa` and `ssh-key` already pull it in
+- SRP uses `crypto-bigint` rather than `num-bigint` for the constant-time `modpow`
 - Uses RustCrypto directly rather than `bitwarden-crypto`, which keeps HKDF, AES-GCM and RSA-OAEP
   private and has no PBKDF2-SHA512
 - `icu_normalizer` only NFC-normalizes the password before PBKDF2. Heavy for one call,
