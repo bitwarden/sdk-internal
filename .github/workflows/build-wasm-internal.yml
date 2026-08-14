@@ -43,13 +43,22 @@ jobs:
             readable: "commercial license"
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repo (PR)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          persist-credentials: false
+
+      - name: Checkout repo (Push or manual run)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         with:
           persist-credentials: false
 
       - name: Set version (PR)
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
         env:
           PR_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
         run: |
@@ -118,8 +127,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout repo
+      - name: Checkout repo (PR)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          persist-credentials: false
+
+      - name: Checkout repo (Push or manual run)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         with:
           persist-credentials: false
 
@@ -163,7 +181,9 @@ jobs:
 
   trigger-breaking-change-check:
     name: Trigger client breaking change checks
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      github.event_name == 'pull_request_target'
     needs: build
     permissions:
       contents: read
