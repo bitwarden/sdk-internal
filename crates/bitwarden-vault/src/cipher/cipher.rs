@@ -2125,7 +2125,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
 
     fn try_from(cipher: CipherDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
-            partial_data: None,
+            partial_data: cipher.partial_data,
             id: cipher.id.map(CipherId::new),
             organization_id: cipher.organization_id.map(OrganizationId::new),
             folder_id: cipher.folder_id.map(FolderId::new),
@@ -2185,11 +2185,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
 impl PartialCipher for CipherDetailsResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         Ok(Cipher {
-            local_data: cipher.as_ref().and_then(|c| c.local_data.clone()),
-            // Preserve PAM gating across a partial/full update; these merge responses never change
-            // gating. TODO: prefer the response's partialData once the generated API model carries
-            // it.
-            partial_data: cipher.and_then(|c| c.partial_data),
+            local_data: cipher.and_then(|c| c.local_data),
             ..self.try_into()?
         })
     }
@@ -2263,10 +2259,7 @@ impl From<CipherRepromptType> for bitwarden_api_api::models::CipherRepromptType 
 impl PartialCipher for CipherResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         Ok(Cipher {
-            // Preserve PAM gating across a partial/full update; these merge responses never change
-            // gating. TODO: prefer the response's partialData once the generated API model carries
-            // it.
-            partial_data: cipher.as_ref().and_then(|c| c.partial_data.clone()),
+            partial_data: self.partial_data,
             collection_ids: cipher
                 .as_ref()
                 .map(|c| c.collection_ids.clone())
@@ -2322,10 +2315,7 @@ impl PartialCipher for CipherMiniResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         let cipher = cipher.as_ref();
         Ok(Cipher {
-            // Preserve PAM gating across a partial/full update; these merge responses never change
-            // gating. TODO: prefer the response's partialData once the generated API model carries
-            // it.
-            partial_data: cipher.and_then(|c| c.partial_data.clone()),
+            partial_data: self.partial_data,
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
@@ -2386,10 +2376,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
     fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
         let cipher = cipher.as_ref();
         Ok(Cipher {
-            // Preserve PAM gating across a partial/full update; these merge responses never change
-            // gating. TODO: prefer the response's partialData once the generated API model carries
-            // it.
-            partial_data: cipher.and_then(|c| c.partial_data.clone()),
+            partial_data: self.partial_data,
             id: self.id.map(CipherId::new),
             organization_id: self.organization_id.map(OrganizationId::new),
             key: EncString::try_from_optional(self.key)?,
@@ -4333,6 +4320,68 @@ mod tests {
             cipher.view_password,
             "view_password should default to true for CipherMiniDetailsResponseModel"
         );
+    }
+
+    /// PAM gating is authoritative from the server response: `merge_with_cipher` takes
+    /// `partial_data` from the response, so it gates when the response carries the restricted
+    /// envelope and un-gates when it does not — regardless of the local cipher's prior state.
+    #[test]
+    fn test_merge_takes_partial_data_from_response() {
+        use chrono::Utc;
+
+        let org: OrganizationId = RESTRICTED_ORG_UUID.parse().unwrap();
+        // A local cipher that is currently PAM-gated; the response's gating must win over it.
+        let local_restricted = || {
+            Some(restricted_cipher(
+                org,
+                CipherType::Login,
+                RESTRICTED_LOGIN_ENVELOPE.to_string(),
+            ))
+        };
+        let now = Utc::now().to_rfc3339();
+
+        macro_rules! assert_gating_from_response {
+            ($model:ident) => {{
+                let base = $model {
+                    id: Some(TEST_UUID.parse().unwrap()),
+                    organization_id: Some(org.to_string().parse().unwrap()),
+                    r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                    creation_date: Some(now.clone()),
+                    revision_date: Some(now.clone()),
+                    ..Default::default()
+                };
+
+                // A full response (no `partial_data`) un-gates a locally-restricted cipher.
+                assert_eq!(
+                    base.clone()
+                        .merge_with_cipher(local_restricted())
+                        .unwrap()
+                        .partial_data,
+                    None,
+                    concat!(stringify!($model), ": full response must un-gate"),
+                );
+
+                // A restricted response gates the row even when the local cipher was full.
+                let restricted = $model {
+                    partial_data: Some(RESTRICTED_LOGIN_ENVELOPE.to_string()),
+                    ..base
+                };
+                assert_eq!(
+                    restricted
+                        .merge_with_cipher(None)
+                        .unwrap()
+                        .partial_data
+                        .as_deref(),
+                    Some(RESTRICTED_LOGIN_ENVELOPE),
+                    concat!(stringify!($model), ": restricted response must gate"),
+                );
+            }};
+        }
+
+        assert_gating_from_response!(CipherResponseModel);
+        assert_gating_from_response!(CipherDetailsResponseModel);
+        assert_gating_from_response!(CipherMiniResponseModel);
+        assert_gating_from_response!(CipherMiniDetailsResponseModel);
     }
 
     // ---------- Cipher Decryptable dispatch + CipherView::to_list_view ----------
