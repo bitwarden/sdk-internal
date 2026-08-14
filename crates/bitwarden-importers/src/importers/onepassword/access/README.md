@@ -29,3 +29,9 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
   them? See start_registers_an_unknown_device_then_retries for an example.
 - Do we need to import password history?
 - Only the credentials and the keys are zeroed. The decrypted vault data is not
+- The server is never authenticated, `verify_key` does not recompute `serverVerifyHash`
+- The wire DTOs derive `Debug`, so a debug log of one would print secrets
+- Credentials are not trimmed, a pasted Secret Key with a trailing newline fails on length
+- The sign-in domain is taken as a raw string and never validated
+- A vault we hold no key for is skipped silently, and one undecryptable item aborts the whole import
+- The module is under a blanket `allow(dead_code, unused_imports)` until the conversion layer lands
