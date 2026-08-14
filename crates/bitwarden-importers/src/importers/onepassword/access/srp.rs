@@ -262,7 +262,9 @@ fn to_server_hex(value: &BoxedUint) -> String {
 fn from_server_hex(hex: &str) -> Result<BoxedUint, OnePasswordError> {
     let invalid = || OnePasswordError::Internal("invalid shared value from server".into());
 
-    if hex.is_empty() || hex.len() > N_HEX.len() {
+    // The ASCII check is load bearing: padding below counts characters while `from_be_hex` asserts
+    // on byte length, so a multi-byte character would overshoot the width and panic.
+    if hex.is_empty() || hex.len() > N_HEX.len() || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err(invalid());
     }
 
@@ -411,7 +413,7 @@ mod tests {
 
     #[test]
     fn from_server_hex_rejects_malformed_values() {
-        for input in ["", "not hex", &"f".repeat(N_HEX.len() + 1)] {
+        for input in ["", "not hex", "é", &"f".repeat(N_HEX.len() + 1)] {
             from_server_hex(input).expect_err("malformed values are rejected");
         }
     }
