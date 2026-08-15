@@ -38,7 +38,7 @@ pub enum KeyIdBackfillError {
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl UserCryptoManagementClient {
     /// Returns whether the server is missing the id of the user's current user key.
-    pub async fn needs_backfill(&self) -> Result<bool, KeyIdBackfillError> {
+    pub async fn user_key_id_needs_backfill(&self) -> Result<bool, KeyIdBackfillError> {
         let state_bridge = self.client.km_state_bridge();
         if !state_bridge.is_bridge_registered() {
             return Err(KeyIdBackfillError::StateBridgeNotRegistered);
@@ -64,10 +64,11 @@ impl UserCryptoManagementClient {
     /// Records the id of the user's current user key with the server, and stores it as the id the
     /// server knows.
     ///
-    /// Safe to call when no backfill is needed, but [`Self::needs_backfill`] avoids the round trip.
+    /// Safe to call when no backfill is needed, but [`Self::user_key_id_needs_backfill`] avoids the
+    /// round trip.
     ///
     /// Requires the client to be unlocked so the current user key is available in memory.
-    pub async fn backfill(&self) -> Result<(), KeyIdBackfillError> {
+    pub async fn user_key_id_backfill(&self) -> Result<(), KeyIdBackfillError> {
         let user_key_id = self
             .current_user_key_id()?
             .ok_or(KeyIdBackfillError::NoKeyId)?;
@@ -171,7 +172,7 @@ mod tests {
         assert!(
             client
                 .user_crypto_management()
-                .needs_backfill()
+                .user_key_id_needs_backfill()
                 .await
                 .unwrap()
         );
@@ -186,7 +187,7 @@ mod tests {
         assert!(
             !client
                 .user_crypto_management()
-                .needs_backfill()
+                .user_key_id_needs_backfill()
                 .await
                 .unwrap()
         );
@@ -200,7 +201,7 @@ mod tests {
         assert!(
             !client
                 .user_crypto_management()
-                .needs_backfill()
+                .user_key_id_needs_backfill()
                 .await
                 .unwrap()
         );
@@ -214,7 +215,10 @@ mod tests {
             .register_bridge(Box::new(InMemoryStateBridge::default()));
 
         assert!(matches!(
-            client.user_crypto_management().needs_backfill().await,
+            client
+                .user_crypto_management()
+                .user_key_id_needs_backfill()
+                .await,
             Err(KeyIdBackfillError::UserKeyNotAvailable)
         ));
     }
@@ -224,7 +228,10 @@ mod tests {
         let client = Client::new(None);
 
         assert!(matches!(
-            client.user_crypto_management().needs_backfill().await,
+            client
+                .user_crypto_management()
+                .user_key_id_needs_backfill()
+                .await,
             Err(KeyIdBackfillError::StateBridgeNotRegistered)
         ));
     }
@@ -247,7 +254,11 @@ mod tests {
         let client = client_with_user_key(SymmetricKeyAlgorithm::XAes256Gcm, api_client);
         let expected = user_key_id(&client).to_string();
 
-        client.user_crypto_management().backfill().await.unwrap();
+        client
+            .user_crypto_management()
+            .user_key_id_backfill()
+            .await
+            .unwrap();
 
         assert_eq!(posted.lock().unwrap().as_deref(), Some(expected.as_str()));
         let stored = client.km_state_bridge().get_user_key_id().await.unwrap();
@@ -259,7 +270,7 @@ mod tests {
         let client = client_with_user_key(SymmetricKeyAlgorithm::Aes256CbcHmac, no_api_calls());
 
         assert!(matches!(
-            client.user_crypto_management().backfill().await,
+            client.user_crypto_management().user_key_id_backfill().await,
             Err(KeyIdBackfillError::NoKeyId)
         ));
     }
@@ -282,7 +293,7 @@ mod tests {
         let client = client_with_user_key(SymmetricKeyAlgorithm::XAes256Gcm, api_client);
 
         assert!(matches!(
-            client.user_crypto_management().backfill().await,
+            client.user_crypto_management().user_key_id_backfill().await,
             Err(KeyIdBackfillError::Api)
         ));
         assert!(client.km_state_bridge().get_user_key_id().await.is_none());

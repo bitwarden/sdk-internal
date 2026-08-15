@@ -58,14 +58,14 @@ describe("user key id backfill", () => {
     mock.restore();
   });
 
-  describe("needs_backfill", () => {
+  describe("user_key_id_needs_backfill", () => {
     it(
       "is true when the server has recorded no key id for a V2 account",
       async () => {
         mock = installHttpMock({});
         const client = await makeV2AccountClient(bridge, SETTINGS);
 
-        expect(await client.user_crypto_management().needs_backfill()).toBe(true);
+        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(true);
         // The check is answered from local state alone.
         expect(mock.routes()).toEqual([]);
       },
@@ -80,7 +80,7 @@ describe("user key id backfill", () => {
         // Stands in for what the crypto sync handler stores when the server reports an id.
         await bridge.set_user_key_id(RECORDED_KEY_ID);
 
-        expect(await client.user_crypto_management().needs_backfill()).toBe(false);
+        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
       },
       TIMEOUT,
     );
@@ -91,7 +91,7 @@ describe("user key id backfill", () => {
         mock = installHttpMock({});
         const client = await makeInitializedPasswordmanagerClient(bridge, SETTINGS);
 
-        expect(await client.user_crypto_management().needs_backfill()).toBe(false);
+        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
       },
       TIMEOUT,
     );
@@ -109,7 +109,7 @@ describe("user key id backfill", () => {
           SETTINGS,
         );
 
-        const error = await rejection(client.user_crypto_management().needs_backfill());
+        const error = await rejection(client.user_crypto_management().user_key_id_needs_backfill());
 
         expect(error.variant).toBe("StateBridgeNotRegistered");
       },
@@ -117,14 +117,14 @@ describe("user key id backfill", () => {
     );
   });
 
-  describe("backfill", () => {
+  describe("user_key_id_backfill", () => {
     it(
       "posts the current user key id and stores it as the server's",
       async () => {
         mock = installHttpMock({ [ROUTE]: () => ({}) });
         const client = await makeV2AccountClient(bridge, SETTINGS);
 
-        await client.user_crypto_management().backfill();
+        await client.user_crypto_management().user_key_id_backfill();
 
         expect(mock.routes()).toEqual([ROUTE]);
         const posted = mock.bodyFor(ROUTE);
@@ -134,7 +134,7 @@ describe("user key id backfill", () => {
         // The id crossed the FFI boundary in both directions and came back unchanged.
         expect(await bridge.get_user_key_id()).toEqual(posted.userKeyId);
         // Nothing left to backfill.
-        expect(await client.user_crypto_management().needs_backfill()).toBe(false);
+        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
       },
       TIMEOUT,
     );
@@ -145,12 +145,12 @@ describe("user key id backfill", () => {
         mock = installHttpMock({ [ROUTE]: () => ({ status: 400, json: { message: "nope" } }) });
         const client = await makeV2AccountClient(bridge, SETTINGS);
 
-        const error = await rejection(client.user_crypto_management().backfill());
+        const error = await rejection(client.user_crypto_management().user_key_id_backfill());
 
         expect(error.variant).toBe("Api");
         expect(await bridge.get_user_key_id()).toBeFalsy();
         // Still outstanding, so a later attempt can retry.
-        expect(await client.user_crypto_management().needs_backfill()).toBe(true);
+        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(true);
       },
       TIMEOUT,
     );
@@ -161,7 +161,7 @@ describe("user key id backfill", () => {
         mock = installHttpMock({});
         const client = await makeInitializedPasswordmanagerClient(bridge, SETTINGS);
 
-        const error = await rejection(client.user_crypto_management().backfill());
+        const error = await rejection(client.user_crypto_management().user_key_id_backfill());
 
         expect(error.variant).toBe("NoKeyId");
         expect(mock.routes()).toEqual([]);
