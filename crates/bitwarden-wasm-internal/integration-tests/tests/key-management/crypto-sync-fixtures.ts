@@ -1,6 +1,6 @@
 // The key-management slice of a sync response, plus the one route the handler calls.
 
-import { Kdf, CryptoSyncData, UnsignedSharedKey } from "@bitwarden/sdk-internal";
+import { Kdf, CryptoSyncData, KeyId, UnsignedSharedKey } from "@bitwarden/sdk-internal";
 
 import { MASTER_KEY_WRAPPED_USER_KEY, TEST_EMAIL, encstring } from "../utils";
 import {
@@ -12,6 +12,10 @@ import {
 } from "../v2-fixtures";
 
 const unsignedSharedKey = (s: string) => s as unknown as UnsignedSharedKey;
+const keyId = (s: string) => s as unknown as KeyId;
+
+/** The key id the server reports for the account {@link SYNC_VECTOR} describes. */
+export const SYNC_VECTOR_USER_KEY_ID = keyId("000102030405060708090a0b0c0d0e0f");
 
 /** A PRF-key-wrapped private key, and the user key encapsulated to the matching public key. */
 const PRF_ENCRYPTED_PRIVATE_KEY =
@@ -48,6 +52,7 @@ export const SYNC_VECTOR: CryptoSyncData = {
         transports: ["internal", "hybrid"],
       },
     ],
+    userKeyId: SYNC_VECTOR_USER_KEY_ID,
   },
   accountCryptographicState: {
     V2: {
