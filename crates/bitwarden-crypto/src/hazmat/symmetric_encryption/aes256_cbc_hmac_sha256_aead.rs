@@ -19,6 +19,12 @@ pub(crate) const MAC_KEY_SIZE: usize = 32;
 pub(crate) const KEY_SIZE: usize = ENC_KEY_SIZE + MAC_KEY_SIZE;
 pub(crate) const MAC_SIZE: usize = 32;
 
+/// Domain separation label prefixed to the MAC input. It distinguishes this construction from the
+/// legacy [`Aes256CbcHmacSha256`](super::Aes256CbcHmacSha256) Encrypt-then-MAC construction, which
+/// MACs `iv || ciphertext` under the same MAC sub-key, so that a tag produced by one construction
+/// can never be a valid tag for the other.
+const MAC_DOMAIN_SEPARATOR: &[u8] = b"bitwarden.aes256-cbc-hmac-sha256-aead.v1";
+
 /// AES-256-CBC-HMAC-SHA256 authenticated encryption with associated data.
 pub(crate) struct Aes256CbcHmacSha256Aead;
 
@@ -84,11 +90,8 @@ fn split_to_subkeys(key: &[u8; KEY_SIZE]) -> (&[u8; ENC_KEY_SIZE], &[u8; MAC_KEY
     (enc_key, mac_key)
 }
 
-/// Computes the HMAC-SHA256 MAC over `iv || len(data) || data || len(associated_data) ||
-/// associated_data`, where lengths are encoded as 4-byte big-endian `u32`s.
-///
-/// The length prefixes remove any ambiguity about where `data` ends and `associated_data` begins,
-/// since both are variable-length and directly adjacent in the MAC input.
+/// Computes the HMAC-SHA256 MAC over `MAC_DOMAIN_SEPARATOR || iv || len(data) || data ||
+/// len(associated_data) || associated_data`, where lengths are encoded as 8-byte big-endian `u64`s.
 fn calculate_mac_with_aad(
     iv: &[u8; NONCE_SIZE],
     data: &[u8],
@@ -97,10 +100,11 @@ fn calculate_mac_with_aad(
 ) -> [u8; MAC_SIZE] {
     let mut hmac =
         HmacSha256::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
+    hmac.update(MAC_DOMAIN_SEPARATOR);
     hmac.update(iv);
-    hmac.update(&(data.len() as u32).to_be_bytes());
+    hmac.update(&(data.len() as u64).to_be_bytes());
     hmac.update(data);
-    hmac.update(&(associated_data.len() as u32).to_be_bytes());
+    hmac.update(&(associated_data.len() as u64).to_be_bytes());
     hmac.update(associated_data);
     (*hmac.finalize().into_bytes())
         .try_into()
@@ -184,9 +188,9 @@ mod tests {
     const TESTVECTOR_ASSOCIATED_DATA: &[u8] = b"Bitwarden SDK test vector associated data";
     const TESTVECTOR_ENCRYPTED: &[u8] = &[
         111, 16, 33, 143, 207, 253, 106, 89, 58, 52, 145, 240, 140, 213, 149, 83, 168, 188, 122,
-        57, 130, 28, 35, 182, 114, 227, 215, 250, 175, 182, 169, 102, 253, 109, 197, 48, 44, 61,
-        189, 243, 17, 170, 108, 228, 96, 43, 41, 31, 205, 221, 208, 241, 18, 248, 245, 125, 217,
-        130, 218, 176, 188, 244, 211, 59,
+        57, 130, 28, 35, 182, 114, 227, 215, 250, 175, 182, 169, 102, 33, 159, 62, 224, 104, 214,
+        248, 153, 248, 63, 219, 206, 228, 17, 93, 110, 14, 150, 81, 139, 74, 235, 115, 206, 113,
+        115, 220, 197, 18, 206, 252, 198,
     ];
 
     const TESTVECTOR_KEY: [u8; KEY_SIZE] = [
