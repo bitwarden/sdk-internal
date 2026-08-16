@@ -291,11 +291,13 @@ fn to_compatible_byte_array(value: &BoxedUint) -> Vec<u8> {
     }
 }
 
-/// `SHA256(SHA256(uuid) || SHA256(lower(username)))`, url-safe base64.
+/// `SHA256(SHA256(uuid) || SHA256(lower(nfkd(username))))`, url-safe base64.
 fn calculate_identity(username: &str, key_uuid: &str) -> String {
+    let username = kdf::normalize_identity_username(username);
+
     let mut buffer = Vec::with_capacity(64);
     buffer.extend_from_slice(&sha256(key_uuid.as_bytes()));
-    buffer.extend_from_slice(&sha256(username.to_lowercase().as_bytes()));
+    buffer.extend_from_slice(&sha256(username.as_bytes()));
     BASE64URL_NOPAD.encode(&sha256(&buffer))
 }
 
@@ -364,7 +366,7 @@ fn compute_x(
     let k1 = kdf::hkdf_sha256(
         &srp_info.srp_method,
         &srp_info.salt,
-        credentials.username.to_lowercase().as_bytes(),
+        kdf::normalize_username(&credentials.username).as_bytes(),
     );
     let k2 = kdf::pbes2(
         &kdf::normalize_password(&credentials.password),

@@ -78,7 +78,7 @@ async fn submit_totp(
     let params = json!({
         "sessionID": session_key.id,
         "client": client_info.client_id(),
-        "totp": { "code": passcode },
+        "totp": { "code": passcode.trim() },
     });
     let _: IgnoredAny = rest
         .post_encrypted_json(MFA_ENDPOINT, params, session_key)

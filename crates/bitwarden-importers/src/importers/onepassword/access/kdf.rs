@@ -39,9 +39,19 @@ pub(super) fn pbes2(password: &str, salt: &[u8], iterations: u32) -> [u8; 32] {
         .expect("HMAC accepts any password length")
 }
 
-/// NFKD-normalizes the password, matching `normalize("NFKD")` in the 1P web client.
 pub(super) fn normalize_password(password: &str) -> Cow<'_, str> {
-    DecomposingNormalizer::new_nfkd().normalize(password)
+    DecomposingNormalizer::new_nfkd().normalize(password.trim())
+}
+
+pub(super) fn normalize_username(username: &str) -> String {
+    username.trim().to_lowercase()
+}
+
+/// The only place the email is decomposed, not just trimmed and lowercased.
+pub(super) fn normalize_identity_username(username: &str) -> String {
+    DecomposingNormalizer::new_nfkd()
+        .normalize(username.trim())
+        .to_lowercase()
 }
 
 /// The legacy `PBES2-` stand-in for the password, hashed raw and never normalized.
@@ -65,7 +75,7 @@ pub(super) fn derive_master_key(
 ) -> Result<[u8; 32], OnePasswordError> {
     validate_pbes2(algorithm)?;
 
-    let username = username.to_lowercase();
+    let username = normalize_username(username);
 
     // The legacy algorithm has never been observed in the wild, but the web client still implements
     // it.
@@ -209,6 +219,23 @@ mod tests {
                 false => assert_ne!(one, other, "{algorithm}"),
             }
         }
+    }
+
+    #[test]
+    fn normalize_username_trims_and_lowercases() {
+        assert_eq!(
+            normalize_username("  Test.User@Example.COM \n"),
+            "test.user@example.com"
+        );
+    }
+
+    /// Unlike the HKDF salt, the identity also decomposes, and only then lowercases.
+    #[test]
+    fn normalize_identity_username_also_decomposes() {
+        assert_eq!(
+            HEXLOWER.encode(normalize_identity_username(" CAF\u{e9}@x.com ").as_bytes()),
+            HEXLOWER.encode("cafe\u{301}@x.com".as_bytes())
+        );
     }
 
     #[test]

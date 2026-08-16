@@ -48,6 +48,26 @@
       }
     },
     {
+      "name": "surrounded_by_whitespace",
+      "password": " \t Zebra-Muffin-7742 \n",
+      "password_hex": "2009205a656272612d4d756666696e2d37373432200a",
+      "normalized_hex": "5a656272612d4d756666696e2d37373432",
+      "keys": {
+        "PBES2g-HS256": "9db0b5d5866e8f7de61d307d3faf1e59f3b079605871b02e5ef30997eac1e036",
+        "PBES2-HS256": "cd84e0dadabf391ab777805ef39911593a50f2a1ef66c4c86854a2e879286378"
+      }
+    },
+    {
+      "name": "leading_diaeresis",
+      "password": "\u00a8Zebra-Muffin-7742",
+      "password_hex": "c2a85a656272612d4d756666696e2d37373432",
+      "normalized_hex": "20cc885a656272612d4d756666696e2d37373432",
+      "keys": {
+        "PBES2g-HS256": "c9d325a8b8f94216c806e65e5f7f41e74a4340bed489b1710047bdde5a092f23",
+        "PBES2-HS256": "23d205f964627d5a225a78832959724569ccda9b89293afb777f77cd826810b0"
+      }
+    },
+    {
       "name": "adversarial",
       "password": "Zwq\u0307\u0323\u2126\u0390\u1e9b\u0323\ufdfa\ubdc1\uff76\uff9e\u0e33\ufa10\ud835\udd09\u3251\u215e\u216b\ufb05e\u0334\u0341\u0362\u0328\ud83d\udc4d\ud83c\udffd\u200b7742",
       "password_hex": "5a7771cc87cca3e284a6ce90e1ba9bcca3efb7baebb781efbdb6efbe9ee0b8b3efa890f09d9489e38991e2859ee285abefac8565ccb4cd81cda2cca8f09f918df09f8fbde2808b37373432",

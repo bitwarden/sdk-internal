@@ -4,6 +4,10 @@ use zeroize::Zeroize;
 
 use super::{error::OnePasswordError, kdf};
 
+/// The characters an Account Key is written in: base32 without the confusable `0`, `1`, `I`, `L`,
+/// `O` and `U`. Everything else in the input is dropped, including the dashes.
+const ALPHABET: &str = "23456789ABCDEFGHJKLMNPQRSTVWXYZ";
+
 /// A parsed 1Password Account Key (also called the Secret Key), split into its format, uuid, and
 /// key.
 pub(super) struct AccountKey {
@@ -19,10 +23,17 @@ impl Drop for AccountKey {
 }
 
 impl AccountKey {
-    /// Parses a key string such as `A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9`. The string is uppercased
-    /// and its dashes removed before splitting into `format` (2), `uuid` (6), and `key` (the rest).
+    /// Parses a key string such as `A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9`, splitting it into
+    /// `format` (2), `uuid` (6), and `key` (the rest).
+    ///
+    /// The web client's `SecretKey.fromInput` uppercases and then drops every character outside
+    /// [`ALPHABET`], so dashes, whitespace and anything else a paste drags along are all forgiven.
     pub(super) fn parse(input: &str) -> Result<AccountKey, OnePasswordError> {
-        let s = input.to_uppercase().replace('-', "");
+        let s: String = input
+            .to_uppercase()
+            .chars()
+            .filter(|c| ALPHABET.contains(*c))
+            .collect();
 
         let Some(format) = s.get(..2) else {
             return Err(OnePasswordError::Internal(format!(
@@ -105,6 +116,24 @@ mod tests {
         assert_eq!(key.format, "A3");
         assert_eq!(key.uuid, "RTN9SA");
         assert_eq!(key.key, "DY9445Y5FF96X6E7B5GPFA95R9");
+    }
+
+    /// The web client drops anything outside the alphabet, so a paste that drags whitespace or
+    /// stray punctuation along still parses.
+    #[test]
+    fn parse_ignores_everything_outside_the_alphabet() {
+        let cases = [
+            "  A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9\n",
+            "a3-rtn9sa-dy9445y5ff96x6e7b5gpfa95r9",
+            "A3 RTN9SA DY9445Y 5FF96X6 E7B5GPF A95R9",
+            "A3_RTN9SA_DY9445Y5FF96X6E7B5GPFA95R9",
+        ];
+        for case in cases {
+            let key = AccountKey::parse(case).unwrap_or_else(|e| panic!("{case:?}: {e}"));
+            assert_eq!(key.format, "A3");
+            assert_eq!(key.uuid, "RTN9SA");
+            assert_eq!(key.key, "DY9445Y5FF96X6E7B5GPFA95R9");
+        }
     }
 
     // Made up: no real A2 key was ever available to test against.
