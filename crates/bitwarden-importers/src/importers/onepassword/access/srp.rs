@@ -91,6 +91,8 @@ impl SrpInfo {
             ));
         }
 
+        kdf::validate_pbes2(&key_method)?;
+
         Ok(SrpInfo {
             srp_method,
             key_method,
@@ -353,9 +355,7 @@ fn calculate_client_hash(
     sha256(&buffer)
 }
 
-/// Derives SRP `x` from the password and account key.
-///
-/// Unlike the master key, the HKDF `info` is the SRP method and the password is used raw (not NFC).
+/// Derives SRP `x`, which proves we know the password without sending it.
 fn compute_x(
     credentials: &Credentials,
     account_key: &AccountKey,
@@ -367,11 +367,10 @@ fn compute_x(
         credentials.username.to_lowercase().as_bytes(),
     );
     let k2 = kdf::pbes2(
-        &srp_info.key_method,
-        &credentials.password,
+        &kdf::normalize_password(&credentials.password),
         &k1,
         srp_info.iterations,
-    )?;
+    );
     account_key.combine_with(&k2)
 }
 
@@ -533,5 +532,10 @@ mod tests {
         let no_iterations = SrpInfo::new("SRPg-4096".into(), "PBES2g-HS256".into(), 0, vec![])
             .expect_err("0 iterations is rejected");
         assert!(no_iterations.to_string().contains("0 iterations"));
+
+        let bad_key_method =
+            SrpInfo::new("SRPg-4096".into(), "PBES2g-HS512".into(), 100000, vec![])
+                .expect_err("only the SHA-256 variants are supported");
+        assert!(bad_key_method.to_string().contains("PBES2g-HS512"));
     }
 }

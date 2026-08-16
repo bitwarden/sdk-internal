@@ -169,7 +169,7 @@ impl RestClient {
         if !status.is_success() {
             return Err(parse_server_error(text.as_bytes()).unwrap_or_else(|| {
                 OnePasswordError::Internal(format!(
-                    "unexpected response from the server (HTTP {})",
+                    "unexpected response from '{endpoint}' (HTTP {})",
                     status.as_u16()
                 ))
             }));

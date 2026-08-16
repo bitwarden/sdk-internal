@@ -17,12 +17,17 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - No service account support (they are not so good for export/import)
 - One entry point, `Client::download_all_vaults`. No vault selection, no random access
 - Added `aes-gcm`, `hkdf`, `pbkdf2`, `crypto-bigint` and `icu_normalizer` to the workspace, will
-  increase the wasm size. `crypto-bigint` is the exception, `rsa` and `ssh-key` already pull it in
+  increase the wasm size
 - SRP uses `crypto-bigint` rather than `num-bigint` for the constant-time `modpow`
 - Uses RustCrypto directly rather than `bitwarden-crypto`, which keeps HKDF, AES-GCM and RSA-OAEP
-  private and has no PBKDF2-SHA512
-- `icu_normalizer` only NFC-normalizes the password before PBKDF2. Heavy for one call,
-  `unicode-normalization` would be smaller
+  private. Now that only PBKDF2-SHA256 is supported, `bitwarden_crypto::pbkdf2` would do for that
+  one step
+- Only the two algorithms the web client implements, `PBES2g-HS256` and the legacy `PBES2-HS256`.
+  The `HS512` spellings the C# original accepts are rejected: the client throws `Invalid PBKDF2 alg`
+  on them, so its behaviour there is unknown
+- The legacy path is transcribed from the client and cannot be tested end to end. Patching the web
+  client to mint a `PBES2-HS256` account fails: the server answers `POST /api/v1/user/auth` with a
+  400, so no new account can be created on it
 - The client fingerprint lives in `identity.rs`: app version, HTTP library and per-platform strings.
   Question: do we need per-platform impersonation, or is one fixed identity enough?
 - There are many tests converted from the C# repo, they became very noisy in Rust. Do we even need
@@ -30,6 +35,10 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - Do we need to import password history?
 - Only the credentials and the keys are zeroed. The decrypted vault data is not
 - The server is never authenticated, `verify_key` does not recompute `serverVerifyHash`
+- A wrong password reports as
+  `Internal("unexpected response from 'v2/auth/confirm-key' (HTTP 401)")` rather than
+  `BadCredentials`. The server only rejects at `confirm-key`, and its body there is not the
+  `errorCode` shape `parse_server_error` understands
 - The wire DTOs derive `Debug`, so a debug log of one would print secrets
 - Credentials are not trimmed, a pasted Secret Key with a trailing newline fails on length
 - The sign-in domain is taken as a raw string and never validated

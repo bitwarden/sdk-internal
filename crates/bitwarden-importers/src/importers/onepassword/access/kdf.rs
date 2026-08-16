@@ -1,9 +1,12 @@
-//! HKDF-SHA256, PBES2 (PBKDF2 HS256/HS512), and master-key derivation.
+//! HKDF-SHA256, PBES2 (PBKDF2-HS256), and master-key derivation.
 
+use std::borrow::Cow;
+
+use data_encoding::BASE64URL_NOPAD;
 use hkdf::Hkdf;
 use hmac::Hmac;
-use icu_normalizer::ComposingNormalizer;
-use sha2::{Sha256, Sha512};
+use icu_normalizer::DecomposingNormalizer;
+use sha2::{Digest, Sha256};
 
 use super::{account_key::AccountKey, error::OnePasswordError};
 
@@ -16,38 +19,42 @@ pub(super) fn hkdf_sha256(method: &str, ikm: &[u8], salt: &[u8]) -> [u8; 32] {
     okm
 }
 
-/// PBES2 key derivation dispatching on the JWK method name.
+/// Rejects a PBES2 method this module cannot honour.
 ///
-/// `PBES2[g]-HS256` uses PBKDF2-HMAC-SHA256, `PBES2[g]-HS512` uses PBKDF2-HMAC-SHA512, both 32
-/// bytes.
-pub(super) fn pbes2(
-    method: &str,
-    password: &str,
-    salt: &[u8],
-    iterations: u32,
-) -> Result<[u8; 32], OnePasswordError> {
-    let password = password.as_bytes();
-    let derived = match method {
-        "PBES2-HS256" | "PBES2g-HS256" => {
-            pbkdf2::pbkdf2_array::<Hmac<Sha256>, 32>(password, salt, iterations)
-        }
-        "PBES2-HS512" | "PBES2g-HS512" => {
-            pbkdf2::pbkdf2_array::<Hmac<Sha512>, 32>(password, salt, iterations)
-        }
-        _ => {
-            return Err(OnePasswordError::Unsupported(format!(
-                "Method '{method}' is not supported"
-            )));
-        }
-    };
-
-    Ok(derived.expect("HMAC accepts any password length"))
+/// The web client only implements the SHA-256 variants and throws `Invalid PBKDF2 alg` on anything
+/// else, so an `*-HS512` method is rejected rather than guessed at. Both the master keyset and the
+/// SRP parameters carry one of these, from different responses, so both have to check.
+pub(super) fn validate_pbes2(method: &str) -> Result<(), OnePasswordError> {
+    match matches!(method, "PBES2-HS256" | "PBES2g-HS256") {
+        true => Ok(()),
+        false => Err(OnePasswordError::Unsupported(format!(
+            "Method '{method}' is not supported"
+        ))),
+    }
 }
 
-/// Derives the 32-byte master unlock key (kid `"mp"`).
-///
-/// `k1 = HKDF(info = algorithm, ikm = salt, salt = lower(username))`; `k2 = PBES2(algorithm,
-/// NFC(password), k1, iterations)`; result `= account_key.combine_with(k2)`.
+/// PBKDF2-HMAC-SHA256 producing 32 bytes. Callers check the method first.
+pub(super) fn pbes2(password: &str, salt: &[u8], iterations: u32) -> [u8; 32] {
+    pbkdf2::pbkdf2_array::<Hmac<Sha256>, 32>(password.as_bytes(), salt, iterations)
+        .expect("HMAC accepts any password length")
+}
+
+/// NFKD-normalizes the password, matching `normalize("NFKD")` in the 1P web client.
+pub(super) fn normalize_password(password: &str) -> Cow<'_, str> {
+    DecomposingNormalizer::new_nfkd().normalize(password)
+}
+
+/// The legacy `PBES2-` stand-in for the password, hashed raw and never normalized.
+fn legacy_password(username: &str, password: &str) -> String {
+    let digest = match password.is_empty() {
+        true => String::new(),
+        false => BASE64URL_NOPAD.encode(&Sha256::digest(password.as_bytes())),
+    };
+    format!("{username}:{digest}")
+}
+
+/// Derives the 32-byte master unlock key (kid `"mp"`), dispatching on the algorithm prefix the way
+/// the web client's `Auk.deriveKdfBytes` does.
 pub(super) fn derive_master_key(
     algorithm: &str,
     iterations: u32,
@@ -56,17 +63,153 @@ pub(super) fn derive_master_key(
     password: &str,
     account_key: &AccountKey,
 ) -> Result<[u8; 32], OnePasswordError> {
-    let k1 = hkdf_sha256(algorithm, salt, username.to_lowercase().as_bytes());
-    let normalized = ComposingNormalizer::new_nfc().normalize(password);
-    let k2 = pbes2(algorithm, &normalized, &k1, iterations)?;
+    validate_pbes2(algorithm)?;
+
+    let username = username.to_lowercase();
+
+    // The legacy algorithm has never been observed in the wild, but the web client still implements
+    // it.
+    let is_legacy = algorithm.starts_with("PBES2-");
+
+    let k1;
+    let salt = if is_legacy {
+        salt
+    } else {
+        k1 = hkdf_sha256(algorithm, salt, username.as_bytes());
+        &k1
+    };
+
+    let password = if is_legacy {
+        legacy_password(&username, password)
+    } else {
+        normalize_password(password).into_owned()
+    };
+
+    let k2 = pbes2(&password, salt, iterations);
+
     account_key.combine_with(&k2)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use data_encoding::{BASE64URL_NOPAD, HEXLOWER};
+    use serde::Deserialize;
 
     use super::*;
+
+    /// Vectors from `fixtures/generate-master-key-vectors.mjs`, which mirrors the 1P web client.
+    #[derive(Deserialize)]
+    struct Vectors {
+        params: VectorParams,
+        cases: Vec<Vector>,
+    }
+
+    #[derive(Deserialize)]
+    struct VectorParams {
+        username: String,
+        account_key: String,
+        salt_b64url: String,
+        iterations: u32,
+    }
+
+    #[derive(Deserialize)]
+    struct Vector {
+        name: String,
+        password: String,
+        password_hex: String,
+        normalized_hex: String,
+        keys: BTreeMap<String, String>,
+    }
+
+    fn vectors() -> Vectors {
+        serde_json::from_str(include_str!("fixtures/master-key-vectors.json"))
+            .expect("the vectors parse")
+    }
+
+    #[test]
+    fn vector_passwords_survived_the_trip_through_the_json_file() {
+        for case in vectors().cases {
+            assert_eq!(
+                HEXLOWER.encode(case.password.as_bytes()),
+                case.password_hex,
+                "{} was rewritten in the fixture",
+                case.name
+            );
+        }
+    }
+
+    #[test]
+    fn normalize_password_matches_the_web_client() {
+        for case in vectors().cases {
+            assert_eq!(
+                HEXLOWER.encode(normalize_password(&case.password).as_bytes()),
+                case.normalized_hex,
+                "{}",
+                case.name
+            );
+        }
+    }
+
+    fn derive_vector(params: &VectorParams, case: &Vector, algorithm: &str) -> [u8; 32] {
+        let salt = BASE64URL_NOPAD
+            .decode(params.salt_b64url.as_bytes())
+            .expect("valid salt");
+        let account_key = AccountKey::parse(&params.account_key).expect("valid account key");
+
+        derive_master_key(
+            algorithm,
+            params.iterations,
+            &salt,
+            &params.username,
+            &case.password,
+            &account_key,
+        )
+        .expect("derivation succeeds")
+    }
+
+    #[test]
+    fn derive_master_key_matches_the_web_client() {
+        let Vectors { params, cases } = vectors();
+        for case in &cases {
+            assert!(!case.keys.is_empty(), "{} has no keys", case.name);
+            for (algorithm, expected) in &case.keys {
+                assert_eq!(
+                    &HEXLOWER.encode(&derive_vector(&params, case, algorithm)),
+                    expected,
+                    "{} with {algorithm}",
+                    case.name
+                );
+            }
+        }
+    }
+
+    /// `PBES2g-` normalizes, so the same password typed two ways unlocks the same account. The
+    /// legacy prefix hashes the raw bytes instead, and stays sensitive to the spelling. Catches
+    /// skipping normalization entirely, which is what `compute_x` used to do.
+    #[test]
+    fn only_the_modern_prefix_is_blind_to_the_unicode_spelling() {
+        let Vectors { params, cases } = vectors();
+        let find = |name: &str| {
+            cases
+                .iter()
+                .find(|case| case.name == name)
+                .unwrap_or_else(|| panic!("{name} is in the fixture"))
+        };
+        let precomposed = find("precomposed_e_acute");
+        let decomposed = find("decomposed_e_acute");
+
+        assert_ne!(precomposed.password_hex, decomposed.password_hex);
+        for algorithm in precomposed.keys.keys() {
+            let one = derive_vector(&params, precomposed, algorithm);
+            let other = derive_vector(&params, decomposed, algorithm);
+            match algorithm.starts_with("PBES2g-") {
+                true => assert_eq!(one, other, "{algorithm}"),
+                false => assert_ne!(one, other, "{algorithm}"),
+            }
+        }
+    }
 
     #[test]
     fn hkdf_returns_derived_key() {
@@ -79,27 +222,23 @@ mod tests {
 
     #[test]
     fn pbes2_returns_derived_key() {
-        let cases = [
-            (
-                "PBES2g-HS256",
-                "B-aZcYDPfxKQTwQQDUBdNIiP32KvbVBqDswjsZb-mdg",
-            ),
-            (
-                "PBES2g-HS512",
-                "_vcnaxBwQKCnE7y-yf0-GRzGFTJJ4kWj4aIgh9vmFgY",
-            ),
-        ];
-        for (method, expected) in cases {
-            let key = pbes2(method, "password", b"salt", 100).expect("supported method");
-            assert_eq!(BASE64URL_NOPAD.encode(&key), expected);
-        }
+        assert_eq!(
+            BASE64URL_NOPAD.encode(&pbes2("password", b"salt", 100)),
+            "B-aZcYDPfxKQTwQQDUBdNIiP32KvbVBqDswjsZb-mdg"
+        );
     }
 
+    /// The web client throws `Invalid PBKDF2 alg` on these, so we do not guess at them either.
     #[test]
-    fn pbes2_throws_on_unsupported_method() {
-        let err = pbes2("Unknown", "password", b"salt", 100).expect_err("unsupported");
-        assert!(matches!(err, OnePasswordError::Unsupported(_)));
-        assert!(err.to_string().contains("is not supported"));
+    fn derive_master_key_throws_on_unsupported_method() {
+        let account_key =
+            AccountKey::parse("A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9").expect("valid account key");
+        for algorithm in ["PBES2-HS512", "PBES2g-HS512", "SRPg-4096", "Unknown", ""] {
+            let err = derive_master_key(algorithm, 100, b"salt", "user", "pw", &account_key)
+                .expect_err("unsupported");
+            assert!(matches!(err, OnePasswordError::Unsupported(_)));
+            assert!(err.to_string().contains("is not supported"));
+        }
     }
 
     #[test]
