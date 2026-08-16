@@ -17,24 +17,25 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - No service account support (they are not so good for export/import)
 - One entry point, `Client::download_all_vaults`. No vault selection, no random access
 - Added `aes-gcm`, `hkdf`, `pbkdf2`, `crypto-bigint` and `icu_normalizer` to the workspace, will
-  increase the wasm size
+  increase the wasm size.
 - SRP uses `crypto-bigint` rather than `num-bigint` for the constant-time `modpow`
 - Uses RustCrypto directly rather than `bitwarden-crypto`, which keeps HKDF, AES-GCM and RSA-OAEP
-  private. Now that only PBKDF2-SHA256 is supported, `bitwarden_crypto::pbkdf2` would do for that
-  one step
+  private
 - Only the two algorithms the web client implements, `PBES2g-HS256` and the legacy `PBES2-HS256`.
   The `HS512` spellings the C# original accepts are rejected: the client throws `Invalid PBKDF2 alg`
   on them, so its behaviour there is unknown
 - The legacy path is transcribed from the client and cannot be tested end to end. Patching the web
   client to mint a `PBES2-HS256` account fails: the server answers `POST /api/v1/user/auth` with a
   400, so no new account can be created on it
+- Only the credentials and the keys are zeroed. The decrypted vault data is not
+
+## TODO
+
 - The client fingerprint lives in `identity.rs`: app version, HTTP library and per-platform strings.
   Question: do we need per-platform impersonation, or is one fixed identity enough?
 - There are many tests converted from the C# repo, they became very noisy in Rust. Do we even need
   them? See start_registers_an_unknown_device_then_retries for an example.
 - Do we need to import password history?
-- Only the credentials and the keys are zeroed. The decrypted vault data is not
-- The server is never authenticated, `verify_key` does not recompute `serverVerifyHash`
 - A wrong password reports as
   `Internal("unexpected response from 'v2/auth/confirm-key' (HTTP 401)")` rather than
   `BadCredentials`. The server only rejects at `confirm-key`, and its body there is not the
@@ -43,4 +44,9 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - The sign-in domain is taken as a raw string and never validated
 - A vault we hold no key for is skipped silently, and one undecryptable item aborts the whole import
 - The module is under a blanket `allow(dead_code, unused_imports)` until the conversion layer lands
-- Only the item DTOs in `wire` are public; the auth and session ones are `pub(super)`
+- Now that only PBKDF2-SHA256 is supported, `bitwarden_crypto::pbkdf2` would do for that one step
+- The username goes on the wire raw, `v2/auth/methods` and `v3/auth/start` do not get the normalized
+  one
+- `SrpInfo` validates the SRP key method, then `compute_x` ignores it and always derives the modern
+  way
+- `OnePasswordError::TwoFactorRequired` is never constructed
