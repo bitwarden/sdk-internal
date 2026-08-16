@@ -320,7 +320,8 @@ async fn verify_key(
         )
         .await?;
 
-    // TODO: Verify the server hash here. For now, we trust the server.
+    // The hash itself is not recomputed, so the server is never authenticated. Its presence is all
+    // we check.
     if response.server_verify_hash.is_empty() {
         return Err(OnePasswordError::Parse);
     }
