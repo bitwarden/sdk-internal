@@ -174,9 +174,10 @@ fn compute_shared_a(secret_a: &BoxedUint) -> BoxedUint {
     mod_pow(&G, secret_a)
 }
 
-/// Rejects a server `B` that is a multiple of `N`.
+/// Rejects a server `B` that is 0 or 1 modulo `N`, the two values the web client refuses.
 fn validate_b(shared_b: &BoxedUint) -> Result<(), OnePasswordError> {
-    if bool::from(shared_b.rem(N.as_nz_ref()).is_zero()) {
+    let reduced = shared_b.rem(N.as_nz_ref());
+    if bool::from(reduced.is_zero() | reduced.is_one()) {
         return Err(OnePasswordError::Internal(
             "Shared B validation failed".into(),
         ));
@@ -301,7 +302,7 @@ fn calculate_identity(username: &str, key_uuid: &str) -> String {
     BASE64URL_NOPAD.encode(&sha256(&buffer))
 }
 
-/// Sends the client verification hash to confirm the session key.
+/// Sends the client verification hash to confirm the session key, then checks the server's answer.
 async fn verify_key(
     session_key: &[u8],
     username: &str,
@@ -320,12 +321,25 @@ async fn verify_key(
         )
         .await?;
 
-    // The hash itself is not recomputed, so the server is never authenticated. Its presence is all
-    // we check.
-    if response.server_verify_hash.is_empty() {
-        return Err(OnePasswordError::Parse);
+    // The only step that authenticates the server: nothing but a party holding the same session key
+    // can produce this hash.
+    let expected = calculate_server_hash(shared_a, &client_hash, session_key);
+    if response.server_verify_hash != BASE64URL_NOPAD.encode(&expected) {
+        return Err(OnePasswordError::Internal(
+            "the server verification hash does not match".into(),
+        ));
     }
     Ok(())
+}
+
+/// The server's answer to [`calculate_client_hash`]: `H(A || M1 || K)`, where `M1` is the client
+/// hash we just sent. `A` uses the same leading-zero-stripped encoding as the client hash.
+fn calculate_server_hash(shared_a: &BoxedUint, client_hash: &[u8], session_key: &[u8]) -> [u8; 32] {
+    let mut buffer = to_compatible_byte_array(shared_a);
+    buffer.extend_from_slice(client_hash);
+    buffer.extend_from_slice(session_key);
+
+    sha256(&buffer)
 }
 
 /// The client verification hash sent to `v2/auth/confirm-key`:
@@ -420,6 +434,17 @@ mod tests {
         }
     }
 
+    /// A `B` congruent to 0 or 1 collapses the session key to a value the server picked.
+    #[test]
+    fn validate_b_rejects_zero_and_one_mod_n() {
+        let n = big(N_HEX);
+        for value in [big("0"), big("1"), n.clone(), n.wrapping_add(big("1"))] {
+            validate_b(&value).expect_err("B must not be 0 or 1 mod N");
+        }
+
+        validate_b(&big(SHARED_B)).expect("a normal B is accepted");
+    }
+
     #[test]
     fn compute_key_returns_key() {
         let secret_a = BoxedUint::from_be_hex(
@@ -489,14 +514,43 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn verify_key_requires_a_server_hash() {
+    /// Pinned against the web client's `recieveServerHash`, which hashes
+    /// `z(bigA) || m || rawKey`.
+    #[test]
+    fn calculate_server_hash_returns_hash() {
+        let client_hash = HEXLOWER
+            .decode(b"e74d30467ccdfdf7d61973b9a94f88bd2b7155ba304138f5d02e2078c3a124fa")
+            .expect("valid hex");
+        let session_key = HEXLOWER
+            .decode(b"9d17458228928fc1107668113026390d502a40954e3e6a83513acbb2e1f8fedc")
+            .expect("valid hex");
+
+        let hash = calculate_server_hash(&big(SHARED_A), &client_hash, &session_key);
+
+        assert_eq!(
+            HEXLOWER.encode(&hash),
+            "e3ebd2e43efdc593960267f26b8a149e4368a5d5e963995ef9ceb6820307d6f9"
+        );
+    }
+
+    const VERIFY_SESSION_KEY: [u8; 32] = [0u8; 32];
+    const VERIFY_USERNAME: &str = "user@example.com";
+    const VERIFY_KEY_UUID: &str = "RTN9SA";
+    const VERIFY_SALT: &[u8] = b"salt";
+
+    fn verify_ephemerals() -> (BoxedUint, BoxedUint) {
+        (BoxedUint::from(2u32), BoxedUint::from(3u32))
+    }
+
+    /// Runs `verify_key` against a server that answers with `server_hash`.
+    async fn run_verify_key(server_hash: &str) -> Result<(), OnePasswordError> {
         let server = MockServer::start().await;
         server
             .register(
                 Mock::given(matchers::path("/api/v2/auth/confirm-key"))
                     .respond_with(
-                        ResponseTemplate::new(200).set_body_json(json!({"serverVerifyHash": ""})),
+                        ResponseTemplate::new(200)
+                            .set_body_json(json!({ "serverVerifyHash": server_hash })),
                     )
                     .expect(1),
             )
@@ -510,20 +564,56 @@ mod tests {
         )
         .expect("valid headers");
 
-        let error = verify_key(
-            &[0u8; 32],
-            "user@example.com",
-            "RTN9SA",
-            b"salt",
-            &BoxedUint::from(2u32),
-            &BoxedUint::from(3u32),
+        let (shared_a, shared_b) = verify_ephemerals();
+        let result = verify_key(
+            &VERIFY_SESSION_KEY,
+            VERIFY_USERNAME,
+            VERIFY_KEY_UUID,
+            VERIFY_SALT,
+            &shared_a,
+            &shared_b,
             &rest,
         )
-        .await
-        .expect_err("an empty hash is rejected");
+        .await;
 
-        assert!(matches!(error, OnePasswordError::Parse));
         server.verify().await;
+        result
+    }
+
+    #[tokio::test]
+    async fn verify_key_accepts_a_matching_server_hash() {
+        let (shared_a, shared_b) = verify_ephemerals();
+        let client_hash = calculate_client_hash(
+            &VERIFY_SESSION_KEY,
+            VERIFY_USERNAME,
+            VERIFY_KEY_UUID,
+            VERIFY_SALT,
+            &shared_a,
+            &shared_b,
+        );
+        let server_hash = BASE64URL_NOPAD.encode(&calculate_server_hash(
+            &shared_a,
+            &client_hash,
+            &VERIFY_SESSION_KEY,
+        ));
+
+        run_verify_key(&server_hash)
+            .await
+            .expect("the server proved it holds the session key");
+    }
+
+    #[tokio::test]
+    async fn verify_key_rejects_a_server_hash_it_did_not_expect() {
+        for server_hash in ["", "not-the-hash"] {
+            let error = run_verify_key(server_hash)
+                .await
+                .expect_err("the server did not prove it holds the session key");
+
+            assert!(
+                error.to_string().contains("does not match"),
+                "unexpected error: {error}"
+            );
+        }
     }
 
     #[test]
