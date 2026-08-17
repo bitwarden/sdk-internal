@@ -1,5 +1,5 @@
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-use bitwarden_crypto::{KeyStoreContext, PublicKey, SymmetricKeyAlgorithm};
+use bitwarden_crypto::{KeyStore, KeyStoreContext, PublicKey, SymmetricKeyAlgorithm};
 use tracing::{debug, info, warn};
 
 use super::{
@@ -15,10 +15,10 @@ struct UntrustedKeyError;
 /// Whether the rotation creates a V2 upgrade token.
 ///
 /// A token only makes sense when the user moves from a V1 to a V2 user key. Every other rotation
-/// logs the user out of their other sessions.
+/// logs the user out of their other sessions. The SDK always rotates into a V2 user key, so the
+/// current user key decides the answer.
 fn creates_v2_upgrade_token(
     current_user_key_id: SymmetricKeySlotId,
-    new_user_key_id: SymmetricKeySlotId,
     upgrade_token_action: UpgradeTokenAction,
     ctx: &KeyStoreContext<KeySlotIds>,
 ) -> bool {
@@ -27,16 +27,34 @@ fn creates_v2_upgrade_token(
         return false;
     }
 
-    matches!(
-        (
-            ctx.get_symmetric_key_algorithm(current_user_key_id),
-            ctx.get_symmetric_key_algorithm(new_user_key_id),
-        ),
-        (
-            Ok(SymmetricKeyAlgorithm::Aes256CbcHmac),
-            Ok(SymmetricKeyAlgorithm::XAes256Gcm)
-        )
-    )
+    ctx.is_v1_symmetric_key(current_user_key_id)
+        .unwrap_or(false)
+}
+
+/// The organization memberships the user has to confirm as trusted before the rotation.
+///
+/// When the rotation creates a V2 upgrade token, returns no memberships. Organization admins update
+/// account recovery from that token, so the user confirms nothing. Every other rotation returns the
+/// memberships it was given.
+pub(super) fn organization_memberships_needing_trust(
+    organization_memberships: Vec<V1OrganizationMembership>,
+    upgrade_token_action: UpgradeTokenAction,
+    key_store: &KeyStore<KeySlotIds>,
+) -> Vec<V1OrganizationMembership> {
+    let creates_v2_upgrade_token = {
+        let ctx = key_store.context();
+        creates_v2_upgrade_token(SymmetricKeySlotId::User, upgrade_token_action, &ctx)
+    };
+
+    if creates_v2_upgrade_token {
+        info!(
+            "Rotation creates a V2 upgrade token, none of the {} organization public key(s) need confirmation",
+            organization_memberships.len()
+        );
+        return vec![];
+    }
+
+    organization_memberships
 }
 
 fn filter_trusted_organization(
@@ -109,12 +127,8 @@ pub(super) fn make_rotation_context(
     debug!("Generating new XAES-256-GCM user key for key rotation");
     let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
-    let creates_v2_upgrade_token = creates_v2_upgrade_token(
-        current_user_key_id,
-        new_user_key_id,
-        upgrade_token_action,
-        ctx,
-    );
+    let creates_v2_upgrade_token =
+        creates_v2_upgrade_token(current_user_key_id, upgrade_token_action, ctx);
 
     let v1_organization_memberships = if creates_v2_upgrade_token {
         // Organization admins update account recovery from the token. The user is never asked to
@@ -165,51 +179,46 @@ mod tests {
         },
         RotateUserKeysError, UpgradeTokenAction, creates_v2_upgrade_token,
         filter_trusted_emergency_access, filter_trusted_organization, make_rotation_context,
+        organization_memberships_needing_trust,
     };
 
     #[test]
-    fn test_creates_v2_upgrade_token_v1_to_v2_with_create_if_needed() {
+    fn test_creates_v2_upgrade_token_v1_user_key_with_create_if_needed() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         assert!(creates_v2_upgrade_token(
             current_user_key_id,
-            new_user_key_id,
             UpgradeTokenAction::CreateIfNeeded,
             &ctx,
         ));
     }
 
     #[test]
-    fn test_creates_v2_upgrade_token_v1_to_v2_with_skip() {
+    fn test_creates_v2_upgrade_token_v1_user_key_with_skip() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         assert!(!creates_v2_upgrade_token(
             current_user_key_id,
-            new_user_key_id,
             UpgradeTokenAction::Skip,
             &ctx,
         ));
     }
 
     #[test]
-    fn test_creates_v2_upgrade_token_v2_to_v2_with_create_if_needed() {
+    fn test_creates_v2_upgrade_token_v2_user_key_with_create_if_needed() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
         assert!(!creates_v2_upgrade_token(
             current_user_key_id,
-            new_user_key_id,
             UpgradeTokenAction::CreateIfNeeded,
             &ctx,
         ));
@@ -218,14 +227,11 @@ mod tests {
     #[test]
     fn test_creates_v2_upgrade_token_missing_current_user_key() {
         let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-
-        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        let ctx = store.context();
 
         assert!(
             !creates_v2_upgrade_token(
                 SymmetricKeySlotId::User,
-                new_user_key_id,
                 UpgradeTokenAction::CreateIfNeeded,
                 &ctx,
             ),
@@ -559,5 +565,61 @@ mod tests {
         let result = make_rotation_context(&sync, &[], &[], UpgradeTokenAction::Skip, &mut ctx);
 
         assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
+    }
+
+    /// Persists a user key of the given algorithm and returns one organization membership.
+    fn make_store_with_user_key(
+        algorithm: SymmetricKeyAlgorithm,
+    ) -> (KeyStore<KeySlotIds>, V1OrganizationMembership) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let org = {
+            let mut ctx = store.context_mut();
+            let user_key = ctx.make_symmetric_key(algorithm);
+            ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+                .expect("persisting the user key should work");
+            make_org_membership(&mut ctx).0
+        };
+
+        (store, org)
+    }
+
+    #[test]
+    fn test_organization_memberships_needing_trust_v1_user_key_with_create_if_needed_is_empty() {
+        let (store, org) = make_store_with_user_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+
+        let memberships = organization_memberships_needing_trust(
+            vec![org],
+            UpgradeTokenAction::CreateIfNeeded,
+            &store,
+        );
+
+        assert!(memberships.is_empty());
+    }
+
+    #[test]
+    fn test_organization_memberships_needing_trust_v1_user_key_with_skip() {
+        let (store, org) = make_store_with_user_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let expected_org = org.clone();
+
+        let memberships =
+            organization_memberships_needing_trust(vec![org], UpgradeTokenAction::Skip, &store);
+
+        assert_eq!(memberships.len(), 1);
+        assert_org_membership_eq(&memberships[0], &expected_org);
+    }
+
+    #[test]
+    fn test_organization_memberships_needing_trust_v2_user_key_with_create_if_needed() {
+        let (store, org) = make_store_with_user_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        let expected_org = org.clone();
+
+        let memberships = organization_memberships_needing_trust(
+            vec![org],
+            UpgradeTokenAction::CreateIfNeeded,
+            &store,
+        );
+
+        assert_eq!(memberships.len(), 1);
+        assert_org_membership_eq(&memberships[0], &expected_org);
     }
 }
