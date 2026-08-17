@@ -19,7 +19,6 @@ mod keychain;
 mod login;
 mod mac;
 pub mod model;
-pub use model::{Item, ItemCategory, Vault};
 mod opdata;
 mod rest;
 mod rsa;
