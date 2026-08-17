@@ -4,7 +4,6 @@ use std::borrow::Cow;
 
 use data_encoding::BASE64URL_NOPAD;
 use hkdf::Hkdf;
-use hmac::Hmac;
 use icu_normalizer::DecomposingNormalizer;
 use sha2::{Digest, Sha256};
 
@@ -35,8 +34,7 @@ pub(super) fn validate_pbes2(method: &str) -> Result<(), OnePasswordError> {
 
 /// PBKDF2-HMAC-SHA256 producing 32 bytes. Callers check the method first.
 pub(super) fn pbes2(password: &str, salt: &[u8], iterations: u32) -> [u8; 32] {
-    pbkdf2::pbkdf2_array::<Hmac<Sha256>, 32>(password.as_bytes(), salt, iterations)
-        .expect("HMAC accepts any password length")
+    bitwarden_crypto::pbkdf2(password.as_bytes(), salt, iterations)
 }
 
 pub(super) fn normalize_password(password: &str) -> Cow<'_, str> {

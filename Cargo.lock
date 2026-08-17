@@ -930,7 +930,6 @@ dependencies = [
  "hmac 0.13.0",
  "icu_normalizer",
  "keepass",
- "pbkdf2",
  "rand 0.10.2",
  "reqwest",
  "rsa",

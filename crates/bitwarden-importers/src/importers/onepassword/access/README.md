@@ -16,8 +16,8 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - No SSO support
 - No service account support (they are not so good for export/import)
 - One entry point, `Client::download_all_vaults`. No vault selection, no random access
-- Added `aes-gcm`, `hkdf`, `pbkdf2`, `crypto-bigint` and `icu_normalizer` to the workspace, will
-  increase the wasm size.
+- Added `aes-gcm`, `hkdf`, `crypto-bigint` and `icu_normalizer` to the workspace, will increase the
+  wasm size.
 - SRP uses `crypto-bigint` rather than `num-bigint` for the constant-time `modpow`
 - Uses RustCrypto directly rather than `bitwarden-crypto`, which keeps HKDF, AES-GCM and RSA-OAEP
   private
@@ -43,7 +43,6 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - The wire DTOs derive `Debug`, so a debug log of one would print secrets
 - A vault we hold no key for is skipped silently, and one undecryptable item aborts the whole import
 - The module is under a blanket `allow(dead_code, unused_imports)` until the conversion layer lands
-- Now that only PBKDF2-SHA256 is supported, `bitwarden_crypto::pbkdf2` would do for that one step
 - The username goes on the wire raw, `v2/auth/methods` and `v3/auth/start` do not get the normalized
   one
 - `SrpInfo` validates the SRP key method, then `compute_x` ignores it and always derives the modern

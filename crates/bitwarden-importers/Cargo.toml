@@ -53,7 +53,6 @@ hkdf = { workspace = true }
 hmac = { workspace = true }
 icu_normalizer = { workspace = true }
 keepass = { workspace = true }
-pbkdf2 = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }
 rsa = { workspace = true }
