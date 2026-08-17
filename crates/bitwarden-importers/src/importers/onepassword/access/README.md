@@ -43,6 +43,8 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - The wire DTOs derive `Debug`, so a debug log of one would print secrets
 - A vault we hold no key for is skipped silently, and one undecryptable item aborts the whole import
 - The module is under a blanket `allow(dead_code, unused_imports)` until the conversion layer lands
+- `access` is `pub` only so the `test-utils` re-export can reach it, a `pub use` cannot re-export a
+  `pub(crate)` module
 - The username goes on the wire raw, `v2/auth/methods` and `v3/auth/start` do not get the normalized
   one
 - `SrpInfo` validates the SRP key method, then `compute_x` ignores it and always derives the modern
