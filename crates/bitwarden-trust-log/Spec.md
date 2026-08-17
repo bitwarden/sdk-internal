@@ -847,8 +847,6 @@ A verifier processing a trust log MUST, in sequence order:
 
 Failure of any check invalidates the log **from that link onward**. Prefix links already verified
 remain valid — this matters, because it means a compromised tail does not erase provable history.
-What a client _does_ on failure is out of scope here — but note that detection without a defined
-response is not a security control.
 
 ---
 
@@ -1154,7 +1152,7 @@ different state roots at the same sequence and shows them to disjoint sets of cl
 view**) defeats parts of the construction.
 
 ```
-              Figure 9: Split view — undetected by §9.4 alone
+              Figure 9: Split view attack
 
                           +------------------+
                           |      server      |
@@ -1171,22 +1169,9 @@ view**) defeats parts of the construction.
    because neither sees the other's copy of the server's log.
 ```
 
-Closing this requires out-of-band agreement on the server's log:
-
-| Option                                        | Mechanism                                                                                                                          | Cost / open issue                                                                          |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Client gossip                                 | Clients exchange observed state roots opportunistically, e.g. over an existing device-to-device channel such as login-with-device. | Detects only among parties that actually gossip; coverage is uneven.                       |
-| Cross-signing by independent auditors         | Auditors co-sign each state root.                                                                                                  | Requires parties that are genuinely independent of Bitwarden — who they are is unresolved. |
-| Publication to an external append-only medium | State roots written to a transparency log or public ledger (e.g. a Rekor instance, a CT-style log, or a blockchain commitment).    | External dependency, latency, and cost; ties Bitwarden's guarantee to a third party.       |
-
-Pins are a partial, infrastructure-free fourth option: because every link records the state root its
-author saw (§3.2), comparing `global_trust_log` values across logs authored by different clients is
-gossip built out of artifacts the system already produces — after the fact, and only among parties
-whose logs are mutually visible.
-
-⚠️ **A decision here is required before this design delivers G4 against a fully malicious server.**
-Without it, the guarantee is "detects a server that is inconsistent over time", not "detects a
-malicious server".
+This would get detected quickly by the backreferences that user/org trust logs place into their
+logs. Outside of this, out-of-band verification is possible. A few mechanisms for this are:
+Login-with-device, a public record such as Rekor or a blockchain (stellar/bitcoin).
 
 ---
 
