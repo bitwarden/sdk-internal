@@ -41,7 +41,6 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
   `BadCredentials`. The server only rejects at `confirm-key`, and its body there is not the
   `errorCode` shape `parse_server_error` understands
 - The wire DTOs derive `Debug`, so a debug log of one would print secrets
-- The sign-in domain is taken as a raw string and never validated
 - A vault we hold no key for is skipped silently, and one undecryptable item aborts the whole import
 - The module is under a blanket `allow(dead_code, unused_imports)` until the conversion layer lands
 - Now that only PBKDF2-SHA256 is supported, `bitwarden_crypto::pbkdf2` would do for that one step

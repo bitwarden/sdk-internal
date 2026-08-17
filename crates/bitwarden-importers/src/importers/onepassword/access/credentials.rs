@@ -2,6 +2,8 @@
 
 use zeroize::Zeroize;
 
+use super::sign_in::SignInAddress;
+
 /// The credentials for a password + Secret Key login.
 ///
 /// Deliberately not `Debug`: it holds the master password and Secret Key.
@@ -13,9 +15,8 @@ pub struct Credentials {
     pub password: String,
     /// The account's Secret Key (Account Key), such as `A3-XXXXXX-...`.
     pub account_key: String,
-    /// The sign-in host: [`super::region::Region::domain`] for a standard region, or the
-    /// account's custom Enterprise domain.
-    pub domain: String,
+    /// Where the account signs in, such as `my.1password.com`.
+    pub sign_in_address: SignInAddress,
     /// The device id for this import. See `device::generate_device_uuid`.
     pub device_uuid: String,
 }

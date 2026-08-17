@@ -201,7 +201,10 @@ mod tests {
     use bitwarden_api_base::new_http_client;
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers};
 
-    use super::*;
+    use super::{
+        super::sign_in::{SignInAddress, SignInDomain},
+        *,
+    };
 
     fn client(server: &MockServer) -> RestClient {
         RestClient::new(
@@ -219,7 +222,8 @@ mod tests {
             username: "user@example.com".into(),
             password: "password".into(),
             account_key: "A3-RTN9SA-DY9445Y5FF96X6E7B5GPFA95R9".into(),
-            domain: "my.1password.com".into(),
+            sign_in_address: SignInAddress::new("my", SignInDomain::Global)
+                .expect("a valid subdomain"),
             device_uuid: "device-uuid".into(),
         }
     }

@@ -76,7 +76,7 @@ impl Client {
         let client_info = ClientInfo::for_desktop(&credentials.device_uuid);
         let rest = RestClient::new(
             self.http.clone(),
-            format!("https://{}/api", credentials.domain.trim()),
+            format!("https://{}/api", credentials.sign_in_address),
             &client_info.client_id(),
             &client_info.user_agent,
             &client_info.op_user_agent,
