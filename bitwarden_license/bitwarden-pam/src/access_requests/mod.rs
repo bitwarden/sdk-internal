@@ -13,10 +13,13 @@
 
 mod client;
 mod models;
+mod validate;
 
 pub use client::AccessRequestsClient;
 pub use models::{
-    AccessApprovalMode, AccessApprover, AccessDecider, AccessDecisionVerdict, AccessPreCheckView,
-    AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestResultView,
-    AccessRequestStatus, AccessRequestSummaryView, AccessRequestView, CipherAccessStateView,
+    AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
+    AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView,
+    AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
+    CipherAccessStateView,
 };
+pub use validate::AccessRequestWindowError;
