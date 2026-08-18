@@ -77,24 +77,36 @@ pub struct AccessLeaseView {
     pub revoked_at: Option<DateTime<Utc>>,
     /// The user who revoked the lease; None unless it was revoked early.
     pub revoked_by_user_id: Option<UserId>,
+    /// Whether the holder ended their own lease, as opposed to an operator revoking it. `false`
+    /// for a lease that was never revoked. This exists because
+    /// [`AccessLeaseStatus::Revoked`] alone can't tell the two apart - it covers both a
+    /// self-service end and an operator-initiated revoke - so callers no longer need to infer it
+    /// by scanning the originating request's decision log for a human `deny` whose decider id
+    /// matches the requester.
+    pub ended_by_holder: bool,
 }
 
 impl TryFrom<AccessLeaseResponseModel> for AccessLeaseView {
     type Error = LeasingError;
 
     fn try_from(response: AccessLeaseResponseModel) -> Result<Self, Self::Error> {
+        let requester_id = UserId::new(require!(response.requester_id));
+        let revoked_by_user_id = response.revoked_by_user_id.map(UserId::new);
+        let ended_by_holder = revoked_by_user_id == Some(requester_id);
+
         Ok(Self {
             id: AccessLeaseId::new(require!(response.id)),
             request_id: AccessRequestId::new(require!(response.request_id)),
             cipher_id: CipherId::new(require!(response.cipher_id)),
             collection_id: CollectionId::new(require!(response.collection_id)),
             organization_id: response.organization_id.map(OrganizationId::new),
-            requester_id: UserId::new(require!(response.requester_id)),
+            requester_id,
             status: AccessLeaseStatus::from(require!(response.status)),
             not_before: require!(response.not_before).parse()?,
             not_after: require!(response.not_after).parse()?,
             revoked_at: response.revoked_at.map(|d| d.parse()).transpose()?,
-            revoked_by_user_id: response.revoked_by_user_id.map(UserId::new),
+            revoked_by_user_id,
+            ended_by_holder,
         })
     }
 }
@@ -141,6 +153,8 @@ impl From<AccessLeaseRevokeRequest> for AccessLeaseRevokeRequestModel {
 mod tests {
     use std::num::NonZeroU32;
 
+    use uuid::uuid;
+
     use super::*;
 
     #[test]
@@ -154,5 +168,63 @@ mod tests {
 
         assert_eq!(model.duration_seconds, Some(3600));
         assert_eq!(model.reason, "Need more time".to_string());
+    }
+
+    fn requester_id() -> uuid::Uuid {
+        uuid!("88888888-8888-8888-8888-888888888888")
+    }
+
+    fn base_lease_response() -> AccessLeaseResponseModel {
+        AccessLeaseResponseModel {
+            id: Some(uuid!("33333333-3333-3333-3333-333333333333")),
+            request_id: Some(uuid!("44444444-4444-4444-4444-444444444444")),
+            cipher_id: Some(uuid!("55555555-5555-5555-5555-555555555555")),
+            collection_id: Some(uuid!("66666666-6666-6666-6666-666666666666")),
+            requester_id: Some(requester_id()),
+            status: Some(ApiAccessLeaseStatus::Revoked),
+            not_before: Some("2025-01-01T00:00:00Z".to_string()),
+            not_after: Some("2025-01-01T01:00:00Z".to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn ended_by_holder_is_true_when_revoker_is_the_requester() {
+        let response = AccessLeaseResponseModel {
+            revoked_at: Some("2025-01-01T00:30:00Z".to_string()),
+            revoked_by_user_id: Some(requester_id()),
+            ..base_lease_response()
+        };
+
+        let view = AccessLeaseView::try_from(response).unwrap();
+
+        assert!(view.ended_by_holder);
+    }
+
+    #[test]
+    fn ended_by_holder_is_false_when_revoker_is_an_operator() {
+        let response = AccessLeaseResponseModel {
+            revoked_at: Some("2025-01-01T00:30:00Z".to_string()),
+            revoked_by_user_id: Some(uuid!("99999999-9999-9999-9999-999999999999")),
+            ..base_lease_response()
+        };
+
+        let view = AccessLeaseView::try_from(response).unwrap();
+
+        assert!(!view.ended_by_holder);
+    }
+
+    #[test]
+    fn ended_by_holder_is_false_when_the_lease_was_never_revoked() {
+        let response = AccessLeaseResponseModel {
+            status: Some(ApiAccessLeaseStatus::Active),
+            revoked_at: None,
+            revoked_by_user_id: None,
+            ..base_lease_response()
+        };
+
+        let view = AccessLeaseView::try_from(response).unwrap();
+
+        assert!(!view.ended_by_holder);
     }
 }

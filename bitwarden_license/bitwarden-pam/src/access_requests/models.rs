@@ -368,13 +368,50 @@ impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
     }
 }
 
+/// The single badge to show for a gated cipher, derived from [`CipherAccessStateView`]'s
+/// [`active_lease`](CipherAccessStateView::active_lease),
+/// [`approved_request`](CipherAccessStateView::approved_request), and
+/// [`pending_request`](CipherAccessStateView::pending_request) by precedence: exactly one badge
+/// shows for a gated item at a time - an active lease authorizes access right now, an approved
+/// request is ready to activate, and a pending request is merely awaiting a decision, so the
+/// first of those that is present wins over the rest. Absent all three, the item is gated but
+/// resting - no lease, no request in flight.
+///
+/// [`Active`](Self::Active) carries only [`expires_at`](Self::Active::expires_at). Whether that
+/// time is soon enough to warrant an "ending soon" escalation is a live-countdown threshold that
+/// depends on wall-clock time as the client renders it, so it stays a presentation concern for
+/// the client rather than something this view decides once at fetch time.
+///
+/// This deliberately does not model `unavailable` (the item is currently held by another user) or
+/// `expired`: the server's per-cipher access-state response is scoped to the calling user, so
+/// there is no data today from which either could be derived. Producing them would need a server
+/// response-model change plus a new SDK field, and is tracked separately.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub enum AccessBadgeState {
+    /// The caller holds an active lease; the cipher is unlocked until it expires.
+    Active {
+        /// When the active lease's access window closes (UTC).
+        #[serde(rename = "expiresAt")]
+        expires_at: DateTime<Utc>,
+    },
+    /// The caller's request was approved and is ready to be activated into a lease.
+    Ready,
+    /// The caller has a request awaiting a decision.
+    Pending,
+    /// No active lease, approved request, or pending request - the item is gated and resting.
+    Privileged,
+}
+
 /// A single-snapshot read of the caller's access state for one cipher, powering the cipher-view
 /// banner and the vault-row badge.
 ///
 /// At most one of [`active_lease`](Self::active_lease), [`pending_request`](Self::pending_request),
 /// and [`approved_request`](Self::approved_request) is meaningfully "next": an active lease
 /// authorizes access, a pending request awaits a decision, and an approved request awaits
-/// activation by the caller.
+/// activation by the caller. [`badge_state`](Self::badge_state) collapses those three into the
+/// single badge the client should show.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -388,6 +425,11 @@ pub struct CipherAccessStateView {
     /// The caller's approved-but-not-yet-activated request on this cipher, if any. Lapsed
     /// approvals are never surfaced here.
     pub approved_request: Option<AccessRequestView>,
+    /// The single badge to show for this cipher, derived from
+    /// [`active_lease`](Self::active_lease), [`approved_request`](Self::approved_request), and
+    /// [`pending_request`](Self::pending_request) by precedence. See [`AccessBadgeState`] for
+    /// the precedence order and its rationale.
+    pub badge_state: AccessBadgeState,
     /// Whether the active lease can still be extended.
     pub extensions_allowed: bool,
     /// The longest a single extension of the active lease may run, in seconds; None when there is
@@ -399,20 +441,39 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
     type Error = LeasingError;
 
     fn try_from(response: CipherAccessStateResponseModel) -> Result<Self, Self::Error> {
+        let active_lease = response
+            .active_lease
+            .map(|lease| AccessLeaseView::try_from(*lease))
+            .transpose()?;
+        let pending_request = response
+            .pending_request
+            .map(|request| AccessRequestView::try_from(*request))
+            .transpose()?;
+        let approved_request = response
+            .approved_request
+            .map(|request| AccessRequestView::try_from(*request))
+            .transpose()?;
+
+        // active lease -> approved (ready to activate) -> pending approval -> privileged
+        // (resting). Mirrors the precedence documented on `AccessBadgeState`.
+        let badge_state = if let Some(lease) = &active_lease {
+            AccessBadgeState::Active {
+                expires_at: lease.not_after,
+            }
+        } else if approved_request.is_some() {
+            AccessBadgeState::Ready
+        } else if pending_request.is_some() {
+            AccessBadgeState::Pending
+        } else {
+            AccessBadgeState::Privileged
+        };
+
         Ok(Self {
             cipher_id: CipherId::new(require!(response.cipher_id)),
-            active_lease: response
-                .active_lease
-                .map(|lease| AccessLeaseView::try_from(*lease))
-                .transpose()?,
-            pending_request: response
-                .pending_request
-                .map(|request| AccessRequestView::try_from(*request))
-                .transpose()?,
-            approved_request: response
-                .approved_request
-                .map(|request| AccessRequestView::try_from(*request))
-                .transpose()?,
+            active_lease,
+            pending_request,
+            approved_request,
+            badge_state,
             extensions_allowed: require!(response.extensions_allowed),
             max_extension_duration_seconds: response.max_extension_duration_seconds,
         })
@@ -716,6 +777,7 @@ mod tests {
         assert_eq!(view.active_lease, None);
         assert_eq!(view.pending_request, None);
         assert_eq!(view.approved_request, None);
+        assert_eq!(view.badge_state, AccessBadgeState::Privileged);
         assert!(!view.extensions_allowed);
         assert_eq!(view.max_extension_duration_seconds, None);
     }
@@ -747,8 +809,128 @@ mod tests {
         assert!(view.active_lease.is_some());
         assert!(view.pending_request.is_some());
         assert!(view.approved_request.is_some());
+        // An active lease outranks the (also-populated) approved and pending requests.
+        assert_eq!(
+            view.badge_state,
+            AccessBadgeState::Active {
+                expires_at: "2025-01-01T01:00:00Z".parse().unwrap()
+            }
+        );
         assert!(view.extensions_allowed);
         assert_eq!(view.max_extension_duration_seconds, Some(3600));
+    }
+
+    fn cipher_access_state_response_with(
+        active_lease: Option<Box<AccessLeaseResponseModel>>,
+        pending_request: Option<Box<AccessRequestDetailsResponseModel>>,
+        approved_request: Option<Box<AccessRequestDetailsResponseModel>>,
+    ) -> CipherAccessStateResponseModel {
+        CipherAccessStateResponseModel {
+            cipher_id: Some(cipher_id()),
+            active_lease,
+            pending_request,
+            approved_request,
+            extensions_allowed: Some(false),
+            max_extension_duration_seconds: None,
+            ..Default::default()
+        }
+    }
+
+    fn sample_active_lease() -> Box<AccessLeaseResponseModel> {
+        Box::new(AccessLeaseResponseModel {
+            id: Some(uuid!("33333333-3333-3333-3333-333333333333")),
+            request_id: Some(request_id().into()),
+            cipher_id: Some(cipher_id()),
+            collection_id: Some(uuid!("66666666-6666-6666-6666-666666666666")),
+            requester_id: Some(uuid!("88888888-8888-8888-8888-888888888888")),
+            status: Some(ApiAccessLeaseStatus::Active),
+            not_before: Some("2025-01-01T00:00:00Z".to_string()),
+            not_after: Some("2025-01-01T01:00:00Z".to_string()),
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn badge_state_is_active_when_only_an_active_lease_is_present() {
+        let response = cipher_access_state_response_with(Some(sample_active_lease()), None, None);
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(
+            view.badge_state,
+            AccessBadgeState::Active {
+                expires_at: "2025-01-01T01:00:00Z".parse().unwrap()
+            }
+        );
+    }
+
+    #[test]
+    fn badge_state_is_ready_when_approved_request_is_present_without_a_lease() {
+        let response =
+            cipher_access_state_response_with(None, None, Some(Box::new(full_response())));
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Ready);
+    }
+
+    #[test]
+    fn badge_state_prefers_ready_over_pending() {
+        let response = cipher_access_state_response_with(
+            None,
+            Some(Box::new(full_response())),
+            Some(Box::new(full_response())),
+        );
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Ready);
+    }
+
+    #[test]
+    fn badge_state_is_pending_when_only_a_pending_request_is_present() {
+        let response =
+            cipher_access_state_response_with(None, Some(Box::new(full_response())), None);
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Pending);
+    }
+
+    #[test]
+    fn badge_state_is_privileged_when_nothing_is_present() {
+        let response = cipher_access_state_response_with(None, None, None);
+
+        let view = CipherAccessStateView::try_from(response).unwrap();
+
+        assert_eq!(view.badge_state, AccessBadgeState::Privileged);
+    }
+
+    #[test]
+    fn active_badge_state_serializes_with_camel_case_expires_at() {
+        let state = AccessBadgeState::Active {
+            expires_at: "2025-01-01T01:00:00Z".parse().unwrap(),
+        };
+
+        let json = serde_json::to_value(&state).unwrap();
+
+        assert_eq!(json["active"]["expiresAt"], "2025-01-01T01:00:00Z");
+    }
+
+    #[test]
+    fn unit_badge_states_serialize_as_bare_strings() {
+        assert_eq!(
+            serde_json::to_value(AccessBadgeState::Ready).unwrap(),
+            serde_json::json!("ready")
+        );
+        assert_eq!(
+            serde_json::to_value(AccessBadgeState::Pending).unwrap(),
+            serde_json::json!("pending")
+        );
+        assert_eq!(
+            serde_json::to_value(AccessBadgeState::Privileged).unwrap(),
+            serde_json::json!("privileged")
+        );
     }
 
     #[test]

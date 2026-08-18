@@ -57,13 +57,15 @@ impl AccessRequestsClient {
         CipherAccessStateView::try_from(response)
     }
 
-    /// Opens an access request for a cipher. Run [`pre_check`](Self::pre_check) first to know
-    /// which fields [`AccessRequestCreateRequest`] expects.
+    /// Validates and opens an access request for a cipher. Run [`pre_check`](Self::pre_check)
+    /// first to know which fields [`AccessRequestCreateRequest`] expects.
     pub async fn request(
         &self,
         cipher_id: CipherId,
         request: AccessRequestCreateRequest,
     ) -> Result<AccessRequestResultView, LeasingError> {
+        request.validate()?;
+
         let response = self
             .api_configurations
             .api_client
@@ -384,6 +386,22 @@ mod tests {
 
         assert_eq!(result.approval_mode, AccessApprovalMode::Automatic);
         assert_eq!(result.request.id, request_id());
+    }
+
+    #[tokio::test]
+    async fn request_rejects_an_over_long_window_without_calling_the_api() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.cipher_lease_api.expect_post().never();
+        });
+
+        let request = AccessRequestCreateRequest {
+            duration_seconds: NonZeroU32::new(86_401),
+            ..Default::default()
+        };
+
+        let result = client(api_client).request(cipher_id(), request).await;
+
+        assert!(matches!(result, Err(LeasingError::Validation(_))));
     }
 
     #[tokio::test]
