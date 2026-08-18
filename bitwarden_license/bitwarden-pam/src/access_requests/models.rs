@@ -188,6 +188,10 @@ pub struct AccessRequestView {
     pub submitted_at: DateTime<Utc>,
     /// When the request was approved, denied, or cancelled (UTC); None while pending.
     pub resolved_at: Option<DateTime<Utc>>,
+    /// When an approved request lapsed unactivated (UTC); None otherwise. The server does not
+    /// track this in v1, so it is always None today - its absence does not prove the request
+    /// is still live.
+    pub expired_at: Option<DateTime<Utc>>,
     /// The request's decision log, oldest first. Empty only while pending.
     pub decisions: Vec<AccessRequestDecisionView>,
     /// The lease produced once this (approved) request was activated. None until activation.
@@ -221,6 +225,7 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
             reason: response.reason,
             submitted_at: require!(response.submitted_at).parse()?,
             resolved_at: response.resolved_at.map(|d| d.parse()).transpose()?,
+            expired_at: response.expired_at.map(|d| d.parse()).transpose()?,
             decisions: response
                 .decisions
                 .unwrap_or_default()
@@ -492,6 +497,7 @@ mod tests {
             reason: Some("Need to fix an incident".to_string()),
             submitted_at: Some("2025-01-01T00:00:00Z".to_string()),
             resolved_at: Some("2025-01-01T00:30:00Z".to_string()),
+            expired_at: Some("2025-01-02T00:00:00Z".to_string()),
             decisions: Some(vec![automatic_decision(), human_decision()]),
             produced_lease_id: Some(Uuid::new_v4()),
             produced_lease_status: Some(ApiAccessLeaseStatus::Active),
@@ -536,6 +542,18 @@ mod tests {
         assert_eq!(approver.email.as_deref(), Some("ana@example.com"));
         assert_eq!(decision.comment.as_deref(), Some("Looks fine"));
         assert_eq!(decision.verdict, AccessDecisionVerdict::Approve);
+    }
+
+    #[test]
+    fn full_response_converts_expired_at() {
+        let response = full_response();
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert_eq!(
+            view.expired_at,
+            Some("2025-01-02T00:00:00Z".parse().unwrap())
+        );
     }
 
     #[test]
