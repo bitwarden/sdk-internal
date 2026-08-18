@@ -96,6 +96,10 @@ async fn internal_post_keys_for_tde_registration(
             .account_keys_request
             .user_key_encrypted_account_private_key
             .ok_or(RegistrationError::Crypto)?,
+        user_key_id: tde_registration_crypto_result
+            .user_key
+            .key_id()
+            .map(|id| id.to_string()),
     };
     info!("Posting user account cryptographic state to server");
     api_client

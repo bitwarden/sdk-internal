@@ -12,7 +12,7 @@ use crate::{
     Client, ClientSettings, UserId,
     client::ApiConfigurations,
     key_management::{
-        LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
+        LocalUserDataKeyState, MasterPasswordUnlockData,
         account_cryptographic_state::WrappedAccountCryptographicState,
         crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     },
@@ -28,12 +28,6 @@ impl Client {
 
     /// Registers the state repositories required by the test-account crypto initialization.
     fn register_test_repositories(client: Client) -> Self {
-        client
-            .platform()
-            .state()
-            .register_client_managed(std::sync::Arc::new(
-                MemoryRepository::<UserKeyState>::default(),
-            ));
         client
             .platform()
             .state()
