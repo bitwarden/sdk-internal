@@ -11,16 +11,15 @@
 //! Both `bw receive <url>` and `bw send receive <url>` are the same command; their arg structs
 //! are field-identical and both funnel into [`run_receive`].
 //!
-//! **Known security gap (PM-40120):** [`resolve_urls`] trusts a Send link's host
-//! unconditionally to resolve *both* the API and identity origin — the same class of bug the
-//! legacy CLI has, though the exact mechanism differs there (legacy always mints against the
-//! configured environment but can leak the resulting real token to an attacker-controlled host
-//! on the follow-up fetch). Here, a link pointing at an attacker-controlled host sends the
-//! token-mint request there directly, so a password-protected Send's hashed password (salted
-//! with the fragment key, which the attacker already knows — they crafted the link) goes
-//! straight to that host. A fix (reject, or prompt when the link's host doesn't match the
-//! configured deployment) is pending a product decision on the resulting UX; `resolve_urls` is
-//! where it belongs once decided.
+//! **PM-40120:** the legacy CLI's version of this bug mints against its configured environment
+//! but can leak the resulting real token to an attacker-controlled host on a follow-up fetch.
+//! The decided fix (2026-08-17) is that a Send access token must never be requested from
+//! anywhere but the server named in the Send link itself. [`resolve_urls`] already does this
+//! unconditionally for both the API and identity origin, so the mint and fetch here always
+//! target the same resolved host and a token can never cross the kind of domain boundary
+//! PM-40120 tracked. A link naming an attacker-controlled host still sends that host a password
+//! hash if the user proceeds — but per the decided fix, that's the token's only valid target,
+//! not a leak to a second, different host.
 
 use bitwarden_auth::send_access::{
     SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest, SendEmailCredentials,
@@ -145,8 +144,8 @@ fn parse_send_url(url: &Url) -> Result<(String, String)> {
 ///
 /// Pure so the precedence can be unit-tested without a client or a config file on disk.
 ///
-/// See the module-level PM-40120 note: this unconditional host trust is the known security
-/// gap, and this is where its eventual fix belongs.
+/// See the module-level PM-40120 note: this unconditional host resolution — always the link's
+/// own host, never a separately configured environment — is the decided fix, not a gap.
 fn resolve_urls(url: &Url, config: Option<&ConfigFile>) -> (String, String) {
     if let Some(host) = url.host_str()
         && let Some(region) = CLOUD_HOSTS
@@ -199,9 +198,9 @@ fn trimmed(value: Option<&str>) -> Option<String> {
 /// `{kind: "expired"}` case tied to its persistent send-access-token cache — legacy's CLI
 /// caches tokens across invocations too, not just the browser/extension (see the module-level
 /// PM-40120 note: that cross-invocation cache is part of what's under security review). This
-/// port deliberately does not persist tokens across invocations: `bw receive` mints and
-/// consumes the token within one process, so there's nothing to expire and no retry to
-/// replicate.
+/// port deliberately does not persist tokens between invocations — a divergence from legacy,
+/// not an oversight: `bw receive` mints and consumes the token within a single process, so
+/// there's no cross-invocation state for a cache to protect or a retry to recover.
 async fn attempt_access(
     client: &PasswordManagerClient,
     send_id: &str,
