@@ -155,6 +155,7 @@ impl From<&MasterPasswordUnlockData> for MasterPasswordUnlockDataRequestModel {
             kdf: Box::new(kdf_to_api_kdf_request_model(&data.kdf)),
             master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
             salt: data.salt.to_owned(),
+            contained_key_id: None,
         }
     }
 }
@@ -167,6 +168,7 @@ impl From<&MasterPasswordUnlockData>
             kdf: Box::new(kdf_to_identity_kdf_request_model(&data.kdf)),
             master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
             salt: data.salt.to_owned(),
+            contained_key_id: None,
         }
     }
 }
@@ -348,6 +350,7 @@ mod tests {
             }),
             master_key_encrypted_user_key,
             salt,
+            contained_key_id: None,
         }
     }
 
@@ -382,6 +385,7 @@ mod tests {
             }),
             master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         };
 
         let data = MasterPasswordUnlockData::try_from(&response).unwrap();
@@ -457,6 +461,7 @@ mod tests {
             }),
             master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         };
 
         let result = MasterPasswordUnlockData::try_from(&response);
@@ -480,6 +485,7 @@ mod tests {
             }),
             master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         };
 
         let result = MasterPasswordUnlockData::try_from(&response);
@@ -498,6 +504,7 @@ mod tests {
             }),
             master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         };
 
         let result = MasterPasswordUnlockData::try_from(&response);
@@ -521,6 +528,7 @@ mod tests {
             }),
             master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         };
 
         let result = MasterPasswordUnlockData::try_from(&response);
@@ -552,6 +560,7 @@ mod tests {
             }),
             master_key_encrypted_user_key: Some(TEST_USER_KEY.to_string()),
             salt: Some(TEST_SALT.to_string()),
+            contained_key_id: None,
         };
 
         let result = MasterPasswordUnlockData::try_from(&response);

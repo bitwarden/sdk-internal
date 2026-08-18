@@ -69,6 +69,13 @@ pub struct SendResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub text: Option<Box<models::SendTextModel>>,
+    /// Encrypted string containing secret Send data
+    #[serde(
+        rename = "data",
+        alias = "Data",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data: Option<String>,
     /// A base64-encoded byte array containing the Send's encryption key. It's also provided to
     /// send recipients in the Send's URL.
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
@@ -156,6 +163,7 @@ impl SendResponseModel {
             notes: None,
             file: None,
             text: None,
+            data: None,
             key: None,
             max_access_count: None,
             access_count: None,

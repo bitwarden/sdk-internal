@@ -51,6 +51,7 @@ pub(super) fn debug_fmt<C: ContentNamespace>(
     {
         let label = match content_encryption_algorithm {
             CoseContentEncryptionAlgorithm::Aes256Gcm => "AES-256-GCM",
+            CoseContentEncryptionAlgorithm::XAes256Gcm => "XAES-256-GCM",
             CoseContentEncryptionAlgorithm::XChaCha20Poly1305 => "XChaCha20-Poly1305",
         };
         debug_struct.field("content_encryption_algorithm", &label);

@@ -9,7 +9,7 @@ use bitwarden_api_api::models::{
     ImportCiphersRequestModel, ImportOrganizationCiphersRequestModel, Int32Int32KeyValuePair,
 };
 use bitwarden_collections::collection::{Collection, CollectionType, CollectionView};
-use bitwarden_core::{ApiError, Client, NotAuthenticatedError};
+use bitwarden_core::{Client, NotAuthenticatedError};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey};
 use bitwarden_exporters::{CipherType, ImportingCipher, encrypt_import};
 use bitwarden_vault::{Folder, FolderView};
@@ -175,15 +175,13 @@ pub(crate) async fn submit_import(
             api_client
                 .import_ciphers_api()
                 .post_import(Some(model))
-                .await
-                .map_err(ApiError::from)?;
+                .await?;
         }
         ImportPayload::Organization(organization_id, model) => {
             api_client
                 .import_ciphers_api()
                 .post_import_organization(Some(&organization_id), Some(model))
-                .await
-                .map_err(ApiError::from)?;
+                .await?;
         }
     }
 

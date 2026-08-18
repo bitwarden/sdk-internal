@@ -17,9 +17,9 @@ use super::{
     verifying_key::{RawVerifyingKey, VerifyingKey},
 };
 use crate::{
-    CoseKeyBytes, CryptoKey,
+    CoseKeyBytes, CoseKeyThumbprint, CryptoError, CryptoKey,
     content_format::CoseKeyContentFormat,
-    cose::CoseSerializable,
+    cose::{CoseKeyThumbprintExt, CoseSerializable},
     error::{EncodingError, Result},
     keys::KeyId,
 };
@@ -216,6 +216,12 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
     }
 }
 
+impl CoseKeyThumbprintExt for SigningKey {
+    fn thumbprint(&self) -> Result<CoseKeyThumbprint, CryptoError> {
+        self.to_verifying_key().thumbprint()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,6 +323,44 @@ mod tests {
             verifying_key
                 .verify_raw(&signature, b"Test message")
                 .is_ok()
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_matches_verifying_key_ed25519() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        assert_eq!(
+            signing_key.thumbprint().unwrap(),
+            signing_key.to_verifying_key().thumbprint().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_matches_verifying_key_mldsa44() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::MlDsa44);
+        assert_eq!(
+            signing_key.thumbprint().unwrap(),
+            signing_key.to_verifying_key().thumbprint().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_thumbprint_mldsa44_vector() {
+        let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(
+            hex::decode(MLDSA44_SIGNING_KEY).unwrap(),
+        ))
+        .unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(
+            hex::decode(MLDSA44_VERIFYING_KEY).unwrap(),
+        ))
+        .unwrap();
+        assert_eq!(
+            signing_key.thumbprint().unwrap(),
+            verifying_key.thumbprint().unwrap()
+        );
+        assert_eq!(
+            signing_key.thumbprint().unwrap().to_hex(),
+            "fb932d165a6ff31caf0537ecb3c267dcbdac69773de6b739211c00e68969e233"
         );
     }
 }

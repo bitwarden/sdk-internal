@@ -82,6 +82,11 @@ impl Client {
         self.0.user_crypto_management()
     }
 
+    /// Key management operations that run on every sync.
+    pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
+        self.0.crypto_sync_handler()
+    }
+
     /// Vault item operations
     pub fn vault(&self) -> VaultClient {
         VaultClient(self.0.vault())

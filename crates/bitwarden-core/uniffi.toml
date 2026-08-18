@@ -5,8 +5,20 @@ android = true
 # Temporary workaround for https://github.com/mozilla/uniffi-rs/issues/2740
 omit_checksums = true
 
+[bindings.kotlin.custom_types.NaiveDate]
+type_name = "LocalDate"
+imports = ["java.time.LocalDate"]
+into_custom = "LocalDate.parse({})"
+from_custom = "{}.toString()"
+
 [bindings.swift]
 ffi_module_name = "BitwardenCoreFFI"
 module_name = "BitwardenCore"
 generate_immutable_records = true
 generate_codable_conformance = true
+
+[bindings.swift.custom_types.NaiveDate]
+type_name = "Date"
+imports = ["Foundation", "BitwardenSdkSupport"]
+into_custom = "try NaiveDateFormatter.date(from: {})"
+from_custom = "NaiveDateFormatter.string(from: {})"

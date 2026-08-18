@@ -26,7 +26,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     attachment, bank_account,
-    blob::{decrypt_blob_cipher, encrypt_blob_cipher, try_parse_blob},
+    bank_account::BankAccountListView,
+    blob::{decrypt_blob_cipher, encrypt_blob_cipher_with_wrapping_key, try_parse_blob},
     card,
     card::CardListView,
     cipher_permissions::CipherPermissions,
@@ -69,12 +70,6 @@ pub enum CipherError {
     SerdeJson(#[from] serde_json::Error),
     #[error(transparent)]
     Api(#[from] ApiError),
-}
-
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
 }
 
 /// Helper trait for operations on cipher types.
@@ -126,6 +121,16 @@ pub struct EncryptionContext {
     /// The Id of the user that encrypted the cipher. It should always represent a UserId, even for
     /// Organization-owned ciphers
     pub encrypted_for: UserId,
+    /// Hex-encoded id of the key the cipher's fields are wrapped under - the organization key for
+    /// Organization-owned ciphers, otherwise the user key - captured at the time the cipher was
+    /// encrypted. The server uses it to reject writes made under a wrong key.
+    ///
+    /// `None` for keys that carry no key id, which is the case for the legacy AES-CBC-HMAC keys
+    /// still used by V1 accounts.
+    #[serde(default)]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub encrypted_by_key_id: Option<String>,
     pub cipher: Cipher,
 }
 
@@ -135,11 +140,13 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
         EncryptionContext {
             cipher,
             encrypted_for,
+            encrypted_by_key_id,
         }: EncryptionContext,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             id: require!(cipher.id).into(),
             encrypted_for: Some(encrypted_for.into()),
+            encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
@@ -213,10 +220,12 @@ impl From<EncryptionContext> for CipherRequestModel {
         EncryptionContext {
             cipher,
             encrypted_for,
+            encrypted_by_key_id,
         }: EncryptionContext,
     ) -> Self {
         Self {
             encrypted_for: Some(encrypted_for.into()),
+            encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
@@ -367,6 +376,11 @@ impl Cipher {
         self.key = Some(new_cipher_key);
         Ok(())
     }
+
+    /// Returns `true` if this cipher's sensitive data is stored in the sealed-blob format.
+    pub fn is_blob_encrypted(&self) -> bool {
+        try_parse_blob(self).is_some()
+    }
 }
 
 bitwarden_state::register_repository_item!(CipherId => Cipher, "Cipher");
@@ -377,7 +391,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
     /// Structural mapping from an encrypted [`Cipher`] to the API's expected
     /// [`CipherRequestModel`]. No crypto — all encryption happened upstream in
     /// `CipherView::encrypt_composite`. Callers are responsible for setting
-    /// `encrypted_for` after the conversion.
+    /// `encrypted_for` and `encrypted_by_key_id` after the conversion.
     ///
     /// Fails with [`CryptoError::MissingField`] if any attachment has no `id`
     fn try_from(c: Cipher) -> Result<Self, Self::Error> {
@@ -395,6 +409,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
 
         Ok(CipherRequestModel {
             encrypted_for: None,
+            encrypted_by_key_id: None,
             r#type: Some(c.r#type.into()),
             organization_id: c.organization_id.map(|id| id.to_string()),
             folder_id: c.folder_id.map(|id| id.to_string()),
@@ -484,7 +499,7 @@ pub enum CipherListViewType {
     Card(CardListView),
     Identity,
     SshKey,
-    BankAccount,
+    BankAccount(BankAccountListView),
     Passport,
     DriversLicense,
 }
@@ -641,8 +656,12 @@ impl CipherListView {
     }
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView {
-    fn encrypt_composite(
+// ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::CompositeEncryptable`: `CipherView` retains key-bound
+// ciphertext (`key`, the cipher content-encryption key wrapped under the decrypting key) and copies
+// it through unchanged (`key: cipher_view.key` below) instead of re-wrapping it under `key`. As a
+// result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip.
+impl CipherView {
+    fn encrypt_legacy_field_encryption(
         &self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
@@ -657,6 +676,8 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView
             organization_id: cipher_view.organization_id,
             folder_id: cipher_view.folder_id,
             collection_ids: cipher_view.collection_ids,
+            // ⚠️ pass-through of wrapped key-bound ciphertext — see the contract-violation note
+            // above.
             key: cipher_view.key,
             name: Some(cipher_view.name.encrypt(ctx, ciphers_key)?),
             notes: cipher_view.notes.encrypt(ctx, ciphers_key)?,
@@ -723,6 +744,12 @@ pub(crate) fn lenient_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::Decryptable`: the resulting `CipherView` is a
+        // decrypted DTO, yet `key` (the cipher's content key wrapped under the user/org key) is
+        // copied through still encrypted (`cipher.key.clone()`) rather than decrypted, because
+        // `CipherView` stores it as an `EncString`. The wrapped key is therefore key-bound to the
+        // original user/org key: a `CipherView` cannot be re-encrypted under a different user/org
+        // key without explicitly rewrapping `key`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1119,7 +1146,16 @@ impl CipherView {
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = self
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(BankAccountListView {
+                    account_number: bank_account.account_number.clone(),
+                    account_type: bank_account.account_type.clone(),
+                })
+            }
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
             CipherType::Passport => CipherListViewType::Passport,
         };
@@ -1208,13 +1244,20 @@ impl CipherView {
                     drivers_license::build_subtitle_drivers_license(
                         d.first_name.clone(),
                         d.last_name.clone(),
+                        d.issuing_state.clone(),
                     )
                 })
                 .unwrap_or_default(),
             CipherType::Passport => self
                 .passport
                 .as_ref()
-                .map(|p| passport::build_subtitle_passport(p.given_name.clone(), p.surname.clone()))
+                .map(|p| {
+                    passport::build_subtitle_passport(
+                        p.given_name.clone(),
+                        p.surname.clone(),
+                        p.issuing_country.clone(),
+                    )
+                })
                 .unwrap_or_default(),
         }
     }
@@ -1386,6 +1429,8 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1414,7 +1459,13 @@ pub(crate) fn lenient_decrypt_cipher_list_view(
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = cipher
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(bank_account.decrypt(ctx, ciphers_key)?)
+            }
             CipherType::Passport => CipherListViewType::Passport,
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
         },
@@ -1480,7 +1531,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key).map_err(CryptoError::from),
             None => lenient_decrypt_cipher_view(self, ctx, key),
         }
     }
@@ -1493,7 +1544,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(self) {
-            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(self, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => lenient_decrypt_cipher_list_view(self, ctx, key),
         }
     }
@@ -1541,7 +1592,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<C
         key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx).map_err(CryptoError::from),
+            Some(sealed) => {
+                decrypt_blob_cipher(&self.0, &sealed, ctx, key).map_err(CryptoError::from)
+            }
             None => strict_decrypt_cipher_view(&self.0, ctx, key),
         }
     }
@@ -1569,6 +1622,8 @@ fn strict_decrypt_cipher_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1641,7 +1696,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecry
         key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         match try_parse_blob(&self.0) {
-            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx)?.to_list_view(ctx, key),
+            Some(sealed) => decrypt_blob_cipher(&self.0, &sealed, ctx, key)?.to_list_view(ctx, key),
             None => strict_decrypt_cipher_list_view(&self.0, ctx, key),
         }
     }
@@ -1661,6 +1716,8 @@ fn strict_decrypt_cipher_list_view(
         organization_id: cipher.organization_id,
         folder_id: cipher.folder_id,
         collection_ids: cipher.collection_ids.clone(),
+        // ⚠️ pass-through of the wrapped, key-bound cipher key — see the contract-violation note in
+        // `lenient_decrypt_cipher_view`.
         key: cipher.key.clone(),
         name: cipher
             .name
@@ -1686,7 +1743,15 @@ fn strict_decrypt_cipher_list_view(
             }
             CipherType::Identity => CipherListViewType::Identity,
             CipherType::SshKey => CipherListViewType::SshKey,
-            CipherType::BankAccount => CipherListViewType::BankAccount,
+            CipherType::BankAccount => {
+                let bank_account = cipher
+                    .bank_account
+                    .as_ref()
+                    .ok_or(CryptoError::MissingField("bank_account"))?;
+                CipherListViewType::BankAccount(
+                    StrictDecrypt(bank_account).decrypt(ctx, ciphers_key)?,
+                )
+            }
             CipherType::Passport => CipherListViewType::Passport,
             CipherType::DriversLicense => CipherListViewType::DriversLicense,
         },
@@ -1745,13 +1810,13 @@ fn strict_decrypt_cipher_list_view(
 }
 
 /// Selects between blob and legacy encryption paths. The variant is chosen at
-/// the [`CiphersClient`] layer via [`should_use_blob_encryption`].
-///
+/// the [`CiphersClient`] layer via `should_use_blob_encryption`.
 ///
 /// [`CiphersClient`]: crate::cipher::cipher_client::CiphersClient
-/// [`should_use_blob_encryption`]: crate::cipher::cipher_client::CiphersClient::should_use_blob_encryption
-pub(crate) enum EncryptMode<T> {
+pub enum EncryptMode<T> {
+    /// Encrypt as a sealed blob (current format).
     Blob(T),
+    /// Encrypt using the legacy field-level format.
     Legacy(T),
 }
 
@@ -1780,12 +1845,15 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for EncryptMod
     ) -> Result<Cipher, CryptoError> {
         match self {
             Self::Blob(view) => {
-                // `encrypt_blob_cipher` takes `&mut CipherView` because it may
-                // generate a cipher key; so we operate on a local clone.
+                // `encrypt_blob_cipher_with_wrapping_key` takes `&mut CipherView` because it may
+                // generate a cipher key; so we operate on a local clone. The explicit `key` is
+                // respected here so callers can target a non-`User`/`Organization` slot (e.g.
+                // a `Local` slot during key rotation).
                 let mut owned = view.clone();
-                encrypt_blob_cipher(&mut owned, ctx).map_err(CryptoError::from)
+                encrypt_blob_cipher_with_wrapping_key(&mut owned, ctx, key)
+                    .map_err(CryptoError::from)
             }
-            Self::Legacy(view) => view.encrypt_composite(ctx, key),
+            Self::Legacy(view) => view.encrypt_legacy_field_encryption(ctx, key),
         }
     }
 }
@@ -2313,12 +2381,17 @@ mod tests {
 
         let request: CipherWithIdRequestModel = EncryptionContext {
             encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            encrypted_by_key_id: Some("0102030405060708090a0b0c0d0e0f10".to_string()),
             cipher,
         }
         .try_into()
         .unwrap();
 
         assert_eq!(request.data, expected);
+        assert_eq!(
+            request.encrypted_by_key_id.as_deref(),
+            Some("0102030405060708090a0b0c0d0e0f10")
+        );
     }
 
     #[test]
@@ -2328,11 +2401,100 @@ mod tests {
 
         let request: CipherRequestModel = EncryptionContext {
             encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            encrypted_by_key_id: Some("0102030405060708090a0b0c0d0e0f10".to_string()),
             cipher,
         }
         .into();
 
         assert_eq!(request.data, expected);
+        assert_eq!(
+            request.encrypted_by_key_id.as_deref(),
+            Some("0102030405060708090a0b0c0d0e0f10")
+        );
+    }
+
+    /// Personal ciphers report the user key's id. This mirrors the lookup the cipher client
+    /// performs when populating `EncryptionContext::encrypted_by_key_id`.
+    #[test]
+    fn test_encrypted_by_key_id_uses_user_key_for_personal_cipher() {
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let expected = user_key.key_id().unwrap().to_string();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        let view = generate_cipher();
+        assert_eq!(view.key_identifier(), SymmetricKeySlotId::User);
+
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual.as_deref(), Some(expected.as_str()));
+        // The server only accepts a lowercase hex encoding of the 16 raw bytes.
+        assert_eq!(expected.len(), 32);
+        assert!(expected.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(expected, expected.to_lowercase());
+    }
+
+    /// Organization-owned ciphers report the *organization* key's id, not the acting user's.
+    #[test]
+    fn test_encrypted_by_key_id_uses_org_key_for_org_cipher() {
+        let org = OrganizationId::new_v4();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let user_key_id = user_key.key_id().unwrap().to_string();
+        let org_key_id = org_key.key_id().unwrap().to_string();
+        assert_ne!(user_key_id, org_key_id);
+
+        let key_store = create_test_crypto_with_user_and_org_key(user_key, org, org_key);
+
+        let mut view = generate_cipher();
+        view.organization_id = Some(org);
+        assert_eq!(view.key_identifier(), SymmetricKeySlotId::Organization(org));
+
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual.as_deref(), Some(org_key_id.as_str()));
+    }
+
+    /// A per-cipher key does not change the answer - the reported id is always the *wrapping* key
+    /// the cipher key itself is sealed under.
+    #[test]
+    fn test_encrypted_by_key_id_ignores_cipher_key() {
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let expected = user_key.key_id().unwrap().to_string();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        let mut view = generate_cipher();
+        view.generate_cipher_key(&mut key_store.context(), view.key_identifier())
+            .unwrap();
+        assert!(view.key.is_some());
+
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual.as_deref(), Some(expected.as_str()));
+    }
+
+    /// V1 accounts use AES-CBC-HMAC keys, which carry no key id, so the field is omitted entirely.
+    #[test]
+    fn test_encrypted_by_key_id_is_none_for_legacy_user_key() {
+        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+
+        let view = generate_cipher();
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual, None);
     }
 
     #[test]
@@ -2342,7 +2504,9 @@ mod tests {
         ));
 
         // Encrypt a valid cipher, then swap name with an EncString from a different key
-        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = key_store
+            .encrypt(EncryptMode::Legacy(generate_cipher()))
+            .unwrap();
         let cipher = Cipher {
             name: Some(TEST_CIPHER_NAME.parse().unwrap()), // encrypted with a different key
             ..cipher
@@ -2375,7 +2539,9 @@ mod tests {
         ));
 
         // Encrypt a valid cipher, then corrupt the login username
-        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = key_store
+            .encrypt(EncryptMode::Legacy(generate_cipher()))
+            .unwrap();
         let cipher = Cipher {
             login: Some(Login {
                 username: Some(TEST_CIPHER_NAME.parse().unwrap()), // encrypted with a different key
@@ -2417,7 +2583,7 @@ mod tests {
 
         // Check that the cipher gets encrypted correctly without it's own key
         let cipher = generate_cipher();
-        let no_key_cipher_enc = key_store.encrypt(cipher).unwrap();
+        let no_key_cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
         let no_key_cipher_dec: CipherView = key_store.decrypt(&no_key_cipher_enc).unwrap();
         assert!(no_key_cipher_dec.key.is_none());
         assert_eq!(no_key_cipher_dec.name, original_cipher.name);
@@ -2428,7 +2594,7 @@ mod tests {
             .unwrap();
 
         // Check that the cipher gets encrypted correctly when it's assigned it's own key
-        let key_cipher_enc = key_store.encrypt(cipher).unwrap();
+        let key_cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
         let key_cipher_dec: CipherView = key_store.decrypt(&key_cipher_enc).unwrap();
         assert!(key_cipher_dec.key.is_some());
         assert_eq!(key_cipher_dec.name, original_cipher.name);
@@ -2547,7 +2713,7 @@ mod tests {
         assert_eq!(cipher.organization_id, Some(org));
 
         // Check that the cipher can be encrypted/decrypted with the new org key
-        let cipher_enc = key_store.encrypt(cipher).unwrap();
+        let cipher_enc = key_store.encrypt(EncryptMode::Legacy(cipher)).unwrap();
         let cipher_dec: CipherView = key_store.decrypt(&cipher_enc).unwrap();
 
         assert_eq!(cipher_dec.name, "My test login");
@@ -2570,7 +2736,7 @@ mod tests {
 
         // Check that the cipher can not be encrypted, as the
         // cipher key is tied to the user key and not the org key
-        assert!(key_store.encrypt(cipher).is_err());
+        assert!(key_store.encrypt(EncryptMode::Legacy(cipher)).is_err());
     }
 
     #[test]
@@ -3224,8 +3390,8 @@ mod tests {
         assert!(cipher.ssh_key.is_some());
         let ssh_key = cipher.ssh_key.unwrap();
         assert_eq!(ssh_key.private_key.to_string(), TEST_ENC_STRING_1);
-        assert_eq!(ssh_key.public_key.to_string(), TEST_ENC_STRING_2);
-        assert_eq!(ssh_key.fingerprint.to_string(), TEST_ENC_STRING_3);
+        assert_eq!(ssh_key.public_key.unwrap().to_string(), TEST_ENC_STRING_2);
+        assert_eq!(ssh_key.fingerprint.unwrap().to_string(), TEST_ENC_STRING_3);
     }
 
     #[test]
@@ -3431,7 +3597,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let cipher: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::Passport);
@@ -3464,7 +3630,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let cipher: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let cipher: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let list_view: CipherListView = key_store.decrypt(&cipher).unwrap();
 
         assert_eq!(list_view.r#type, CipherListViewType::DriversLicense);
@@ -3488,7 +3654,7 @@ mod tests {
         let passport = passport::PassportView {
             given_name: Some("Jane".to_string()),
             surname: Some("Doe".to_string()),
-            date_of_birth: Some("1990-01-01".to_string()),
+            date_of_birth: chrono::NaiveDate::from_ymd_opt(1990, 1, 1),
             sex: Some("F".to_string()),
             birth_place: Some("New York".to_string()),
             nationality: Some("American".to_string()),
@@ -3497,8 +3663,8 @@ mod tests {
             passport_type: Some("P".to_string()),
             national_identification_number: Some("123-45-6789".to_string()),
             issuing_authority: Some("US State Department".to_string()),
-            issue_date: Some("2020-01-01".to_string()),
-            expiration_date: Some("2030-01-01".to_string()),
+            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+            expiration_date: chrono::NaiveDate::from_ymd_opt(2030, 1, 1),
         };
 
         let cipher_view = CipherView {
@@ -3508,7 +3674,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let encrypted: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::Passport);
@@ -3526,12 +3692,12 @@ mod tests {
             first_name: Some("John".to_string()),
             middle_name: Some("Michael".to_string()),
             last_name: Some("Doe".to_string()),
-            date_of_birth: Some("1985-06-15".to_string()),
+            date_of_birth: chrono::NaiveDate::from_ymd_opt(1985, 6, 15),
             license_number: Some("DL-987654".to_string()),
             issuing_country: Some("US".to_string()),
             issuing_state: Some("NY".to_string()),
-            issue_date: Some("2020-01-01".to_string()),
-            expiration_date: Some("2028-01-01".to_string()),
+            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+            expiration_date: chrono::NaiveDate::from_ymd_opt(2028, 1, 1),
             issuing_authority: Some("NY DMV".to_string()),
             license_class: Some("D".to_string()),
         };
@@ -3543,7 +3709,7 @@ mod tests {
             ..generate_cipher()
         };
 
-        let encrypted: Cipher = key_store.encrypt(cipher_view).unwrap();
+        let encrypted: Cipher = key_store.encrypt(EncryptMode::Legacy(cipher_view)).unwrap();
         let decrypted: CipherView = key_store.decrypt(&encrypted).unwrap();
 
         assert_eq!(decrypted.r#type, CipherType::DriversLicense);
@@ -3608,7 +3774,7 @@ mod tests {
 
         /// Encrypt a view through the legacy field-level path.
         fn encrypt_legacy(view: CipherView, key_store: &KeyStore<KeySlotIds>) -> Cipher {
-            key_store.encrypt(view).unwrap()
+            key_store.encrypt(EncryptMode::Legacy(view)).unwrap()
         }
 
         /// Encrypt a view through the blob path.
@@ -3844,7 +4010,13 @@ mod tests {
                 let list_view = decrypt_blob_list_view(&key_store, view);
                 assert_eq!(list_view.name, "My Bank Account");
                 assert_eq!(list_view.subtitle, "Some Bank");
-                assert!(matches!(list_view.r#type, CipherListViewType::BankAccount));
+                assert_eq!(
+                    list_view.r#type,
+                    CipherListViewType::BankAccount(BankAccountListView {
+                        account_number: Some("123456".to_string()),
+                        account_type: None,
+                    })
+                );
                 assert_eq!(
                     list_view.copyable_fields,
                     vec![
@@ -3958,12 +4130,12 @@ mod tests {
                             first_name: Some("Jane".to_string()),
                             middle_name: Some("Q".to_string()),
                             last_name: Some("Doe".to_string()),
-                            date_of_birth: Some("1990-01-01".to_string()),
+                            date_of_birth: chrono::NaiveDate::from_ymd_opt(1990, 1, 1),
                             license_number: Some("D1234567".to_string()),
                             issuing_country: Some("US".to_string()),
                             issuing_state: Some("CA".to_string()),
-                            issue_date: Some("2020-01-01".to_string()),
-                            expiration_date: Some("2030-01-01".to_string()),
+                            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+                            expiration_date: chrono::NaiveDate::from_ymd_opt(2030, 1, 1),
                             issuing_authority: Some("DMV".to_string()),
                             license_class: Some("C".to_string()),
                         });
@@ -3975,7 +4147,7 @@ mod tests {
                         v.passport = Some(PassportView {
                             surname: Some("Doe".to_string()),
                             given_name: Some("Jane".to_string()),
-                            date_of_birth: Some("1990-01-01".to_string()),
+                            date_of_birth: chrono::NaiveDate::from_ymd_opt(1990, 1, 1),
                             sex: Some("F".to_string()),
                             birth_place: Some("Anytown".to_string()),
                             nationality: Some("US".to_string()),
@@ -3984,8 +4156,8 @@ mod tests {
                             passport_type: Some("P".to_string()),
                             national_identification_number: Some("000-00-0000".to_string()),
                             issuing_authority: Some("State Dept".to_string()),
-                            issue_date: Some("2020-01-01".to_string()),
-                            expiration_date: Some("2030-01-01".to_string()),
+                            issue_date: chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+                            expiration_date: chrono::NaiveDate::from_ymd_opt(2030, 1, 1),
                         });
                     }),
                 ),

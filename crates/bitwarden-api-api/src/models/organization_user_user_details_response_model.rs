@@ -53,6 +53,12 @@ pub struct OrganizationUserUserDetailsResponseModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(
+        rename = "accessPam",
+        alias = "AccessPam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_pam: Option<bool>,
+    #[serde(
         rename = "permissions",
         alias = "Permissions",
         skip_serializing_if = "Option::is_none"
@@ -139,6 +145,14 @@ pub struct OrganizationUserUserDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub revocation_reason: Option<models::RevocationReason>,
+    /// The date the organization user was created, i.e. when the user was first invited to the
+    /// organization.
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub creation_date: Option<String>,
 }
 
 impl OrganizationUserUserDetailsResponseModel {
@@ -151,6 +165,7 @@ impl OrganizationUserUserDetailsResponseModel {
             status: None,
             external_id: None,
             access_secrets_manager: None,
+            access_pam: None,
             permissions: None,
             reset_password_enrolled: None,
             uses_key_connector: None,
@@ -165,6 +180,7 @@ impl OrganizationUserUserDetailsResponseModel {
             collections: None,
             groups: None,
             revocation_reason: None,
+            creation_date: None,
         }
     }
 }

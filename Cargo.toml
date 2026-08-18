@@ -35,6 +35,7 @@ bitwarden-core = { path = "crates/bitwarden-core", version = "=3.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=3.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=3.0.0" }
 bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=3.0.0" }
+bitwarden-crypto-sync-handler = { path = "crates/bitwarden-crypto-sync-handler", version = "=3.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=3.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=3.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=3.0.0" }
@@ -85,7 +86,7 @@ hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
 js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.14", default-features = false }
-mockall = { version = ">=0.13.1, <0.15" }
+mockall = { version = ">=0.13.1, <0.16" }
 password-rules-parser = ">=1.1.0, <2"
 pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
 proc-macro2 = ">=1.0.89, <2"
