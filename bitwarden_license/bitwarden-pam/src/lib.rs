@@ -17,7 +17,7 @@ uuid_newtype!(pub AccessRuleId);
 
 pub use access_requests::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
-    AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView,
+    AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestError,
     AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
     AccessRequestWindowError, AccessRequestsClient, CipherAccessStateView,
 };
@@ -25,10 +25,10 @@ pub use access_rules::{
     AccessCondition, AccessRuleAddEditRequest, AccessRuleError, AccessRuleValidationError,
     AccessRuleView, AccessRulesClient, is_valid_cidr,
 };
-pub use approvals::{AccessDecisionRequest, ApprovalsClient};
-pub use error::LeasingError;
+pub use approvals::{AccessDecisionRequest, ApprovalError, ApprovalsClient};
+pub use error::PamDecodeError;
 pub use leases::{
-    AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseStatus, AccessLeaseView,
-    LeasesClient,
+    AccessLeaseError, AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseStatus,
+    AccessLeaseTermination, AccessLeaseView, LeasesClient,
 };
 pub use pam_client::{PamClient, PamClientExt};
