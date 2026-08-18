@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`e19a9bbc8ab6507a6c66a66f27d3a861825822bc`](https://github.com/bitwarden/server/commit/e19a9bbc8ab6507a6c66a66f27d3a861825822bc)
+  [`5358a2f14765c29b61063e33dccde6b1455d7a64`](https://github.com/bitwarden/server/commit/5358a2f14765c29b61063e33dccde6b1455d7a64)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -229,6 +229,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _EventsApi_                               | [**get_user**](docs/EventsApi.md#events_get_user)                                                                                                                | **GET** /events                                                                                          |
 | _FoldersApi_                              | [**delete**](docs/FoldersApi.md#folders_delete)                                                                                                                  | **DELETE** /folders/{id}                                                                                 |
 | _FoldersApi_                              | [**delete_all**](docs/FoldersApi.md#folders_delete_all)                                                                                                          | **DELETE** /folders/all                                                                                  |
+| _FoldersApi_                              | [**delete_many**](docs/FoldersApi.md#folders_delete_many)                                                                                                        | **DELETE** /folders                                                                                      |
 | _FoldersApi_                              | [**get**](docs/FoldersApi.md#folders_get)                                                                                                                        | **GET** /folders/{id}                                                                                    |
 | _FoldersApi_                              | [**get_all**](docs/FoldersApi.md#folders_get_all)                                                                                                                | **GET** /folders                                                                                         |
 | _FoldersApi_                              | [**post**](docs/FoldersApi.md#folders_post)                                                                                                                      | **POST** /folders                                                                                        |
@@ -564,6 +565,7 @@ All URIs are relative to *https://api.bitwarden.com*
 
 - [AcceptOrganizationInviteLinkRequestModel](docs/AcceptOrganizationInviteLinkRequestModel.md)
 - [AccessApprovalMode](docs/AccessApprovalMode.md)
+- [AccessDeciderKind](docs/AccessDeciderKind.md)
 - [AccessDecisionRequestModel](docs/AccessDecisionRequestModel.md)
 - [AccessDecisionVerdict](docs/AccessDecisionVerdict.md)
 - [AccessLeaseExtensionRequestModel](docs/AccessLeaseExtensionRequestModel.md)
@@ -689,7 +691,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CreateOrganizationInviteLinkRequestModel](docs/CreateOrganizationInviteLinkRequestModel.md)
 - [CreatePremiumCheckoutSessionRequest](docs/CreatePremiumCheckoutSessionRequest.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
-- [DeciderKind](docs/DeciderKind.md)
 - [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
 - [DeleteRecoverRequestModel](docs/DeleteRecoverRequestModel.md)
 - [DeviceAuthRequestResponseModel](docs/DeviceAuthRequestResponseModel.md)
@@ -728,6 +729,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [Fido2User](docs/Fido2User.md)
 - [FieldType](docs/FieldType.md)
 - [FileUploadType](docs/FileUploadType.md)
+- [FolderBulkDeleteRequestModel](docs/FolderBulkDeleteRequestModel.md)
 - [FolderRequestModel](docs/FolderRequestModel.md)
 - [FolderResponseModel](docs/FolderResponseModel.md)
 - [FolderResponseModelListResponseModel](docs/FolderResponseModelListResponseModel.md)
