@@ -587,6 +587,12 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             name: self.name.encrypt(ctx, send_key)?,
             notes: self.notes.encrypt(ctx, send_key)?,
             key: OctetStreamBytes::from(k.clone()).encrypt(ctx, key)?,
+            // A decrypted SendView never carries the existing password hash (only
+            // `has_password`), so a call site with no new password to set (e.g. key rotation)
+            // always produces `password: None` here. This is safe: the server's rotation and
+            // edit validators special-case AuthType::Password on both the stored and incoming
+            // record and preserve the stored hash unconditionally in that case, ignoring
+            // whatever this field carries. See `ToSendBase` server-side.
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 B64::from(password.as_slice()).to_string()
