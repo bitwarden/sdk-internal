@@ -23,7 +23,7 @@ pub enum KeyIdBackfillError {
     /// The user key is not in the key store, so the client is locked or not initialized.
     #[error("User key is not available in key store")]
     UserKeyNotAvailable,
-    /// The current user key carries no key id. V1 user keys never do.
+    /// The current user key carries no key id
     #[error("The current user key has no key id to backfill")]
     NoKeyId,
     /// The key id the server knows is read from client-managed state, which needs a bridge.
@@ -69,6 +69,11 @@ impl UserCryptoManagementClient {
     ///
     /// Requires the client to be unlocked so the current user key is available in memory.
     pub async fn user_key_id_backfill(&self) -> Result<(), KeyIdBackfillError> {
+        let state_bridge = self.client.km_state_bridge();
+        if !state_bridge.is_bridge_registered() {
+            return Err(KeyIdBackfillError::StateBridgeNotRegistered);
+        }
+
         let user_key_id = self
             .current_user_key_id()?
             .ok_or(KeyIdBackfillError::NoKeyId)?;
@@ -89,10 +94,7 @@ impl UserCryptoManagementClient {
             })?;
 
         // Written only after the server accepted it, so state never claims an id the server lacks.
-        let state_bridge = self.client.km_state_bridge();
-        if state_bridge.is_bridge_registered() {
-            state_bridge.set_user_key_id(&user_key_id).await;
-        }
+        state_bridge.set_user_key_id(&user_key_id).await;
 
         Ok(())
     }
@@ -100,8 +102,6 @@ impl UserCryptoManagementClient {
 
 impl UserCryptoManagementClient {
     /// Reads the key id of the user key currently in the key store.
-    ///
-    /// `None` means the key has no id, which is the case for V1 user keys.
     fn current_user_key_id(&self) -> Result<Option<KeyId>, KeyIdBackfillError> {
         let key_store = self.client.internal.get_key_store();
         let ctx = key_store.context();
