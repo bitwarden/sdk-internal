@@ -11,14 +11,13 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-/// AccessLeaseStatus : The lifecycle state of an access lease, as it appears on the wire: `0 =
-/// active`, `1 = expired`, `2 = revoked`. The lifecycle state of an access lease, as it appears on
-/// the wire: `0 = active`, `1 = expired`, `2 = revoked`.
+///
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum AccessLeaseStatus {
     Active,
     Expired,
     Revoked,
+    Cancelled,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -30,6 +29,7 @@ impl AccessLeaseStatus {
             Self::Active => 0,
             Self::Expired => 1,
             Self::Revoked => 2,
+            Self::Cancelled => 3,
             Self::__Unknown(v) => *v,
         }
     }
@@ -39,6 +39,7 @@ impl AccessLeaseStatus {
             0 => Self::Active,
             1 => Self::Expired,
             2 => Self::Revoked,
+            3 => Self::Cancelled,
             v => Self::__Unknown(v),
         }
     }

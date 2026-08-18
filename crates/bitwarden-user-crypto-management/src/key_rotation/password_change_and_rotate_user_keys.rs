@@ -18,6 +18,7 @@ use crate::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_request_model,
         data::{check_for_old_attachments, reencrypt_data},
+        rotate_user_keys::UpgradeTokenAction,
         rotation_context::make_rotation_context,
         sync::{SyncedAccountData, sync_current_account_data},
         unlock::{
@@ -92,6 +93,7 @@ async fn internal_password_change_and_rotate_user_keys(
             &sync,
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
+            UpgradeTokenAction::Skip,
             &mut ctx,
         )?;
 
