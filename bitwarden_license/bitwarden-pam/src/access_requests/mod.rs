@@ -24,4 +24,6 @@ pub use models::{
     AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
     CipherAccessStateView,
 };
-pub use validate::AccessRequestWindowError;
+pub use validate::{
+    AccessRequestWindowError, MAX_REQUEST_ACCESS_WINDOW_SECONDS, max_request_access_window_seconds,
+};

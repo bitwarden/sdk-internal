@@ -40,7 +40,8 @@ impl AccessRulesClient {
             .collect()
     }
 
-    /// Retrieves a single access rule by ID.
+    /// Retrieves a single access rule by ID. Fails with
+    /// [`NotFound`](AccessRuleError::NotFound) when no such rule is visible to the caller.
     pub async fn get(
         &self,
         organization_id: OrganizationId,
@@ -51,7 +52,8 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .get(organization_id.into(), id.into())
-            .await?;
+            .await
+            .map_err(AccessRuleError::from_by_id_api_error)?;
 
         AccessRuleView::try_from(response)
     }
@@ -74,7 +76,8 @@ impl AccessRulesClient {
         AccessRuleView::try_from(response)
     }
 
-    /// Validates and updates an existing access rule.
+    /// Validates and updates an existing access rule. Fails with
+    /// [`NotFound`](AccessRuleError::NotFound) when the rule was deleted before the write landed.
     pub async fn update(
         &self,
         organization_id: OrganizationId,
@@ -88,12 +91,14 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .put(organization_id.into(), id.into(), request.try_into()?)
-            .await?;
+            .await
+            .map_err(AccessRuleError::from_by_id_api_error)?;
 
         AccessRuleView::try_from(response)
     }
 
-    /// Deletes an access rule.
+    /// Deletes an access rule. Fails with [`NotFound`](AccessRuleError::NotFound) when the rule is
+    /// already gone.
     pub async fn delete(
         &self,
         organization_id: OrganizationId,
@@ -103,7 +108,8 @@ impl AccessRulesClient {
             .api_client
             .access_rules_api()
             .delete(organization_id.into(), id.into())
-            .await?;
+            .await
+            .map_err(AccessRuleError::from_by_id_api_error)?;
 
         Ok(())
     }
@@ -199,8 +205,32 @@ mod tests {
         assert_eq!(result.id, rule);
     }
 
+    fn api_error(status: reqwest::StatusCode) -> bitwarden_api_api::ApiError {
+        bitwarden_api_api::ApiError::Response(bitwarden_api_api::ResponseContent {
+            status,
+            message: String::new(),
+        })
+    }
+
     #[tokio::test]
-    async fn get_surfaces_api_error() {
+    async fn get_maps_not_found_to_not_found() {
+        let organization_id = org_id();
+        let rule = rule_id();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_get()
+                .returning(move |_org_id, _id| Err(api_error(reqwest::StatusCode::NOT_FOUND)))
+                .once();
+        });
+
+        let result = client(api_client).get(organization_id, rule).await;
+
+        assert!(matches!(result, Err(AccessRuleError::NotFound)));
+    }
+
+    #[tokio::test]
+    async fn get_surfaces_other_api_errors_as_api() {
         let organization_id = org_id();
         let rule = rule_id();
 
@@ -208,17 +238,68 @@ mod tests {
             mock.access_rules_api
                 .expect_get()
                 .returning(move |_org_id, _id| {
-                    Err(bitwarden_api_api::ApiError::Response(
-                        bitwarden_api_api::ResponseContent {
-                            status: reqwest::StatusCode::NOT_FOUND,
-                            message: String::new(),
-                        },
-                    ))
+                    Err(api_error(reqwest::StatusCode::INTERNAL_SERVER_ERROR))
                 })
                 .once();
         });
 
         let result = client(api_client).get(organization_id, rule).await;
+
+        assert!(matches!(result, Err(AccessRuleError::Api(_))));
+    }
+
+    #[tokio::test]
+    async fn update_maps_not_found_to_not_found() {
+        let organization_id = org_id();
+        let rule = rule_id();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_put()
+                .returning(move |_org_id, _id, _request| {
+                    Err(api_error(reqwest::StatusCode::NOT_FOUND))
+                })
+                .once();
+        });
+
+        let result = client(api_client)
+            .update(organization_id, rule, sample_request())
+            .await;
+
+        assert!(matches!(result, Err(AccessRuleError::NotFound)));
+    }
+
+    #[tokio::test]
+    async fn delete_maps_not_found_to_not_found() {
+        let organization_id = org_id();
+        let rule = rule_id();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_delete()
+                .returning(move |_org_id, _id| Err(api_error(reqwest::StatusCode::NOT_FOUND)))
+                .once();
+        });
+
+        let result = client(api_client).delete(organization_id, rule).await;
+
+        assert!(matches!(result, Err(AccessRuleError::NotFound)));
+    }
+
+    /// The org-scoped calls deliberately do NOT map `404` onto a missing rule - see
+    /// [`AccessRuleError::from_by_id_api_error`].
+    #[tokio::test]
+    async fn list_leaves_not_found_as_api() {
+        let organization_id = org_id();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_get_all()
+                .returning(move |_org_id| Err(api_error(reqwest::StatusCode::NOT_FOUND)))
+                .once();
+        });
+
+        let result = client(api_client).list(organization_id).await;
 
         assert!(matches!(result, Err(AccessRuleError::Api(_))));
     }
