@@ -1,37 +1,23 @@
-use bitwarden_core::{ApiError, MissingFieldError};
-use bitwarden_error::bitwarden_error;
+use bitwarden_core::MissingFieldError;
 use thiserror::Error;
 
-use crate::access_requests::AccessRequestWindowError;
-
-/// Errors returned from the PAM leasing clients
-/// ([`AccessRequestsClient`](crate::AccessRequestsClient),
-/// [`LeasesClient`](crate::LeasesClient), and [`ApprovalsClient`](crate::ApprovalsClient)).
+/// Errors from decoding a PAM server response into a domain view.
 ///
-/// Access requests, leases, and approvals are facets of the same lifecycle - activating a request
-/// mints a lease, extending a lease returns the updated request, and deciding a request is the
-/// approver-side counterpart of submitting one - so all three clients share one error type rather
-/// than each defining a near-identical one.
-#[bitwarden_error(flat)]
+/// This is shared by all three leasing clients because they decode the *same* payloads, not because
+/// their operations are alike: [`ApprovalsClient`](crate::ApprovalsClient) and
+/// [`LeasesClient::extend`](crate::LeasesClient::extend) both return
+/// [`AccessRequestView`](crate::AccessRequestView)s, so a malformed access-request payload fails
+/// identically whichever client asked for it. Each client wraps this in its own error type rather
+/// than exposing it directly, so a caller only sees the failure modes its own call can produce.
 #[derive(Debug, Error)]
-pub enum LeasingError {
-    /// The request failed local validation before being sent to the server.
-    #[error(transparent)]
-    Validation(#[from] AccessRequestWindowError),
+pub enum PamDecodeError {
     /// The server response was missing a field required to build the requested type.
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     /// The server returned an access-request decider kind this SDK version does not recognize.
     #[error("The server returned an unrecognized access-request decider kind")]
     UnrecognizedDeciderKind,
-    /// A decision was submitted with a verdict this SDK cannot put on the wire. `Unknown` is a
-    /// read-side spelling for a verdict a newer server returned, never something to submit.
-    #[error("An access-request decision cannot be submitted with an unrecognized verdict")]
-    UnsubmittableVerdict,
     /// A date field in the server response could not be parsed.
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),
-    /// A network or (de)serialization error occurred while calling the server.
-    #[error(transparent)]
-    Api(#[from] ApiError),
 }

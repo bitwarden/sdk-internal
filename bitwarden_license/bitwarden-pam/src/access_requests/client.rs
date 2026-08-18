@@ -5,11 +5,14 @@ use bitwarden_vault::CipherId;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::models::{
-    AccessPreCheckView, AccessRequestCreateRequest, AccessRequestResultView, AccessRequestView,
-    CipherAccessStateView,
+use super::{
+    error::AccessRequestError,
+    models::{
+        AccessPreCheckView, AccessRequestCreateRequest, AccessRequestResultView, AccessRequestView,
+        CipherAccessStateView,
+    },
 };
-use crate::{AccessRequestId, error::LeasingError, leases::AccessLeaseView};
+use crate::{AccessRequestId, leases::AccessLeaseView};
 
 /// Client for a requester's PAM access requests.
 ///
@@ -30,7 +33,10 @@ impl AccessRequestsClient {
     /// Resolves the approval outcome for a cipher without submitting a request, so the client can
     /// present the right workflow (pick a duration vs. pick a window and justify) before the
     /// requester commits.
-    pub async fn pre_check(&self, cipher_id: CipherId) -> Result<AccessPreCheckView, LeasingError> {
+    pub async fn pre_check(
+        &self,
+        cipher_id: CipherId,
+    ) -> Result<AccessPreCheckView, AccessRequestError> {
         let response = self
             .api_configurations
             .api_client
@@ -38,7 +44,7 @@ impl AccessRequestsClient {
             .pre_check(cipher_id.into())
             .await?;
 
-        AccessPreCheckView::try_from(response)
+        Ok(AccessPreCheckView::try_from(response)?)
     }
 
     /// Reads the caller's current access state for a cipher - powers the cipher-view banner and
@@ -46,7 +52,7 @@ impl AccessRequestsClient {
     pub async fn cipher_access_state(
         &self,
         cipher_id: CipherId,
-    ) -> Result<CipherAccessStateView, LeasingError> {
+    ) -> Result<CipherAccessStateView, AccessRequestError> {
         let response = self
             .api_configurations
             .api_client
@@ -54,7 +60,7 @@ impl AccessRequestsClient {
             .state(cipher_id.into())
             .await?;
 
-        CipherAccessStateView::try_from(response)
+        Ok(CipherAccessStateView::try_from(response)?)
     }
 
     /// Validates and opens an access request for a cipher. Run [`pre_check`](Self::pre_check)
@@ -63,21 +69,19 @@ impl AccessRequestsClient {
         &self,
         cipher_id: CipherId,
         request: AccessRequestCreateRequest,
-    ) -> Result<AccessRequestResultView, LeasingError> {
-        request.validate()?;
-
+    ) -> Result<AccessRequestResultView, AccessRequestError> {
         let response = self
             .api_configurations
             .api_client
             .cipher_lease_api()
-            .post(cipher_id.into(), request.into())
+            .post(cipher_id.into(), request.try_into()?)
             .await?;
 
-        AccessRequestResultView::try_from(response)
+        Ok(AccessRequestResultView::try_from(response)?)
     }
 
     /// Lists the caller's own access requests.
-    pub async fn list_mine(&self) -> Result<Vec<AccessRequestView>, LeasingError> {
+    pub async fn list_mine(&self) -> Result<Vec<AccessRequestView>, AccessRequestError> {
         let response = self
             .api_configurations
             .api_client
@@ -90,11 +94,12 @@ impl AccessRequestsClient {
             .unwrap_or_default()
             .into_iter()
             .map(AccessRequestView::try_from)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Retrieves a single access request by ID.
-    pub async fn get(&self, id: AccessRequestId) -> Result<AccessRequestView, LeasingError> {
+    pub async fn get(&self, id: AccessRequestId) -> Result<AccessRequestView, AccessRequestError> {
         let response = self
             .api_configurations
             .api_client
@@ -102,7 +107,7 @@ impl AccessRequestsClient {
             .get_details(id.into())
             .await?;
 
-        AccessRequestView::try_from(response)
+        Ok(AccessRequestView::try_from(response)?)
     }
 
     /// Activates an approved request, minting and returning the resulting lease.
@@ -110,7 +115,10 @@ impl AccessRequestsClient {
     /// This is the second half of the automatic flow: once a request reaches
     /// [`Approved`](super::AccessRequestStatus::Approved), the requester activates it to obtain a
     /// short-lived [`AccessLease`](AccessLeaseView) over the cipher.
-    pub async fn activate(&self, id: AccessRequestId) -> Result<AccessLeaseView, LeasingError> {
+    pub async fn activate(
+        &self,
+        id: AccessRequestId,
+    ) -> Result<AccessLeaseView, AccessRequestError> {
         let response = self
             .api_configurations
             .api_client
@@ -118,11 +126,11 @@ impl AccessRequestsClient {
             .activate(id.into())
             .await?;
 
-        AccessLeaseView::try_from(response)
+        Ok(AccessLeaseView::try_from(response)?)
     }
 
     /// Cancels the caller's own request while it is still pending.
-    pub async fn cancel(&self, id: AccessRequestId) -> Result<(), LeasingError> {
+    pub async fn cancel(&self, id: AccessRequestId) -> Result<(), AccessRequestError> {
         self.api_configurations
             .api_client
             .access_requests_api()
@@ -261,7 +269,7 @@ mod tests {
 
         let result = client(api_client).activate(request_id()).await;
 
-        assert!(matches!(result, Err(LeasingError::Api(_))));
+        assert!(matches!(result, Err(AccessRequestError::Api(_))));
     }
 
     #[tokio::test]
@@ -318,7 +326,7 @@ mod tests {
 
         let result = client(api_client).pre_check(cipher_id()).await;
 
-        assert!(matches!(result, Err(LeasingError::Api(_))));
+        assert!(matches!(result, Err(AccessRequestError::Api(_))));
     }
 
     #[tokio::test]
@@ -401,7 +409,7 @@ mod tests {
 
         let result = client(api_client).request(cipher_id(), request).await;
 
-        assert!(matches!(result, Err(LeasingError::Validation(_))));
+        assert!(matches!(result, Err(AccessRequestError::Validation(_))));
     }
 
     #[tokio::test]
@@ -424,6 +432,6 @@ mod tests {
             .request(cipher_id(), AccessRequestCreateRequest::default())
             .await;
 
-        assert!(matches!(result, Err(LeasingError::Api(_))));
+        assert!(matches!(result, Err(AccessRequestError::Api(_))));
     }
 }
