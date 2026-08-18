@@ -4,8 +4,11 @@ use bitwarden_core::{FromClient, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::models::{AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseView};
-use crate::{AccessLeaseId, access_requests::AccessRequestView, error::LeasingError};
+use super::{
+    error::AccessLeaseError,
+    models::{AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseView},
+};
+use crate::{AccessLeaseId, access_requests::AccessRequestView};
 
 /// Client for reading and managing a requester's PAM access leases.
 ///
@@ -21,7 +24,7 @@ pub struct LeasesClient {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl LeasesClient {
     /// Lists the caller's currently active leases.
-    pub async fn list_active(&self) -> Result<Vec<AccessLeaseView>, LeasingError> {
+    pub async fn list_active(&self) -> Result<Vec<AccessLeaseView>, AccessLeaseError> {
         let response = self
             .api_configurations
             .api_client
@@ -34,11 +37,12 @@ impl LeasesClient {
             .unwrap_or_default()
             .into_iter()
             .map(AccessLeaseView::try_from)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Lists all of the caller's leases, active or not.
-    pub async fn list_mine(&self) -> Result<Vec<AccessLeaseView>, LeasingError> {
+    pub async fn list_mine(&self) -> Result<Vec<AccessLeaseView>, AccessLeaseError> {
         let response = self
             .api_configurations
             .api_client
@@ -51,7 +55,8 @@ impl LeasesClient {
             .unwrap_or_default()
             .into_iter()
             .map(AccessLeaseView::try_from)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Extends an active lease, returning the updated originating request.
@@ -59,7 +64,7 @@ impl LeasesClient {
         &self,
         lease_id: AccessLeaseId,
         request: AccessLeaseExtensionRequest,
-    ) -> Result<AccessRequestView, LeasingError> {
+    ) -> Result<AccessRequestView, AccessLeaseError> {
         let response = self
             .api_configurations
             .api_client
@@ -67,7 +72,7 @@ impl LeasesClient {
             .extend(lease_id.into(), request.into())
             .await?;
 
-        AccessRequestView::try_from(response)
+        Ok(AccessRequestView::try_from(response)?)
     }
 
     /// Ends a lease before it expires, re-locking the cipher.
@@ -75,7 +80,7 @@ impl LeasesClient {
         &self,
         lease_id: AccessLeaseId,
         request: AccessLeaseRevokeRequest,
-    ) -> Result<(), LeasingError> {
+    ) -> Result<(), AccessLeaseError> {
         self.api_configurations
             .api_client
             .leases_api()
@@ -166,7 +171,7 @@ mod tests {
 
         let result = client(api_client).list_mine().await;
 
-        assert!(matches!(result, Err(LeasingError::Api(_))));
+        assert!(matches!(result, Err(AccessLeaseError::Api(_))));
     }
 
     #[tokio::test]

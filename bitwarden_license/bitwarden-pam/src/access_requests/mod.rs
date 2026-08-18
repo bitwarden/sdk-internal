@@ -12,10 +12,12 @@
 //! activating an approved one, and cancelling a pending one.
 
 mod client;
+mod error;
 mod models;
 mod validate;
 
 pub use client::AccessRequestsClient;
+pub use error::AccessRequestError;
 pub use models::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
     AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView,
