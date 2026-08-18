@@ -2,6 +2,8 @@ use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
+use crate::access_requests::AccessRequestWindowError;
+
 /// Errors returned from the PAM leasing clients
 /// ([`AccessRequestsClient`](crate::AccessRequestsClient),
 /// [`LeasesClient`](crate::LeasesClient), and [`ApprovalsClient`](crate::ApprovalsClient)).
@@ -13,6 +15,9 @@ use thiserror::Error;
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum LeasingError {
+    /// The request failed local validation before being sent to the server.
+    #[error(transparent)]
+    Validation(#[from] AccessRequestWindowError),
     /// The server response was missing a field required to build the requested type.
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
