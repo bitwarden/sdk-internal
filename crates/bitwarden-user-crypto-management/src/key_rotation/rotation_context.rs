@@ -4,12 +4,40 @@ use tracing::{debug, info, warn};
 
 use super::{
     RotateUserKeysError,
+    rotate_user_keys::UpgradeTokenAction,
     sync::SyncedAccountData,
     unlock::{V1EmergencyAccessMembership, V1OrganizationMembership},
 };
 
 #[derive(Debug)]
 struct UntrustedKeyError;
+
+/// Whether the rotation creates a V2 upgrade token.
+///
+/// A token only makes sense when the user moves from a V1 to a V2 user key. Every other rotation
+/// logs the user out of their other sessions.
+fn creates_v2_upgrade_token(
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    upgrade_token_action: UpgradeTokenAction,
+    ctx: &KeyStoreContext<KeySlotIds>,
+) -> bool {
+    if matches!(upgrade_token_action, UpgradeTokenAction::Skip) {
+        debug!("UpgradeTokenAction::Skip, no upgrade token is created for this rotation");
+        return false;
+    }
+
+    matches!(
+        (
+            ctx.get_symmetric_key_algorithm(current_user_key_id),
+            ctx.get_symmetric_key_algorithm(new_user_key_id),
+        ),
+        (
+            Ok(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            Ok(SymmetricKeyAlgorithm::XAes256Gcm)
+        )
+    )
+}
 
 fn filter_trusted_organization(
     org: &[V1OrganizationMembership],
@@ -58,26 +86,20 @@ pub(super) struct RotationContext {
     pub(super) v1_emergency_access_memberships: Vec<V1EmergencyAccessMembership>,
     pub(super) current_user_key_id: SymmetricKeySlotId,
     pub(super) new_user_key_id: SymmetricKeySlotId,
+    pub(super) creates_v2_upgrade_token: bool,
 }
 
+/// Generates the new user key and collects the memberships that get a copy of it.
+///
+/// Returns [`RotateUserKeysError::UntrustedKey`] if the rotation needs a public key the user has
+/// not confirmed. A public key does not show who owns it, so the user has to confirm it first.
 pub(super) fn make_rotation_context(
     sync: &SyncedAccountData,
     trusted_organization_public_keys: &[PublicKey],
     trusted_emergency_access_public_keys: &[PublicKey],
+    upgrade_token_action: UpgradeTokenAction,
     ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<RotationContext, RotateUserKeysError> {
-    let v1_organization_memberships = filter_trusted_organization(
-        sync.organization_memberships.as_slice(),
-        trusted_organization_public_keys,
-    )
-    .map_err(|_| RotateUserKeysError::UntrustedKey)?;
-
-    let v1_emergency_access_memberships = filter_trusted_emergency_access(
-        sync.emergency_access_memberships.as_slice(),
-        trusted_emergency_access_public_keys,
-    )
-    .map_err(|_| RotateUserKeysError::UntrustedKey)?;
-
     info!(
         "Existing user cryptographic version {:?}",
         sync.wrapped_account_cryptographic_state
@@ -87,11 +109,41 @@ pub(super) fn make_rotation_context(
     debug!("Generating new XAES-256-GCM user key for key rotation");
     let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
 
+    let creates_v2_upgrade_token = creates_v2_upgrade_token(
+        current_user_key_id,
+        new_user_key_id,
+        upgrade_token_action,
+        ctx,
+    );
+
+    let v1_organization_memberships = if creates_v2_upgrade_token {
+        // Organization admins update account recovery from the token. The user is never asked to
+        // trust these keys.
+        info!(
+            "Skipping the trust check for {} organization public key(s), the rotation does not use them",
+            sync.organization_memberships.len()
+        );
+        sync.organization_memberships.clone()
+    } else {
+        filter_trusted_organization(
+            sync.organization_memberships.as_slice(),
+            trusted_organization_public_keys,
+        )
+        .map_err(|_| RotateUserKeysError::UntrustedKey)?
+    };
+
+    let v1_emergency_access_memberships = filter_trusted_emergency_access(
+        sync.emergency_access_memberships.as_slice(),
+        trusted_emergency_access_public_keys,
+    )
+    .map_err(|_| RotateUserKeysError::UntrustedKey)?;
+
     Ok(RotationContext {
         v1_organization_memberships,
         v1_emergency_access_memberships,
         current_user_key_id,
         new_user_key_id,
+        creates_v2_upgrade_token,
     })
 }
 
@@ -111,9 +163,75 @@ mod tests {
             sync::SyncedAccountData,
             unlock::{V1EmergencyAccessMembership, V1OrganizationMembership},
         },
-        RotateUserKeysError, filter_trusted_emergency_access, filter_trusted_organization,
-        make_rotation_context,
+        RotateUserKeysError, UpgradeTokenAction, creates_v2_upgrade_token,
+        filter_trusted_emergency_access, filter_trusted_organization, make_rotation_context,
     };
+
+    #[test]
+    fn test_creates_v2_upgrade_token_v1_to_v2_with_create_if_needed() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+
+        assert!(creates_v2_upgrade_token(
+            current_user_key_id,
+            new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
+            &ctx,
+        ));
+    }
+
+    #[test]
+    fn test_creates_v2_upgrade_token_v1_to_v2_with_skip() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+
+        assert!(!creates_v2_upgrade_token(
+            current_user_key_id,
+            new_user_key_id,
+            UpgradeTokenAction::Skip,
+            &ctx,
+        ));
+    }
+
+    #[test]
+    fn test_creates_v2_upgrade_token_v2_to_v2_with_create_if_needed() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let current_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+
+        assert!(!creates_v2_upgrade_token(
+            current_user_key_id,
+            new_user_key_id,
+            UpgradeTokenAction::CreateIfNeeded,
+            &ctx,
+        ));
+    }
+
+    #[test]
+    fn test_creates_v2_upgrade_token_missing_current_user_key() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+
+        assert!(
+            !creates_v2_upgrade_token(
+                SymmetricKeySlotId::User,
+                new_user_key_id,
+                UpgradeTokenAction::CreateIfNeeded,
+                &ctx,
+            ),
+            "a user key that cannot be read must not be treated as V1"
+        );
+    }
 
     fn make_org_membership(
         ctx: &mut KeyStoreContext<KeySlotIds>,
@@ -304,7 +422,7 @@ mod tests {
         let mut ctx = store.context_mut();
         let sync = make_test_sync(vec![], vec![], &mut ctx);
 
-        let result = make_rotation_context(&sync, &[], &[], &mut ctx);
+        let result = make_rotation_context(&sync, &[], &[], UpgradeTokenAction::Skip, &mut ctx);
 
         let rotation_ctx = result.expect("should succeed");
         assert!(rotation_ctx.v1_organization_memberships.is_empty());
@@ -314,6 +432,74 @@ mod tests {
             rotation_ctx.new_user_key_id,
             rotation_ctx.current_user_key_id
         );
+        assert!(!rotation_ctx.creates_v2_upgrade_token);
+    }
+
+    #[test]
+    fn test_make_rotation_context_untrusted_org_with_upgrade_token_is_accepted() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+            .expect("persisting the user key should work");
+        let (org, _) = make_org_membership(&mut ctx);
+        let expected_org = org.clone();
+        let sync = make_test_sync(vec![org], vec![], &mut ctx);
+
+        let result = make_rotation_context(
+            &sync,
+            &[],
+            &[],
+            UpgradeTokenAction::CreateIfNeeded,
+            &mut ctx,
+        );
+
+        let rotation_ctx = result.expect("should succeed");
+        assert!(rotation_ctx.creates_v2_upgrade_token);
+        assert_eq!(rotation_ctx.v1_organization_memberships.len(), 1);
+        assert_org_membership_eq(&rotation_ctx.v1_organization_memberships[0], &expected_org);
+    }
+
+    #[test]
+    fn test_make_rotation_context_untrusted_org_v2_user_returns_error() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
+        ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+            .expect("persisting the user key should work");
+        let (org, _) = make_org_membership(&mut ctx);
+        let sync = make_test_sync(vec![org], vec![], &mut ctx);
+
+        let result = make_rotation_context(
+            &sync,
+            &[],
+            &[],
+            UpgradeTokenAction::CreateIfNeeded,
+            &mut ctx,
+        );
+
+        assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
+    }
+
+    #[test]
+    fn test_make_rotation_context_untrusted_emergency_access_with_upgrade_token_returns_error() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+            .expect("persisting the user key should work");
+        let (ea, _) = make_ea_membership(&mut ctx);
+        let sync = make_test_sync(vec![], vec![ea], &mut ctx);
+
+        let result = make_rotation_context(
+            &sync,
+            &[],
+            &[],
+            UpgradeTokenAction::CreateIfNeeded,
+            &mut ctx,
+        );
+
+        assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
     }
 
     #[test]
@@ -328,7 +514,13 @@ mod tests {
         let expected_ea = ea.clone();
         let sync = make_test_sync(vec![org], vec![ea], &mut ctx);
 
-        let result = make_rotation_context(&sync, &trusted_orgs, &trusted_eas, &mut ctx);
+        let result = make_rotation_context(
+            &sync,
+            &trusted_orgs,
+            &trusted_eas,
+            UpgradeTokenAction::Skip,
+            &mut ctx,
+        );
 
         let rotation_ctx = result.expect("should succeed");
         assert_eq!(rotation_ctx.v1_organization_memberships.len(), 1);
@@ -352,7 +544,7 @@ mod tests {
         let (org, _) = make_org_membership(&mut ctx);
         let sync = make_test_sync(vec![org], vec![], &mut ctx);
 
-        let result = make_rotation_context(&sync, &[], &[], &mut ctx);
+        let result = make_rotation_context(&sync, &[], &[], UpgradeTokenAction::Skip, &mut ctx);
 
         assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
     }
@@ -364,7 +556,7 @@ mod tests {
         let (ea, _) = make_ea_membership(&mut ctx);
         let sync = make_test_sync(vec![], vec![ea], &mut ctx);
 
-        let result = make_rotation_context(&sync, &[], &[], &mut ctx);
+        let result = make_rotation_context(&sync, &[], &[], UpgradeTokenAction::Skip, &mut ctx);
 
         assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
     }
