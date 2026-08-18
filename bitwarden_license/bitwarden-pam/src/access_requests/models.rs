@@ -15,8 +15,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
+use super::validate::AccessRequestWindowError;
 use crate::{
-    AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::LeasingError,
+    AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::PamDecodeError,
     leases::AccessLeaseView,
 };
 
@@ -129,7 +130,7 @@ pub struct AccessApprover {
 }
 
 impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDecisionResponseModel) -> Result<Self, Self::Error> {
         let decider = match require!(response.decider_kind) {
@@ -140,7 +141,7 @@ impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
                 email: response.email,
             }),
             ApiAccessDeciderKind::__Unknown(_) => {
-                return Err(LeasingError::UnrecognizedDeciderKind);
+                return Err(PamDecodeError::UnrecognizedDeciderKind);
             }
         };
 
@@ -209,7 +210,7 @@ pub struct AccessRequestView {
 }
 
 impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -283,7 +284,7 @@ pub struct AccessPreCheckView {
 }
 
 impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessPreCheckResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -324,7 +325,7 @@ pub struct AccessRequestSummaryView {
 }
 
 impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestSummaryView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -358,7 +359,7 @@ pub struct AccessRequestResultView {
 }
 
 impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestResultResponseModel) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -438,7 +439,7 @@ pub struct CipherAccessStateView {
 }
 
 impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: CipherAccessStateResponseModel) -> Result<Self, Self::Error> {
         let active_lease = response
@@ -500,14 +501,22 @@ pub struct AccessRequestCreateRequest {
     pub reason: Option<String>,
 }
 
-impl From<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
-    fn from(request: AccessRequestCreateRequest) -> Self {
-        Self {
+impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
+    type Error = AccessRequestWindowError;
+
+    /// Validates the request's activation window on the way to the wire model.
+    ///
+    /// Validation lives here rather than at the call site so it cannot be circumvented: building
+    /// the model *is* the only way to reach the server, so every path is checked.
+    fn try_from(request: AccessRequestCreateRequest) -> Result<Self, Self::Error> {
+        request.validate()?;
+
+        Ok(Self {
             duration_seconds: request.duration_seconds.map(|d| d.get() as i32),
             start: request.start.map(|d| d.to_rfc3339()),
             end: request.end.map(|d| d.to_rfc3339()),
             reason: request.reason,
-        }
+        })
     }
 }
 
@@ -942,11 +951,29 @@ mod tests {
             reason: Some("Need access".to_string()),
         };
 
-        let model = AccessRequestCreateRequestModel::from(request);
+        let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
 
         assert_eq!(model.duration_seconds, Some(3600));
         assert_eq!(model.start, Some("2025-01-01T00:00:00+00:00".to_string()));
         assert_eq!(model.end, Some("2025-01-01T01:00:00+00:00".to_string()));
         assert_eq!(model.reason, Some("Need access".to_string()));
+    }
+
+    #[test]
+    fn access_request_create_request_conversion_enforces_validation() {
+        // Building the wire model is the only route to the server, so an invalid window cannot
+        // reach it even if a caller skips the client method.
+        let request = AccessRequestCreateRequest {
+            start: Some("2025-01-01T01:00:00Z".parse().unwrap()),
+            end: Some("2025-01-01T00:00:00Z".parse().unwrap()),
+            ..Default::default()
+        };
+
+        let result = AccessRequestCreateRequestModel::try_from(request);
+
+        assert_eq!(
+            result.unwrap_err(),
+            AccessRequestWindowError::EndBeforeStart
+        );
     }
 }

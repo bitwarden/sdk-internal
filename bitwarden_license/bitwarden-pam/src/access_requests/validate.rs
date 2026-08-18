@@ -35,7 +35,7 @@ impl AccessRequestCreateRequest {
     /// - A request with neither a duration nor a start/end pair is **not** rejected here: the
     ///   server decides which path applies to an incomplete request, and rejecting it locally would
     ///   reject requests the server is willing to accept.
-    pub fn validate(&self) -> Result<(), AccessRequestWindowError> {
+    pub(crate) fn validate(&self) -> Result<(), AccessRequestWindowError> {
         if let (Some(start), Some(end)) = (self.start, self.end) {
             if end <= start {
                 return Err(AccessRequestWindowError::EndBeforeStart);
