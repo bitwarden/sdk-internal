@@ -13,9 +13,12 @@
 //! [`AccessRequestsClient::activate`](crate::AccessRequestsClient::activate).
 
 mod client;
+mod error;
 mod models;
 
 pub use client::LeasesClient;
+pub use error::AccessLeaseError;
 pub use models::{
-    AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseStatus, AccessLeaseView,
+    AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseStatus,
+    AccessLeaseTermination, AccessLeaseView,
 };

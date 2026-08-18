@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{AccessLeaseId, AccessRequestId, error::LeasingError};
+use crate::{AccessLeaseId, AccessRequestId, error::PamDecodeError};
 
 /// The lifecycle state of an access lease.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,26 +73,59 @@ pub struct AccessLeaseView {
     pub not_before: DateTime<Utc>,
     /// When the lease's access window closes (UTC).
     pub not_after: DateTime<Utc>,
-    /// When the lease was revoked early (UTC); None unless it was revoked before expiry.
-    pub revoked_at: Option<DateTime<Utc>>,
-    /// The user who revoked the lease; None unless it was revoked early.
-    pub revoked_by_user_id: Option<UserId>,
-    /// Whether the holder ended their own lease, as opposed to an operator revoking it. `false`
-    /// for a lease that was never revoked. This exists because
-    /// [`AccessLeaseStatus::Revoked`] alone can't tell the two apart - it covers both a
-    /// self-service end and an operator-initiated revoke - so callers no longer need to infer it
-    /// by scanning the originating request's decision log for a human `deny` whose decider id
-    /// matches the requester.
-    pub ended_by_holder: bool,
+    /// How the lease's access ended ahead of its window, or None if it ran to
+    /// [`Expired`](AccessLeaseStatus::Expired) or is still [`Active`](AccessLeaseStatus::Active).
+    ///
+    /// This carries what [`AccessLeaseStatus::Revoked`] cannot: that status covers both a
+    /// self-service end and an operator-initiated revoke, and callers had to tell them apart by
+    /// scanning the originating request's decision log for a human `deny` whose decider id matched
+    /// the requester. Modelling it as an enum also makes the incoherent states unrepresentable -
+    /// a revoker with no revocation time, or a self-end attributed to another user.
+    pub termination: Option<AccessLeaseTermination>,
+}
+
+/// How an access lease's grant ended before its window closed.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AccessLeaseTermination {
+    /// The holder ended their own lease.
+    EndedByHolder {
+        /// When the holder ended it (UTC).
+        at: DateTime<Utc>,
+    },
+    /// An operator revoked the lease out from under the holder.
+    Revoked {
+        /// When it was revoked (UTC).
+        at: DateTime<Utc>,
+        /// The operator who revoked it. None when the server did not attribute the revocation.
+        by_user_id: Option<UserId>,
+    },
 }
 
 impl TryFrom<AccessLeaseResponseModel> for AccessLeaseView {
-    type Error = LeasingError;
+    type Error = PamDecodeError;
 
     fn try_from(response: AccessLeaseResponseModel) -> Result<Self, Self::Error> {
         let requester_id = UserId::new(require!(response.requester_id));
         let revoked_by_user_id = response.revoked_by_user_id.map(UserId::new);
-        let ended_by_holder = revoked_by_user_id == Some(requester_id);
+        // `revoked_at` is the authoritative marker that access was cut short: a revoker id without
+        // a revocation time is incoherent server data, and treating it as "not terminated" keeps
+        // the lease readable rather than failing the whole list.
+        let termination = response
+            .revoked_at
+            .map(|at| at.parse())
+            .transpose()?
+            .map(|at| {
+                if revoked_by_user_id == Some(requester_id) {
+                    AccessLeaseTermination::EndedByHolder { at }
+                } else {
+                    AccessLeaseTermination::Revoked {
+                        at,
+                        by_user_id: revoked_by_user_id,
+                    }
+                }
+            });
 
         Ok(Self {
             id: AccessLeaseId::new(require!(response.id)),
@@ -104,9 +137,7 @@ impl TryFrom<AccessLeaseResponseModel> for AccessLeaseView {
             status: AccessLeaseStatus::from(require!(response.status)),
             not_before: require!(response.not_before).parse()?,
             not_after: require!(response.not_after).parse()?,
-            revoked_at: response.revoked_at.map(|d| d.parse()).transpose()?,
-            revoked_by_user_id,
-            ended_by_holder,
+            termination,
         })
     }
 }
@@ -189,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn ended_by_holder_is_true_when_revoker_is_the_requester() {
+    fn termination_is_ended_by_holder_when_revoker_is_the_requester() {
         let response = AccessLeaseResponseModel {
             revoked_at: Some("2025-01-01T00:30:00Z".to_string()),
             revoked_by_user_id: Some(requester_id()),
@@ -198,11 +229,16 @@ mod tests {
 
         let view = AccessLeaseView::try_from(response).unwrap();
 
-        assert!(view.ended_by_holder);
+        assert_eq!(
+            view.termination,
+            Some(AccessLeaseTermination::EndedByHolder {
+                at: "2025-01-01T00:30:00Z".parse().unwrap()
+            })
+        );
     }
 
     #[test]
-    fn ended_by_holder_is_false_when_revoker_is_an_operator() {
+    fn termination_is_revoked_when_revoker_is_an_operator() {
         let response = AccessLeaseResponseModel {
             revoked_at: Some("2025-01-01T00:30:00Z".to_string()),
             revoked_by_user_id: Some(uuid!("99999999-9999-9999-9999-999999999999")),
@@ -211,11 +247,51 @@ mod tests {
 
         let view = AccessLeaseView::try_from(response).unwrap();
 
-        assert!(!view.ended_by_holder);
+        assert_eq!(
+            view.termination,
+            Some(AccessLeaseTermination::Revoked {
+                at: "2025-01-01T00:30:00Z".parse().unwrap(),
+                by_user_id: Some(UserId::new(uuid!("99999999-9999-9999-9999-999999999999"))),
+            })
+        );
     }
 
     #[test]
-    fn ended_by_holder_is_false_when_the_lease_was_never_revoked() {
+    fn termination_is_revoked_with_no_attribution_when_the_server_omits_the_revoker() {
+        let response = AccessLeaseResponseModel {
+            revoked_at: Some("2025-01-01T00:30:00Z".to_string()),
+            revoked_by_user_id: None,
+            ..base_lease_response()
+        };
+
+        let view = AccessLeaseView::try_from(response).unwrap();
+
+        assert_eq!(
+            view.termination,
+            Some(AccessLeaseTermination::Revoked {
+                at: "2025-01-01T00:30:00Z".parse().unwrap(),
+                by_user_id: None,
+            })
+        );
+    }
+
+    #[test]
+    fn a_revoker_without_a_revocation_time_is_not_a_termination() {
+        // Incoherent server data: `revoked_at` is the authoritative marker, so the lease stays
+        // readable rather than failing the whole list.
+        let response = AccessLeaseResponseModel {
+            revoked_at: None,
+            revoked_by_user_id: Some(requester_id()),
+            ..base_lease_response()
+        };
+
+        let view = AccessLeaseView::try_from(response).unwrap();
+
+        assert_eq!(view.termination, None);
+    }
+
+    #[test]
+    fn termination_is_none_when_the_lease_was_never_revoked() {
         let response = AccessLeaseResponseModel {
             status: Some(ApiAccessLeaseStatus::Active),
             revoked_at: None,
@@ -225,6 +301,6 @@ mod tests {
 
         let view = AccessLeaseView::try_from(response).unwrap();
 
-        assert!(!view.ended_by_holder);
+        assert_eq!(view.termination, None);
     }
 }
