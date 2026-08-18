@@ -8,6 +8,7 @@ import {
   MasterPasswordUnlockData,
   WebAuthnPrfUnlockData,
   Kdf,
+  KeyId,
   PasswordManagerClient,
   init_sdk,
   TokenProvider,
@@ -25,7 +26,6 @@ import {
   SharedUnlockLeader,
   InitUserCryptoMethod,
   ClientSettings,
-  Kdf,
 } from "@bitwarden/sdk-internal";
 import {
   ORG_ACCOUNT_KDF_PARAMS,
@@ -54,6 +54,7 @@ export function makeStateBridge(): WasmStateBridge {
   let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | null;
   let encryptedPin: EncString | null;
   let user_key: SymmetricKey | null;
+  let userKeyId: KeyId | null;
   let v2UpgradeToken: V2UpgradeToken | null;
   let accountCryptographicState: WrappedAccountCryptographicState | null;
   let masterPasswordUnlockData: MasterPasswordUnlockData | null;
@@ -69,6 +70,14 @@ export function makeStateBridge(): WasmStateBridge {
     get_user_key: async () => user_key,
     clear_user_key: async () => {
       user_key = null;
+    },
+
+    set_user_key_id: async (v: KeyId) => {
+      userKeyId = v;
+    },
+    get_user_key_id: async () => userKeyId,
+    clear_user_key_id: async () => {
+      userKeyId = null;
     },
 
     set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) => {
