@@ -139,15 +139,6 @@ pub struct SendTemplateArgs {
 pub struct SendGetArgs {
     pub id: SendId,
 
-    // The internal field is `output_path` (not `output`) to avoid clashing with the
-    // top-level `Cli::output` (the `-o` rendered-output-format arg). User-facing long
-    // flag stays `--output` to match the legacy CLI.
-    #[arg(
-        long = "output",
-        help = "File path to save a file-type Send's decrypted contents to."
-    )]
-    pub output_path: Option<String>,
-
     #[arg(long, help = "Only return the access url.")]
     pub text: bool,
 }
@@ -273,19 +264,6 @@ impl BwCommand for SendArgs {
                 let LoggedIn { user, .. } = LoggedIn::try_from(ctx)?;
                 create_shortcut(&user, self).await
             }
-            // `--output` on `get` fails before the auth check: silently emitting JSON to
-            // stdout while the requested file path goes uncreated would be a worse UX than
-            // an explicit "not implemented" error.
-            //
-            // Matches the legacy CLI, which never actually implemented this flag either:
-            // `send.program.ts` declares `--output` on `send get`, but `SendGetCommand.run`
-            // never reads it. `bw receive`'s download/decrypt/save pipeline can't be reused
-            // here as-is: it goes through the anonymous send-access endpoint, and that's the
-            // only server-side download route that exists, there's no owner-scoped one yet.
-            // Wiring this up needs that endpoint first.
-            Some(SendCommands::Get(args)) if args.output_path.is_some() => {
-                Err(eyre!("`--output` on `bw send get` is not yet implemented."))
-            }
             // `create`/`edit` resolve and parse their full-object JSON input *before*
             // extracting `LoggedIn`, so malformed input surfaces a clear parse error rather
             // than a confusing "not logged in" message (the integration tests assert this
@@ -345,10 +323,6 @@ impl BwCommand for SendGetArgs {
     type Client = LoggedIn;
 
     async fn run(self, LoggedIn { user, .. }: LoggedIn) -> CommandResult {
-        // The `--output` early-error gate lives in [`SendArgs::run`] above so it can
-        // fire *before* the `LoggedIn` typestate extractor — a logged-out caller passing
-        // `--output` should see the precise "not yet implemented" error rather than
-        // a generic auth message. See that gate for why it stays unimplemented.
         get_send(&user, self.id, self.text).await
     }
 }
