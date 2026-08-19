@@ -51,14 +51,7 @@ impl UserCryptoManagementClient {
             return Ok(false);
         }
 
-        match self.current_user_key_id()? {
-            Some(_) => Ok(true),
-            None => {
-                // Todo: Remove when V1 keys support key ids
-                info!("User key carries no key id, nothing to backfill");
-                Ok(false)
-            }
-        }
+        Ok(self.current_user_key_id()?.is_some())
     }
 
     /// Records the id of the user's current user key with the server, and stores it as the id the
@@ -162,7 +155,7 @@ mod tests {
             .get_key_store()
             .context()
             .get_symmetric_key_id(SymmetricKeySlotId::User)
-            .expect("a V2 user key has a key id")
+            .expect("a user key has a key id")
     }
 
     #[tokio::test]
@@ -194,12 +187,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_no_backfill_for_a_v1_user_key() {
-        // A V1 key carries no key id, so there is nothing to record.
+    async fn test_needs_backfill_for_a_v1_user_key() {
+        // A V1 key carries a key id as well, so it is backfilled like a V2 one.
         let client = client_with_user_key(SymmetricKeyAlgorithm::Aes256CbcHmac, no_api_calls());
 
         assert!(
-            !client
+            client
                 .user_crypto_management()
                 .user_key_id_needs_backfill()
                 .await
@@ -236,8 +229,9 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn test_backfill_posts_the_key_id_and_stores_it() {
+    /// Backfills a client holding a user key of the given algorithm, and asserts the key store's
+    /// key id was both posted and stored.
+    async fn assert_backfill_posts_and_stores(algorithm: SymmetricKeyAlgorithm) {
         // The posted id is checked against the key store's below, so the mock only records it.
         let posted = Arc::new(std::sync::Mutex::new(None));
         let recorder = posted.clone();
@@ -251,7 +245,7 @@ mod tests {
                     Ok(())
                 });
         });
-        let client = client_with_user_key(SymmetricKeyAlgorithm::XAes256Gcm, api_client);
+        let client = client_with_user_key(algorithm, api_client);
         let expected = user_key_id(&client).to_string();
 
         client
@@ -266,13 +260,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_backfill_for_a_v1_user_key_errors() {
-        let client = client_with_user_key(SymmetricKeyAlgorithm::Aes256CbcHmac, no_api_calls());
+    async fn test_backfill_posts_the_key_id_and_stores_it() {
+        assert_backfill_posts_and_stores(SymmetricKeyAlgorithm::XAes256Gcm).await;
+    }
 
-        assert!(matches!(
-            client.user_crypto_management().user_key_id_backfill().await,
-            Err(KeyIdBackfillError::NoKeyId)
-        ));
+    #[tokio::test]
+    async fn test_backfill_posts_the_key_id_and_stores_it_for_a_v1_user_key() {
+        assert_backfill_posts_and_stores(SymmetricKeyAlgorithm::Aes256CbcHmac).await;
     }
 
     #[tokio::test]
