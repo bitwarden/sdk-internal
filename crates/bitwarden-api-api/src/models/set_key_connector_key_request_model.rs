@@ -54,6 +54,17 @@ pub struct SetKeyConnectorKeyRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub account_keys: Option<Box<models::AccountKeysRequestModel>>,
+    /// Key id of the user key wrapped by
+    /// Bit.Api.KeyManagement.Models.Requests.SetKeyConnectorKeyRequestModel.
+    /// KeyConnectorKeyWrappedUserKey, when the client supplied it. Absent for clients that predate
+    /// the field, so it is deliberately not part of
+    /// M:Bit.Api.KeyManagement.Models.Requests.SetKeyConnectorKeyRequestModel.IsV2Request.
+    #[serde(
+        rename = "containedKeyId",
+        alias = "ContainedKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub contained_key_id: Option<String>,
     #[serde(rename = "orgIdentifier", alias = "OrgIdentifier")]
     pub org_identifier: String,
 }
@@ -69,6 +80,7 @@ impl SetKeyConnectorKeyRequestModel {
             kdf_parallelism: None,
             key_connector_key_wrapped_user_key: None,
             account_keys: None,
+            contained_key_id: None,
             org_identifier,
         }
     }
