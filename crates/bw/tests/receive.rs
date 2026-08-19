@@ -110,6 +110,16 @@ impl TempAppdata {
         std::fs::create_dir_all(&dir).expect("tempdir");
         Self(dir)
     }
+
+    /// Writes a `config.json` naming `server` as the configured deployment, so `resolve_urls`
+    /// treats a matching-origin Send link as trusted (mirrors `bw config server <server>`).
+    fn configure_server(&self, server: &str) {
+        std::fs::write(
+            self.0.join("config.json"),
+            serde_json::json!({ "server": server }).to_string(),
+        )
+        .expect("write config.json");
+    }
 }
 
 impl Drop for TempAppdata {
@@ -711,7 +721,11 @@ async fn receive_reuses_a_cached_token_on_a_second_invocation() {
         .mount(&server)
         .await;
 
+    // A wiremock server's origin is neither a known cloud host nor (without this) a configured
+    // deployment, so it would otherwise be untrusted and never cached — configure it as the
+    // deployment so this test exercises the trusted, cached path.
     let appdata = TempAppdata::new();
+    appdata.configure_server(&server.uri());
     let first = run_bw_in(
         &appdata,
         vec!["receive".to_string(), receive_url(&server)],
@@ -739,4 +753,60 @@ async fn receive_reuses_a_cached_token_on_a_second_invocation() {
     assert_eq!(stdout(&second).trim_end(), "the secret text");
 
     // wiremock verifies the `expect(1)`/`expect(2)` bounds when `server` drops at end of scope.
+}
+
+/// An untrusted host (neither a known cloud host nor the configured deployment — a bare
+/// wiremock server, unconfigured, is exactly this case) must never get a persistent cache entry
+/// at all, matching the corresponding TS client fix. The token mock is capped at `expect(2)`:
+/// caching would make a second call to it fail this test the same way a missing second call
+/// would fail the cached-token test above.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn receive_does_not_cache_a_token_for_an_untrusted_host() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/identity/connect/token"))
+        .respond_with(token_success())
+        .expect(2)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/sends/access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "object": "send-access",
+            "id": SEND_ID,
+            "type": 0,
+            "name": encrypt_string("My Send"),
+            "text": { "text": encrypt_string("the secret text"), "hidden": false },
+        })))
+        .expect(2)
+        .mount(&server)
+        .await;
+
+    // Deliberately no `configure_server` call: this host stays untrusted.
+    let appdata = TempAppdata::new();
+    let first = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
+    assert!(
+        first.status.success(),
+        "first receive should succeed; stderr:\n{}",
+        stderr(&first)
+    );
+
+    let second = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
+    assert!(
+        second.status.success(),
+        "second receive should succeed by minting a fresh token; stderr:\n{}",
+        stderr(&second)
+    );
+
+    // wiremock verifies the `expect(2)` bounds when `server` drops at end of scope.
 }

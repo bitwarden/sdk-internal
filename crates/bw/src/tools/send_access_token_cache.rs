@@ -10,6 +10,10 @@
 //!
 //! A malformed, unreadable, or unwritable cache file never fails the caller: the cache is an
 //! optimization over minting a fresh token, not something `bw receive` depends on to function.
+//!
+//! This module has no notion of trust — it will cache anything a caller asks it to. The
+//! restriction to trusted hosts only (matching the corresponding TS client fix) is enforced at
+//! the call site in `receive::run_receive`, gated on the `trusted` flag `resolve_urls` returns.
 
 use std::{collections::HashMap, path::Path};
 
