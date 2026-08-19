@@ -2,8 +2,8 @@
 //! the same Send within a token's validity window don't re-prompt for a password or OTP.
 //!
 //! Keyed on `(resolved_host, send_id)`, not `send_id` alone. `resolved_host` is whatever
-//! [`super::receive::resolve_urls`] decided to talk to for this invocation, so a cached token
-//! can never be looked up under a host other than the one it was actually minted against. This
+//! `receive::resolve_urls` decided to talk to for this invocation, so a cached token can never
+//! be looked up under a host other than the one it was actually minted against. This
 //! is deliberate: legacy's own cache (`default-send-token.service.ts`) is keyed on `sendId`
 //! alone with no host component, which is part of what PM-40120 tracks — this cache does not
 //! replicate that.
