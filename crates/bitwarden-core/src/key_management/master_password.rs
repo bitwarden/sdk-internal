@@ -63,6 +63,9 @@ pub struct MasterPasswordUnlockData {
     pub salt: String,
     /// When present, this asserts what key is contained in the
     /// `master_key_wrapped_user_key`.
+    #[serde(default)]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
     pub contained_key_id: Option<KeyId>,
 }
 
