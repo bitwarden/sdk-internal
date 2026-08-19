@@ -43,6 +43,23 @@ pub struct AccessPreCheckResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub has_active_lease: Option<bool>,
+    /// The duration, in seconds, the request form should pre-select — the governing rule's default
+    /// when it sets one, otherwise the global default, clamped to `maxDurationSeconds`.
+    #[serde(
+        rename = "defaultDurationSeconds",
+        alias = "DefaultDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_duration_seconds: Option<i32>,
+    /// The longest duration (automatic path) or window span (human path), in seconds, that a
+    /// request for this cipher may ask for: the governing rule's cap narrowed by the global
+    /// ceiling. Clients should offer nothing above it — submit enforces the same number.
+    #[serde(
+        rename = "maxDurationSeconds",
+        alias = "MaxDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_duration_seconds: Option<i32>,
 }
 
 impl AccessPreCheckResponseModel {
@@ -55,6 +72,8 @@ impl AccessPreCheckResponseModel {
             cipher_id: None,
             approval_mode: None,
             has_active_lease: None,
+            default_duration_seconds: None,
+            max_duration_seconds: None,
         }
     }
 }

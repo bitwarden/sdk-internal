@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::validate::AccessRequestWindowError;
+use super::validate::{
+    AccessRequestWindowError, DEFAULT_REQUEST_ACCESS_DURATION_SECONDS,
+    MAX_REQUEST_ACCESS_WINDOW_SECONDS,
+};
 use crate::{
     AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::PamDecodeError,
     leases::AccessLeaseView,
@@ -281,18 +284,48 @@ pub struct AccessPreCheckView {
     /// True when the caller already holds an active lease: reveal the credential, no request
     /// needed.
     pub has_active_lease: bool,
+    /// The duration, in seconds, a request form should pre-select - the governing rule's own
+    /// default where it sets one, already clamped to
+    /// [`max_duration_seconds`](Self::max_duration_seconds).
+    pub default_duration_seconds: u32,
+    /// The longest duration (automatic path) or window span (human path), in seconds, the server
+    /// will accept for this cipher: the governing rule's cap narrowed by the global ceiling.
+    ///
+    /// A duration picker should offer nothing above this. It is not merely advisory - submit
+    /// enforces the same number and rejects a request that exceeds it.
+    pub max_duration_seconds: u32,
 }
 
 impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
     type Error = PamDecodeError;
 
     fn try_from(response: AccessPreCheckResponseModel) -> Result<Self, Self::Error> {
+        // Both bounds fall back rather than `require!`: a server predating them omits both, and a
+        // client that cannot read a pre-check at all cannot render a request form. Falling back to
+        // the global constants reproduces the pre-per-rule-cap behaviour instead.
+        let max_duration_seconds = positive_u32(response.max_duration_seconds)
+            .unwrap_or(MAX_REQUEST_ACCESS_WINDOW_SECONDS)
+            .min(MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+
         Ok(Self {
             cipher_id: CipherId::new(require!(response.cipher_id)),
             approval_mode: AccessApprovalMode::from(require!(response.approval_mode)),
             has_active_lease: require!(response.has_active_lease),
+            // Re-clamped here as well as server-side: the two bounds arrive as independent fields,
+            // so a default above the cap would otherwise pre-fill a value submit refuses.
+            default_duration_seconds: positive_u32(response.default_duration_seconds)
+                .unwrap_or(DEFAULT_REQUEST_ACCESS_DURATION_SECONDS)
+                .min(max_duration_seconds),
+            max_duration_seconds,
         })
     }
+}
+
+/// Reads an optional wire-side duration as a positive `u32`, mapping absent, zero, and negative
+/// alike onto `None` so the caller applies its fallback. Zero is not a meaningful duration bound,
+/// and a negative one only arises from a malformed response.
+fn positive_u32(value: Option<i32>) -> Option<u32> {
+    value.filter(|v| *v > 0).map(|v| v as u32)
 }
 
 /// A decrypted view of an access request as its requester sees it right after submitting it.
@@ -727,6 +760,72 @@ mod tests {
         let view = AccessPreCheckView::try_from(response).unwrap();
 
         assert_eq!(view.approval_mode, AccessApprovalMode::Unknown);
+    }
+
+    fn pre_check_response(
+        default_duration_seconds: Option<i32>,
+        max_duration_seconds: Option<i32>,
+    ) -> AccessPreCheckResponseModel {
+        AccessPreCheckResponseModel {
+            cipher_id: Some(cipher_id()),
+            approval_mode: Some(ApiAccessApprovalMode::Automatic),
+            has_active_lease: Some(false),
+            default_duration_seconds,
+            max_duration_seconds,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn pre_check_view_carries_the_rules_duration_bounds() {
+        let view = AccessPreCheckView::try_from(pre_check_response(Some(900), Some(1800))).unwrap();
+
+        assert_eq!(view.default_duration_seconds, 900);
+        assert_eq!(view.max_duration_seconds, 1800);
+    }
+
+    #[test]
+    fn pre_check_view_falls_back_when_bounds_are_absent() {
+        // A server predating the bounds omits both; the view reproduces the previous global-only
+        // behaviour rather than failing to decode.
+        let view = AccessPreCheckView::try_from(pre_check_response(None, None)).unwrap();
+
+        assert_eq!(
+            view.default_duration_seconds,
+            DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
+        );
+        assert_eq!(view.max_duration_seconds, MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+    }
+
+    #[test]
+    fn pre_check_view_clamps_default_to_max() {
+        // PM-39858's shape: a rule left at a 1h default but capped at 15m. Pre-filling the default
+        // would hand the requester a duration submit refuses.
+        let view = AccessPreCheckView::try_from(pre_check_response(Some(3600), Some(900))).unwrap();
+
+        assert_eq!(view.default_duration_seconds, 900);
+        assert_eq!(view.max_duration_seconds, 900);
+    }
+
+    #[test]
+    fn pre_check_view_clamps_max_to_the_global_ceiling() {
+        let view =
+            AccessPreCheckView::try_from(pre_check_response(None, Some(7 * 86_400))).unwrap();
+
+        assert_eq!(view.max_duration_seconds, MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+    }
+
+    #[test]
+    fn pre_check_view_treats_non_positive_bounds_as_absent() {
+        // Zero is the client's "no cap" sentinel and never a meaningful bound; a negative value
+        // only arises from a malformed response. Neither should collapse the picker to nothing.
+        let view = AccessPreCheckView::try_from(pre_check_response(Some(0), Some(-1))).unwrap();
+
+        assert_eq!(
+            view.default_duration_seconds,
+            DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
+        );
+        assert_eq!(view.max_duration_seconds, MAX_REQUEST_ACCESS_WINDOW_SECONDS);
     }
 
     fn sample_created_request() -> AccessRequestDetailsResponseModel {

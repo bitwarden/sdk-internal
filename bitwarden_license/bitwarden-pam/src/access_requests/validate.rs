@@ -24,6 +24,25 @@ pub fn max_request_access_window_seconds() -> u32 {
     MAX_REQUEST_ACCESS_WINDOW_SECONDS
 }
 
+/// Duration, in seconds, a request form pre-selects when neither the governing rule nor the server
+/// names one - mirrors the server's global default.
+///
+/// Only a fallback. The authority is
+/// [`default_duration_seconds`](super::AccessPreCheckView::default_duration_seconds), which
+/// resolves the governing rule's own default; this applies when a pre-check response predates that
+/// field.
+pub const DEFAULT_REQUEST_ACCESS_DURATION_SECONDS: u32 = 3_600;
+
+/// [`DEFAULT_REQUEST_ACCESS_DURATION_SECONDS`], for callers that cannot read a Rust `const`.
+///
+/// Same reason [`max_request_access_window_seconds`] exists: wasm-bindgen exports functions rather
+/// than constants, and a client that hardcodes its own copy drifts the day the server's default
+/// moves.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn default_request_access_duration_seconds() -> u32 {
+    DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
+}
+
 /// Errors returned when a locally-constructed [`AccessRequestCreateRequest`] fails validation
 /// before being sent to the server.
 #[derive(Debug, Error, PartialEq, Eq)]
