@@ -22,8 +22,8 @@
 //! not a leak to a second, different host.
 
 use bitwarden_auth::send_access::{
-    SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest, SendEmailCredentials,
-    SendEmailOtpCredentials, SendPasswordCredentials,
+    SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
+    SendEmailCredentials, SendEmailOtpCredentials, SendPasswordCredentials,
     api::{
         SendAccessTokenApiErrorResponse, SendAccessTokenInvalidGrantError,
         SendAccessTokenInvalidRequestError,
@@ -36,6 +36,7 @@ use color_eyre::eyre::{Context as _, Result, bail, eyre};
 use inquire::{Password, Text, validator::Validation};
 use url::Url;
 
+use super::send_access_token_cache;
 use crate::{
     platform::{ConfigFile, read_config_json},
     render::{CommandOutput, CommandResult},
@@ -102,12 +103,34 @@ pub(crate) async fn run_receive(inputs: ReceiveInputs) -> CommandResult {
         .map_err(|_| eyre!("Failed to parse url, the url provided is not a valid Send url"))?;
 
     let (api_url, identity_url) = resolve_urls(&url, read_config_json().ok().flatten().as_ref());
+    // The cache key is the resolved host, never a separately configured environment — see
+    // `send_access_token_cache`'s module doc for why that distinction matters.
+    let cache_host = format!("{api_url}|{identity_url}");
     let client = PasswordManagerClient::new(Some(
         get_host_platform_info().to_client_settings(api_url, identity_url),
     ));
 
-    let token = attempt_access(&client, &send_id, &access_key, &inputs).await?;
-    render_access(&client, &access_key, token, &inputs).await
+    if let Some(token) = send_access_token_cache::get(&cache_host, &send_id) {
+        return match render_access(&client, &access_key, token, &inputs).await {
+            Ok(output) => Ok(output),
+            Err(err) => {
+                // The cache believed this token was still valid but the server disagreed
+                // (clock skew, or revocation before natural expiry) — don't leave a bad entry
+                // behind for the next invocation to hit the same way.
+                send_access_token_cache::evict(&cache_host, &send_id);
+                Err(err)
+            }
+        };
+    }
+
+    let token_response = attempt_access(&client, &send_id, &access_key, &inputs).await?;
+    send_access_token_cache::set(
+        &cache_host,
+        &send_id,
+        &token_response.token,
+        token_response.expires_at,
+    );
+    render_access(&client, &access_key, token_response.token, &inputs).await
 }
 
 /// Extract `(send_id, url_b64_key)` from the last two `#`-fragment segments.
@@ -195,18 +218,17 @@ fn trimmed(value: Option<&str>) -> Option<String> {
 /// typed `send_access_error_type` the server returns.
 ///
 /// Legacy wraps every token request in a 3-attempt retry loop (`getTokenWithRetry`) for a
-/// `{kind: "expired"}` case tied to its persistent send-access-token cache — legacy's CLI
-/// caches tokens across invocations too, not just the browser/extension (see the module-level
-/// PM-40120 note: that cross-invocation cache is part of what's under security review). This
-/// port deliberately does not persist tokens between invocations — a divergence from legacy,
-/// not an oversight: `bw receive` mints and consumes the token within a single process, so
-/// there's no cross-invocation state for a cache to protect or a retry to recover.
+/// `{kind: "expired"}` case tied to its persistent send-access-token cache, itself keyed on
+/// `sendId` alone with no host component — part of what PM-40120 tracks. This port's own cache
+/// ([`send_access_token_cache`]) is keyed on `(resolved_host, send_id)` instead, and evicts
+/// rather than retries on a rejected cached token (see [`run_receive`]), so there's no
+/// multi-attempt loop to replicate here.
 async fn attempt_access(
     client: &PasswordManagerClient,
     send_id: &str,
     access_key: &SendAccessKey,
     inputs: &ReceiveInputs,
-) -> Result<String> {
+) -> Result<SendAccessTokenResponse> {
     match request_token(client, send_id, None).await {
         Ok(token) => Ok(token),
         Err(err) => match invalid_request_type(&err) {
@@ -233,7 +255,7 @@ async fn access_with_password(
     send_id: &str,
     access_key: &SendAccessKey,
     inputs: &ReceiveInputs,
-) -> Result<String> {
+) -> Result<SendAccessTokenResponse> {
     let password = resolve_password(inputs)?;
     let credentials = SendAccessCredentials::Password(SendPasswordCredentials {
         password_hash_b64: access_key.hash_password_b64(&password),
@@ -253,7 +275,10 @@ async fn access_with_password(
 
 /// Email-OTP-protected Sends: the email request is what makes the server send the code, so the
 /// expected outcome of the first call is an `email_and_otp_required` error, not a token.
-async fn access_with_email_otp(client: &PasswordManagerClient, send_id: &str) -> Result<String> {
+async fn access_with_email_otp(
+    client: &PasswordManagerClient,
+    send_id: &str,
+) -> Result<SendAccessTokenResponse> {
     if !can_interact() {
         return Err(eyre!(
             "Email verification required. Run in interactive mode."
@@ -297,7 +322,7 @@ async fn request_token(
     client: &PasswordManagerClient,
     send_id: &str,
     credentials: Option<SendAccessCredentials>,
-) -> Result<String, SendAccessTokenError> {
+) -> Result<SendAccessTokenResponse, SendAccessTokenError> {
     client
         .auth()
         .send_access()
@@ -306,7 +331,6 @@ async fn request_token(
             send_access_credentials: credentials,
         })
         .await
-        .map(|response| response.token)
 }
 
 /// Extracts the typed `send_access_error_type` from an `invalid_request` response, or `None`

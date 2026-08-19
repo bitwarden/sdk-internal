@@ -9,6 +9,10 @@
 //! The ciphertext in these tests is produced with `bitwarden-crypto` directly from a known
 //! 16-byte key, so a test failure means the CLI's derivation diverged from
 //! `derive_shareable_key(key, "send", Some("send"))` — the same derivation `bw send create` uses.
+//!
+//! Each [`run_bw`] call scopes the CLI's appdata to a fresh tempdir (see [`TempAppdata`]), so the
+//! suite never touches the developer's real appdata directory, or leaks a cached send-access
+//! token between tests — same convention as `config.rs`.
 
 use std::process::Stdio;
 
@@ -90,16 +94,54 @@ async fn mock_token(server: &MockServer, response: ResponseTemplate) {
         .await;
 }
 
+/// A fresh, unique appdata directory for one `bw` invocation, so `resolve_urls`'s config lookup
+/// and the send-access-token cache never touch the developer's real
+/// `~/Library/Application Support/Bitwarden CLI` (or another test's directory) — mirrors
+/// `config.rs`'s `TempAppdata` pattern. Removed on drop.
+struct TempAppdata(std::path::PathBuf);
+
+impl TempAppdata {
+    fn new() -> Self {
+        let dir = std::env::temp_dir().join(format!(
+            "bw-receive-it-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4(),
+        ));
+        std::fs::create_dir_all(&dir).expect("tempdir");
+        Self(dir)
+    }
+}
+
+impl Drop for TempAppdata {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// Run the CLI without a session and with stdin closed, so a regression that reaches an
-/// interactive prompt fails the test instead of hanging it.
+/// interactive prompt fails the test instead of hanging it. Each call gets its own fresh
+/// [`TempAppdata`] — callers that need the *same* appdata directory across multiple invocations
+/// (e.g. to exercise the send-access-token cache) should use [`run_bw_in`] instead.
 async fn run_bw(args: Vec<String>, envs: Vec<(&str, &str)>) -> std::process::Output {
+    let appdata = TempAppdata::new();
+    run_bw_in(&appdata, args, envs).await
+}
+
+/// Like [`run_bw`], but against a caller-supplied appdata directory, so a test can make two
+/// invocations share state (e.g. a warm send-access-token cache).
+async fn run_bw_in(
+    appdata: &TempAppdata,
+    args: Vec<String>,
+    envs: Vec<(&str, &str)>,
+) -> std::process::Output {
     let mut command = bw();
     command
         .args(args)
         .stdin(Stdio::null())
         .env_remove("BW_EMAIL")
         .env_remove("BW_PASSWORD")
-        .env_remove("BW_NOINTERACTION");
+        .env_remove("BW_NOINTERACTION")
+        .env("BITWARDENCLI_APPDATA_DIR", &appdata.0);
     for (key, value) in envs {
         command.env(key, value);
     }
@@ -640,4 +682,61 @@ async fn receive_reports_a_failed_file_download() {
         "got:\n{}",
         stderr(&output)
     );
+}
+
+// ===== Send-access token cache =====
+
+/// A second `bw receive` for the same send, within the same appdata directory, must not mint a
+/// second token — the cache from the first call should be reused. The token mock is capped at
+/// `expect(1)`: a second call to it fails the test.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn receive_reuses_a_cached_token_on_a_second_invocation() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/identity/connect/token"))
+        .respond_with(token_success())
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/sends/access"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "object": "send-access",
+            "id": SEND_ID,
+            "type": 0,
+            "name": encrypt_string("My Send"),
+            "text": { "text": encrypt_string("the secret text"), "hidden": false },
+        })))
+        .expect(2)
+        .mount(&server)
+        .await;
+
+    let appdata = TempAppdata::new();
+    let first = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
+    assert!(
+        first.status.success(),
+        "first receive should succeed; stderr:\n{}",
+        stderr(&first)
+    );
+    assert_eq!(stdout(&first).trim_end(), "the secret text");
+
+    let second = run_bw_in(
+        &appdata,
+        vec!["receive".to_string(), receive_url(&server)],
+        vec![],
+    )
+    .await;
+    assert!(
+        second.status.success(),
+        "second receive should succeed from the cached token; stderr:\n{}",
+        stderr(&second)
+    );
+    assert_eq!(stdout(&second).trim_end(), "the secret text");
+
+    // wiremock verifies the `expect(1)`/`expect(2)` bounds when `server` drops at end of scope.
 }
