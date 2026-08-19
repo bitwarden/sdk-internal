@@ -18,7 +18,8 @@ pub use access_requests::{
     AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestError,
     AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
     AccessRequestWindowError, AccessRequestsClient, CipherAccessStateView,
-    MAX_REQUEST_ACCESS_WINDOW_SECONDS, max_request_access_window_seconds,
+    DEFAULT_REQUEST_ACCESS_DURATION_SECONDS, MAX_REQUEST_ACCESS_WINDOW_SECONDS,
+    default_request_access_duration_seconds, max_request_access_window_seconds,
 };
 pub use access_rules::{
     AccessCondition, AccessRuleAddEditRequest, AccessRuleError, AccessRuleValidationError,

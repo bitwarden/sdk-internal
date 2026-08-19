@@ -25,5 +25,7 @@ pub use models::{
     CipherAccessStateView,
 };
 pub use validate::{
-    AccessRequestWindowError, MAX_REQUEST_ACCESS_WINDOW_SECONDS, max_request_access_window_seconds,
+    AccessRequestWindowError, DEFAULT_REQUEST_ACCESS_DURATION_SECONDS,
+    MAX_REQUEST_ACCESS_WINDOW_SECONDS, default_request_access_duration_seconds,
+    max_request_access_window_seconds,
 };
