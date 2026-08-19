@@ -8,6 +8,9 @@
 ///
 /// On non-WASM targets the builder is wired up with rustls and the platform
 /// certificate verifier. On WASM the builder is returned unmodified.
+// TODO Task 4 (PM-38470): add a `client_cert_resolver: Option<Arc<dyn ResolvesClientCert>>`
+// parameter here for mTLS. Signature left unchanged in Task 1 to avoid rippling a
+// placeholder arg through `new_http_client` and every caller outside bitwarden-core.
 pub fn new_http_client_builder() -> reqwest::ClientBuilder {
     #[allow(unused_mut)]
     let mut client_builder = reqwest::Client::builder();
