@@ -16,7 +16,7 @@ pub trait SharedUnlockDriver {
     /// List all users that are currently locked or unlocked.
     async fn list_users(&self) -> Vec<UserId>;
     /// Get the lock state of the user with the given ID.
-    async fn get_user_lock_state(&self, user_id: UserId) -> LockState;
+    async fn get_user_lock_state(&self, user_id: UserId) -> Option<LockState>;
     /// Get vault_url for the user with the given ID, if available. This is used to verify IPC
     /// message sources
     async fn get_vault_url(&self, user_id: UserId) -> Option<String>;

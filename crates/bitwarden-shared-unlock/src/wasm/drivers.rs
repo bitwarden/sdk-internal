@@ -75,6 +75,20 @@ impl JsSharedUnlockDriver {
     }
 }
 
+async fn list_users(driver: &RawJsSharedUnlockDriver) -> Vec<UserId> {
+    match driver.list_users().await {
+        Ok(array) => array
+            .iter()
+            .filter_map(|js_value| js_value.as_string())
+            .filter_map(|s| s.parse().ok())
+            .collect(),
+        Err(error) => {
+            tracing::error!(?error, "Failed to list users");
+            vec![]
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl SharedUnlockDriver for JsSharedUnlockDriver {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
@@ -97,26 +111,22 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
 
     async fn list_users(&self) -> Vec<UserId> {
         self.runner
-            .run_in_thread(move |driver| async move {
-                match driver.list_users().await {
-                    Ok(array) => array
-                        .iter()
-                        .filter_map(|js_value| js_value.as_string())
-                        .filter_map(|s| s.parse().ok())
-                        .collect(),
-                    Err(_) => vec![],
-                }
-            })
+            .run_in_thread(move |driver| async move { list_users(&driver).await })
             .await
             .unwrap_or_default()
     }
 
-    async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
+    async fn get_user_lock_state(&self, user_id: UserId) -> Option<LockState> {
         self.runner
             .run_in_thread(move |driver| async move {
+                // The JS driver reports a missing key both for a locked user and for a user it has
+                // no account for, so the account list is what separates the two.
+                if !list_users(&driver).await.contains(&user_id) {
+                    return None;
+                }
                 let js_value = driver.get_user_key(user_id).await.ok()?;
                 if js_value.is_null() || js_value.is_undefined() {
-                    return None;
+                    return Some(LockState::Locked);
                 }
                 let user_key = SymmetricCryptoKey::try_from(js_value).ok()?;
                 Some(LockState::Unlocked { user_key })
@@ -124,7 +134,6 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             .await
             .ok()
             .flatten()
-            .unwrap_or(LockState::Locked)
     }
 
     async fn get_vault_url(&self, user_id: UserId) -> Option<String> {

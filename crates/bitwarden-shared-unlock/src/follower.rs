@@ -55,7 +55,9 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
         }
 
         for user_id in users {
-            let lock_state = self.0.driver.get_user_lock_state(user_id).await;
+            let Some(lock_state) = self.0.driver.get_user_lock_state(user_id).await else {
+                continue;
+            };
             let message = FollowerMessage::StartSession {
                 user_id,
                 lock_state,
@@ -154,6 +156,14 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
         incoming_message: TypedIncomingMessage<LeaderMessage>,
     ) -> Result<(), ()> {
         let message = incoming_message.payload;
+        let Some(current_state) = self.0.driver.get_user_lock_state(message.user_id()).await else {
+            tracing::debug!(
+                user_id = %message.user_id(),
+                "Ignoring shared unlock message for a user this device has no account for"
+            );
+            return Ok(());
+        };
+
         match message {
             LeaderMessage::LockStateUpdate {
                 user_id,
@@ -161,8 +171,6 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
             } => {
                 // The leader is the authoritative state source for the follow, and it should
                 // always overwrite the local state of the follower.
-                let current_state = self.0.driver.get_user_lock_state(user_id).await;
-
                 match (current_state, lock_state) {
                     (LockState::Unlocked { .. }, LockState::Locked) => {
                         // If the user is currently unlocked and it receives an authoritative lock
@@ -193,10 +201,9 @@ impl<L: SharedUnlockDriver + Send + Sync + 'static> Follower<L> {
                     .await;
             }
             LeaderMessage::RequestSessionStart { user_id } => {
-                let lock_state = self.0.driver.get_user_lock_state(user_id).await;
                 let message = FollowerMessage::StartSession {
                     user_id,
-                    lock_state,
+                    lock_state: current_state,
                 };
                 self.send_message(message, self.0.driver.discover_leader().await.ok_or(())?)
                     .await;

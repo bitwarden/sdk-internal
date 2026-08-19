@@ -232,8 +232,9 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
             } => {
                 self.0.follower_sessions.upsert(endpoint.clone());
 
+                // Only an unlocked user needs locking
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
-                if self_lock_state == LockState::Locked {
+                if !matches!(self_lock_state, Some(LockState::Unlocked { .. })) {
                     return Ok(());
                 }
 
@@ -250,8 +251,8 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
             } => {
                 self.0.follower_sessions.upsert(endpoint.clone());
 
-                let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
-                if let LockState::Unlocked { .. } = self_lock_state {
+                // Only a locked user needs unlocking
+                if self.0.driver.get_user_lock_state(user_id).await != Some(LockState::Locked) {
                     return Ok(());
                 }
 
@@ -267,10 +268,11 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                 lock_state,
             } => {
                 self.0.follower_sessions.upsert(endpoint.clone());
+
                 let self_lock_state = self.0.driver.get_user_lock_state(user_id).await;
 
-                match (lock_state, self_lock_state.clone()) {
-                    (LockState::Unlocked { user_key }, LockState::Locked) => {
+                match (lock_state, self_lock_state) {
+                    (LockState::Unlocked { user_key }, Some(LockState::Locked)) => {
                         self.0
                             .driver
                             .unlock_user(user_id, user_key.clone())
@@ -279,7 +281,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                                 |_| warn!(%user_id, "Failed to unlock user during start session"),
                             )?;
                     }
-                    (LockState::Locked, LockState::Unlocked { .. }) => {
+                    (LockState::Locked, Some(self_lock_state @ LockState::Unlocked { .. })) => {
                         let response = LeaderMessage::LockStateUpdate {
                             user_id,
                             lock_state: self_lock_state,
@@ -287,7 +289,8 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                         self.send_message(response, endpoint.clone()).await;
                     }
                     _ => {
-                        // States are already in sync, no action needed
+                        // States are already in sync, or this device has no account for the user,
+                        // in which case it has nothing to say about it.
                     }
                 };
 
@@ -314,11 +317,15 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
 
                 self.0.follower_sessions.upsert(endpoint.clone());
 
+                // Ignore heartbeat for users that are not logged in
+                let Some(lock_state) = self.0.driver.get_user_lock_state(user_id).await else {
+                    return Ok(());
+                };
+
                 // Echo back the heartbeat to confirm liveness
                 let response = LeaderMessage::HeartBeat { user_id };
                 self.send_message(response, endpoint.clone()).await;
 
-                let lock_state = self.0.driver.get_user_lock_state(user_id).await;
                 // Ensure that if somehow the lockstate is desynced, it syncs again
                 let authoritative_lockstate_update = LeaderMessage::LockStateUpdate {
                     user_id,

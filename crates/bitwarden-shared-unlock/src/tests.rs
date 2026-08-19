@@ -51,13 +51,17 @@ impl MockDriver {
         }
     }
 
-    fn get_state(&self, user_id: UserId) -> LockState {
-        self.states
-            .lock()
-            .unwrap()
-            .get(&user_id)
-            .cloned()
-            .unwrap_or(LockState::Locked)
+    /// The lock state the driver holds for a user, or `None` if this device has no account for
+    /// them.
+    fn get_state(&self, user_id: UserId) -> Option<LockState> {
+        self.states.lock().unwrap().get(&user_id).cloned()
+    }
+
+    /// Like [`MockDriver::get_state`], but for assertions where the device is expected to have an
+    /// account for the user.
+    fn expect_state(&self, user_id: UserId) -> LockState {
+        self.get_state(user_id)
+            .expect("Driver should have an account for the user")
     }
 }
 
@@ -83,7 +87,7 @@ impl SharedUnlockDriver for MockDriver {
         self.states.lock().unwrap().keys().copied().collect()
     }
 
-    async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
+    async fn get_user_lock_state(&self, user_id: UserId) -> Option<LockState> {
         self.get_state(user_id)
     }
 
@@ -241,8 +245,8 @@ async fn test_follower_startup_locked() {
 
     let harness = Harness::new(leader_states, follower_states).await;
 
-    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
-    assert_eq!(harness.follower_lock.get_state(user), LockState::Locked);
+    assert_eq!(harness.leader_lock.expect_state(user), LockState::Locked);
+    assert_eq!(harness.follower_lock.expect_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -261,14 +265,14 @@ async fn test_follower_startup_unlocked_propagates_to_leader() {
 
     // Leader should have been unlocked by the follower's StartSession
     assert_eq!(
-        harness.leader_lock.get_state(user),
+        harness.leader_lock.expect_state(user),
         LockState::Unlocked {
             user_key: key.clone()
         }
     );
     // Follower should remain unlocked
     assert_eq!(
-        harness.follower_lock.get_state(user),
+        harness.follower_lock.expect_state(user),
         LockState::Unlocked { user_key: key }
     );
 }
@@ -295,7 +299,7 @@ async fn test_follower_lock_propagates_to_leader() {
 
     harness.pump().await;
 
-    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
+    assert_eq!(harness.leader_lock.expect_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -319,7 +323,7 @@ async fn test_leader_lock_broadcasts_to_follower() {
 
     harness.pump().await;
 
-    assert_eq!(harness.follower_lock.get_state(user), LockState::Locked);
+    assert_eq!(harness.follower_lock.expect_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -344,7 +348,7 @@ async fn test_leader_unlock_broadcasts_to_follower() {
     harness.pump().await;
 
     assert_eq!(
-        harness.follower_lock.get_state(user),
+        harness.follower_lock.expect_state(user),
         LockState::Unlocked { user_key: key }
     );
 }
@@ -369,20 +373,80 @@ async fn test_multiple_users_startup() {
     let harness = Harness::new(leader_states, follower_states).await;
 
     // User A: both locked
-    assert_eq!(harness.leader_lock.get_state(a), LockState::Locked);
-    assert_eq!(harness.follower_lock.get_state(a), LockState::Locked);
+    assert_eq!(harness.leader_lock.expect_state(a), LockState::Locked);
+    assert_eq!(harness.follower_lock.expect_state(a), LockState::Locked);
 
     // User B: follower was unlocked, so leader should also be unlocked
     assert_eq!(
-        harness.leader_lock.get_state(b),
+        harness.leader_lock.expect_state(b),
         LockState::Unlocked {
             user_key: key.clone()
         }
     );
     assert_eq!(
-        harness.follower_lock.get_state(b),
+        harness.follower_lock.expect_state(b),
         LockState::Unlocked { user_key: key }
     );
+}
+
+#[tokio::test]
+async fn test_leader_ignores_messages_for_user_without_local_account() {
+    let user = user_a();
+    let key = test_user_key();
+    // The leader is not logged into the user the follower is unlocked for.
+    let leader_states = HashMap::new();
+    let follower_states = HashMap::from([(
+        user,
+        LockState::Unlocked {
+            user_key: key.clone(),
+        },
+    )]);
+
+    let harness = Harness::new(leader_states, follower_states).await;
+
+    // The follower's startup StartSession must not unlock an account the leader does not have.
+    assert_eq!(harness.leader_lock.get_state(user), None);
+
+    harness
+        .leader
+        .receive_message(TypedIncomingMessage {
+            payload: FollowerMessage::LockStateUpdate {
+                user_id: user,
+                lock_state: LockState::Unlocked { user_key: key },
+            },
+            destination: LEADER_ENDPOINT,
+            source: follower_source(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(harness.leader_lock.get_state(user), None);
+}
+
+#[tokio::test]
+async fn test_follower_ignores_messages_for_user_without_local_account() {
+    let user = user_a();
+    let key = test_user_key();
+    // The follower is not logged into the user the leader is broadcasting about.
+    let leader_states = HashMap::from([(user, LockState::Locked)]);
+    let follower_states = HashMap::new();
+
+    let harness = Harness::new(leader_states, follower_states).await;
+
+    harness
+        .follower
+        .receive_message(TypedIncomingMessage {
+            payload: LeaderMessage::LockStateUpdate {
+                user_id: user,
+                lock_state: LockState::Unlocked { user_key: key },
+            },
+            destination: follower_source().into(),
+            source: Source::DesktopMain,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(harness.follower_lock.get_state(user), None);
 }
 
 #[tokio::test]
@@ -422,7 +486,7 @@ async fn test_web_source_with_matching_origin_is_accepted() {
         .unwrap();
 
     assert_eq!(
-        harness.leader_lock.get_state(user),
+        harness.leader_lock.expect_state(user),
         LockState::Unlocked { user_key: key }
     );
 }
@@ -456,7 +520,7 @@ async fn test_web_source_with_mismatched_origin_is_rejected() {
         .await
         .unwrap();
 
-    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
+    assert_eq!(harness.leader_lock.expect_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -488,7 +552,7 @@ async fn test_web_source_without_configured_vault_url_is_rejected() {
         .await
         .unwrap();
 
-    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
+    assert_eq!(harness.leader_lock.expect_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -520,7 +584,7 @@ async fn test_web_source_lock_state_update_with_mismatched_origin_is_rejected() 
         .await
         .unwrap();
 
-    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
+    assert_eq!(harness.leader_lock.expect_state(user), LockState::Locked);
 }
 
 #[tokio::test]
@@ -555,7 +619,7 @@ async fn test_web_source_lock_state_update_with_matching_origin_is_accepted() {
         .unwrap();
 
     assert_eq!(
-        harness.leader_lock.get_state(user),
+        harness.leader_lock.expect_state(user),
         LockState::Unlocked { user_key: key }
     );
 }
@@ -717,12 +781,12 @@ mod reconnect {
     /// Poll a driver's lock state until it matches `expected` or a generous timeout elapses.
     async fn wait_for_state(driver: &MockDriver, user: UserId, expected: &LockState) -> bool {
         for _ in 0..250 {
-            if &driver.get_state(user) == expected {
+            if driver.get_state(user).as_ref() == Some(expected) {
                 return true;
             }
             sleep(Duration::from_millis(20)).await;
         }
-        &driver.get_state(user) == expected
+        driver.get_state(user).as_ref() == Some(expected)
     }
 
     /// A leader + follower connected over an encrypted link, each running real IPC receive loops.
@@ -838,7 +902,7 @@ mod reconnect {
         // next send is forced to re-handshake. The follower swallows the unreachable error.
         harness.follower.start_sessions().await;
         assert_eq!(
-            harness.leader_lock.get_state(user),
+            harness.leader_lock.expect_state(user),
             LockState::Locked,
             "Leader must stay locked while offline"
         );
@@ -888,7 +952,7 @@ async fn test_non_web_source_skips_origin_validation() {
         .unwrap();
 
     assert_eq!(
-        harness.leader_lock.get_state(user),
+        harness.leader_lock.expect_state(user),
         LockState::Unlocked { user_key: key }
     );
 }
