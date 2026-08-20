@@ -1139,6 +1139,7 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-commercial-marker",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-uuid",
  "bitwarden-vault",
