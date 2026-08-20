@@ -1,9 +1,9 @@
 //! Transport-level client configuration (proxy + timeouts).
 //!
-//! Plumbing only for PM-38470 Task 1: these types are threaded through
-//! [`crate::ClientSettings`] and applied at HTTP client construction via
-//! [`apply_transport`], which is a no-op until Tasks 2-3 implement the actual
-//! timeout and proxy behavior. Per O5 the mTLS cert chain is NOT a field here.
+//! Transport-level configuration (proxy + timeouts) for PM-38470. These types
+//! are threaded through [`crate::ClientSettings`] and applied at HTTP client
+//! construction via [`apply_transport`]. Per O5 the mTLS cert chain is NOT a
+//! field here.
 
 #[cfg(not(feature = "wasm"))]
 use schemars::JsonSchema;
@@ -131,7 +131,7 @@ mod tests {
 /// Apply transport settings to a [`reqwest::ClientBuilder`].
 ///
 /// Applies timeout overrides from [`TransportSettings`] on top of the factory
-/// defaults. Proxy support lands in Task 3, mTLS in Task 4.
+/// defaults. mTLS lands in Task 4.
 ///
 /// Gated on both predicates: it makes reqwest calls (so not on the wasm32 target)
 /// and it references [`TransportSettings`] (which the `wasm` feature omits).
@@ -152,6 +152,17 @@ pub(crate) fn apply_transport(
         if let Some(ms) = t.request_ms {
             builder = builder.timeout(Duration::from_millis(ms));
         }
+    }
+
+    if let Some(p) = transport.and_then(|s| s.proxy.as_ref()) {
+        let mut proxy = reqwest::Proxy::all(&p.url)?;
+        if let Some(c) = &p.credentials {
+            proxy = proxy.basic_auth(&c.username, &c.password);
+        }
+        if let Some(list) = &p.no_proxy {
+            proxy = proxy.no_proxy(reqwest::NoProxy::from_string(list));
+        }
+        builder = builder.proxy(proxy);
     }
 
     Ok(builder)
