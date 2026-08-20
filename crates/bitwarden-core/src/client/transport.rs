@@ -130,15 +130,29 @@ mod tests {
 
 /// Apply transport settings to a [`reqwest::ClientBuilder`].
 ///
-/// No-op for now: timeouts land in Task 2, proxy in Task 3.
+/// Applies timeout overrides from [`TransportSettings`] on top of the factory
+/// defaults. Proxy support lands in Task 3, mTLS in Task 4.
 ///
 /// Gated on both predicates: it makes reqwest calls (so not on the wasm32 target)
-/// and it references [`TransportSettings`] (which the `wasm` feature omits). The
-/// two are gated separately elsewhere but must both hold here.
+/// and it references [`TransportSettings`] (which the `wasm` feature omits).
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "wasm")))]
 pub(crate) fn apply_transport(
-    builder: reqwest::ClientBuilder,
-    _transport: Option<&TransportSettings>,
+    mut builder: reqwest::ClientBuilder,
+    transport: Option<&TransportSettings>,
 ) -> reqwest::Result<reqwest::ClientBuilder> {
+    use std::time::Duration;
+
+    if let Some(t) = transport.and_then(|s| s.timeouts.as_ref()) {
+        if let Some(ms) = t.connect_ms {
+            builder = builder.connect_timeout(Duration::from_millis(ms));
+        }
+        if let Some(ms) = t.read_ms {
+            builder = builder.read_timeout(Duration::from_millis(ms));
+        }
+        if let Some(ms) = t.request_ms {
+            builder = builder.timeout(Duration::from_millis(ms));
+        }
+    }
+
     Ok(builder)
 }

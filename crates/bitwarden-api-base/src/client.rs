@@ -32,6 +32,16 @@ pub fn new_http_client_builder() -> reqwest::ClientBuilder {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use std::time::Duration;
+        const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+        const DEFAULT_READ_TIMEOUT: Duration = Duration::from_secs(60);
+        client_builder = client_builder
+            .connect_timeout(DEFAULT_CONNECT_TIMEOUT)
+            .read_timeout(DEFAULT_READ_TIMEOUT);
+    }
+
     client_builder
 }
 
