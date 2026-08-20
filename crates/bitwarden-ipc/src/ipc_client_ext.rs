@@ -4,7 +4,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use crate::{
     RpcHandler,
     endpoint::Endpoint,
-    error::{RequestError, SubscribeError},
+    error::{RequestError, SubscribeError, TypedReceiveError},
     ipc_client::IpcClientTypedSubscription,
     ipc_client_trait::IpcClient,
     message::{PayloadTypeName, TypedOutgoingMessage},
@@ -112,10 +112,20 @@ pub trait IpcClientExt: IpcClient {
             self.send(message).await.map_err(RequestError::from)?;
 
             let response = loop {
-                let received = response_subscription
+                let received = match response_subscription
                     .receive(cancellation_token.clone())
                     .await
-                    .map_err(RequestError::Receive)?;
+                {
+                    Ok(received) => received,
+                    // Every RPC response shares a single payload type name, and therefore a single
+                    // topic, so this subscription also receives the responses belonging to other
+                    // requests that are in flight concurrently. Those do not necessarily
+                    // deserialize into this request's response type, so a typing error here is
+                    // expected: skip the message and keep waiting for our own response rather than
+                    // failing over a message that was never addressed to us.
+                    Err(TypedReceiveError::Typing(_)) => continue,
+                    Err(error) => return Err(RequestError::Receive(error)),
+                };
 
                 if received.payload.request_id == request_id {
                     break received;
