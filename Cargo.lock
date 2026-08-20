@@ -986,6 +986,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-managed-settings"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-managed-settings-types",
+]
+
+[[package]]
 name = "bitwarden-managed-settings-types"
 version = "3.0.0"
 dependencies = [
