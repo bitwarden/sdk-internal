@@ -8,6 +8,7 @@ mod approvals;
 mod error;
 mod leases;
 mod pam_client;
+mod problem;
 
 uuid_newtype!(pub AccessLeaseId);
 uuid_newtype!(pub AccessRequestId);
