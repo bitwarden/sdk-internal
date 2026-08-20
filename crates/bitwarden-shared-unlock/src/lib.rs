@@ -50,7 +50,9 @@
 //!
 //! On receiving a sync, a peer:
 //!
-//! 1. Drops it if the source is a web client whose origin does not match the user's vault URL.
+//! 1. Drops it if the source is a web client whose origin does not match the user's vault URL. The
+//!    origin that passed this check is kept with the peer, and the same check is applied again on
+//!    the way out (see [Origin scoping](#origin-scoping)).
 //! 2. Drops it if the user is not in [`SharedUnlockDriver::list_users`] — that is how a peer knows
 //!    it has no account for a user, and it never advertises such a user either.
 //! 3. Drops it if `changed_at` is older than the date this device has recorded. A user this device
@@ -63,6 +65,16 @@
 //! 5. Otherwise records the incoming state *and its date*, and calls
 //!    [`SharedUnlockDriver::lock_user`] or [`SharedUnlockDriver::unlock_user`] if — and only if —
 //!    the state actually differs from what was recorded.
+//!
+//! ## Origin scoping
+//!
+//! A web peer is scoped to one origin, in both directions:
+//!
+//! - an incoming sync from a web source is dropped unless its origin is the vault URL of the user
+//!   it carries, and
+//! - an outgoing sync is withheld from a web peer unless the user's vault URL is the origin that
+//!   peer was registered with — which covers the introductory reply on first contact as much as the
+//!   periodic and device-event syncs.
 //!
 //! ## Keep-alive
 //!
@@ -93,7 +105,9 @@
 //! - Security Goal:
 //!   - Attacker cannot gain access to the vault key material
 //!
-//! This is met by origin validation.
+//! This is met by origin validation, which is enforced on both the receive and the send path — see
+//! [Origin scoping](#origin-scoping). Validating only what arrives would not meet the goal: a peer
+//! that is registered after one validated sync goes on to be sent every user's state.
 
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
