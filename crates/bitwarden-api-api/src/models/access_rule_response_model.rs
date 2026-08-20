@@ -52,9 +52,9 @@ pub struct AccessRuleResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub enabled: Option<bool>,
-    /// The condition tree that decides how access is granted under this rule — for example
-    /// requiring human approval, or restricting to certain times of day or source IPs. Returned as
-    /// a JSON object; null when the rule imposes no conditions.
+    /// The conditions that decide how access is granted under this rule — for example requiring
+    /// human approval, or restricting to certain source IPs. Returned as a JSON array of condition
+    /// objects; an empty array (or null) means the rule imposes no conditions.
     #[serde(
         rename = "conditions",
         alias = "Conditions",
