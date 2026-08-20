@@ -759,7 +759,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-sync",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.19",
  "tokio",
  "tsify",
  "uniffi",
@@ -912,6 +912,8 @@ dependencies = [
 name = "bitwarden-importers"
 version = "3.0.0"
 dependencies = [
+ "aes 0.9.2",
+ "aes-gcm 0.11.0",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
@@ -919,10 +921,17 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-exporters",
  "bitwarden-vault",
+ "cbc",
  "chrono",
  "data-encoding",
  "keepass",
+ "p256 0.14.0",
+ "pbkdf2",
+ "rand 0.10.2",
+ "rsa",
  "serde",
+ "sha2 0.11.0",
+ "subtle",
  "thiserror 2.0.19",
  "tokio",
  "tsify",
@@ -2827,6 +2836,7 @@ dependencies = [
  "digest 0.11.3",
  "ff 0.14.0",
  "group 0.14.0",
+ "hkdf 0.13.0",
  "hybrid-array",
  "pkcs8 0.11.0",
  "rand_core 0.10.1",
@@ -6023,15 +6033,17 @@ dependencies = [
 
 [[package]]
 name = "ssh-cipher"
-version = "0.3.0"
+version = "0.3.0-rc.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d801accda99469cde6d73da741422610fdf6508a72d9a69d1b55cb241c720597"
+checksum = "10db6f219196a8528f9ec904d9d45cdad692d65b0e57e72be4dedd1c5fddce36"
 dependencies = [
  "aead 0.6.1",
  "aes 0.9.2",
  "aes-gcm 0.11.0",
+ "cbc",
  "chacha20 0.10.1",
  "cipher 0.5.2",
+ "ctr 0.10.1",
  "ctutils",
  "des",
  "poly1305 0.9.1",
@@ -6055,9 +6067,9 @@ dependencies = [
 
 [[package]]
 name = "ssh-key"
-version = "0.7.0-rc.11"
+version = "0.7.0-rc.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9a32fae177b74a22aa9c5b01bf7e68b33545be32d9e381e248058d2adc15ce3"
+checksum = "45735ce3dea95690e4a9e414c4cfde7f79835063c3dcd35881df85a84118e74b"
 dependencies = [
  "bcrypt-pbkdf",
  "ctutils",

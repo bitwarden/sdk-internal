@@ -90,10 +90,12 @@
     {
       matchManagers: ["cargo"],
       matchPackageNames: [
+        "aes",
         "async-trait",
         "cargo-dylint",
         "cargo-sort",
         "cargo-udeps",
+        "cbc",
         "ciborium",
         "chrono",
         "data-encoding",
@@ -107,6 +109,7 @@
         "js-sys",
         "mockall",
         "password-rules-parser",
+        "pbkdf2",
         "proc-macro2",
         "quote",
         "rand_chacha",

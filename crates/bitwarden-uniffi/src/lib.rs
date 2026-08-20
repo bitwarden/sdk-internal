@@ -19,7 +19,7 @@ pub mod platform;
 #[allow(missing_docs)]
 pub mod policies;
 #[allow(missing_docs)]
-pub mod tool;
+pub mod tools;
 mod uniffi_support;
 #[allow(missing_docs)]
 pub mod vault;
@@ -35,7 +35,7 @@ pub use platform::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
     ServerCommunicationConfigRepository, SsoCookieVendorConfig,
 };
-use tool::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
+use tools::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
 use vault::VaultClient;
 
 #[allow(missing_docs)]
