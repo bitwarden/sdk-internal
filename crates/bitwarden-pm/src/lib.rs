@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
-    FromClient,
+    ClientBuilder, FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
+    client::tracing_middleware::ReqwestTracingMiddleware,
 };
 use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
 #[cfg(not(target_arch = "wasm32"))]
@@ -17,6 +18,7 @@ use bitwarden_crypto_sync_handler::CryptoSyncHandlerClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
+use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt as _};
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::SendClientExt as _;
@@ -72,15 +74,25 @@ impl PasswordManagerClient {
         PasswordManagerClientBuilder::new()
     }
 
-    /// Initialize a new instance of the SDK client with client-managed tokens
+    /// Initialize a new instance of the SDK client with client-managed tokens and a shared
+    /// managed-settings handle.
+    ///
+    /// `managed_settings` is owned by the host application, which acquires a management profile
+    /// from the operating system's device-management channel and pushes it in. Only its cell is
+    /// captured, so profiles the host pushes later are visible to this client.
     pub fn new_with_client_tokens(
         settings: Option<bitwarden_core::ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
+        managed_settings: &ManagedSettingsClient,
     ) -> Self {
-        Self(bitwarden_core::Client::new_with_token_handler(
-            settings,
-            ClientManagedTokenHandler::new(tokens),
-        ))
+        let mut builder = ClientBuilder::new()
+            .with_token_handler(ClientManagedTokenHandler::new(tokens))
+            .with_middleware(vec![Arc::new(ReqwestTracingMiddleware)])
+            .with_managed_profile(managed_settings.cell());
+        if let Some(s) = settings {
+            builder = builder.with_settings(s);
+        }
+        Self(builder.build())
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
@@ -103,6 +115,11 @@ impl PasswordManagerClient {
     /// Platform operations
     pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
         self.0.platform()
+    }
+
+    /// Administrator-enforced settings operations.
+    pub fn managed_settings(&self) -> ManagedSettingsClient {
+        self.0.managed_settings()
     }
 
     /// Auth operations
