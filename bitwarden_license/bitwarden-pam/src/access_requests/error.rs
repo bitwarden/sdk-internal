@@ -1,3 +1,14 @@
+//! Each write on the requester surface names the failures that one call can produce, rather than
+//! every failure the surface can produce. The sets are disjoint and come from the server: one
+//! command backs each endpoint and returns an explicit list, so `from_code` below is transcribed
+//! from `SubmitAccessRequestCommand`, `ActivateAccessRequestCommand` and
+//! `CancelAccessRequestCommand` rather than inferred.
+//!
+//! Reads use [`PamReadError`](crate::PamReadError) - they have no failure of their own to report.
+//!
+//! A code this SDK version does not recognize stays `Api` on every one of these, so a server that
+//! grows a code never needs a client release to be safe.
+
 use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -5,19 +16,13 @@ use thiserror::Error;
 use super::validate::AccessRequestWindowError;
 use crate::{error::PamDecodeError, problem};
 
-/// Errors returned from [`super::AccessRequestsClient`] operations.
+/// Errors from [`AccessRequestsClient::request`](super::AccessRequestsClient::request).
 ///
-/// Local validation is reachable only from
-/// [`request`](super::AccessRequestsClient::request) - the read paths cannot produce it - which is
-/// why the requester surface carries a `Validation` variant the approver and lease surfaces do not.
-///
-/// The named server failures below each correspond to one stable code in the server's problem
-/// response; see [`from_code`](Self::from_code) for the mapping, which is the whole contract in one
-/// place. A code this SDK version does not recognize stays [`Api`](Self::Api), so a server that
-/// grows one never needs a client release to be safe.
+/// Local validation is reachable only from here - the read paths cannot produce it - which is why
+/// this is the only requester error carrying a [`Validation`](Self::Validation) variant.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-pub enum AccessRequestError {
+pub enum AccessRequestSubmitError {
     /// The request failed local validation before being sent to the server.
     #[error(transparent)]
     Validation(#[from] AccessRequestWindowError),
@@ -81,6 +86,52 @@ pub enum AccessRequestError {
     #[error("Access to this item is not permitted right now")]
     Denied,
 
+    /// A server response could not be decoded into the requested type.
+    #[error(transparent)]
+    Decode(#[from] PamDecodeError),
+    /// A network or (de)serialization error occurred while calling the server, or the server
+    /// refused with a code this SDK version does not recognize.
+    #[error(transparent)]
+    Api(ApiError),
+}
+
+impl AccessRequestSubmitError {
+    /// The codes `SubmitAccessRequestCommand` can return.
+    fn from_code(code: &str) -> Option<Self> {
+        Some(match code {
+            "access_already_active" => Self::AlreadyActive,
+            "access_request_already_pending" => Self::AlreadyPending,
+            "access_request_already_approved" => Self::AlreadyApproved,
+            "cipher_not_gated" => Self::CipherNotGated,
+            "duration_expected" => Self::DurationExpected,
+            "window_expected" => Self::WindowExpected,
+            "duration_must_be_positive" => Self::DurationMustBePositive,
+            "duration_exceeds_max" => Self::DurationExceedsMax,
+            "window_required" => Self::WindowRequired,
+            "window_end_before_start" => Self::WindowEndBeforeStart,
+            "window_exceeds_max" => Self::WindowExceedsMax,
+            "reason_required" => Self::ReasonRequired,
+            "access_denied_by_network" => Self::DeniedByNetwork,
+            "access_denied_by_schedule" => Self::DeniedBySchedule,
+            "access_denied" => Self::Denied,
+            _ => return None,
+        })
+    }
+}
+
+impl From<ApiError> for AccessRequestSubmitError {
+    fn from(error: ApiError) -> Self {
+        problem::classify(&error, Self::from_code).unwrap_or(Self::Api(error))
+    }
+}
+
+/// Errors from [`AccessRequestsClient::activate`](super::AccessRequestsClient::activate).
+///
+/// Every one of these is about the request's state at the moment activation was attempted, so a
+/// caller's usual response is to re-read the request rather than to correct an input.
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum AccessRequestActivateError {
     /// The request already minted a lease and that lease has ended. A request authorizes access at
     /// most once, so there is nothing left to activate.
     #[error("This request's access has already been used and is no longer active")]
@@ -102,13 +153,6 @@ pub enum AccessRequestError {
     /// the same activation succeeds once that lease ends.
     #[error("Another active lease exists for this item")]
     SingleActiveLeaseConflict,
-    /// The request has already been decided, cancelled or expired, so there is nothing to cancel.
-    #[error("This request has already been resolved")]
-    AlreadyResolved,
-    /// The request has minted a live lease, which now governs the access - end it with
-    /// [`LeasesClient::end`](crate::LeasesClient::end) rather than cancelling the request.
-    #[error("This request has an active lease; revoke the lease instead")]
-    HasActiveLease,
 
     /// A server response could not be decoded into the requested type.
     #[error(transparent)]
@@ -119,31 +163,51 @@ pub enum AccessRequestError {
     Api(ApiError),
 }
 
-impl AccessRequestError {
-    /// The server's codes, in the order the access-request surface can produce them.
+impl AccessRequestActivateError {
+    /// The codes `ActivateAccessRequestCommand` can return.
     fn from_code(code: &str) -> Option<Self> {
         Some(match code {
-            "access_already_active" => Self::AlreadyActive,
-            "access_request_already_pending" => Self::AlreadyPending,
-            "access_request_already_approved" => Self::AlreadyApproved,
-            "cipher_not_gated" => Self::CipherNotGated,
-            "duration_expected" => Self::DurationExpected,
-            "window_expected" => Self::WindowExpected,
-            "duration_must_be_positive" => Self::DurationMustBePositive,
-            "duration_exceeds_max" => Self::DurationExceedsMax,
-            "window_required" => Self::WindowRequired,
-            "window_end_before_start" => Self::WindowEndBeforeStart,
-            "window_exceeds_max" => Self::WindowExceedsMax,
-            "reason_required" => Self::ReasonRequired,
-            "access_denied_by_network" => Self::DeniedByNetwork,
-            "access_denied_by_schedule" => Self::DeniedBySchedule,
-            "access_denied" => Self::Denied,
             "access_lease_already_used" => Self::LeaseAlreadyUsed,
             "access_request_not_approved" => Self::NotApproved,
             "access_request_not_activatable" => Self::NotActivatable,
             "approved_window_not_started" => Self::ApprovedWindowNotStarted,
             "approved_window_ended" => Self::ApprovedWindowEnded,
             "single_active_lease_conflict" => Self::SingleActiveLeaseConflict,
+            _ => return None,
+        })
+    }
+}
+
+impl From<ApiError> for AccessRequestActivateError {
+    fn from(error: ApiError) -> Self {
+        problem::classify(&error, Self::from_code).unwrap_or(Self::Api(error))
+    }
+}
+
+/// Errors from [`AccessRequestsClient::cancel`](super::AccessRequestsClient::cancel).
+///
+/// Cancelling decodes nothing, so unlike its siblings this carries no `Decode` variant.
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum AccessRequestCancelError {
+    /// The request has already been decided, cancelled or expired, so there is nothing to cancel.
+    #[error("This request has already been resolved")]
+    AlreadyResolved,
+    /// The request has minted a live lease, which now governs the access - end it with
+    /// [`LeasesClient::end`](crate::LeasesClient::end) rather than cancelling the request.
+    #[error("This request has an active lease; revoke the lease instead")]
+    HasActiveLease,
+
+    /// A network or (de)serialization error occurred while calling the server, or the server
+    /// refused with a code this SDK version does not recognize.
+    #[error(transparent)]
+    Api(ApiError),
+}
+
+impl AccessRequestCancelError {
+    /// The codes `CancelAccessRequestCommand` can return.
+    fn from_code(code: &str) -> Option<Self> {
+        Some(match code {
             "access_request_already_resolved" => Self::AlreadyResolved,
             "access_request_has_active_lease" => Self::HasActiveLease,
             _ => return None,
@@ -151,9 +215,7 @@ impl AccessRequestError {
     }
 }
 
-/// Classifies every failed call on this surface, so a caller gets the typed variant whichever
-/// method it came from - a code means the same thing at every endpoint that can emit it.
-impl From<ApiError> for AccessRequestError {
+impl From<ApiError> for AccessRequestCancelError {
     fn from(error: ApiError) -> Self {
         problem::classify(&error, Self::from_code).unwrap_or(Self::Api(error))
     }
@@ -175,31 +237,68 @@ mod tests {
 
     #[test]
     fn a_reconcile_conflict_becomes_its_own_variant() {
-        let error: AccessRequestError =
+        let error: AccessRequestSubmitError =
             problem(StatusCode::CONFLICT, "access_already_active").into();
 
-        assert!(matches!(error, AccessRequestError::AlreadyActive));
+        assert!(matches!(error, AccessRequestSubmitError::AlreadyActive));
     }
 
     #[test]
     fn a_field_failure_becomes_its_own_variant() {
-        let error: AccessRequestError = problem(StatusCode::BAD_REQUEST, "reason_required").into();
+        let error: AccessRequestSubmitError =
+            problem(StatusCode::BAD_REQUEST, "reason_required").into();
 
-        assert!(matches!(error, AccessRequestError::ReasonRequired));
+        assert!(matches!(error, AccessRequestSubmitError::ReasonRequired));
     }
 
     #[test]
     fn an_unrecognized_code_stays_untyped() {
-        let error: AccessRequestError =
+        let error: AccessRequestSubmitError =
             problem(StatusCode::BAD_REQUEST, "invented_next_year").into();
 
-        assert!(matches!(error, AccessRequestError::Api(_)));
+        assert!(matches!(error, AccessRequestSubmitError::Api(_)));
     }
 
     #[test]
     fn a_transport_failure_stays_untyped() {
-        let error: AccessRequestError = ApiError::Io(std::io::Error::other("reset")).into();
+        let error: AccessRequestSubmitError = ApiError::Io(std::io::Error::other("reset")).into();
 
-        assert!(matches!(error, AccessRequestError::Api(_)));
+        assert!(matches!(error, AccessRequestSubmitError::Api(_)));
+    }
+
+    #[test]
+    fn activation_classifies_its_own_codes() {
+        let error: AccessRequestActivateError =
+            problem(StatusCode::CONFLICT, "single_active_lease_conflict").into();
+
+        assert!(matches!(
+            error,
+            AccessRequestActivateError::SingleActiveLeaseConflict
+        ));
+    }
+
+    #[test]
+    fn cancellation_classifies_its_own_codes() {
+        let error: AccessRequestCancelError =
+            problem(StatusCode::CONFLICT, "access_request_has_active_lease").into();
+
+        assert!(matches!(error, AccessRequestCancelError::HasActiveLease));
+    }
+
+    /// The split is only worth having if each enum refuses the codes it cannot receive. A submit
+    /// code reaching the activate classifier would mean the sets had drifted from the server's.
+    #[test]
+    fn an_enum_does_not_classify_another_calls_code() {
+        let submit_code = problem(StatusCode::CONFLICT, "access_already_active");
+        let activate_code = problem(StatusCode::CONFLICT, "approved_window_ended");
+
+        assert!(matches!(
+            AccessRequestActivateError::from(submit_code),
+            AccessRequestActivateError::Api(_)
+        ));
+        assert!(matches!(
+            AccessRequestSubmitError::from(activate_code),
+            AccessRequestSubmitError::Api(_)
+        ));
     }
 }

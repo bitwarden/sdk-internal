@@ -4,16 +4,15 @@ use thiserror::Error;
 
 use crate::{error::PamDecodeError, problem};
 
-/// Errors returned from [`super::ApprovalsClient`] operations.
+/// Errors from [`ApprovalsClient::decide`](super::ApprovalsClient::decide), the one write path on
+/// the approver surface.
 ///
-/// [`UnsubmittableVerdict`](Self::UnsubmittableVerdict) is reachable only from
-/// [`decide`](super::ApprovalsClient::decide) - it is the one write path on the approver surface -
-/// so no other PAM client exposes it. The same is true of the three named server failures below,
-/// which each correspond to one stable code in the server's problem response; a code this SDK
-/// version does not recognize stays [`Api`](Self::Api).
+/// The reads use [`PamReadError`](crate::PamReadError). The three named server failures are the
+/// codes `DecideAccessRequestCommand` can return; a code this SDK version does not recognize stays
+/// [`Api`](Self::Api).
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-pub enum ApprovalError {
+pub enum AccessDecisionError {
     /// A decision was submitted with a verdict this SDK cannot put on the wire.
     /// [`AccessDecisionVerdict::Unknown`](crate::AccessDecisionVerdict::Unknown) is a read-side
     /// spelling for a verdict a newer server returned, never something to submit.
@@ -41,8 +40,8 @@ pub enum ApprovalError {
     Api(ApiError),
 }
 
-impl ApprovalError {
-    /// The server's codes, in the order the approver surface can produce them.
+impl AccessDecisionError {
+    /// The codes `DecideAccessRequestCommand` can return.
     fn from_code(code: &str) -> Option<Self> {
         Some(match code {
             "access_request_already_resolved" => Self::AlreadyResolved,
@@ -53,9 +52,7 @@ impl ApprovalError {
     }
 }
 
-/// Classifies every failed call on this surface, so a caller gets the typed variant whichever
-/// method it came from.
-impl From<ApiError> for ApprovalError {
+impl From<ApiError> for AccessDecisionError {
     fn from(error: ApiError) -> Self {
         problem::classify(&error, Self::from_code).unwrap_or(Self::Api(error))
     }
@@ -77,22 +74,22 @@ mod tests {
 
     #[test]
     fn a_settled_request_becomes_its_own_variant() {
-        let error: ApprovalError = problem("access_request_already_resolved").into();
+        let error: AccessDecisionError = problem("access_request_already_resolved").into();
 
-        assert!(matches!(error, ApprovalError::AlreadyResolved));
+        assert!(matches!(error, AccessDecisionError::AlreadyResolved));
     }
 
     #[test]
     fn a_self_approval_becomes_its_own_variant() {
-        let error: ApprovalError = problem("cannot_decide_own_request").into();
+        let error: AccessDecisionError = problem("cannot_decide_own_request").into();
 
-        assert!(matches!(error, ApprovalError::CannotDecideOwnRequest));
+        assert!(matches!(error, AccessDecisionError::CannotDecideOwnRequest));
     }
 
     #[test]
     fn an_unrecognized_code_stays_untyped() {
-        let error: ApprovalError = problem("invented_next_year").into();
+        let error: AccessDecisionError = problem("invented_next_year").into();
 
-        assert!(matches!(error, ApprovalError::Api(_)));
+        assert!(matches!(error, AccessDecisionError::Api(_)));
     }
 }

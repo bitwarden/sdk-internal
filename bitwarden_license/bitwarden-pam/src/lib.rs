@@ -16,20 +16,23 @@ uuid_newtype!(pub AccessRuleId);
 
 pub use access_requests::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
-    AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestError,
-    AccessRequestResultView, AccessRequestStatus, AccessRequestSummaryView, AccessRequestView,
+    AccessPreCheckView, AccessRequestActivateError, AccessRequestCancelError,
+    AccessRequestCreateRequest, AccessRequestDecisionView, AccessRequestResultView,
+    AccessRequestStatus, AccessRequestSubmitError, AccessRequestSummaryView, AccessRequestView,
     AccessRequestWindowError, AccessRequestsClient, CipherAccessStateView,
     DEFAULT_REQUEST_ACCESS_DURATION_SECONDS, MAX_REQUEST_ACCESS_WINDOW_SECONDS,
     default_request_access_duration_seconds, max_request_access_window_seconds,
 };
 pub use access_rules::{
-    AccessCondition, AccessRuleAddEditRequest, AccessRuleError, AccessRuleValidationError,
-    AccessRuleView, AccessRulesClient, is_valid_cidr,
+    AccessCondition, AccessRuleAddEditRequest, AccessRuleDecodeError, AccessRuleDeleteError,
+    AccessRuleReadError, AccessRuleValidationError, AccessRuleView, AccessRuleWriteError,
+    AccessRulesClient, is_valid_cidr,
 };
-pub use approvals::{AccessDecisionRequest, ApprovalError, ApprovalsClient};
-pub use error::PamDecodeError;
+pub use approvals::{AccessDecisionError, AccessDecisionRequest, ApprovalsClient};
+pub use error::{PamDecodeError, PamReadError};
 pub use leases::{
-    AccessLeaseError, AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseStatus,
-    AccessLeaseTermination, AccessLeaseView, LeasesClient,
+    AccessLeaseEndError, AccessLeaseExtendError, AccessLeaseExtensionRequest,
+    AccessLeaseRevokeRequest, AccessLeaseStatus, AccessLeaseTermination, AccessLeaseView,
+    LeasedCipherError, LeasesClient,
 };
 pub use pam_client::{PamClient, PamClientExt};
