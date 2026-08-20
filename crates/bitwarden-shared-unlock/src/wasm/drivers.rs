@@ -165,8 +165,8 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
                 };
                 match client_name.as_str() {
                     "web" => Some(Endpoint::BrowserBackground { id: HostId::Own }),
-                    "browser" => Some(Endpoint::DesktopRenderer),
-                    "cli" => Some(Endpoint::DesktopRenderer),
+                    "browser" => Some(Endpoint::DesktopMain),
+                    "cli" => Some(Endpoint::DesktopMain),
                     _ => None,
                 }
             })
