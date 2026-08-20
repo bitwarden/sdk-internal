@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, FromClient, client::ApiConfigurations};
+use bitwarden_core::{Client, FromClient, client::ApiConfigurations, key_management::KeySlotIds};
+use bitwarden_crypto::KeyStore;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -13,6 +14,9 @@ use crate::{
 #[derive(Clone, FromClient)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct PamClient {
+    /// Only [`LeasesClient`] needs this: reading the cipher a lease unlocks is the one PAM call
+    /// that decrypts a vault payload rather than a leasing one.
+    pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
@@ -42,6 +46,7 @@ impl PamClient {
     /// Access lease operations (read, extend, and end the caller's leases).
     pub fn leases(&self) -> LeasesClient {
         LeasesClient {
+            key_store: self.key_store.clone(),
             api_configurations: self.api_configurations.clone(),
         }
     }
