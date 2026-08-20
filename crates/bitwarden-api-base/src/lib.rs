@@ -13,6 +13,10 @@ mod request;
 mod status_code_serializer;
 mod util;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub use client::{
+    ClientCertSigner, ClientCertSignerError, TlsSigScheme, build_client_cert_resolver,
+};
 pub use client::{new_http_client, new_http_client_builder};
 pub use configuration::Configuration;
 pub use error::{Error, ResponseContent};

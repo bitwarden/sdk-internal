@@ -24,11 +24,14 @@ impl GlobalClient {
     /// Panics if [`crate::init_host_platform_info`] has not been called.
     pub fn new() -> Self {
         let info = crate::client::get_host_platform_info();
-        let http_client = new_http_client_builder()
-            .default_headers(build_default_headers(info))
-            .build()
-            .expect("Global HTTP Client build should not fail")
-            .into();
+        let http_client = new_http_client_builder(
+            #[cfg(not(target_arch = "wasm32"))]
+            None,
+        )
+        .default_headers(build_default_headers(info))
+        .build()
+        .expect("Global HTTP Client build should not fail")
+        .into();
         Self {
             internal: Arc::new(GlobalInternalClient { http_client }),
         }

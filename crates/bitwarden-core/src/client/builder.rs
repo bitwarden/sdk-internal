@@ -37,7 +37,12 @@ type TransportRef<'a> = ();
 ///
 /// The `transport` reference is captured up front (before any `settings` fields
 /// are moved out) and passed in, keeping this a disjoint borrow.
-fn build_with_transport(transport: TransportRef<'_>) -> reqwest::ClientBuilder {
+fn build_with_transport(
+    transport: TransportRef<'_>,
+    #[cfg(not(target_arch = "wasm32"))] resolver: Option<
+        Arc<dyn rustls::client::ResolvesClientCert>,
+    >,
+) -> reqwest::ClientBuilder {
     let _ = &transport;
 
     // The only configuration that actually applies transport: a non-wasm32 target
@@ -45,14 +50,24 @@ fn build_with_transport(transport: TransportRef<'_>) -> reqwest::ClientBuilder {
     // configuration returns a bare builder; the fetch backend owns transport there.
     #[cfg(all(not(target_arch = "wasm32"), not(feature = "wasm")))]
     {
-        return crate::client::transport::apply_transport(new_http_client_builder(), transport)
-            .unwrap_or_else(|e| {
-                tracing::error!("Invalid transport config, proxy not applied: {e}");
-                new_http_client_builder()
-            });
+        return crate::client::transport::apply_transport(
+            new_http_client_builder(resolver),
+            transport,
+        )
+        .unwrap_or_else(|e| {
+            tracing::error!("Invalid transport config, proxy not applied: {e}");
+            new_http_client_builder(None)
+        });
     }
 
-    #[cfg(any(target_arch = "wasm32", feature = "wasm"))]
+    // Non-wasm target but `wasm` feature on: still non-wasm32, so
+    // `new_http_client_builder` takes the resolver argument.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "wasm"))]
+    {
+        return new_http_client_builder(resolver);
+    }
+
+    #[cfg(target_arch = "wasm32")]
     new_http_client_builder()
 }
 
@@ -62,6 +77,8 @@ pub struct ClientBuilder {
     token_handler: Arc<dyn TokenHandler>,
     state_registry: Option<StateRegistry>,
     middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    client_certificate: Option<(Vec<Vec<u8>>, Arc<dyn bitwarden_api_base::ClientCertSigner>)>,
     #[cfg(feature = "test-fixtures")]
     api_configurations: Option<Arc<ApiConfigurations>>,
 }
@@ -74,6 +91,8 @@ impl ClientBuilder {
             token_handler: Arc::new(NoopTokenHandler),
             state_registry: None,
             middleware: Vec::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            client_certificate: None,
             #[cfg(feature = "test-fixtures")]
             api_configurations: None,
         }
@@ -116,6 +135,18 @@ impl ClientBuilder {
         self
     }
 
+    /// Sets a client certificate for mTLS. The chain and signer must be provided together;
+    /// partial configuration is prevented at the type level.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn with_client_certificate(
+        mut self,
+        chain: Vec<Vec<u8>>,
+        signer: Arc<dyn bitwarden_api_base::ClientCertSigner>,
+    ) -> Self {
+        self.client_certificate = Some((chain, signer));
+        self
+    }
+
     /// Consumes the builder and constructs a [`Client`].
     pub fn build(self) -> Client {
         let settings = self.settings.unwrap_or_default();
@@ -128,9 +159,20 @@ impl ClientBuilder {
         #[cfg(feature = "wasm")]
         let transport: TransportRef<'_> = ();
 
-        let external_http_client = build_with_transport(transport)
-            .build()
-            .expect("External HTTP Client build should not fail");
+        // Build the mTLS client-cert resolver once (if configured). Shared by the
+        // identity and API clients; the external client never presents a cert.
+        #[cfg(not(target_arch = "wasm32"))]
+        let client_cert_resolver = self
+            .client_certificate
+            .map(|(chain, signer)| bitwarden_api_base::build_client_cert_resolver(chain, signer));
+
+        let external_http_client = build_with_transport(
+            transport,
+            #[cfg(not(target_arch = "wasm32"))]
+            None,
+        )
+        .build()
+        .expect("External HTTP Client build should not fail");
 
         let headers = build_default_headers(&HostPlatformInfo::from(&settings));
 
@@ -140,10 +182,14 @@ impl ClientBuilder {
             .unwrap_or_else(StateRegistry::new_with_memory_db);
 
         // Create the HTTP client for the Identity service, without authentication middleware.
-        let identity_http_client = build_with_transport(transport)
-            .default_headers(headers.clone())
-            .build()
-            .expect("Bw HTTP Client build should not fail");
+        let identity_http_client = build_with_transport(
+            transport,
+            #[cfg(not(target_arch = "wasm32"))]
+            client_cert_resolver.clone(),
+        )
+        .default_headers(headers.clone())
+        .build()
+        .expect("Bw HTTP Client build should not fail");
         let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,
             client: identity_http_client.into(),
@@ -162,12 +208,12 @@ impl ClientBuilder {
         // a proactive cookie strategy instead of reactive 302/307 detection.
         #[cfg(not(target_arch = "wasm32"))]
         let api_http_client = if self.middleware.is_empty() {
-            build_with_transport(transport)
+            build_with_transport(transport, client_cert_resolver.clone())
                 .default_headers(headers)
                 .build()
                 .expect("Bw HTTP Client build should not fail")
         } else {
-            build_with_transport(transport)
+            build_with_transport(transport, client_cert_resolver.clone())
                 .default_headers(headers)
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
