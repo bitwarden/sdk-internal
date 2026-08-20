@@ -42,6 +42,9 @@ const TIMEOUT = 60_000;
 /** Guards the user-key comparisons below against passing on two `undefined`s. */
 const BASE64_PATTERN = /^[A-Za-z0-9+/]{40,}={0,2}$/;
 
+/** Key ids travel as a lowercase hex encoding of 16 bytes. */
+const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
+
 /** A client unlocked under {@link TEST_KDF_PARAMS} with its master-password state seeded. */
 async function setup(): Promise<{ stateBridge: WasmStateBridge; client: PasswordManagerClient }> {
   const stateBridge = makeStateBridge();
@@ -96,6 +99,7 @@ describe("change kdf", () => {
           "salt",
         ]);
         expect(Object.keys(posted.unlockData).sort()).toEqual([
+          "containedKeyId",
           "kdf",
           "masterKeyWrappedUserKey",
           "salt",
@@ -113,6 +117,10 @@ describe("change kdf", () => {
         // The user key is re-wrapped under the master key derived with the new KDF.
         expect(posted.unlockData.masterKeyWrappedUserKey).toMatch(/^2\./);
         expect(posted.unlockData.masterKeyWrappedUserKey).not.toBe(MASTER_KEY_WRAPPED_USER_KEY);
+
+        // Changing the KDF re-wraps the same user key, so the asserted contained key id is the
+        // one this account's key already had.
+        expect(posted.unlockData.containedKeyId).toMatch(KEY_ID_PATTERN);
       },
       TIMEOUT,
     );

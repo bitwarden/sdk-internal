@@ -86,12 +86,14 @@ describe("user key id backfill", () => {
     );
 
     it(
-      "is false for a V1 account, whose user key carries no key id",
+      "is true for a V1 account, whose user key derives a key id from its key material",
       async () => {
         mock = installHttpMock({});
         const client = await makeInitializedPasswordmanagerClient(bridge, SETTINGS);
 
-        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
+        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(true);
+        // The check is answered from local state alone.
+        expect(mock.routes()).toEqual([]);
       },
       TIMEOUT,
     );
@@ -156,15 +158,19 @@ describe("user key id backfill", () => {
     );
 
     it(
-      "fails for a V1 account, whose user key carries no key id",
+      "backfills a V1 account the same way, using the id its user key derives",
       async () => {
-        mock = installHttpMock({});
+        mock = installHttpMock({ [ROUTE]: () => ({}) });
         const client = await makeInitializedPasswordmanagerClient(bridge, SETTINGS);
 
-        const error = await rejection(client.user_crypto_management().user_key_id_backfill());
+        await client.user_crypto_management().user_key_id_backfill();
 
-        expect(error.variant).toBe("NoKeyId");
-        expect(mock.routes()).toEqual([]);
+        expect(mock.routes()).toEqual([ROUTE]);
+        const posted = mock.bodyFor(ROUTE);
+        expect(posted.userKeyId).toMatch(KEY_ID_PATTERN);
+
+        expect(await bridge.get_user_key_id()).toEqual(posted.userKeyId);
+        expect(await client.user_crypto_management().user_key_id_needs_backfill()).toBe(false);
       },
       TIMEOUT,
     );
