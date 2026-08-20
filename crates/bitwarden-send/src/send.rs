@@ -22,6 +22,7 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{SendParseError, error::SendItemDeserializationFailure};
 pub const SEND_ITERATIONS: u32 = 100_000;
+pub const DEFAULT_SEND_ENCRYPTION: SendEncryptionType = SendEncryptionType::V1;
 
 uuid_newtype!(pub SendId);
 
@@ -296,7 +297,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                     None,
                     None,
                     Some(Box::new(bitwarden_api_api::models::SendDataModel {
-                        encryption_version: Some(SendEncryptionType::V1.into()),
+                        encryption_version: Some(DEFAULT_SEND_ENCRYPTION.into()),
                         data: Some(serialized_cipher),
                     })),
                 ))
@@ -548,7 +549,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItem> for SendItem
     ) -> Result<SendItem, CryptoError> {
         let cipher: Cipher = EncryptMode::Legacy(self.data.clone()).encrypt_composite(ctx, key)?;
         Ok(SendItem {
-            encryption_version: SendEncryptionType::V1,
+            encryption_version: DEFAULT_SEND_ENCRYPTION,
             data: cipher,
         })
     }
@@ -857,7 +858,7 @@ impl TryFrom<SendDataModel> for SendItem {
             Ok(c) => Ok(SendItem {
                 encryption_version: SendEncryptionType::try_from(
                     data.encryption_version
-                        .unwrap_or(SendEncryptionType::V1.into()),
+                        .unwrap_or(DEFAULT_SEND_ENCRYPTION.into()),
                 )?,
                 data: c,
             }),
