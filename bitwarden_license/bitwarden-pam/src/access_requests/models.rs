@@ -210,12 +210,50 @@ pub struct AccessRequestView {
     /// The requester's email, denormalized by the server. None only when the user could not be
     /// resolved.
     pub requester_email: Option<String>,
+    /// True when this request is approved but has not been activated into a lease yet, so the
+    /// requester still has something to do with it.
+    ///
+    /// Activation is not a status: an activated request stays
+    /// [`Approved`](AccessRequestStatus::Approved) and is recognised by the
+    /// [`produced_lease_id`](Self::produced_lease_id) it minted. Every client needs this
+    /// distinction - to badge a navigation counter, to decide whether to offer a Start action, to
+    /// keep an already-started grant out of a pending list - and deriving it from two fields is
+    /// exactly the kind of rule each of them would otherwise get subtly wrong.
+    ///
+    /// Deliberately says nothing about whether the activation window is still open. That depends
+    /// on wall-clock time at the moment the client renders, not at the moment this view was
+    /// fetched, so it stays a client decision - the same line [`AccessBadgeState`] draws for its
+    /// "ending soon" escalation.
+    pub awaiting_activation: bool,
+    /// The human decision recorded on this request - the deciding approver, or the holder ending
+    /// their own lease - or None when only an access rule decided it, or nothing has yet.
+    ///
+    /// An automatic (access-rule) decision carries no approver identity, so "who approved this"
+    /// and "was this decided by a rule" are the same question, answered here once instead of by
+    /// each client scanning the decision log for a non-automatic decider.
+    pub human_decision: Option<AccessRequestDecisionView>,
 }
 
 impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
     type Error = PamDecodeError;
 
     fn try_from(response: AccessRequestDetailsResponseModel) -> Result<Self, Self::Error> {
+        let status = AccessRequestStatus::from(require!(response.status));
+        let produced_lease_id = response.produced_lease_id.map(AccessLeaseId::new);
+        let decisions = response
+            .decisions
+            .unwrap_or_default()
+            .into_iter()
+            .map(AccessRequestDecisionView::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // An automatic decision carries no approver, so a human decision is simply one whose
+        // decider is not `Automatic`. v0/v1 records at most one.
+        let human_decision = decisions
+            .iter()
+            .find(|decision| !matches!(decision.decider, AccessDecider::Automatic))
+            .cloned();
+
         Ok(Self {
             id: AccessRequestId::new(require!(response.id)),
             cipher_id: CipherId::new(require!(response.cipher_id)),
@@ -223,20 +261,18 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
             organization_id: response.organization_id.map(OrganizationId::new),
             requester_id: UserId::new(require!(response.requester_id)),
             rule_id: response.rule_id.map(AccessRuleId::new),
-            status: AccessRequestStatus::from(require!(response.status)),
+            status,
             lease_not_before: require!(response.lease_not_before).parse()?,
             lease_not_after: require!(response.lease_not_after).parse()?,
             reason: response.reason,
             submitted_at: require!(response.submitted_at).parse()?,
             resolved_at: response.resolved_at.map(|d| d.parse()).transpose()?,
             expired_at: response.expired_at.map(|d| d.parse()).transpose()?,
-            decisions: response
-                .decisions
-                .unwrap_or_default()
-                .into_iter()
-                .map(AccessRequestDecisionView::try_from)
-                .collect::<Result<Vec<_>, _>>()?,
-            produced_lease_id: response.produced_lease_id.map(AccessLeaseId::new),
+            awaiting_activation: status == AccessRequestStatus::Approved
+                && produced_lease_id.is_none(),
+            human_decision,
+            decisions,
+            produced_lease_id,
             produced_lease_status: response.produced_lease_status.map(AccessLeaseStatus::from),
             extension_of_lease_id: response.extension_of_lease_id.map(AccessLeaseId::new),
             requester_name: response.requester_name,
@@ -1074,5 +1110,85 @@ mod tests {
             result.unwrap_err(),
             AccessRequestWindowError::EndBeforeStart
         );
+    }
+
+    #[test]
+    fn awaiting_activation_is_true_for_an_approved_request_with_no_lease_yet() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Approved),
+            produced_lease_id: None,
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.awaiting_activation);
+    }
+
+    /// Activation does not change the status, so only the minted lease separates "still to start"
+    /// from "already running".
+    #[test]
+    fn awaiting_activation_is_false_once_the_request_has_minted_a_lease() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Approved),
+            produced_lease_id: Some(Uuid::new_v4()),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(!view.awaiting_activation);
+        assert_eq!(view.status, AccessRequestStatus::Approved);
+    }
+
+    #[test]
+    fn awaiting_activation_is_false_for_a_request_still_pending() {
+        let response = AccessRequestDetailsResponseModel {
+            status: Some(ApiAccessRequestStatus::Pending),
+            produced_lease_id: None,
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(!view.awaiting_activation);
+    }
+
+    #[test]
+    fn human_decision_skips_the_automatic_one() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![automatic_decision(), human_decision()]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        let decision = view.human_decision.expect("a human decided this request");
+        assert!(matches!(decision.decider, AccessDecider::Human(_)));
+        assert_eq!(decision.comment.as_deref(), Some("Looks fine"));
+    }
+
+    #[test]
+    fn human_decision_is_none_when_only_an_access_rule_decided() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![automatic_decision()]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.human_decision.is_none());
+    }
+
+    #[test]
+    fn human_decision_is_none_while_the_request_is_undecided() {
+        let response = AccessRequestDetailsResponseModel {
+            decisions: Some(vec![]),
+            ..full_response()
+        };
+
+        let view = AccessRequestView::try_from(response).unwrap();
+
+        assert!(view.human_decision.is_none());
     }
 }
