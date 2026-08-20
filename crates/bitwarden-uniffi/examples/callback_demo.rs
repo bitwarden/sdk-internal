@@ -7,7 +7,7 @@
 use std::sync::{Arc, Mutex};
 
 use bitwarden_core::auth::ClientManagedTokens;
-use bitwarden_uniffi::{Client, LogCallback};
+use bitwarden_uniffi::{Client, LogCallback, ManagedSettingsBindingClient};
 
 /// Mock token provider for demo
 #[derive(Debug)]
@@ -52,7 +52,11 @@ fn main() {
     bitwarden_uniffi::init_logger(Some(callback), None);
 
     println!("Step 2: Create SDK client...\n");
-    let _client = Client::new(Arc::new(DemoTokenProvider), None);
+    let _client = Client::new(
+        Arc::new(DemoTokenProvider),
+        None,
+        Arc::new(ManagedSettingsBindingClient::new()),
+    );
 
     println!("✅ Client created - callback is receiving logs\n");
     println!("Emitting SDK logs at different levels...\n");
