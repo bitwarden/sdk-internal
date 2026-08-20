@@ -986,6 +986,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-managed-settings-types"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-error",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "bitwarden-organization-crypto"
 version = "3.0.0"
 dependencies = [
