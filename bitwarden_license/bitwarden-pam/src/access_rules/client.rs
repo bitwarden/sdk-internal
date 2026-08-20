@@ -97,6 +97,28 @@ impl AccessRulesClient {
         AccessRuleView::try_from(response)
     }
 
+    /// Enables or disables a rule, leaving everything else about it untouched.
+    ///
+    /// Takes the rule as the caller already has it - every surface that offers this toggle is
+    /// listing rules - so this costs one round trip rather than a read followed by a write. The
+    /// full payload is rebuilt from that view by [`From<AccessRuleView>`], so no caller has to
+    /// enumerate the editable fields and none can drop one; see that conversion for the bug this
+    /// prevents.
+    pub async fn set_enabled(
+        &self,
+        organization_id: OrganizationId,
+        rule: AccessRuleView,
+        enabled: bool,
+    ) -> Result<AccessRuleView, AccessRuleError> {
+        let id = rule.id;
+        let request = AccessRuleAddEditRequest {
+            enabled,
+            ..rule.into()
+        };
+
+        self.update(organization_id, id, request).await
+    }
+
     /// Deletes an access rule. Fails with [`NotFound`](AccessRuleError::NotFound) when the rule is
     /// already gone.
     pub async fn delete(
@@ -401,5 +423,70 @@ mod tests {
         let result = client(api_client).delete(organization_id, rule).await;
 
         assert!(result.is_ok());
+    }
+
+    /// The regression this exists to prevent: flipping `enabled` must not disturb any other field.
+    /// The web client's hand-written equivalent once omitted the two extension fields, so toggling
+    /// a rule silently wiped its extension settings.
+    #[tokio::test]
+    async fn set_enabled_flips_enabled_and_preserves_every_other_field() {
+        let organization_id = org_id();
+        let rule = rule_id();
+        let mut response = sample_response(rule.into(), organization_id.into());
+        response.enabled = Some(true);
+        response.allows_extensions = Some(true);
+        response.max_extension_duration_seconds = Some(3600);
+        response.single_active_lease = Some(true);
+        response.default_lease_duration_seconds = Some(1800);
+        response.max_lease_duration_seconds = Some(7200);
+        response.description = Some("Production database access".to_string());
+
+        let view = AccessRuleView::try_from(response.clone()).unwrap();
+        let returned = response.clone();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_put()
+                .withf(|_org_id, _id, request| {
+                    request.enabled == Some(false)
+                        && request.allows_extensions == Some(true)
+                        && request.max_extension_duration_seconds == Some(3600)
+                        && request.single_active_lease == Some(true)
+                        && request.default_lease_duration_seconds == Some(1800)
+                        && request.max_lease_duration_seconds == Some(7200)
+                        && request.name == "My rule"
+                        && request.description.as_deref() == Some("Production database access")
+                })
+                .returning(move |_org_id, _id, _request| Ok(returned.clone()))
+                .once();
+        });
+
+        let result = client(api_client)
+            .set_enabled(organization_id, view, false)
+            .await
+            .unwrap();
+
+        assert_eq!(result.id, rule);
+    }
+
+    #[tokio::test]
+    async fn set_enabled_targets_the_rule_it_was_given() {
+        let organization_id = org_id();
+        let rule = rule_id();
+        let response = sample_response(rule.into(), organization_id.into());
+        let view = AccessRuleView::try_from(response.clone()).unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_put()
+                .withf(move |_org_id, id, _request| *id == uuid::Uuid::from(rule_id()))
+                .returning(move |_org_id, _id, _request| Ok(response.clone()))
+                .once();
+        });
+
+        client(api_client)
+            .set_enabled(organization_id, view, true)
+            .await
+            .unwrap();
     }
 }
