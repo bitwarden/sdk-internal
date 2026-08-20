@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 /// Errors that can occur while reading a [`ManagementProfile`].
 #[bitwarden_error(flat)]
@@ -23,6 +25,8 @@ pub enum ManagedSettingsError {
 /// (UEM/MDM) channel. It is not Vault Data and involves no cryptography.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct ManagementProfile {
     /// Schema version. Bumped when the dotted-key namespace changes incompatibly.
     pub version: u32,
