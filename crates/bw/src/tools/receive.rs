@@ -182,7 +182,7 @@ fn parse_send_url(url: &Url) -> Result<(String, String)> {
 /// Pure so the precedence can be unit-tested without a client or a config file on disk.
 ///
 /// See the module-level PM-40120 note: this unconditional host resolution — always the link's
-/// own host, never a separately configured environment — is the decided fix, not a gap.
+/// own host, never a separately configured environment.
 fn resolve_urls(url: &Url, config: Option<&ConfigFile>) -> (String, String, bool) {
     if let Some(host) = url.host_str()
         && let Some(region) = CLOUD_HOSTS
