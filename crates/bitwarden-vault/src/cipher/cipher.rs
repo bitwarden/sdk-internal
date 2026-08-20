@@ -124,9 +124,6 @@ pub struct EncryptionContext {
     /// Hex-encoded id of the key the cipher's fields are wrapped under - the organization key for
     /// Organization-owned ciphers, otherwise the user key - captured at the time the cipher was
     /// encrypted. The server uses it to reject writes made under a wrong key.
-    ///
-    /// `None` for keys that carry no key id, which is the case for the legacy AES-CBC-HMAC keys
-    /// still used by V1 accounts.
     #[serde(default)]
     #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     #[cfg_attr(feature = "wasm", tsify(optional))]
@@ -2481,12 +2478,16 @@ mod tests {
         assert_eq!(actual.as_deref(), Some(expected.as_str()));
     }
 
-    /// V1 accounts use AES-CBC-HMAC keys, which carry no key id, so the field is omitted entirely.
+    /// V1 accounts use AES-CBC-HMAC keys, which have no stored key id and derive one from their
+    /// key material instead - so the field is still populated, with that derived id.
     #[test]
-    fn test_encrypted_by_key_id_is_none_for_legacy_user_key() {
-        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
-            SymmetricKeyAlgorithm::Aes256CbcHmac,
-        ));
+    fn test_encrypted_by_key_id_uses_derived_id_for_legacy_user_key() {
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let expected = user_key
+            .key_id()
+            .expect("an AES-CBC-HMAC key derives a key id")
+            .to_string();
+        let key_store = create_test_crypto_with_user_key(user_key);
 
         let view = generate_cipher();
         let actual = key_store
@@ -2494,7 +2495,7 @@ mod tests {
             .get_symmetric_key_id(view.key_identifier())
             .map(|id| id.to_string());
 
-        assert_eq!(actual, None);
+        assert_eq!(actual.as_deref(), Some(expected.as_str()));
     }
 
     #[test]
