@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::{conditions::AccessCondition, error::AccessRuleError};
+use super::{conditions::AccessCondition, error::AccessRuleDecodeError};
 use crate::AccessRuleId;
 
 /// A decrypted view of an access rule, as returned by the server.
@@ -83,15 +83,15 @@ pub struct AccessRuleAddEditRequest {
 }
 
 impl TryFrom<AccessRuleResponseModel> for AccessRuleView {
-    type Error = AccessRuleError;
+    type Error = AccessRuleDecodeError;
 
     fn try_from(response: AccessRuleResponseModel) -> Result<Self, Self::Error> {
         let conditions = match response.conditions {
             None => Vec::new(),
             Some(value @ serde_json::Value::Array(_)) => serde_json::from_value(value)
-                .map_err(|e| AccessRuleError::InvalidConditions(e.to_string()))?,
+                .map_err(|e| AccessRuleDecodeError::InvalidConditions(e.to_string()))?,
             Some(other) => {
-                return Err(AccessRuleError::InvalidConditions(format!(
+                return Err(AccessRuleDecodeError::InvalidConditions(format!(
                     "expected `conditions` to be a JSON array, got: {other}"
                 )));
             }
@@ -152,13 +152,13 @@ impl From<AccessRuleView> for AccessRuleAddEditRequest {
 }
 
 impl TryFrom<AccessRuleAddEditRequest> for AccessRuleRequestModel {
-    type Error = AccessRuleError;
+    type Error = AccessRuleDecodeError;
 
     fn try_from(request: AccessRuleAddEditRequest) -> Result<Self, Self::Error> {
         // The server requires `conditions` to always be present; an empty vec serializes to
         // the empty array it expects.
         let conditions = serde_json::to_value(&request.conditions)
-            .map_err(|e| AccessRuleError::InvalidConditions(e.to_string()))?;
+            .map_err(|e| AccessRuleDecodeError::InvalidConditions(e.to_string()))?;
 
         Ok(Self {
             name: request.name.trim().to_string(),
@@ -243,7 +243,10 @@ mod tests {
 
         let result = AccessRuleView::try_from(response);
 
-        assert!(matches!(result, Err(AccessRuleError::MissingField(_))));
+        assert!(matches!(
+            result,
+            Err(AccessRuleDecodeError::MissingField(_))
+        ));
     }
 
     #[test]
@@ -273,7 +276,10 @@ mod tests {
 
         let result = AccessRuleView::try_from(response);
 
-        assert!(matches!(result, Err(AccessRuleError::InvalidConditions(_))));
+        assert!(matches!(
+            result,
+            Err(AccessRuleDecodeError::InvalidConditions(_))
+        ));
     }
 
     #[test]

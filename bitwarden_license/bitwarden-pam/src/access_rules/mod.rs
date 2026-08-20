@@ -49,6 +49,8 @@ mod validate;
 
 pub use client::AccessRulesClient;
 pub use conditions::AccessCondition;
-pub use error::AccessRuleError;
+pub use error::{
+    AccessRuleDecodeError, AccessRuleDeleteError, AccessRuleReadError, AccessRuleWriteError,
+};
 pub use models::{AccessRuleAddEditRequest, AccessRuleView};
 pub use validate::{AccessRuleValidationError, is_valid_cidr};

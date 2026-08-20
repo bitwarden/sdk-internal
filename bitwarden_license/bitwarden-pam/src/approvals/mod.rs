@@ -15,5 +15,5 @@ mod error;
 mod models;
 
 pub use client::ApprovalsClient;
-pub use error::ApprovalError;
+pub use error::AccessDecisionError;
 pub use models::AccessDecisionRequest;
