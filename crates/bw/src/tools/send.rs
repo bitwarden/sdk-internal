@@ -687,6 +687,8 @@ impl From<SendJsonInput> for SendView {
             r#type: input.r#type,
             file: input.file,
             text: input.text,
+            // TODO - Use the `data` field when implementing item-type Send support
+            data: None,
             max_access_count: input.max_access_count,
             access_count: input.access_count,
             disabled: input.disabled,
@@ -784,13 +786,16 @@ fn build_create_request(inputs: CreateInputs) -> color_eyre::eyre::Result<SendAd
         }
     };
 
-    // Derive a default name: file sends pick up the file name; text sends require an explicit
-    // name to match the legacy CLI's UX.
+    // Derive a default name: file sends pick up the file name; text and
+    // item sends require an explicit name to match the legacy CLI's UX.
     let resolved_name = match (name, &view_type) {
         (Some(n), _) => n,
         (None, SendViewType::File(f)) => f.file_name.clone(),
         (None, SendViewType::Text(_)) => {
             return Err(eyre!("--name is required for text Sends."));
+        }
+        (None, SendViewType::Item(_)) => {
+            return Err(eyre!("--name is required for item Sends."));
         }
     };
 
@@ -1814,6 +1819,7 @@ mod tests {
                 text: Some("existing text".to_string()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: Some(42),
             access_count: 0,
             disabled: false,
@@ -2087,6 +2093,7 @@ mod tests {
                 text: Some("body".to_string()),
                 hidden,
             }),
+            data: None,
             max_access_count: max,
             access_count: 0,
             disabled: false,
