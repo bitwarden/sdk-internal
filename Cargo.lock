@@ -913,24 +913,40 @@ dependencies = [
 name = "bitwarden-importers"
 version = "3.0.0"
 dependencies = [
+ "aes-gcm 0.11.0",
+ "async-trait",
  "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-exporters",
+ "bitwarden-random",
  "bitwarden-vault",
  "chrono",
+ "crypto-bigint 0.7.5",
  "data-encoding",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "icu_normalizer",
  "keepass",
+ "rand 0.10.2",
+ "reqwest",
+ "rsa",
  "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.0",
  "thiserror 2.0.19",
  "tokio",
  "tsify",
  "uniffi",
+ "url",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
  "zeroize",
 ]
 
@@ -2303,7 +2319,8 @@ dependencies = [
 [[package]]
 name = "crypto-bigint"
 version = "0.7.5"
-source = "git+https://github.com/RustCrypto/crypto-bigint?tag=v0.7.5#2b54d248cce00457e3afb5650d9b14632ef4a116"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a52aa3fcda4e6302a9f48734f234d35d4721b96f8fe07d073f07ce9df4f0271"
 dependencies = [
  "cpubits",
  "ctutils",
@@ -3618,6 +3635,7 @@ dependencies = [
  "icu_properties",
  "icu_provider",
  "smallvec",
+ "utf8_iter",
  "zerovec",
 ]
 
