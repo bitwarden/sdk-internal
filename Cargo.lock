@@ -1338,6 +1338,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-test-vector"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-collections",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-send",
+ "bitwarden-vault",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "bitwarden-threading"
 version = "3.0.0"
 dependencies = [

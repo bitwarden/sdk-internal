@@ -104,6 +104,12 @@ impl SigningKey {
         }
     }
 
+    /// The key id of this signing key. The verifying key derived from it carries the same id, since
+    /// they are a pair.
+    pub fn key_id(&self) -> &KeyId {
+        &self.id
+    }
+
     pub(super) fn cose_algorithm(&self) -> Algorithm {
         match &self.inner {
             RawSigningKey::Ed25519(_) => Algorithm::EdDSA,
