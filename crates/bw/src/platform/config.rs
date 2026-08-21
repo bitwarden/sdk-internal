@@ -56,10 +56,7 @@ impl BwCommand for ConfigCommand {
     async fn run(self, state: AnyState) -> CommandResult {
         // If we're not provided any values, then this is a request to get the current server URL.
         if self.is_get() {
-            let server = read_config_json()?
-                .and_then(|c| c.server)
-                .unwrap_or_else(|| "https://bitwarden.com".into());
-            return Ok(server.into());
+            return Ok(resolve_server_url()?.into());
         }
 
         // If we are provided any values, then this is a request to set the server URL,
@@ -123,8 +120,20 @@ pub struct ConfigFile {
     pub key_connector: Option<String>,
 }
 
+/// Cloud server URL reported when none has been configured, matching the Node CLI's default region.
+pub(crate) const DEFAULT_SERVER_URL: &str = "https://bitwarden.com";
+
 fn config_json_path() -> Result<PathBuf> {
     Ok(appdata_dir()?.join("config.json"))
+}
+
+/// The base server URL saved by `bw config server <url>`, or [`DEFAULT_SERVER_URL`] when unset.
+///
+/// Shared by `bw config server` (GET) and `bw status` so the two cannot report different servers.
+pub(crate) fn resolve_server_url() -> Result<String> {
+    Ok(read_config_json()?
+        .and_then(|c| c.server)
+        .unwrap_or_else(|| DEFAULT_SERVER_URL.into()))
 }
 
 /// Reads the config JSON from disk
