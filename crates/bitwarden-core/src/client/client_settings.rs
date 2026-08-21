@@ -3,6 +3,9 @@ use std::{fmt, sync::OnceLock};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+#[cfg(not(feature = "wasm"))]
+use crate::client::transport::TransportSettings;
+
 /// Basic client behavior settings. These settings specify the various targets and behavior of the
 /// Bitwarden Client. They are optional and uneditable once the client is initialized.
 ///
@@ -18,6 +21,8 @@ use serde::{Deserialize, Serialize};
 ///     bitwarden_client_version: None,
 ///     bitwarden_package_type: None,
 ///     device_identifier: None,
+///     #[cfg(not(feature = "wasm"))]
+///     transport: None,
 /// };
 /// let default = ClientSettings::default();
 /// ```
@@ -47,6 +52,12 @@ pub struct ClientSettings {
     /// Bitwarden Package Type to send to Bitwarden. We should evaluate this field to see if it
     /// should be optional later.
     pub bitwarden_package_type: Option<String>,
+
+    /// Optional transport-level settings (proxy + timeouts). Absent on WASM, where the fetch
+    /// backend owns transport configuration.
+    #[cfg(not(feature = "wasm"))]
+    #[serde(default)]
+    pub transport: Option<TransportSettings>,
 }
 
 impl Default for ClientSettings {
@@ -59,6 +70,8 @@ impl Default for ClientSettings {
             device_identifier: None,
             bitwarden_client_version: None,
             bitwarden_package_type: None,
+            #[cfg(not(feature = "wasm"))]
+            transport: None,
         }
     }
 }
@@ -217,6 +230,9 @@ impl HostPlatformInfo {
             bitwarden_package_type: self.bitwarden_package_type.clone(),
             api_url,
             identity_url,
+            // transport is not platform info
+            #[cfg(not(feature = "wasm"))]
+            transport: None,
         }
     }
 }
