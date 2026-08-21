@@ -129,6 +129,11 @@ impl PasswordManagerClient {
         self.0.sends()
     }
 
+    /// Send sync handler operations.
+    pub fn send_sync_handler(&self) -> SendSyncHandlerClient {
+        self.0.send_sync_handler()
+    }
+
     /// Organization invite link operations.
     pub fn invite_link(&self) -> InviteLinkClient {
         self.0.invite_link()
