@@ -1045,6 +1045,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-uuid",
  "bitwarden-vault",
