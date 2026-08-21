@@ -743,6 +743,7 @@ mod tests {
 
         // Add a cipher with an old attachment (key is None)
         sync.ciphers = vec![Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,

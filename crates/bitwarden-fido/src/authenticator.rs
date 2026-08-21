@@ -804,6 +804,7 @@ mod tests {
         };
 
         CipherView {
+            partial: false,
             id: Some("c2c7e624-dcfd-4f23-af41-b177014ffcb5".parse().unwrap()),
             organization_id: None,
             folder_id: None,
