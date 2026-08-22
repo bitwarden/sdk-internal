@@ -16,8 +16,17 @@ repository.workspace = true
 license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
+[features]
+uniffi = ["bitwarden-managed-settings-types/uniffi"] # Uniffi bindings
+wasm = [
+    "bitwarden-managed-settings-types/wasm",
+    "dep:wasm-bindgen",
+] # WASM support
+
 [dependencies]
 bitwarden-managed-settings-types = { workspace = true }
+tracing = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [lints]
 workspace = true

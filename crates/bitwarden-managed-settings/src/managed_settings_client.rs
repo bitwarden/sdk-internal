@@ -1,12 +1,15 @@
 use std::sync::{Arc, RwLock};
 
 use bitwarden_managed_settings_types::ManagementProfile;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 /// Handle to the host system's Unified Endpoint Management profile.
 ///
 /// The host application constructs one of these at boot and pushes profiles into it. Clones share
 /// the underlying profile, so an update pushed through one clone is observed by all of them.
 #[derive(Clone)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct ManagedSettingsClient {
     profile: Arc<RwLock<Option<ManagementProfile>>>,
 }
@@ -17,14 +20,8 @@ impl Default for ManagedSettingsClient {
     }
 }
 
+/// Methods whose signatures cannot cross an FFI boundary, so they stay off the binding surface.
 impl ManagedSettingsClient {
-    /// Fresh handle with no active profile. The host should call this once at boot.
-    pub fn new() -> Self {
-        Self {
-            profile: Arc::new(RwLock::new(None)),
-        }
-    }
-
     /// The shared profile cell, so a constructed SDK client can read the same profile the host
     /// pushes into this handle.
     pub fn cell(&self) -> Arc<RwLock<Option<ManagementProfile>>> {
@@ -38,9 +35,29 @@ impl ManagedSettingsClient {
             .expect("managed-settings cell poisoned")
             .clone()
     }
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl ManagedSettingsClient {
+    /// Fresh handle with no active profile. The host should call this once at boot.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(constructor))]
+    pub fn new() -> Self {
+        Self {
+            profile: Arc::new(RwLock::new(None)),
+        }
+    }
 
     /// Replace the active profile. Clear the profile with `None`.
     pub fn update_profile(&self, profile: Option<ManagementProfile>) {
+        match &profile {
+            Some(p) => tracing::info!(
+                version = p.version,
+                keys = p.settings.len(),
+                "Managed settings profile updated"
+            ),
+            None => tracing::info!("Managed settings profile cleared"),
+        }
+
         *self
             .profile
             .write()
