@@ -636,6 +636,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-logging",
+ "bitwarden-managed-settings-types",
  "bitwarden-random",
  "bitwarden-state",
  "bitwarden-state-bridge-macro",
@@ -989,6 +990,7 @@ dependencies = [
 name = "bitwarden-managed-settings"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-core",
  "bitwarden-managed-settings-types",
  "tracing",
  "wasm-bindgen",
@@ -1097,6 +1099,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
+ "bitwarden-managed-settings",
  "bitwarden-organization-invite-link",
  "bitwarden-pam",
  "bitwarden-policies",

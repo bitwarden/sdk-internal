@@ -1,13 +1,17 @@
 use std::sync::{Arc, RwLock};
 
+use bitwarden_core::Client;
 use bitwarden_managed_settings_types::ManagementProfile;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 /// Handle to the host system's Unified Endpoint Management profile.
 ///
-/// The host application constructs one of these at boot and pushes profiles into it. Clones share
-/// the underlying profile, so an update pushed through one clone is observed by all of them.
+/// The host application constructs one of these at boot and pushes profiles into it, and hands its
+/// [`cell`](ManagedSettingsClient::cell) to
+/// [`bitwarden_core::ClientBuilder::with_managed_profile`] so the SDK reads the same profile.
+/// Clones share the underlying profile, so an update pushed through one clone is observed by all of
+/// them.
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct ManagedSettingsClient {
@@ -22,8 +26,13 @@ impl Default for ManagedSettingsClient {
 
 /// Methods whose signatures cannot cross an FFI boundary, so they stay off the binding surface.
 impl ManagedSettingsClient {
-    /// The shared profile cell, so a constructed SDK client can read the same profile the host
-    /// pushes into this handle.
+    pub(crate) fn from_profile(profile: Arc<RwLock<Option<ManagementProfile>>>) -> Self {
+        Self { profile }
+    }
+
+    /// The shared profile cell, for handing to
+    /// [`bitwarden_core::ClientBuilder::with_managed_profile`] so a constructed SDK client reads
+    /// the same profile the host pushes into this handle.
     pub fn cell(&self) -> Arc<RwLock<Option<ManagementProfile>>> {
         self.profile.clone()
     }
@@ -83,9 +92,23 @@ impl ManagedSettingsClient {
     }
 }
 
+/// Read the UEM profile handle back from a constructed [`bitwarden_core::Client`].
+pub trait ManagedSettingsClientExt {
+    /// Administrator-enforced settings operations.
+    fn managed_settings(&self) -> ManagedSettingsClient;
+}
+
+impl ManagedSettingsClientExt for Client {
+    fn managed_settings(&self) -> ManagedSettingsClient {
+        ManagedSettingsClient::from_profile(self.internal.managed_profile_handle())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+
+    use bitwarden_core::ClientBuilder;
 
     use super::*;
 
@@ -160,5 +183,38 @@ mod tests {
             *cell.read().expect("managed-settings cell poisoned"),
             Some(profile)
         );
+    }
+
+    #[test]
+    fn a_client_built_with_the_cell_reads_the_pushed_profile() {
+        let host_handle = ManagedSettingsClient::new();
+        let client = ClientBuilder::new()
+            .with_managed_profile(host_handle.cell())
+            .build();
+
+        host_handle.update_profile(Some(profile_with(
+            "environment.base",
+            "\"https://vault.example.com\"",
+        )));
+
+        assert_eq!(
+            client
+                .managed_settings()
+                .get("environment.base".to_string()),
+            Some("\"https://vault.example.com\"".to_string())
+        );
+    }
+
+    #[test]
+    fn a_client_built_without_a_cell_manages_nothing() {
+        let client = ClientBuilder::new().build();
+
+        assert_eq!(
+            client
+                .managed_settings()
+                .get("environment.base".to_string()),
+            None
+        );
+        assert_eq!(client.managed_settings().current_profile(), None);
     }
 }
