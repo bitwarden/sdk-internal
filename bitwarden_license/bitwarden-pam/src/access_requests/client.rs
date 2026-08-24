@@ -6,13 +6,13 @@ use bitwarden_vault::CipherId;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    error::AccessRequestError,
+    error::{AccessRequestActivateError, AccessRequestCancelError, AccessRequestSubmitError},
     models::{
         AccessPreCheckView, AccessRequestCreateRequest, AccessRequestResultView, AccessRequestView,
         CipherAccessStateView,
     },
 };
-use crate::{AccessRequestId, leases::AccessLeaseView};
+use crate::{AccessRequestId, PamReadError, leases::AccessLeaseView};
 
 /// Client for a requester's PAM access requests.
 ///
@@ -33,10 +33,7 @@ impl AccessRequestsClient {
     /// Resolves the approval outcome for a cipher without submitting a request, so the client can
     /// present the right workflow (pick a duration vs. pick a window and justify) before the
     /// requester commits.
-    pub async fn pre_check(
-        &self,
-        cipher_id: CipherId,
-    ) -> Result<AccessPreCheckView, AccessRequestError> {
+    pub async fn pre_check(&self, cipher_id: CipherId) -> Result<AccessPreCheckView, PamReadError> {
         let response = self
             .api_configurations
             .api_client
@@ -52,7 +49,7 @@ impl AccessRequestsClient {
     pub async fn cipher_access_state(
         &self,
         cipher_id: CipherId,
-    ) -> Result<CipherAccessStateView, AccessRequestError> {
+    ) -> Result<CipherAccessStateView, PamReadError> {
         let response = self
             .api_configurations
             .api_client
@@ -69,7 +66,7 @@ impl AccessRequestsClient {
         &self,
         cipher_id: CipherId,
         request: AccessRequestCreateRequest,
-    ) -> Result<AccessRequestResultView, AccessRequestError> {
+    ) -> Result<AccessRequestResultView, AccessRequestSubmitError> {
         let response = self
             .api_configurations
             .api_client
@@ -81,7 +78,7 @@ impl AccessRequestsClient {
     }
 
     /// Lists the caller's own access requests.
-    pub async fn list_mine(&self) -> Result<Vec<AccessRequestView>, AccessRequestError> {
+    pub async fn list_mine(&self) -> Result<Vec<AccessRequestView>, PamReadError> {
         let response = self
             .api_configurations
             .api_client
@@ -99,7 +96,7 @@ impl AccessRequestsClient {
     }
 
     /// Retrieves a single access request by ID.
-    pub async fn get(&self, id: AccessRequestId) -> Result<AccessRequestView, AccessRequestError> {
+    pub async fn get(&self, id: AccessRequestId) -> Result<AccessRequestView, PamReadError> {
         let response = self
             .api_configurations
             .api_client
@@ -118,7 +115,7 @@ impl AccessRequestsClient {
     pub async fn activate(
         &self,
         id: AccessRequestId,
-    ) -> Result<AccessLeaseView, AccessRequestError> {
+    ) -> Result<AccessLeaseView, AccessRequestActivateError> {
         let response = self
             .api_configurations
             .api_client
@@ -130,7 +127,7 @@ impl AccessRequestsClient {
     }
 
     /// Cancels the caller's own request while it is still pending.
-    pub async fn cancel(&self, id: AccessRequestId) -> Result<(), AccessRequestError> {
+    pub async fn cancel(&self, id: AccessRequestId) -> Result<(), AccessRequestCancelError> {
         self.api_configurations
             .api_client
             .access_requests_api()
@@ -269,7 +266,7 @@ mod tests {
 
         let result = client(api_client).activate(request_id()).await;
 
-        assert!(matches!(result, Err(AccessRequestError::Api(_))));
+        assert!(matches!(result, Err(AccessRequestActivateError::Api(_))));
     }
 
     #[tokio::test]
@@ -326,7 +323,7 @@ mod tests {
 
         let result = client(api_client).pre_check(cipher_id()).await;
 
-        assert!(matches!(result, Err(AccessRequestError::Api(_))));
+        assert!(matches!(result, Err(PamReadError::Api(_))));
     }
 
     #[tokio::test]
@@ -409,7 +406,10 @@ mod tests {
 
         let result = client(api_client).request(cipher_id(), request).await;
 
-        assert!(matches!(result, Err(AccessRequestError::Validation(_))));
+        assert!(matches!(
+            result,
+            Err(AccessRequestSubmitError::Validation(_))
+        ));
     }
 
     #[tokio::test]
@@ -432,6 +432,6 @@ mod tests {
             .request(cipher_id(), AccessRequestCreateRequest::default())
             .await;
 
-        assert!(matches!(result, Err(AccessRequestError::Api(_))));
+        assert!(matches!(result, Err(AccessRequestSubmitError::Api(_))));
     }
 }

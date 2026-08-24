@@ -17,7 +17,7 @@ mod error;
 mod models;
 
 pub use client::LeasesClient;
-pub use error::AccessLeaseError;
+pub use error::{AccessLeaseEndError, AccessLeaseExtendError, LeasedCipherError};
 pub use models::{
     AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseStatus,
     AccessLeaseTermination, AccessLeaseView,

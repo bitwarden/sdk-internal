@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::error::ApprovalError;
+use super::error::AccessDecisionError;
 use crate::AccessDecisionVerdict;
 
 /// An approver's decision on a pending access request.
@@ -22,13 +22,15 @@ pub struct AccessDecisionRequest {
 }
 
 impl TryFrom<AccessDecisionRequest> for AccessDecisionRequestModel {
-    type Error = ApprovalError;
+    type Error = AccessDecisionError;
 
     fn try_from(request: AccessDecisionRequest) -> Result<Self, Self::Error> {
         let verdict = match request.verdict {
             AccessDecisionVerdict::Approve => ApiAccessDecisionVerdict::Approve,
             AccessDecisionVerdict::Deny => ApiAccessDecisionVerdict::Deny,
-            AccessDecisionVerdict::Unknown => return Err(ApprovalError::UnsubmittableVerdict),
+            AccessDecisionVerdict::Unknown => {
+                return Err(AccessDecisionError::UnsubmittableVerdict);
+            }
         };
 
         Ok(Self {
@@ -77,6 +79,9 @@ mod tests {
 
         let result = AccessDecisionRequestModel::try_from(request);
 
-        assert!(matches!(result, Err(ApprovalError::UnsubmittableVerdict)));
+        assert!(matches!(
+            result,
+            Err(AccessDecisionError::UnsubmittableVerdict)
+        ));
     }
 }

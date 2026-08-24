@@ -5,7 +5,7 @@ use bitwarden_core::{FromClient, OrganizationId, client::ApiConfigurations};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    error::AccessRuleError,
+    error::{AccessRuleDeleteError, AccessRuleReadError, AccessRuleWriteError},
     models::{AccessRuleAddEditRequest, AccessRuleView},
     validate::validate_request,
 };
@@ -24,7 +24,7 @@ impl AccessRulesClient {
     pub async fn list(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Vec<AccessRuleView>, AccessRuleError> {
+    ) -> Result<Vec<AccessRuleView>, AccessRuleReadError> {
         let response = self
             .api_configurations
             .api_client
@@ -37,25 +37,26 @@ impl AccessRulesClient {
             .unwrap_or_default()
             .into_iter()
             .map(AccessRuleView::try_from)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     /// Retrieves a single access rule by ID. Fails with
-    /// [`NotFound`](AccessRuleError::NotFound) when no such rule is visible to the caller.
+    /// [`NotFound`](AccessRuleReadError::NotFound) when no such rule is visible to the caller.
     pub async fn get(
         &self,
         organization_id: OrganizationId,
         id: AccessRuleId,
-    ) -> Result<AccessRuleView, AccessRuleError> {
+    ) -> Result<AccessRuleView, AccessRuleReadError> {
         let response = self
             .api_configurations
             .api_client
             .access_rules_api()
             .get(organization_id.into(), id.into())
             .await
-            .map_err(AccessRuleError::from_by_id_api_error)?;
+            .map_err(AccessRuleReadError::from_by_id_api_error)?;
 
-        AccessRuleView::try_from(response)
+        Ok(AccessRuleView::try_from(response)?)
     }
 
     /// Validates and creates a new access rule.
@@ -63,7 +64,7 @@ impl AccessRulesClient {
         &self,
         organization_id: OrganizationId,
         request: AccessRuleAddEditRequest,
-    ) -> Result<AccessRuleView, AccessRuleError> {
+    ) -> Result<AccessRuleView, AccessRuleWriteError> {
         validate_request(&request)?;
 
         let response = self
@@ -73,17 +74,18 @@ impl AccessRulesClient {
             .post(organization_id.into(), request.try_into()?)
             .await?;
 
-        AccessRuleView::try_from(response)
+        Ok(AccessRuleView::try_from(response)?)
     }
 
     /// Validates and updates an existing access rule. Fails with
-    /// [`NotFound`](AccessRuleError::NotFound) when the rule was deleted before the write landed.
+    /// [`NotFound`](AccessRuleWriteError::NotFound) when the rule was deleted before the write
+    /// landed.
     pub async fn update(
         &self,
         organization_id: OrganizationId,
         id: AccessRuleId,
         request: AccessRuleAddEditRequest,
-    ) -> Result<AccessRuleView, AccessRuleError> {
+    ) -> Result<AccessRuleView, AccessRuleWriteError> {
         validate_request(&request)?;
 
         let response = self
@@ -92,9 +94,9 @@ impl AccessRulesClient {
             .access_rules_api()
             .put(organization_id.into(), id.into(), request.try_into()?)
             .await
-            .map_err(AccessRuleError::from_by_id_api_error)?;
+            .map_err(AccessRuleWriteError::from_by_id_api_error)?;
 
-        AccessRuleView::try_from(response)
+        Ok(AccessRuleView::try_from(response)?)
     }
 
     /// Enables or disables a rule, leaving everything else about it untouched.
@@ -109,7 +111,7 @@ impl AccessRulesClient {
         organization_id: OrganizationId,
         rule: AccessRuleView,
         enabled: bool,
-    ) -> Result<AccessRuleView, AccessRuleError> {
+    ) -> Result<AccessRuleView, AccessRuleWriteError> {
         let id = rule.id;
         let request = AccessRuleAddEditRequest {
             enabled,
@@ -119,19 +121,19 @@ impl AccessRulesClient {
         self.update(organization_id, id, request).await
     }
 
-    /// Deletes an access rule. Fails with [`NotFound`](AccessRuleError::NotFound) when the rule is
-    /// already gone.
+    /// Deletes an access rule. Fails with [`NotFound`](AccessRuleDeleteError::NotFound) when the
+    /// rule is already gone.
     pub async fn delete(
         &self,
         organization_id: OrganizationId,
         id: AccessRuleId,
-    ) -> Result<(), AccessRuleError> {
+    ) -> Result<(), AccessRuleDeleteError> {
         self.api_configurations
             .api_client
             .access_rules_api()
             .delete(organization_id.into(), id.into())
             .await
-            .map_err(AccessRuleError::from_by_id_api_error)?;
+            .map_err(AccessRuleDeleteError::from_by_id_api_error)?;
 
         Ok(())
     }
@@ -248,7 +250,7 @@ mod tests {
 
         let result = client(api_client).get(organization_id, rule).await;
 
-        assert!(matches!(result, Err(AccessRuleError::NotFound)));
+        assert!(matches!(result, Err(AccessRuleReadError::NotFound)));
     }
 
     #[tokio::test]
@@ -267,7 +269,7 @@ mod tests {
 
         let result = client(api_client).get(organization_id, rule).await;
 
-        assert!(matches!(result, Err(AccessRuleError::Api(_))));
+        assert!(matches!(result, Err(AccessRuleReadError::Api(_))));
     }
 
     #[tokio::test]
@@ -288,7 +290,7 @@ mod tests {
             .update(organization_id, rule, sample_request())
             .await;
 
-        assert!(matches!(result, Err(AccessRuleError::NotFound)));
+        assert!(matches!(result, Err(AccessRuleWriteError::NotFound)));
     }
 
     #[tokio::test]
@@ -305,11 +307,11 @@ mod tests {
 
         let result = client(api_client).delete(organization_id, rule).await;
 
-        assert!(matches!(result, Err(AccessRuleError::NotFound)));
+        assert!(matches!(result, Err(AccessRuleDeleteError::NotFound)));
     }
 
     /// The org-scoped calls deliberately do NOT map `404` onto a missing rule - see
-    /// [`AccessRuleError::from_by_id_api_error`].
+    /// [`AccessRuleReadError::from_by_id_api_error`].
     #[tokio::test]
     async fn list_leaves_not_found_as_api() {
         let organization_id = org_id();
@@ -323,7 +325,7 @@ mod tests {
 
         let result = client(api_client).list(organization_id).await;
 
-        assert!(matches!(result, Err(AccessRuleError::Api(_))));
+        assert!(matches!(result, Err(AccessRuleReadError::Api(_))));
     }
 
     #[tokio::test]
@@ -338,7 +340,7 @@ mod tests {
 
         let result = client(api_client).create(organization_id, request).await;
 
-        assert!(matches!(result, Err(AccessRuleError::Validation(_))));
+        assert!(matches!(result, Err(AccessRuleWriteError::Validation(_))));
     }
 
     #[tokio::test]
@@ -384,7 +386,7 @@ mod tests {
             .create(organization_id, sample_request())
             .await;
 
-        assert!(matches!(result, Err(AccessRuleError::Api(_))));
+        assert!(matches!(result, Err(AccessRuleWriteError::Api(_))));
     }
 
     #[tokio::test]

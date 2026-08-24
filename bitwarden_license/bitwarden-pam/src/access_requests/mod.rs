@@ -17,7 +17,7 @@ mod models;
 mod validate;
 
 pub use client::AccessRequestsClient;
-pub use error::AccessRequestError;
+pub use error::{AccessRequestActivateError, AccessRequestCancelError, AccessRequestSubmitError};
 pub use models::{
     AccessApprovalMode, AccessApprover, AccessBadgeState, AccessDecider, AccessDecisionVerdict,
     AccessPreCheckView, AccessRequestCreateRequest, AccessRequestDecisionView,

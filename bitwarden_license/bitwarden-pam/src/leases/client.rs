@@ -7,10 +7,10 @@ use bitwarden_vault::{Cipher, CipherId, CipherView};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    error::AccessLeaseError,
+    error::{AccessLeaseEndError, AccessLeaseExtendError, LeasedCipherError},
     models::{AccessLeaseExtensionRequest, AccessLeaseRevokeRequest, AccessLeaseView},
 };
-use crate::{AccessLeaseId, access_requests::AccessRequestView};
+use crate::{AccessLeaseId, PamReadError, access_requests::AccessRequestView};
 
 /// Client for reading and managing a requester's PAM access leases.
 ///
@@ -27,7 +27,7 @@ pub struct LeasesClient {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl LeasesClient {
     /// Lists the caller's currently active leases.
-    pub async fn list_active(&self) -> Result<Vec<AccessLeaseView>, AccessLeaseError> {
+    pub async fn list_active(&self) -> Result<Vec<AccessLeaseView>, PamReadError> {
         let response = self
             .api_configurations
             .api_client
@@ -45,7 +45,7 @@ impl LeasesClient {
     }
 
     /// Lists all of the caller's leases, active or not.
-    pub async fn list_mine(&self) -> Result<Vec<AccessLeaseView>, AccessLeaseError> {
+    pub async fn list_mine(&self) -> Result<Vec<AccessLeaseView>, PamReadError> {
         let response = self
             .api_configurations
             .api_client
@@ -67,7 +67,7 @@ impl LeasesClient {
         &self,
         lease_id: AccessLeaseId,
         request: AccessLeaseExtensionRequest,
-    ) -> Result<AccessRequestView, AccessLeaseError> {
+    ) -> Result<AccessRequestView, AccessLeaseExtendError> {
         let response = self
             .api_configurations
             .api_client
@@ -83,7 +83,7 @@ impl LeasesClient {
         &self,
         lease_id: AccessLeaseId,
         request: AccessLeaseRevokeRequest,
-    ) -> Result<(), AccessLeaseError> {
+    ) -> Result<(), AccessLeaseEndError> {
         self.api_configurations
             .api_client
             .leases_api()
@@ -109,12 +109,12 @@ impl LeasesClient {
     /// - The result is NEVER written to the cipher repository. Local state stays partial for the
     ///   lease's whole life, so closing and reopening the item re-reads it, and a lapsed lease
     ///   cannot leave decryptable secrets behind in state.
-    /// - It is the read that a lease authorizes, so it fails with the same [`AccessLeaseError`] as
-    ///   the rest of this client.
+    /// - It is the read that a lease authorizes, so it fails with [`LeasedCipherError`] rather than
+    ///   as the rest of this client.
     pub async fn leased_cipher(
         &self,
         cipher_id: CipherId,
-    ) -> Result<Option<CipherView>, AccessLeaseError> {
+    ) -> Result<Option<CipherView>, LeasedCipherError> {
         let response = self
             .api_configurations
             .api_client
@@ -237,7 +237,7 @@ mod tests {
 
         let result = client(api_client).list_mine().await;
 
-        assert!(matches!(result, Err(AccessLeaseError::Api(_))));
+        assert!(matches!(result, Err(PamReadError::Api(_))));
     }
 
     #[tokio::test]
@@ -355,6 +355,6 @@ mod tests {
 
         let result = client(api_client).leased_cipher(cipher_id()).await;
 
-        assert!(matches!(result, Err(AccessLeaseError::Api(_))));
+        assert!(matches!(result, Err(LeasedCipherError::Api(_))));
     }
 }
