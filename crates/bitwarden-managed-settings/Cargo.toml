@@ -1,0 +1,23 @@
+[package]
+name = "bitwarden-managed-settings"
+description = """
+Read access to managed settings, the configuration an organization's IT administrators enforce
+through the host operating system's Unified Endpoint Management (UEM) channel.
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[dependencies]
+bitwarden-managed-settings-types = { workspace = true }
+
+[lints]
+workspace = true
