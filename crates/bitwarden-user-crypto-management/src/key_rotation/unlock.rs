@@ -377,7 +377,10 @@ fn to_authentication_and_unlock_data(
         ),
         master_password_hint: hint,
         master_password_salt: Some(master_password_unlock_data.salt.clone()),
-        contained_key_id: None,
+        contained_key_id: master_password_unlock_data
+            .contained_key_id
+            .as_ref()
+            .map(|id| id.to_string()),
     })
 }
 
@@ -502,6 +505,7 @@ mod tests {
                 .expect("should parse"),
             kdf: kdf.clone(),
             salt: salt.to_string(),
+            contained_key_id: None,
         };
         let decrypted_user_key = master_password_unlock_data
             .unwrap_to_context(password, &mut ctx)
@@ -545,6 +549,7 @@ mod tests {
                 .expect("should parse"),
             kdf: kdf.clone(),
             salt: salt.to_string(),
+            contained_key_id: None,
         };
         let decrypted_user_key = master_password_unlock_data
             .unwrap_to_context(password, &mut ctx)
