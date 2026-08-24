@@ -10,7 +10,7 @@ use bitwarden_api_api::models::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{OrganizationId, UserId, require};
 use bitwarden_vault::CipherId;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -570,6 +570,20 @@ pub struct AccessRequestCreateRequest {
     pub reason: Option<String>,
 }
 
+/// Renders an instant for the wire as a `Z`-suffixed UTC timestamp, e.g.
+/// `2025-01-01T00:00:00.000Z`.
+///
+/// Not [`DateTime::to_rfc3339`], which spells a zero offset `+00:00`. Both name the same instant,
+/// but the server binds the requested window to a .NET `DateTime`, and its deserializer resolves
+/// *any* explicit offset against the API host's timezone — handing the command a local-kind value
+/// it then stores in a column read as UTC. On a host that is not UTC the window shifted by the
+/// host's offset (PM-42275). A `Z` designator is the one spelling that cannot be reinterpreted, and
+/// it matches what every other Bitwarden client sends (JavaScript's `toISOString()`) and what the
+/// rest of this SDK writes.
+fn to_wire_timestamp(value: DateTime<Utc>) -> String {
+    value.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
 impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
     type Error = AccessRequestWindowError;
 
@@ -582,8 +596,8 @@ impl TryFrom<AccessRequestCreateRequest> for AccessRequestCreateRequestModel {
 
         Ok(Self {
             duration_seconds: request.duration_seconds.map(|d| d.get() as i32),
-            start: request.start.map(|d| d.to_rfc3339()),
-            end: request.end.map(|d| d.to_rfc3339()),
+            start: request.start.map(to_wire_timestamp),
+            end: request.end.map(to_wire_timestamp),
             reason: request.reason,
         })
     }
@@ -1089,9 +1103,30 @@ mod tests {
         let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
 
         assert_eq!(model.duration_seconds, Some(3600));
-        assert_eq!(model.start, Some("2025-01-01T00:00:00+00:00".to_string()));
-        assert_eq!(model.end, Some("2025-01-01T01:00:00+00:00".to_string()));
+        assert_eq!(model.start, Some("2025-01-01T00:00:00.000Z".to_string()));
+        assert_eq!(model.end, Some("2025-01-01T01:00:00.000Z".to_string()));
         assert_eq!(model.reason, Some("Need access".to_string()));
+    }
+
+    /// The window must go out `Z`-suffixed, not as a `+00:00` offset. The server resolves an
+    /// explicit offset against the API host's timezone, so the offset spelling shifted the
+    /// stored window by that host's offset (PM-42275). Pinned as its own test because the two
+    /// spellings name the same instant and the difference is invisible to a reader of the value
+    /// alone.
+    #[test]
+    fn access_request_create_request_window_is_serialized_as_utc_with_a_z_designator() {
+        let request = AccessRequestCreateRequest {
+            start: Some("2025-06-15T13:30:00.250Z".parse().unwrap()),
+            end: Some("2025-06-15T14:30:00Z".parse().unwrap()),
+            ..Default::default()
+        };
+
+        let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
+
+        assert_eq!(model.start, Some("2025-06-15T13:30:00.250Z".to_string()));
+        assert_eq!(model.end, Some("2025-06-15T14:30:00.000Z".to_string()));
+        assert!(model.start.unwrap().ends_with('Z'));
+        assert!(model.end.unwrap().ends_with('Z'));
     }
 
     #[test]
