@@ -22,6 +22,6 @@ decode it into a concrete type with [`ManagementProfile::get_as`] on the profile
 The first profile push is asynchronous on every platform, so a consumer may not observe a managed
 setting immediately after startup.
 
-A managed setting overrides user and global state and built-in defaults. It carries no automatic
-precedence over an enterprise policy — where a policy and a managed setting both bear on one
-effective setting, the consuming feature is responsible for resolving the conflict.
+Generally, a managed setting overrides user state, global state, and any defaults. When a policy and
+a managed setting both affect a given setting, the consuming feature is responsible for resolving
+the conflict.
