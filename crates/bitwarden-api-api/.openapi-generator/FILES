@@ -75,6 +75,7 @@ src/apis/web_authn_api.rs
 src/lib.rs
 src/models/accept_organization_invite_link_request_model.rs
 src/models/access_approval_mode.rs
+src/models/access_decider_kind.rs
 src/models/access_decision_request_model.rs
 src/models/access_decision_verdict.rs
 src/models/access_lease_extension_request_model.rs
@@ -200,7 +201,6 @@ src/models/create_collection_request_model.rs
 src/models/create_organization_invite_link_request_model.rs
 src/models/create_premium_checkout_session_request.rs
 src/models/credential_create_options.rs
-src/models/decider_kind.rs
 src/models/delete_attachment_response_model.rs
 src/models/delete_recover_request_model.rs
 src/models/device_auth_request_response_model.rs
@@ -239,6 +239,7 @@ src/models/event_type.rs
 src/models/fido2_user.rs
 src/models/field_type.rs
 src/models/file_upload_type.rs
+src/models/folder_bulk_delete_request_model.rs
 src/models/folder_request_model.rs
 src/models/folder_response_model.rs
 src/models/folder_response_model_list_response_model.rs
