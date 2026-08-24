@@ -990,6 +990,8 @@ name = "bitwarden-managed-settings"
 version = "3.0.0"
 dependencies = [
  "bitwarden-managed-settings-types",
+ "tracing",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1000,6 +1002,9 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1390,6 +1395,8 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
+ "bitwarden-managed-settings",
+ "bitwarden-managed-settings-types",
  "bitwarden-organizations",
  "bitwarden-pm",
  "bitwarden-policies",
@@ -1542,6 +1549,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-logging",
+ "bitwarden-managed-settings",
  "bitwarden-organization-crypto",
  "bitwarden-organization-invite-link",
  "bitwarden-pm",
