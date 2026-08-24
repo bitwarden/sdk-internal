@@ -20,7 +20,7 @@ use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{SendParseError, access::SEND_KEY_LEN, error::SendItemDeserializationFailure};
+use crate::{SendParseError, access::SEND_KEY_LEN, error::SendItemDeserializationFailureError};
 pub const SEND_ITERATIONS: u32 = 100_000;
 pub const DEFAULT_SEND_ENCRYPTION: SendEncryptionType = SendEncryptionType::V1;
 
@@ -245,7 +245,7 @@ pub enum SendViewType {
     /// Text-based send
     Text(SendTextView),
     /// Item-based send
-    Item(SendItemView),
+    Item(Box<SendItemView>),
 }
 
 /// Type alias for the tuple returned by SendViewType::into_api_models
@@ -853,7 +853,7 @@ impl TryFrom<SendDataModel> for SendItem {
         let cipher = serde_json::from_str::<Cipher>(data.data.unwrap_or("{}".to_string()).as_str());
         match cipher {
             Err(_e) => Err(SendParseError::DeserializationFailure(
-                SendItemDeserializationFailure,
+                SendItemDeserializationFailureError,
             )),
             Ok(c) => Ok(SendItem {
                 encryption_version: SendEncryptionType::try_from(
