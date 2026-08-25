@@ -19,7 +19,7 @@ use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::SendParseError;
+use crate::{SendParseError, access::SEND_KEY_LEN};
 pub const SEND_ITERATIONS: u32 = 100_000;
 
 uuid_newtype!(pub SendId);
@@ -572,7 +572,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
                 .to_vec(),
             // New send, generate random key
             (None, None) => {
-                let key = generate_random_bytes::<[u8; 16]>();
+                let key = generate_random_bytes::<[u8; SEND_KEY_LEN]>();
                 key.to_vec()
             }
             // Existing send without key
