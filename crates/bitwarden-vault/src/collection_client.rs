@@ -179,7 +179,7 @@ impl CollectionViewTree {
 #[cfg(test)]
 mod tests {
     use bitwarden_collections::collection::CollectionType;
-    use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
+    use bitwarden_core::{OrganizationId, client::test_accounts::test_bitwarden_com_account};
 
     use super::*;
     use crate::VaultClientExt;
@@ -246,8 +246,7 @@ mod tests {
         let mut invalid_collection = test_collection();
         // No organization key exists in the test account's key store for this id, so
         // decryption of this single item must fail without affecting the others.
-        invalid_collection.organization_id =
-            "00000000-0000-0000-0000-000000000000".parse().unwrap();
+        invalid_collection.organization_id = OrganizationId::new_v4();
 
         let collections = vec![valid_collection, invalid_collection.clone()];
 

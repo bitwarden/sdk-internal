@@ -36,13 +36,11 @@ impl CollectionsClient {
 
     /// Decrypt collection list with failures
     /// Returns both successfully decrypted collections and any that failed to decrypt
-    // Note that this function still needs to return a Result, as the parameter conversion can
-    // still fail
     pub fn decrypt_list_with_failures(
         &self,
         collections: Vec<Collection>,
-    ) -> Result<DecryptCollectionListResult> {
-        Ok(self.0.decrypt_list_with_failures(collections))
+    ) -> DecryptCollectionListResult {
+        self.0.decrypt_list_with_failures(collections)
     }
 
     ///
