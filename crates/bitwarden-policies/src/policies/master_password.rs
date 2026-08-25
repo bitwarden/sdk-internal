@@ -1,9 +1,35 @@
 use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
+use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
-/// SDK domain model for master password policy requirements.
-/// Defines the complexity requirements for a user's master password
-/// when enforced by an organization policy.
+use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+
+/// Master Password policy.
+pub struct MasterPasswordPolicy;
+
+impl Policy for MasterPasswordPolicy {
+    type Data = MasterPasswordPolicyData;
+
+    fn policy_type(&self) -> PolicyType {
+        PolicyType::MasterPassword
+    }
+
+    fn to_erased(&self, data: Self::Data) -> PolicyDataType {
+        PolicyDataType::MasterPassword(data)
+    }
+
+    fn exempt_roles(&self) -> &[OrganizationUserType] {
+        &[]
+    }
+}
+
+/// The complexity requirements an organization enforces on members' master
+/// passwords.
+///
+/// This models the same information the server delivers two ways: as the
+/// policy's saved JSON `data` blob (parsed for enforcement) and as the typed
+/// [`MasterPasswordPolicyResponseModel`] returned at login (bridged via
+/// [`From`]).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -12,7 +38,7 @@ use serde::{Deserialize, Serialize};
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-pub struct MasterPasswordPolicyResponse {
+pub struct MasterPasswordPolicyData {
     /// The minimum complexity score required for the master password.
     /// Complexity is calculated based on password strength metrics.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,7 +71,7 @@ pub struct MasterPasswordPolicyResponse {
     pub enforce_on_login: Option<bool>,
 }
 
-impl From<MasterPasswordPolicyResponseModel> for MasterPasswordPolicyResponse {
+impl From<MasterPasswordPolicyResponseModel> for MasterPasswordPolicyData {
     fn from(api: MasterPasswordPolicyResponseModel) -> Self {
         Self {
             min_complexity: api.min_complexity,
@@ -64,7 +90,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_master_password_policy_conversion_full() {
+    fn round_trips() {
+        let data = MasterPasswordPolicyData {
+            min_complexity: Some(3),
+            min_length: Some(12),
+            require_lower: Some(true),
+            require_upper: Some(true),
+            require_numbers: Some(false),
+            require_special: Some(false),
+            enforce_on_login: Some(true),
+        };
+        let json = serde_json::to_string(&data).unwrap();
+        assert!(json.contains(r#""minComplexity":3"#));
+        assert!(json.contains(r#""enforceOnLogin":true"#));
+        assert_eq!(
+            serde_json::from_str::<MasterPasswordPolicyData>(&json).unwrap(),
+            data
+        );
+    }
+
+    #[test]
+    fn empty_serializes_to_empty_object() {
+        assert_eq!(
+            serde_json::to_string(&MasterPasswordPolicyData::default()).unwrap(),
+            "{}"
+        );
+    }
+
+    #[test]
+    fn from_api_model_full() {
         let api = MasterPasswordPolicyResponseModel {
             object: Some("masterPasswordPolicy".to_string()),
             min_complexity: Some(4),
@@ -76,7 +130,7 @@ mod tests {
             enforce_on_login: Some(true),
         };
 
-        let domain: MasterPasswordPolicyResponse = api.into();
+        let domain: MasterPasswordPolicyData = api.into();
 
         assert_eq!(domain.min_complexity, Some(4));
         assert_eq!(domain.min_length, Some(12));
@@ -88,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    fn test_master_password_policy_conversion_minimal() {
+    fn from_api_model_minimal() {
         let api = MasterPasswordPolicyResponseModel {
             object: Some("masterPasswordPolicy".to_string()),
             min_complexity: None,
@@ -100,7 +154,7 @@ mod tests {
             enforce_on_login: Some(false),
         };
 
-        let domain: MasterPasswordPolicyResponse = api.into();
+        let domain: MasterPasswordPolicyData = api.into();
 
         assert_eq!(domain.min_complexity, None);
         assert_eq!(domain.min_length, Some(8));
@@ -112,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn test_master_password_policy_conversion_empty() {
+    fn from_api_model_empty() {
         let api = MasterPasswordPolicyResponseModel {
             object: Some("masterPasswordPolicy".to_string()),
             min_complexity: None,
@@ -124,7 +178,7 @@ mod tests {
             enforce_on_login: None,
         };
 
-        let domain: MasterPasswordPolicyResponse = api.into();
+        let domain: MasterPasswordPolicyData = api.into();
 
         assert_eq!(domain.min_complexity, None);
         assert_eq!(domain.min_length, None);
