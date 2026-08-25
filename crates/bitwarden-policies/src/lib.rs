@@ -19,8 +19,8 @@ pub use policies::{
     AutomaticAppLogInPolicyData, MasterPasswordPolicyData, MaximumVaultTimeoutPolicyData,
     OrganizationDataOwnershipPolicyData, OrganizationUserNotificationPolicyData,
     PasswordGeneratorPolicyData, PasswordGeneratorType, ResetPasswordPolicyData, SendAccessControl,
-    SendControlsPolicyData, SendOptionsPolicyData, SendType, UriMatchDefaultsPolicyData,
-    UriMatchType, VaultTimeoutAction, VaultTimeoutType,
+    SendControlsPolicyData, SendOptionsPolicyData, UriMatchDefaultsPolicyData, VaultTimeoutAction,
+    VaultTimeoutType,
 };
 pub(crate) use policy::Policy;
 pub use policy_client::{PoliciesClientExt, PolicyClient};

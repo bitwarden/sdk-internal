@@ -1,3 +1,4 @@
+use bitwarden_send_types::SendType;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
@@ -34,23 +35,6 @@ pub enum SendAccessControl {
     PasswordProtected = 1,
     /// Only specific people.
     SpecificPeople = 2,
-}
-
-/// The type of a Send.
-///
-/// The integer value matches the server's wire format (and mirrors
-/// `bitwarden_send::SendType`).
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
-#[repr(u8)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub enum SendType {
-    /// A text Send.
-    Text = 0,
-    /// A file Send.
-    File = 1,
-    /// An item Send.
-    Item = 2,
 }
 
 /// Configuration data for the Send Controls policy.

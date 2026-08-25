@@ -57,6 +57,7 @@ bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
 bitwarden-random = { path = "crates/bitwarden-random", version = "=3.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=3.0.0" }
+bitwarden-send-types = { path = "crates/bitwarden-send-types", version = "=3.0.0" }
 bitwarden-sensitive-value = { path = "crates/bitwarden-sensitive-value", version = "=3.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=3.0.0" }
 bitwarden-shared-unlock = { path = "crates/bitwarden-shared-unlock", version = "=3.0.0" }
@@ -73,6 +74,7 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=3.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=3.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=3.0.0" }
+bitwarden-vault-types = { path = "crates/bitwarden-vault-types", version = "=3.0.0" }
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",

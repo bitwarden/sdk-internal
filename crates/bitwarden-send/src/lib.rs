@@ -34,7 +34,8 @@ pub use get_list::GetSendError;
 mod remove_password;
 pub use remove_password::RemoveSendPasswordError;
 mod send;
+pub use bitwarden_send_types::SendType;
 pub use send::{
     AuthType, EmptyEmailListError, Send, SendAuthType, SendFileView, SendId, SendListView,
-    SendTextView, SendType, SendView, SendViewType,
+    SendTextView, SendView, SendViewType,
 };

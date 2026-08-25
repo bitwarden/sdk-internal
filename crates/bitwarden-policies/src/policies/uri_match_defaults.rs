@@ -1,7 +1,5 @@
+use bitwarden_vault_types::UriMatchType;
 use serde::{Deserialize, Serialize};
-use serde_repr::{Deserialize_repr, Serialize_repr};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{Policy, PolicyType, policy_type::PolicyDataType};
 
@@ -18,29 +16,6 @@ impl Policy for UriMatchDefaultsPolicy {
     fn to_erased(&self, data: Self::Data) -> PolicyDataType {
         PolicyDataType::UriMatchDefaults(data)
     }
-}
-
-/// The URI match detection strategy used for autofill.
-///
-/// The integer value matches the server's wire format (and mirrors
-/// `bitwarden_vault::UriMatchType`).
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
-#[repr(u8)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub enum UriMatchType {
-    /// Match by base domain.
-    Domain = 0,
-    /// Match by host (domain + port).
-    Host = 1,
-    /// Match when the detected URI starts with the saved URI.
-    StartsWith = 2,
-    /// Match only on an exact URI.
-    Exact = 3,
-    /// Match using a regular expression.
-    RegularExpression = 4,
-    /// Never match.
-    Never = 5,
 }
 
 /// Configuration data for the URI Match Defaults policy.

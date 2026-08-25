@@ -17,11 +17,15 @@ keywords.workspace = true
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-organizations/uniffi",
+    "bitwarden-send-types/uniffi",
+    "bitwarden-vault-types/uniffi",
     "dep:uniffi",
 ] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-organizations/wasm",
+    "bitwarden-send-types/wasm",
+    "bitwarden-vault-types/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -31,6 +35,8 @@ wasm = [
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-organizations = { workspace = true }
+bitwarden-send-types = { workspace = true }
+bitwarden-vault-types = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

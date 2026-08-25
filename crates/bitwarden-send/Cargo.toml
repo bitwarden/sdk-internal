@@ -15,10 +15,16 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-uniffi = ["bitwarden-core/uniffi", "bitwarden-crypto/uniffi", "dep:uniffi"]
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-crypto/uniffi",
+    "bitwarden-send-types/uniffi",
+    "dep:uniffi",
+]
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-send-types/wasm",
     "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -32,6 +38,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-send-types = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }

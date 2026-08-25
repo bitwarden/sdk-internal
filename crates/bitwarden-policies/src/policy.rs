@@ -489,7 +489,9 @@ mod tests {
 
         #[test]
         fn send_controls_data_is_parsed() {
-            use crate::{SendAccessControl, SendControlsPolicy, SendType};
+            use bitwarden_send_types::SendType;
+
+            use crate::{SendAccessControl, SendControlsPolicy};
 
             let org = OrganizationId::new_v4();
             let views = [typed_view(

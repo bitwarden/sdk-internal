@@ -1123,6 +1123,8 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-organizations",
+ "bitwarden-send-types",
+ "bitwarden-vault-types",
  "chrono",
  "serde",
  "serde_json",
@@ -1161,6 +1163,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-send-types",
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uuid",
@@ -1179,6 +1182,18 @@ dependencies = [
  "wasm-bindgen-futures",
  "wiremock",
  "zeroize",
+]
+
+[[package]]
+name = "bitwarden-send-types"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "serde",
+ "serde_repr",
+ "uniffi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1514,6 +1529,7 @@ dependencies = [
  "bitwarden-sync",
  "bitwarden-test",
  "bitwarden-uuid",
+ "bitwarden-vault-types",
  "chrono",
  "data-encoding",
  "futures",
@@ -1537,6 +1553,18 @@ dependencies = [
  "wasm-bindgen-futures",
  "wiremock",
  "zxcvbn",
+]
+
+[[package]]
+name = "bitwarden-vault-types"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "serde",
+ "serde_repr",
+ "uniffi",
+ "wasm-bindgen",
 ]
 
 [[package]]
