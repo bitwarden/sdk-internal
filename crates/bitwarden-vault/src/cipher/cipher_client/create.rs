@@ -4,7 +4,7 @@ use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::KeySlotIds, require,
 };
-use bitwarden_crypto::{CryptoError, KeyStore};
+use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -114,6 +114,10 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     use_blob: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let collection_ids = view.collection_ids.clone();
+    let encrypted_by_key_id = key_store
+        .context()
+        .get_symmetric_key_id(view.key_identifier())
+        .map(|id| id.to_string());
     let mode = if use_blob {
         EncryptMode::Blob(view)
     } else {
@@ -122,6 +126,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
+    cipher_request.encrypted_by_key_id = encrypted_by_key_id;
 
     let mut cipher: Cipher;
     if !collection_ids.is_empty() {
@@ -284,6 +289,7 @@ mod tests {
                         attachments: None,
                         permissions: None,
                         data: None,
+                        partial_data: None,
                         archived_date: None,
                     })
                 })

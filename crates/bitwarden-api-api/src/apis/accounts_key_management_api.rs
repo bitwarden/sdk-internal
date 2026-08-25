@@ -58,6 +58,14 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
     ) -> Result<(), Error>;
 
+    /// POST /accounts/key-management/user-key-id
+    /// This is meant for backfilling the user-key id for existing users for whom the key id is not
+    /// yet recorded.
+    async fn post_user_key_id<'a>(
+        &self,
+        set_user_key_id_request_model: Option<models::SetUserKeyIdRequestModel>,
+    ) -> Result<(), Error>;
+
     /// POST /accounts/key-management/regenerate-keys
     async fn regenerate_keys<'a>(
         &self,
@@ -201,6 +209,29 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&set_key_connector_key_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    /// This is meant for backfilling the user-key id for existing users for whom the key id is not
+    /// yet recorded.
+    async fn post_user_key_id<'a>(
+        &self,
+        set_user_key_id_request_model: Option<models::SetUserKeyIdRequestModel>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/accounts/key-management/user-key-id",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&set_user_key_id_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

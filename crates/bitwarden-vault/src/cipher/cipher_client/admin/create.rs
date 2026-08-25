@@ -2,7 +2,7 @@ use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
-use bitwarden_crypto::{CryptoError, KeyStore};
+use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -55,6 +55,10 @@ async fn create_cipher(
     // returns `false` for any `Some(org)` today. Routing through the same
     // dispatcher means org blob support (PM-32430) flips on automatically
     // here when the helper learns to return `true` for orgs.
+    let encrypted_by_key_id = key_store
+        .context()
+        .get_symmetric_key_id(view.key_identifier())
+        .map(|id| id.to_string());
     let mode = if use_blob {
         EncryptMode::Blob(view)
     } else {
@@ -63,6 +67,7 @@ async fn create_cipher(
     let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
+    cipher_request.encrypted_by_key_id = encrypted_by_key_id;
 
     let mut cipher: Cipher = api_client
         .ciphers_api()
