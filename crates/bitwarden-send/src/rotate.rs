@@ -34,8 +34,9 @@ impl SendClient {
     /// Encrypt a send with the provided key. This should only be used when rotating encryption
     /// keys in the Web client.
     ///
-    /// Until key rotation is fully implemented in the SDK, this method must be provided the new
-    /// symmetric key in base64 format. See PM-23084
+    /// Until Typescript based key-rotation is removed after completing the rollout of sdk-based
+    /// key-rotation, this method must be provided the new symmetric key in base64 format. See
+    /// PM-23084
     // `async` mirrors `encrypt_cipher_for_rotation`; this rotation does no async work itself.
     #[allow(clippy::unused_async)]
     pub async fn encrypt_send_for_rotation(
