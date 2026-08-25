@@ -645,10 +645,19 @@ mod tests {
         );
     }
 
-    /// The V1 test account's AES-CBC-HMAC user key has no key id, so the field stays absent.
+    /// The V1 test account's AES-CBC-HMAC user key has no stored key id, but derives one from its
+    /// key material, so the field is populated with that derived id.
     #[tokio::test]
-    async fn test_encrypt_omits_encrypted_by_key_id_on_v1_account() {
+    async fn test_encrypt_captures_derived_encrypted_by_key_id_on_v1_account() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let expected = client
+            .internal
+            .get_key_store()
+            .context()
+            .get_symmetric_key_id(SymmetricKeySlotId::User)
+            .expect("the V1 account's user key derives a key id")
+            .to_string();
 
         let encrypted = client
             .vault()
@@ -657,7 +666,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(encrypted.encrypted_by_key_id, None);
+        assert_eq!(
+            encrypted.encrypted_by_key_id.as_deref(),
+            Some(expected.as_str())
+        );
     }
 
     #[tokio::test]
