@@ -1097,6 +1097,66 @@ mod tests {
             );
         }
 
+        /// A response that carries *this* request's `request_id` but whose body cannot be
+        /// deserialized into the expected response type is a genuine error for this request, and
+        /// must surface immediately.
+        #[tokio::test]
+        async fn malformed_response_surfaces_error_instead_of_hanging() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::default();
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
+            let _ = client.start(None).await;
+
+            let result_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::BrowserBackground { id: HostId::Own },
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // Recover the request id and answer with a body that carries the right id but cannot be
+            // deserialized into `TestResponse` (`OtherResponse::Available` serializes to a bare
+            // string).
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+            let malformed = IncomingRpcResponseMessage {
+                result: Ok(OtherResponse::Available),
+                request_id: request.request_id.clone(),
+                request_type: request.request_type.clone(),
+            };
+            communication_provider.push_incoming(IncomingMessage {
+                payload: serde_utils::to_vec(&malformed).expect("Serialization should not fail"),
+                source: Source::BrowserBackground { id: HostId::Own },
+                destination: Endpoint::Web {
+                    tab_id: 9001,
+                    document_id: "doc-1".to_string(),
+                },
+                topic: Some(IncomingRpcResponseMessage::<()>::PAYLOAD_TYPE_NAME.to_owned()),
+            });
+
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must not hang on a malformed response")
+                .unwrap();
+            assert!(matches!(
+                result,
+                Err(crate::error::RequestError::Rpc(
+                    crate::rpc::error::RpcError::ResponseDeserialization(_)
+                ))
+            ));
+        }
+
         #[tokio::test]
         async fn incoming_rpc_message_handles_request_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
