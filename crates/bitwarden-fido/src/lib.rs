@@ -21,6 +21,8 @@ mod crypto;
 mod device_auth_key;
 mod traits;
 mod types;
+#[cfg(feature = "wasm")]
+pub mod wasm;
 pub use authenticator::{
     CredentialsForAutofillError, Fido2Authenticator, GetAssertionError, MakeCredentialError,
     SilentlyDiscoverCredentialsError,
@@ -58,7 +60,14 @@ const AAGUID: Aaguid = Aaguid([
 ]);
 
 #[allow(dead_code, missing_docs)]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub struct SelectedCredential {
     cipher: CipherView,
     credential: Fido2CredentialView,

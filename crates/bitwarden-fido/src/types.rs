@@ -8,6 +8,8 @@ use passkey::types::webauthn::UserVerificationRequirement;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 use super::{
     InvalidGuidError, SelectedCredential, UnknownEnumError, Verification,
@@ -18,6 +20,7 @@ use super::{
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Fido2CredentialAutofillView {
     pub credential_id: Vec<u8>,
     pub cipher_id: uuid::Uuid,
@@ -151,7 +154,10 @@ impl Fido2CredentialAutofillView {
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PublicKeyCredentialRpEntity {
     pub id: String,
     pub name: Option<String>,
@@ -188,7 +194,10 @@ impl TryFrom<&bitwarden_api_api::models::PublicKeyCredentialRpEntity>
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PublicKeyCredentialUserEntity {
     pub id: Vec<u8>,
     pub display_name: String,
@@ -251,7 +260,10 @@ pub enum WebAuthnEntityError {
     UnknownEnum(#[from] UnknownEnumError),
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PublicKeyCredentialParameters {
     pub ty: String,
     pub alg: i64,
@@ -299,7 +311,10 @@ impl TryFrom<PublicKeyCredentialParameters>
     }
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PublicKeyCredentialDescriptor {
     pub ty: String,
     pub id: Vec<u8>,
@@ -377,7 +392,10 @@ impl TryFrom<&bitwarden_api_api::models::PublicKeyCredentialDescriptor>
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct MakeCredentialRequest {
     pub client_data_hash: Vec<u8>,
     pub rp: PublicKeyCredentialRpEntity,
@@ -397,7 +415,10 @@ pub struct MakeCredentialRequest {
 ///
 /// [pub-key-cred]: https://www.w3.org/TR/webauthn-3/#publickeycredential
 /// [authenticator-attestation-response]: https://www.w3.org/TR/webauthn-3/#authenticatorattestationresponse
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct MakeCredentialResult {
     /// The authenticator data extracted from within the
     /// [`attestation_object`][Self::attestation_object].
@@ -422,6 +443,22 @@ pub struct MakeCredentialResult {
     /// [unsigned-extensions]: https://www.w3.org/TR/webauthn-3/#unsigned-extension-outputs
     /// [webauthn-client-extensions]: https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-clientextensionsresults-slot
     pub extensions: MakeCredentialExtensionsOutput,
+
+    /// The credential's public key in SPKI DER form, as returned by
+    /// [AuthenticatorAttestationResponse.getPublicKey()][get-public-key].
+    ///
+    /// The key is also in [`attestation_object`][Self::attestation_object], COSE-encoded inside the
+    /// attested credential data. It is lifted out here because callers of this CTAP-level operation
+    /// need the WebAuthn-level form, and deriving it requires parsing the attestation object.
+    ///
+    /// [get-public-key]: https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-getpublickey
+    pub public_key: Vec<u8>,
+
+    /// COSE algorithm identifier of [`public_key`][Self::public_key], as returned by
+    /// [AuthenticatorAttestationResponse.getPublicKeyAlgorithm()][get-algorithm].
+    ///
+    /// [get-algorithm]: https://www.w3.org/TR/webauthn-3/#dom-authenticatorattestationresponse-getpublickeyalgorithm
+    pub public_key_algorithm: i64,
 }
 
 impl TryFrom<passkey::types::ctap2::make_credential::Response> for MakeCredentialResult {
@@ -436,18 +473,46 @@ impl TryFrom<passkey::types::ctap2::make_credential::Response> for MakeCredentia
             WebAuthnEntityError::MissingRequiredFields(vec!["attestedCredentialData".to_string()]),
         )?;
         let credential_id = attested_credential_data.credential_id().to_vec();
+        let (public_key, public_key_algorithm) =
+            public_key_der_and_algorithm(&attested_credential_data.key)
+                .ok_or(PublicKeyCredentialParametersError::InvalidAlgorithm)?;
         let extensions: MakeCredentialExtensionsOutput = value.unsigned_extension_outputs.into();
         Ok(MakeCredentialResult {
             authenticator_data,
             attestation_object,
             credential_id,
             extensions,
+            public_key,
+            public_key_algorithm,
         })
     }
 }
 
+/// A credential's public key in SPKI DER form, paired with its COSE algorithm identifier.
+///
+/// `None` when the key is not one that can be encoded that way, which in practice means anything
+/// other than ES256 — the only algorithm this authenticator creates.
+pub(super) fn public_key_der_and_algorithm(key: &coset::CoseKey) -> Option<(Vec<u8>, i64)> {
+    use coset::iana::EnumI64;
+
+    let algorithm = match key.alg.as_ref()? {
+        coset::Algorithm::Assigned(algorithm) => algorithm.to_i64(),
+        coset::Algorithm::PrivateUse(algorithm) => *algorithm,
+        coset::Algorithm::Text(_) => return None,
+    };
+
+    // The same conversion `passkey-client` performs when it builds a WebAuthn registration
+    // response, so the two levels cannot disagree about the encoding.
+    let der = passkey::authenticator::public_key_der_from_cose_key(key).ok()?;
+
+    Some((der.to_vec(), algorithm))
+}
+
 /// WebAuthn extension input for WebAuthn registration extensions.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug, Default)]
 pub struct MakeCredentialExtensionsInput {
     /// PRF input for WebAuthn registration request.
@@ -482,7 +547,10 @@ impl From<bitwarden_api_api::models::AuthenticationExtensionsClientInputs>
 }
 
 /// WebAuthn extension output for registration extensions.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug)]
 pub struct MakeCredentialExtensionsOutput {
     /// PRF output for registration extensions.
@@ -516,7 +584,10 @@ impl From<passkey::types::ctap2::make_credential::UnsignedExtensionOutputs>
 }
 
 /// WebAuthn PRF extension input for use during registration.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug)]
 pub struct MakeCredentialPrfInput {
     /// PRF inputs.
@@ -533,7 +604,10 @@ impl From<MakeCredentialPrfInput> for passkey::types::ctap2::extensions::Authent
 }
 
 /// WebAuthn PRF extension output used during registration.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug)]
 pub struct MakeCredentialPrfOutput {
     /// Whether PRF is successfully processed for the newly created credential.
@@ -548,7 +622,10 @@ pub struct MakeCredentialPrfOutput {
 /// [`PublicKeyCredentialRequestOptions`][pubkey-cred-request-options].
 ///
 /// [pubkey-cred-request-options]: https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptions
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct GetAssertionRequest {
     /// The RP ID for the request used to select credentials.
     pub rp_id: String,
@@ -572,7 +649,10 @@ pub struct GetAssertionRequest {
 ///
 /// [pub-key-cred]: https://www.w3.org/TR/webauthn-3/#publickeycredential
 /// [authenticator-assertion-response]: https://www.w3.org/TR/webauthn-3/#authenticatorassertionresponse
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct GetAssertionResult {
     /// ID for this credential, corresponding to [PublicKeyCredential.rawId][raw-id].
     ///
@@ -597,7 +677,10 @@ pub struct GetAssertionResult {
 }
 
 /// WebAuthn extension input for WebAuthn authentication extensions.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug)]
 pub struct GetAssertionExtensionsInput {
     /// PRF input for the authentication ceremony.
@@ -616,7 +699,10 @@ impl From<GetAssertionExtensionsInput> for passkey::types::ctap2::get_assertion:
 }
 
 /// WebAuthn extension output of an authentication ceremony.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug)]
 pub struct GetAssertionExtensionsOutput {
     /// PRF output for an authentication ceremony.
@@ -647,7 +733,10 @@ impl From<passkey::types::ctap2::get_assertion::UnsignedExtensionOutputs>
 }
 
 /// Input for WebAuthn PRF extension during authentication ceremonies.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug)]
 pub struct GetAssertionPrfInput {
     /// A PRF input to use for authentication. If a map of credential IDs to PRF
@@ -685,7 +774,10 @@ impl From<GetAssertionPrfInput> for passkey::types::ctap2::extensions::Authentic
 
 /// WebAuthn PRF extension output during an authentication ceremony.
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[derive(Debug)]
 pub struct GetAssertionPrfOutput {
     /// The PRF output for the ceremony.
@@ -693,7 +785,10 @@ pub struct GetAssertionPrfOutput {
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Options {
     pub rk: bool,
     pub uv: UV,
@@ -717,8 +812,10 @@ impl From<Options> for super::CheckUserOptions {
     }
 }
 
-#[derive(Eq, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum UV {
     Discouraged,
     Preferred,
@@ -767,7 +864,11 @@ impl From<UserVerificationRequirement> for UV {
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+// `rename_all` renames variants, not the fields inside struct variants; both are needed here.
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum ClientData {
     DefaultWithExtraData { android_package_name: String },
     DefaultWithCustomHash { hash: Vec<u8> },
@@ -800,7 +901,10 @@ impl passkey::client::ClientData<Option<AndroidClientData>> for ClientData {
 }
 
 /// Salt inputs for WebAuthn PRF extension.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PrfInputValues {
     /// An input on which to evaluate PRF. Required.
     pub first: Vec<u8>,
@@ -842,7 +946,10 @@ impl From<PrfInputValues> for passkey::types::ctap2::extensions::AuthenticatorPr
 }
 
 /// WebAuthn PRF output values.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PrfOutputValues {
     /// The output of the PRF evaluation of the first PRF input.
     pub first: Vec<u8>,
@@ -868,12 +975,18 @@ impl From<passkey::types::ctap2::extensions::AuthenticatorPrfValues> for PrfOutp
         }
     }
 }
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct ClientExtensionResults {
     pub cred_props: Option<CredPropsResult>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CredPropsResult {
     pub rk: Option<bool>,
 }
@@ -887,7 +1000,10 @@ impl From<passkey::types::webauthn::CredentialPropertiesOutput> for CredPropsRes
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PublicKeyCredentialAuthenticatorAttestationResponse {
     pub id: String,
     pub raw_id: Vec<u8>,
@@ -899,7 +1015,10 @@ pub struct PublicKeyCredentialAuthenticatorAttestationResponse {
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct AuthenticatorAttestationResponse {
     pub client_data_json: Vec<u8>,
     pub authenticator_data: Vec<u8>,
@@ -910,7 +1029,10 @@ pub struct AuthenticatorAttestationResponse {
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PublicKeyCredentialAuthenticatorAssertionResponse {
     pub id: String,
     pub raw_id: Vec<u8>,
@@ -922,7 +1044,10 @@ pub struct PublicKeyCredentialAuthenticatorAssertionResponse {
 }
 
 #[allow(missing_docs)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct AuthenticatorAssertionResponse {
     pub client_data_json: Vec<u8>,
     pub authenticator_data: Vec<u8>,
@@ -934,7 +1059,10 @@ pub struct AuthenticatorAssertionResponse {
 #[error("Invalid origin: {0}")]
 pub struct InvalidOriginError(String);
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 /// An Unverified asset link.
 pub struct UnverifiedAssetLink {
     /// Application package name.
@@ -948,7 +1076,10 @@ pub struct UnverifiedAssetLink {
     asset_link_url: Option<String>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 /// The origin of a WebAuthn request.
 pub enum Origin {
     /// A Url, meant for a request in the web browser.
