@@ -1,3 +1,4 @@
+use bitwarden_core::UserId;
 use bitwarden_threading::cancellation_token::wasm::{AbortController, AbortControllerExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -23,10 +24,10 @@ impl SharedUnlockPeer {
         Self { peer }
     }
 
-    /// Sets which clients this peer shares unlock state with. Defaults to none.
+    /// Sets which clients this peer shares one user's unlock state with. Defaults to none.
     #[wasm_bindgen]
-    pub fn set_destinations(&self, destinations: Vec<SharedUnlockClient>) {
-        self.peer.set_destinations(destinations);
+    pub fn set_destinations(&self, user_id: UserId, destinations: Vec<SharedUnlockClient>) {
+        self.peer.set_destinations(user_id, destinations);
     }
 
     /// Starts the shared-unlock peer

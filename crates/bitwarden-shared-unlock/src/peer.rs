@@ -53,10 +53,10 @@ struct InnerPeer<D: SharedUnlockDriver> {
     states: Mutex<HashMap<UserId, TimestampedLockState>>,
     active_peers: ActivePeerTracker,
     timing: SharedUnlockTiming,
-    /// The client kinds this peer is allowed to sync to. Empty until
-    /// [`SharedUnlockPeer::set_destinations`] is called, so a peer syncs to nothing until its
-    /// client opts in.
-    destinations: Mutex<HashSet<SharedUnlockClient>>,
+    /// Per user, the client kinds this peer is allowed to sync that user to. A user is absent
+    /// until [`SharedUnlockPeer::set_destinations`] is called for it, so a user is shared with
+    /// nothing until its client opts in.
+    destinations: Mutex<HashMap<UserId, HashSet<SharedUnlockClient>>>,
 }
 
 impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
@@ -97,29 +97,31 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             states: Mutex::new(HashMap::new()),
             active_peers: ActivePeerTracker::default(),
             timing,
-            destinations: Mutex::new(HashSet::new()),
+            destinations: Mutex::new(HashMap::new()),
         }))
     }
 
-    /// Sets which clients this peer shares unlock state with, in both directions: a client that is
-    /// not in the set is never synced to, and its syncs are dropped on arrival.
+    /// Sets which clients this peer shares one user's unlock state with, in both directions: a
+    /// client that is not in the set is never synced that user, and that user's syncs from it are
+    /// dropped on arrival. Replaces any previous set for the user.
     ///
-    /// Defaults to no client at all — a peer neither sends nor accepts anything until this is
-    /// called.
-    pub fn set_destinations(&self, destinations: Vec<SharedUnlockClient>) {
-        *self
-            .0
-            .destinations
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()) = destinations.into_iter().collect();
-    }
-
-    fn is_destination(&self, endpoint: &Endpoint) -> bool {
+    /// Every user defaults to no client at all — a peer neither sends nor accepts anything for a
+    /// user until this is called for it.
+    pub fn set_destinations(&self, user_id: UserId, destinations: Vec<SharedUnlockClient>) {
         self.0
             .destinations
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .contains(&SharedUnlockClient::of_endpoint(endpoint))
+            .insert(user_id, destinations.into_iter().collect());
+    }
+
+    fn is_destination(&self, user_id: UserId, endpoint: &Endpoint) -> bool {
+        self.0
+            .destinations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(&user_id)
+            .is_some_and(|clients| clients.contains(&SharedUnlockClient::of_endpoint(endpoint)))
     }
 
     /// Starts the receive loop and the sync timer, then announces this peer's state once so it does
@@ -197,10 +199,11 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
         let source = incoming_message.source;
         let SharedUnlockSync { user_id, state } = incoming_message.payload;
 
-        if !self.is_destination(&source.to_endpoint()) {
+        if !self.is_destination(user_id, &source.to_endpoint()) {
             tracing::debug!(
                 ?source,
-                "Ignoring shared unlock sync from a client not shared with"
+                %user_id,
+                "Ignoring shared unlock sync from a client this user is not shared with"
             );
             return Ok(());
         }
@@ -341,7 +344,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     }
 
     async fn sync_user_to(&self, user_id: UserId, target: &SyncTarget) {
-        if !self.is_destination(&target.endpoint) {
+        if !self.is_destination(user_id, &target.endpoint) {
             return;
         }
 
