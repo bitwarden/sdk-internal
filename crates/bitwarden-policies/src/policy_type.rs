@@ -7,7 +7,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{MasterPasswordPolicyResponse, policies::*, policy::ErasedPolicy};
+use crate::{policies::*, policy::ErasedPolicy};
 
 /// The type of an organization policy.
 ///
@@ -121,28 +121,31 @@ impl PolicyType {
 /// generic `Policy::Data` used on the native side. Variants are
 /// named identically to (and documented by) the matching [`PolicyType`] variant.
 ///
-/// TODO: this is missing policy data for current policies.
+/// The discriminator is serialized under `_policyType` rather than `type` so it
+/// cannot collide with a policy data field named `type` (e.g.
+/// [`MaximumVaultTimeoutPolicyData`]), which the internally-tagged
+/// representation flattens alongside the discriminator.
 // Variants mirror the already-documented `PolicyType`, so per-variant docs would
 // be redundant boilerplate.
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase", tag = "type")]
+#[serde(rename_all = "camelCase", tag = "_policyType")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum PolicyDataType {
     TwoFactorAuthentication,
-    MasterPassword(MasterPasswordPolicyResponse),
-    PasswordGenerator,
+    MasterPassword(MasterPasswordPolicyData),
+    PasswordGenerator(PasswordGeneratorPolicyData),
     SingleOrg,
     RequireSso,
-    OrganizationDataOwnership,
+    OrganizationDataOwnership(OrganizationDataOwnershipPolicyData),
     DisableSend,
-    SendOptions,
-    ResetPassword,
-    MaximumVaultTimeout,
+    SendOptions(SendOptionsPolicyData),
+    ResetPassword(ResetPasswordPolicyData),
+    MaximumVaultTimeout(MaximumVaultTimeoutPolicyData),
     DisablePersonalVaultExport,
     ActivateAutofill,
-    AutomaticAppLogIn,
+    AutomaticAppLogIn(AutomaticAppLogInPolicyData),
     FreeFamiliesSponsorship,
     RemoveUnlockWithPin,
     RestrictedItemTypes,
@@ -150,7 +153,7 @@ pub enum PolicyDataType {
     AutotypeDefaultSetting,
     AutomaticUserConfirmation,
     BlockClaimedDomainAccountCreation,
-    OrganizationUserNotification,
+    OrganizationUserNotification(OrganizationUserNotificationPolicyData),
     SendControls,
     FillAssist,
 }
