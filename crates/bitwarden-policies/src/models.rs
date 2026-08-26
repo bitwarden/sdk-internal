@@ -138,6 +138,10 @@ impl<P: Policy> ResolvedPolicyView<P> {
     ///
     /// Deserializes the untyped `data` blob into `P::Data`, falling back to
     /// [`Default`] (with a warning) when it is absent or fails to parse.
+    ///
+    /// By default, a single unrecognised value within `P::Data` will fail
+    /// parsing of the entire struct. Individual policies should provide their
+    /// own handling at the field level if this is unacceptable.
     pub(crate) fn resolve(policy: &P, view: &PolicyView) -> Option<Self> {
         if view.r#type != policy.policy_type() {
             return None;
