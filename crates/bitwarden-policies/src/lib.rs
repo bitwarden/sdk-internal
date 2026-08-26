@@ -16,10 +16,10 @@ pub use models::{EnforcedPolicyErased, OrganizationUserPolicyContext, PolicyView
 #[allow(unused)]
 pub(crate) use policies::*;
 pub use policies::{
-    AutomaticAppLogInPolicyData, MasterPasswordPolicyData, MaximumVaultTimeoutPolicyData,
-    OrganizationDataOwnershipPolicyData, OrganizationUserNotificationPolicyData,
-    PasswordGeneratorPolicyData, PasswordGeneratorType, ResetPasswordPolicyData,
-    SendOptionsPolicyData, VaultTimeoutAction, VaultTimeoutType,
+    AutomaticAppLogInPolicyData, FillAssistPolicyData, MasterPasswordPolicyData,
+    MaximumVaultTimeoutPolicyData, OrganizationDataOwnershipPolicyData,
+    OrganizationUserNotificationPolicyData, PasswordGeneratorPolicyData, PasswordGeneratorType,
+    ResetPasswordPolicyData, SendOptionsPolicyData, VaultTimeoutAction, VaultTimeoutType,
 };
 pub(crate) use policy::Policy;
 pub use policy_client::{PoliciesClientExt, PolicyClient};

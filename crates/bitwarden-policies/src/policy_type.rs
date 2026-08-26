@@ -132,6 +132,9 @@ impl PolicyType {
 #[serde(rename_all = "camelCase", tag = "_policyType")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+// TODO: `SendControls` and `UriMatchDefaults` are temporarily unit variants. They gain
+// their data models in follow-up PRs, once `SendType`/`UriMatchType` move into
+// lower-level crates that this crate can depend on without a cycle.
 pub enum PolicyDataType {
     TwoFactorAuthentication,
     MasterPassword(MasterPasswordPolicyData),
@@ -155,5 +158,5 @@ pub enum PolicyDataType {
     BlockClaimedDomainAccountCreation,
     OrganizationUserNotification(OrganizationUserNotificationPolicyData),
     SendControls,
-    FillAssist,
+    FillAssist(FillAssistPolicyData),
 }
