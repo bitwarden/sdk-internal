@@ -1,10 +1,15 @@
-use bitwarden_api_api::{apis::ApiClient, models};
-use bitwarden_core::ApiError;
+use bitwarden_api_api::{
+    apis::ApiClient,
+    models::{self, SendEncryptionType},
+};
+use bitwarden_core::{ApiError, key_management::KeySlotIds};
 use bitwarden_crypto::{
-    CryptoError, EncString, KeyDecryptable as _, SymmetricCryptoKey, derive_shareable_key,
+    CryptoError, Decryptable, EncString, KeyDecryptable as _, KeyStore, SymmetricCryptoKey,
+    derive_shareable_key,
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
+use bitwarden_vault::{Cipher, CipherView};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -24,8 +29,8 @@ pub(crate) const SEND_KEY_LEN: usize = 16;
 // ===== Public output types (returned to callers) =====
 
 /// View of a send's accessible content, returned after a successful send access call.
-/// Name, text, and file fields are encrypted and must be decrypted client-side using the
-/// key derived from the URL fragment.
+/// Name, text, file, and item fields are encrypted and must be decrypted client-side
+/// using the key derived from the URL fragment.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
@@ -41,6 +46,8 @@ pub struct SendAccessResponse {
     pub text: Option<SendAccessTextResponse>,
     /// File metadata (if type is File)
     pub file: Option<SendAccessFileResponse>,
+    /// Item metadata (if type is Item)
+    pub data: Option<SendAccessItemResponse>,
     /// When the send expires.
     pub expiration_date: Option<DateTime<Utc>>,
     /// The creator's identifier (email), if not hidden
@@ -71,6 +78,17 @@ pub struct SendAccessFileResponse {
     pub size: Option<String>,
     /// Human-readable size (e.g. "4.2 KB")
     pub size_name: Option<String>,
+}
+
+/// Encrypted item metadata of an item send.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+pub struct SendAccessItemResponse {
+    /// The version of encryption used to encrypt the item data
+    pub encryption_version: Option<SendEncryptionType>,
+    /// The encrypted item data
+    pub data: Option<String>,
 }
 
 /// File download URL data returned from a send file access call.
@@ -114,6 +132,8 @@ pub struct SendAccessView {
     pub text: Option<SendAccessTextView>,
     /// Decrypted file metadata (if type is File)
     pub file: Option<SendAccessFileView>,
+    /// Decrypted item content (if type is Item)
+    pub data: Option<SendAccessItemView>,
     /// When the send expires.
     pub expiration_date: Option<DateTime<Utc>>,
     /// The creator's identifier (email), if not hidden
@@ -144,6 +164,15 @@ pub struct SendAccessFileView {
     pub size: Option<String>,
     /// Human-readable size (e.g. "4.2 KB")
     pub size_name: Option<String>,
+}
+
+/// Decrypted item metadata of an item send.
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+pub struct SendAccessItemView {
+    /// The decrypted Cipher data
+    pub data: Option<CipherView>,
 }
 
 // ===== Error types =====
@@ -257,6 +286,26 @@ impl SendAccessKey {
             }),
             None => None,
         };
+        let data = match response.data {
+            Some(d) => {
+                let key_store: KeyStore<KeySlotIds> = KeyStore::default();
+                let mut ctx = key_store.context_mut();
+                let key = ctx.add_local_symmetric_key(self.key.clone());
+                let cipher = serde_json::from_str::<Cipher>(
+                    d.data.expect("Item type Send requires data field").as_str(),
+                );
+                match cipher {
+                    Ok(c) => {
+                        let cipher_view: CipherView = c.decrypt(&mut ctx, key)?;
+                        Some(SendAccessItemView {
+                            data: Some(cipher_view),
+                        })
+                    }
+                    Err(_) => None,
+                }
+            }
+            None => None,
+        };
 
         Ok(SendAccessView {
             id: response.id,
@@ -264,6 +313,7 @@ impl SendAccessKey {
             name: self.decrypt_optional(response.name)?,
             text,
             file,
+            data,
             expiration_date: response.expiration_date,
             creator_identifier: response.creator_identifier,
         })
@@ -356,6 +406,10 @@ impl TryFrom<models::SendAccessResponseModel> for SendAccessResponse {
                 file_name: f.file_name,
                 size: f.size,
                 size_name: f.size_name,
+            }),
+            data: r.data.map(|dat| SendAccessItemResponse {
+                encryption_version: dat.encryption_version,
+                data: dat.data,
             }),
             expiration_date: r.expiration_date.map(|s| s.parse()).transpose()?,
             creator_identifier: r.creator_identifier,
@@ -620,6 +674,7 @@ mod tests {
                     text: Some(text.to_owned()),
                     hidden: false,
                 }),
+                data: None,
                 max_access_count: None,
                 access_count: 0,
                 disabled: false,
@@ -655,6 +710,7 @@ mod tests {
                     hidden: false,
                 }),
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -694,6 +750,7 @@ mod tests {
                     size: file.size.clone(),
                     size_name: file.size_name.clone(),
                 }),
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -829,6 +886,7 @@ mod tests {
                     hidden: true,
                 }),
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -852,6 +910,7 @@ mod tests {
                 name: Some(send.name.to_string()),
                 text: None,
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -870,6 +929,7 @@ mod tests {
                 name: Some("this is not an EncString".to_owned()),
                 text: None,
                 file: None,
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };
@@ -894,6 +954,7 @@ mod tests {
                     size: Some("11".to_owned()),
                     size_name: Some("11 B".to_owned()),
                 }),
+                data: None,
                 expiration_date: None,
                 creator_identifier: None,
             };

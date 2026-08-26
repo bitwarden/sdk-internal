@@ -112,12 +112,6 @@ pub struct OrganizationUserUserDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sso_bound: Option<bool>,
-    #[serde(
-        rename = "managedByOrganization",
-        alias = "ManagedByOrganization",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub managed_by_organization: Option<bool>,
     /// Indicates if the organization claimed the user. If a user is \"claimed\" by an
     /// organization, the organization has greater control over their account, and some user
     /// actions are restricted.
@@ -175,7 +169,6 @@ impl OrganizationUserUserDetailsResponseModel {
             avatar_color: None,
             two_factor_enabled: None,
             sso_bound: None,
-            managed_by_organization: None,
             claimed_by_organization: None,
             collections: None,
             groups: None,

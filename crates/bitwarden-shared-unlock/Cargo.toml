@@ -13,6 +13,9 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
+# Expose the test hooks the integration tests need: non-default timing, and read access to a peer's
+# recorded lock state. Not enabled in any production build.
+test-support = []
 wasm = [
     "dep:bitwarden-encoding",
     "bitwarden-threading/wasm",
