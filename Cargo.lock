@@ -1164,6 +1164,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uuid",
+ "bitwarden-vault",
  "chrono",
  "reqwest",
  "serde",
