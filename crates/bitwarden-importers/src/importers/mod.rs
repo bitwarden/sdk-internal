@@ -2,4 +2,5 @@
 //! [`crate::pipeline::ParsedImport`]; the generic pipeline encrypts and submits it.
 
 pub(crate) mod kdbx;
-pub mod keeper;
+
+pub(crate) mod keeper;

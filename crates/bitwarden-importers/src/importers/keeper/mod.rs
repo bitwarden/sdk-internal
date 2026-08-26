@@ -10,6 +10,4 @@
 //! once the structured access layer (records, folders, the `sync-down` protobuf) is ported, so the
 //! exposed surface can be record/folder-level operations rather than raw byte arrays.
 
-pub mod crypto;
-
-pub use crypto::KeeperRecordKeyType;
+pub(crate) mod crypto;
