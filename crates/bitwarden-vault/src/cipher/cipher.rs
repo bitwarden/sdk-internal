@@ -121,6 +121,13 @@ pub struct EncryptionContext {
     /// The Id of the user that encrypted the cipher. It should always represent a UserId, even for
     /// Organization-owned ciphers
     pub encrypted_for: UserId,
+    /// Hex-encoded id of the key the cipher's fields are wrapped under - the organization key for
+    /// Organization-owned ciphers, otherwise the user key - captured at the time the cipher was
+    /// encrypted. The server uses it to reject writes made under a wrong key.
+    #[serde(default)]
+    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
+    #[cfg_attr(feature = "wasm", tsify(optional))]
+    pub encrypted_by_key_id: Option<String>,
     pub cipher: Cipher,
 }
 
@@ -130,13 +137,16 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
         EncryptionContext {
             cipher,
             encrypted_for,
+            encrypted_by_key_id,
         }: EncryptionContext,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             id: require!(cipher.id).into(),
             encrypted_for: Some(encrypted_for.into()),
+            encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
+            is_organization_cipher: None,
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
@@ -208,12 +218,15 @@ impl From<EncryptionContext> for CipherRequestModel {
         EncryptionContext {
             cipher,
             encrypted_for,
+            encrypted_by_key_id,
         }: EncryptionContext,
     ) -> Self {
         Self {
             encrypted_for: Some(encrypted_for.into()),
+            encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
+            is_organization_cipher: None,
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
@@ -377,7 +390,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
     /// Structural mapping from an encrypted [`Cipher`] to the API's expected
     /// [`CipherRequestModel`]. No crypto — all encryption happened upstream in
     /// `CipherView::encrypt_composite`. Callers are responsible for setting
-    /// `encrypted_for` after the conversion.
+    /// `encrypted_for` and `encrypted_by_key_id` after the conversion.
     ///
     /// Fails with [`CryptoError::MissingField`] if any attachment has no `id`
     fn try_from(c: Cipher) -> Result<Self, Self::Error> {
@@ -395,8 +408,10 @@ impl TryFrom<Cipher> for CipherRequestModel {
 
         Ok(CipherRequestModel {
             encrypted_for: None,
+            encrypted_by_key_id: None,
             r#type: Some(c.r#type.into()),
             organization_id: c.organization_id.map(|id| id.to_string()),
+            is_organization_cipher: None,
             folder_id: c.folder_id.map(|id| id.to_string()),
             favorite: Some(c.favorite),
             reprompt: Some(c.reprompt.into()),
@@ -427,7 +442,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -2366,12 +2381,17 @@ mod tests {
 
         let request: CipherWithIdRequestModel = EncryptionContext {
             encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            encrypted_by_key_id: Some("0102030405060708090a0b0c0d0e0f10".to_string()),
             cipher,
         }
         .try_into()
         .unwrap();
 
         assert_eq!(request.data, expected);
+        assert_eq!(
+            request.encrypted_by_key_id.as_deref(),
+            Some("0102030405060708090a0b0c0d0e0f10")
+        );
     }
 
     #[test]
@@ -2381,11 +2401,104 @@ mod tests {
 
         let request: CipherRequestModel = EncryptionContext {
             encrypted_for: UserId::new(TEST_UUID.parse().unwrap()),
+            encrypted_by_key_id: Some("0102030405060708090a0b0c0d0e0f10".to_string()),
             cipher,
         }
         .into();
 
         assert_eq!(request.data, expected);
+        assert_eq!(
+            request.encrypted_by_key_id.as_deref(),
+            Some("0102030405060708090a0b0c0d0e0f10")
+        );
+    }
+
+    /// Personal ciphers report the user key's id. This mirrors the lookup the cipher client
+    /// performs when populating `EncryptionContext::encrypted_by_key_id`.
+    #[test]
+    fn test_encrypted_by_key_id_uses_user_key_for_personal_cipher() {
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let expected = user_key.key_id().unwrap().to_string();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        let view = generate_cipher();
+        assert_eq!(view.key_identifier(), SymmetricKeySlotId::User);
+
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual.as_deref(), Some(expected.as_str()));
+        // The server only accepts a lowercase hex encoding of the 16 raw bytes.
+        assert_eq!(expected.len(), 32);
+        assert!(expected.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(expected, expected.to_lowercase());
+    }
+
+    /// Organization-owned ciphers report the *organization* key's id, not the acting user's.
+    #[test]
+    fn test_encrypted_by_key_id_uses_org_key_for_org_cipher() {
+        let org = OrganizationId::new_v4();
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let org_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let user_key_id = user_key.key_id().unwrap().to_string();
+        let org_key_id = org_key.key_id().unwrap().to_string();
+        assert_ne!(user_key_id, org_key_id);
+
+        let key_store = create_test_crypto_with_user_and_org_key(user_key, org, org_key);
+
+        let mut view = generate_cipher();
+        view.organization_id = Some(org);
+        assert_eq!(view.key_identifier(), SymmetricKeySlotId::Organization(org));
+
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual.as_deref(), Some(org_key_id.as_str()));
+    }
+
+    /// A per-cipher key does not change the answer - the reported id is always the *wrapping* key
+    /// the cipher key itself is sealed under.
+    #[test]
+    fn test_encrypted_by_key_id_ignores_cipher_key() {
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let expected = user_key.key_id().unwrap().to_string();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        let mut view = generate_cipher();
+        view.generate_cipher_key(&mut key_store.context(), view.key_identifier())
+            .unwrap();
+        assert!(view.key.is_some());
+
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual.as_deref(), Some(expected.as_str()));
+    }
+
+    /// V1 accounts use AES-CBC-HMAC keys, which have no stored key id and derive one from their
+    /// key material instead - so the field is still populated, with that derived id.
+    #[test]
+    fn test_encrypted_by_key_id_uses_derived_id_for_legacy_user_key() {
+        let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let expected = user_key
+            .key_id()
+            .expect("an AES-CBC-HMAC key derives a key id")
+            .to_string();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        let view = generate_cipher();
+        let actual = key_store
+            .context()
+            .get_symmetric_key_id(view.key_identifier())
+            .map(|id| id.to_string());
+
+        assert_eq!(actual.as_deref(), Some(expected.as_str()));
     }
 
     #[test]

@@ -6,6 +6,7 @@ import {
   ipcRequestGetBiometricsStatus,
   ipcRequestUnlockBiometrics,
   init_sdk,
+  SymmetricKey,
 } from "@bitwarden/sdk-internal";
 import {
   makeMockBiometricsDriver,
@@ -91,5 +92,38 @@ describe("biometrics ipc", () => {
     );
 
     expect(await ipcRequestAuthenticateBiometrics(requester)).toBe(false);
+  });
+
+  it("does not fail an in-flight unlock when a concurrent status response arrives", async () => {
+    const userKey = testSymmetricKey(0x37);
+    let releaseUnlock!: (key: SymmetricKey | undefined) => void;
+    const unlockGate = new Promise<SymmetricKey | undefined>((resolve) => {
+      releaseUnlock = resolve;
+    });
+
+    const { requester } = await setupClientPair({
+      get_biometrics_status: async () => BiometricsStatus.Available,
+      // Stays pending until the test releases it, so the unlock request is
+      // guaranteed to still be in flight below.
+      unlock_biometrics: () => unlockGate,
+      authenticate_biometrics: async () => true,
+    });
+
+    // Capture the settled state up front: the rejection we are hunting happens
+    // while awaiting the status request, before any handler would be attached.
+    const unlock = ipcRequestUnlockBiometrics(requester, TEST_USER_ID).then(
+      (ok) => ({ ok }),
+      (err) => ({ err: String(err) }),
+    );
+
+    // A status poll completes while the unlock is still in flight. Its response is
+    // broadcast to every pending RPC waiter, including the unlock waiter.
+    await expect(ipcRequestGetBiometricsStatus(requester, TEST_USER_ID)).resolves.toBe(
+      BiometricsStatus.Available,
+    );
+
+    releaseUnlock(userKey);
+
+    expect(await unlock).toEqual({ ok: { user_key: userKey } });
   });
 });

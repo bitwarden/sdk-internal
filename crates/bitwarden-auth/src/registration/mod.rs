@@ -19,6 +19,7 @@ pub use post_keys_for_jit_password_registration::{
 pub use post_keys_for_key_connector_registration::KeyConnectorRegistrationResult;
 pub use post_keys_for_tde_registration::{TdeRegistrationRequest, TdeRegistrationResponse};
 pub use post_keys_for_user_password_registration::{
-    UserMasterPasswordRegistrationRequest, UserMasterPasswordRegistrationResponse,
+    RegistrationFinishOpenOrgInviteData, UserMasterPasswordRegistrationRequest,
+    UserMasterPasswordRegistrationResponse,
 };
 pub use registration_client::{RegistrationClient, RegistrationError};
