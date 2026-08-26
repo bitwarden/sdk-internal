@@ -199,6 +199,7 @@ mod tests {
             notes: None,
             file: None,
             text: None,
+            data: None,
             key: ENCRYPTED_STRING.parse().unwrap(),
             max_access_count: None,
             access_count: 0,
