@@ -7,7 +7,7 @@
 //! users whose vault URL is that origin, in either direction.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -22,7 +22,7 @@ use thiserror::Error;
 use tracing::warn;
 
 use crate::{
-    DeviceEvent, LockState, SharedUnlockSync, TimestampedLockState,
+    DeviceEvent, LockState, SharedUnlockClient, SharedUnlockSync, TimestampedLockState,
     active_peers::{ActivePeerTracker, SyncTarget},
     drivers::SharedUnlockDriver,
     timing::{SharedUnlockTiming, now_millis},
@@ -53,6 +53,10 @@ struct InnerPeer<D: SharedUnlockDriver> {
     states: Mutex<HashMap<UserId, TimestampedLockState>>,
     active_peers: ActivePeerTracker,
     timing: SharedUnlockTiming,
+    /// The client kinds this peer is allowed to sync to. Empty until
+    /// [`SharedUnlockPeer::set_destinations`] is called, so a peer syncs to nothing until its
+    /// client opts in.
+    destinations: Mutex<HashSet<SharedUnlockClient>>,
 }
 
 impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
@@ -93,7 +97,29 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             states: Mutex::new(HashMap::new()),
             active_peers: ActivePeerTracker::default(),
             timing,
+            destinations: Mutex::new(HashSet::new()),
         }))
+    }
+
+    /// Sets which clients this peer shares unlock state with, in both directions: a client that is
+    /// not in the set is never synced to, and its syncs are dropped on arrival.
+    ///
+    /// Defaults to no client at all — a peer neither sends nor accepts anything until this is
+    /// called.
+    pub fn set_destinations(&self, destinations: Vec<SharedUnlockClient>) {
+        *self
+            .0
+            .destinations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = destinations.into_iter().collect();
+    }
+
+    fn is_destination(&self, endpoint: &Endpoint) -> bool {
+        self.0
+            .destinations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .contains(&SharedUnlockClient::of_endpoint(endpoint))
     }
 
     /// Starts the receive loop and the sync timer, then announces this peer's state once so it does
@@ -170,6 +196,14 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     ) -> Result<(), ()> {
         let source = incoming_message.source;
         let SharedUnlockSync { user_id, state } = incoming_message.payload;
+
+        if !self.is_destination(&source.to_endpoint()) {
+            tracing::debug!(
+                ?source,
+                "Ignoring shared unlock sync from a client not shared with"
+            );
+            return Ok(());
+        }
 
         // Validate the origin of web sources against the user's vault URL
         if let Source::Web { origin, .. } = &source {
@@ -307,6 +341,10 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     }
 
     async fn sync_user_to(&self, user_id: UserId, target: &SyncTarget) {
+        if !self.is_destination(&target.endpoint) {
+            return;
+        }
+
         if !self.may_sync_user_to(user_id, target).await {
             return;
         }

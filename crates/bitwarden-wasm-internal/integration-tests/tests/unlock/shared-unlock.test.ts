@@ -73,7 +73,10 @@ async function setupPair(options: {
 }) {
   init_sdk();
 
-  const [followerBackend, leaderBackend] = makeMockTransportPair("DesktopMain", "DesktopRenderer");
+  const [followerBackend, leaderBackend] = makeMockTransportPair(
+    { BrowserBackground: { id: "Own" } },
+    "DesktopRenderer",
+  );
 
   const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
   const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend);
@@ -85,6 +88,11 @@ async function setupPair(options: {
 
   const leader = new SharedUnlockPeer(leaderIpc, leaderDriver.driver);
   const follower = new SharedUnlockPeer(followerIpc, followerDriver.driver);
+
+  // A peer sends to nothing until told which clients it may share with: the desktop leader serves
+  // the browser below it, the browser follower syncs up to the desktop.
+  leader.set_destinations(["Browser"]);
+  follower.set_destinations(["Desktop"]);
 
   const leaderAbort = new AbortController();
   const followerAbort = new AbortController();
