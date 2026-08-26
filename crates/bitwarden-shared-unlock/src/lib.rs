@@ -4,93 +4,86 @@
 //! desktop) running in the same session. When a user unlocks their vault on one client, the
 //! unlock propagates to all connected clients.
 //!
-//! ## Leader-Follower Model
+//! ## Peer Model
 //!
-//! The protocol uses a leader-follower architecture where each client type has exactly one
-//! leader determined by the device hierarchy:
-//!
-//! ```text
-//!   Web Client  ──follows──▶  Browser Extension  ──follows──▶  Desktop App
-//!   CLI Client  ──follows──▶  Desktop App
-//! ```
-//!
-//! - **Leader**: Holds authoritative lock state, broadcasts state changes to all followers.
-//! - **Follower**: Reports local state changes to its leader, applies authoritative updates from
-//!   the leader.
-//!
-//! A client can be both a leader (to clients below it) and a follower (to the client above it)
-//! simultaneously. For example, the browser extension leads web clients while following the
-//! desktop app.
-//!
-//! ## Message Types
-//!
-//! All messages are serialized as CBOR and sent over the IPC transport.
-//!
-//! | Message          | Direction          | Purpose                                           |
-//! |------------------|--------------------|---------------------------------------------------|
-//! | `StartSession`   | Follower → Leader  | Announce presence with current lock state         |
-//! | `LockStateUpdate`| Bidirectional      | Propagate lock/unlock events                      |
-//! | `HeartBeat`      | Bidirectional      | Keep session alive, suppress vault timeout        |
-//!
-//! ## Session Lifecycle
-//!
-//! ### Follower Startup
+//! Every client runs exactly one [`SharedUnlockPeer`]. Each peer knows the one peer above it in the
+//! device hierarchy — its *leader* — and syncs to it, while also serving whichever peers sync to
+//! it:
 //!
 //! ```text
-//!   Follower                          Leader
-//!     │                                 │
-//!     │──StartSession(user, state)─────▶│  Follower announces itself
-//!     │                                 │  Leader applies state if unlocked
-//!     │◀─LockStateUpdate(user, state)───│  Leader responds with authoritative state
-//!     │                                 │
+//!   Web Client  ──syncs to──▶  Browser Extension  ──syncs to──▶  Desktop App
+//!   CLI Client  ──syncs to──▶  Desktop App
 //! ```
 //!
-//! On startup, the follower sends a `StartSession` for each logged-in user. If the follower
-//! is unlocked and the leader is locked, the leader unlocks using the provided user key.
-//! The leader always responds with a `LockStateUpdate` containing the authoritative state.
+//! The hierarchy decides who talks to whom, not who is in charge. There is no authoritative
+//! participant: reconciliation is symmetric and the freshest state wins. A peer in the middle of
+//! the chain relays simply by applying what it hears and advertising what it holds — the browser
+//! extension needs no special handling for leading the web vault while following the desktop app.
 //!
-//! ### Lock/Unlock Propagation
+//! The desktop app is the only client with no leader; it exclusively serves.
 //!
-//! **User unlocks on follower:**
+//! ## Messages
+//!
+//! There is one message, [`SharedUnlockSync`], carrying a user id and that device's
+//! [`TimestampedLockState`]. It is sent in both directions.
+//!
+//! A peer sends one sync per logged-in user, to its leader and to every active peer:
+//!
+//! - immediately on [`SharedUnlockPeer::start`], so it does not wait an interval to be discovered,
+//! - on every [`DeviceEvent`], so a manual lock or unlock propagates without delay, and
+//! - every [`SYNC_INTERVAL`].
+//! - as a reply to first sync connection
 //!
 //! ```text
-//!   Follower A                        Leader                         Follower B
-//!     │                                 │                                │
-//!     │──LockStateUpdate(Unlocked)─────▶│                                │
-//!     │                                 │──unlocks locally──             │
-//!     │                                 │──LockStateUpdate(Unlocked)────▶│
-//!     │                                 │                                │──unlocks locally──
+//!   Peer                                      Peer above (leader)
+//!     │                                          │
+//!     │──Sync(user, state@date)─────────────────▶│  on start, on device event, every interval
+//!     │                                          │  · applies the state if the date is newer
+//!     │                                          │  · registers the sender as an active peer
+//!     │                                          │
+//!     │◀─Sync(user, state@date)──────────────────│  once on first contact, then on device
+//!     │  · applies the state if the date is newer │  events and every interval
+//!     │  · suppresses its vault timeout           │
 //! ```
 //!
-//! **User locks on leader (via device event):**
+//! ## Reconciliation
 //!
-//! ```text
-//!   Leader                          Follower A                     Follower B
-//!     │                                 │                                │
-//!     │──LockStateUpdate(Locked)───────▶│                                │
-//!     │──LockStateUpdate(Locked)────────┼───────────────────────────────▶│
-//!     │                                 │──locks locally──               │──locks locally──
-//! ```
+//! On receiving a sync, a peer:
 //!
-//! ### Heartbeat Keep-Alive
+//! 1. Drops it if the source is a web client whose origin does not match the user's vault URL. The
+//!    origin that passed this check is kept with the peer, and the same check is applied again on
+//!    the way out (see [Origin scoping](#origin-scoping)).
+//! 2. Drops it if the user is not in [`SharedUnlockDriver::list_users`] — that is how a peer knows
+//!    it has no account for a user, and it never advertises such a user either.
+//! 3. Drops it if `changed_at` is older than the date this device has recorded. A user this device
+//!    has recorded nothing for counts as date `0`.
+//! 4. On an *equal* date, drops it unless it is a `Locked` arriving at an unlocked device. Equal
+//!    dates mean two devices acted inside the same millisecond without having seen each other, so
+//!    the tie is broken toward `Locked`: both sides then resolve it identically and converge
+//!    without another round, and the ambiguous case fails closed rather than resurrecting an
+//!    unlock.
+//! 5. Otherwise records the incoming state *and its date*, and calls
+//!    [`SharedUnlockDriver::lock_user`] or [`SharedUnlockDriver::unlock_user`] if — and only if —
+//!    the state actually differs from what was recorded.
 //!
-//! ```text
-//!   Follower                          Leader
-//!     │                                 │
-//!     │──HeartBeat(user)───────────────▶│  Every N seconds
-//!     │                                 │  Leader updates last-seen timestamp
-//!     │◀─HeartBeat(user)────────────────│  Leader echoes back
-//!     |◀─LockStateUpdate────────────────│  Leader always sends an authoritative state update to prevent desyncs
-//!     │──suppresses vault timeout──     │
-//!     │                                 │
-//! ```
+//! ## Origin scoping
 //!
-//! The follower sends a `HeartBeat` for each logged-in user every [`HEARTBEAT_INTERVAL`]
-//! On receiving the echo, the follower suppresses its vault timeout timer,
-//! keeping the vault unlocked as long as the session is active. Stale sessions are pruned.
-//! If the leader receives a `HeartBeat` from a user it does not know (for example due to a process
-//! reload), it responds with a `RequestSessionStart` message to request the follower to start a
-//! session.
+//! A web peer is scoped to one origin, in both directions:
+//!
+//! - an incoming sync from a web source is dropped unless its origin is the vault URL of the user
+//!   it carries, and
+//! - an outgoing sync is withheld from a web peer unless the user's vault URL is the origin that
+//!   peer was registered with — which covers the introductory reply on first contact as much as the
+//!   periodic and device-event syncs.
+//!
+//! ## Keep-alive
+//!
+//! A sync received *from this peer's leader* also calls
+//! [`SharedUnlockDriver::suppress_vault_timeout`] for [`SYNC_INTERVAL`] plus
+//! [`VAULT_TIMEOUT_GRACE_PERIOD`], keeping the vault unlocked as long as the shared session is
+//! active. Syncs from peers below do not suppress anything; they only mark the sender active.
+//!
+//! Peers that have not been heard from in [`PEER_STALE_AFTER`] are pruned and stop being synced to.
 //!
 //! ## Security Definitions
 //!
@@ -112,32 +105,34 @@
 //! - Security Goal:
 //!   - Attacker cannot gain access to the vault key material
 //!
-//! This is met by origin validation.
+//! This is met by origin validation, which is enforced on both the receive and the send path — see
+//! [Origin scoping](#origin-scoping). Validating only what arrives would not meet the goal: a peer
+//! that is registered after one validated sync goes on to be sent every user's state.
 
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
 use serde::{Deserialize, Serialize};
 
+mod active_peers;
 mod drivers;
 pub use drivers::*;
-mod follower;
-pub use follower::*;
-mod leader;
-pub use leader::*;
 mod message;
 pub use message::*;
+mod peer;
+pub use peer::*;
+mod timing;
 
 /// Wasm support module for shared unlock
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-/// Interval used by followers to send heartbeat keep-alive messages to their leader.
-pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
-/// Additional grace period added to the vault timeout when suppressing it on heartbeat
-pub const VAULT_TIMEOUT_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(1);
-
-#[cfg(test)]
-mod tests;
+/// Interval at which a peer syncs its lock state to its leader and to its active peers.
+pub const SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+/// Additional grace period added to the vault timeout when suppressing it on a sync from the
+/// leader.
+pub const VAULT_TIMEOUT_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(2);
+/// How long a peer may go without syncing before it is pruned and no longer synced to.
+pub const PEER_STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Represents the lock state of a user.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -149,6 +144,16 @@ pub enum LockState {
         /// The user-key of the unlocked user
         user_key: SymmetricCryptoKey,
     },
+}
+
+impl LockState {
+    /// Names the state without touching the key it may carry, so it is safe to log.
+    pub(crate) fn describe(&self) -> &'static str {
+        match self {
+            LockState::Locked => "locked",
+            LockState::Unlocked { .. } => "unlocked",
+        }
+    }
 }
 
 /// The device (client) has several events that need to be reported to the shared unlock system.
@@ -172,7 +177,7 @@ pub enum DeviceEvent {
         /// User whose vault was manually unlocked.
         user_id: UserId,
         /// Raw user key bytes used to unlock the vault.
-        #[tsify(type = "SymmetricKey")]
+        #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey"))]
         user_key: SymmetricCryptoKey,
     },
 }
