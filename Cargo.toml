@@ -66,6 +66,7 @@ bitwarden-state-bridge-macro = { path = "crates/bitwarden-state-bridge-macro", v
 bitwarden-sync = { path = "crates/bitwarden-sync", version = "=3.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=3.0.0" }
 bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=3.0.0" }
+bitwarden-test-vector = { path = "crates/bitwarden-test-vector", version = "=3.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=3.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=3.0.0" }
 bitwarden-unlock = { path = "crates/bitwarden-unlock", version = "=3.0.0" }
