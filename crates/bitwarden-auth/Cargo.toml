@@ -24,7 +24,6 @@ wasm = [
     "dep:wasm-bindgen-futures",
 ]
 uniffi = ["bitwarden-core/uniffi", "bitwarden-policies/uniffi", "dep:uniffi"]
-secrets = ["bitwarden-core/secrets"]
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]
@@ -43,8 +42,11 @@ ciborium = { workspace = true }
 http = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
+schemars = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
+serde_json = { workspace = true }
+serde_qs = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
@@ -54,6 +56,7 @@ uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+zeroize = { workspace = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }

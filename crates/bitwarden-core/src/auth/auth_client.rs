@@ -7,10 +7,8 @@ use bitwarden_crypto::{
 use bitwarden_encoding::B64;
 
 use crate::Client;
-#[cfg(any(feature = "internal", feature = "secrets"))]
+#[cfg(feature = "internal")]
 use crate::auth::login::LoginError;
-#[cfg(feature = "secrets")]
-use crate::auth::login::{AccessTokenLoginRequest, AccessTokenLoginResponse, login_access_token};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{
@@ -37,17 +35,6 @@ use crate::{
 pub struct AuthClient {
     #[allow(unused)]
     pub(crate) client: crate::Client,
-}
-
-impl AuthClient {
-    #[allow(missing_docs)]
-    #[cfg(feature = "secrets")]
-    pub async fn login_access_token(
-        &self,
-        input: &AccessTokenLoginRequest,
-    ) -> Result<AccessTokenLoginResponse, LoginError> {
-        login_access_token(&self.client, input).await
-    }
 }
 
 #[cfg(feature = "internal")]
