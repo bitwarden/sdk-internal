@@ -14,6 +14,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::KeyId;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -212,6 +213,109 @@ async fn handle_user_decryption_options(client: &Client, data: &CryptoSyncData) 
     }
 }
 
+/// Reasons an incoming account cryptographic state is rejected in favour of the local one.
+#[derive(Debug, Error)]
+enum DowngradePreventionError {
+    /// The account is V2 locally, but the incoming state is V1, i.e. the signed security state was
+    /// dropped entirely.
+    #[error(
+        "The incoming state is V1 while the local state is V2; the signed security state was omitted"
+    )]
+    SecurityStateOmitted,
+    /// The incoming state is signed by a different signing key than the local one.
+    #[error("The verifying key of the incoming state differs from the local one")]
+    VerifyingKeyChanged,
+    /// A signed security state is not signed by the account's verifying key.
+    #[error("The {0} signed security state is not signed by the account's verifying key")]
+    SecurityStateSignatureFailed(&'static str),
+    /// The incoming security state version is lower than the local one.
+    #[error("The security state version was downgraded from {local} to {incoming}")]
+    SecurityVersionDowngraded {
+        /// The version of the locally known security state.
+        local: u64,
+        /// The version of the incoming security state.
+        incoming: u64,
+    },
+}
+
+/// Checks that the incoming account cryptographic state is not a downgrade of the state that is
+/// already known locally.
+///
+/// A malicious or compromised server can hand out any account cryptographic state it likes, so an
+/// incoming state is only accepted if it is at least as strong as the local one:
+///
+/// - A V2 account must stay V2 — an incoming V1 state would silently drop the signed security
+///   state, which is exactly the downgrade the security state exists to prevent.
+/// - The verifying key must not change, so the server cannot swap in a signing key pair of its own
+///   and sign a weaker security state with it.
+/// - Both the local and the incoming signed security state must verify under that verifying key.
+/// - The security state version must not decrease.
+///
+/// A state that cannot be checked at all — no verifying key to derive it from and none carried
+/// along — is treated as a rejection: an unverifiable state is never persisted over one that was
+/// verified.
+///
+/// Please note, the verifying key being mismatched with the signing key is at latest detected when
+/// setting to context. It cannot be done here because the encryption keys may not be available if
+/// sync happens while locked.
+///
+/// Upgrades (V1 to V2) and unchanged V1 accounts have no security state to protect and are always
+/// accepted.
+fn downgrade_prevention(
+    local: &WrappedAccountCryptographicState,
+    incoming: &WrappedAccountCryptographicState,
+) -> Result<(), DowngradePreventionError> {
+    let WrappedAccountCryptographicState::V2 {
+        signing_key: _,
+        security_state: local_security_state,
+        verifying_key: local_verifying_key,
+        ..
+    } = local
+    else {
+        // A V1 account carries no security state, so neither staying on V1 nor upgrading to V2 can
+        // be a downgrade.
+        return Ok(());
+    };
+
+    let WrappedAccountCryptographicState::V2 {
+        signing_key: _,
+        security_state: incoming_security_state,
+        verifying_key: incoming_verifying_key,
+        ..
+    } = incoming
+    else {
+        tracing::warn!("WARNING!!! The server attempted a security downgrade!");
+        return Err(DowngradePreventionError::SecurityStateOmitted);
+    };
+
+    if local_verifying_key != incoming_verifying_key {
+        return Err(DowngradePreventionError::VerifyingKeyChanged);
+    }
+
+    if let (Some(local_verifying_key), Some(incoming_verifying_key)) =
+        (local_verifying_key, incoming_verifying_key)
+    {
+        let local_version = local_security_state
+            .to_owned()
+            .verify_and_unwrap(local_verifying_key)
+            .map_err(|_| DowngradePreventionError::SecurityStateSignatureFailed("local"))?
+            .version();
+        let incoming_version = incoming_security_state
+            .to_owned()
+            .verify_and_unwrap(incoming_verifying_key)
+            .map_err(|_| DowngradePreventionError::SecurityStateSignatureFailed("incoming"))?
+            .version();
+        if incoming_version < local_version {
+            return Err(DowngradePreventionError::SecurityVersionDowngraded {
+                local: local_version,
+                incoming: incoming_version,
+            });
+        }
+    }
+
+    Ok(())
+}
+
 /// Persists the account cryptographic state the server reported.
 async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncData) {
     let Some(account_cryptographic_state) = data.account_cryptographic_state.as_ref() else {
@@ -221,6 +325,18 @@ async fn handle_account_cryptographic_state(client: &Client, data: &CryptoSyncDa
     // This is necessary until all clients implement the state bridge.
     let state_bridge = client.km_state_bridge();
     if !state_bridge.is_bridge_registered() {
+        return;
+    }
+
+    // A malicious or compromised server must not be able to hand out a weaker cryptographic state
+    // than the one already known locally.
+    if let Some(local) = state_bridge.get_account_cryptographic_state().await
+        && let Err(e) = downgrade_prevention(&local, account_cryptographic_state)
+    {
+        tracing::warn!(
+            error = ?e,
+            "Refusing to persist the synced account cryptographic state; keeping the local one"
+        );
         return;
     }
 
@@ -310,7 +426,12 @@ mod tests {
         KdfType, MasterPasswordUnlockKdfResponseModel, MasterPasswordUnlockResponseModel,
         SyncResponseModel, UserDecryptionResponseModel, WebAuthnPrfDecryptionOption,
     };
-    use bitwarden_core::key_management::state_bridge::test_support::InMemoryStateBridge;
+    use bitwarden_core::key_management::{
+        SecurityState, SymmetricKeySlotId, state_bridge::test_support::InMemoryStateBridge,
+    };
+    use bitwarden_crypto::{
+        PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SymmetricKeyAlgorithm, VerifyingKey,
+    };
 
     use super::*;
 
@@ -471,5 +592,346 @@ mod tests {
         handle_crypto_sync(&client, &without_key_id).await;
 
         assert!(client.km_state_bridge().get_user_key_id().await.is_none());
+    }
+
+    /// A client with an in-memory state bridge registered, and no keys in its key store.
+    fn client_with_bridge() -> Client {
+        let client = Client::new(None);
+        client
+            .km_state_bridge()
+            .register_bridge(Box::new(InMemoryStateBridge::default()));
+        client
+    }
+
+    /// Creates a fresh V2 state and unlocks the client with the user key protecting it.
+    fn make_v2_state(client: &Client) -> WrappedAccountCryptographicState {
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let (user_key, state) =
+            WrappedAccountCryptographicState::make(&mut ctx).expect("making a V2 state succeeds");
+        ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+            .expect("setting the user key should succeed");
+        state
+    }
+
+    /// Creates a V1 state and unlocks the client with the user key protecting it.
+    fn make_v1_state(client: &Client) -> WrappedAccountCryptographicState {
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let state = WrappedAccountCryptographicState::V1 {
+            private_key: ctx
+                .wrap_private_key(user_key, private_key)
+                .expect("wrapping the private key succeeds"),
+        };
+        ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+            .expect("setting the user key should succeed");
+        state
+    }
+
+    /// A `SecurityState` of an arbitrary version. The version is private and only ever set to the
+    /// current one in code, so tests go through deserialization to reach other versions.
+    fn security_state_with_version(version: u64) -> SecurityState {
+        serde_json::from_value(serde_json::json!({ "version": version }))
+            .expect("a security state deserializes from its version")
+    }
+
+    /// Copies the state, replacing the signed security state with one of the given version, signed
+    /// by the state's own signing key.
+    fn with_security_version(
+        client: &Client,
+        state: &WrappedAccountCryptographicState,
+        version: u64,
+    ) -> WrappedAccountCryptographicState {
+        let WrappedAccountCryptographicState::V2 {
+            private_key,
+            signed_public_key,
+            signing_key,
+            ..
+        } = state
+        else {
+            panic!("expected a V2 state");
+        };
+
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let signing_key_id = ctx
+            .unwrap_signing_key(SymmetricKeySlotId::User, signing_key)
+            .expect("the signing key unwraps with the user key");
+        let security_state = security_state_with_version(version)
+            .sign(signing_key_id, &mut ctx)
+            .expect("signing the security state succeeds");
+
+        WrappedAccountCryptographicState::V2 {
+            private_key: private_key.clone(),
+            signed_public_key: signed_public_key.clone(),
+            signing_key: signing_key.clone(),
+            security_state,
+            verifying_key: Some(
+                ctx.get_verifying_key(signing_key_id)
+                    .expect("the signing key is in the context"),
+            ),
+        }
+    }
+
+    /// Copies the state, replacing the signing key (and therefore the verifying key) with a freshly
+    /// generated one, wrapped by the same user key.
+    fn with_new_signing_key(
+        client: &Client,
+        state: &WrappedAccountCryptographicState,
+    ) -> WrappedAccountCryptographicState {
+        let WrappedAccountCryptographicState::V2 {
+            private_key,
+            signed_public_key,
+            ..
+        } = state
+        else {
+            panic!("expected a V2 state");
+        };
+
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::MlDsa44);
+        let security_state = SecurityState::new()
+            .sign(signing_key_id, &mut ctx)
+            .expect("signing the security state succeeds");
+
+        WrappedAccountCryptographicState::V2 {
+            private_key: private_key.clone(),
+            signed_public_key: signed_public_key.clone(),
+            signing_key: ctx
+                .wrap_signing_key(SymmetricKeySlotId::User, signing_key_id)
+                .expect("wrapping the signing key succeeds"),
+            security_state,
+            verifying_key: Some(
+                ctx.get_verifying_key(signing_key_id)
+                    .expect("the signing key is in the context"),
+            ),
+        }
+    }
+
+    /// Copies `state`, claiming the verifying key of `other`.
+    fn with_verifying_key_of(
+        state: &WrappedAccountCryptographicState,
+        other: &WrappedAccountCryptographicState,
+    ) -> WrappedAccountCryptographicState {
+        let WrappedAccountCryptographicState::V2 { verifying_key, .. } = other else {
+            panic!("expected a V2 state");
+        };
+        replace_verifying_key(state, verifying_key.clone())
+    }
+
+    fn replace_verifying_key(
+        state: &WrappedAccountCryptographicState,
+        verifying_key: Option<VerifyingKey>,
+    ) -> WrappedAccountCryptographicState {
+        let WrappedAccountCryptographicState::V2 {
+            private_key,
+            signed_public_key,
+            signing_key,
+            security_state,
+            ..
+        } = state
+        else {
+            panic!("expected a V2 state");
+        };
+
+        WrappedAccountCryptographicState::V2 {
+            private_key: private_key.clone(),
+            signed_public_key: signed_public_key.clone(),
+            signing_key: signing_key.clone(),
+            security_state: security_state.clone(),
+            verifying_key,
+        }
+    }
+
+    /// Runs the handler for the given incoming state and returns what the bridge holds afterwards.
+    async fn sync_account_cryptographic_state(
+        client: &Client,
+        incoming: &WrappedAccountCryptographicState,
+    ) -> Option<WrappedAccountCryptographicState> {
+        let data = CryptoSyncData {
+            account_cryptographic_state: Some(incoming.clone()),
+            ..Default::default()
+        };
+        handle_account_cryptographic_state(client, &data).await;
+        client
+            .km_state_bridge()
+            .get_account_cryptographic_state()
+            .await
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_is_persisted_when_there_is_no_local_state() {
+        let client = client_with_bridge();
+        let incoming = make_v2_state(&client);
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&incoming));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_is_persisted_when_unchanged() {
+        let client = client_with_bridge();
+        let state = make_v2_state(&client);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&state)
+            .await;
+
+        let stored = sync_account_cryptographic_state(&client, &state).await;
+
+        assert_eq!(stored.as_ref(), Some(&state));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_upgrade_from_v1_to_v2_is_persisted() {
+        let client = client_with_bridge();
+        let local = make_v1_state(&client);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+        // The V2 state replaces the user key in the store, which is what an upgrade does.
+        let incoming = make_v2_state(&client);
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&incoming));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_downgrade_from_v2_to_v1_is_rejected() {
+        let client = client_with_bridge();
+        let local = make_v2_state(&client);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+        let incoming = WrappedAccountCryptographicState::V1 {
+            private_key: match &local {
+                WrappedAccountCryptographicState::V2 { private_key, .. } => private_key.clone(),
+                _ => unreachable!("the local state is V2"),
+            },
+        };
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&local));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_with_a_changed_verifying_key_is_rejected() {
+        let client = client_with_bridge();
+        let local = make_v2_state(&client);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+        let incoming = with_new_signing_key(&client, &local);
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&local));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_with_a_lower_security_version_is_rejected() {
+        let client = client_with_bridge();
+        let state = make_v2_state(&client);
+        let local = with_security_version(&client, &state, 3);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+        let incoming = with_security_version(&client, &state, 2);
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&local));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_with_a_higher_security_version_is_persisted() {
+        let client = client_with_bridge();
+        let local = make_v2_state(&client);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+        let incoming = with_security_version(&client, &local, 3);
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&incoming));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_is_checked_against_the_carried_verifying_key_when_locked()
+    {
+        // The states are built in a throwaway client, so the syncing client stays locked and only
+        // the verifying keys carried along with the states are available.
+        let key_source = Client::new(None);
+        let local = make_v2_state(&key_source);
+        let incoming = with_security_version(&key_source, &local, 3);
+
+        let client = client_with_bridge();
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&incoming));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_downgrade_is_caught_when_locked() {
+        let key_source = Client::new(None);
+        let state = make_v2_state(&key_source);
+        let local = with_security_version(&key_source, &state, 3);
+        let incoming = with_security_version(&key_source, &state, 2);
+
+        let client = client_with_bridge();
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&local));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_with_a_verifying_key_that_does_not_match_is_rejected() {
+        let client = client_with_bridge();
+        let local = make_v2_state(&client);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+        // The signing key is the account's own, but the claimed verifying key is someone else's.
+        let foreign = make_v2_state(&Client::new(None));
+        let incoming = with_verifying_key_of(&local, &foreign);
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&local));
+    }
+
+    #[tokio::test]
+    async fn account_cryptographic_state_of_another_account_is_rejected() {
+        let client = client_with_bridge();
+        let local = make_v2_state(&client);
+        client
+            .km_state_bridge()
+            .set_account_cryptographic_state(&local)
+            .await;
+        // Wrapped by a different user key, and signed by a different signing key.
+        let incoming = make_v2_state(&Client::new(None));
+
+        let stored = sync_account_cryptographic_state(&client, &incoming).await;
+
+        assert_eq!(stored.as_ref(), Some(&local));
     }
 }

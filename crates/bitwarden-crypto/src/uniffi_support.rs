@@ -5,7 +5,7 @@ use bitwarden_uniffi_error::convert_result;
 
 use crate::{
     CryptoError, EncString, EncodingError, KeyId, PublicKey, SignedPublicKey, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    UnsignedSharedKey, VerifyingKey,
     safe::{
         DataEnvelope, HighEntropySecret, PasswordProtectedKeyEnvelope, SecretProtectedKeyEnvelope,
     },
@@ -53,6 +53,13 @@ uniffi::custom_type!(SignedPublicKey, String, {
         convert_result(SignedPublicKey::from_str(&val))
     },
     lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(VerifyingKey, String, {
+    try_lift: |val| {
+        convert_result(VerifyingKey::from_str(&val))
+    },
+    lower: |obj| (&obj).into(),
 });
 
 uniffi::custom_type!(PublicKey, String, {

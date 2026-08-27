@@ -3,6 +3,9 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
+use std::{borrow::Cow, str::FromStr};
+
+use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -12,6 +15,7 @@ use coset::{
     },
 };
 use ml_dsa::{MlDsa44, signature::Verifier};
+use serde::Deserialize;
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa44_verifying_key};
 use crate::{
@@ -22,8 +26,15 @@ use crate::{
     keys::KeyId,
 };
 
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type VerifyingKey = Tagged<string, "VerifyingKey">;
+"#;
+
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
+#[derive(Clone)]
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519_dalek::VerifyingKey),
     MlDsa44(Box<ml_dsa::VerifyingKey<MlDsa44>>),
@@ -32,9 +43,72 @@ pub(super) enum RawVerifyingKey {
 /// A verifying key is a public key used for verifying signatures. It can be published to other
 /// users, who can use it to verify that messages were signed by the holder of the corresponding
 /// `SigningKey`.
+///
+/// A verifying key is public data: it can be serialized to a base64-encoded COSE key and shared
+/// or stored alongside the objects it verifies.
+#[derive(Clone)]
 pub struct VerifyingKey {
     pub(super) id: KeyId,
     pub(super) inner: RawVerifyingKey,
+}
+
+/// Two verifying keys are equal when their COSE encodings are — that covers the key material, the
+/// algorithm and the key id.
+impl PartialEq for VerifyingKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_cose() == other.to_cose()
+    }
+}
+
+impl Eq for VerifyingKey {}
+
+impl FromStr for VerifyingKey {
+    type Err = EncodingError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = B64::try_from(s).map_err(|_| EncodingError::InvalidBase64Encoding)?;
+        Self::from_cose(&CoseKeyBytes::from(&bytes))
+    }
+}
+
+impl From<&VerifyingKey> for String {
+    fn from(val: &VerifyingKey) -> Self {
+        B64::from(val.to_cose()).to_string()
+    }
+}
+
+impl From<VerifyingKey> for String {
+    fn from(val: VerifyingKey) -> Self {
+        String::from(&val)
+    }
+}
+
+impl<'de> Deserialize<'de> for VerifyingKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl serde::Serialize for VerifyingKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl schemars::JsonSchema for VerifyingKey {
+    fn schema_name() -> Cow<'static, str> {
+        "VerifyingKey".into()
+    }
+
+    fn json_schema(generator: &mut schemars::generate::SchemaGenerator) -> schemars::Schema {
+        generator.subschema_for::<String>()
+    }
 }
 
 impl std::fmt::Debug for VerifyingKey {
@@ -218,6 +292,36 @@ mod tests {
     // Same key as `MLDSA44_VERIFYING_KEY` in `signing_key.rs`'s tests, kept in sync so both
     // modules pin the same underlying key.
     const MLDSA44_VERIFYING_KEY: &str = "a501070250e11a339366953128787c1b2c16b6945803382f048102205905205cc3620a551a0213972ad845e4930f4ecdfe1d10a81ffde8cdd1a0fffc38eefa3fd659028cad345c823074e870ffb9ed12e1d08a407db8f2431f2b75d3934e8a2662c033c8337aec1afdc1bb1babf185d709365a3057b41774dcf08e3877d4fdca2111b778ed53f6cf5b2d46d4a2427ee72c1c08a87e4e231794d8418513bae5e57d65428c41fa0b1031d6bc3b07a15f3349c4361a627c736d4e86fe3285e74277117f57df4bc53a98afcd55a77aee7e1b1465abb72e68ab2da897ceecfb8f7d4f0ced0dcf39506b31a46b795c8cee3ee6d789a1f8f7c35eb20eb17c6af5402954ec6eb41576eb2d65078b9755aca0e3af11f438df2a8abfb35d75b3fd151099735908f9b15a42f5211d4ea691014142adae9c9fdf0cf704bc4197d10f8f5f60be29abc805c6fa0f6192e4d12c8f7d50289e0ea796217f453730ca5af1ac3eb3c8ccc4bc161925806506160489a175a07bcf0f9323a4d05013117ba5f3c6d5bc6f6feadcfd093e40efbc19b8648cc8251d6d2faca5da7b506ec4b9e66b821c4176205b9ce0cd4c358b5e2a742c93b9ddb481feca10bb213925e1c661149c04e84a7809e440c190977cf015f12b6259581c368c70eec633985b78c1108f7ff42d1cb03d9ce957f705b871b57c3705ada6d6b386e647a3bacf846da4feb5c508bc4960c2d1f5378700b118fd2ea20db2790aafb7d39043bd2ab6f8902111a45fb181be8e83fa5a4c43e5d2d56797042f8d0c3e832857db0fccc61e7ea3616b70da0439eedf1a1a40196435c99b24e2ab07f8515272972faeafb2670ff66b237b00bf092da2de98a99ed4319498b4d8385aa68e36974b9c31d44b2dfebda78b3465b859296c63958cbcb587dd82e04c51986fdb9e0f3a2941ef1eac8d3b08c2fcd32ceb9dc434096c7f03e529c82132cd7e242a5668520baf00332a2de8a4f52420378350993bd35c573ba4f32e5ad89ddca1b7b3ddb0a21b0faa3674de2bdcb3519b86ed33a8939e6c7cbb9b9493279db28739b163916776bdcc40f7368000b5cefb3425b77dce84a957642319cb95226e30e119a4e455795b24e627b69881dc87084c3c1972fd170c87bcf4cc228beb4083a063e7a44c4fa8490f48457d12e4cf44b84ef41556e53599c5b4a030b4d07ee6594b6830ac0cb7823f908130fd6d2f3f9b5d65012f8e9abeeb74f4042a2a8c05fcb28f968f15f4230dfce034595141c770c200c1fd710e86d9b4d820ee0f015762526cb5a148e18874a385acef6f9efb77d43bc14936e8aa966dd53a1d2403a820f735fd60f5867570fa93ffae3214dc9ac93b2c191115a0045f71923249a10fdd8aa6ca35f6420fa1c80a867d7f54ef54b465f151de0b9a040c31d7373c81565d503cc1332dc6808533171ff2513a7139dad63b1848ba46f09255e81f7edab6208e62d17955aa43e27c74b5ed77b8d3c66ea50c478760e0db5c1b8970a22e74a29bd07bed0ba7e9c7a1866531889fa516ffd66c363d9558b2716d67809d85f16b4e18f456d5ec2343d08ea601da77676246c26432bfcd935c0d80a1e32fc41b380dff041a2629683540d5f2b9d9ef6101114242508c68987a44a0169bf8fbdabf1954bd54d745f1d66b7367848e43e0c94a6d88ccbdfd65333301d34d06d400e643e36c681c7f475b0026967d68e58af2fbf4800ca7aad6a43a3782b1d9452226ef881d50fcbb7b4df0c8c3b15ca80321cbb928fa8dce4048f01fc48121eaa1da0a954a6150c3d2e42add1b4f58910c2db0869a5481d469ef4bdccec3e7c0a21253fd19ce941b16808bf14fca6fec2b1ba7f771580235034e5ca95763721d6add9aa3914f476b37097ce67b000d5d";
+
+    #[test]
+    fn test_string_roundtrip() {
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
+
+        let encoded = String::from(&verifying_key);
+        let parsed: VerifyingKey = encoded.parse().unwrap();
+
+        assert_eq!(verifying_key, parsed);
+    }
+
+    #[test]
+    fn test_serde_roundtrip() {
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
+
+        let json = serde_json::to_string(&verifying_key).unwrap();
+        let parsed: VerifyingKey = serde_json::from_str(&json).unwrap();
+
+        // The wire format is the base64-encoded COSE key, as a plain string.
+        assert_eq!(json, format!("\"{}\"", String::from(&verifying_key)));
+        assert_eq!(verifying_key, parsed);
+    }
+
+    #[test]
+    fn test_different_keys_are_not_equal() {
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(VERIFYING_KEY)).unwrap();
+        let other = crate::SigningKey::make(SignatureAlgorithm::Ed25519).to_verifying_key();
+
+        assert_ne!(verifying_key, other);
+    }
 
     #[test]
     fn test_cose_roundtrip_encode_verifying() {

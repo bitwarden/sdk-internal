@@ -185,6 +185,7 @@ mod tests {
             signed_public_key: Some(signed_public_key),
             signing_key: wrapped_signing,
             security_state: signed_security_state,
+            verifying_key: Some(ctx.get_verifying_key(signing_key_id).unwrap()),
         }
     }
 

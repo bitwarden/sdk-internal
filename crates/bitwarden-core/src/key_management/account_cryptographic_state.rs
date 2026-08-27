@@ -17,6 +17,7 @@ use bitwarden_api_api::models::{
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SymmetricKeyAlgorithm,
+    VerifyingKey,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -118,6 +119,15 @@ pub enum WrappedAccountCryptographicState {
         signing_key: EncString,
         /// The user's signed security state.
         security_state: SignedSecurityState,
+        /// The public part of the signing key. Unlike the signing key itself, this is readable
+        /// without the user key, so it can be used to verify the signed objects in this state
+        /// while the account is locked.
+        ///
+        /// Note: This is optional for backwards compatibility with states stored before this field
+        /// existed. After a few releases, this will be made non-optional.
+        #[serde(default)]
+        #[cfg_attr(feature = "wasm", tsify(optional))]
+        verifying_key: Option<VerifyingKey>,
     },
 }
 
@@ -136,9 +146,14 @@ impl std::fmt::Debug for WrappedAccountCryptographicState {
             WrappedAccountCryptographicState::V1 { .. } => f
                 .debug_struct("WrappedAccountCryptographicState::V1")
                 .finish(),
-            WrappedAccountCryptographicState::V2 { security_state, .. } => f
+            WrappedAccountCryptographicState::V2 {
+                security_state,
+                verifying_key,
+                ..
+            } => f
                 .debug_struct("WrappedAccountCryptographicState::V2")
                 .field("security_state", security_state)
+                .field("verifying_key", verifying_key)
                 .finish(),
         }
     }
@@ -173,6 +188,15 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
                 .transpose()
                 .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
 
+            // The server-provided verifying key is not trusted here; it is checked against the
+            // signing key when the state is initialized.
+            let verifying_key: Option<VerifyingKey> = signature_key_pair
+                .verifying_key
+                .as_ref()
+                .map(|vk| vk.parse())
+                .transpose()
+                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+
             let security_state_model = response
                 .security_state
                 .as_ref()
@@ -187,6 +211,7 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
                 signed_public_key,
                 signing_key,
                 security_state,
+                verifying_key,
             })
         } else {
             if response.signature_key_pair.is_some() || response.security_state.is_some() {
@@ -350,6 +375,7 @@ impl WrappedAccountCryptographicState {
                 signed_public_key: Some(signed_public_key),
                 signing_key: ctx.wrap_signing_key(user_key, signing_key)?,
                 security_state: signed_security_state,
+                verifying_key: Some(ctx.get_verifying_key(signing_key)?),
             },
         ))
     }
@@ -440,6 +466,10 @@ impl WrappedAccountCryptographicState {
                     signed_public_key: Some(signed_public_key),
                     signing_key: new_signing_key,
                     security_state: signed_security_state,
+                    verifying_key: Some(
+                        ctx.get_verifying_key(signing_key_id)
+                            .map_err(|_| RotateCryptographyStateError::KeyMissing)?,
+                    ),
                 })
             }
             WrappedAccountCryptographicState::V2 {
@@ -447,6 +477,7 @@ impl WrappedAccountCryptographicState {
                 signed_public_key,
                 signing_key,
                 security_state,
+                verifying_key: _,
             } => {
                 // To rotate a V2 state, the private and signing keys are re-encrypted with the new
                 // user key.
@@ -465,12 +496,16 @@ impl WrappedAccountCryptographicState {
                 let new_signing_key = ctx
                     .wrap_signing_key(*new_user_key, signing_key_id)
                     .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+                let verifying_key = ctx
+                    .get_verifying_key(signing_key_id)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
 
                 Ok(WrappedAccountCryptographicState::V2 {
                     private_key: new_private_key,
                     signed_public_key: signed_public_key.clone(),
                     signing_key: new_signing_key,
                     security_state: security_state.clone(),
+                    verifying_key: Some(verifying_key),
                 })
             }
         }
@@ -530,6 +565,7 @@ impl WrappedAccountCryptographicState {
                 signed_public_key,
                 signing_key,
                 security_state,
+                verifying_key: claimed_verifying_key,
             } => {
                 info!(state = ?self, "Initializing V2 account cryptographic state");
                 if !matches!(
@@ -554,6 +590,15 @@ impl WrappedAccountCryptographicState {
                 }
 
                 let verifying_key = ctx.get_verifying_key(signing_key_id)?;
+
+                // The verifying key travels alongside the state so that it can be read without the
+                // user key. Here the signing key is available, so the claim is checked against it.
+                if let Some(claimed_verifying_key) = claimed_verifying_key
+                    && *claimed_verifying_key != verifying_key
+                {
+                    return Err(AccountCryptographyInitializationError::TamperedData);
+                }
+
                 let security_state: SecurityState = security_state
                     .to_owned()
                     .verify_and_unwrap(&verifying_key)
@@ -691,6 +736,76 @@ mod tests {
     }
 
     #[test]
+    fn test_set_to_context_v2_rejects_a_mismatched_verifying_key() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (user_key, state) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+
+        // Claim a verifying key belonging to some other signing key.
+        let foreign_signing_key = ctx.make_signing_key(SignatureAlgorithm::MlDsa44);
+        let WrappedAccountCryptographicState::V2 {
+            private_key,
+            signed_public_key,
+            signing_key,
+            security_state,
+            ..
+        } = state
+        else {
+            panic!("expected a V2 state");
+        };
+        let tampered = WrappedAccountCryptographicState::V2 {
+            private_key,
+            signed_public_key,
+            signing_key,
+            security_state,
+            verifying_key: Some(ctx.get_verifying_key(foreign_signing_key).unwrap()),
+        };
+
+        let result = tampered.set_to_context(&RwLock::new(None), user_key, &store, ctx);
+
+        assert!(matches!(
+            result,
+            Err(AccountCryptographyInitializationError::TamperedData)
+        ));
+    }
+
+    #[test]
+    fn test_set_to_context_v2_accepts_a_state_without_a_verifying_key() {
+        // States stored before the verifying key was carried along must keep working.
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (user_key, state) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+
+        let WrappedAccountCryptographicState::V2 {
+            private_key,
+            signed_public_key,
+            signing_key,
+            security_state,
+            ..
+        } = state
+        else {
+            panic!("expected a V2 state");
+        };
+        let without_verifying_key = WrappedAccountCryptographicState::V2 {
+            private_key,
+            signed_public_key,
+            signing_key,
+            security_state,
+            verifying_key: None,
+        };
+
+        without_verifying_key
+            .set_to_context(&RwLock::new(None), user_key, &store, ctx)
+            .unwrap();
+
+        assert!(
+            store
+                .context()
+                .has_signing_key(SigningKeySlotId::UserSigningKey)
+        );
+    }
+
+    #[test]
     fn test_set_to_context_v2() {
         // Prepare a temporary store to create wrapped state using a known user key
         let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
@@ -719,6 +834,7 @@ mod tests {
             signed_public_key: Some(signed_public_key),
             signing_key: wrapped_signing,
             security_state: signed_security_state,
+            verifying_key: Some(temp_ctx.get_verifying_key(signing_key_id).unwrap()),
         };
         #[allow(deprecated)]
         let user_key = temp_ctx
