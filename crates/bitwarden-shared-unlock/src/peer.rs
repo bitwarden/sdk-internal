@@ -344,10 +344,6 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     }
 
     async fn sync_user_to(&self, user_id: UserId, target: &SyncTarget) {
-        if !self.is_destination(user_id, &target.endpoint) {
-            return;
-        }
-
         if !self.may_sync_user_to(user_id, target).await {
             return;
         }
@@ -361,11 +357,18 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
 
     /// Whether a user's state may be sent to a peer.
     ///
-    /// A web peer is entitled only to the users whose vault URL is the origin it was validated
+    /// The peer must be among the user's configured destinations.
+    ///
+    /// A web peer is additionally entitled only to the users whose vault URL is the
+    /// origin it was validated
     /// against — the same rule [`SharedUnlockPeer::receive_message`] applies to incoming syncs,
     /// applied outbound so a page served by one vault is never handed another vault's key material.
     /// A web peer with no recorded origin fails closed.
     async fn may_sync_user_to(&self, user_id: UserId, target: &SyncTarget) -> bool {
+        if !self.is_destination(user_id, &target.endpoint) {
+            return false;
+        }
+
         if !matches!(target.endpoint, Endpoint::Web { .. }) {
             return true;
         }
