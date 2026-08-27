@@ -19,14 +19,10 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - Added `aes-gcm`, `hkdf`, `crypto-bigint` and `icu_normalizer` to the workspace, will increase the
   wasm size.
 - SRP uses `crypto-bigint` rather than `num-bigint` for the constant-time `modpow`
-- Uses RustCrypto directly rather than `bitwarden-crypto`, which keeps HKDF, AES-GCM and RSA-OAEP
-  private
-- Only the two algorithms the web client implements, `PBES2g-HS256` and the legacy `PBES2-HS256`.
-  The `HS512` spellings the C# original accepts are rejected: the client throws `Invalid PBKDF2 alg`
-  on them, so its behaviour there is unknown
 - The legacy path is transcribed from the client and cannot be tested end to end. Patching the web
   client to mint a `PBES2-HS256` account fails: the server answers `POST /api/v1/user/auth` with a
-  400, so no new account can be created on it
+  400, so no new account can be created on it. `fixtures/master-key-vectors.json` covers the
+  derivation for both algorithms instead
 - Only the credentials and the keys are zeroed. The decrypted vault data is not
 
 ## TODO
@@ -36,6 +32,10 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
 - There are many tests converted from the C# repo, they became very noisy in Rust. Do we even need
   them? See start_registers_an_unknown_device_then_retries for an example.
 - Do we need to import password history?
+- Legacy SRP (`SRP-4096`) is rejected, the client derives it differently and ends in SHA-1
+- This module reaches for `hkdf`, `aes-gcm` and `rsa` directly because `bitwarden-crypto` keeps
+  those primitives private. Question: should `bitwarden-crypto` expose them, so feature crates do
+  not each depend on RustCrypto themselves?
 - A wrong password reports as
   `Internal("unexpected response from 'v2/auth/confirm-key' (HTTP 401)")` rather than
   `BadCredentials`. The server only rejects at `confirm-key`, and its body there is not the
@@ -46,6 +46,4 @@ into Bitwarden collections. 1P doesn't have folders, only tags.
   `pub(crate)` module
 - The username goes on the wire raw, `v2/auth/methods` and `v3/auth/start` do not get the normalized
   one
-- `SrpInfo` validates the SRP key method, then `compute_x` ignores it and always derives the modern
-  way
 - `OnePasswordError::TwoFactorRequired` is never constructed
