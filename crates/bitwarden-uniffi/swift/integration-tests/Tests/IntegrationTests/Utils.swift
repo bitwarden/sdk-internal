@@ -65,6 +65,7 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var masterpasswordUnlockData: MasterPasswordUnlockData?
     private var webauthnPrfUnlockData: WebAuthnPrfUnlockData?
     private var kdfConfig: Kdf?
+    private var v2EncryptedMigrationsGracePeriodStart: V2EncryptedMigrationsGracePeriodStart?
 
     func setUserKey(value: SymmetricCryptoKey) { userKey = value }
     func getUserKey() -> SymmetricCryptoKey? { userKey }
@@ -105,6 +106,10 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func setKdfConfig(value: Kdf) { kdfConfig = value }
     func getKdfConfig() -> Kdf? { kdfConfig }
     func clearKdfConfig() { kdfConfig = nil }
+
+    func setV2EncryptedMigrationsGracePeriodStart(value: V2EncryptedMigrationsGracePeriodStart) { v2EncryptedMigrationsGracePeriodStart = value }
+    func getV2EncryptedMigrationsGracePeriodStart() -> V2EncryptedMigrationsGracePeriodStart? { v2EncryptedMigrationsGracePeriodStart }
+    func clearV2EncryptedMigrationsGracePeriodStart() { v2EncryptedMigrationsGracePeriodStart = nil }
 }
 
 final class MockTokenProvider: ClientManagedTokens {
