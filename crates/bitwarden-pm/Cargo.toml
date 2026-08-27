@@ -35,7 +35,7 @@ uniffi = [
 wasm = [
     "bitwarden-auth/wasm",
     "bitwarden-collections/wasm",
-    "bitwarden-commercial-vault/wasm",
+    "bitwarden-commercial-vault?/wasm",
     "bitwarden-core/wasm",
     "bitwarden-crypto-cipher-suite/wasm",
     "bitwarden-crypto-sync-handler/wasm",

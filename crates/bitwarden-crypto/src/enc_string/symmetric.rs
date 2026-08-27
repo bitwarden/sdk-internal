@@ -358,7 +358,7 @@ impl EncString {
     ) -> Result<EncString> {
         let mut iv = [0u8; 16];
         bitwarden_random::rng().fill(&mut iv);
-        let (mac, data) = Aes256CbcHmacSha256::encrypt(&iv, data_dec, &key.to_composite_key());
+        let (mac, data) = Aes256CbcHmacSha256::encrypt(&iv, data_dec, key.as_composite_key());
         Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
     }
 
@@ -439,7 +439,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => Aes256CbcHmacSha256::decrypt(iv, data, mac, &key.to_composite_key())
+            ) => Aes256CbcHmacSha256::decrypt(iv, data, mac, key.as_composite_key())
                 .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
