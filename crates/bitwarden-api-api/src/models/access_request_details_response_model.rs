@@ -114,15 +114,6 @@ pub struct AccessRequestDetailsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub resolved_at: Option<String>,
-    /// Distinct from
-    /// Bit.Services.Pam.Api.Models.Response.AccessRequestDetailsResponseModel.ResolvedAt; set when
-    /// an approved request lapses unactivated. Not tracked in v1.
-    #[serde(
-        rename = "expiredAt",
-        alias = "ExpiredAt",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub expired_at: Option<String>,
     /// The request's decision log, oldest first — one element per decision (human or automatic).
     /// Each carries who decided (`deciderKind`), the verdict, and (for a human decision) the
     /// approver's identity and comment. Empty only while pending. An array so multi-party approval
@@ -193,7 +184,6 @@ impl AccessRequestDetailsResponseModel {
             reason: None,
             submitted_at: None,
             resolved_at: None,
-            expired_at: None,
             decisions: None,
             produced_lease_id: None,
             produced_lease_status: None,
