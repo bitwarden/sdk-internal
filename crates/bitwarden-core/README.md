@@ -36,9 +36,9 @@ migration - they will be moved to repositories over time.
 The `ManagementProfile` cell is a deliberate exception to that rule rather than a historical one. It
 is shared mutable state owned by the _host_, which pushes profiles in and updates them as the OS
 profile changes, while the SDK only ever reads. It must also be readable before login and before
-unlock, since it can carry pre-authentication configuration such as the environment URL. A
-`Repository` models storage the SDK owns, so it does not fit; the cell is held behind
-`Arc<RwLock<Option<_>>>` and is never persisted.
+unlock, since it can carry pre-authentication configuration such as the environment URL. Since a
+`Repository` models storage the SDK owns, that abstraction is incompatible with 
+the shared mutable state owned by the host.
 
 ### `Client` vs `InternalClient`
 
