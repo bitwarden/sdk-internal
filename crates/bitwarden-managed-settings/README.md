@@ -9,7 +9,7 @@ The host application constructs a [`ManagedSettingsClient`] at startup with
 it in with [`ManagedSettingsClient::update_profile`]. Passing `None` clears the profile. Clones of
 the handle share one profile, so an update pushed through any clone is observed by all of them.
 
-The same shared cell — obtained from [`ManagedSettingsClient::cell`] — is handed to
+The same shared cell, obtained from [`ManagedSettingsClient::cell`], is handed to
 [`bitwarden_core::ClientBuilder::with_managed_profile`], so SDK feature crates read the current
 profile through [`ManagedSettingsClientExt::managed_settings`] on a [`bitwarden_core::Client`]. A
 client built without a cell gets a fresh empty one and simply manages nothing.
