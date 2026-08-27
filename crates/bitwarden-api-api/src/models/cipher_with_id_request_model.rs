@@ -64,8 +64,12 @@ pub struct CipherWithIdRequestModel {
     pub reprompt: Option<models::CipherRepromptType>,
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "name", alias = "Name")]
-    pub name: String,
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub name: Option<String>,
     #[serde(
         rename = "notes",
         alias = "Notes",
@@ -176,7 +180,7 @@ pub struct CipherWithIdRequestModel {
 }
 
 impl CipherWithIdRequestModel {
-    pub fn new(name: String, id: uuid::Uuid) -> CipherWithIdRequestModel {
+    pub fn new(id: uuid::Uuid) -> CipherWithIdRequestModel {
         CipherWithIdRequestModel {
             encrypted_for: None,
             encrypted_by_key_id: None,
@@ -186,7 +190,7 @@ impl CipherWithIdRequestModel {
             favorite: None,
             reprompt: None,
             key: None,
-            name,
+            name: None,
             notes: None,
             fields: None,
             password_history: None,
