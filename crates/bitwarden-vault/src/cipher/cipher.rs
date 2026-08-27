@@ -146,6 +146,7 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
+            is_organization_cipher: None,
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
@@ -225,6 +226,7 @@ impl From<EncryptionContext> for CipherRequestModel {
             encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
+            is_organization_cipher: None,
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
@@ -409,6 +411,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
             encrypted_by_key_id: None,
             r#type: Some(c.r#type.into()),
             organization_id: c.organization_id.map(|id| id.to_string()),
+            is_organization_cipher: None,
             folder_id: c.folder_id.map(|id| id.to_string()),
             favorite: Some(c.favorite),
             reprompt: Some(c.reprompt.into()),
@@ -439,7 +442,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
