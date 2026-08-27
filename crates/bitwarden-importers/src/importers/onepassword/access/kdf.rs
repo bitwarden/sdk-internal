@@ -111,7 +111,7 @@ mod tests {
 
     use super::*;
 
-    /// Vectors from `fixtures/generate-master-key-vectors.mjs`, which mirrors the 1P web client.
+    /// Vectors generated from the 1P web client itself, see the fixture's `note`.
     #[derive(Deserialize)]
     struct Vectors {
         params: VectorParams,
