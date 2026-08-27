@@ -85,10 +85,11 @@ impl SrpInfo {
                 "Method '{srp_method}' is not supported"
             )));
         }
-        if iterations == 0 {
-            return Err(OnePasswordError::Unsupported(
-                "0 iterations is not supported".into(),
-            ));
+        if iterations < kdf::MIN_PBKDF2_ITERATIONS {
+            return Err(OnePasswordError::Unsupported(format!(
+                "{iterations} iterations is below the minimum of {}",
+                kdf::MIN_PBKDF2_ITERATIONS
+            )));
         }
 
         kdf::validate_pbes2(&key_method)?;
@@ -626,9 +627,9 @@ mod tests {
             .expect_err("only SRPg-4096 is supported");
         assert!(bad_method.to_string().contains("SRPg-2048"));
 
-        let no_iterations = SrpInfo::new("SRPg-4096".into(), "PBES2g-HS256".into(), 0, vec![])
-            .expect_err("0 iterations is rejected");
-        assert!(no_iterations.to_string().contains("0 iterations"));
+        let too_few = SrpInfo::new("SRPg-4096".into(), "PBES2g-HS256".into(), 9999, vec![])
+            .expect_err("a count below the floor is rejected");
+        assert!(too_few.to_string().contains("9999 iterations"));
 
         let bad_key_method =
             SrpInfo::new("SRPg-4096".into(), "PBES2g-HS512".into(), 100000, vec![])
