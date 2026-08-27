@@ -37,8 +37,8 @@ The `ManagementProfile` cell is a deliberate exception to that rule rather than 
 is shared mutable state owned by the _host_, which pushes profiles in and updates them as the OS
 profile changes, while the SDK only ever reads. It must also be readable before login and before
 unlock, since it can carry pre-authentication configuration such as the environment URL. Since a
-`Repository` models storage the SDK owns, that abstraction is incompatible with 
-the shared mutable state owned by the host.
+`Repository` models storage the SDK owns, that abstraction is incompatible with the shared mutable
+state owned by the host.
 
 ### `Client` vs `InternalClient`
 
