@@ -131,7 +131,7 @@ pub struct InternalClient {
     pub(crate) state_bridge: StateBridge,
 
     /// Administrator-forced settings acquired from the operating system's device-management
-    /// channel. The host application owns this cell and pushes profiles into it; the SDK only
+    /// channel. The host application owns this cell and pushes profiles into it. The SDK only
     /// reads. Shared with the host, so updates are observed without rebuilding the client.
     pub(crate) managed_profile: Arc<RwLock<Option<ManagementProfile>>>,
 }
