@@ -82,8 +82,8 @@ impl ClientBuilder {
     /// Low-level hook to store a managed-settings profile cell, shared with the host application
     /// that pushes profiles into it. Defaults to a fresh empty cell when not set.
     ///
-    /// The `ManagedSettingsClient` in `bitwarden-managed-settings` supplies the cell; prefer
-    /// constructing the client through that crate over calling this directly.
+    /// The `ManagedSettingsClient` in `bitwarden-managed-settings` supplies the cell. Instantiate
+    /// the client through that crate instead of calling this directly.
     pub fn with_managed_profile(mut self, cell: Arc<RwLock<Option<ManagementProfile>>>) -> Self {
         self.managed_profile = Some(cell);
         self
