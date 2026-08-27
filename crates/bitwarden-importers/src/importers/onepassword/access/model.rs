@@ -7,7 +7,6 @@ use std::fmt;
 use super::wire::{VaultItemDetails, VaultItemOverview};
 
 /// A decrypted vault with its items.
-#[derive(Debug)]
 pub struct Vault {
     /// The vault's 1Password uuid.
     pub id: String,
@@ -20,7 +19,6 @@ pub struct Vault {
 }
 
 /// A decrypted item: its identity plus both payloads exactly as 1Password sends them.
-#[derive(Debug)]
 pub struct Item {
     /// The item's 1Password uuid.
     pub id: String,
