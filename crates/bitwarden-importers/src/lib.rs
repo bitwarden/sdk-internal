@@ -18,6 +18,14 @@ mod importers;
 pub(crate) use importers::keeper;
 mod pipeline;
 
+/// The 1Password access module: log in to an account and download its vaults.
+///
+/// Exposed only under the `test-utils` feature, for the out-of-tree CLI that drives it against
+/// a real account. Not part of this crate's supported API, and no stability is promised.
+// TODO: Remove once the importer consumes the module directly.
+#[cfg(feature = "test-utils")]
+pub use importers::onepassword::access as onepassword_access;
+
 /// Destination options for a vault import.
 ///
 /// `organization_id` selects the destination: `None` imports into the user's personal vault (groups

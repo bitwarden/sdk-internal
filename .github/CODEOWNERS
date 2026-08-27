@@ -61,6 +61,7 @@ crates/bitwarden-vault/** @bitwarden/team-vault-dev
 
 # Team-owned folders in other crates (to be avoided if possible)
 crates/bitwarden-wasm-internal/integration-tests/tests/organizations/** @bitwarden/team-admin-console-dev
+crates/bitwarden-wasm-internal/integration-tests/tests/policies/** @bitwarden/team-admin-console-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/registration/** @bitwarden/team-auth-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/unlock/** @bitwarden/team-key-management-dev
 crates/bitwarden-wasm-internal/integration-tests/tests/user-crypto-management/** @bitwarden/team-key-management-dev

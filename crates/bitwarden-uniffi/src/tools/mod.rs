@@ -4,7 +4,7 @@ use bitwarden_generators::{
     PassphraseGeneratorRequest, PasswordGeneratorRequest, UsernameGeneratorRequest,
 };
 use bitwarden_importers::{ImportOptions, ImportSummary};
-use bitwarden_vault::{Cipher, Folder};
+use bitwarden_vault::{Cipher, EncryptionContext, Folder};
 
 use crate::error::Result;
 
@@ -83,7 +83,7 @@ impl ExporterClient {
     ///
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
-    pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>> {
+    pub fn import_cxf(&self, payload: String) -> Result<Vec<EncryptionContext>> {
         Ok(self.0.import_cxf(payload)?)
     }
 }

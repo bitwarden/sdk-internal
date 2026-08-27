@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 /// SDK domain model for master password policy requirements.
 /// Defines the complexity requirements for a user's master password
 /// when enforced by an organization policy.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(

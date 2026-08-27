@@ -164,6 +164,7 @@ mod tests {
                     },
                     master_key_wrapped_user_key: user_key,
                     salt: "test@bitwarden.com".to_string(),
+                    contained_key_id: None,
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
                 &None,
@@ -237,6 +238,7 @@ mod tests {
                     kdf: kdf.clone(),
                     master_key_wrapped_user_key: user_key,
                     salt: email.to_string(),
+                    contained_key_id: None,
                 },
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.clone(),

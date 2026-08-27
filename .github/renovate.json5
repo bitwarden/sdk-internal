@@ -77,7 +77,14 @@
     },
     {
       matchManagers: ["cargo"],
-      matchPackageNames: ["keepass"],
+      matchPackageNames: [
+        "aes-gcm",
+        "crypto-bigint",
+        "hkdf",
+        "icu_normalizer",
+        "keepass",
+        "pbkdf2",
+      ],
       commitMessagePrefix: "[deps] Tools:",
       reviewers: ["team:team-tools-dev"],
     },
