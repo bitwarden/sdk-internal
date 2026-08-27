@@ -7,7 +7,7 @@
 //! users whose vault URL is that origin, in either direction.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -22,7 +22,7 @@ use thiserror::Error;
 use tracing::warn;
 
 use crate::{
-    DeviceEvent, LockState, SharedUnlockSync, TimestampedLockState,
+    DeviceEvent, LockState, SharedUnlockClient, SharedUnlockSync, TimestampedLockState,
     active_peers::{ActivePeerTracker, SyncTarget},
     drivers::SharedUnlockDriver,
     timing::{SharedUnlockTiming, now_millis},
@@ -53,6 +53,10 @@ struct InnerPeer<D: SharedUnlockDriver> {
     states: Mutex<HashMap<UserId, TimestampedLockState>>,
     active_peers: ActivePeerTracker,
     timing: SharedUnlockTiming,
+    /// Per user, the client kinds this peer is allowed to sync that user to. A user is absent
+    /// until [`SharedUnlockPeer::set_destinations`] is called for it, so a user is shared with
+    /// nothing until its client opts in.
+    destinations: Mutex<HashMap<UserId, HashSet<SharedUnlockClient>>>,
 }
 
 impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
@@ -93,7 +97,31 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             states: Mutex::new(HashMap::new()),
             active_peers: ActivePeerTracker::default(),
             timing,
+            destinations: Mutex::new(HashMap::new()),
         }))
+    }
+
+    /// Sets which clients this peer shares one user's unlock state with, in both directions: a
+    /// client that is not in the set is never synced that user, and that user's syncs from it are
+    /// dropped on arrival. Replaces any previous set for the user.
+    ///
+    /// Every user defaults to no client at all — a peer neither sends nor accepts anything for a
+    /// user until this is called for it.
+    pub fn set_destinations(&self, user_id: UserId, destinations: Vec<SharedUnlockClient>) {
+        self.0
+            .destinations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(user_id, destinations.into_iter().collect());
+    }
+
+    fn is_destination(&self, user_id: UserId, endpoint: &Endpoint) -> bool {
+        self.0
+            .destinations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(&user_id)
+            .is_some_and(|clients| clients.contains(&SharedUnlockClient::of_endpoint(endpoint)))
     }
 
     /// Starts the receive loop and the sync timer, then announces this peer's state once so it does
@@ -170,6 +198,15 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     ) -> Result<(), ()> {
         let source = incoming_message.source;
         let SharedUnlockSync { user_id, state } = incoming_message.payload;
+
+        if !self.is_destination(user_id, &source.to_endpoint()) {
+            tracing::debug!(
+                ?source,
+                %user_id,
+                "Ignoring shared unlock sync from a client this user is not shared with"
+            );
+            return Ok(());
+        }
 
         // Validate the origin of web sources against the user's vault URL
         if let Source::Web { origin, .. } = &source {
@@ -320,11 +357,18 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
 
     /// Whether a user's state may be sent to a peer.
     ///
-    /// A web peer is entitled only to the users whose vault URL is the origin it was validated
+    /// The peer must be among the user's configured destinations.
+    ///
+    /// A web peer is additionally entitled only to the users whose vault URL is the
+    /// origin it was validated
     /// against — the same rule [`SharedUnlockPeer::receive_message`] applies to incoming syncs,
     /// applied outbound so a page served by one vault is never handed another vault's key material.
     /// A web peer with no recorded origin fails closed.
     async fn may_sync_user_to(&self, user_id: UserId, target: &SyncTarget) -> bool {
+        if !self.is_destination(user_id, &target.endpoint) {
+            return false;
+        }
+
         if !matches!(target.endpoint, Endpoint::Web { .. }) {
             return true;
         }
