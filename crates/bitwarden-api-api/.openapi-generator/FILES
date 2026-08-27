@@ -75,6 +75,7 @@ src/apis/web_authn_api.rs
 src/lib.rs
 src/models/accept_organization_invite_link_request_model.rs
 src/models/access_approval_mode.rs
+src/models/access_decider_kind.rs
 src/models/access_decision_request_model.rs
 src/models/access_decision_verdict.rs
 src/models/access_lease_extension_request_model.rs
@@ -200,7 +201,6 @@ src/models/create_collection_request_model.rs
 src/models/create_organization_invite_link_request_model.rs
 src/models/create_premium_checkout_session_request.rs
 src/models/credential_create_options.rs
-src/models/decider_kind.rs
 src/models/delete_attachment_response_model.rs
 src/models/delete_recover_request_model.rs
 src/models/device_auth_request_response_model.rs
@@ -239,6 +239,7 @@ src/models/event_type.rs
 src/models/fido2_user.rs
 src/models/field_type.rs
 src/models/file_upload_type.rs
+src/models/folder_bulk_delete_request_model.rs
 src/models/folder_request_model.rs
 src/models/folder_response_model.rs
 src/models/folder_response_model_list_response_model.rs
@@ -361,6 +362,7 @@ src/models/organization_upgrade_request_model.rs
 src/models/organization_user.rs
 src/models/organization_user_accept_init_request_model.rs
 src/models/organization_user_accept_request_model.rs
+src/models/organization_user_account_recovery_request_model.rs
 src/models/organization_user_bulk_confirm_request_model.rs
 src/models/organization_user_bulk_confirm_request_model_entry.rs
 src/models/organization_user_bulk_request_model.rs
@@ -399,6 +401,7 @@ src/models/password_manager_update_selections.rs
 src/models/password_request_model.rs
 src/models/payment_method_type.rs
 src/models/payment_response_model.rs
+src/models/pending_annual_upgrade_response_model.rs
 src/models/pending_auth_request.rs
 src/models/pending_auth_request_response_model.rs
 src/models/pending_auth_request_response_model_list_response_model.rs
@@ -486,7 +489,6 @@ src/models/push_update_request_model.rs
 src/models/refresh_organization_invite_link_request_model.rs
 src/models/report_file.rs
 src/models/request_sm_access_request_model.rs
-src/models/reset_password_with_org_id_request_model.rs
 src/models/response_data.rs
 src/models/restart_subscription_request.rs
 src/models/restore_secret_version_request_model.rs
@@ -528,6 +530,8 @@ src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
 src/models/self_hosted_organization_license_request_model.rs
 src/models/send_access_response_model.rs
+src/models/send_data_model.rs
+src/models/send_encryption_type.rs
 src/models/send_file_download_data_response_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs
@@ -551,6 +555,7 @@ src/models/service_account_secrets_details_response_model_list_response_model.rs
 src/models/service_account_update_request_model.rs
 src/models/set_initial_password_request_model.rs
 src/models/set_key_connector_key_request_model.rs
+src/models/set_user_key_id_request_model.rs
 src/models/set_verify_devices_request_model.rs
 src/models/setup_business_unit_request_body.rs
 src/models/signature_key_pair_request_model.rs

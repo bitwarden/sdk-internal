@@ -8,6 +8,7 @@ import {
   MasterPasswordUnlockData,
   WebAuthnPrfUnlockData,
   Kdf,
+  KeyId,
   PasswordManagerClient,
   init_sdk,
   TokenProvider,
@@ -20,12 +21,8 @@ import {
   Source,
   BiometricsUnlock,
   BiometricsStatus,
-  SharedUnlockDriver,
-  SharedUnlockFollower,
-  SharedUnlockLeader,
   InitUserCryptoMethod,
   ClientSettings,
-  Kdf,
 } from "@bitwarden/sdk-internal";
 import {
   ORG_ACCOUNT_KDF_PARAMS,
@@ -54,6 +51,7 @@ export function makeStateBridge(): WasmStateBridge {
   let ephemeralPinEnvelope: PasswordProtectedKeyEnvelope | null;
   let encryptedPin: EncString | null;
   let user_key: SymmetricKey | null;
+  let userKeyId: KeyId | null;
   let v2UpgradeToken: V2UpgradeToken | null;
   let accountCryptographicState: WrappedAccountCryptographicState | null;
   let masterPasswordUnlockData: MasterPasswordUnlockData | null;
@@ -69,6 +67,14 @@ export function makeStateBridge(): WasmStateBridge {
     get_user_key: async () => user_key,
     clear_user_key: async () => {
       user_key = null;
+    },
+
+    set_user_key_id: async (v: KeyId) => {
+      userKeyId = v;
+    },
+    get_user_key_id: async () => userKeyId,
+    clear_user_key_id: async () => {
+      userKeyId = null;
     },
 
     set_persistent_pin_envelope: async (v: PasswordProtectedKeyEnvelope) => {
@@ -384,233 +390,8 @@ export function makeMockBiometricsDriver(
   };
 }
 
-/**
- * Options for the in-memory shared-unlock driver.
- */
-export interface MockSharedUnlockDriverOptions {
-  initialStates?: Map<UserId, SymmetricKey | undefined>;
-  clientName?: "web" | "browser" | "cli" | "desktop";
-  vaultUrls?: Map<UserId, string>;
-}
-
-/**
- * Mock shared-unlock driver plus inspection helpers.
- */
-export interface MockSharedUnlockDriverHandle {
-  driver: SharedUnlockDriver;
-  getUserKey(user_id: UserId): SymmetricKey | undefined;
-  suppressedTimeouts: Array<{ user_id: UserId; duration_ms: number }>;
-}
-
-/**
- * In-memory implementation of the `SharedUnlockDriver` JS interface for tests.
- * Lock/unlock calls mutate the same in-memory state that `get_user_key` reads,
- * so the driver reflects whatever the protocol last did to it.
- */
-export function makeMockSharedUnlockDriver(
-  options: MockSharedUnlockDriverOptions = {},
-): MockSharedUnlockDriverHandle {
-  const states = new Map(options.initialStates ?? []);
-  const vaultUrls = new Map(options.vaultUrls ?? []);
-  const clientName = options.clientName ?? "browser";
-  const suppressedTimeouts: Array<{ user_id: UserId; duration_ms: number }> = [];
-
-  const driver: SharedUnlockDriver = {
-    lock_user: async (user_id) => {
-      states.set(user_id, undefined);
-    },
-    unlock_user: async (user_id, user_key) => {
-      states.set(user_id, user_key);
-    },
-    list_users: async () => Array.from(states.keys()),
-    get_user_key: async (user_id) => states.get(user_id) ?? undefined,
-    suppress_vault_timeout: async (user_id, suppression_duration) => {
-      suppressedTimeouts.push({ user_id, duration_ms: suppression_duration });
-    },
-    get_client_name: async () => clientName,
-    get_vault_url: async (user_id) => vaultUrls.get(user_id),
-  };
-
-  return {
-    driver,
-    getUserKey: (user_id) => states.get(user_id) ?? undefined,
-    suppressedTimeouts,
-  };
-}
-
 export async function sleep(ms: number): Promise<void> {
   for (let elapsed = 0; elapsed < ms; elapsed += 1) {
     await new Promise((resolve) => setTimeout(resolve, 1));
   }
-}
-
-/**
- * Wires up a `SharedUnlockLeader` and `SharedUnlockFollower` over a paired
- * in-memory IPC transport. The leader is started before the follower, so the
- * leader has subscribed to `FollowerMessage` before the follower's
- * `start_sessions` sends its first `StartSession`.
- *
- * Both `start()` calls run background loops that only exit when their abort
- * controllers fire — call `cleanup()` (or the returned controllers) at the
- * end of each test to terminate them.
- */
-export interface SharedUnlockPair {
-  leader: SharedUnlockLeader;
-  follower: SharedUnlockFollower;
-  leaderDriver: MockSharedUnlockDriverHandle;
-  followerDriver: MockSharedUnlockDriverHandle;
-  leaderAbort: AbortController;
-  followerAbort: AbortController;
-  _internal: {
-    router: MockTransportRouter;
-    leaderBackend: IpcCommunicationBackend;
-    followerBackend: IpcCommunicationBackend;
-    followerSource: Source;
-    leaderSource: Source;
-  };
-}
-
-export async function setupSharedUnlockPair(options: {
-  leader: MockSharedUnlockDriverOptions;
-  follower: MockSharedUnlockDriverOptions;
-}): Promise<SharedUnlockPair> {
-  init_sdk();
-
-  // First peer = follower (sends to DesktopRenderer = leader's endpoint).
-  // Second peer = leader (replies to DesktopMain = follower's source).
-  const followerSource: Source = "DesktopMain";
-  const leaderSource: Source = "DesktopRenderer";
-  const [followerBackend, leaderBackend, router] = makeMockTransportPair(
-    followerSource,
-    leaderSource,
-  );
-
-  const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
-  const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend);
-
-  await leaderIpc.start();
-  await followerIpc.start();
-
-  const leaderDriver = makeMockSharedUnlockDriver(options.leader);
-  const followerDriver = makeMockSharedUnlockDriver(options.follower);
-
-  const leader = SharedUnlockLeader.try_new(leaderIpc, leaderDriver.driver);
-  const follower = SharedUnlockFollower.try_new(followerIpc, followerDriver.driver);
-
-  // Start the leader first so it has subscribed before the follower sends
-  // its initial `StartSession` messages.
-  const leaderAbort = new AbortController();
-  const followerAbort = new AbortController();
-  await leader.start(leaderAbort);
-  await follower.start(followerAbort);
-
-  return {
-    leader,
-    follower,
-    leaderDriver,
-    followerDriver,
-    leaderAbort,
-    followerAbort,
-    _internal: {
-      router,
-      leaderBackend,
-      followerBackend,
-      followerSource,
-      leaderSource,
-    },
-  };
-}
-
-/**
- * Simulates a follower process reload: the old follower's background loops
- * are aborted, then a brand-new `IpcCommunicationBackend`, `IpcClient`,
- * driver, and `SharedUnlockFollower` are attached to the same leader. The
- * new follower stamps the same `Source` on outgoing messages so the leader's
- * session tracking treats it as the same endpoint coming back online.
- */
-export async function reloadFollower(
-  pair: SharedUnlockPair,
-  options: { follower: MockSharedUnlockDriverOptions },
-): Promise<SharedUnlockPair> {
-  pair.followerAbort.abort();
-
-  const { router, leaderBackend, followerSource } = pair._internal;
-
-  const newFollowerSender: IpcCommunicationBackendSender = {
-    send: async (outgoing: OutgoingMessage) => {
-      leaderBackend.receive(
-        new IncomingMessage(outgoing.payload, outgoing.destination, followerSource, outgoing.topic),
-      );
-    },
-  };
-  const newFollowerBackend = new IpcCommunicationBackend(newFollowerSender);
-
-  router.setFirstReceiver((m) => newFollowerBackend.receive(m));
-
-  const newFollowerIpc = IpcClient.newWithSdkInMemorySessions(newFollowerBackend);
-  await newFollowerIpc.start();
-
-  const newFollowerDriver = makeMockSharedUnlockDriver(options.follower);
-  const newFollower = SharedUnlockFollower.try_new(newFollowerIpc, newFollowerDriver.driver);
-
-  const newFollowerAbort = new AbortController();
-  await newFollower.start(newFollowerAbort);
-
-  return {
-    ...pair,
-    follower: newFollower,
-    followerDriver: newFollowerDriver,
-    followerAbort: newFollowerAbort,
-  };
-}
-
-/**
- * Simulates a leader process reload: the old leader's background loops are
- * aborted, then a brand-new `IpcCommunicationBackend`, `IpcClient`, driver,
- * and `SharedUnlockLeader` are attached to the same follower. The new leader
- * stamps the same `Source` on outgoing messages so the follower's session
- * tracking treats it as the same endpoint coming back online.
- *
- * The new leader does not proactively contact the follower — the follower
- * must send something (a device event or, eventually, a heartbeat) for the
- * new leader to learn about the session.
- */
-export async function reloadLeader(
-  pair: SharedUnlockPair,
-  options: { leader: MockSharedUnlockDriverOptions },
-): Promise<SharedUnlockPair> {
-  pair.leaderAbort.abort();
-
-  const { router, followerBackend, leaderSource } = pair._internal;
-
-  const newLeaderSender: IpcCommunicationBackendSender = {
-    send: async (outgoing: OutgoingMessage) => {
-      followerBackend.receive(
-        new IncomingMessage(outgoing.payload, outgoing.destination, leaderSource, outgoing.topic),
-      );
-    },
-  };
-  const newLeaderBackend = new IpcCommunicationBackend(newLeaderSender);
-
-  router.setSecondReceiver((m) => newLeaderBackend.receive(m));
-
-  const newLeaderIpc = IpcClient.newWithSdkInMemorySessions(newLeaderBackend);
-  await newLeaderIpc.start();
-
-  const newLeaderDriver = makeMockSharedUnlockDriver(options.leader);
-  const newLeader = SharedUnlockLeader.try_new(newLeaderIpc, newLeaderDriver.driver);
-
-  const newLeaderAbort = new AbortController();
-  await newLeader.start(newLeaderAbort);
-
-  return {
-    ...pair,
-    leader: newLeader,
-    leaderDriver: newLeaderDriver,
-    leaderAbort: newLeaderAbort,
-    _internal: {
-      ...pair._internal,
-      leaderBackend: newLeaderBackend,
-    },
-  };
 }

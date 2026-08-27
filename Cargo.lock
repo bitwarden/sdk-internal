@@ -619,9 +619,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-commercial-marker"
+version = "3.0.0"
+
+[[package]]
 name = "bitwarden-commercial-vault"
 version = "3.0.0"
 dependencies = [
+ "bitwarden-commercial-marker",
  "bitwarden-core",
  "serde",
  "serde_json",
@@ -659,6 +664,7 @@ dependencies = [
  "getrandom 0.3.4",
  "getrandom 0.4.3",
  "http",
+ "mockall",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
  "reqwest",
@@ -841,6 +847,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.19",
+ "tokio",
  "tsify",
  "uniffi",
  "url",
@@ -922,24 +929,40 @@ dependencies = [
 name = "bitwarden-importers"
 version = "3.0.0"
 dependencies = [
+ "aes-gcm 0.11.0",
+ "async-trait",
  "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-exporters",
+ "bitwarden-random",
  "bitwarden-vault",
  "chrono",
+ "crypto-bigint 0.7.5",
  "data-encoding",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "icu_normalizer",
  "keepass",
+ "rand 0.10.2",
+ "reqwest",
+ "rsa",
  "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.0",
  "thiserror 2.0.19",
  "tokio",
  "tsify",
  "uniffi",
+ "url",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
  "zeroize",
 ]
 
@@ -992,6 +1015,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "bitwarden-managed-settings"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-managed-settings-types",
+ "tracing",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "bitwarden-managed-settings-types"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-error",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tsify",
+ "uniffi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1053,9 +1098,11 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-collections",
+ "bitwarden-commercial-marker",
  "bitwarden-core",
  "bitwarden-error",
  "bitwarden-uuid",
+ "bitwarden-vault",
  "chrono",
  "reqwest",
  "serde",
@@ -1111,7 +1158,9 @@ dependencies = [
  "bitwarden-organizations",
  "chrono",
  "serde",
+ "serde_json",
  "serde_repr",
+ "tracing",
  "tsify",
  "uniffi",
  "uuid",
@@ -1148,6 +1197,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uuid",
+ "bitwarden-vault",
  "chrono",
  "reqwest",
  "serde",
@@ -1227,6 +1277,7 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-auth",
+ "bitwarden-commercial-marker",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-generators",
@@ -1381,6 +1432,8 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
+ "bitwarden-managed-settings",
+ "bitwarden-managed-settings-types",
  "bitwarden-organizations",
  "bitwarden-pm",
  "bitwarden-policies",
@@ -1533,6 +1586,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-logging",
+ "bitwarden-managed-settings",
  "bitwarden-organization-crypto",
  "bitwarden-organization-invite-link",
  "bitwarden-pm",
@@ -2312,7 +2366,8 @@ dependencies = [
 [[package]]
 name = "crypto-bigint"
 version = "0.7.5"
-source = "git+https://github.com/RustCrypto/crypto-bigint?tag=v0.7.5#2b54d248cce00457e3afb5650d9b14632ef4a116"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a52aa3fcda4e6302a9f48734f234d35d4721b96f8fe07d073f07ce9df4f0271"
 dependencies = [
  "cpubits",
  "ctutils",
@@ -3317,9 +3372,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.4.15"
+version = "0.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cb093c84e8bd9b188d4c4a8cb6579fc016968d14c99882163cd3ff402a4f155"
+checksum = "a9f37a958b41b3b19ee2707c06439c0e9e547e847223eb791ecb0cb821c65e27"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -3627,6 +3682,7 @@ dependencies = [
  "icu_properties",
  "icu_provider",
  "smallvec",
+ "utf8_iter",
  "zerovec",
 ]
 

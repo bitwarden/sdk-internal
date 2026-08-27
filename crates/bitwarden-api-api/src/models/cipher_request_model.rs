@@ -21,6 +21,17 @@ pub struct CipherRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub encrypted_for: Option<uuid::Uuid>,
+    /// Hex-encoded key id of the key the client held when it encrypted this cipher: the user key
+    /// for a user-owned cipher, the organization key for an organization cipher. Absent for
+    /// clients that predate the field. For a user-owned cipher it must match the acting user's
+    /// current user key id; for an organization cipher it is not validated, because organizations
+    /// carry no key id yet.
+    #[serde(
+        rename = "encryptedByKeyId",
+        alias = "EncryptedByKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub encrypted_by_key_id: Option<String>,
     #[serde(
         rename = "type",
         alias = "R#type",
@@ -152,12 +163,21 @@ pub struct CipherRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub archived_date: Option<String>,
+    /// True when this cipher is owned by an organization, and so is encrypted with the
+    /// organization key rather than the acting user's key.
+    #[serde(
+        rename = "isOrganizationCipher",
+        alias = "IsOrganizationCipher",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_organization_cipher: Option<bool>,
 }
 
 impl CipherRequestModel {
     pub fn new(name: String) -> CipherRequestModel {
         CipherRequestModel {
             encrypted_for: None,
+            encrypted_by_key_id: None,
             r#type: None,
             organization_id: None,
             folder_id: None,
@@ -181,6 +201,7 @@ impl CipherRequestModel {
             data: None,
             last_known_revision_date: None,
             archived_date: None,
+            is_organization_cipher: None,
         }
     }
 }

@@ -134,7 +134,7 @@ impl
 
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let (send_type, file, text) = self
+        let (send_type, file, text, data) = self
             .request
             .view_type
             .clone()
@@ -167,8 +167,7 @@ impl
             deletion_date: self.request.deletion_date.to_rfc3339(),
             file,
             text,
-            // TODO: Implement logic for item-based Sends
-            data: None,
+            data,
             password,
             emails,
             disabled: self.request.disabled,
@@ -215,11 +214,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
 
     let send_request = key_store.encrypt(request_with_key)?;
 
-    let resp = api_client
-        .sends_api()
-        .put(&id, Some(send_request))
-        .await
-        .map_err(ApiError::from)?;
+    let resp = api_client.sends_api().put(&id, Some(send_request)).await?;
 
     let send: Send = resp.try_into()?;
 
@@ -348,6 +343,7 @@ mod tests {
                 text: Some("original text".to_string()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -515,6 +511,7 @@ mod tests {
                 text: Some("original text".to_string()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -600,6 +597,7 @@ mod tests {
                 text: Some("secret".to_string()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,

@@ -87,7 +87,8 @@ impl
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let (send_type, file, text) = self.view_type.clone().encrypt_composite(ctx, send_key)?;
+        let (send_type, file, text, data) =
+            self.view_type.clone().encrypt_composite(ctx, send_key)?;
 
         let (password, emails) = self.auth.auth_data(&k);
 
@@ -109,8 +110,7 @@ impl
             deletion_date: self.deletion_date.to_rfc3339(),
             file,
             text,
-            // TODO: Implement logic for item-based Sends
-            data: None,
+            data,
             password,
             emails,
             disabled: self.disabled,
@@ -135,11 +135,7 @@ async fn create_send<R: Repository<Send> + ?Sized>(
 
     let send_request = key_store.encrypt(request)?;
 
-    let resp = api_client
-        .sends_api()
-        .post(Some(send_request))
-        .await
-        .map_err(ApiError::from)?;
+    let resp = api_client.sends_api().post(Some(send_request)).await?;
 
     let send: Send = resp.try_into()?;
 

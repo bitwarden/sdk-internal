@@ -27,12 +27,6 @@ pub enum CipherCreateAttachmentError {
     UnsupportedFileUploadType,
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherCreateAttachmentError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 /// Where attachment bytes should be uploaded.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -495,8 +489,8 @@ mod tests {
             mock.ciphers_api
                 .expect_post_attachment()
                 .returning(|_id, _req| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
                             message: "boom".to_string(),
                         },

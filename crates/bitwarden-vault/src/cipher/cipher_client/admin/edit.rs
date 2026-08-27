@@ -47,12 +47,6 @@ pub enum EditCipherAdminError {
     Decrypt(#[from] DecryptError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherAdminError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 // `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
 // short-lived feature-rollout flags that will be removed once their migrations
 // complete, at which point the argument count drops back under the limit.
@@ -88,6 +82,10 @@ async fn edit_cipher(
     // returns `false` for any `Some(org)` today. Routing through the same
     // dispatcher means org blob support (PM-32430) flips on automatically
     // here when the helper learns to return `true` for orgs.
+    let encrypted_by_key_id = key_store
+        .context()
+        .get_symmetric_key_id(view.key_identifier())
+        .map(|id| id.to_string());
     let mode = if use_blob {
         EncryptMode::Blob(view)
     } else {
@@ -96,6 +94,7 @@ async fn edit_cipher(
     let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
+    cipher_request.encrypted_by_key_id = encrypted_by_key_id;
 
     let orig_mode = if use_blob {
         EncryptMode::Blob(original_cipher_view)
@@ -107,8 +106,7 @@ async fn edit_cipher(
     let mut cipher: Cipher = api_client
         .ciphers_api()
         .put_admin(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(orig_cipher))?;
 
     cipher.folder_id = folder_id;
@@ -302,6 +300,7 @@ mod tests {
                         password_history: body.password_history,
                         attachments: None,
                         data: None,
+                        partial_data: None,
                     })
                 })
                 .once();
