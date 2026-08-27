@@ -15,6 +15,7 @@ mod import;
 mod importer_client;
 pub use importer_client::{ImporterClient, ImporterClientExt};
 mod importers;
+pub(crate) use importers::keeper;
 mod pipeline;
 
 /// The 1Password access module: log in to an account and download its vaults.

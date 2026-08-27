@@ -36,6 +36,7 @@ wasm = [
 ]
 
 [dependencies]
+aes = { workspace = true }
 aes-gcm = { workspace = true }
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
@@ -46,6 +47,7 @@ bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-vault = { workspace = true }
+cbc = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 crypto-bigint = { workspace = true }
 data-encoding = { workspace = true }
@@ -53,6 +55,8 @@ hkdf = { workspace = true }
 hmac = { workspace = true }
 icu_normalizer = { workspace = true }
 keepass = { workspace = true }
+p256 = { version = "=0.14.0", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
+pbkdf2 = { workspace = true, features = ["hmac"] }
 rand = { workspace = true }
 reqwest = { workspace = true }
 rsa = { workspace = true }
@@ -60,6 +64,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
+subtle = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
