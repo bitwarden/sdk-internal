@@ -2,18 +2,46 @@
 //!
 //! Low-level ("hazmat") authenticated symmetric ciphers, exposed behind two traits:
 //! - [`Aead`]: authenticated encryption *with* associated data. Implemented by AES-256-GCM
-//!   ([`Aes256Gcm`]) and XChaCha20-Poly1305 ([`XChaCha20Poly1305`]).
+//!   ([`Aes256Gcm`]), XAES-256-GCM ([`XAes256Gcm`]), XChaCha20-Poly1305 ([`XChaCha20Poly1305`]),
+//!   and AES-256-CBC-HMAC-SHA256 ([`Aes256CbcHmacSha256Aead`]).
 //!
 //! These are dangerous primitives that operate directly on raw key material. In most cases you
 //! should use the higher-level [`safe`](crate::safe) module (e.g. the password-protected key
 //! envelope or data envelope) instead.
 
 use crate::CryptoError;
+pub(crate) mod aes256_cbc;
+
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum SymmetricEncryptionError {
+    /// The input is malformed — wrong length, invalid padding, or otherwise not a valid
+    /// ciphertext for the cipher.
+    FormatWrong,
+    /// The integrity check (MAC / authentication tag) failed; the ciphertext, associated data,
+    /// nonce/IV, and key do not match.
+    IntegrityCheckFailed,
+}
+
+impl From<SymmetricEncryptionError> for CryptoError {
+    fn from(_: SymmetricEncryptionError) -> Self {
+        CryptoError::KeyDecrypt
+    }
+}
+pub(crate) mod aes256_cbc_hmac_sha256_ae;
+pub(crate) mod aes256_cbc_hmac_sha256_aead;
 pub(crate) mod aes_gcm;
+pub(crate) mod xaes_256_gcm;
 pub(crate) mod xchacha20;
 
 #[allow(unused_imports)]
 pub(crate) use aes_gcm::Aes256Gcm;
+pub(crate) use aes256_cbc::Aes256Cbc;
+pub(crate) use aes256_cbc_hmac_sha256_ae::Aes256CbcHmacSha256;
+#[allow(unused_imports)]
+pub(crate) use aes256_cbc_hmac_sha256_aead::Aes256CbcHmacSha256Aead;
+#[allow(unused_imports)]
+pub(crate) use xaes_256_gcm::XAes256Gcm;
 #[allow(unused_imports)]
 pub(crate) use xchacha20::XChaCha20Poly1305;
 

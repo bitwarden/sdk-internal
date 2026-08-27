@@ -1,7 +1,7 @@
 #[cfg(any(feature = "wasm", test))]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, CryptoError, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet,
+    BitwardenLegacyKeyBytes, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet,
     SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 #[cfg(feature = "internal")]
@@ -13,10 +13,9 @@ use wasm_bindgen::prelude::*;
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
     MakeJitMasterPasswordRegistrationResponse, MakeKeyConnectorRegistrationResponse,
-    MakeKeyPairResponse, MakeUserMasterPasswordRegistrationResponse, VerifyAsymmetricKeysRequest,
-    VerifyAsymmetricKeysResponse, derive_key_connector, make_key_pair,
+    MakeUserMasterPasswordRegistrationResponse, derive_key_connector,
     make_user_jit_master_password_registration, make_user_key_connector_registration,
-    make_user_password_registration, verify_asymmetric_keys,
+    make_user_password_registration,
 };
 use crate::key_management::V2UpgradeToken;
 #[cfg(feature = "uniffi")]
@@ -71,22 +70,6 @@ impl CryptoClient {
         initialize_org_crypto(&self.client, req).await
     }
 
-    /// Generates a new key pair and encrypts the private key with the provided user key.
-    /// Crypto initialization not required.
-    pub fn make_key_pair(&self, user_key: B64) -> Result<MakeKeyPairResponse, CryptoError> {
-        make_key_pair(user_key)
-    }
-
-    /// Verifies a user's asymmetric keys by decrypting the private key with the provided user
-    /// key. Returns if the private key is decryptable and if it is a valid matching key.
-    /// Crypto initialization not required.
-    pub fn verify_asymmetric_keys(
-        &self,
-        request: VerifyAsymmetricKeysRequest,
-    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
-        verify_asymmetric_keys(request)
-    }
-
     /// Makes a new signing key pair and signs the public key for the user
     pub fn make_keys_for_user_crypto_v2(
         &self,
@@ -106,6 +89,8 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the re-encrypted
     /// user key and the new password hash but does not update sdk state.
+    ///
+    /// Note: This is deprecated. Please use the user-crypto-management client instead.
     pub async fn make_update_kdf(
         &self,
         password: String,
@@ -321,7 +306,7 @@ impl CryptoClient {
 
         match (algorithm, upgrade_token) {
             // Already V2, return current key
-            (SymmetricKeyAlgorithm::XChaCha20Poly1305, _) => {
+            (SymmetricKeyAlgorithm::XAes256Gcm, _) => {
                 #[allow(deprecated)]
                 let current_key = ctx
                     .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
@@ -343,7 +328,9 @@ impl CryptoClient {
             (SymmetricKeyAlgorithm::Aes256CbcHmac, None) => {
                 Err(CryptoClientError::UpgradeTokenRequired)
             }
-            (SymmetricKeyAlgorithm::Aes256Gcm, _) => Err(CryptoClientError::InvalidKeyType),
+            (SymmetricKeyAlgorithm::XChaCha20Poly1305 | SymmetricKeyAlgorithm::Aes256Gcm, _) => {
+                Err(CryptoClientError::InvalidKeyType)
+            }
         }
     }
 }
@@ -437,7 +424,7 @@ mod tests {
         // Add a fresh V2 key to the client's keystore and build a token linking it to the V1 key
         let (token, expected_v2_b64) = {
             let mut ctx = client.internal.get_key_store().context_mut();
-            let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             #[allow(deprecated)]
             let v2_key = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap().clone();
             let token = V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap();
@@ -457,7 +444,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let wrong_v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(wrong_v1_id, v2_id, &ctx).unwrap()
         };
 
@@ -477,7 +464,7 @@ mod tests {
         let result = client.crypto().get_upgraded_user_key(None).unwrap();
         let result_key = SymmetricCryptoKey::try_from(result).unwrap();
         assert!(
-            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            matches!(result_key, SymmetricCryptoKey::XAes256GcmKey(_)),
             "V2 user should receive a V2 key"
         );
     }
@@ -491,7 +478,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(v1_id, v2_id, &ctx).unwrap()
         };
 

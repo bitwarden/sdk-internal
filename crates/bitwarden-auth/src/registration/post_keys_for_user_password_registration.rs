@@ -14,6 +14,33 @@ use wasm_bindgen::prelude::*;
 
 use crate::registration::{RegistrationClient, RegistrationError};
 
+/// Open-organization-invite data to include on the register-finish payload.
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct RegistrationFinishOpenOrgInviteData {
+    /// The organization the registrant is joining via the open invite link.
+    pub organization_id: OrganizationId,
+    // TODO: retrofit to a tagged newtype once KM or AC introduce one for
+    // invite-link codes. Bitwarden convention prefers tagged/branded ID types
+    // over raw UUIDs on FFI-exposed structs (see `OrganizationId`), but no
+    // shared type exists for invite-link codes today, so we accept the code as
+    // a `String` and parse to `Uuid` at the SDK boundary.
+    /// The bearer code from the shared invite URL. Must be a UUID.
+    pub code: String,
+}
+
+// TODO PM-41828: consider annotating every `Option<T>` field below with
+// `#[cfg_attr(feature = "uniffi", uniffi(default = None))]` and
+// `#[cfg_attr(feature = "wasm", tsify(optional))]`
+// Doing so makes each field optional in the generated
+// Kotlin/Swift/TypeScript bindings, so future additive `Option<T>` fields land as non-breaking
+// changes on mobile and clients (rather than forcing a coordinated PR across every consumer
+// repo whenever a field is added).
 /// Request parameters for master password registration
 #[cfg_attr(
     feature = "wasm",
@@ -33,9 +60,11 @@ pub struct UserMasterPasswordRegistrationRequest {
     pub master_password_hint: Option<String>,
     /// Optional token for email verification
     pub email_verification_token: Option<String>,
+    /// Optional token for sales-assisted trial/registration
+    pub sales_assisted_token: Option<String>,
     /// Optional organization user ID for organization invitations
     pub organization_user_id: Option<OrganizationId>,
-    /// Optional organization invite token for joining an organization
+    /// Optional direct organization invite token for joining an organization
     pub org_invite_token: Option<String>,
     /// Optional token for sponsored free family plan
     pub org_sponsored_free_family_plan_token: Option<String>,
@@ -47,6 +76,9 @@ pub struct UserMasterPasswordRegistrationRequest {
     pub provider_invite_token: Option<String>,
     /// Optional provider user ID for provider invitations
     pub provider_user_id: Option<UserId>,
+    /// Optional open-organization-invite identifiers when finishing registration with an open
+    /// organization invite link in client state.
+    pub open_org_invite: Option<RegistrationFinishOpenOrgInviteData>,
 }
 
 /// Result of user master password registration process.
@@ -95,6 +127,21 @@ async fn internal_post_keys_for_user_password_registration(
             .map_err(|_| RegistrationError::Crypto)?,
     ));
 
+    let open_org_invite = request
+        .open_org_invite
+        .map(|d| {
+            let code = uuid::Uuid::parse_str(&d.code).map_err(|_| {
+                RegistrationError::InvalidInput("open_org_invite.code must be a UUID".into())
+            })?;
+            Ok::<_, RegistrationError>(Box::new(
+                bitwarden_api_identity::models::OpenOrgInviteRequestModel {
+                    organization_id: d.organization_id.into(),
+                    code,
+                },
+            ))
+        })
+        .transpose()?;
+
     let api_request = RegisterFinishRequestModel {
         email: Some(request.email),
         master_password_hint: request.master_password_hint,
@@ -106,6 +153,7 @@ async fn internal_post_keys_for_user_password_registration(
         )),
         account_keys,
         email_verification_token: request.email_verification_token,
+        sales_assisted_token: request.sales_assisted_token,
         organization_user_id: request.organization_user_id.map(Into::into),
         org_invite_token: (request.org_invite_token),
         org_sponsored_free_family_plan_token: (request.org_sponsored_free_family_plan_token),
@@ -113,6 +161,7 @@ async fn internal_post_keys_for_user_password_registration(
         accept_emergency_access_id: request.accept_emergency_access_id.map(Into::into),
         provider_invite_token: (request.provider_invite_token),
         provider_user_id: request.provider_user_id.map(Into::into),
+        open_org_invite,
         // TODO remove deprecated fields below with https://bitwarden.atlassian.net/browse/PM-27326
         kdf: None,
         kdf_memory: None,
@@ -279,6 +328,7 @@ mod tests {
 
                         // verify master password registration specific information
                         assert!(req.email_verification_token.is_none());
+                        assert!(req.sales_assisted_token.is_none());
                         assert!(req.organization_user_id.is_none());
                         assert!(req.org_invite_token.is_none());
                         assert!(req.org_sponsored_free_family_plan_token.is_none());
@@ -286,6 +336,7 @@ mod tests {
                         assert!(req.accept_emergency_access_id.is_none());
                         assert!(req.provider_invite_token.is_none());
                         assert!(req.provider_user_id.is_none());
+                        assert!(req.open_org_invite.is_none());
                         true
                     } else {
                         false
@@ -300,6 +351,7 @@ mod tests {
             master_password: test_password.to_string(),
             master_password_hint: Some(test_hint.to_string()),
             email_verification_token: None,
+            sales_assisted_token: None,
             organization_user_id: None,
             org_invite_token: None,
             org_sponsored_free_family_plan_token: None,
@@ -307,6 +359,7 @@ mod tests {
             accept_emergency_access_id: None,
             provider_invite_token: None,
             provider_user_id: None,
+            open_org_invite: None,
         };
 
         let result = internal_post_keys_for_user_password_registration(
@@ -348,6 +401,7 @@ mod tests {
             master_password: test_password.to_string(),
             master_password_hint: Some(test_hint.to_string()),
             email_verification_token: None,
+            sales_assisted_token: None,
             organization_user_id: None,
             org_invite_token: None,
             org_sponsored_free_family_plan_token: None,
@@ -355,6 +409,7 @@ mod tests {
             accept_emergency_access_id: None,
             provider_invite_token: None,
             provider_user_id: None,
+            open_org_invite: None,
         };
 
         let result = internal_post_keys_for_user_password_registration(
@@ -368,6 +423,71 @@ mod tests {
         assert!(matches!(result.unwrap_err(), RegistrationError::Api));
 
         // check that mock expectations were met
+        if let IdentityApiClient::Mock(mut mock) = identity_client {
+            mock.accounts_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_user_password_registration_with_open_org_invite_success() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let test_email = "test@example.com";
+        let test_hint = "test hint";
+        let test_password = "test-password-123";
+        let test_org_id = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
+        let test_code = "9e0a4c2d-4c9f-4d3b-9a8b-2f7f2b6c4e1a";
+
+        let identity_client = IdentityApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_register_finish()
+                .once()
+                .withf(move |body| {
+                    let req = body.as_ref().expect("body must be present");
+                    let invite = req
+                        .open_org_invite
+                        .as_ref()
+                        .expect("open_org_invite must be set");
+                    assert_eq!(
+                        invite.organization_id,
+                        uuid::Uuid::parse_str(test_org_id).unwrap()
+                    );
+                    assert_eq!(invite.code, uuid::Uuid::parse_str(test_code).unwrap());
+                    true
+                })
+                .returning(move |_body| Ok(RegisterFinishResponseModel { object: None }));
+        });
+
+        let request = UserMasterPasswordRegistrationRequest {
+            email: test_email.to_string(),
+            salt: test_email.to_string(),
+            master_password: test_password.to_string(),
+            master_password_hint: Some(test_hint.to_string()),
+            email_verification_token: None,
+            sales_assisted_token: None,
+            organization_user_id: None,
+            org_invite_token: None,
+            org_sponsored_free_family_plan_token: None,
+            accept_emergency_access_invite_token: None,
+            accept_emergency_access_id: None,
+            provider_invite_token: None,
+            provider_user_id: None,
+            open_org_invite: Some(RegistrationFinishOpenOrgInviteData {
+                organization_id: test_org_id.parse().unwrap(),
+                code: test_code.to_string(),
+            }),
+        };
+
+        let result = internal_post_keys_for_user_password_registration(
+            &registration_client,
+            &identity_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_ok());
+
         if let IdentityApiClient::Mock(mut mock) = identity_client {
             mock.accounts_api.checkpoint();
         }

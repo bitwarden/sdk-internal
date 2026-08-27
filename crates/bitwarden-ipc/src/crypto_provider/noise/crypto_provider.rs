@@ -1,4 +1,4 @@
-use std::{sync::LazyLock, time::Duration};
+use std::time::Duration;
 
 use bitwarden_threading::time::timeout;
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,24 @@ use crate::{
 };
 
 /// A `CryptoProvider` that encrypts IPC traffic using the Noise protocol.
-pub struct NoiseCryptoProvider;
+#[derive(Default)]
+pub struct NoiseCryptoProvider {
+    /// Serializes access to the persisted transport state, so that two concurrent sends cannot
+    /// read the same copy and reuse a nonce.
+    ///
+    /// Held per provider, and so per [`IpcClientImpl`](crate::IpcClientImpl), rather than per
+    /// process: the state it protects belongs to one client's session repository, and a
+    /// process-wide lock would let one client's handshake — which can wait
+    /// [`HANDSHAKE_TIMEOUT_SECS`] for a reply — stall every other client's traffic.
+    crypto_state_guard: tokio::sync::Mutex<()>,
+}
+
+impl NoiseCryptoProvider {
+    /// Creates a provider with no sessions established.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 #[derive(Debug)]
 pub enum NoiseCryptoProviderError {
@@ -68,11 +85,6 @@ fn transport_send_error<E: IpcErrorKind>(e: E) -> NoiseCryptoProviderError {
         kind => NoiseCryptoProviderError::TransportSend { kind },
     }
 }
-
-// Serialize send operations to prevent concurrent reads of the same persisted
-// transport state, which can cause nonce reuse.
-static CRYPTO_STATE_GUARD: LazyLock<tokio::sync::Mutex<()>> =
-    LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 impl NoiseCryptoProvider {
     async fn perform_handshake<Com, Ses>(
@@ -190,7 +202,7 @@ where
         // Send operations *MUST* be serialized, otherwise nonce re-use may happen since
         // concurrent sends may acquire the same copy of the transport state before nonce
         // updating.
-        let _crypto_state_guard = CRYPTO_STATE_GUARD.lock().await;
+        let _crypto_state_guard = self.crypto_state_guard.lock().await;
 
         let destination = message.destination.clone();
 
@@ -350,7 +362,7 @@ where
                         .expect("Save session should not fail");
                 }
                 Frame::TransportFrame(transport_frame) => {
-                    let _crypto_state_guard = CRYPTO_STATE_GUARD.lock().await;
+                    let _crypto_state_guard = self.crypto_state_guard.lock().await;
                     let crypto_state = sessions
                         .get(source_endpoint.clone())
                         .await
@@ -446,12 +458,12 @@ mod tests {
         let (provider_1, provider_2) = TestTwoWayCommunicationBackend::new();
 
         let session_map_1 = InMemorySessionRepository::new(HashMap::new());
-        let client_1 = IpcClientImpl::new(NoiseCryptoProvider, provider_1, session_map_1);
+        let client_1 = IpcClientImpl::new(NoiseCryptoProvider::new(), provider_1, session_map_1);
         let _ = client_1.start(None).await;
         let mut recv_1 = client_1.subscribe(None).await.unwrap();
 
         let session_map_2 = InMemorySessionRepository::new(HashMap::new());
-        let client_2 = IpcClientImpl::new(NoiseCryptoProvider, provider_2, session_map_2);
+        let client_2 = IpcClientImpl::new(NoiseCryptoProvider::new(), provider_2, session_map_2);
         let _ = client_2.start(None).await;
         let mut recv_2 = client_2.subscribe(None).await.unwrap();
 

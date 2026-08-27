@@ -15,6 +15,8 @@ pub mod crypto;
 pub mod error;
 mod log_callback;
 #[allow(missing_docs)]
+pub mod managed_settings;
+#[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
 pub mod policies;
@@ -80,6 +82,11 @@ impl Client {
         &self,
     ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
         self.0.user_crypto_management()
+    }
+
+    /// Key management operations that run on every sync.
+    pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
+        self.0.crypto_sync_handler()
     }
 
     /// Vault item operations

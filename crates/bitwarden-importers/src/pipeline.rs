@@ -9,7 +9,7 @@ use bitwarden_api_api::models::{
     ImportCiphersRequestModel, ImportOrganizationCiphersRequestModel, Int32Int32KeyValuePair,
 };
 use bitwarden_collections::collection::{Collection, CollectionType, CollectionView};
-use bitwarden_core::{ApiError, Client, NotAuthenticatedError};
+use bitwarden_core::{Client, NotAuthenticatedError};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey};
 use bitwarden_exporters::{CipherType, ImportingCipher, encrypt_import};
 use bitwarden_vault::{Folder, FolderView};
@@ -58,10 +58,8 @@ pub(crate) async fn submit_import(
         let cipher_models = ciphers
             .into_iter()
             .map(|c| {
-                let cipher = encrypt_import(&mut ctx, c, options.organization_id)?;
-                let mut model: CipherRequestModel = cipher.try_into()?;
-                model.encrypted_for = Some(user_id.into());
-                Ok::<_, ImportError>(model)
+                let encrypted = encrypt_import(&mut ctx, c, options.organization_id, user_id)?;
+                Ok::<_, ImportError>(CipherRequestModel::from(encrypted))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -175,15 +173,13 @@ pub(crate) async fn submit_import(
             api_client
                 .import_ciphers_api()
                 .post_import(Some(model))
-                .await
-                .map_err(ApiError::from)?;
+                .await?;
         }
         ImportPayload::Organization(organization_id, model) => {
             api_client
                 .import_ciphers_api()
                 .post_import_organization(Some(&organization_id), Some(model))
-                .await
-                .map_err(ApiError::from)?;
+                .await?;
         }
     }
 
@@ -453,8 +449,11 @@ mod tests {
             totp: None,
             fido2_credentials: None,
         }));
-        let cipher = encrypt_import(&mut ctx, importing("GitHub", login), None).unwrap();
+        let user_id = client.internal.get_user_id().unwrap();
+        let encrypted =
+            encrypt_import(&mut ctx, importing("GitHub", login), None, user_id).unwrap();
 
-        assert_ne!(cipher.name.unwrap().to_string(), "GitHub");
+        assert_eq!(encrypted.encrypted_for, user_id);
+        assert_ne!(encrypted.cipher.name.unwrap().to_string(), "GitHub");
     }
 }

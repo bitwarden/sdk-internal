@@ -47,12 +47,6 @@ pub enum EditCipherError {
     Uuid(#[from] uuid::Error),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Request to edit a cipher.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -198,6 +192,11 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         view.generate_cipher_key(&mut key_store.context(), key)?;
     }
 
+    let encrypted_by_key_id = key_store
+        .context()
+        .get_symmetric_key_id(view.key_identifier())
+        .map(|id| id.to_string());
+
     let mode = if use_blob {
         EncryptMode::Blob(view)
     } else {
@@ -207,12 +206,12 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
+    cipher_request.encrypted_by_key_id = encrypted_by_key_id;
 
     let cipher: Cipher = api_client
         .ciphers_api()
         .put(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(original_cipher))?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
@@ -245,8 +244,7 @@ async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher: Cipher = api_client
         .ciphers_api()
         .put_partial(cipher_id.into(), Some(partial_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(original_cipher))?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
@@ -537,6 +535,7 @@ mod tests {
                         attachments: None,
                         permissions: None,
                         data: None,
+                        partial_data: None,
                         archived_date: None,
                     })
                 })
@@ -632,6 +631,7 @@ mod tests {
                         attachments: None,
                         permissions: None,
                         data: None,
+                        partial_data: None,
                         archived_date: None,
                     })
                 })

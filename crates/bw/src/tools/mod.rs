@@ -4,9 +4,18 @@ use bitwarden_generators::{
     PassphraseGeneratorRequest, PasswordGeneratorRequest,
 };
 use bitwarden_pm::PasswordManagerClient;
-use clap::{Args, Subcommand};
+use clap::Args;
 
-use crate::render::CommandResult;
+use crate::{
+    client_state::{AnyState, BwCommand},
+    render::CommandResult,
+};
+
+mod file_output;
+mod receive;
+mod send;
+mod send_access_token_cache;
+pub use send::SendArgs;
 
 #[derive(Args, Clone)]
 #[command(
@@ -201,156 +210,13 @@ pub struct ExportArgs {
     pub organization_id: Option<String>,
 }
 
-#[derive(Args, Clone)]
-pub struct SendArgs {
-    /// The data to Send
-    pub data: Option<String>,
-
-    #[arg(short = 'f', long, help = "Specifies that <data> is a filepath.")]
-    pub file: bool,
-
-    #[arg(
-        short = 'd',
-        long = "deleteInDays",
-        help = "The number of days in the future to set deletion date.",
-        default_value = "7"
-    )]
-    pub delete_in_days: String,
-
-    #[arg(long, help = "Optional password to access this Send.")]
-    pub password: Option<String>,
-
-    #[arg(
-        short = 'a',
-        long = "maxAccessCount",
-        help = "The amount of max possible accesses."
-    )]
-    pub max_access_count: Option<u32>,
-
-    #[arg(long, help = "Hide <data> in web by default.")]
-    pub hidden: bool,
-
-    #[arg(short = 'n', long, help = "The name of the Send.")]
-    pub name: Option<String>,
-
-    #[arg(long, help = "Notes to add to the Send.")]
-    pub notes: Option<String>,
-
-    #[arg(
-        long = "fullObject",
-        help = "Specifies that the full Send object should be returned."
-    )]
-    pub full_object: bool,
-
-    #[command(subcommand)]
-    pub command: Option<SendCommands>,
-}
-
-#[derive(Subcommand, Clone, Debug)]
-pub enum SendCommands {
-    #[command(about = "List all the Sends owned by you.")]
-    List,
-
-    #[command(about = "Get json templates for send objects.")]
-    Template { object: String },
-
-    #[command(about = "Get Sends owned by you.")]
-    Get {
-        id: String,
-
-        #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-        output: Option<String>,
-
-        #[arg(long, help = "Only return the access url.")]
-        text: bool,
-    },
-
-    #[command(about = "Access a Bitwarden Send from a url.")]
-    Receive {
-        url: String,
-
-        #[arg(long, help = "Optional password for the Send.")]
-        password: Option<String>,
-
-        #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-        obj: Option<String>,
-    },
-
-    #[command(about = "Create a Send.")]
-    Create {
-        encoded_json: Option<String>,
-
-        #[arg(short = 'f', long, help = "Path to the file to Send.")]
-        file: Option<String>,
-
-        #[arg(long, help = "Text to Send.")]
-        text: Option<String>,
-
-        #[arg(
-            short = 'd',
-            long = "deleteInDays",
-            help = "The number of days in the future to set deletion date.",
-            default_value = "7"
-        )]
-        delete_in_days: String,
-
-        #[arg(
-            long = "maxAccessCount",
-            help = "The maximum number of times this Send can be accessed."
-        )]
-        max_access_count: Option<u32>,
-
-        #[arg(long, help = "Hide text.")]
-        hidden: bool,
-
-        #[arg(short = 'n', long, help = "The name of the Send.")]
-        name: Option<String>,
-
-        #[arg(long, help = "Notes to add to the Send.")]
-        notes: Option<String>,
-
-        #[arg(long, help = "Optional password to access this Send.")]
-        password: Option<String>,
-
-        #[arg(
-            long = "fullObject",
-            help = "Return full Send object instead of access url."
-        )]
-        full_object: bool,
-    },
-
-    #[command(about = "Edit a Send.")]
-    Edit {
-        encoded_json: Option<String>,
-
-        #[arg(long, help = "Overrides the itemId provided in encodedJson.")]
-        itemid: Option<String>,
-
-        #[arg(
-            short = 'd',
-            long = "deleteInDays",
-            help = "The number of days in the future to set deletion date."
-        )]
-        delete_in_days: Option<String>,
-
-        #[arg(
-            long = "maxAccessCount",
-            help = "The maximum number of times this Send can be accessed."
-        )]
-        max_access_count: Option<u32>,
-
-        #[arg(long, help = "Hide text.")]
-        hidden: bool,
-    },
-
-    #[command(about = "Removes the saved password from a Send.")]
-    RemovePassword { id: String },
-
-    #[command(about = "Delete a Send.")]
-    Delete { id: String },
-}
-
-#[derive(Args, Clone)]
+/// `bw receive <url>`. Also used directly as the payload of `SendCommands::Receive` (`bw send
+/// receive`) — the two are the same command reachable under two names, sharing this single arg
+/// struct (rather than a hand-synced copy) so the flag sets can't drift apart. Both delegate to
+/// [`receive::run_receive`].
+#[derive(Args, Clone, Debug)]
+#[command(after_help = "Notes:
+    If a password is required, the provided password is used or the user is prompted.")]
 pub struct ReceiveArgs {
     /// URL to access Send from
     pub url: String,
@@ -358,6 +224,47 @@ pub struct ReceiveArgs {
     #[arg(long, help = "Optional password for the Send.")]
     pub password: Option<String>,
 
-    #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-    pub obj: Option<String>,
+    #[arg(long, help = "Environment variable storing the Send's password.")]
+    pub passwordenv: Option<String>,
+
+    #[arg(
+        long,
+        help = "Path to a file containing the Send's password as its first line."
+    )]
+    pub passwordfile: Option<String>,
+
+    // The internal field is `output_path` (not `output`) to avoid clashing with the top-level
+    // `Cli::output` (the `-o` rendered-output-format arg) — same convention as
+    // `SendGetArgs::output_path`. User-facing long flag stays `--output` to match both that
+    // sibling command and the legacy CLI.
+    #[arg(
+        long = "output",
+        help = "Specify a file path to save a File-type Send to."
+    )]
+    pub output_path: Option<String>,
+
+    #[arg(
+        long = "fullObject",
+        alias = "full-object",
+        help = "Return the Send's json object rather than its content."
+    )]
+    pub full_object: bool,
+}
+
+impl BwCommand for ReceiveArgs {
+    // `receive` is the one Send flow that needs no session at all: the key comes from the url
+    // fragment and the token from the anonymous send-access grant.
+    type Client = AnyState;
+
+    async fn run(self, _: AnyState) -> CommandResult {
+        receive::run_receive(receive::ReceiveInputs {
+            url: self.url,
+            password: self.password,
+            passwordenv: self.passwordenv,
+            passwordfile: self.passwordfile,
+            output_path: self.output_path,
+            full_object: self.full_object,
+        })
+        .await
+    }
 }

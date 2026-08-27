@@ -67,6 +67,14 @@ pub(super) fn reencrypt_data(
     let reencrypted_ciphers =
         reencrypt_ciphers(ciphers, current_user_key_id, new_user_key_id, ctx)?;
     let reencrypted_sends = reencrypt_sends(sends, current_user_key_id, new_user_key_id, ctx)?;
+
+    // Every cipher here was just re-encrypted under the new user key, so that is the key id the
+    // server needs to validate this rotation's cipher writes against. `reencrypt_data` is only
+    // ever passed the user's own ciphers, never organization ciphers.
+    let encrypted_by_key_id = ctx
+        .get_symmetric_key_id(new_user_key_id)
+        .map(|id| id.to_string());
+
     Ok(AccountDataRequestModel {
         folders: Some(
             reencrypted_folders
@@ -82,6 +90,7 @@ pub(super) fn reencrypt_data(
                         // Encrypted for is not used in key-rotation, and ciphers are validated to
                         // be correct server-side
                         encrypted_for: UserId::new(Uuid::nil()),
+                        encrypted_by_key_id: encrypted_by_key_id.clone(),
                         cipher,
                     }
                     .try_into()
@@ -381,7 +390,9 @@ mod tests {
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         let cipher = make_cipher_view();
-        let encrypted_cipher = cipher.encrypt_composite(&mut ctx, user_key_old).unwrap();
+        let encrypted_cipher = EncryptMode::Legacy(cipher.clone())
+            .encrypt_composite(&mut ctx, user_key_old)
+            .unwrap();
 
         // Rotate it
         let ciphers = vec![encrypted_cipher];
@@ -402,7 +413,7 @@ mod tests {
         let user_key_old =
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
         let user_key_new =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XAes256Gcm);
 
         // A legacy cipher that already carries a per-item cipher key
         let mut cipher = make_cipher_view();
@@ -429,7 +440,7 @@ mod tests {
         let user_key_old =
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
         let user_key_new =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XAes256Gcm);
 
         // An already blob-encrypted cipher
         let cipher = make_cipher_view();
@@ -505,6 +516,7 @@ mod tests {
                 text: Some("This is a test send".to_string()),
                 hidden: false,
             }),
+            data: None,
             r#type: bitwarden_send::SendType::Text,
             max_access_count: None,
             access_count: 0,

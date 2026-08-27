@@ -86,6 +86,12 @@ pub struct SendWithIdRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub text: Option<Box<models::SendTextModel>>,
+    #[serde(
+        rename = "data",
+        alias = "Data",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data: Option<Box<models::SendDataModel>>,
     /// Base64-encoded byte array of a password hash that grants access to the send. Mutually
     /// exclusive with Bit.Api.Tools.Models.Request.SendRequestModel.Emails.
     #[serde(
@@ -138,6 +144,7 @@ impl SendWithIdRequestModel {
             deletion_date,
             file: None,
             text: None,
+            data: None,
             password: None,
             emails: None,
             disabled,

@@ -19,9 +19,7 @@ pub struct SessionKey(pub(crate) SymmetricCryptoKey);
 impl SessionKey {
     /// Mint a new random session key.
     pub fn make() -> Self {
-        Self(SymmetricCryptoKey::make(
-            SymmetricKeyAlgorithm::XChaCha20Poly1305,
-        ))
+        Self(SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm))
     }
 
     /// Mint a new session key, seal `key_to_seal` (already present in `ctx`)
@@ -74,6 +72,14 @@ impl Display for SessionKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn make_uses_xaes256_gcm() {
+        assert!(matches!(
+            SessionKey::make().0,
+            SymmetricCryptoKey::XAes256GcmKey(_)
+        ));
+    }
 
     #[test]
     fn from_str_roundtrip_recovers_session_key() {

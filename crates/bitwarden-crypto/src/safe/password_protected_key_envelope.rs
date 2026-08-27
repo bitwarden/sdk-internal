@@ -33,7 +33,9 @@ use crate::{
         ALG_ARGON2ID13, ALG_PBKDF2_SHA256, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM,
         ARGON2_SALT, ContentNamespace, CoseExtractError, PBKDF2_ITERATIONS, PBKDF2_SALT,
         SafeObjectNamespace, extract_bytes, extract_integer,
-        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
+        symmetric::{
+            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose,
+        },
     },
     keys::KeyId,
     safe::{
@@ -208,7 +210,9 @@ impl PasswordProtectedKeyEnvelope {
         // AES-256-GCM envelopes) dispatch on the protected header regardless of this fallback.
         let key_bytes = decrypt_cose(
             &self.cose_encrypt,
-            Some(CoseContentEncryptionAlgorithm::XChaCha20Poly1305),
+            CoseAlgorithmPolicy::ProtectedHeaderAlgorithmOrLegacyDefault(
+                CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
+            ),
             &envelope_key,
         )
         .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
@@ -1126,11 +1130,14 @@ mod tests {
         assert_eq!(Some(key_id), contained_key_id);
     }
 
+    /// AES-CBC-HMAC keys have no stored key ID, but derive one from their key material, so a
+    /// sealed envelope still carries a contained key ID.
     #[test]
-    fn test_no_key_id() {
+    fn test_derived_key_id_for_aes_cbc_hmac_key() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.generate_symmetric_key();
+        let key_id = ctx.get_symmetric_key(test_key).unwrap().key_id().unwrap();
 
         let password = "test_password";
 
@@ -1143,7 +1150,7 @@ mod tests {
         )
         .unwrap();
         let contained_key_id = envelope.contained_key_id().unwrap();
-        assert_eq!(None, contained_key_id);
+        assert_eq!(Some(key_id), contained_key_id);
     }
 
     /// Builds a key store configured with the given cipher suite.

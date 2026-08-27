@@ -1,8 +1,13 @@
 //! The [`PolicyType`] enum.
 
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
+use tsify::Tsify;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
+
+use crate::{MasterPasswordPolicyResponse, policies::*, policy::ErasedPolicy};
 
 /// The type of an organization policy.
 ///
@@ -67,4 +72,85 @@ pub enum PolicyType {
     /// Supersedes [`DisableSend`](Self::DisableSend) and [`SendOptions`](Self::SendOptions) when
     /// the `pm-31885-send-controls` feature flag is active on the server.
     SendControls = 21,
+    /// Enables the Fill Assist targeting-rules autofill engine as the default for members who
+    /// have not explicitly set their Fill Assist preference, and optionally overrides the default
+    /// rules feed URL.
+    FillAssist = 22,
+}
+
+impl PolicyType {
+    /// Dispatches this runtime policy type to its concrete (zero-sized)
+    /// [`crate::Policy`] implementation, erased behind [`ErasedPolicy`] so the
+    /// differing associated `Data` types can be handled uniformly.
+    pub(crate) fn resolve_policy(self) -> Box<dyn ErasedPolicy> {
+        match self {
+            PolicyType::TwoFactorAuthentication => Box::new(TwoFactorAuthenticationPolicy),
+            PolicyType::MasterPassword => Box::new(MasterPasswordPolicy),
+            PolicyType::PasswordGenerator => Box::new(PasswordGeneratorPolicy),
+            PolicyType::SingleOrg => Box::new(SingleOrgPolicy),
+            PolicyType::RequireSso => Box::new(RequireSsoPolicy),
+            PolicyType::OrganizationDataOwnership => Box::new(OrganizationDataOwnershipPolicy),
+            PolicyType::DisableSend => Box::new(DisableSendPolicy),
+            PolicyType::SendOptions => Box::new(SendOptionsPolicy),
+            PolicyType::ResetPassword => Box::new(ResetPasswordPolicy),
+            PolicyType::MaximumVaultTimeout => Box::new(MaximumVaultTimeoutPolicy),
+            PolicyType::DisablePersonalVaultExport => Box::new(DisablePersonalVaultExportPolicy),
+            PolicyType::ActivateAutofill => Box::new(ActivateAutofillPolicy),
+            PolicyType::AutomaticAppLogIn => Box::new(AutomaticAppLogInPolicy),
+            PolicyType::FreeFamiliesSponsorship => Box::new(FreeFamiliesSponsorshipPolicy),
+            PolicyType::RemoveUnlockWithPin => Box::new(RemoveUnlockWithPinPolicy),
+            PolicyType::RestrictedItemTypes => Box::new(RestrictedItemTypesPolicy),
+            PolicyType::UriMatchDefaults => Box::new(UriMatchDefaultsPolicy),
+            PolicyType::AutotypeDefaultSetting => Box::new(AutotypeDefaultSettingPolicy),
+            PolicyType::AutomaticUserConfirmation => Box::new(AutomaticUserConfirmationPolicy),
+            PolicyType::BlockClaimedDomainAccountCreation => {
+                Box::new(BlockClaimedDomainAccountCreationPolicy)
+            }
+            PolicyType::OrganizationUserNotification => {
+                Box::new(OrganizationUserNotificationPolicy)
+            }
+            PolicyType::SendControls => Box::new(SendControlsPolicy),
+            PolicyType::FillAssist => Box::new(FillAssistPolicy),
+        }
+    }
+}
+
+/// Type-erased policy type + data for crossing the FFI boundary.
+///
+/// Each variant carries the strongly-typed data for one policy, mirroring the
+/// generic `Policy::Data` used on the native side. Variants are
+/// named identically to (and documented by) the matching [`PolicyType`] variant.
+///
+/// TODO: this is missing policy data for current policies.
+// Variants mirror the already-documented `PolicyType`, so per-variant docs would
+// be redundant boilerplate.
+#[allow(missing_docs)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum PolicyDataType {
+    TwoFactorAuthentication,
+    MasterPassword(MasterPasswordPolicyResponse),
+    PasswordGenerator,
+    SingleOrg,
+    RequireSso,
+    OrganizationDataOwnership,
+    DisableSend,
+    SendOptions,
+    ResetPassword,
+    MaximumVaultTimeout,
+    DisablePersonalVaultExport,
+    ActivateAutofill,
+    AutomaticAppLogIn,
+    FreeFamiliesSponsorship,
+    RemoveUnlockWithPin,
+    RestrictedItemTypes,
+    UriMatchDefaults,
+    AutotypeDefaultSetting,
+    AutomaticUserConfirmation,
+    BlockClaimedDomainAccountCreation,
+    OrganizationUserNotification,
+    SendControls,
+    FillAssist,
 }

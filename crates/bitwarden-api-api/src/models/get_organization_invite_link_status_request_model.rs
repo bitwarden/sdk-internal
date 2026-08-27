@@ -14,12 +14,20 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GetOrganizationInviteLinkStatusRequestModel {
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
+    pub organization_id: uuid::Uuid,
     #[serde(rename = "code", alias = "Code")]
     pub code: uuid::Uuid,
 }
 
 impl GetOrganizationInviteLinkStatusRequestModel {
-    pub fn new(code: uuid::Uuid) -> GetOrganizationInviteLinkStatusRequestModel {
-        GetOrganizationInviteLinkStatusRequestModel { code }
+    pub fn new(
+        organization_id: uuid::Uuid,
+        code: uuid::Uuid,
+    ) -> GetOrganizationInviteLinkStatusRequestModel {
+        GetOrganizationInviteLinkStatusRequestModel {
+            organization_id,
+            code,
+        }
     }
 }

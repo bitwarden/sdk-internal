@@ -38,7 +38,9 @@ use crate::{
     ContentFormat, EncodedSymmetricKey, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
-        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose},
+        symmetric::{
+            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose, encrypt_cose,
+        },
     },
     keys::KeyId,
     safe::{
@@ -220,8 +222,12 @@ impl SecretProtectedKeyEnvelope {
         // since the KDF salt is guaranteed to be correct. The envelope always declares its
         // content-encryption algorithm in the protected header, so no decryption fallback is
         // needed.
-        let key_bytes = decrypt_cose(&self.cose_encrypt, None, &cek)
-            .map_err(|_| SecretProtectedKeyEnvelopeError::WrongSecret)?;
+        let key_bytes = decrypt_cose(
+            &self.cose_encrypt,
+            CoseAlgorithmPolicy::RequireProtectedHeaderAlgorithm,
+            &cek,
+        )
+        .map_err(|_| SecretProtectedKeyEnvelopeError::WrongSecret)?;
 
         decode_sealed_symmetric_key(&self.cose_encrypt.protected.header, key_bytes).map_err(|e| {
             match e {
@@ -553,12 +559,15 @@ impl TryFrom<wasm_bindgen::JsValue> for SecretProtectedKeyEnvelope {
 /// The content-layer separation namespace for secret protected key envelopes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecretProtectedKeyEnvelopeNamespace {
-    /// Neutral placeholder so the public API and example are usable. Replace with a
-    /// product-specific variant when the first real consumer lands.
-    ExampleUse = 1,
+    /// Organization member invite links. The high-entropy secret is the random invite secret
+    /// carried in the invite link, and the sealed key is the invite key.
+    OrganizationInvite = 1,
     /// Bitwarden Desktop biometric (Windows Hello) unlock. The high-entropy secret is a PRF derived
     /// from the Windows Hello signing credential, and the sealed key is the user key.
     DesktopBiometricUnlock = 2,
+    /// Used for threading the open-organization-invite data through the registration with email
+    /// verification process. Is generated per registration email.  
+    RegistrationOpenOrgInvite = 3,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -579,8 +588,9 @@ impl TryFrom<i128> for SecretProtectedKeyEnvelopeNamespace {
 
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
-            1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleUse),
+            1 => Ok(SecretProtectedKeyEnvelopeNamespace::OrganizationInvite),
             2 => Ok(SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock),
+            3 => Ok(SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite),
             #[cfg(test)]
             -1 => Ok(SecretProtectedKeyEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -661,6 +671,58 @@ mod tests {
         222, 10, 249, 242, 57, 196, 223, 240, 234, 177, 19, 72, 201, 32, 1, 129, 46, 6, 76, 38,
         149, 151, 217, 94, 84, 67, 50, 107, 103, 74, 88, 72, 246,
     ];
+
+    #[test]
+    fn test_registration_open_org_invite_namespace_maps_to_expected_discriminant() {
+        // The wire discriminant is load-bearing once shipped; a regression here would silently
+        // invalidate every envelope sealed by production callers.
+        assert_eq!(
+            SecretProtectedKeyEnvelopeNamespace::try_from(3i128).unwrap(),
+            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite
+        );
+        assert_eq!(
+            i128::from(SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite),
+            3
+        );
+    }
+
+    #[test]
+    fn test_registration_open_org_invite_rejects_cross_namespace_unseal() {
+        // An envelope sealed under the new production namespace must not unseal under any
+        // other production namespace (here, the sibling production
+        // `DesktopBiometricUnlock`). Mirrors the sibling test in `data_envelope.rs` for the
+        // new variant.
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let secret = testvector_secret();
+
+        let envelope = SecretProtectedKeyEnvelope::seal(
+            test_key,
+            &secret,
+            SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+            &ctx,
+        )
+        .expect("seal");
+
+        assert!(matches!(
+            envelope.unseal(
+                &secret,
+                SecretProtectedKeyEnvelopeNamespace::DesktopBiometricUnlock,
+                &mut ctx,
+            ),
+            Err(SecretProtectedKeyEnvelopeError::InvalidNamespace)
+        ));
+
+        // Correct namespace still succeeds.
+        let _ = envelope
+            .unseal(
+                &secret,
+                SecretProtectedKeyEnvelopeNamespace::RegistrationOpenOrgInvite,
+                &mut ctx,
+            )
+            .expect("unseal under correct namespace succeeds");
+    }
 
     #[test]
     #[ignore = "Manual test to verify debug format"]
@@ -929,11 +991,14 @@ mod tests {
         assert_eq!(Some(key_id), contained_key_id);
     }
 
+    /// AES-CBC-HMAC keys have no stored key ID, but derive one from their key material, so a
+    /// sealed envelope still carries a contained key ID.
     #[test]
-    fn test_no_key_id() {
+    fn test_derived_key_id_for_aes_cbc_hmac_key() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
         let test_key = ctx.generate_symmetric_key();
+        let key_id = ctx.get_symmetric_key(test_key).unwrap().key_id().unwrap();
 
         let secret = testvector_secret();
 
@@ -946,6 +1011,6 @@ mod tests {
         )
         .unwrap();
         let contained_key_id = envelope.contained_key_id().unwrap();
-        assert_eq!(None, contained_key_id);
+        assert_eq!(Some(key_id), contained_key_id);
     }
 }

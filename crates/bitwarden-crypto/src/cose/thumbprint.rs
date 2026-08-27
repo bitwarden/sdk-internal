@@ -35,6 +35,11 @@ impl CoseKeyThumbprint {
         &self.0
     }
 
+    /// Constructs a thumbprint from a raw 32-byte SHA-256 digest.
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        CoseKeyThumbprint(bytes)
+    }
+
     /// The thumbprint as a lowercase hex string.
     pub fn to_hex(&self) -> String {
         hex::encode(self.0)

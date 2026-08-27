@@ -13,9 +13,14 @@ use crate::{
     EncodingError, KeyId, KeySlotIds, SerializedMessage, SymmetricCryptoKey,
     cose::{
         ContentNamespace, SafeObjectNamespace,
-        symmetric::{CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0},
+        symmetric::{
+            CoseAlgorithmPolicy, CoseContentEncryptionAlgorithm, decrypt_cose0, encrypt_cose0,
+        },
     },
-    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
+    safe::{
+        ContentEncryptionKey,
+        helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
+    },
     utils::pad_bytes,
 };
 
@@ -69,8 +74,20 @@ impl DataEnvelope {
     where
         T: Serialize + SealableVersionedData,
     {
-        let (envelope, cek) = Self::seal_ref(&data, T::NAMESPACE)?;
-        let cek_id = ctx.generate_symmetric_key();
+        // The content-encryption-key is a fresh, single-use content-encryption-key (CEK) stored in
+        // the context.
+        let cek_id = ContentEncryptionKey::make(ctx);
+        let mut cek = match ctx.get_symmetric_key(cek_id) {
+            Ok(SymmetricCryptoKey::Aes256GcmKey(key)) => key.clone(),
+            _ => return Err(DataEnvelopeError::KeyStore),
+        };
+        let envelope = Self::seal_ref(&data, T::NAMESPACE, &cek)?;
+
+        // Restrict the CEK to decryption only before persisting it: once the data is sealed, the
+        // CEK must never be used to encrypt, wrap, or unwrap again.
+        cek.disable_key_operation(coset::iana::KeyOperation::Encrypt)
+            .disable_key_operation(coset::iana::KeyOperation::WrapKey)
+            .disable_key_operation(coset::iana::KeyOperation::UnwrapKey);
         ctx.set_symmetric_key_internal(cek_id, SymmetricCryptoKey::Aes256GcmKey(cek))
             .map_err(|_| DataEnvelopeError::KeyStore)?;
         Ok((envelope, cek_id))
@@ -95,17 +112,16 @@ impl DataEnvelope {
         Ok((envelope, wrapped_cek))
     }
 
-    /// Seals a struct into an encrypted blob, and returns the encrypted blob and the
-    /// content-encryption-key.
+    /// Seals a struct into an encrypted blob using the provided content-encryption-key, and returns
+    /// the encrypted blob.
     fn seal_ref<T>(
         data: &T,
         namespace: DataEnvelopeNamespace,
-    ) -> Result<(DataEnvelope, Aes256GcmKey), DataEnvelopeError>
+        cek: &Aes256GcmKey,
+    ) -> Result<DataEnvelope, DataEnvelopeError>
     where
         T: Serialize + SealableVersionedData,
     {
-        let mut cek = Aes256GcmKey::make();
-
         // Serialize the message
         let serialized_message =
             SerializedMessage::encode(&data).map_err(|_| DataEnvelopeError::Encoding)?;
@@ -145,12 +161,7 @@ impl DataEnvelope {
             .map(CoseEncrypt0Bytes::from)
             .map_err(|_| DataEnvelopeError::Encoding)?;
 
-        // Disable key operations other than decrypt on the CEK
-        cek.disable_key_operation(coset::iana::KeyOperation::Encrypt)
-            .disable_key_operation(coset::iana::KeyOperation::WrapKey)
-            .disable_key_operation(coset::iana::KeyOperation::UnwrapKey);
-
-        Ok((DataEnvelope { envelope_data }, cek))
+        Ok(DataEnvelope { envelope_data })
     }
 
     /// Unseals the data from the encrypted blob using a content-encryption-key stored in the
@@ -167,12 +178,17 @@ impl DataEnvelope {
             .get_symmetric_key(cek_keyslot)
             .map_err(|_| DataEnvelopeError::KeyStore)?;
 
-        // Both AES-256-GCM (current) and XChaCha20-Poly1305 (legacy) content-encryption keys are
-        // accepted so existing envelopes keep decrypting. The actual algorithm is recovered from
-        // the envelope's protected header during decryption.
-        let view = cek
-            .as_cose_key_view()
-            .ok_or(DataEnvelopeError::UnsupportedContentFormat)?;
+        // AES-256-GCM (current), XAES-256-GCM, and XChaCha20-Poly1305 (legacy)
+        // content-encryption keys are accepted. The typed key's algorithm must match the algorithm
+        // in the envelope's protected header.
+        let view = match cek {
+            SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
+                return Err(DataEnvelopeError::UnsupportedContentFormat);
+            }
+            cek => cek
+                .as_cose_key_view()
+                .ok_or(DataEnvelopeError::UnsupportedContentFormat)?,
+        };
         self.unseal_ref(T::NAMESPACE, view)
     }
 
@@ -193,7 +209,7 @@ impl DataEnvelope {
     }
 
     /// Unseals the data from the encrypted blob using the provided content-encryption-key, which
-    /// may be either an AES-256-GCM or a legacy XChaCha20-Poly1305 key.
+    /// may be an AES-256-GCM, XAES-256-GCM, or legacy XChaCha20-Poly1305 key.
     fn unseal_ref<T>(
         &self,
         namespace: DataEnvelopeNamespace,
@@ -224,11 +240,14 @@ impl DataEnvelope {
             return Err(DataEnvelopeError::UnsupportedContentFormat);
         }
 
-        // Decrypt the message. `decrypt_cose0` recovers the content-encryption algorithm from the
-        // protected header (AES-256-GCM for new envelopes, XChaCha20-Poly1305 for legacy ones), so
-        // no decryption fallback is needed.
-        let decrypted_message = decrypt_cose0(&msg, None, cek.key_bytes())
-            .map_err(|_| DataEnvelopeError::Decryption)?;
+        // Bind the protected content-encryption algorithm to the independently typed CEK before
+        // attempting decryption. DataEnvelope has no legacy format that omits the algorithm.
+        let decrypted_message = decrypt_cose0(
+            &msg,
+            CoseAlgorithmPolicy::Exactly(cek.algorithm()),
+            cek.key_bytes(),
+        )
+        .map_err(|_| DataEnvelopeError::Decryption)?;
 
         let unpadded_message =
             unpad_cbor(&decrypted_message).map_err(|_| DataEnvelopeError::Decryption)?;
@@ -482,6 +501,13 @@ macro_rules! generate_versioned_sealable {
 pub enum DataEnvelopeNamespace {
     /// The namespace for vault items ("ciphers")
     VaultItem = 1,
+    /// The namespace for organization member invite data (the organization public-key thumbprint
+    /// and the invite secret), sealed with the invite key.
+    OrganizationInvite = 2,
+    /// Namespace for the invite context payload sealed on registration-start and unsealed on
+    /// registration-finish so an anonymous, email-verified new user can complete an open
+    /// organization invite in a single flow.
+    RegistrationOpenOrgInviteData = 3,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -503,6 +529,8 @@ impl TryFrom<i128> for DataEnvelopeNamespace {
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(DataEnvelopeNamespace::VaultItem),
+            2 => Ok(DataEnvelopeNamespace::OrganizationInvite),
+            3 => Ok(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
             #[cfg(test)]
             -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
@@ -533,7 +561,7 @@ mod tests {
     use serde::Deserialize;
 
     use super::*;
-    use crate::{SymmetricKeyAlgorithm, traits::tests::TestIds};
+    use crate::{SymmetricKeyAlgorithm, safe::KeyEncryptionKey, traits::tests::TestIds};
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestDataV1 {
@@ -577,8 +605,12 @@ mod tests {
     #[ignore = "Manual test to verify debug format"]
     fn test_debug() {
         let data: TestData = TestDataV1 { field: 42 }.into();
-        let (envelope, _cek) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        let envelope = DataEnvelope::seal_ref(
+            &data,
+            DataEnvelopeNamespace::ExampleNamespace,
+            &Aes256GcmKey::make(),
+        )
+        .unwrap();
         println!("{:?}", envelope);
     }
 
@@ -586,8 +618,9 @@ mod tests {
     #[ignore]
     fn generate_aes_gcm_test_vectors() {
         let data: TestData = TestDataV1 { field: 123 }.into();
-        let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        let cek = Aes256GcmKey::make();
+        let envelope =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace, &cek).unwrap();
         let unsealed_data: TestData =
             unseal_with_cek(&envelope, DataEnvelopeNamespace::ExampleNamespace, &cek).unwrap();
         assert_eq!(unsealed_data, data);
@@ -635,8 +668,12 @@ mod tests {
     #[test]
     fn test_data_envelope_uses_aes_gcm() {
         let data: TestData = TestDataV1 { field: 42 }.into();
-        let (envelope, _cek) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        let envelope = DataEnvelope::seal_ref(
+            &data,
+            DataEnvelopeNamespace::ExampleNamespace,
+            &Aes256GcmKey::make(),
+        )
+        .unwrap();
 
         // New envelopes declare AES-256-GCM in their protected header.
         let msg = coset::CoseEncrypt0::from_slice(envelope.envelope_data.as_ref()).unwrap();
@@ -652,8 +689,9 @@ mod tests {
         let data: TestData = TestDataV1 { field: 42 }.into();
 
         // Seal the data
-        let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        let cek = Aes256GcmKey::make();
+        let envelope =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace, &cek).unwrap();
         let unsealed_data: TestData =
             unseal_with_cek(&envelope, DataEnvelopeNamespace::ExampleNamespace, &cek).unwrap();
 
@@ -685,10 +723,8 @@ mod tests {
         let key_store = crate::store::KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let wrapping_key = KeyEncryptionKey::make(&mut ctx);
 
-        // The AES-256-GCM CEK is wrapped by the wrapping key (encoded as a COSE key) and unwrapped
-        // back for unsealing.
         let (envelope, wrapped_cek) =
             DataEnvelope::seal_with_wrapping_key(data, &wrapping_key, &mut ctx).unwrap();
         let unsealed: TestData = envelope
@@ -702,15 +738,17 @@ mod tests {
         let data: TestData = TestDataV1 { field: 123 }.into();
 
         // Test with ExampleNamespace
-        let (envelope1, cek1) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        let cek1 = Aes256GcmKey::make();
+        let envelope1 =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace, &cek1).unwrap();
         let unsealed_data1: TestData =
             unseal_with_cek(&envelope1, DataEnvelopeNamespace::ExampleNamespace, &cek1).unwrap();
         assert_eq!(unsealed_data1, data);
 
         // Test with ExampleNamespace2
-        let (envelope2, cek2) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+        let cek2 = Aes256GcmKey::make();
+        let envelope2 =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace2, &cek2).unwrap();
         let unsealed_data2: TestData =
             unseal_with_cek(&envelope2, DataEnvelopeNamespace::ExampleNamespace2, &cek2).unwrap();
         assert_eq!(unsealed_data2, data);
@@ -721,8 +759,9 @@ mod tests {
         let data: TestData = TestDataV1 { field: 456 }.into();
 
         // Seal with ExampleNamespace
-        let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        let cek = Aes256GcmKey::make();
+        let envelope =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace, &cek).unwrap();
 
         // Try to unseal with wrong namespace - should fail
         let result: Result<TestData, DataEnvelopeError> =
@@ -742,8 +781,9 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         // Seal with keystore using ExampleNamespace2
-        let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+        let cek = Aes256GcmKey::make();
+        let envelope =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace2, &cek).unwrap();
         ctx.set_symmetric_key_internal(
             crate::traits::tests::TestSymmKey::A(0),
             SymmetricCryptoKey::Aes256GcmKey(cek),
@@ -757,15 +797,63 @@ mod tests {
     }
 
     #[test]
+    fn test_registration_open_org_invite_namespace_maps_to_expected_discriminant() {
+        // The wire discriminant is load-bearing once shipped; a regression here would silently
+        // invalidate every envelope sealed by production callers.
+        assert_eq!(
+            DataEnvelopeNamespace::try_from(3i128).unwrap(),
+            DataEnvelopeNamespace::RegistrationOpenOrgInviteData
+        );
+        assert_eq!(
+            i128::from(DataEnvelopeNamespace::RegistrationOpenOrgInviteData),
+            3
+        );
+    }
+
+    #[test]
+    fn test_registration_open_org_invite_data_rejects_cross_namespace_unseal() {
+        // AC 1.iii analogue: an envelope sealed under the new production namespace must not
+        // unseal under any other `DataEnvelopeNamespace` (here, the sibling production
+        // `VaultItem`). Mirrors `test_namespace_cross_contamination_protection` for the new
+        // variant.
+        let data: TestData = TestDataV1 { field: 42 }.into();
+
+        let cek = Aes256GcmKey::make();
+        let envelope = DataEnvelope::seal_ref(
+            &data,
+            DataEnvelopeNamespace::RegistrationOpenOrgInviteData,
+            &cek,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            unseal_with_cek::<TestData>(&envelope, DataEnvelopeNamespace::VaultItem, &cek),
+            Err(DataEnvelopeError::InvalidNamespace)
+        ));
+
+        // Correct namespace still succeeds.
+        let round_tripped: TestData = unseal_with_cek(
+            &envelope,
+            DataEnvelopeNamespace::RegistrationOpenOrgInviteData,
+            &cek,
+        )
+        .unwrap();
+        assert_eq!(round_tripped, data);
+    }
+
+    #[test]
     fn test_namespace_cross_contamination_protection() {
         let data1: TestData = TestDataV1 { field: 111 }.into();
         let data2: TestData = TestDataV1 { field: 222 }.into();
 
         // Seal two different pieces of data with different namespaces
-        let (envelope1, cek1) =
-            DataEnvelope::seal_ref(&data1, DataEnvelopeNamespace::ExampleNamespace).unwrap();
-        let (envelope2, cek2) =
-            DataEnvelope::seal_ref(&data2, DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+        let cek1 = Aes256GcmKey::make();
+        let envelope1 =
+            DataEnvelope::seal_ref(&data1, DataEnvelopeNamespace::ExampleNamespace, &cek1).unwrap();
+        let cek2 = Aes256GcmKey::make();
+        let envelope2 =
+            DataEnvelope::seal_ref(&data2, DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+                .unwrap();
 
         // Verify each envelope only opens with its correct namespace
         let unsealed1: TestData =
