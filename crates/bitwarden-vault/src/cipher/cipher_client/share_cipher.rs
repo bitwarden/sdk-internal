@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bitwarden_api_api::{
     apis::ciphers_api::CiphersApi,
     models::{CipherBulkShareRequestModel, CipherShareRequestModel},
@@ -50,12 +52,12 @@ async fn share_ciphers_bulk(
     encrypted_ciphers: Vec<EncryptionContext>,
     collection_ids: Vec<CollectionId>,
 ) -> Result<Vec<Cipher>, CipherError> {
-    // `require!` expands to a `return` from the enclosing function, so it must run in a plain
-    // loop rather than inside a closure passed to `.map`.
-    let mut shared_ids = Vec::with_capacity(encrypted_ciphers.len());
-    for ec in &encrypted_ciphers {
-        shared_ids.push(require!(ec.cipher.id));
-    }
+    // Everything we asked the server to share; the merge loop below removes each id the
+    // write-return acknowledges, leaving the ones the server withheld.
+    let mut withheld_ids: HashSet<CipherId> = encrypted_ciphers
+        .iter()
+        .map(|ec| ec.cipher.id.ok_or(MissingFieldError("id")))
+        .collect::<Result<_, _>>()?;
 
     let request = CipherBulkShareRequestModel::new(
         collection_ids
@@ -72,7 +74,6 @@ async fn share_ciphers_bulk(
 
     let cipher_minis = response.data.unwrap_or_default();
     let mut results = Vec::new();
-    let mut returned_ids = std::collections::HashSet::with_capacity(cipher_minis.len());
 
     for cipher_mini in cipher_minis {
         // The server does not return the full Cipher object, so we pull the details from the
@@ -84,7 +85,7 @@ async fn share_ciphers_bulk(
         cipher.collection_ids = collection_ids.clone();
 
         repository.set(require!(cipher.id), cipher.clone()).await?;
-        returned_ids.insert(cipher_id);
+        withheld_ids.remove(&cipher_id);
         results.push(cipher)
     }
 
@@ -93,12 +94,10 @@ async fn share_ciphers_bulk(
     // missing from `cipher_minis` even though the share succeeded. The local pre-share copy is
     // stale (still personal-owned, full secrets), so evict it rather than let it linger until the
     // next sync restores the cipher in its gated shape.
-    let evicted_ids = shared_ids
-        .into_iter()
-        .filter(|id| !returned_ids.contains(id))
-        .collect::<Vec<_>>();
-    if !evicted_ids.is_empty() {
-        repository.remove_bulk(evicted_ids).await?;
+    if !withheld_ids.is_empty() {
+        repository
+            .remove_bulk(withheld_ids.into_iter().collect())
+            .await?;
     }
 
     Ok(results)
