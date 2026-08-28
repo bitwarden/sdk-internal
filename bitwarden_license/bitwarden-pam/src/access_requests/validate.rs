@@ -1,4 +1,4 @@
-use chrono::Duration;
+use chrono::{DateTime, Duration, Utc};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -50,6 +50,13 @@ pub enum AccessRequestWindowError {
     /// `end` was not strictly after `start`.
     #[error("end must be strictly after start")]
     EndBeforeStart,
+    /// `end` had already passed, so the window could never be activated.
+    ///
+    /// Worded verbatim as the server words its own rejection of the same window, so the web
+    /// client's `REQUEST_ACCESS_SERVER_ERRORS` catalog recognises a local refusal and a remote one
+    /// through one entry. Keep the two spellings in step.
+    #[error("The requested window has already ended.")]
+    EndInPast,
     /// The requested window was longer than the server's 24h cap.
     #[error(
         "The requested window exceeds the maximum of {MAX_REQUEST_ACCESS_WINDOW_SECONDS} seconds"
@@ -61,8 +68,8 @@ impl AccessRequestCreateRequest {
     /// Validates the request's activation window before it is sent to the server.
     ///
     /// - When both [`start`](Self::start) and [`end`](Self::end) are supplied (the human path),
-    ///   `end` must be strictly after `start` and the span between them must not exceed
-    ///   `MAX_REQUEST_ACCESS_WINDOW_SECONDS`.
+    ///   `end` must be strictly after `start`, must not already have passed, and the span between
+    ///   them must not exceed `MAX_REQUEST_ACCESS_WINDOW_SECONDS`.
     /// - When [`duration_seconds`](Self::duration_seconds) is supplied (the automatic path), it
     ///   must not exceed `MAX_REQUEST_ACCESS_WINDOW_SECONDS`. It is a `NonZeroU32`, so positivity
     ///   is already guaranteed by the type and is not re-checked here.
@@ -70,9 +77,23 @@ impl AccessRequestCreateRequest {
     ///   server decides which path applies to an incomplete request, and rejecting it locally would
     ///   reject requests the server is willing to accept.
     pub(crate) fn validate(&self) -> Result<(), AccessRequestWindowError> {
+        self.validate_at(Utc::now())
+    }
+
+    /// [`validate`](Self::validate) against a caller-supplied instant, so the elapsed-window rule
+    /// is testable without a fake clock.
+    pub(crate) fn validate_at(&self, now: DateTime<Utc>) -> Result<(), AccessRequestWindowError> {
         if let (Some(start), Some(end)) = (self.start, self.end) {
             if end <= start {
                 return Err(AccessRequestWindowError::EndBeforeStart);
+            }
+            // Measured on the END, not the start: a window already under way is still usable, and
+            // a form that pre-fills `start` at "now" always submits a little after it. An ended
+            // window is the one the server can never activate -- it refuses at activation with
+            // "The approved access window has already ended", so accepting it here only buys the
+            // requester a pending request that is dead on arrival (PM-42592).
+            if end <= now {
+                return Err(AccessRequestWindowError::EndInPast);
             }
             if end - start > Duration::seconds(MAX_REQUEST_ACCESS_WINDOW_SECONDS as i64) {
                 return Err(AccessRequestWindowError::ExceedsMaxWindow);
@@ -95,6 +116,12 @@ mod tests {
 
     use super::*;
 
+    /// The instant the fixed-window cases are judged against. Pinned rather than `Utc::now()` so
+    /// the suite's verdicts do not change as the wall clock passes the dates written below.
+    fn now() -> DateTime<Utc> {
+        "2024-12-31T23:00:00Z".parse().unwrap()
+    }
+
     fn base_request() -> AccessRequestCreateRequest {
         AccessRequestCreateRequest {
             duration_seconds: None,
@@ -108,12 +135,12 @@ mod tests {
     fn neither_duration_nor_window_is_not_rejected_locally() {
         // The server decides which path applies to an incomplete request; an SDK-side rule here
         // would reject requests the server accepts.
-        assert_eq!(base_request().validate(), Ok(()));
+        assert_eq!(base_request().validate_at(now()), Ok(()));
     }
 
     #[test]
     fn end_equal_to_start_is_invalid() {
-        let start: chrono::DateTime<chrono::Utc> = "2025-01-01T00:00:00Z".parse().unwrap();
+        let start: DateTime<Utc> = "2025-01-01T00:00:00Z".parse().unwrap();
         let request = AccessRequestCreateRequest {
             start: Some(start),
             end: Some(start),
@@ -121,7 +148,7 @@ mod tests {
         };
 
         assert_eq!(
-            request.validate(),
+            request.validate_at(now()),
             Err(AccessRequestWindowError::EndBeforeStart)
         );
     }
@@ -135,7 +162,7 @@ mod tests {
         };
 
         assert_eq!(
-            request.validate(),
+            request.validate_at(now()),
             Err(AccessRequestWindowError::EndBeforeStart)
         );
     }
@@ -148,7 +175,7 @@ mod tests {
             ..base_request()
         };
 
-        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(request.validate_at(now()), Ok(()));
     }
 
     #[test]
@@ -160,9 +187,86 @@ mod tests {
         };
 
         assert_eq!(
-            request.validate(),
+            request.validate_at(now()),
             Err(AccessRequestWindowError::ExceedsMaxWindow)
         );
+    }
+
+    #[test]
+    fn window_that_has_already_ended_is_invalid() {
+        // PM-42592: a window dated days before it is submitted. The server used to persist this as
+        // a pending request that activation could then never start.
+        let request = AccessRequestCreateRequest {
+            start: Some("2024-12-23T07:00:00Z".parse().unwrap()),
+            end: Some("2024-12-23T08:00:00Z".parse().unwrap()),
+            ..base_request()
+        };
+
+        assert_eq!(
+            request.validate_at(now()),
+            Err(AccessRequestWindowError::EndInPast)
+        );
+    }
+
+    #[test]
+    fn window_ending_exactly_now_is_invalid() {
+        // The boundary matches activation's own `NotAfter <= now` refusal: a window with no time
+        // left on it is not a window.
+        let request = AccessRequestCreateRequest {
+            start: Some("2024-12-31T22:00:00Z".parse().unwrap()),
+            end: Some(now()),
+            ..base_request()
+        };
+
+        assert_eq!(
+            request.validate_at(now()),
+            Err(AccessRequestWindowError::EndInPast)
+        );
+    }
+
+    #[test]
+    fn window_already_under_way_is_valid() {
+        // Deliberately not rejected: only the END is checked. The request form seeds `start` at
+        // "now", so every submit lands fractionally after its own start, and a requester who wants
+        // access to begin immediately must stay able to ask for it.
+        let request = AccessRequestCreateRequest {
+            start: Some("2024-12-31T22:00:00Z".parse().unwrap()),
+            end: Some("2025-01-01T00:00:00Z".parse().unwrap()),
+            ..base_request()
+        };
+
+        assert_eq!(request.validate_at(now()), Ok(()));
+    }
+
+    #[test]
+    fn reversed_window_reports_end_before_start_rather_than_end_in_past() {
+        // Both rules fire on a reversed window sitting in the past. Ordering puts the reversal
+        // first, because that is the edit the requester has to make before the window's position
+        // is even meaningful.
+        let request = AccessRequestCreateRequest {
+            start: Some("2024-12-23T08:00:00Z".parse().unwrap()),
+            end: Some("2024-12-23T07:00:00Z".parse().unwrap()),
+            ..base_request()
+        };
+
+        assert_eq!(
+            request.validate_at(now()),
+            Err(AccessRequestWindowError::EndBeforeStart)
+        );
+    }
+
+    #[test]
+    fn validate_measures_against_the_real_clock() {
+        // `validate` is what `TryFrom` calls on the way to the wire; `validate_at` is only the seam
+        // the tests above use. A window in the distant past has to fail through the real entry
+        // point too.
+        let request = AccessRequestCreateRequest {
+            start: Some("2020-01-01T00:00:00Z".parse().unwrap()),
+            end: Some("2020-01-01T01:00:00Z".parse().unwrap()),
+            ..base_request()
+        };
+
+        assert_eq!(request.validate(), Err(AccessRequestWindowError::EndInPast));
     }
 
     #[test]
@@ -172,7 +276,7 @@ mod tests {
             ..base_request()
         };
 
-        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(request.validate_at(now()), Ok(()));
     }
 
     #[test]
@@ -183,7 +287,7 @@ mod tests {
         };
 
         assert_eq!(
-            request.validate(),
+            request.validate_at(now()),
             Err(AccessRequestWindowError::ExceedsMaxWindow)
         );
     }
@@ -195,7 +299,7 @@ mod tests {
             ..base_request()
         };
 
-        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(request.validate_at(now()), Ok(()));
     }
 
     #[test]
@@ -207,6 +311,6 @@ mod tests {
             ..base_request()
         };
 
-        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(request.validate_at(now()), Ok(()));
     }
 }
