@@ -975,12 +975,6 @@ impl CipherView {
         Ok(())
     }
 
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_private_key(&self) -> Result<String, CipherError> {
-        let creds = self.get_fido2_credentials();
-        Ok(require!(creds.first()).key_value.clone())
-    }
-
     pub(crate) fn update_password_history(&mut self, original_cipher: &CipherView) {
         let changes = self
             .login
@@ -2754,25 +2748,6 @@ mod tests {
             .clone();
 
         assert_eq!(cred2.credential_id, cred.credential_id);
-    }
-
-    #[test]
-    fn test_decrypt_fido2_private_key() {
-        let key_store = create_test_crypto_with_user_key(SymmetricCryptoKey::make(
-            SymmetricKeyAlgorithm::Aes256CbcHmac,
-        ));
-        let mut ctx = key_store.context();
-
-        let mut cipher_view = generate_cipher();
-        cipher_view.generate_cipher_key(&mut ctx).unwrap();
-
-        let fido2_credential = generate_fido2_view();
-
-        cipher_view.login.as_mut().unwrap().fido2_credentials =
-            Some(vec![fido2_credential.clone()]);
-
-        let decrypted_key_value = cipher_view.decrypt_fido2_private_key().unwrap();
-        assert_eq!(decrypted_key_value, "123");
     }
 
     #[test]

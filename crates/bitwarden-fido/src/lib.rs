@@ -24,7 +24,7 @@ pub use authenticator::{
     SilentlyDiscoverCredentialsError,
 };
 pub use client::{Fido2Client, Fido2ClientError};
-pub use client_fido::{ClientFido2, ClientFido2Ext, DecryptFido2AutofillCredentialsError};
+pub use client_fido::{ClientFido2, ClientFido2Ext, GetFido2AutofillCredentialsError};
 pub use device_auth_key::{
     DeviceAuthKeyAuthenticator, DeviceAuthKeyError, DeviceAuthKeyGetAssertionResult,
     DeviceAuthKeyMetadata, DeviceAuthKeyRecord, DeviceAuthKeyStore,

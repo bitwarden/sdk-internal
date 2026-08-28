@@ -17,7 +17,7 @@ pub struct ClientFido2 {
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
-pub enum DecryptFido2AutofillCredentialsError {
+pub enum GetFido2AutofillCredentialsError {
     #[error(transparent)]
     Fido2CredentialAutofillView(#[from] Fido2CredentialAutofillViewError),
 }
@@ -61,10 +61,10 @@ impl ClientFido2 {
     }
 
     #[allow(missing_docs)]
-    pub fn decrypt_fido2_autofill_credentials(
+    pub fn get_fido2_autofill_credentials(
         &self,
         cipher_view: CipherView,
-    ) -> Result<Vec<Fido2CredentialAutofillView>, DecryptFido2AutofillCredentialsError> {
+    ) -> Result<Vec<Fido2CredentialAutofillView>, GetFido2AutofillCredentialsError> {
         Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher_view)?)
     }
 }

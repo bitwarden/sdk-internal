@@ -6,8 +6,8 @@ use bitwarden_core::{
     key_management::{BLOB_SECURITY_VERSION, KeySlotIds},
 };
 #[cfg(feature = "wasm")]
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
-use bitwarden_crypto::{KeyStore, KeyStoreContext};
+use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
+use bitwarden_crypto::{IdentifyKey, KeyStore, KeyStoreContext};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -311,14 +311,6 @@ impl CiphersClient {
         }
     }
 
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_credentials(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        Ok(cipher_view.get_fido2_credentials())
-    }
-
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
     /// Necessary until the TS clients utilize the SDK entirely for FIDO2 credentials management.
     /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when
@@ -343,16 +335,6 @@ impl CiphersClient {
     ) -> Result<CipherView, CipherError> {
         cipher_view.move_to_organization(organization_id)?;
         Ok(cipher_view)
-    }
-
-    #[cfg(feature = "wasm")]
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_private_key(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<String, CipherError> {
-        let decrypted_key = cipher_view.decrypt_fido2_private_key()?;
-        Ok(decrypted_key)
     }
 
     /// Returns a new client for performing admin operations.
