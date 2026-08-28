@@ -4,14 +4,13 @@ use bitwarden_api_api::{
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{MissingFieldError, OrganizationId, require};
-use bitwarden_crypto::EncString;
 use bitwarden_state::repository::Repository;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient,
-    EncryptionContext, VaultParseError, cipher::cipher::PartialCipher,
+    Cipher, CipherError, CipherId, CipherView, CiphersClient, EncryptionContext,
+    cipher::cipher::PartialCipher,
 };
 
 /// Standalone function that shares a cipher to an organization via API call.
@@ -76,82 +75,8 @@ async fn share_ciphers_bulk(
             ))
             .await?;
 
-        let cipher: Cipher = Cipher {
-            partial_data: None,
-            id: cipher_mini.id.map(CipherId::new),
-            organization_id: cipher_mini.organization_id.map(OrganizationId::new),
-            key: EncString::try_from_optional(cipher_mini.key)?,
-            name: EncString::try_from_optional(cipher_mini.name)?,
-            notes: EncString::try_from_optional(cipher_mini.notes)?,
-            r#type: require!(cipher_mini.r#type).try_into()?,
-            login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
-            identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
-            card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
-            secure_note: cipher_mini
-                .secure_note
-                .map(|s| (*s).try_into())
-                .transpose()?,
-            ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
-            bank_account: cipher_mini
-                .bank_account
-                .map(|b| (*b).try_into())
-                .transpose()?,
-            drivers_license: cipher_mini
-                .drivers_license
-                .map(|d| (*d).try_into())
-                .transpose()?,
-            passport: cipher_mini.passport.map(|p| (*p).try_into()).transpose()?,
-            reprompt: cipher_mini
-                .reprompt
-                .map(|r| r.try_into())
-                .transpose()?
-                .unwrap_or(CipherRepromptType::None),
-            organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
-            attachments: cipher_mini
-                .attachments
-                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
-                .transpose()?,
-            fields: cipher_mini
-                .fields
-                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
-                .transpose()?,
-            password_history: cipher_mini
-                .password_history
-                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
-                .transpose()?,
-            creation_date: require!(cipher_mini.creation_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            deleted_date: cipher_mini
-                .deleted_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            revision_date: require!(cipher_mini.revision_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            archived_date: orig_cipher
-                .as_ref()
-                .map(|c| c.archived_date)
-                .unwrap_or_default(),
-            edit: orig_cipher.as_ref().map(|c| c.edit).unwrap_or_default(),
-            favorite: orig_cipher.as_ref().map(|c| c.favorite).unwrap_or_default(),
-            folder_id: orig_cipher
-                .as_ref()
-                .map(|c| c.folder_id)
-                .unwrap_or_default(),
-            permissions: orig_cipher
-                .as_ref()
-                .map(|c| c.permissions)
-                .unwrap_or_default(),
-            view_password: orig_cipher
-                .as_ref()
-                .map(|c| c.view_password)
-                .unwrap_or_default(),
-            local_data: orig_cipher.map(|c| c.local_data).unwrap_or_default(),
-            collection_ids: collection_ids.clone(),
-            data: None,
-        };
+        let mut cipher: Cipher = cipher_mini.merge_with_cipher(orig_cipher)?;
+        cipher.collection_ids = collection_ids.clone();
 
         repository.set(require!(cipher.id), cipher.clone()).await?;
         results.push(cipher)
@@ -775,6 +700,137 @@ mod tests {
 
         assert_eq!(stored_cipher.id, shared_cipher.id);
         assert!(stored_cipher.favorite); // Should preserve from original
+    }
+
+    /// A bulk-share write-return can be PAM-gated the same as any other write: secrets withheld,
+    /// `partial_data` set. Persisting the response must keep that gate — dropping `partial_data`
+    /// on merge would leave a husk in the repository that looks like an ungated, secret-free
+    /// cipher.
+    #[tokio::test]
+    async fn test_share_ciphers_bulk_persists_a_gated_write_return() {
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let org_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put_share_many()
+                .returning(move |_body| {
+                    Ok(CipherMiniResponseModelListResponseModel {
+                        object: Some("list".to_string()),
+                        data: Some(vec![bitwarden_api_api::models::CipherMiniResponseModel {
+                            object: Some("cipherMini".to_string()),
+                            id: Some(cipher_id.into()),
+                            organization_id: Some(org_id.into()),
+                            r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                            partial_data: Some(
+                                r#"{"strippedFields":["login","name","notes"]}"#.to_string(),
+                            ),
+                            name: None,
+                            notes: None,
+                            login: None,
+                            revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                            creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                            ..Default::default()
+                        }]),
+                        continuation_token: None,
+                    })
+                });
+        });
+
+        let repository = MemoryRepository::<Cipher>::default();
+
+        // Pre-populate the repository with an ordinary (non-partial) original cipher, so the
+        // merge has local-only fields (favorite, folder_id, ...) to pull forward.
+        let original_cipher = Cipher {
+            partial_data: None,
+            r#type: CipherType::Login,
+            login: Some(crate::cipher::Login {
+                username: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                password: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            id: Some(TEST_CIPHER_ID.parse().unwrap()),
+            organization_id: None,
+            folder_id: Some(crate::FolderId::new(uuid::uuid!(
+                "b1111111-1111-1111-1111-111111111111"
+            ))),
+            collection_ids: vec![],
+            key: None,
+            name: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+            notes: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            drivers_license: None,
+            passport: None,
+            favorite: true,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: true,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: None,
+        };
+        let original_folder_id = original_cipher.folder_id;
+
+        repository
+            .set(TEST_CIPHER_ID.parse().unwrap(), original_cipher)
+            .await
+            .unwrap();
+
+        let encryption_context = create_encryption_context();
+        let collection_ids: Vec<CollectionId> = vec![
+            TEST_COLLECTION_ID_1.parse().unwrap(),
+            TEST_COLLECTION_ID_2.parse().unwrap(),
+        ];
+
+        let result = share_ciphers_bulk(
+            api_client.ciphers_api(),
+            &repository,
+            vec![encryption_context],
+            collection_ids.clone(),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let shared_ciphers = result.unwrap();
+        assert_eq!(shared_ciphers.len(), 1);
+
+        let stored_cipher = repository
+            .get(TEST_CIPHER_ID.parse().unwrap())
+            .await
+            .unwrap()
+            .expect("Cipher should be stored");
+
+        assert!(
+            stored_cipher.partial_data.is_some(),
+            "gated write-return must stay gated in the repository"
+        );
+        assert!(
+            stored_cipher.login.is_none(),
+            "no secret field may reach local state"
+        );
+        assert!(stored_cipher.name.is_none());
+        assert_eq!(stored_cipher.collection_ids, collection_ids);
+        assert!(
+            stored_cipher.favorite,
+            "local-only fields must survive the merge"
+        );
+        assert_eq!(stored_cipher.folder_id, original_folder_id);
     }
 
     #[tokio::test]
