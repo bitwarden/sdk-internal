@@ -151,11 +151,7 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher
-                .name
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
+            name: cipher.name.as_ref().map(ToString::to_string),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -231,11 +227,7 @@ impl From<EncryptionContext> for CipherRequestModel {
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher
-                .name
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
+            name: cipher.name.as_ref().map(ToString::to_string),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -416,7 +408,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
             favorite: Some(c.favorite),
             reprompt: Some(c.reprompt.into()),
             key: c.key.map(|k| k.to_string()),
-            name: c.name.as_ref().map(ToString::to_string).unwrap_or_default(),
+            name: c.name.as_ref().map(ToString::to_string),
             notes: c.notes.map(|n| n.to_string()),
             login: c.login.map(|v| Box::new(v.into())),
             card: c.card.map(|v| Box::new(v.into())),
