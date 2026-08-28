@@ -516,6 +516,7 @@ mod tests {
                 text: Some("This is a test send".to_string()),
                 hidden: false,
             }),
+            data: None,
             r#type: bitwarden_send::SendType::Text,
             max_access_count: None,
             access_count: 0,

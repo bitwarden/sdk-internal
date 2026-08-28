@@ -146,15 +146,12 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
+            is_organization_cipher: None,
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher
-                .name
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
+            name: cipher.name.as_ref().map(ToString::to_string),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -225,15 +222,12 @@ impl From<EncryptionContext> for CipherRequestModel {
             encrypted_by_key_id,
             r#type: Some(cipher.r#type.into()),
             organization_id: cipher.organization_id.map(|o| o.to_string()),
+            is_organization_cipher: None,
             folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
             favorite: cipher.favorite.into(),
             reprompt: Some(cipher.reprompt.into()),
             key: cipher.key.map(|k| k.to_string()),
-            name: cipher
-                .name
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
+            name: cipher.name.as_ref().map(ToString::to_string),
             notes: cipher.notes.map(|n| n.to_string()),
             fields: Some(
                 cipher
@@ -409,11 +403,12 @@ impl TryFrom<Cipher> for CipherRequestModel {
             encrypted_by_key_id: None,
             r#type: Some(c.r#type.into()),
             organization_id: c.organization_id.map(|id| id.to_string()),
+            is_organization_cipher: None,
             folder_id: c.folder_id.map(|id| id.to_string()),
             favorite: Some(c.favorite),
             reprompt: Some(c.reprompt.into()),
             key: c.key.map(|k| k.to_string()),
-            name: c.name.as_ref().map(ToString::to_string).unwrap_or_default(),
+            name: c.name.as_ref().map(ToString::to_string),
             notes: c.notes.map(|n| n.to_string()),
             login: c.login.map(|v| Box::new(v.into())),
             card: c.card.map(|v| Box::new(v.into())),
@@ -439,7 +434,7 @@ impl TryFrom<Cipher> for CipherRequestModel {
 }
 
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]

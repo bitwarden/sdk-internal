@@ -256,7 +256,7 @@ mod tests {
                     Ok(CipherResponseModel {
                         object: Some("cipher".to_string()),
                         id: Some(cipher_id.into()),
-                        name: Some(body.name.clone()),
+                        name: body.name.clone(),
                         r#type: body.r#type,
                         organization_id: body
                             .organization_id
@@ -386,7 +386,7 @@ mod tests {
                             .cipher
                             .organization_id
                             .and_then(|id| id.parse().ok()),
-                        name: Some(request_body.cipher.name.clone()),
+                        name: request_body.cipher.name.clone(),
                         r#type: request_body.cipher.r#type,
                         creation_date: Some(Utc::now().to_string()),
                         revision_date: Some(Utc::now().to_string()),

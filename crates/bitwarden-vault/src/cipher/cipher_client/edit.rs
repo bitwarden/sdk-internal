@@ -502,7 +502,7 @@ mod tests {
                     Ok(CipherResponseModel {
                         object: Some("cipher".to_string()),
                         id: Some(cipher_id.into()),
-                        name: Some(body.name),
+                        name: body.name,
                         r#type: body.r#type,
                         organization_id: body
                             .organization_id

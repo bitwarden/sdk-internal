@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`5358a2f14765c29b61063e33dccde6b1455d7a64`](https://github.com/bitwarden/server/commit/5358a2f14765c29b61063e33dccde6b1455d7a64)
+  [`e607c3f43ebcbf6feb2aa6768c80bc9ddd5f4460`](https://github.com/bitwarden/server/commit/e607c3f43ebcbf6feb2aa6768c80bc9ddd5f4460)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -851,6 +851,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUser](docs/OrganizationUser.md)
 - [OrganizationUserAcceptInitRequestModel](docs/OrganizationUserAcceptInitRequestModel.md)
 - [OrganizationUserAcceptRequestModel](docs/OrganizationUserAcceptRequestModel.md)
+- [OrganizationUserAccountRecoveryRequestModel](docs/OrganizationUserAccountRecoveryRequestModel.md)
 - [OrganizationUserBulkConfirmRequestModel](docs/OrganizationUserBulkConfirmRequestModel.md)
 - [OrganizationUserBulkConfirmRequestModelEntry](docs/OrganizationUserBulkConfirmRequestModelEntry.md)
 - [OrganizationUserBulkRequestModel](docs/OrganizationUserBulkRequestModel.md)
@@ -977,7 +978,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [RefreshOrganizationInviteLinkRequestModel](docs/RefreshOrganizationInviteLinkRequestModel.md)
 - [ReportFile](docs/ReportFile.md)
 - [RequestSmAccessRequestModel](docs/RequestSmAccessRequestModel.md)
-- [ResetPasswordWithOrgIdRequestModel](docs/ResetPasswordWithOrgIdRequestModel.md)
 - [ResponseData](docs/ResponseData.md)
 - [RestartSubscriptionRequest](docs/RestartSubscriptionRequest.md)
 - [RestoreSecretVersionRequestModel](docs/RestoreSecretVersionRequestModel.md)
@@ -1019,6 +1019,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SelectionReadOnlyResponseModel](docs/SelectionReadOnlyResponseModel.md)
 - [SelfHostedOrganizationLicenseRequestModel](docs/SelfHostedOrganizationLicenseRequestModel.md)
 - [SendAccessResponseModel](docs/SendAccessResponseModel.md)
+- [SendDataModel](docs/SendDataModel.md)
+- [SendEncryptionType](docs/SendEncryptionType.md)
 - [SendFileDownloadDataResponseModel](docs/SendFileDownloadDataResponseModel.md)
 - [SendFileModel](docs/SendFileModel.md)
 - [SendFileUploadDataResponseModel](docs/SendFileUploadDataResponseModel.md)

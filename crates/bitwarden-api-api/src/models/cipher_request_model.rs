@@ -21,9 +21,11 @@ pub struct CipherRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub encrypted_for: Option<uuid::Uuid>,
-    /// Hex-encoded key id of the user key the client held when it encrypted this cipher. Absent
-    /// for clients that predate the field. When present, it must match the acting user's current
-    /// user key id.
+    /// Hex-encoded key id of the key the client held when it encrypted this cipher: the user key
+    /// for a user-owned cipher, the organization key for an organization cipher. Absent for
+    /// clients that predate the field. For a user-owned cipher it must match the acting user's
+    /// current user key id; for an organization cipher it is not validated, because organizations
+    /// carry no key id yet.
     #[serde(
         rename = "encryptedByKeyId",
         alias = "EncryptedByKeyId",
@@ -62,8 +64,12 @@ pub struct CipherRequestModel {
     pub reprompt: Option<models::CipherRepromptType>,
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "name", alias = "Name")]
-    pub name: String,
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub name: Option<String>,
     #[serde(
         rename = "notes",
         alias = "Notes",
@@ -161,10 +167,18 @@ pub struct CipherRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub archived_date: Option<String>,
+    /// True when this cipher is owned by an organization, and so is encrypted with the
+    /// organization key rather than the acting user's key.
+    #[serde(
+        rename = "isOrganizationCipher",
+        alias = "IsOrganizationCipher",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_organization_cipher: Option<bool>,
 }
 
 impl CipherRequestModel {
-    pub fn new(name: String) -> CipherRequestModel {
+    pub fn new() -> CipherRequestModel {
         CipherRequestModel {
             encrypted_for: None,
             encrypted_by_key_id: None,
@@ -174,7 +188,7 @@ impl CipherRequestModel {
             favorite: None,
             reprompt: None,
             key: None,
-            name,
+            name: None,
             notes: None,
             fields: None,
             password_history: None,
@@ -191,6 +205,7 @@ impl CipherRequestModel {
             data: None,
             last_known_revision_date: None,
             archived_date: None,
+            is_organization_cipher: None,
         }
     }
 }
