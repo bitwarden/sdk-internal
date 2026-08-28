@@ -1,6 +1,10 @@
-use bitwarden_core::auth::{
-    AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
-    password::MasterPasswordPolicyOptions,
+use bitwarden_auth::{AuthClientExt, login::LoginClient};
+use bitwarden_core::{
+    ClientSettings,
+    auth::{
+        AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
+        password::MasterPasswordPolicyOptions,
+    },
 };
 use bitwarden_crypto::{
     EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey,
@@ -20,6 +24,16 @@ impl AuthClient {
     /// Client for initializing user account cryptography and unlock methods after JIT provisioning
     pub fn registration(&self) -> RegistrationClient {
         RegistrationClient(self.0.clone())
+    }
+
+    /// Client for login functionality
+    ///
+    /// `client_settings` configures a client internal to the returned `LoginClient`, separate from
+    /// the one backing this `AuthClient`. Pass settings matching those the SDK client was
+    /// constructed with; otherwise login requests target a different server than the rest of the
+    /// SDK. See the TODO on `bitwarden_auth::AuthClient` for the planned consolidation.
+    pub fn login(&self, client_settings: ClientSettings) -> LoginClient {
+        self.0.auth_new().login(client_settings)
     }
 
     /// Calculate Password Strength
