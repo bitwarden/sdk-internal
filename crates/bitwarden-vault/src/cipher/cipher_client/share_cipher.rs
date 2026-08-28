@@ -50,6 +50,13 @@ async fn share_ciphers_bulk(
     encrypted_ciphers: Vec<EncryptionContext>,
     collection_ids: Vec<CollectionId>,
 ) -> Result<Vec<Cipher>, CipherError> {
+    // `require!` expands to a `return` from the enclosing function, so it must run in a plain
+    // loop rather than inside a closure passed to `.map`.
+    let mut shared_ids = Vec::with_capacity(encrypted_ciphers.len());
+    for ec in &encrypted_ciphers {
+        shared_ids.push(require!(ec.cipher.id));
+    }
+
     let request = CipherBulkShareRequestModel::new(
         collection_ids
             .iter()
@@ -65,21 +72,33 @@ async fn share_ciphers_bulk(
 
     let cipher_minis = response.data.unwrap_or_default();
     let mut results = Vec::new();
+    let mut returned_ids = std::collections::HashSet::with_capacity(cipher_minis.len());
 
     for cipher_mini in cipher_minis {
         // The server does not return the full Cipher object, so we pull the details from the
         // current local version to fill in those missing values.
-        let orig_cipher = repository
-            .get(CipherId::new(
-                cipher_mini.id.ok_or(MissingFieldError("id"))?,
-            ))
-            .await?;
+        let cipher_id = CipherId::new(cipher_mini.id.ok_or(MissingFieldError("id"))?);
+        let orig_cipher = repository.get(cipher_id).await?;
 
         let mut cipher: Cipher = cipher_mini.merge_with_cipher(orig_cipher)?;
         cipher.collection_ids = collection_ids.clone();
 
         repository.set(require!(cipher.id), cipher.clone()).await?;
+        returned_ids.insert(cipher_id);
         results.push(cipher)
+    }
+
+    // The server applies the share, then withholds a now-gated cipher from the write-return when
+    // the calling client can't render the partial shape — so a requested id can legitimately be
+    // missing from `cipher_minis` even though the share succeeded. The local pre-share copy is
+    // stale (still personal-owned, full secrets), so evict it rather than let it linger until the
+    // next sync restores the cipher in its gated shape.
+    let evicted_ids = shared_ids
+        .into_iter()
+        .filter(|id| !returned_ids.contains(id))
+        .collect::<Vec<_>>();
+    if !evicted_ids.is_empty() {
+        repository.remove_bulk(evicted_ids).await?;
     }
 
     Ok(results)
@@ -831,6 +850,99 @@ mod tests {
             "local-only fields must survive the merge"
         );
         assert_eq!(stored_cipher.folder_id, original_folder_id);
+    }
+
+    /// The write-return can omit a cipher the share nonetheless applied to: the server strips a
+    /// now-gated cipher from the response when the caller can't render the partial shape. The
+    /// stale pre-share copy (personal-owned, full secrets) must not outlive a share the server
+    /// confirmed — it has to be evicted, not left for the next sync to (maybe) clean up.
+    #[tokio::test]
+    async fn test_share_ciphers_bulk_evicts_a_stripped_write_return() {
+        let returned_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let stripped_id: CipherId = "11111111-2222-3333-4444-555555555555".parse().unwrap();
+        let org_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put_share_many()
+                .returning(move |_body| {
+                    // Only the non-gated cipher comes back; the stripped one is omitted entirely,
+                    // as the server does for a now-gated cipher the caller can't render.
+                    Ok(CipherMiniResponseModelListResponseModel {
+                        object: Some("list".to_string()),
+                        data: Some(vec![bitwarden_api_api::models::CipherMiniResponseModel {
+                            object: Some("cipherMini".to_string()),
+                            id: Some(returned_id.into()),
+                            organization_id: Some(org_id.into()),
+                            r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                            name: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".to_string()),
+                            revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                            creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                            ..Default::default()
+                        }]),
+                        continuation_token: None,
+                    })
+                });
+        });
+
+        let repository = MemoryRepository::<Cipher>::default();
+
+        // Pre-populate the repository with pre-share originals for both ciphers: personal-owned,
+        // full secrets, no org id.
+        let mut original_returned = create_encryption_context().cipher;
+        original_returned.organization_id = None;
+        original_returned.collection_ids = vec![];
+        repository
+            .set(returned_id, original_returned)
+            .await
+            .unwrap();
+
+        let mut original_stripped = create_encryption_context().cipher;
+        original_stripped.id = Some(stripped_id);
+        original_stripped.organization_id = None;
+        original_stripped.collection_ids = vec![];
+        repository
+            .set(stripped_id, original_stripped)
+            .await
+            .unwrap();
+
+        let mut encryption_context_returned = create_encryption_context();
+        encryption_context_returned.cipher.id = Some(returned_id);
+        let mut encryption_context_stripped = create_encryption_context();
+        encryption_context_stripped.cipher.id = Some(stripped_id);
+
+        let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
+
+        let result = share_ciphers_bulk(
+            api_client.ciphers_api(),
+            &repository,
+            vec![encryption_context_returned, encryption_context_stripped],
+            collection_ids,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let shared_ciphers = result.unwrap();
+        assert_eq!(
+            shared_ciphers.len(),
+            1,
+            "only the ciphers the server returned are reported back to the caller"
+        );
+
+        let stored_returned = repository.get(returned_id).await.unwrap();
+        assert!(
+            stored_returned
+                .and_then(|c| c.organization_id)
+                .is_some_and(|id| id == org_id),
+            "the cipher the server returned must be merged and persisted with its new org id"
+        );
+
+        let stored_stripped = repository.get(stripped_id).await.unwrap();
+        assert!(
+            stored_stripped.is_none(),
+            "a cipher omitted from the write-return must be evicted, not left as a stale \
+             pre-share copy"
+        );
     }
 
     #[tokio::test]
