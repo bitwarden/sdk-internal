@@ -32,6 +32,10 @@ pub enum BitwardenError {
     TrustDevice(#[from] bitwarden_core::auth::auth_client::TrustDeviceError),
     #[error(transparent)]
     Registration(#[from] bitwarden_auth::registration::RegistrationError),
+    #[error(transparent)]
+    PasswordPrelogin(#[from] bitwarden_auth::login::login_via_password::PasswordPreloginError),
+    #[error(transparent)]
+    PasswordLogin(#[from] bitwarden_auth::login::login_via_password::PasswordLoginError),
 
     #[error(transparent)]
     Fingerprint(#[from] bitwarden_core::platform::FingerprintError),

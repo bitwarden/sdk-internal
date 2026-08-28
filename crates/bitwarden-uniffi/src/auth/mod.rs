@@ -1,4 +1,4 @@
-use bitwarden_auth::{AuthClientExt, login::LoginClient};
+use bitwarden_auth::AuthClientExt;
 use bitwarden_core::{
     ClientSettings,
     auth::{
@@ -12,8 +12,12 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 
-use crate::{auth::registration::RegistrationClient, error::Result};
+use crate::{
+    auth::{login::LoginClient, registration::RegistrationClient},
+    error::Result,
+};
 
+mod login;
 mod registration;
 
 #[derive(uniffi::Object)]
@@ -33,7 +37,7 @@ impl AuthClient {
     /// constructed with; otherwise login requests target a different server than the rest of the
     /// SDK. See the TODO on `bitwarden_auth::AuthClient` for the planned consolidation.
     pub fn login(&self, client_settings: ClientSettings) -> LoginClient {
-        self.0.auth_new().login(client_settings)
+        LoginClient(self.0.auth_new().login(client_settings))
     }
 
     /// Calculate Password Strength
