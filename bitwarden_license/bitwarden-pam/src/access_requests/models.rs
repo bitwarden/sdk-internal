@@ -1144,20 +1144,23 @@ mod tests {
         );
     }
 
+    /// The window sits in the far future because `TryFrom` runs `validate`, which refuses a window
+    /// that has already ended -- a literal date close to today would pass on the day it was written
+    /// and fail later. The instant is arbitrary here; only its rendering is under test.
     #[test]
     fn access_request_create_request_converts_to_model() {
         let request = AccessRequestCreateRequest {
             duration_seconds: NonZeroU32::new(3600),
-            start: Some("2025-01-01T00:00:00Z".parse().unwrap()),
-            end: Some("2025-01-01T01:00:00Z".parse().unwrap()),
+            start: Some("2099-01-01T00:00:00Z".parse().unwrap()),
+            end: Some("2099-01-01T01:00:00Z".parse().unwrap()),
             reason: Some("Need access".to_string()),
         };
 
         let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
 
         assert_eq!(model.duration_seconds, Some(3600));
-        assert_eq!(model.start, Some("2025-01-01T00:00:00.000Z".to_string()));
-        assert_eq!(model.end, Some("2025-01-01T01:00:00.000Z".to_string()));
+        assert_eq!(model.start, Some("2099-01-01T00:00:00.000Z".to_string()));
+        assert_eq!(model.end, Some("2099-01-01T01:00:00.000Z".to_string()));
         assert_eq!(model.reason, Some("Need access".to_string()));
     }
 
@@ -1165,19 +1168,19 @@ mod tests {
     /// explicit offset against the API host's timezone, so the offset spelling shifted the
     /// stored window by that host's offset (PM-42275). Pinned as its own test because the two
     /// spellings name the same instant and the difference is invisible to a reader of the value
-    /// alone.
+    /// alone. Far-future for the same reason as the conversion test above.
     #[test]
     fn access_request_create_request_window_is_serialized_as_utc_with_a_z_designator() {
         let request = AccessRequestCreateRequest {
-            start: Some("2025-06-15T13:30:00.250Z".parse().unwrap()),
-            end: Some("2025-06-15T14:30:00Z".parse().unwrap()),
+            start: Some("2099-06-15T13:30:00.250Z".parse().unwrap()),
+            end: Some("2099-06-15T14:30:00Z".parse().unwrap()),
             ..Default::default()
         };
 
         let model = AccessRequestCreateRequestModel::try_from(request).unwrap();
 
-        assert_eq!(model.start, Some("2025-06-15T13:30:00.250Z".to_string()));
-        assert_eq!(model.end, Some("2025-06-15T14:30:00.000Z".to_string()));
+        assert_eq!(model.start, Some("2099-06-15T13:30:00.250Z".to_string()));
+        assert_eq!(model.end, Some("2099-06-15T14:30:00.000Z".to_string()));
         assert!(model.start.unwrap().ends_with('Z'));
         assert!(model.end.unwrap().ends_with('Z'));
     }
