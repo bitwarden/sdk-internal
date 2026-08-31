@@ -1318,9 +1318,10 @@ api      = "https://api.example.com"
 identity = "https://identity.example.com"
 
 [targets.00000000-0000-0000-0000-000000000002]
-ldap_host = "dc01.corp.example"
-bind_dn   = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
-base_dn   = "DC=corp,DC=example"
+ldap_host      = "dc01.corp.example"
+bind_dn        = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+base_dn        = "DC=corp,DC=example"
+ca_certificate = "/etc/pki/ad-ca.pem"
 "#;
         let f = write_toml(toml);
         let result = Config::from_cli(file_args(&f));
@@ -1342,6 +1343,10 @@ base_dn   = "DC=corp,DC=example"
         assert_eq!(
             cfg.targets[&uuid].base_dn.as_deref(),
             Some("DC=corp,DC=example")
+        );
+        assert_eq!(
+            cfg.targets[&uuid].ca_certificate.as_deref(),
+            Some("/etc/pki/ad-ca.pem")
         );
     }
 

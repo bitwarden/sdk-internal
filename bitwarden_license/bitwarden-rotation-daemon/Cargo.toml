@@ -31,6 +31,8 @@ http = { workspace = true }
 ldap3 = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -43,7 +45,6 @@ uuid = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
-rustls = { workspace = true }
 tempfile = "3"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }

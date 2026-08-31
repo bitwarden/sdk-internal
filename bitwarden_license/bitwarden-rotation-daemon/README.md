@@ -202,7 +202,7 @@ source was expected to provide the value.
 | ----------------- | ----------------------------------- |
 | `CustomScript`    | `script`                            |
 | `Entra`           | `tenant_id`, `client_id`            |
-| `ActiveDirectory` | `ldap_host`, `bind_dn`, `base_dn`   |
+| `ActiveDirectory` | `ldap_host`, `bind_dn`, `base_dn`, `ca_certificate` |
 
 ### Secrets are env-only
 
@@ -226,10 +226,10 @@ bash: export: `85808642_BABA_4B8E_8C34_B48000D60A0A_BIND_PASSWORD=…': not a va
 ```
 
 The `[targets]` config section sidesteps this restriction for `script`, `tenant_id`, `client_id`,
-`ldap_host`, `bind_dn`, and `base_dn`; only `client_secret` and `bind_password` remain env-only. For
-a target whose UUID starts with a digit those two have no config-file escape hatch, so set them with
-`env`, which places the name in the child's environment directly and never applies the shell's
-identifier rules:
+`ldap_host`, `bind_dn`, `base_dn`, and `ca_certificate`; only `client_secret` and `bind_password`
+remain env-only. For a target whose UUID starts with a digit those two have no config-file escape
+hatch, so set them with `env`, which places the name in the child's environment directly and never
+applies the shell's identifier rules:
 
 ```sh
 env 85808642_BABA_4B8E_8C34_B48000D60A0A_BIND_PASSWORD="$secret" \
@@ -263,7 +263,7 @@ ABC_1234_5678_ABCD_000000000001_CLIENT_SECRET=...
 | ----------------- | ---------------------------------------------------- |
 | `Entra`           | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`            |
 | `CustomScript`    | `SCRIPT`                                             |
-| `ActiveDirectory` | `LDAP_HOST`, `BIND_DN`, `BASE_DN`, `BIND_PASSWORD`   |
+| `ActiveDirectory` | `LDAP_HOST`, `BIND_DN`, `BASE_DN`, `BIND_PASSWORD` (plus optional `CA_CERTIFICATE`) |
 | `Mssql`           | `HOST`, `USER`, `SECRET` (unsupported this build)    |
 
 Any additional variables matching the prefix are collected and forwarded to the integration as extra
@@ -435,13 +435,59 @@ plaintext LDAP path, no StartTLS fallback, and no flag to skip certificate valid
 This is not only a Bitwarden policy: a domain controller refuses a `unicodePwd` write on an
 unencrypted connection, answering `confidentialityRequired` (LDAP result code 13).
 
-The domain controller's certificate is validated against the host's native trust store, so the
-**issuing enterprise CA must be trusted by the machine running the daemon**. A validation failure is
-a fatal error, not a retryable one.
+The domain controller's certificate is validated against the host's native trust store. A
+deployment whose DC uses a private or self-signed certificate can name a PEM file of extra trust
+anchors with `ca_certificate` — see [Trusting a private CA](#trusting-a-private-ca). A validation
+failure ends the attempt at once, with no backoff and no second connection inside it; the job itself
+is still re-claimed on later polls until its attempt budget is spent.
 
 `ldap_host` is a bare host name, optionally with a `:port` suffix — never a URL. Anything containing
 a scheme, a path, userinfo, or whitespace is rejected at rotation time so that a mistyped host cannot
 silently downgrade the connection or redirect the bind.
+
+### Trusting a private CA
+
+Most AD deployments issue the LDAPS certificate from an internal enterprise CA, or use the
+self-signed certificate the DC generates for itself. Neither chains to a public root, so the
+connection fails with `TlsHandshakeFailed` unless that CA is trusted. An untrusted anchor therefore
+shows up as a run of identical `target_unreachable` attempts, one per poll, not as a single failure.
+
+Set `ca_certificate` to the path of a PEM file holding the issuing CA certificate (or the DC's own
+self-signed certificate):
+
+```toml
+[targets.00000000-0000-0000-0000-000000000003]
+ldap_host      = "dc01.corp.example"
+bind_dn        = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+base_dn        = "OU=Managed Accounts,DC=corp,DC=example"
+ca_certificate = "/etc/bitwarden/ad-ca.pem"
+```
+
+Or via the environment: `<TARGET_ID_UPPER_UNDERSCORE>_CA_CERTIFICATE=/etc/bitwarden/ad-ca.pem`. It
+is a file path, not a secret, so unlike `bind_password` it is accepted in either place; the usual
+precedence applies (config file wins per key, environment is the fallback).
+
+Three properties are worth being explicit about:
+
+- **Additive, never substitutive.** The file's anchors are *added* to the platform trust store. Public CAs keep their standing, and the extra anchor applies only to that target's connections.
+- **Verification is never relaxed.** The certificate chain and the host name are checked exactly as they are for a publicly-issued certificate. There is no `insecure`, `no_verify`, or `skip_hostname` flag, and none will be added: a private CA is an additional anchor, not a reason to stop checking. The `ldap_host` you configure must therefore match a SAN on the DC's certificate.
+- **No silent fallback.** A missing file, an unreadable one, a malformed PEM, or a PEM with no certificate in it aborts the rotation with `credentials_unresolved`. The daemon will not quietly continue on platform roots, because that would leave an operator believing a connection is pinned when it is not.
+
+When `ca_certificate` is absent the connection uses the platform trust store alone, exactly as it
+did before the key existed.
+
+To export a DC's current LDAPS certificate, on the DC:
+
+```powershell
+$c = Get-ChildItem Cert:\LocalMachine\My |
+  Where-Object { $_.Subject -like "*$env:COMPUTERNAME*" -and $_.EnhancedKeyUsageList.FriendlyName -contains 'Server Authentication' } |
+  Select-Object -First 1
+@(
+  '-----BEGIN CERTIFICATE-----'
+  [Convert]::ToBase64String($c.RawData, 'InsertLineBreaks')
+  '-----END CERTIFICATE-----'
+) | Set-Content -Encoding ascii C:\dc-ldaps.pem
+```
 
 ### Bind identity: a delegated service account
 
@@ -496,6 +542,7 @@ lifetime).
 | `BIND_DN`       | DN of the delegated service account                               |
 | `BASE_DN`       | Search base DN for account lookup                                 |
 | `BIND_PASSWORD` | Password of the delegated service account (**environment only**)  |
+| `CA_CERTIFICATE` | *Optional.* Path to a PEM file of additional TLS trust anchors   |
 
 Example (target id `abc-1234-…`):
 
@@ -506,9 +553,9 @@ ABC_1234_…_BASE_DN=OU=Managed Accounts,DC=corp,DC=example
 ABC_1234_…_BIND_PASSWORD=<secret>
 ```
 
-`LDAP_HOST`, `BIND_DN`, and `BASE_DN` may also be supplied in the `[targets.<uuid>]` config section as
-`ldap_host`, `bind_dn`, and `base_dn`. `BIND_PASSWORD` may not — see
-[Secrets are env-only](#secrets-are-env-only).
+`LDAP_HOST`, `BIND_DN`, `BASE_DN`, and `CA_CERTIFICATE` may also be supplied in the
+`[targets.<uuid>]` config section as `ldap_host`, `bind_dn`, `base_dn`, and `ca_certificate`.
+`BIND_PASSWORD` may not — see [Secrets are env-only](#secrets-are-env-only).
 
 ### Error classification
 
@@ -523,6 +570,7 @@ once per attempt.
 | Missing or malformed credential                        | Fatal     | unchanged  | `credentials_unresolved` |
 | TCP failure, reset connection                          | Transient | unchanged  | `target_unreachable`     |
 | TLS handshake or certificate rejected                  | Fatal     | unchanged  | `target_unreachable`     |
+| `ca_certificate` missing, unreadable, or malformed     | Fatal     | unchanged  | `credentials_unresolved` |
 | Bind rejected (rc 49, 50)                              | Fatal     | unchanged  | `target_rejected`        |
 | Account not found or ambiguous                         | Fatal     | unchanged  | `target_rejected`        |
 | Write rejected (rc 13, 19, 32, 53, schema errors)      | Fatal     | unchanged  | `target_rejected`        |

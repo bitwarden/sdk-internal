@@ -1249,6 +1249,7 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "rustls",
+ "rustls-native-certs",
  "serde",
  "serde_json",
  "tempfile",
