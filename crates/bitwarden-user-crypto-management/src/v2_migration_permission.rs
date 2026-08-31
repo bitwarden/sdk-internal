@@ -5,9 +5,10 @@
 //! only consumer of. The first query starts the clock.
 
 use bitwarden_core::key_management::V2EncryptedMigrationsGracePeriodStart;
-use bitwarden_error::bitwarden_error;
 use chrono::{TimeDelta, Utc};
-use thiserror::Error;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -16,39 +17,38 @@ use crate::UserCryptoManagementClient;
 /// How long the prompt stays suppressed after the window opens.
 const GRACE_PERIOD: TimeDelta = TimeDelta::weeks(2);
 
-/// Errors returned by the v2 migration grace period check.
-#[derive(Debug, Error)]
-#[bitwarden_error(flat)]
-pub enum V2MigrationGracePeriodError {
-    /// The grace period starting timestamp lives in client-managed state, which needs a bridge.
-    #[error("No state bridge registered, the v2 migration grace period is not supported")]
-    StateBridgeNotRegistered,
+/// Whether the client may prompt the user to migrate to v2 encryption.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum MigrationPermission {
+    /// The user is inside the grace period. Do not show the migration prompt.
+    Wait,
+    /// The grace period has elapsed. Show the migration prompt.
+    Migrate,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl UserCryptoManagementClient {
-    /// Returns whether the user is still inside the two-week v2 migration grace period.
+    /// Returns whether the client may prompt the user to migrate to v2 encryption.
     ///
-    /// `true` means the master-password prompt must **not** be shown.
+    /// [`MigrationPermission::Wait`] means the user is still inside the two-week grace period and
+    /// the prompt must not be shown. [`MigrationPermission::Migrate`] means the grace period has
+    /// elapsed.
     ///
     /// The first call has a side effect: when no timestamp is stored, it writes
-    /// the current timestamp and returns `true`. The window is therefore two
-    /// weeks from the first call, not from login. A client that never calls
-    /// this method never opens the window.
+    /// the current timestamp and returns [`MigrationPermission::Wait`]. The
+    /// window is therefore two weeks from the first call, not from login. A
+    /// client that never calls this method never opens the window.
     ///
     /// The SDK never clears the timestamp. Clearing is the client's decision
     /// and resets the window. The timestamp is persisted so a user who logs out
     /// often cannot avoid the prompt indefinitely.
     ///
-    /// Returns an error when no state bridge is registered.
-    pub async fn within_v2_migration_grace_period(
-        &self,
-    ) -> Result<bool, V2MigrationGracePeriodError> {
+    /// Panics when no state bridge is registered.
+    pub async fn request_permission_to_migrate_to_v2(&self) -> MigrationPermission {
         let state_bridge = self.client.km_state_bridge();
-        if !state_bridge.is_bridge_registered() {
-            return Err(V2MigrationGracePeriodError::StateBridgeNotRegistered);
-        }
 
         match state_bridge
             .get_v2_encrypted_migrations_grace_period_start()
@@ -62,9 +62,12 @@ impl UserCryptoManagementClient {
                         &V2EncryptedMigrationsGracePeriodStart(Utc::now()),
                     )
                     .await;
-                Ok(true)
+                MigrationPermission::Wait
             }
-            Some(start) => Ok(Utc::now().signed_duration_since(start.0) < GRACE_PERIOD),
+            Some(start) if Utc::now().signed_duration_since(start.0) < GRACE_PERIOD => {
+                MigrationPermission::Wait
+            }
+            Some(_) => MigrationPermission::Migrate,
         }
     }
 }
@@ -108,15 +111,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_unset_anchor_starts_the_window_and_reports_within() {
+    async fn test_unset_anchor_starts_the_window_and_reports_wait() {
         let client = client_with_bridge();
 
-        assert!(
+        assert_eq!(
             client
                 .user_crypto_management()
-                .within_v2_migration_grace_period()
-                .await
-                .unwrap()
+                .request_permission_to_migrate_to_v2()
+                .await,
+            MigrationPermission::Wait
         );
 
         let anchor = stored_anchor(&client).await.expect("the window was armed");
@@ -128,89 +131,87 @@ mod tests {
         let client = client_with_bridge();
         let user_crypto_management = client.user_crypto_management();
 
-        assert!(
+        assert_eq!(
             user_crypto_management
-                .within_v2_migration_grace_period()
-                .await
-                .unwrap()
+                .request_permission_to_migrate_to_v2()
+                .await,
+            MigrationPermission::Wait
         );
         let armed = stored_anchor(&client).await.expect("the window was armed");
 
-        assert!(
+        assert_eq!(
             user_crypto_management
-                .within_v2_migration_grace_period()
-                .await
-                .unwrap()
+                .request_permission_to_migrate_to_v2()
+                .await,
+            MigrationPermission::Wait
         );
         assert_eq!(stored_anchor(&client).await, Some(armed));
     }
 
     #[tokio::test]
-    async fn test_one_week_old_anchor_is_within() {
+    async fn test_one_week_old_anchor_waits() {
         let client = client_with_anchor(-TimeDelta::weeks(1)).await;
 
-        assert!(
+        assert_eq!(
             client
                 .user_crypto_management()
-                .within_v2_migration_grace_period()
-                .await
-                .unwrap()
+                .request_permission_to_migrate_to_v2()
+                .await,
+            MigrationPermission::Wait
         );
     }
 
     #[tokio::test]
-    async fn test_three_week_old_anchor_is_outside() {
+    async fn test_three_week_old_anchor_migrates() {
         let client = client_with_anchor(-TimeDelta::weeks(3)).await;
 
-        assert!(
-            !client
+        assert_eq!(
+            client
                 .user_crypto_management()
-                .within_v2_migration_grace_period()
-                .await
-                .unwrap()
+                .request_permission_to_migrate_to_v2()
+                .await,
+            MigrationPermission::Migrate
         );
     }
 
     #[tokio::test]
-    async fn test_exactly_two_weeks_is_outside() {
+    async fn test_exactly_two_weeks_migrates() {
         // The anchor is written a moment before it is read, so the elapsed time is just past the
         // grace period and the strict comparison reports the user as outside it.
         let client = client_with_anchor(-GRACE_PERIOD).await;
 
-        assert!(
-            !client
+        assert_eq!(
+            client
                 .user_crypto_management()
-                .within_v2_migration_grace_period()
-                .await
-                .unwrap()
+                .request_permission_to_migrate_to_v2()
+                .await,
+            MigrationPermission::Migrate
         );
     }
 
     #[tokio::test]
-    async fn test_future_anchor_is_within_and_untouched() {
+    async fn test_future_anchor_waits_and_is_untouched() {
         let client = client_with_anchor(TimeDelta::weeks(1)).await;
         let anchor = stored_anchor(&client).await;
 
-        assert!(
+        assert_eq!(
             client
                 .user_crypto_management()
-                .within_v2_migration_grace_period()
-                .await
-                .unwrap()
+                .request_permission_to_migrate_to_v2()
+                .await,
+            MigrationPermission::Wait
         );
         assert_eq!(stored_anchor(&client).await, anchor);
     }
 
     #[tokio::test]
-    async fn test_without_a_state_bridge_errors() {
+    #[should_panic(expected = "StateBridge not registered")]
+    async fn test_without_a_state_bridge_panics() {
         let client = Client::new(None);
 
-        assert!(matches!(
-            client
-                .user_crypto_management()
-                .within_v2_migration_grace_period()
-                .await,
-            Err(V2MigrationGracePeriodError::StateBridgeNotRegistered)
-        ));
+        client
+            .user_crypto_management()
+            .request_permission_to_migrate_to_v2()
+            .await;
     }
 }
