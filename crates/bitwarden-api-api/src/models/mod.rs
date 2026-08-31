@@ -922,6 +922,8 @@ pub mod rotation_cipher_response_model;
 pub use self::rotation_cipher_response_model::RotationCipherResponseModel;
 pub mod rotation_claim_response_model;
 pub use self::rotation_claim_response_model::RotationClaimResponseModel;
+pub mod rule_bypassable_ciphers_response_model;
+pub use self::rule_bypassable_ciphers_response_model::RuleBypassableCiphersResponseModel;
 pub mod saml2_binding_type;
 pub use self::saml2_binding_type::Saml2BindingType;
 pub mod saml2_name_id_format;
