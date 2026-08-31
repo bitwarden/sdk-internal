@@ -4,13 +4,15 @@ use serde::{Serialize, de::DeserializeOwned};
 use crate::{
     RpcHandler,
     endpoint::Endpoint,
-    error::{RequestError, SubscribeError, TypedReceiveError},
+    error::{RequestError, SubscribeError},
     ipc_client::IpcClientTypedSubscription,
     ipc_client_trait::IpcClient,
     message::{PayloadTypeName, TypedOutgoingMessage},
     rpc::{
-        error::RpcError, request::RpcRequest, request_message::RpcRequestMessage,
-        response_message::IncomingRpcResponseMessage,
+        error::RpcError,
+        request::RpcRequest,
+        request_message::RpcRequestMessage,
+        response_message::{RPC_RESPONSE_PAYLOAD_TYPE_NAME, RpcResponsePayload},
     },
     serde_utils,
 };
@@ -90,8 +92,14 @@ pub trait IpcClientExt: IpcClient {
     {
         async move {
             let request_id = uuid::Uuid::new_v4().to_string();
+
+            // Subscribe untyped to the shared response topic. Every RPC response shares this topic,
+            // so this subscription also receives responses belonging to other requests that are in
+            // flight concurrently. We correlate on `request_id` from the envelope *before*
+            // deserializing the body: an unrelated response is skipped by identity, and a body that
+            // fails to deserialize is attributed to *this* request as a genuine error.
             let mut response_subscription = self
-                .subscribe_typed::<IncomingRpcResponseMessage<Request::Response>>()
+                .subscribe(Some(RPC_RESPONSE_PAYLOAD_TYPE_NAME.to_owned()))
                 .await?;
 
             let request_payload = RpcRequestMessage {
@@ -112,27 +120,24 @@ pub trait IpcClientExt: IpcClient {
             self.send(message).await.map_err(RequestError::from)?;
 
             let response = loop {
-                let received = match response_subscription
+                let received = response_subscription
                     .receive(cancellation_token.clone())
                     .await
-                {
-                    Ok(received) => received,
-                    // Every RPC response shares a single payload type name, and therefore a single
-                    // topic, so this subscription also receives the responses belonging to other
-                    // requests that are in flight concurrently. Those do not necessarily
-                    // deserialize into this request's response type, so a typing error here is
-                    // expected: skip the message and keep waiting for our own response rather than
-                    // failing over a message that was never addressed to us.
-                    Err(TypedReceiveError::Typing(_)) => continue,
-                    Err(error) => return Err(RequestError::Receive(error)),
-                };
+                    .map_err(|e| RequestError::Receive(e.into()))?;
 
-                if received.payload.request_id == request_id {
-                    break received;
+                let payload = RpcResponsePayload::from_slice(received.payload).map_err(|e| {
+                    RequestError::Rpc(RpcError::ResponseDeserialization(e.to_string()))
+                })?;
+
+                // Skip responses addressed to other concurrent requests.
+                if payload.request_id() != request_id {
+                    continue;
                 }
+
+                break payload.deserialize_full::<Request::Response>()?;
             };
 
-            Ok(response.payload.result?)
+            Ok(response.result?)
         }
     }
 }
