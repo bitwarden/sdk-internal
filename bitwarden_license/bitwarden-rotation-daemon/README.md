@@ -198,10 +198,10 @@ source was expected to provide the value.
 
 ### Accepted keys per target kind
 
-| Kind              | Accepted config keys                |
-| ----------------- | ----------------------------------- |
-| `CustomScript`    | `script`                            |
-| `Entra`           | `tenant_id`, `client_id`            |
+| Kind              | Accepted config keys                                |
+| ----------------- | --------------------------------------------------- |
+| `CustomScript`    | `script`                                            |
+| `Entra`           | `tenant_id`, `client_id`                            |
 | `ActiveDirectory` | `ldap_host`, `bind_dn`, `base_dn`, `ca_certificate` |
 
 ### Secrets are env-only
@@ -211,8 +211,8 @@ files are typically committed to version control; storing a secret there would e
 supply them via the environment variable (`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET` /
 `<TARGET_ID_UPPER_UNDERSCORE>_BIND_PASSWORD`).
 
-An unknown field (including `client_secret` and `bind_password`) inside a `[targets.<uuid>]` block is
-a hard startup error; the daemon will refuse to start.
+An unknown field (including `client_secret` and `bind_password`) inside a `[targets.<uuid>]` block
+is a hard startup error; the daemon will refuse to start.
 
 ### POSIX shell limitation
 
@@ -259,12 +259,12 @@ ABC_1234_5678_ABCD_000000000001_CLIENT_SECRET=...
 
 ### Required suffixes per target kind
 
-| Kind              | Required env-var suffixes                            |
-| ----------------- | ---------------------------------------------------- |
-| `Entra`           | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`            |
-| `CustomScript`    | `SCRIPT`                                             |
+| Kind              | Required env-var suffixes                                                           |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `Entra`           | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`                                           |
+| `CustomScript`    | `SCRIPT`                                                                            |
 | `ActiveDirectory` | `LDAP_HOST`, `BIND_DN`, `BASE_DN`, `BIND_PASSWORD` (plus optional `CA_CERTIFICATE`) |
-| `Mssql`           | `HOST`, `USER`, `SECRET` (unsupported this build)    |
+| `Mssql`           | `HOST`, `USER`, `SECRET` (unsupported this build)                                   |
 
 Any additional variables matching the prefix are collected and forwarded to the integration as extra
 credentials. For example, a custom script may read `OUT_PATH` or `EXIT_CODE` from the `credentials`
@@ -435,15 +435,15 @@ plaintext LDAP path, no StartTLS fallback, and no flag to skip certificate valid
 This is not only a Bitwarden policy: a domain controller refuses a `unicodePwd` write on an
 unencrypted connection, answering `confidentialityRequired` (LDAP result code 13).
 
-The domain controller's certificate is validated against the host's native trust store. A
-deployment whose DC uses a private or self-signed certificate can name a PEM file of extra trust
-anchors with `ca_certificate` — see [Trusting a private CA](#trusting-a-private-ca). A validation
-failure ends the attempt at once, with no backoff and no second connection inside it; the job itself
-is still re-claimed on later polls until its attempt budget is spent.
+The domain controller's certificate is validated against the host's native trust store. A deployment
+whose DC uses a private or self-signed certificate can name a PEM file of extra trust anchors with
+`ca_certificate` — see [Trusting a private CA](#trusting-a-private-ca). A validation failure ends
+the attempt at once, with no backoff and no second connection inside it; the job itself is still
+re-claimed on later polls until its attempt budget is spent.
 
 `ldap_host` is a bare host name, optionally with a `:port` suffix — never a URL. Anything containing
-a scheme, a path, userinfo, or whitespace is rejected at rotation time so that a mistyped host cannot
-silently downgrade the connection or redirect the bind.
+a scheme, a path, userinfo, or whitespace is rejected at rotation time so that a mistyped host
+cannot silently downgrade the connection or redirect the bind.
 
 ### Trusting a private CA
 
@@ -469,9 +469,17 @@ precedence applies (config file wins per key, environment is the fallback).
 
 Three properties are worth being explicit about:
 
-- **Additive, never substitutive.** The file's anchors are *added* to the platform trust store. Public CAs keep their standing, and the extra anchor applies only to that target's connections.
-- **Verification is never relaxed.** The certificate chain and the host name are checked exactly as they are for a publicly-issued certificate. There is no `insecure`, `no_verify`, or `skip_hostname` flag, and none will be added: a private CA is an additional anchor, not a reason to stop checking. The `ldap_host` you configure must therefore match a SAN on the DC's certificate.
-- **No silent fallback.** A missing file, an unreadable one, a malformed PEM, or a PEM with no certificate in it aborts the rotation with `credentials_unresolved`. The daemon will not quietly continue on platform roots, because that would leave an operator believing a connection is pinned when it is not.
+- **Additive, never substitutive.** The file's anchors are _added_ to the platform trust store.
+  Public CAs keep their standing, and the extra anchor applies only to that target's connections.
+- **Verification is never relaxed.** The certificate chain and the host name are checked exactly as
+  they are for a publicly-issued certificate. There is no `insecure`, `no_verify`, or
+  `skip_hostname` flag, and none will be added: a private CA is an additional anchor, not a reason
+  to stop checking. The `ldap_host` you configure must therefore match a SAN on the DC's
+  certificate.
+- **No silent fallback.** A missing file, an unreadable one, a malformed PEM, or a PEM with no
+  certificate in it aborts the rotation with `credentials_unresolved`. The daemon will not quietly
+  continue on platform roots, because that would leave an operator believing a connection is pinned
+  when it is not.
 
 When `ca_certificate` is absent the connection uses the platform trust store alone, exactly as it
 did before the key existed.
@@ -494,21 +502,24 @@ $c = Get-ChildItem Cert:\LocalMachine\My |
 The account named by `bind_dn` is expected to be a **delegated service account** whose only
 privileges on the target OU are:
 
-| Privilege        | Why needed                                             |
-| ---------------- | ------------------------------------------------------ |
-| `Reset Password` | Replace `unicodePwd` on the target accounts            |
-| Read             | Resolve the account identity to a distinguished name   |
+| Privilege        | Why needed                                           |
+| ---------------- | ---------------------------------------------------- |
+| `Reset Password` | Replace `unicodePwd` on the target accounts          |
+| Read             | Resolve the account identity to a distinguished name |
 
-Delegate these with the Active Directory Users and Computers *Delegate Control* wizard, scoped to the
-OU that holds the managed accounts. **Do not use a Domain Admin account.** A credential held by a
-long-running daemon should never carry domain-wide authority, and nothing in this integration needs
-it.
+Delegate these with the Active Directory Users and Computers _Delegate Control_ wizard, scoped to
+the OU that holds the managed accounts. **Do not use a Domain Admin account.** A credential held by
+a long-running daemon should never carry domain-wide authority, and nothing in this integration
+needs it.
 
 ### How rotation works
 
 1. Connect to `ldap_host` over LDAPS and simple-bind as `bind_dn`.
-2. Search below `base_dn` (subtree scope) for exactly one user whose `sAMAccountName` or `userPrincipalName` matches the account identity. Zero matches and multiple matches are both fatal — rotating the wrong account is worse than not rotating.
-3. `replace` the account's `unicodePwd` with the new password, wrapped in ASCII double quotes and encoded as little-endian UTF-16 (no BOM), as Active Directory requires.
+2. Search below `base_dn` (subtree scope) for exactly one user whose `sAMAccountName` or
+   `userPrincipalName` matches the account identity. Zero matches and multiple matches are both
+   fatal — rotating the wrong account is worse than not rotating.
+3. `replace` the account's `unicodePwd` with the new password, wrapped in ASCII double quotes and
+   encoded as little-endian UTF-16 (no BOM), as Active Directory requires.
 
 This is an administrative reset: it never needs the account's current password, which is what allows
 a failed attempt to be retried with a freshly generated password.
@@ -535,7 +546,7 @@ the note below: for up to an hour after a rotation, both the old and the new cre
 authenticate, and existing Kerberos tickets remain valid on top of that. Deployments that need a
 hard cut-off must shorten `OldPasswordAllowedPeriod` and handle ticket lifetime separately.
 
-`verify` is unaffected — it binds with the *new* password, which is valid immediately.
+`verify` is unaffected — it binds with the _new_ password, which is valid immediately.
 
 ### Session termination is not supported
 
@@ -550,13 +561,13 @@ lifetime).
 
 ### Resolver env shape (Active Directory)
 
-| Suffix          | Value                                                             |
-| --------------- | ----------------------------------------------------------------- |
-| `LDAP_HOST`     | Domain controller host name, optionally `host:port`               |
-| `BIND_DN`       | DN of the delegated service account                               |
-| `BASE_DN`       | Search base DN for account lookup                                 |
-| `BIND_PASSWORD` | Password of the delegated service account (**environment only**)  |
-| `CA_CERTIFICATE` | *Optional.* Path to a PEM file of additional TLS trust anchors   |
+| Suffix           | Value                                                            |
+| ---------------- | ---------------------------------------------------------------- |
+| `LDAP_HOST`      | Domain controller host name, optionally `host:port`              |
+| `BIND_DN`        | DN of the delegated service account                              |
+| `BASE_DN`        | Search base DN for account lookup                                |
+| `BIND_PASSWORD`  | Password of the delegated service account (**environment only**) |
+| `CA_CERTIFICATE` | _Optional._ Path to a PEM file of additional TLS trust anchors   |
 
 Example (target id `abc-1234-…`):
 
@@ -579,21 +590,27 @@ failure returns the job to the claimable pool and the daemon re-claims it on a l
 server's attempt budget is spent — so a `Fatal` misconfiguration still reaches the domain controller
 once per attempt.
 
-| Condition                                              | Class     | Sync state | Failure code             |
-| ------------------------------------------------------ | --------- | ---------- | ------------------------ |
-| Missing or malformed credential                        | Fatal     | unchanged  | `credentials_unresolved` |
-| TCP failure, reset connection                          | Transient | unchanged  | `target_unreachable`     |
-| TLS handshake or certificate rejected                  | Fatal     | unchanged  | `target_unreachable`     |
-| `ca_certificate` missing, unreadable, or malformed     | Fatal     | unchanged  | `credentials_unresolved` |
-| Bind rejected (rc 49, 50)                              | Fatal     | unchanged  | `target_rejected`        |
-| Account not found or ambiguous                         | Fatal     | unchanged  | `target_rejected`        |
-| Write rejected (rc 13, 19, 32, 53, schema errors)      | Fatal     | unchanged  | `target_rejected`        |
-| DC busy / unavailable / admin limit (rc 51, 52, 11)    | Transient | unchanged  | `target_unreachable`     |
-| Timeout or dropped connection after the write is sent  | Transient | **indeterminate** | `target_unreachable` |
-| Rebind with the new password rejected                  | Fatal     | updated    | `verification_failed`    |
+| Condition                                             | Class     | Sync state                                                  | Failure code             |
+| ----------------------------------------------------- | --------- | ----------------------------------------------------------- | ------------------------ |
+| Missing or malformed credential                       | Fatal     | unchanged                                                   | `credentials_unresolved` |
+| TCP failure, reset connection                         | Transient | unchanged                                                   | `target_unreachable`     |
+| TLS handshake or certificate rejected                 | Fatal     | unchanged before the write is sent, **indeterminate** after | `target_unreachable`     |
+| `ca_certificate` missing, unreadable, or malformed    | Fatal     | unchanged                                                   | `credentials_unresolved` |
+| Bind rejected (rc 49, 50)                             | Fatal     | unchanged                                                   | `target_rejected`        |
+| Account not found or ambiguous                        | Fatal     | unchanged                                                   | `target_rejected`        |
+| Write rejected (rc 13, 19, 32, 53, schema errors)     | Fatal     | established by a rebind, not assumed                        | `target_rejected`        |
+| DC busy / unavailable / admin limit (rc 51, 52, 11)   | Transient | unchanged before the write; established by a rebind after   | `target_unreachable`     |
+| Timeout or dropped connection after the write is sent | Transient | **indeterminate**                                           | `target_unreachable`     |
+| Rebind with the new password rejected                 | Fatal     | updated                                                     | `verification_failed`    |
 
-Only the numeric LDAP result code reaches the failure report. The directory's `diagnosticMessage` and
-matched DN are never read: both can echo account names and password-policy text.
+A rejected write does not by itself prove the account still holds its old password: every retry
+re-sends the same generated password, so a rejection can follow an earlier attempt whose write
+reached the directory unobserved — password history then refuses the identical value. The daemon
+therefore settles the sync state by rebinding as the account with the new password rather than
+inferring it from the result code.
+
+Only the numeric LDAP result code reaches the failure report. The directory's `diagnosticMessage`
+and matched DN are never read: both can echo account names and password-policy text.
 
 ---
 

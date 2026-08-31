@@ -20,6 +20,7 @@ pub(crate) mod entra;
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
+use bitwarden_sensitive_value::ExposeSensitive as _;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use zeroize::Zeroizing;
@@ -86,6 +87,42 @@ impl std::fmt::Display for IntegrationError {
 }
 
 impl std::error::Error for IntegrationError {}
+
+// ---------------------------------------------------------------------------
+// Credential lookup helpers
+// ---------------------------------------------------------------------------
+
+/// Look up an optional credential suffix, returning `None` if absent.
+fn optional_cred<'a>(creds: &'a ResolvedCredentials, suffix: &'static str) -> Option<&'a str> {
+    creds.get(suffix).map(|s| s.expose().as_ref() as &str)
+}
+
+/// Look up a required credential suffix, returning
+/// `Fatal/NotApplied/credentials_unresolved` if absent.
+///
+/// This is the shared contract for every driver: the error detail names only
+/// the missing **suffix**, never a value.
+fn get_cred<'a>(
+    creds: &'a ResolvedCredentials,
+    suffix: &'static str,
+) -> Result<&'a str, IntegrationError> {
+    optional_cred(creds, suffix).ok_or_else(|| IntegrationError {
+        class: ErrorClass::Fatal,
+        effect: TargetEffect::NotApplied,
+        code: FailureCode::CredentialsUnresolved,
+        detail: SafeDetail::from_kind(suffix),
+    })
+}
+
+/// Re-attribute an error to [`TargetEffect::Applied`].
+///
+/// Used after a rotation has already changed the target's credential, where a
+/// helper that defaults to [`TargetEffect::NotApplied`] would otherwise report
+/// the target as untouched.
+fn as_applied(mut err: IntegrationError) -> IntegrationError {
+    err.effect = TargetEffect::Applied;
+    err
+}
 
 // ---------------------------------------------------------------------------
 // RotateContext
