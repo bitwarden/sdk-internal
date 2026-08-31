@@ -119,7 +119,7 @@ impl AccessRulesClient {
     /// answers empty for absent, other-organization and disabled alike), so every 404 that can
     /// actually arrive is infrastructural — the PAM feature flag off, or a server predating the
     /// endpoint. Reporting those as "the rule does not exist" would be a lie about a rule the admin
-    /// is looking at. See [`from_by_id_api_error`](AccessRuleError::from_by_id_api_error).
+    /// is looking at. See `from_by_id_api_error`.
     pub async fn bypassable_ciphers(
         &self,
         organization_id: OrganizationId,
@@ -350,9 +350,7 @@ mod tests {
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.access_rules_api
                 .expect_get_bypassable_ciphers()
-                .returning(
-                    move |_org_id, _id| Err(api_error(reqwest::StatusCode::NOT_FOUND).into()),
-                )
+                .returning(move |_org_id, _id| Err(api_error(reqwest::StatusCode::NOT_FOUND)))
                 .once();
         });
 
