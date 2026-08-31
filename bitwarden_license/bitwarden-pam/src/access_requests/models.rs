@@ -331,6 +331,20 @@ pub struct AccessPreCheckView {
     /// A duration picker should offer nothing above this. It is not merely advisory - submit
     /// enforces the same number and rejects a request that exceeds it.
     pub max_duration_seconds: u32,
+    /// Whether access could be started right now - the spec's `RuleAllowsLease`.
+    ///
+    /// False only when the per-cipher single-active-lease constraint binds for this member *and*
+    /// another member currently holds the slot. A member with an ungated or non-singleton path to
+    /// the cipher is unconstrained and reads true regardless.
+    ///
+    /// A current-state hint, not a gate: the server re-checks it under a lock at start. False does
+    /// not mean "do not submit" - the request is still worth making, it just cannot be activated
+    /// until the slot frees.
+    pub can_start_lease: bool,
+    /// When the lease currently holding the slot ends, so a requester can be given a retry time
+    /// instead of polling. None whenever [`can_start_lease`](Self::can_start_lease) is true - and
+    /// possibly when it is false, if the server omitted it. Carries no holder identity by design.
+    pub slot_frees_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
@@ -354,6 +368,13 @@ impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
                 .unwrap_or(DEFAULT_REQUEST_ACCESS_DURATION_SECONDS)
                 .min(max_duration_seconds),
             max_duration_seconds,
+            // Fails open, like the bounds above: a server predating this field omits it, and
+            // reading absence as false would paint every gated cipher as blocked. The lock at
+            // activation is the real gate, so an over-permissive hint costs only the old,
+            // unhelpful error - an over-restrictive one would suppress a request that would
+            // have succeeded.
+            can_start_lease: response.can_start_lease.unwrap_or(true),
+            slot_frees_at: response.slot_frees_at.map(|d| d.parse()).transpose()?,
         })
     }
 }
@@ -798,6 +819,50 @@ mod tests {
         let view = AccessPreCheckView::try_from(response).unwrap();
 
         assert_eq!(view.approval_mode, AccessApprovalMode::Unknown);
+    }
+
+    #[test]
+    fn pre_check_view_defaults_can_start_lease_to_true_when_absent() {
+        // A server predating the field omits it, and must not make a gated cipher look blocked.
+        let response = pre_check_response(None, None);
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert!(view.can_start_lease);
+        assert_eq!(view.slot_frees_at, None);
+    }
+
+    #[test]
+    fn pre_check_view_maps_a_taken_slot_and_its_free_time() {
+        let response = AccessPreCheckResponseModel {
+            can_start_lease: Some(false),
+            slot_frees_at: Some("2026-08-31T10:52:00Z".to_string()),
+            ..pre_check_response(None, None)
+        };
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert!(!view.can_start_lease);
+        assert_eq!(
+            view.slot_frees_at,
+            Some("2026-08-31T10:52:00Z".parse::<DateTime<Utc>>().unwrap())
+        );
+    }
+
+    #[test]
+    fn pre_check_view_maps_a_taken_slot_without_a_free_time() {
+        // canStartLease is the load-bearing field; the timestamp is a nicety the client must be
+        // able to render without.
+        let response = AccessPreCheckResponseModel {
+            can_start_lease: Some(false),
+            slot_frees_at: None,
+            ..pre_check_response(None, None)
+        };
+
+        let view = AccessPreCheckView::try_from(response).unwrap();
+
+        assert!(!view.can_start_lease);
+        assert_eq!(view.slot_frees_at, None);
     }
 
     fn pre_check_response(
