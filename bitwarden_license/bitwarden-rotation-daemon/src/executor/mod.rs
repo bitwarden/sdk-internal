@@ -676,7 +676,7 @@ mod tests {
 
         // Poll returns 2 jobs.
         Mock::given(method("GET"))
-            .and(path("/rotation/daemon/jobs"))
+            .and(path("/access-connectors/rotation/jobs"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({
@@ -692,7 +692,9 @@ mod tests {
 
         // First claim (job1) returns 409.
         Mock::given(method("POST"))
-            .and(path(format!("/rotation/jobs/{job1}/claim")))
+            .and(path(format!(
+                "/access-connectors/rotation/jobs/{job1}/claim"
+            )))
             .respond_with(ResponseTemplate::new(409))
             .mount(&api_server)
             .await;
@@ -709,7 +711,9 @@ mod tests {
             .to_rfc3339();
 
         Mock::given(method("POST"))
-            .and(path(format!("/rotation/jobs/{job2}/claim")))
+            .and(path(format!(
+                "/access-connectors/rotation/jobs/{job2}/claim"
+            )))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({
@@ -775,9 +779,9 @@ mod tests {
         let session = make_session(&identity_server, "tok").await;
         let (api, _rx) = make_api(&api_server, Arc::clone(&session));
 
-        // Mount a catch-all for /rotation/daemon/jobs (heartbeat calls).
+        // Mount a catch-all for /access-connectors/rotation/jobs (heartbeat calls).
         Mock::given(method("GET"))
-            .and(path("/rotation/daemon/jobs"))
+            .and(path("/access-connectors/rotation/jobs"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({"data": []}))
@@ -853,7 +857,7 @@ mod tests {
         let (api, _rx) = make_api(&api_server, session);
 
         Mock::given(method("GET"))
-            .and(path("/rotation/daemon/jobs"))
+            .and(path("/access-connectors/rotation/jobs"))
             .respond_with(ResponseTemplate::new(404))
             .mount(&api_server)
             .await;
