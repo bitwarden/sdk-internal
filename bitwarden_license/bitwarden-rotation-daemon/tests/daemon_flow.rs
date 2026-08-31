@@ -191,7 +191,7 @@ async fn happy_path_rotate_and_report_success() {
 
     // Poll: return one job.
     Mock::given(method("GET"))
-        .and(path("/rotation/daemon/jobs"))
+        .and(path("/access-connectors/rotation/jobs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({
@@ -204,7 +204,9 @@ async fn happy_path_rotate_and_report_success() {
 
     // Claim: succeed.
     Mock::given(method("POST"))
-        .and(path(format!("/rotation/jobs/{job_id}/claim")))
+        .and(path(format!(
+            "/access-connectors/rotation/jobs/{job_id}/claim"
+        )))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(claim_body(attempt_id, job_id, target_id, cipher_id, false))
@@ -216,7 +218,9 @@ async fn happy_path_rotate_and_report_success() {
     // Cipher read.
     let cipher_data = make_cipher_data(&org_key, "old-password");
     Mock::given(method("GET"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+        )))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({
@@ -232,14 +236,18 @@ async fn happy_path_rotate_and_report_success() {
 
     // Cipher PUT.
     Mock::given(method("PUT"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+        )))
         .respond_with(ResponseTemplate::new(200))
         .mount(&api)
         .await;
 
     // Success report.
     Mock::given(method("POST"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/success")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/success"
+        )))
         .respond_with(ResponseTemplate::new(200))
         .mount(&api)
         .await;
@@ -332,7 +340,7 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let script_path = fixtures_dir().join("exit_code.sh");
 
     Mock::given(method("GET"))
-        .and(path("/rotation/daemon/jobs"))
+        .and(path("/access-connectors/rotation/jobs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({
@@ -344,7 +352,9 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         .await;
 
     Mock::given(method("POST"))
-        .and(path(format!("/rotation/jobs/{job_id}/claim")))
+        .and(path(format!(
+            "/access-connectors/rotation/jobs/{job_id}/claim"
+        )))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(claim_body(attempt_id, job_id, target_id, cipher_id, false))
@@ -355,7 +365,9 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
 
     let cipher_data = make_cipher_data(&org_key, "old-password");
     Mock::given(method("GET"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+        )))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({
@@ -370,7 +382,9 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
         .await;
 
     Mock::given(method("POST"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/failure")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/failure"
+        )))
         .respond_with(ResponseTemplate::new(200))
         .mount(&api)
         .await;
@@ -464,7 +478,7 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     let target_id = Uuid::new_v4();
 
     Mock::given(method("GET"))
-        .and(path("/rotation/daemon/jobs"))
+        .and(path("/access-connectors/rotation/jobs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({
@@ -477,7 +491,9 @@ async fn claim_race_409_does_not_error_keeps_polling() {
 
     // Claim always 409.
     Mock::given(method("POST"))
-        .and(path(format!("/rotation/jobs/{job_id}/claim")))
+        .and(path(format!(
+            "/access-connectors/rotation/jobs/{job_id}/claim"
+        )))
         .respond_with(ResponseTemplate::new(409))
         .mount(&api)
         .await;
@@ -593,7 +609,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     }
 
     Mock::given(method("GET"))
-        .and(path("/rotation/daemon/jobs"))
+        .and(path("/access-connectors/rotation/jobs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({
@@ -605,7 +621,9 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         .await;
 
     Mock::given(method("POST"))
-        .and(path(format!("/rotation/jobs/{job_id}/claim")))
+        .and(path(format!(
+            "/access-connectors/rotation/jobs/{job_id}/claim"
+        )))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(claim_body(
@@ -619,7 +637,9 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
 
     let cipher_data = make_cipher_data(&org_key, "old-password");
     Mock::given(method("GET"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+        )))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({
@@ -634,13 +654,17 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
         .await;
 
     Mock::given(method("PUT"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+        )))
         .respond_with(ResponseTemplate::new(200))
         .mount(&api)
         .await;
 
     Mock::given(method("POST"))
-        .and(path(format!("/rotation/attempts/{attempt_id}/success")))
+        .and(path(format!(
+            "/access-connectors/rotation/attempts/{attempt_id}/success"
+        )))
         .respond_with(ResponseTemplate::new(200))
         .mount(&api)
         .await;
