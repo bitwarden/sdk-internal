@@ -99,6 +99,15 @@ impl PasswordManagerClient {
         self.0.vault()
     }
 
+    /// Collection related operations.
+    ///
+    /// This is registered directly on the top-level client in addition to being nested under
+    /// [`vault`](Self::vault). Once consumers have migrated to this accessor, the nested one will
+    /// be removed.
+    pub fn collections(&self) -> CollectionsClient {
+        self.0.collections()
+    }
+
     /// Constructs a specific client for platform-specific functionality
     pub fn platform(&self) -> PlatformClient {
         PlatformClient::new(self.0.0.clone())

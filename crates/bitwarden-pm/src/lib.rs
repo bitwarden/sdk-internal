@@ -31,6 +31,7 @@ uniffi::setup_scaffolding!();
 /// Re-export subclients for easier access
 pub mod clients {
     pub use bitwarden_auth::AuthClient;
+    pub use bitwarden_collections::collection_client::CollectionsClient;
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient;
     pub use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
@@ -145,6 +146,15 @@ impl PasswordManagerClient {
     /// Vault item operations
     pub fn vault(&self) -> bitwarden_vault::VaultClient {
         self.0.vault()
+    }
+
+    /// Collection related operations.
+    ///
+    /// This is registered directly on the top-level client in addition to being nested under
+    /// [`vault`](Self::vault); once all consumers have migrated to this accessor, the nested one
+    /// will be removed.
+    pub fn collections(&self) -> bitwarden_collections::collection_client::CollectionsClient {
+        bitwarden_collections::collection_client::CollectionsClient::from_client(&self.0)
     }
 
     /// Exporter operations
