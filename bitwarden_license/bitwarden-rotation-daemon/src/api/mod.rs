@@ -258,7 +258,11 @@ impl RotationApi {
     /// A 404 on this (daemon-scoped) route maps to [`ApiError::NotEligible`]
     /// per the eligibility-filter semantics.
     pub(crate) async fn poll_jobs(&self) -> Result<Vec<JobRef>, ApiError> {
-        let result = self.client.pam_rotation_daemon_jobs_api().get_all().await;
+        let result = self
+            .client
+            .pam_access_connector_rotation_jobs_api()
+            .get_all()
+            .await;
 
         match result {
             Ok(list_model) => {
@@ -287,7 +291,11 @@ impl RotationApi {
     /// - `Err(ApiError::NotEligible)` — 404 on a daemon route (ineligible).
     /// - `Err(…)` — any other failure.
     pub(crate) async fn claim(&self, job_id: Uuid) -> Result<Option<WorkSnapshot>, ApiError> {
-        let result = self.client.pam_rotation_jobs_api().claim(job_id).await;
+        let result = self
+            .client
+            .pam_access_connector_rotation_jobs_api()
+            .claim(job_id)
+            .await;
 
         match result {
             Ok(model) => {
@@ -313,7 +321,7 @@ impl RotationApi {
     pub(crate) async fn get_cipher(&self, attempt_id: Uuid) -> Result<RotationCipher, ApiError> {
         let result = self
             .client
-            .pam_rotation_attempts_api()
+            .pam_access_connector_rotation_attempts_api()
             .get_cipher(attempt_id)
             .await;
 
@@ -349,7 +357,7 @@ impl RotationApi {
 
         let result = self
             .client
-            .pam_rotation_attempts_api()
+            .pam_access_connector_rotation_attempts_api()
             .put_cipher(attempt_id, body)
             .await;
 
@@ -382,7 +390,7 @@ impl RotationApi {
 
         let result = self
             .client
-            .pam_rotation_attempts_api()
+            .pam_access_connector_rotation_attempts_api()
             .success(attempt_id, body)
             .await;
 
@@ -426,7 +434,7 @@ impl RotationApi {
 
         let result = self
             .client
-            .pam_rotation_attempts_api()
+            .pam_access_connector_rotation_attempts_api()
             .failure(attempt_id, body)
             .await;
 
@@ -447,12 +455,12 @@ impl RotationApi {
 /// Which class of route was called — used to disambiguate 404 semantics.
 #[derive(Clone, Copy)]
 enum Route {
-    /// A daemon-scoped or job-scoped route (`/rotation/daemon/…` or
-    /// `/rotation/jobs/…`).  A 404 here means the daemon is not eligible
-    /// (the endpoint filter rejected it).
+    /// A daemon-scoped or job-scoped route (`/access-connectors/rotation/jobs`
+    /// or `/access-connectors/rotation/jobs/{id}/claim`).  A 404 here means the
+    /// daemon is not eligible (the endpoint filter rejected it).
     DaemonOrJob,
-    /// An attempt-scoped route (`/rotation/attempts/{id}/…`).  A 404 here
-    /// means the attempt is not known to the server.
+    /// An attempt-scoped route (`/access-connectors/rotation/attempts/{id}/…`).
+    /// A 404 here means the attempt is not known to the server.
     Attempt,
 }
 
@@ -962,7 +970,7 @@ mod tests {
 
         let job_id = Uuid::new_v4();
         Mock::given(method("GET"))
-            .and(path("/rotation/daemon/jobs"))
+            .and(path("/access-connectors/rotation/jobs"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({
@@ -997,7 +1005,7 @@ mod tests {
         let (api, _rx) = make_rotation_api(&api_server, session);
 
         Mock::given(method("GET"))
-            .and(path("/rotation/daemon/jobs"))
+            .and(path("/access-connectors/rotation/jobs"))
             .respond_with(ResponseTemplate::new(404))
             .mount(&api_server)
             .await;
@@ -1024,7 +1032,9 @@ mod tests {
             .to_rfc3339();
 
         Mock::given(method("POST"))
-            .and(path(format!("/rotation/jobs/{job_id}/claim")))
+            .and(path(format!(
+                "/access-connectors/rotation/jobs/{job_id}/claim"
+            )))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({
@@ -1076,7 +1086,9 @@ mod tests {
 
         let job_id = Uuid::new_v4();
         Mock::given(method("POST"))
-            .and(path(format!("/rotation/jobs/{job_id}/claim")))
+            .and(path(format!(
+                "/access-connectors/rotation/jobs/{job_id}/claim"
+            )))
             .respond_with(ResponseTemplate::new(409))
             .mount(&api_server)
             .await;
@@ -1098,7 +1110,9 @@ mod tests {
         let data_json_str = r#"{"Password":"2.abc==","Username":"admin"}"#;
 
         Mock::given(method("GET"))
-            .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+            )))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_json(serde_json::json!({
@@ -1129,7 +1143,9 @@ mod tests {
 
         let attempt_id = Uuid::new_v4();
         Mock::given(method("PUT"))
-            .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+            )))
             .respond_with(ResponseTemplate::new(409))
             .mount(&api_server)
             .await;
@@ -1159,7 +1175,9 @@ mod tests {
 
         let attempt_id = Uuid::new_v4();
         Mock::given(method("PUT"))
-            .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+            )))
             .respond_with(ResponseTemplate::new(404))
             .mount(&api_server)
             .await;
@@ -1188,7 +1206,9 @@ mod tests {
 
         // Capture the request body to verify serialisation.
         Mock::given(method("POST"))
-            .and(path(format!("/rotation/attempts/{attempt_id}/failure")))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
             .respond_with(ResponseTemplate::new(200))
             .mount(&api_server)
             .await;
@@ -1294,14 +1314,14 @@ mod tests {
 
         // API: first request with bearer-1 gets 401; second request with bearer-2 gets 200.
         Mock::given(method("GET"))
-            .and(path("/rotation/daemon/jobs"))
+            .and(path("/access-connectors/rotation/jobs"))
             .and(header("Authorization", "Bearer bearer-1"))
             .respond_with(ResponseTemplate::new(401))
             .up_to_n_times(1)
             .mount(&api_server)
             .await;
         Mock::given(method("GET"))
-            .and(path("/rotation/daemon/jobs"))
+            .and(path("/access-connectors/rotation/jobs"))
             .and(header("Authorization", "Bearer bearer-2"))
             .respond_with(
                 ResponseTemplate::new(200)
