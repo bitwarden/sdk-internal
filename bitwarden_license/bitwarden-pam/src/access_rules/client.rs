@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{FromClient, OrganizationId, client::ApiConfigurations};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -95,6 +96,49 @@ impl AccessRulesClient {
             .map_err(AccessRuleError::from_by_id_api_error)?;
 
         AccessRuleView::try_from(response)
+    }
+
+    /// Where this rule fails to gate: the collections letting the ciphers it governs through
+    /// without a lease.
+    ///
+    /// `GET /organizations/{orgId}/access-rules/{id}/bypassable-ciphers`. Gating is a union — a
+    /// cipher is withheld only when EVERY collection reaching it gates — so a credential also
+    /// sitting in an ordinary collection is not protected at all. These are the ordinary
+    /// collections, de-duplicated across the ciphers they expose.
+    ///
+    /// An empty list is the normal answer and means the rule protects everything it governs; a rule
+    /// that is switched off answers empty too, since it gates nothing. A NON-EMPTY list is itself
+    /// the "something is wrong" signal, so there is no separate flag to keep in step.
+    ///
+    /// The affected ciphers are deliberately not reported: naming one means decrypting it from the
+    /// caller's own vault, and an admin outside the collection — the one being warned — has none of
+    /// them there. Collections are both reliably nameable and what remediation acts on.
+    ///
+    /// Errors surface as [`Api`](AccessRuleError::Api), NOT
+    /// [`NotFound`](AccessRuleError::NotFound): this endpoint never 404s a missing rule (the server
+    /// answers empty for absent, other-organization and disabled alike), so every 404 that can
+    /// actually arrive is infrastructural — the PAM feature flag off, or a server predating the
+    /// endpoint. Reporting those as "the rule does not exist" would be a lie about a rule the admin
+    /// is looking at. See [`from_by_id_api_error`](AccessRuleError::from_by_id_api_error).
+    pub async fn bypassable_ciphers(
+        &self,
+        organization_id: OrganizationId,
+        id: AccessRuleId,
+    ) -> Result<Vec<CollectionId>, AccessRuleError> {
+        let response = self
+            .api_configurations
+            .api_client
+            .access_rules_api()
+            .get_bypassable_ciphers(organization_id.into(), id.into())
+            .await?;
+
+        Ok(response
+            .ungated_collection_ids
+            // An omitted list is the same answer as an empty one: nothing is bypassable.
+            .unwrap_or_default()
+            .into_iter()
+            .map(CollectionId::new)
+            .collect())
     }
 
     /// Enables or disables a rule, leaving everything else about it untouched.
@@ -227,11 +271,100 @@ mod tests {
         assert_eq!(result.id, rule);
     }
 
+    fn collection_id() -> uuid::Uuid {
+        uuid!("44444444-4444-4444-4444-444444444444")
+    }
+
+    fn bypassable_response(
+        ungated: Option<Vec<uuid::Uuid>>,
+    ) -> bitwarden_api_api::models::RuleBypassableCiphersResponseModel {
+        let mut response = bitwarden_api_api::models::RuleBypassableCiphersResponseModel::new();
+        response.rule_id = Some(rule_id().into());
+        response.ungated_collection_ids = ungated;
+        response
+    }
+
+    #[tokio::test]
+    async fn bypassable_ciphers_returns_the_reported_collections() {
+        let organization_id = org_id();
+        let rule = rule_id();
+        let other = uuid!("55555555-5555-5555-5555-555555555555");
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_get_bypassable_ciphers()
+                .returning(move |_org_id, _id| {
+                    Ok(bypassable_response(Some(vec![collection_id(), other])))
+                })
+                .once();
+        });
+
+        let result = client(api_client)
+            .bypassable_ciphers(organization_id, rule)
+            .await
+            .unwrap();
+
+        // Identity and order, not just length: a conversion that dropped, defaulted or reordered
+        // ids would otherwise pass.
+        assert_eq!(
+            result.into_iter().map(uuid::Uuid::from).collect::<Vec<_>>(),
+            vec![collection_id(), other]
+        );
+    }
+
+    #[tokio::test]
+    async fn bypassable_ciphers_treats_an_omitted_list_as_empty() {
+        let organization_id = org_id();
+        let rule = rule_id();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_get_bypassable_ciphers()
+                .returning(move |_org_id, _id| Ok(bypassable_response(None)))
+                .once();
+        });
+
+        let result = client(api_client)
+            .bypassable_ciphers(organization_id, rule)
+            .await
+            .unwrap();
+
+        assert!(result.is_empty());
+    }
+
     fn api_error(status: reqwest::StatusCode) -> bitwarden_api_api::ApiError {
         bitwarden_api_api::ApiError::Response(bitwarden_api_api::ResponseContent {
             status,
             message: String::new(),
         })
+    }
+
+    /// This endpoint never 404s a missing rule — the server answers empty for absent, other-org and
+    /// disabled alike. So a 404 is infrastructural (PAM flag off, or a server predating the
+    /// endpoint) and must NOT be reported as a missing rule the admin is looking at.
+    #[tokio::test]
+    async fn bypassable_ciphers_leaves_not_found_as_api() {
+        let organization_id = org_id();
+        let rule = rule_id();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.access_rules_api
+                .expect_get_bypassable_ciphers()
+                .returning(
+                    move |_org_id, _id| Err(api_error(reqwest::StatusCode::NOT_FOUND).into()),
+                )
+                .once();
+        });
+
+        let error = client(api_client)
+            .bypassable_ciphers(organization_id, rule)
+            .await
+            .unwrap_err();
+
+        assert!(
+            matches!(error, AccessRuleError::Api(_)),
+            "expected Api, got {error:?}"
+        );
     }
 
     #[tokio::test]
