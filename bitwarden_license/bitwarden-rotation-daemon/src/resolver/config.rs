@@ -69,7 +69,7 @@ impl TargetEntry {
 /// For each target, the resolver:
 ///
 /// 1. Scans all env vars matching the target's prefix (same algorithm as
-///    [`EnvCredentialResolver`]).
+///    [`crate::resolver::env::EnvCredentialResolver`]).
 /// 2. Overlays any `Some` fields from the target's [`TargetEntry`] (config wins per key).
 /// 3. Checks that all required suffixes for `kind` are present in the merged map. Missing keys are
 ///    reported as their **env var names** — the actionable hint for operators.
