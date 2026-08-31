@@ -25,11 +25,11 @@
 //! # Per-target credential configuration (`[targets]`)
 //!
 //! The optional `[targets]` TOML section accepts UUID keys, each mapping to a
-//! [`crate::resolver::config::TargetEntry`].  Config-file values take precedence over
+//! `TargetEntry`.  Config-file values take precedence over
 //! environment variables on a per-key basis; the env var is the fallback for any key not set in
 //! the config file.  Missing-key errors always report the **env var name** as the actionable hint.
 //!
-//! `client_secret` is deliberately absent from [`crate::resolver::config::TargetEntry`] and is
+//! `client_secret` is deliberately absent from `TargetEntry` and is
 //! rejected as an unknown field.  Secrets must be supplied via environment variables only.
 //!
 //! # Token intake
