@@ -68,6 +68,12 @@ pub enum BitwardenError {
     #[error(transparent)]
     EncryptFile(#[from] bitwarden_vault::EncryptFileError),
 
+    // Collections
+    #[error(transparent)]
+    CollectionDecrypt(#[from] bitwarden_collections::error::CollectionDecryptError),
+    #[error(transparent)]
+    CollectionEncrypt(#[from] bitwarden_collections::error::CollectionEncryptError),
+
     // Send
     #[error(transparent)]
     SendDecrypt(#[from] bitwarden_send::SendDecryptError),

@@ -94,6 +94,15 @@ impl Client {
         VaultClient(self.0.vault())
     }
 
+    /// Collection related operations.
+    ///
+    /// This is registered directly on the top-level client in addition to being nested under
+    /// [`vault`](Self::vault). Once mobile clients have migrated to this accessor, the nested one
+    /// will be removed.
+    pub fn collections(&self) -> vault::collections::CollectionsClient {
+        vault::collections::CollectionsClient(self.0.collections())
+    }
+
     #[allow(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
         PlatformClient(self.0.0.clone())
