@@ -1213,7 +1213,9 @@ mod tests {
         let target_system_id = uuid::Uuid::new_v4();
 
         Mock::given(method("GET"))
-            .and(path(format!("/rotation/attempts/{attempt_id}/cipher")))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/cipher"
+            )))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_string("NOT JSON")
@@ -1224,7 +1226,9 @@ mod tests {
 
         // Failure report endpoint — capture it.
         Mock::given(method("POST"))
-            .and(path(format!("/rotation/attempts/{attempt_id}/failure")))
+            .and(path(format!(
+                "/access-connectors/rotation/attempts/{attempt_id}/failure"
+            )))
             .respond_with(ResponseTemplate::new(200))
             .mount(&api_server)
             .await;
