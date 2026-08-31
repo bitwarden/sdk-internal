@@ -18,6 +18,7 @@
 //! | `Entra`        | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`      |
 //! | `CustomScript` | `SCRIPT`                                       |
 //! | `Mssql`        | `HOST`, `USER`, `SECRET`                       |
+//! | `ActiveDirectory` | `LDAP_HOST`, `BIND_DN`, `BASE_DN`, `BIND_PASSWORD` |
 //!
 //! If any required variable is absent the resolver returns
 //! [`ResolveError::Missing`] carrying the full variable names (safe to log
@@ -39,6 +40,7 @@ pub(crate) fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
         TargetKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
         TargetKind::CustomScript => &["SCRIPT"],
         TargetKind::Mssql => &["HOST", "USER", "SECRET"],
+        TargetKind::ActiveDirectory => &["LDAP_HOST", "BIND_DN", "BASE_DN", "BIND_PASSWORD"],
         // Unknown kinds have no required suffixes; the executor will report
         // `unsupported_kind` before the resolver is invoked in practice.
         TargetKind::Unknown(_) => &[],
@@ -280,6 +282,44 @@ mod tests {
                 assert!(names.iter().any(|n| n.ends_with("CLIENT_ID")));
                 assert!(names.iter().any(|n| n.ends_with("CLIENT_SECRET")));
                 assert!(!names.iter().any(|n| n.ends_with("TENANT_ID")));
+            }
+        }
+    }
+
+    #[test]
+    fn active_directory_all_required_vars_present() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+        let mut vars = HashMap::new();
+        vars.insert(
+            format!("{prefix}LDAP_HOST"),
+            "dc01.corp.example".to_string(),
+        );
+        vars.insert(
+            format!("{prefix}BIND_DN"),
+            "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example".to_string(),
+        );
+        vars.insert(format!("{prefix}BASE_DN"), "DC=corp,DC=example".to_string());
+        vars.insert(format!("{prefix}BIND_PASSWORD"), "bind-secret".to_string());
+        let creds = run_resolver_with_env(id, TargetKind::ActiveDirectory, &vars).unwrap();
+        assert!(creds.get("LDAP_HOST").is_some());
+        assert!(creds.get("BIND_DN").is_some());
+        assert!(creds.get("BASE_DN").is_some());
+        assert!(creds.get("BIND_PASSWORD").is_some());
+    }
+
+    #[test]
+    fn active_directory_missing_all_lists_every_required_var() {
+        let id = Uuid::new_v4();
+        let err =
+            run_resolver_with_env(id, TargetKind::ActiveDirectory, &HashMap::new()).unwrap_err();
+        let prefix = prefix_for(id);
+        match err {
+            ResolveError::Missing(names) => {
+                assert!(names.iter().any(|n| n == &format!("{prefix}LDAP_HOST")));
+                assert!(names.iter().any(|n| n == &format!("{prefix}BIND_DN")));
+                assert!(names.iter().any(|n| n == &format!("{prefix}BASE_DN")));
+                assert!(names.iter().any(|n| n == &format!("{prefix}BIND_PASSWORD")));
             }
         }
     }

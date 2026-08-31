@@ -1267,6 +1267,85 @@ client_secret = "{secret_value}"
     }
 
     #[test]
+    fn targets_bind_password_in_file_is_rejected_and_does_not_echo_value() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+        let secret_value = "bind-supersecret";
+        let toml = format!(
+            r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+
+[targets.00000000-0000-0000-0000-000000000001]
+ldap_host     = "dc01.corp.example"
+bind_password = "{secret_value}"
+"#
+        );
+        let f = write_toml(&toml);
+        let result = Config::from_cli(file_args(&f));
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+        match result {
+            Err(RotationDaemonError::InvalidConfig(msg)) => {
+                assert!(
+                    !msg.contains(secret_value),
+                    "error must not echo secret value; got: {msg}"
+                );
+            }
+            other => {
+                panic!("expected InvalidConfig for bind_password in targets entry, got {other:?}")
+            }
+        }
+    }
+
+    #[test]
+    fn targets_active_directory_entry_parsed() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("BWRD_TOKEN", VALID_TOKEN);
+            std::env::remove_var("BWRD_API_URL");
+            std::env::remove_var("BWRD_IDENTITY_URL");
+        }
+        let toml = r#"
+[environment]
+api      = "https://api.example.com"
+identity = "https://identity.example.com"
+
+[targets.00000000-0000-0000-0000-000000000002]
+ldap_host = "dc01.corp.example"
+bind_dn   = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+base_dn   = "DC=corp,DC=example"
+"#;
+        let f = write_toml(toml);
+        let result = Config::from_cli(file_args(&f));
+        unsafe {
+            std::env::remove_var("BWRD_TOKEN");
+        }
+        let cfg = result
+            .expect("active directory target entry should parse")
+            .into_daemon_config();
+        let uuid: uuid::Uuid = "00000000-0000-0000-0000-000000000002".parse().unwrap();
+        assert_eq!(
+            cfg.targets[&uuid].ldap_host.as_deref(),
+            Some("dc01.corp.example")
+        );
+        assert_eq!(
+            cfg.targets[&uuid].bind_dn.as_deref(),
+            Some("CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example")
+        );
+        assert_eq!(
+            cfg.targets[&uuid].base_dn.as_deref(),
+            Some("DC=corp,DC=example")
+        );
+    }
+
+    #[test]
     fn targets_invalid_uuid_key_is_rejected() {
         let _guard = ENV_LOCK.lock().unwrap();
         unsafe {

@@ -170,6 +170,15 @@ impl SafeDetail {
         Self(Self::truncate(format!("error kind: {kind}")))
     }
 
+    /// Build a detail from an LDAP result code (RFC 4511 §A.1).
+    ///
+    /// Only the numeric code is included. A directory's `diagnosticMessage` and
+    /// `matchedDN` are never read into a detail: both can echo account names,
+    /// distinguished names, and password-policy text.
+    pub(crate) fn from_ldap_result_code(rc: u32) -> Self {
+        Self(Self::truncate(format!("LDAP result code {rc}")))
+    }
+
     /// Build a detail indicating a timeout after the given number of seconds.
     pub(crate) fn timed_out(secs: u64) -> Self {
         Self(Self::truncate(format!("timed out after {secs}s")))
@@ -268,6 +277,12 @@ mod tests {
     fn safe_detail_from_kind() {
         let d = SafeDetail::from_kind("GraphRequest");
         assert_eq!(d.as_str(), "error kind: GraphRequest");
+    }
+
+    #[test]
+    fn safe_detail_from_ldap_result_code() {
+        let d = SafeDetail::from_ldap_result_code(49);
+        assert_eq!(d.as_str(), "LDAP result code 49");
     }
 
     #[test]

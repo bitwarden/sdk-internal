@@ -15,6 +15,7 @@
 //! was written while `api/models.rs` was still a stub has been removed now that
 //! the parallel agent has landed the canonical definition.
 
+pub(crate) mod active_directory;
 pub(crate) mod custom_script;
 pub(crate) mod entra;
 

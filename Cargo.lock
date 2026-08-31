@@ -1248,6 +1248,7 @@ dependencies = [
  "ldap3",
  "reqwest",
  "reqwest-middleware",
+ "rustls",
  "serde",
  "serde_json",
  "tempfile",

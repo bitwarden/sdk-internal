@@ -274,11 +274,19 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     ));
     registry.register(crate::api::models::TargetKind::Entra, entra);
 
+    let active_directory =
+        Arc::new(crate::integrations::active_directory::ActiveDirectoryIntegration::new());
+    registry.register(
+        crate::api::models::TargetKind::ActiveDirectory,
+        active_directory,
+    );
+
     let integrations = Arc::new(registry);
     tracing::debug!(
         kinds = ?[
             crate::api::models::TargetKind::CustomScript,
             crate::api::models::TargetKind::Entra,
+            crate::api::models::TargetKind::ActiveDirectory,
         ],
         "registered integration kinds"
     );

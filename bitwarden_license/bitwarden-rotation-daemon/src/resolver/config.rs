@@ -12,9 +12,9 @@
 //!
 //! # Security note
 //!
-//! `client_secret` is deliberately absent from [`TargetEntry`].  Secrets must be supplied
-//! via environment variables only; the config file is typically checked in to a repo and
-//! must not hold credentials.
+//! `client_secret` and `bind_password` are deliberately absent from [`TargetEntry`].  Secrets
+//! must be supplied via environment variables only; the config file is typically checked in to
+//! a repo and must not hold credentials.
 
 use std::collections::HashMap;
 
@@ -34,8 +34,8 @@ use crate::{
 /// Per-target credential overrides from the `[targets]` TOML section.
 ///
 /// All fields are optional.  Any `Some` value shadows the corresponding environment
-/// variable.  The `client_secret` field is intentionally absent — secrets must be
-/// supplied via environment variables only.
+/// variable.  The `client_secret` and `bind_password` fields are intentionally absent —
+/// secrets must be supplied via environment variables only.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TargetEntry {
@@ -45,6 +45,12 @@ pub(crate) struct TargetEntry {
     pub(crate) tenant_id: Option<String>,
     /// Application (client) ID of the service principal (`CLIENT_ID` suffix).
     pub(crate) client_id: Option<String>,
+    /// Host name of the Active Directory domain controller (`LDAP_HOST` suffix).
+    pub(crate) ldap_host: Option<String>,
+    /// DN of the delegated Active Directory service account (`BIND_DN` suffix).
+    pub(crate) bind_dn: Option<String>,
+    /// Search base DN for Active Directory account lookup (`BASE_DN` suffix).
+    pub(crate) base_dn: Option<String>,
 }
 
 impl TargetEntry {
@@ -54,6 +60,9 @@ impl TargetEntry {
             ("SCRIPT", self.script.as_deref()),
             ("TENANT_ID", self.tenant_id.as_deref()),
             ("CLIENT_ID", self.client_id.as_deref()),
+            ("LDAP_HOST", self.ldap_host.as_deref()),
+            ("BIND_DN", self.bind_dn.as_deref()),
+            ("BASE_DN", self.base_dn.as_deref()),
         ]
         .into_iter()
         .filter_map(|(suffix, opt)| opt.map(|v| (suffix, v)))
@@ -178,6 +187,9 @@ mod tests {
                 script: Some("/opt/scripts/rotate.sh".to_string()),
                 tenant_id: None,
                 client_id: None,
+                ldap_host: None,
+                bind_dn: None,
+                base_dn: None,
             },
         );
         // No env vars set for this ID.
@@ -205,6 +217,9 @@ mod tests {
                 script: None,
                 tenant_id: Some("config-tenant".to_string()),
                 client_id: None,
+                ldap_host: None,
+                bind_dn: None,
+                base_dn: None,
             },
         );
 
@@ -228,6 +243,86 @@ mod tests {
 
         // CLIENT_SECRET comes from env.
         assert!(creds.get("CLIENT_SECRET").is_some());
+    }
+
+    // ── Active Directory: config keys resolve, password stays env-only ───────
+
+    #[test]
+    fn active_directory_config_keys_resolve_with_env_only_password() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+
+        let mut targets = HashMap::new();
+        targets.insert(
+            id,
+            TargetEntry {
+                script: None,
+                tenant_id: None,
+                client_id: None,
+                ldap_host: Some("dc01.corp.example".to_string()),
+                bind_dn: Some("CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example".to_string()),
+                base_dn: Some("DC=corp,DC=example".to_string()),
+            },
+        );
+
+        let mut vars = HashMap::new();
+        vars.insert(format!("{prefix}BIND_PASSWORD"), "bind-secret".to_string());
+
+        let creds = run_resolver_with_env(id, TargetKind::ActiveDirectory, targets, &vars)
+            .expect("config host/DNs plus env password should resolve");
+
+        use bitwarden_sensitive_value::ExposeSensitive as _;
+        assert_eq!(
+            **creds.get("LDAP_HOST").expect("host").expose(),
+            "dc01.corp.example"
+        );
+        assert_eq!(
+            **creds.get("BASE_DN").expect("base dn").expose(),
+            "DC=corp,DC=example"
+        );
+        assert!(creds.get("BIND_PASSWORD").is_some());
+    }
+
+    #[test]
+    fn active_directory_bind_password_absent_is_reported_as_env_var() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+
+        let mut targets = HashMap::new();
+        targets.insert(
+            id,
+            TargetEntry {
+                script: None,
+                tenant_id: None,
+                client_id: None,
+                ldap_host: Some("dc01.corp.example".to_string()),
+                bind_dn: Some("CN=svc-rotate,DC=corp,DC=example".to_string()),
+                base_dn: Some("DC=corp,DC=example".to_string()),
+            },
+        );
+
+        let err = run_resolver_with_env(id, TargetKind::ActiveDirectory, targets, &HashMap::new())
+            .expect_err("bind password cannot come from the config file");
+
+        match err {
+            ResolveError::Missing(names) => {
+                assert_eq!(names, vec![format!("{prefix}BIND_PASSWORD")]);
+            }
+        }
+    }
+
+    #[test]
+    fn active_directory_bind_password_in_config_is_an_unknown_field() {
+        let toml_src = r#"
+ldap_host = "dc01.corp.example"
+bind_password = "should-not-be-accepted"
+"#;
+        let err = toml::from_str::<TargetEntry>(toml_src)
+            .expect_err("bind_password must not be accepted in a [targets] entry");
+        assert!(
+            err.to_string().contains("unknown field `bind_password`"),
+            "must be rejected as an unknown field: {err}"
+        );
     }
 
     // ── env fallback when config absent ──────────────────────────────────────
@@ -268,6 +363,9 @@ mod tests {
                 script: None,
                 tenant_id: Some("my-tenant".to_string()),
                 client_id: None,
+                ldap_host: None,
+                bind_dn: None,
+                base_dn: None,
             },
         );
 

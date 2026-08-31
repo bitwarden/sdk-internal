@@ -43,6 +43,7 @@ uuid = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
+rustls = { workspace = true }
 tempfile = "3"
 tokio = { workspace = true, features = ["rt", "test-util"] }
 wiremock = { workspace = true }

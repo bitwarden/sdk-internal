@@ -198,26 +198,43 @@ source was expected to provide the value.
 
 ### Accepted keys per target kind
 
-| Kind           | Accepted config keys     |
-| -------------- | ------------------------ |
-| `CustomScript` | `script`                 |
-| `Entra`        | `tenant_id`, `client_id` |
+| Kind              | Accepted config keys                |
+| ----------------- | ----------------------------------- |
+| `CustomScript`    | `script`                            |
+| `Entra`           | `tenant_id`, `client_id`            |
+| `ActiveDirectory` | `ldap_host`, `bind_dn`, `base_dn`   |
 
-### `client_secret` is env-only
+### Secrets are env-only
 
-`client_secret` is deliberately not accepted in the `[targets]` section. Config files are typically
-committed to version control; storing a secret there would expose it. Always supply `client_secret`
-via the environment variable (`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET`).
+`client_secret` and `bind_password` are deliberately not accepted in the `[targets]` section. Config
+files are typically committed to version control; storing a secret there would expose it. Always
+supply them via the environment variable (`<TARGET_ID_UPPER_UNDERSCORE>_CLIENT_SECRET` /
+`<TARGET_ID_UPPER_UNDERSCORE>_BIND_PASSWORD`).
 
-An unknown field (including `client_secret`) inside a `[targets.<uuid>]` block is a hard startup
-error; the daemon will refuse to start.
+An unknown field (including `client_secret` and `bind_password`) inside a `[targets.<uuid>]` block is
+a hard startup error; the daemon will refuse to start.
 
 ### POSIX shell limitation
 
 Environment variable names derived from a UUID that starts with a digit (e.g.
-`85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT`) cannot be `export`ed from a POSIX `/bin/sh` script —
-names must start with a letter or underscore. The `[targets]` config section sidesteps this
-restriction for `script`, `tenant_id`, and `client_id`; only `client_secret` remains env-only.
+`85808642_BABA_4B8E_8C34_B48000D60A0A_SCRIPT`) are not valid POSIX shell identifiers — a name must
+start with a letter or underscore — so the shell refuses to `export` them:
+
+```
+$ export 85808642_BABA_4B8E_8C34_B48000D60A0A_BIND_PASSWORD=…
+bash: export: `85808642_BABA_4B8E_8C34_B48000D60A0A_BIND_PASSWORD=…': not a valid identifier
+```
+
+The `[targets]` config section sidesteps this restriction for `script`, `tenant_id`, `client_id`,
+`ldap_host`, `bind_dn`, and `base_dn`; only `client_secret` and `bind_password` remain env-only. For
+a target whose UUID starts with a digit those two have no config-file escape hatch, so set them with
+`env`, which places the name in the child's environment directly and never applies the shell's
+identifier rules:
+
+```sh
+env 85808642_BABA_4B8E_8C34_B48000D60A0A_BIND_PASSWORD="$secret" \
+  bw-rotation-daemon run --config /etc/bitwarden/rotation.toml
+```
 
 ---
 
@@ -242,11 +259,12 @@ ABC_1234_5678_ABCD_000000000001_CLIENT_SECRET=...
 
 ### Required suffixes per target kind
 
-| Kind           | Required env-var suffixes                         |
-| -------------- | ------------------------------------------------- |
-| `Entra`        | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`         |
-| `CustomScript` | `SCRIPT`                                          |
-| `Mssql`        | `HOST`, `USER`, `SECRET` (unsupported this build) |
+| Kind              | Required env-var suffixes                            |
+| ----------------- | ---------------------------------------------------- |
+| `Entra`           | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`            |
+| `CustomScript`    | `SCRIPT`                                             |
+| `ActiveDirectory` | `LDAP_HOST`, `BIND_DN`, `BASE_DN`, `BIND_PASSWORD`   |
+| `Mssql`           | `HOST`, `USER`, `SECRET` (unsupported this build)    |
 
 Any additional variables matching the prefix are collected and forwarded to the integration as extra
 credentials. For example, a custom script may read `OUT_PATH` or `EXIT_CODE` from the `credentials`
@@ -401,6 +419,119 @@ ABC_1234_…_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ABC_1234_…_CLIENT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
 ABC_1234_…_CLIENT_SECRET=<secret>
 ```
+
+---
+
+## Active Directory integration
+
+The `ActiveDirectory` target kind rotates an on-premises domain account by replacing its
+`unicodePwd` attribute over LDAPS.
+
+### LDAPS is mandatory
+
+Every connection is made with an `ldaps://` URL (implicit TLS, port 636 by default). There is no
+plaintext LDAP path, no StartTLS fallback, and no flag to skip certificate validation.
+
+This is not only a Bitwarden policy: a domain controller refuses a `unicodePwd` write on an
+unencrypted connection, answering `confidentialityRequired` (LDAP result code 13).
+
+The domain controller's certificate is validated against the host's native trust store, so the
+**issuing enterprise CA must be trusted by the machine running the daemon**. A validation failure is
+a fatal error, not a retryable one.
+
+`ldap_host` is a bare host name, optionally with a `:port` suffix — never a URL. Anything containing
+a scheme, a path, userinfo, or whitespace is rejected at rotation time so that a mistyped host cannot
+silently downgrade the connection or redirect the bind.
+
+### Bind identity: a delegated service account
+
+The account named by `bind_dn` is expected to be a **delegated service account** whose only
+privileges on the target OU are:
+
+| Privilege        | Why needed                                             |
+| ---------------- | ------------------------------------------------------ |
+| `Reset Password` | Replace `unicodePwd` on the target accounts            |
+| Read             | Resolve the account identity to a distinguished name   |
+
+Delegate these with the Active Directory Users and Computers *Delegate Control* wizard, scoped to the
+OU that holds the managed accounts. **Do not use a Domain Admin account.** A credential held by a
+long-running daemon should never carry domain-wide authority, and nothing in this integration needs
+it.
+
+### How rotation works
+
+1. Connect to `ldap_host` over LDAPS and simple-bind as `bind_dn`.
+2. Search below `base_dn` (subtree scope) for exactly one user whose `sAMAccountName` or `userPrincipalName` matches the account identity. Zero matches and multiple matches are both fatal — rotating the wrong account is worse than not rotating.
+3. `replace` the account's `unicodePwd` with the new password, wrapped in ASCII double quotes and encoded as little-endian UTF-16 (no BOM), as Active Directory requires.
+
+This is an administrative reset: it never needs the account's current password, which is what allows
+a failed attempt to be retried with a freshly generated password.
+
+The account identity is escaped per RFC 4515 before it enters the search filter, so a hostile
+identity cannot widen the search.
+
+### Verification
+
+`verify` opens a second LDAPS connection and simple-binds **as the rotated account** using the new
+password. A successful bind is direct proof that the directory accepted the write — unlike a
+timestamp read it cannot be stale, and unlike an attribute compare it cannot be satisfied by some
+other change. A rejected bind is fatal.
+
+### Session termination is not supported
+
+`terminate_sessions` always fails with `unsupported_kind`. An LDAP password reset cannot revoke
+Kerberos ticket-granting tickets that have already been issued, and LDAP offers no revocation
+operation; there is no honest implementation. The server advertises
+`supportsSessionTermination: false` for this kind, so the executor should never call it.
+
+Operators who need existing sessions cut off must do it out of band (for example by resetting the
+account's `msDS-KeyVersionNumber`, disabling and re-enabling the account, or waiting out the ticket
+lifetime).
+
+### Resolver env shape (Active Directory)
+
+| Suffix          | Value                                                             |
+| --------------- | ----------------------------------------------------------------- |
+| `LDAP_HOST`     | Domain controller host name, optionally `host:port`               |
+| `BIND_DN`       | DN of the delegated service account                               |
+| `BASE_DN`       | Search base DN for account lookup                                 |
+| `BIND_PASSWORD` | Password of the delegated service account (**environment only**)  |
+
+Example (target id `abc-1234-…`):
+
+```
+ABC_1234_…_LDAP_HOST=dc01.corp.example
+ABC_1234_…_BIND_DN=CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example
+ABC_1234_…_BASE_DN=OU=Managed Accounts,DC=corp,DC=example
+ABC_1234_…_BIND_PASSWORD=<secret>
+```
+
+`LDAP_HOST`, `BIND_DN`, and `BASE_DN` may also be supplied in the `[targets.<uuid>]` config section as
+`ldap_host`, `bind_dn`, and `base_dn`. `BIND_PASSWORD` may not — see
+[Secrets are env-only](#secrets-are-env-only).
+
+### Error classification
+
+**Class** applies within a single attempt: `Transient` is retried in place with exponential backoff
+up to `max_retry_attempts`, `Fatal` ends the attempt on the spot. Neither ends the job. A reported
+failure returns the job to the claimable pool and the daemon re-claims it on a later poll, until the
+server's attempt budget is spent — so a `Fatal` misconfiguration still reaches the domain controller
+once per attempt.
+
+| Condition                                              | Class     | Sync state | Failure code             |
+| ------------------------------------------------------ | --------- | ---------- | ------------------------ |
+| Missing or malformed credential                        | Fatal     | unchanged  | `credentials_unresolved` |
+| TCP failure, reset connection                          | Transient | unchanged  | `target_unreachable`     |
+| TLS handshake or certificate rejected                  | Fatal     | unchanged  | `target_unreachable`     |
+| Bind rejected (rc 49, 50)                              | Fatal     | unchanged  | `target_rejected`        |
+| Account not found or ambiguous                         | Fatal     | unchanged  | `target_rejected`        |
+| Write rejected (rc 13, 19, 32, 53, schema errors)      | Fatal     | unchanged  | `target_rejected`        |
+| DC busy / unavailable / admin limit (rc 51, 52, 11)    | Transient | unchanged  | `target_unreachable`     |
+| Timeout or dropped connection after the write is sent  | Transient | **indeterminate** | `target_unreachable` |
+| Rebind with the new password rejected                  | Fatal     | updated    | `verification_failed`    |
+
+Only the numeric LDAP result code reaches the failure report. The directory's `diagnosticMessage` and
+matched DN are never read: both can echo account names and password-policy text.
 
 ---
 
