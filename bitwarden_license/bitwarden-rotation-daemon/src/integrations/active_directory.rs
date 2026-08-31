@@ -713,6 +713,12 @@ fn ldaps_url(host: &str) -> Result<String, IntegrationError> {
 /// echo account names and, on some DCs, policy text.
 fn classify_ldap_error(err: &LdapError, policy: EffectPolicy) -> IntegrationError {
     match err {
+        LdapError::Io { source } if is_tls_error(source) => IntegrationError {
+            class: ErrorClass::Fatal,
+            effect: policy.indeterminate,
+            code: FailureCode::TargetUnreachable,
+            detail: SafeDetail::from_kind("TlsHandshakeFailed"),
+        },
         LdapError::Io { source } => IntegrationError {
             class: ErrorClass::Transient,
             effect: policy.indeterminate,
@@ -784,6 +790,24 @@ fn classify_result_code(rc: u32, policy: EffectPolicy) -> IntegrationError {
         code,
         detail: SafeDetail::from_ldap_result_code(rc),
     }
+}
+
+/// Returns `true` when an I/O error is really a TLS failure in disguise.
+///
+/// `tokio-rustls` reports handshake failures — an untrusted issuer, an expired
+/// certificate, a host name that matches no SAN — as
+/// `io::Error(InvalidData, rustls::Error)`, and `ldap3` forwards that as
+/// [`LdapError::Io`] rather than [`LdapError::Rustls`]. Without this check a
+/// rejected certificate would be classified as a transient network fault and
+/// retried, when in truth no number of retries will make an untrusted chain
+/// verify: it needs an operator to fix the trust configuration.
+///
+/// TLS can also fail mid-session, after a request has been written, so the
+/// caller's `indeterminate` effect applies rather than `settled`.
+fn is_tls_error(source: &std::io::Error) -> bool {
+    source
+        .get_ref()
+        .is_some_and(|inner| inner.is::<rustls::Error>())
 }
 
 /// Map an [`std::io::ErrorKind`] to a fixed name safe to place in a detail.
@@ -1231,6 +1255,47 @@ mod tests {
     }
 
     #[test]
+    fn rejected_certificate_is_fatal_not_transient() {
+        let rustls_err = rustls::Error::InvalidCertificate(rustls::CertificateError::UnknownIssuer);
+        let err = classify_ldap_error(
+            &LdapError::Io {
+                source: std::io::Error::new(std::io::ErrorKind::InvalidData, rustls_err),
+            },
+            EffectPolicy::BEFORE_MODIFY,
+        );
+        assert_eq!(
+            err.class,
+            ErrorClass::Fatal,
+            "an untrusted certificate must not be retried as a network blip"
+        );
+        assert_eq!(err.effect, TargetEffect::NotApplied);
+        assert_eq!(err.detail.as_str(), "error kind: TlsHandshakeFailed");
+    }
+
+    #[test]
+    fn tls_failure_during_the_modify_leaves_the_effect_unknown() {
+        let rustls_err = rustls::Error::InvalidCertificate(rustls::CertificateError::Expired);
+        let err = classify_ldap_error(
+            &LdapError::Io {
+                source: std::io::Error::new(std::io::ErrorKind::InvalidData, rustls_err),
+            },
+            EffectPolicy::MODIFY,
+        );
+        assert_eq!(err.effect, TargetEffect::Unknown);
+    }
+
+    #[test]
+    fn plain_io_errors_stay_transient() {
+        let err = classify_ldap_error(
+            &LdapError::Io {
+                source: std::io::Error::new(std::io::ErrorKind::InvalidData, "not a tls error"),
+            },
+            EffectPolicy::BEFORE_MODIFY,
+        );
+        assert_eq!(err.class, ErrorClass::Transient);
+    }
+
+    #[test]
     fn tls_failures_are_fatal() {
         let err = classify_ldap_error(
             &LdapError::DNSName {
@@ -1484,5 +1549,237 @@ D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
             err.detail.as_str(),
             "error kind: ActiveDirectorySessionTerminationUnsupported"
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Live domain-controller QA
+// ---------------------------------------------------------------------------
+
+/// End-to-end checks against a **real** Active Directory domain controller.
+///
+/// Every test here is `#[ignore]`d, so `cargo test` — in CI or locally — never
+/// opens a connection to a directory. Running them is an explicit act:
+///
+/// ```text
+/// BWRD_AD_LIVE_HOST=dc01.example.com:636 \
+/// BWRD_AD_LIVE_BIND_DN='CN=svc-rotate,OU=Service Accounts,DC=example,DC=com' \
+/// BWRD_AD_LIVE_BASE_DN='OU=Managed,DC=example,DC=com' \
+/// BWRD_AD_LIVE_BIND_PASSWORD='…' \
+/// BWRD_AD_LIVE_ACCOUNT='svc-app' \
+/// BWRD_AD_LIVE_ACCOUNT_PASSWORD='current password of that account' \
+/// BWRD_AD_LIVE_CA=/path/to/dc-ca.pem \
+///   cargo test -p bitwarden-rotation-daemon --lib -- --ignored --exact \
+///   integrations::active_directory::live::live_rotation_against_a_real_domain_controller
+/// ```
+///
+/// The run **changes the password of `BWRD_AD_LIVE_ACCOUNT`**. Point it only at
+/// a disposable account in a test directory.
+#[cfg(test)]
+mod live {
+    use std::{
+        io,
+        sync::{Arc, Mutex},
+    };
+
+    use chrono::Utc;
+    use uuid::Uuid;
+    use zeroize::Zeroizing;
+
+    use super::*;
+    use crate::resolver::ResolvedCredentials;
+
+    /// Connection parameters for the live directory, read from the environment.
+    struct LiveTarget {
+        host: String,
+        bind_dn: String,
+        base_dn: String,
+        bind_password: String,
+        ca_certificate: Option<String>,
+        account: String,
+        /// The rotated account's password as it stands before the test runs.
+        account_password: String,
+    }
+
+    impl LiveTarget {
+        /// Read the target from `BWRD_AD_LIVE_*`, or `None` if it is not configured.
+        fn from_env() -> Option<Self> {
+            let var = |n: &str| std::env::var(n).ok().filter(|v| !v.is_empty());
+            Some(Self {
+                host: var("BWRD_AD_LIVE_HOST")?,
+                bind_dn: var("BWRD_AD_LIVE_BIND_DN")?,
+                base_dn: var("BWRD_AD_LIVE_BASE_DN")?,
+                bind_password: var("BWRD_AD_LIVE_BIND_PASSWORD")?,
+                ca_certificate: var("BWRD_AD_LIVE_CA"),
+                account: var("BWRD_AD_LIVE_ACCOUNT")?,
+                account_password: var("BWRD_AD_LIVE_ACCOUNT_PASSWORD")?,
+            })
+        }
+
+        fn creds(&self) -> ResolvedCredentials {
+            let mut creds = ResolvedCredentials::new();
+            creds.insert(HOST_SUFFIX.to_string(), self.host.clone());
+            creds.insert(BIND_DN_SUFFIX.to_string(), self.bind_dn.clone());
+            creds.insert(BASE_DN_SUFFIX.to_string(), self.base_dn.clone());
+            creds.insert(BIND_PASSWORD_SUFFIX.to_string(), self.bind_password.clone());
+            if let Some(ca) = &self.ca_certificate {
+                creds.insert(CA_CERTIFICATE_SUFFIX.to_string(), ca.clone());
+            }
+            creds
+        }
+
+        fn context(&self, password: &str) -> RotateContext {
+            RotateContext {
+                target_system_id: Uuid::nil(),
+                account_identity: self.account.clone(),
+                new_password: Zeroizing::new(password.to_string()),
+                creds: self.creds(),
+                rotation_started_at: Utc::now(),
+            }
+        }
+    }
+
+    /// A `tracing` writer that accumulates everything into a shared buffer.
+    #[derive(Clone)]
+    struct CapturedLog(Arc<Mutex<Vec<u8>>>);
+
+    impl io::Write for CapturedLog {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            if let Ok(mut guard) = self.0.lock() {
+                guard.extend_from_slice(buf);
+            }
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CapturedLog {
+        type Writer = Self;
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    /// A password that satisfies default AD complexity rules.
+    fn generated_password() -> String {
+        format!("Bw!{}aQ9", Uuid::new_v4().simple())
+    }
+
+    /// Rotate a disposable account, prove the new password works and the old one
+    /// does not, and prove neither password reaches the log stream.
+    #[tokio::test]
+    #[ignore = "requires a live Active Directory domain controller; see the module docs"]
+    async fn live_rotation_against_a_real_domain_controller() {
+        let target = LiveTarget::from_env()
+            .expect("BWRD_AD_LIVE_* environment variables must be set for the live test");
+
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let _ = tracing_subscriber::fmt()
+            .with_writer(CapturedLog(Arc::clone(&captured)))
+            .with_max_level(tracing::Level::TRACE)
+            .with_ansi(false)
+            .try_init();
+        tracing::info!("live-ad-capture-probe");
+
+        let integration = ActiveDirectoryIntegration::new();
+        let old_password = target.bind_password.clone();
+        let new_password = generated_password();
+
+        let rotate_ctx = target.context(&new_password);
+        integration
+            .rotate(&rotate_ctx)
+            .await
+            .expect("rotate must succeed against the live directory");
+
+        integration
+            .verify(&rotate_ctx)
+            .await
+            .expect("verify must rebind as the rotated account with the new password");
+
+        let second_password = generated_password();
+        let second_ctx = target.context(&second_password);
+        integration
+            .rotate(&second_ctx)
+            .await
+            .expect("a second rotation must succeed");
+        integration
+            .verify(&second_ctx)
+            .await
+            .expect("verify must succeed after the second rotation");
+
+        // A password the directory has never held must be rejected. Without this
+        // the checks above would also pass against a directory that accepted
+        // anything, which would make them meaningless.
+        let never_set = generated_password();
+        let rejected = integration
+            .verify(&target.context(&never_set))
+            .await
+            .expect_err("a password the account never had must not bind");
+        assert_eq!(rejected.class, ErrorClass::Fatal);
+        assert_eq!(rejected.code, FailureCode::VerificationFailed);
+        assert_eq!(rejected.effect, TargetEffect::Applied);
+
+        // The password the account started with is now two rotations old and
+        // must no longer authenticate.
+        //
+        // Note that the *immediately* preceding password is deliberately not
+        // asserted on: Active Directory keeps accepting it for a grace period
+        // (`OldPasswordAllowedPeriod`, 60 minutes by default), so a rotation
+        // does not revoke the previous credential at once. That is a property
+        // of the directory, not of this connector, and it is why the two-step
+        // rotation above is needed to make this assertion meaningful.
+        let account_password = target.account_password.clone();
+        let superseded = integration
+            .verify(&target.context(&account_password))
+            .await
+            .expect_err("the pre-rotation password must no longer bind");
+        assert_eq!(superseded.class, ErrorClass::Fatal);
+        assert_eq!(superseded.code, FailureCode::VerificationFailed);
+
+        let logged = String::from_utf8_lossy(
+            &captured
+                .lock()
+                .expect("captured log is not poisoned")
+                .clone(),
+        )
+        .into_owned();
+
+        assert!(
+            logged.contains("live-ad-capture-probe"),
+            "log capture must be active, otherwise the leak assertions below prove nothing"
+        );
+        for (label, secret) in [
+            ("bind password", old_password.as_str()),
+            ("account password", target.account_password.as_str()),
+            ("first rotated password", new_password.as_str()),
+            ("second rotated password", second_password.as_str()),
+        ] {
+            assert!(
+                !logged.contains(secret),
+                "{label} appeared in the log stream ({} bytes captured)",
+                logged.len()
+            );
+        }
+    }
+
+    /// The connector must refuse a domain controller whose certificate it cannot
+    /// chain to a trust anchor, rather than falling back to an unverified connection.
+    #[tokio::test]
+    #[ignore = "requires a live Active Directory domain controller; see the module docs"]
+    async fn live_rotation_without_the_trust_anchor_is_refused() {
+        let mut target = LiveTarget::from_env()
+            .expect("BWRD_AD_LIVE_* environment variables must be set for the live test");
+        target.ca_certificate = None;
+
+        let integration = ActiveDirectoryIntegration::new();
+        let ctx = target.context(&generated_password());
+        let err = integration
+            .rotate(&ctx)
+            .await
+            .expect_err("an untrusted certificate must not be accepted");
+        assert_eq!(err.class, ErrorClass::Fatal, "error was: {err}");
+        assert_eq!(err.effect, TargetEffect::NotApplied, "error was: {err}");
     }
 }

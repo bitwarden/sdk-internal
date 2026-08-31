@@ -523,6 +523,20 @@ password. A successful bind is direct proof that the directory accepted the writ
 timestamp read it cannot be stale, and unlike an attribute compare it cannot be satisfied by some
 other change. A rejected bind is fatal.
 
+### The previous password stays valid for a grace period
+
+Rotating an AD password does **not** invalidate the previous one immediately. Windows keeps
+accepting the immediately-preceding password for NTLM and LDAP simple binds for
+`OldPasswordAllowedPeriod` — **60 minutes by default**, configured under
+`HKLM\SYSTEM\CurrentControlSet\Control\Lsa`.
+
+This is directory behaviour, not something the connector can override, and it is worth pairing with
+the note below: for up to an hour after a rotation, both the old and the new credential
+authenticate, and existing Kerberos tickets remain valid on top of that. Deployments that need a
+hard cut-off must shorten `OldPasswordAllowedPeriod` and handle ticket lifetime separately.
+
+`verify` is unaffected — it binds with the *new* password, which is valid immediately.
+
 ### Session termination is not supported
 
 `terminate_sessions` always fails with `unsupported_kind`. An LDAP password reset cannot revoke
