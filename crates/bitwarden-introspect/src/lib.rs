@@ -198,8 +198,10 @@ impl<T: Introspect + ?Sized> Introspect for std::sync::Arc<T> {
 
 impl<K: std::fmt::Display, V: Introspect> Introspect for std::collections::HashMap<K, V> {
     fn node_info(&self) -> NodeInfo {
-        let mut entries: Vec<(String, &V)> =
-            self.iter().map(|(key, value)| (key.to_string(), value)).collect();
+        let mut entries: Vec<(String, &V)> = self
+            .iter()
+            .map(|(key, value)| (key.to_string(), value))
+            .collect();
         entries.sort_by(|a, b| a.0.cmp(&b.0));
         let children = entries
             .iter()
@@ -369,7 +371,6 @@ impl<T: Introspect> Introspect for Debuggable<T> {
 }
 
 pub use bitwarden_introspect_macro::IntrospectWrite;
-
 #[cfg(feature = "write")]
 pub use serde_json::Value as JsonValue;
 #[cfg(feature = "write")]

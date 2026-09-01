@@ -55,7 +55,10 @@ fn show(path: &[&str], node: &NodeInfo) {
         path.join(".")
     };
     println!("\n$ describe {where_}");
-    println!("  {} = {}  [{:?}]", node.type_name, node.preview, node.writeability);
+    println!(
+        "  {} = {}  [{:?}]",
+        node.type_name, node.preview, node.writeability
+    );
     for child in &node.children {
         println!(
             "    .{:<10} {:<8} = {:<20} [{:?}]",

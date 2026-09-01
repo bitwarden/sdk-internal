@@ -17,9 +17,8 @@ use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, parse_ma
 ///
 /// Struct field attributes:
 /// - `#[introspect(skip)]` — omit the field from the graph entirely.
-/// - `#[introspect(writable)]` — report the child as `CloneReplace` writable.
-///   Fields typed as `Debuggable<T>` already report `InPlace` and don't need
-///   this.
+/// - `#[introspect(writable)]` — report the child as `CloneReplace` writable. Fields typed as
+///   `Debuggable<T>` already report `InPlace` and don't need this.
 #[proc_macro_derive(Introspect, attributes(introspect))]
 pub fn derive_introspect(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -278,11 +277,7 @@ fn enum_bodies(name_str: &str, data: &DataEnum) -> (TokenStream2, TokenStream2) 
 fn variant_parts(fields: &Fields) -> (TokenStream2, Vec<TokenStream2>, Vec<TokenStream2>) {
     match fields {
         Fields::Named(named) => {
-            let idents: Vec<_> = named
-                .named
-                .iter()
-                .filter_map(|f| f.ident.clone())
-                .collect();
+            let idents: Vec<_> = named.named.iter().filter_map(|f| f.ident.clone()).collect();
             let pattern = quote! { { #(#idents),* } };
             let pushes = idents
                 .iter()
