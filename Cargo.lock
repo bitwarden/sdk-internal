@@ -979,6 +979,9 @@ version = "3.0.0"
 dependencies = [
  "bitwarden-introspect-macro",
  "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
  "uuid",
 ]
 

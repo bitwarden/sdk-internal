@@ -368,6 +368,154 @@ impl<T: Introspect> Introspect for Debuggable<T> {
     }
 }
 
+pub use bitwarden_introspect_macro::IntrospectWrite;
+
+#[cfg(feature = "write")]
+pub use serde_json::Value as JsonValue;
+#[cfg(feature = "write")]
+pub use write_impl::WriteError;
+
+/// Path-addressed mutation of the object graph.
+///
+/// A value is written by resolving `path` to a leaf, deserializing the incoming
+/// JSON into that leaf's concrete type, and assigning it. Structs cannot be
+/// replaced wholesale (that would require every field to be `Deserialize`);
+/// address a specific field instead. This mirrors how the discovery API reads:
+/// navigate, then act on a leaf.
+#[cfg(feature = "write")]
+pub trait IntrospectWrite {
+    /// Resolve `path` and write `value` into the leaf it addresses.
+    fn set(&mut self, path: &[&str], value: JsonValue) -> Result<(), WriteError>;
+}
+
+#[cfg(feature = "write")]
+mod write_impl {
+    use serde::de::DeserializeOwned;
+    use serde_json::Value;
+
+    use super::{Debuggable, IntrospectWrite};
+
+    /// Why a `set` failed.
+    #[derive(Debug, thiserror::Error)]
+    pub enum WriteError {
+        /// No child with this key at the current node.
+        #[error("no child named `{0}` at this node")]
+        NotFound(String),
+        /// The child exists but was opted out with `#[introspect(skip_write)]`.
+        #[error("`{0}` exists but is not writable")]
+        NotWritable(String),
+        /// An attempt to replace a whole struct node; write one of its fields.
+        #[error("a struct node cannot be replaced wholesale; write one of its fields")]
+        WholeNode,
+        /// The target is behind an `Arc` that is held elsewhere, so no exclusive
+        /// access is available.
+        #[error("cannot write through an Arc that is shared elsewhere")]
+        Shared,
+        /// The JSON value did not deserialize into the target type.
+        #[error("value could not be deserialized: {0}")]
+        Deserialize(#[from] serde_json::Error),
+    }
+
+    macro_rules! leaf_write {
+        ($($t:ty),* $(,)?) => {$(
+            impl IntrospectWrite for $t {
+                fn set(&mut self, path: &[&str], value: Value) -> Result<(), WriteError> {
+                    match path.first() {
+                        None => {
+                            *self = serde_json::from_value(value)?;
+                            Ok(())
+                        }
+                        Some(key) => Err(WriteError::NotFound((*key).to_string())),
+                    }
+                }
+            }
+        )*};
+    }
+
+    leaf_write!(
+        bool, char, String, i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32,
+        f64
+    );
+
+    impl<T: IntrospectWrite + DeserializeOwned> IntrospectWrite for Vec<T> {
+        fn set(&mut self, path: &[&str], value: Value) -> Result<(), WriteError> {
+            match path.split_first() {
+                None => {
+                    *self = serde_json::from_value(value)?;
+                    Ok(())
+                }
+                Some((head, rest)) => {
+                    let index = head
+                        .parse::<usize>()
+                        .map_err(|_| WriteError::NotFound((*head).to_string()))?;
+                    let element = self
+                        .get_mut(index)
+                        .ok_or_else(|| WriteError::NotFound((*head).to_string()))?;
+                    element.set(rest, value)
+                }
+            }
+        }
+    }
+
+    impl<T: IntrospectWrite + DeserializeOwned> IntrospectWrite for Option<T> {
+        fn set(&mut self, path: &[&str], value: Value) -> Result<(), WriteError> {
+            match path.split_first() {
+                None => {
+                    *self = serde_json::from_value(value)?;
+                    Ok(())
+                }
+                Some((head, rest)) if *head == "Some" => match self {
+                    Some(inner) => inner.set(rest, value),
+                    None => Err(WriteError::NotFound("Some".to_string())),
+                },
+                Some((head, _)) => Err(WriteError::NotFound((*head).to_string())),
+            }
+        }
+    }
+
+    impl<T: IntrospectWrite + ?Sized> IntrospectWrite for Box<T> {
+        fn set(&mut self, path: &[&str], value: Value) -> Result<(), WriteError> {
+            (**self).set(path, value)
+        }
+    }
+
+    impl<T: IntrospectWrite> IntrospectWrite for std::sync::Arc<T> {
+        fn set(&mut self, path: &[&str], value: Value) -> Result<(), WriteError> {
+            match std::sync::Arc::get_mut(self) {
+                Some(inner) => inner.set(path, value),
+                None => Err(WriteError::Shared),
+            }
+        }
+    }
+
+    // Interior mutability makes `Debuggable` the reliable in-place write point:
+    // it can be written through a shared reference in the introspect build.
+    impl<T: IntrospectWrite + DeserializeOwned> IntrospectWrite for Debuggable<T> {
+        fn set(&mut self, path: &[&str], value: Value) -> Result<(), WriteError> {
+            match path.first() {
+                None => {
+                    let decoded = serde_json::from_value(value)?;
+                    Debuggable::set(self, decoded);
+                    Ok(())
+                }
+                Some(_) => {
+                    // Descend into the wrapped value. In the release-shaped build
+                    // `get` yields `&T`; here it is a write guard.
+                    #[cfg(feature = "introspect")]
+                    {
+                        let mut guard = self.0.write().expect("Debuggable lock poisoned");
+                        guard.set(path, value)
+                    }
+                    #[cfg(not(feature = "introspect"))]
+                    {
+                        self.0.set(path, value)
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -505,5 +653,81 @@ mod tests {
             .node_info();
         assert_eq!(node.type_name, "DateTime<Utc>");
         assert!(node.children.is_empty());
+    }
+}
+
+#[cfg(all(test, feature = "write"))]
+#[allow(clippy::unwrap_used)]
+mod write_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    /// Deliberately implements no traits: proves a non-serde, non-introspect
+    /// field is fine as long as it's skipped.
+    struct Opaque;
+
+    #[derive(Introspect, IntrospectWrite)]
+    struct Server {
+        url: String,
+        retries: u32,
+        tags: Vec<String>,
+        #[introspect(skip, skip_write)]
+        _handle: Opaque,
+    }
+
+    fn sample() -> Server {
+        Server {
+            url: "http://a".to_string(),
+            retries: 1,
+            tags: vec!["x".to_string()],
+            _handle: Opaque,
+        }
+    }
+
+    #[test]
+    fn writes_a_leaf_and_reads_it_back() {
+        let mut server = sample();
+        server.set(&["url"], json!("http://b")).unwrap();
+        assert_eq!(server.describe(&["url"]).unwrap().preview, "\"http://b\"");
+
+        server.set(&["retries"], json!(5)).unwrap();
+        assert_eq!(server.describe(&["retries"]).unwrap().preview, "5");
+    }
+
+    #[test]
+    fn writes_a_collection_element_and_the_whole_collection() {
+        let mut server = sample();
+        server.set(&["tags", "0"], json!("y")).unwrap();
+        assert_eq!(server.describe(&["tags", "0"]).unwrap().preview, "\"y\"");
+
+        server.set(&["tags"], json!(["a", "b"])).unwrap();
+        assert_eq!(server.describe(&["tags"]).unwrap().preview, "[2 items]");
+    }
+
+    #[test]
+    fn skip_write_reports_not_writable() {
+        let mut server = sample();
+        assert!(matches!(
+            server.set(&["_handle"], json!(0)),
+            Err(WriteError::NotWritable(_))
+        ));
+    }
+
+    #[test]
+    fn unknown_key_and_whole_node_and_bad_value_are_errors() {
+        let mut server = sample();
+        assert!(matches!(
+            server.set(&["nope"], json!(0)),
+            Err(WriteError::NotFound(_))
+        ));
+        assert!(matches!(
+            server.set(&[], json!({})),
+            Err(WriteError::WholeNode)
+        ));
+        assert!(matches!(
+            server.set(&["retries"], json!("not a number")),
+            Err(WriteError::Deserialize(_))
+        ));
     }
 }

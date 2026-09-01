@@ -53,6 +53,19 @@ from":
    leaves: a hands-on utility plus docs teaching the agent when tiers 1–2 can't
    reach and what the manual move is.
 
+**Write is implemented as a separate `IntrospectWrite` capability** (feature
+`write`), kept apart from read so the read path stays serde-free. It is
+default-on per field: `#[derive(IntrospectWrite)]` makes every field writable
+and dispatches `set(path, value)` into the field's own `IntrospectWrite`,
+deserializing the wire JSON into the leaf's concrete type. A field opts out with
+`#[introspect(skip_write)]`, and because a skipped field's type is then never
+referenced, a struct containing a non-serde field (trait object, handle, key
+material) still derives — the same escape `#[serde(skip)]` provides. Structs are
+never replaced wholesale (that would demand `Deserialize` on every field);
+callers address a specific field. `DeserializeOwned` is therefore required only
+on the leaf types actually written, exactly the fields `Serialize` would bind
+too.
+
 Rejected alternatives (both sound Rust, both wrong trade here): a macro that
 makes every field writable transparently (transparency + write-through-`&` are
 mutually exclusive), and a global arena/handle store (re-architects the whole
@@ -112,10 +125,13 @@ The existing client macro can additionally auto-wire the `Client` root.
 
 ## Open items / not yet built
 
-- Path-addressed **writing** dispatch in the derive (the read/discovery path and
-  the `Debuggable` mechanism are sketched; `set(path, value)` routing is not).
 - **Serialization** of `NodeInfo` for the wire (serde), and the wasm-bindgen
   capability shim onto `window.bitwardenAutomationDriver`.
+- Full `Debuggable` in-place write integration (the `IntrospectWrite` impl for
+  `Debuggable` exists; wiring real fields and the lock-guarded descent needs a
+  pass on live types).
+- `IntrospectWrite` for enums, and whole-node replace as an explicit opt-in
+  (`#[introspect(replaceable)]`) for structs that are fully `Deserialize`.
 - Enum, tuple-struct, and generic-bound handling in the derive.
 - Cycle/`Arc` handling: depth limit + visited-set for the real object graph.
 - Coordinate with Bernd: #21922 is draft; his capability layout and the

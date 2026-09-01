@@ -60,6 +60,90 @@ pub fn derive_introspect(item: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Derive `IntrospectWrite` for a struct with named fields.
+///
+/// Every field is writable by default; the write dispatches into the field's
+/// own `IntrospectWrite` impl. Opt a field out with `#[introspect(skip_write)]`
+/// — that field's type is then never referenced, so it need not be
+/// `Deserialize` (this is how a struct with a non-serde field still derives).
+/// A struct node cannot be replaced wholesale; callers address a field.
+#[proc_macro_derive(IntrospectWrite, attributes(introspect))]
+pub fn derive_introspect_write(item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    let name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    let Data::Struct(DataStruct {
+        fields: Fields::Named(fields),
+        ..
+    }) = &input.data
+    else {
+        return syn::Error::new_spanned(
+            &input,
+            "IntrospectWrite can currently only be derived for structs with named fields",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    let mut arms = Vec::new();
+    for field in &fields.named {
+        let Some(ident) = field.ident.as_ref() else {
+            continue;
+        };
+        let key = ident.to_string();
+
+        let mut skip_write = false;
+        for attr in &field.attrs {
+            if attr.path().is_ident("introspect") {
+                let _ = attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("skip_write") {
+                        skip_write = true;
+                    }
+                    Ok(())
+                });
+            }
+        }
+
+        if skip_write {
+            arms.push(quote! {
+                #key => ::core::result::Result::Err(
+                    ::bitwarden_introspect::WriteError::NotWritable(#key.to_string())
+                ),
+            });
+        } else {
+            arms.push(quote! {
+                #key => ::bitwarden_introspect::IntrospectWrite::set(
+                    &mut self.#ident, __rest, __value,
+                ),
+            });
+        }
+    }
+
+    quote! {
+        impl #impl_generics ::bitwarden_introspect::IntrospectWrite for #name #ty_generics #where_clause {
+            fn set(
+                &mut self,
+                __path: &[&str],
+                __value: ::bitwarden_introspect::JsonValue,
+            ) -> ::core::result::Result<(), ::bitwarden_introspect::WriteError> {
+                match __path.split_first() {
+                    ::core::option::Option::None => {
+                        ::core::result::Result::Err(::bitwarden_introspect::WriteError::WholeNode)
+                    }
+                    ::core::option::Option::Some((__head, __rest)) => match *__head {
+                        #(#arms)*
+                        _ => ::core::result::Result::Err(
+                            ::bitwarden_introspect::WriteError::NotFound(__head.to_string())
+                        ),
+                    },
+                }
+            }
+        }
+    }
+    .into()
+}
+
 fn struct_bodies(name_str: &str, fields: &FieldsNamed) -> (TokenStream2, TokenStream2) {
     let mut child_pushes = Vec::new();
     let mut describe_arms = Vec::new();
