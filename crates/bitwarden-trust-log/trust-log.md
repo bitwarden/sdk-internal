@@ -104,7 +104,7 @@ And the chain, with one inner message withheld from an unauthorized reader:
 flowchart LR
   subgraph OUTERCHAIN["Outer chain — served whole to every authorized reader"]
     direction TB
-    O3["seq 3<br/>revoke_key<br/>public"] --> O2["seq 2<br/>join_team<br/>semi_public"] --> O1["seq 1<br/>add_key<br/>public"] --> O0["seq 0<br/>add_key (genesis)<br/>public"]
+    O3["seq 3<br/>revoke_key<br/>public"] --> O2["seq 2<br/>join_team<br/>privileged"] --> O1["seq 1<br/>add_key<br/>public"] --> O0["seq 0<br/>add_key (genesis)<br/>public"]
   end
   subgraph INNERS["Inner messages — gated by visibility"]
     direction TB
@@ -130,7 +130,7 @@ OuterLink = {
   previous_outer_link_hash: bytes[32],   // HASH of the previous OuterLink; all-zero for genesis
   current_inner_link_hash:  bytes[32],   // HASH of this link's InnerMessage
   type:                     MessageType, // see message types
-  visibility:               Visibility,  // public, semi_public or private; see visibility
+  visibility:               Visibility,  // public, privileged or private; see visibility
 }
 ```
 
@@ -180,14 +180,14 @@ have one valid signing key.
 ## Visibility
 
 ```
-Visibility = enum { public, semi_public, private }
+Visibility = enum { public, privileged, private }
 ```
 
-| Value         | Who may read the inner message                                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `public`      | Anyone who may read the outer chain.                                                                                                      |
-| `semi_public` | The account holder, and principals sharing the relevant scope (e.g. members/admins of the organization named in the body and the server). |
-| `private`     | The account holder only.                                                                                                                  |
+| Value        | Who may read the inner message                                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `public`     | Anyone who may read the outer chain.                                                                                                      |
+| `privileged` | The account holder, and principals sharing the relevant scope (e.g. members/admins of the organization named in the body and the server). |
+| `private`    | The account holder only.                                                                                                                  |
 
 Each message type maps statically to one visibility ([Message types](#message-types)), so a verifier
 must reject any link whose `outer.visibility` disagrees with that mapping; the server therefore

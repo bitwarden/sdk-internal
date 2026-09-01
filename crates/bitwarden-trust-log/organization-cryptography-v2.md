@@ -93,7 +93,7 @@ UpgradeMemberBody = {            // legacy -> non-legacy only
   current:          TrustLogLink,
 }
 
-ShareKeyBody = {                // semi_public: the wrapped key is readable only by the recipient
+ShareKeyBody = {                // privileged: the wrapped key is readable only by the recipient
   recipient:        { kind: enum { user, organization }, id: uuid },
   purpose:          enum { organization_key, provider_key, account_recovery, emergency_access },
   wrapped_key:      bytes,          // signcrypted: sealed to the recipient KEM / RSA key
@@ -309,7 +309,7 @@ Both upgrades are the same message in opposite directions:
 
 The sender re-verifies the recipient's log from the pinned position to its head, picks the
 recipient's current RSA/KEM key, signcrypts the shared key to it, and appends `share_key`. The
-message is `semi_public`: the chain counts it, so the server cannot hide that a share happened, but
+message is `privileged`: the chain counts it, so the server cannot hide that a share happened, but
 only the recipient can unwrap it.
 
 ```mermaid
