@@ -399,6 +399,38 @@ is out of scope for this version of the document.
 
 ---
 
+## Split view attack
+
+The hash chain makes a log internally consistent, but internal consistency says nothing about
+_which_ chain a reader was shown. The server is the sole distributor of logs, so it can maintain two
+divergent chains for the same actor and serve one to Alice and the other to Bob. Both views validate
+under [Chain validation](#chain-validation).
+
+```mermaid
+flowchart LR
+  L0["seq 0"] --> L1["seq 1"] --> L2["seq 2"]
+  L2 --> A3["seq 3: add_key K_attacker"]
+  L2 --> B3["seq 3: revoke_key K_old"]
+  A3 --> AV["View served to Bob"]
+  B3 --> BV["View served to Alice"]
+```
+
+The consequence is that a key revocation can be made effective for the account holder while never
+becoming effective for the relying parties encrypting to that account, and vice versa: an
+attacker-controlled key can be accepted by everyone except the account holder, who would notice it.
+Each party's view is self-consistent, so no local check fires. The `pin` mechanism
+([Log state](#log-state)) narrows the window between parties who exchange pins, but does not close
+it: the server chooses which view each party pins against.
+
+Detecting a split view requires comparing views across parties — gossip between clients, a
+transparency log with an independent witness set, or a signed-tree-head auditing protocol as in
+[RFC9162] and [CONIKS]. **Resolving the split view attack is out of scope for this document.**
+
+We will revisit this later; most likely using a tlog that holds a merkle tree that in each epoch
+commits to all latest head hashes.
+
+---
+
 ## Chain validation
 
 A verifier processing a trust log must, in sequence order:
