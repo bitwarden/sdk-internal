@@ -84,7 +84,6 @@ impl TryFrom<PamAccessConnectorResponseModel> for AccessConnector {
 #[serde(rename_all = "camelCase")]
 pub struct AccessConnectorDetail {
     /// The connector itself.
-    #[serde(flatten)]
     pub connector: AccessConnector,
     /// The jobs this connector has worked, newest first, carrying the attempts it recorded.
     ///

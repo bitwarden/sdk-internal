@@ -121,7 +121,6 @@ impl TryFrom<PamRotationConfigResponseModel> for RotationConfig {
 #[serde(rename_all = "camelCase")]
 pub struct RotationConfigDetail {
     /// The config itself.
-    #[serde(flatten)]
     pub config: RotationConfig,
     /// The config's rotation jobs, newest first, each carrying its attempts oldest first.
     pub jobs: Vec<RotationJob>,
