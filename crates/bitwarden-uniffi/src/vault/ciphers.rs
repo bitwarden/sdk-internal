@@ -39,13 +39,6 @@ impl CiphersClient {
         Ok(self.0.decrypt_list_with_failures(ciphers).await)
     }
 
-    pub fn decrypt_fido2_credentials(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<Vec<Fido2CredentialView>> {
-        Ok(self.0.decrypt_fido2_credentials(cipher_view)?)
-    }
-
     /// Move a cipher to an organization, reencrypting the cipher key if necessary
     pub fn move_to_organization(
         &self,

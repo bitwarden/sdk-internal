@@ -6,7 +6,7 @@ use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::KeySlotIds, require,
 };
-use bitwarden_crypto::{CryptoError, EncString, IdentifyKey, KeyStore};
+use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -66,7 +66,8 @@ pub struct CipherEditRequest {
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
     pub attachments: Vec<AttachmentView>,
-    pub key: Option<EncString>,
+    #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey | undefined"))]
+    pub key: Option<SymmetricCryptoKey>,
 }
 
 impl TryFrom<CipherView> for CipherEditRequest {
@@ -188,8 +189,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     // TODO: Once this flag is removed, the key generation logic should be
     // moved directly into the CompositeEncryptable implementation.
     if view.key.is_none() && enable_cipher_key_encryption {
-        let key = view.key_identifier();
-        view.generate_cipher_key(&mut key_store.context(), key)?;
+        view.generate_cipher_key(&mut key_store.context())?;
     }
 
     let encrypted_by_key_id = key_store
