@@ -37,6 +37,6 @@ construction such as the V2UpgradeToken to resolve.
 There are ways to fix this such as with the InviteLink or RotateableKeySet.
 
 ## Dangerous Get Key
-`dangerous_get_symmetric_key` and other functions that get raw keys outside of 
-crypto modules owned by `@bitwarden/team-key-management-dev` need to be reviewed by
-`@bitwarden/team-key-management-dev`.
+
+`dangerous_get_symmetric_key` and other functions that get raw keys outside of crypto modules owned
+by `@bitwarden/team-key-management-dev` need to be reviewed by `@bitwarden/team-key-management-dev`.
