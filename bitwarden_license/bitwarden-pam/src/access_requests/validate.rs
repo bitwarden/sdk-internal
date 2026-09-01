@@ -52,9 +52,12 @@ pub enum AccessRequestWindowError {
     EndBeforeStart,
     /// `end` had already passed, so the window could never be activated.
     ///
-    /// Worded verbatim as the server words its own rejection of the same window, so the web
-    /// client's `REQUEST_ACCESS_SERVER_ERRORS` catalog recognises a local refusal and a remote one
-    /// through one entry. Keep the two spellings in step.
+    /// This sentence is NOT the server's, which refuses the same window with "The end date must be
+    /// in the future." The two were once claimed to be verbatim-identical and were not, so the web
+    /// client recognised only this one and fell back to generic copy on every server-side refusal
+    /// (PM-42592). It now carries a catalog entry per side — `REQUEST_ACCESS_SDK_ERRORS` for this
+    /// spelling, `REQUEST_ACCESS_SERVER_ERRORS` for the server's — so changing this string means
+    /// changing the former, not the latter.
     #[error("The requested window has already ended.")]
     EndInPast,
     /// The requested window was longer than the server's 24h cap.
