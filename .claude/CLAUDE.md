@@ -72,6 +72,35 @@ Four layers; dependencies point strictly downward:
 4. **Bindings** — `bitwarden-uniffi` (Swift/Kotlin) and `bitwarden-wasm-internal`
    (TypeScript/JavaScript). Thin bindings only — no business logic.
 
+## Code Review
+
+For any code-review task (review PR / review changes / review this code / look at a diff), use the
+repo-local **`reviewing-changes`** skill (`.claude/skills/reviewing-changes/SKILL.md`). It detects the
+change type and loads the matching checklist (`checklists/*.md`) and reference sheets
+(`reference/*.md`) for that kind of change. Treat this skill as the entry point for review work rather
+than reviewing ad hoc.
+
+The enforceable review rules live in the path-scoped `.claude/rules/` files (auto-loaded when you
+touch matching files): `code-review.md` (cross-cutting power-user rules, with severities), alongside
+the topic files `crypto.md`, `rust-conventions.md`, `bindings.md`, and `generated-api-crates.md`.
+
+**Multi-agent review — forward the guidelines.** When a review runs in multi-agent mode, the
+dispatching agent MUST forward the full contents of this `.claude/CLAUDE.md` and the loaded
+`.claude/rules/` files (plus any near-file `README` / crate `CLAUDE.md`) to every review subagent.
+Under the `evaluation-standards` gate a style/quality finding is only postable if its rule is written
+in a file the subagent has loaded — a subagent that never received these rules cannot legitimately
+raise them. Do not assume a subagent inherited this context; pass it explicitly.
+
+## Deep-Dive Index
+
+_Forthcoming — populated in Phase C._ This section will map each change-area to the `/docs/<page>.md`
+deep-dive page the reviewer should read before reviewing that kind of change. The paths below are
+placeholders and are NOT live yet:
+
+- crypto / FFI change → `docs/patterns/crypto-safe-module.md` (Phase C)
+- state / repository change → `docs/patterns/state-management.md` (Phase C)
+- WASM / UniFFI binding change → `docs/patterns/bindings.md` (Phase C)
+
 ## References
 
 - [SDK architecture](https://contributing.bitwarden.com/architecture/sdk/) ·
