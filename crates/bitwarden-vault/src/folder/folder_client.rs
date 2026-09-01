@@ -14,9 +14,14 @@ use crate::{
 /// Wrapper for folder specific functionality.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
+#[cfg_attr(feature = "introspect", derive(bitwarden_introspect::Introspect))]
 pub struct FoldersClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
+    // TODO: give these their own Introspect impls (ApiConfigurations in
+    // bitwarden-core, an opaque one for the repository) and drop the skips.
+    #[cfg_attr(feature = "introspect", introspect(skip))]
     pub(crate) api_configurations: Arc<ApiConfigurations>,
+    #[cfg_attr(feature = "introspect", introspect(skip))]
     pub(crate) repository: Option<Arc<dyn Repository<Folder>>>,
 }
 

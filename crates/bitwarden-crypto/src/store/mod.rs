@@ -127,6 +127,112 @@ struct KeyStoreInner<Ids: KeySlotIds> {
     cipher_suite: CipherSuite,
 }
 
+/// Hand-written introspection for [`KeyStore`], kept separate from the derive
+/// so `Introspect` never becomes a bound on the store's generics or a supertrait
+/// of [`StoreBackend`]. It reaches key material only through the feature-gated
+/// [`StoreBackend::debug_slots`], which is itself redacted unless
+/// `dangerous-crypto-debug` is enabled.
+#[cfg(feature = "introspect")]
+mod introspect_impl {
+    use bitwarden_introspect::{ChildRef, Introspect, NodeInfo, Writeability};
+
+    use super::KeyStore;
+    use crate::{KeySlotId, KeySlotIds, store::backend::StoreBackend};
+
+    fn leaf(type_name: &'static str, preview: String) -> NodeInfo {
+        NodeInfo {
+            type_name,
+            preview,
+            writeability: Writeability::ReadOnly,
+            children: Vec::new(),
+        }
+    }
+
+    fn backend_child<Key: KeySlotId>(name: &str, backend: &dyn StoreBackend<Key>) -> ChildRef {
+        ChildRef {
+            key: name.to_string(),
+            type_name: "StoreBackend",
+            preview: format!("{} slots", backend.debug_slots().len()),
+            writeability: Writeability::ReadOnly,
+        }
+    }
+
+    fn describe_backend(slots: Vec<(String, String)>, rest: &[&str]) -> Option<NodeInfo> {
+        match rest.split_first() {
+            None => {
+                let children = slots
+                    .into_iter()
+                    .map(|(id, material)| ChildRef {
+                        key: id,
+                        type_name: "Key",
+                        preview: material,
+                        writeability: Writeability::ReadOnly,
+                    })
+                    .collect();
+                Some(NodeInfo {
+                    type_name: "StoreBackend",
+                    preview: String::new(),
+                    writeability: Writeability::ReadOnly,
+                    children,
+                })
+            }
+            Some((slot_id, tail)) if tail.is_empty() => slots
+                .into_iter()
+                .find(|(id, _)| id == slot_id)
+                .map(|(_, material)| leaf("Key", material)),
+            Some(_) => None,
+        }
+    }
+
+    impl<Ids: KeySlotIds> Introspect for KeyStore<Ids> {
+        fn node_info(&self) -> NodeInfo {
+            let inner = self.inner.read().expect("KeyStore lock poisoned");
+            let children = vec![
+                ChildRef {
+                    key: "cipher_suite".to_string(),
+                    type_name: "CipherSuite",
+                    preview: format!("{:?}", inner.cipher_suite),
+                    writeability: Writeability::ReadOnly,
+                },
+                ChildRef {
+                    key: "security_state_version".to_string(),
+                    type_name: "u64",
+                    preview: inner.security_state_version.to_string(),
+                    writeability: Writeability::ReadOnly,
+                },
+                backend_child("symmetric_keys", inner.symmetric_keys.as_ref()),
+                backend_child("private_keys", inner.private_keys.as_ref()),
+                backend_child("signing_keys", inner.signing_keys.as_ref()),
+            ];
+            NodeInfo {
+                type_name: "KeyStore",
+                preview: "<key store>".to_string(),
+                writeability: Writeability::ReadOnly,
+                children,
+            }
+        }
+
+        fn describe(&self, path: &[&str]) -> Option<NodeInfo> {
+            let Some((head, rest)) = path.split_first() else {
+                return Some(self.node_info());
+            };
+            let inner = self.inner.read().expect("KeyStore lock poisoned");
+            match *head {
+                "cipher_suite" if rest.is_empty() => {
+                    Some(leaf("CipherSuite", format!("{:?}", inner.cipher_suite)))
+                }
+                "security_state_version" if rest.is_empty() => {
+                    Some(leaf("u64", inner.security_state_version.to_string()))
+                }
+                "symmetric_keys" => describe_backend(inner.symmetric_keys.debug_slots(), rest),
+                "private_keys" => describe_backend(inner.private_keys.debug_slots(), rest),
+                "signing_keys" => describe_backend(inner.signing_keys.debug_slots(), rest),
+                _ => None,
+            }
+        }
+    }
+}
+
 /// Create a new key store with the best available implementation for the current platform.
 impl<Ids: KeySlotIds> Default for KeyStore<Ids> {
     fn default() -> Self {
@@ -474,6 +580,38 @@ pub(crate) mod tests {
         for (orig, dec) in data.iter().zip(decrypted.iter()) {
             assert_eq!(orig.0, dec.0);
             assert_eq!(orig.1, dec.1);
+        }
+    }
+
+    #[cfg(feature = "introspect")]
+    #[test]
+    fn introspect_walks_key_store() {
+        use bitwarden_introspect::Introspect;
+
+        let store: KeyStore<TestIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local, TestSymmKey::A(7)).unwrap();
+        }
+
+        let root = store.node_info();
+        assert_eq!(root.type_name, "KeyStore");
+        let keys: Vec<&str> = root.children.iter().map(|c| c.key.as_str()).collect();
+        assert!(keys.contains(&"cipher_suite"));
+        assert!(keys.contains(&"symmetric_keys"));
+
+        let backend = store.describe(&["symmetric_keys"]).unwrap();
+        assert_eq!(backend.children.len(), 1);
+
+        let slot_key = backend.children[0].key.clone();
+        let slot = store.describe(&["symmetric_keys", &slot_key]).unwrap();
+        #[cfg(not(feature = "dangerous-crypto-debug"))]
+        assert!(slot.preview.contains("redacted"));
+        #[cfg(feature = "dangerous-crypto-debug")]
+        {
+            assert!(!slot.preview.contains("redacted"));
+            assert!(!slot.preview.is_empty());
         }
     }
 }

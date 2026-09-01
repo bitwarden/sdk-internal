@@ -17,6 +17,10 @@ keywords.workspace = true
 [features]
 default = []
 no-memory-hardening = [] # Disable memory hardening features
+# Read-only introspection of the object graph (dev tooling). Exposes key
+# *structure* and slot ids; raw key material stays redacted unless
+# `dangerous-crypto-debug` is also enabled.
+introspect = ["dep:bitwarden-introspect"]
 uniffi = [
     "argon2/parallel",
     "bitwarden-encoding/uniffi",
@@ -45,6 +49,7 @@ argon2 = { version = "=0.6.0-rc.8", features = [
 bitwarden-api-key-connector = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-introspect = { workspace = true, optional = true }
 bitwarden-logging = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
@@ -82,7 +87,9 @@ typenum = ">=1.18.0, <1.21.0"
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
-xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = ["alloc"] }
+xaes-256-gcm = { version = "=0.1.0-rc.3", default-features = false, features = [
+    "alloc",
+] }
 zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 

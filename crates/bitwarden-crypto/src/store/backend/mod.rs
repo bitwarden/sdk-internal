@@ -35,4 +35,11 @@ pub trait StoreBackend<Key: KeySlotId>: ZeroizeOnDrop + Send + Sync {
     /// Retains only the elements specified by the predicate.
     /// In other words, remove all keys for which `f` returns false.
     fn retain(&mut self, f: fn(Key) -> bool);
+
+    /// Dump each stored slot as `(slot id, key material)` for the introspection
+    /// surface. The default is empty, so a backend opts in by overriding this.
+    #[cfg(feature = "introspect")]
+    fn debug_slots(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
 }
