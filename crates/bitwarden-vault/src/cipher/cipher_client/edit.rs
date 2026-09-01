@@ -952,7 +952,7 @@ mod tests {
                     // A server that has not been taught to strip write-returns.
                     Ok(CipherResponseModel {
                         partial_data: None,
-                        name: Some(body.name),
+                        name: body.name,
                         login: body.login,
                         ..gated_response_model(cipher_id, org, body.r#type)
                     })
