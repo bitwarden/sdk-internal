@@ -14,9 +14,6 @@ use crate::{
 #[derive(Clone, FromClient)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct PamClient {
-    /// Needed only by the two PAM operations that touch key material rather than leasing state:
-    /// registering an access connector wraps the organization key for it, and reading the cipher a
-    /// lease unlocks decrypts a vault payload.
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }

@@ -15,16 +15,15 @@
 //!   credential* - the link between one vault cipher and one target-system account, carrying the
 //!   schedule and the triggers.
 //!
-//! Every route lives under the server's `access-connectors` prefix. Note the vocabulary: the server
-//! and this module say *access connector*, and the standalone agent that consumes the token is the
-//! *rotation daemon*. They are the same actor seen from either end.
+//! Every route lives under the server's `access-connectors` prefix. The standalone agent that
+//! consumes the token is also called the *access connector* - the same actor seen from either end.
 //!
 //! # Reading a rotation's outcome
 //!
-//! A dispatch is a [`RotationJobView`], and each of a connector's goes at it is a
-//! [`RotationAttemptView`]. An attempt reports the target system and the vault separately -
-//! [`sync_state`](RotationAttemptView::sync_state) and
-//! [`cipher_updated`](RotationAttemptView::cipher_updated) - because they can disagree.
+//! A dispatch is a [`RotationJob`], and each of a connector's goes at it is a
+//! [`RotationAttempt`]. An attempt reports the target system and the vault separately -
+//! [`sync_state`](RotationAttempt::sync_state) and
+//! [`cipher_updated`](RotationAttempt::cipher_updated) - because they can disagree.
 //! [`Indeterminate`](RotationSyncState::Indeterminate) is the case to handle deliberately: the
 //! target may or may not hold the new credential, and no vault write was attempted, so the two are
 //! possibly out of step until the next rotation succeeds.
@@ -65,32 +64,29 @@ mod validate;
 
 pub use actions::{RotationConfigActions, rotation_config_actions};
 pub use configs::{
-    RotationConfigCreateRequest, RotationConfigDetailView, RotationConfigUpdateRequest,
-    RotationConfigView, RotationConfigsClient,
+    RotationConfig, RotationConfigCreateRequest, RotationConfigDetail, RotationConfigUpdateRequest,
+    RotationConfigsClient,
 };
 pub use connectors::{
-    AccessConnectorDetailView, AccessConnectorRegistrationView, AccessConnectorView,
+    AccessConnector, AccessConnectorDetail, AccessConnectorRegistrationResponse,
     AccessConnectorsClient,
 };
 pub use error::RotationError;
 pub use models::{
-    AccessConnectorStatus, PasswordPolicy, RotationAttemptStatus, RotationAttemptView,
-    RotationJobStatus, RotationJobView, RotationSource, RotationSyncState,
-    SessionTerminationOutcome, TargetSystemKind, TargetSystemMethod, TargetSystemStatus,
+    AccessConnectorStatus, PasswordPolicy, RotationAttempt, RotationAttemptStatus, RotationJob,
+    RotationJobStatus, RotationSource, RotationSyncState, SessionTerminationOutcome,
+    TargetSystemKind, TargetSystemMethod, TargetSystemStatus,
 };
 pub use registration::{ConnectorToken, ConnectorTokenInvalidError};
 pub use schedule::{
     QuartzSchedulePreset, RotationScheduleClient, is_likely_quartz_cron, preset_for_cron,
 };
 pub use target_systems::{
-    TargetSystemCreateRequest, TargetSystemUpdateRequest, TargetSystemView, TargetSystemsClient,
+    TargetSystem, TargetSystemCreateRequest, TargetSystemUpdateRequest, TargetSystemsClient,
 };
 pub use validate::RotationValidationError;
 
 /// Entry point for PAM credential rotation.
-///
-/// Groups the three configuration surfaces rather than hanging eight accessors off
-/// [`PamClient`](crate::PamClient), matching how the server groups the routes.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Clone, FromClient)]
 pub struct RotationClient {
@@ -100,11 +96,9 @@ pub struct RotationClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RotationClient {
-    /// Access connector operations: register, list, enable/disable, delete, and target assignment.
+    /// Access connector operations.
     pub fn connectors(&self) -> AccessConnectorsClient {
         AccessConnectorsClient {
-            // Registering a connector wraps the organization key for it, so this is the one
-            // rotation sub-client that needs key material.
             key_store: self.key_store.clone(),
             api_configurations: self.api_configurations.clone(),
         }

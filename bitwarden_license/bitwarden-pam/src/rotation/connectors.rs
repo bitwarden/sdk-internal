@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
     error::RotationError,
-    models::{AccessConnectorStatus, RotationJobView},
+    models::{AccessConnectorStatus, RotationJob},
     validate::validate_name,
 };
 use crate::{AccessConnectorId, TargetSystemId};
@@ -27,7 +27,7 @@ use crate::{AccessConnectorId, TargetSystemId};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct AccessConnectorView {
+pub struct AccessConnector {
     /// The connector's unique identifier.
     pub id: AccessConnectorId,
     /// The organization this connector belongs to.
@@ -52,7 +52,7 @@ pub struct AccessConnectorView {
     pub revision_date: DateTime<Utc>,
 }
 
-impl TryFrom<PamAccessConnectorResponseModel> for AccessConnectorView {
+impl TryFrom<PamAccessConnectorResponseModel> for AccessConnector {
     type Error = RotationError;
 
     fn try_from(response: PamAccessConnectorResponseModel) -> Result<Self, Self::Error> {
@@ -82,18 +82,18 @@ impl TryFrom<PamAccessConnectorResponseModel> for AccessConnectorView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct AccessConnectorDetailView {
+pub struct AccessConnectorDetail {
     /// The connector itself.
     #[serde(flatten)]
-    pub connector: AccessConnectorView,
+    pub connector: AccessConnector,
     /// The jobs this connector has worked, newest first, carrying the attempts it recorded.
     ///
     /// The server caps how many it returns, so this is recent activity rather than the connector's
     /// whole history.
-    pub jobs: Vec<RotationJobView>,
+    pub jobs: Vec<RotationJob>,
 }
 
-impl TryFrom<PamAccessConnectorDetailResponseModel> for AccessConnectorDetailView {
+impl TryFrom<PamAccessConnectorDetailResponseModel> for AccessConnectorDetail {
     type Error = RotationError;
 
     fn try_from(response: PamAccessConnectorDetailResponseModel) -> Result<Self, Self::Error> {
@@ -102,11 +102,11 @@ impl TryFrom<PamAccessConnectorDetailResponseModel> for AccessConnectorDetailVie
             .clone()
             .unwrap_or_default()
             .into_iter()
-            .map(RotationJobView::try_from)
+            .map(RotationJob::try_from)
             .collect::<Result<Vec<_>, _>>()?;
 
         // The server flattens the connector's own fields onto the detail payload.
-        let connector = AccessConnectorView::try_from(PamAccessConnectorResponseModel {
+        let connector = AccessConnector::try_from(PamAccessConnectorResponseModel {
             object: response.object,
             id: response.id,
             organization_id: response.organization_id,
@@ -127,7 +127,7 @@ impl TryFrom<PamAccessConnectorDetailResponseModel> for AccessConnectorDetailVie
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct AccessConnectorRegistrationView {
+pub struct AccessConnectorRegistrationResponse {
     /// The newly registered connector's unique identifier.
     pub id: AccessConnectorId,
     /// The organization the connector was registered in.
@@ -154,8 +154,6 @@ pub struct AccessConnectorRegistrationView {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct AccessConnectorsClient {
-    /// Registration wraps the organization key for the connector, which is the one connector
-    /// operation that touches key material.
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
@@ -166,7 +164,7 @@ impl AccessConnectorsClient {
     pub async fn list(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Vec<AccessConnectorView>, RotationError> {
+    ) -> Result<Vec<AccessConnector>, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -178,7 +176,7 @@ impl AccessConnectorsClient {
             .data
             .unwrap_or_default()
             .into_iter()
-            .map(AccessConnectorView::try_from)
+            .map(AccessConnector::try_from)
             .collect()
     }
 
@@ -187,7 +185,7 @@ impl AccessConnectorsClient {
         &self,
         organization_id: OrganizationId,
         id: AccessConnectorId,
-    ) -> Result<AccessConnectorDetailView, RotationError> {
+    ) -> Result<AccessConnectorDetail, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -195,19 +193,19 @@ impl AccessConnectorsClient {
             .get(organization_id.into(), id.into())
             .await?;
 
-        AccessConnectorDetailView::try_from(response)
+        AccessConnectorDetail::try_from(response)
     }
 
     /// Registers a connector and returns its one-time token.
     ///
-    /// The token is the only copy - see [`AccessConnectorRegistrationView::token`] for the handling
-    /// obligation, and the [`registration`](super::registration) module docs for what it contains
-    /// and why.
+    /// The token is the only copy - see [`AccessConnectorRegistrationResponse::token`] for the
+    /// handling obligation, and the [`registration`](super::registration) module docs for what
+    /// it contains and why.
     pub async fn register(
         &self,
         organization_id: OrganizationId,
         name: String,
-    ) -> Result<AccessConnectorRegistrationView, RotationError> {
+    ) -> Result<AccessConnectorRegistrationResponse, RotationError> {
         validate_name(&name)?;
 
         // Derived before the call so a key-store problem fails without leaving a registered
@@ -231,7 +229,7 @@ impl AccessConnectorsClient {
         let api_key_id = require!(response.api_key_id);
         let client_secret = require!(response.client_secret);
 
-        Ok(AccessConnectorRegistrationView {
+        Ok(AccessConnectorRegistrationResponse {
             id: AccessConnectorId::new(require!(response.id)),
             organization_id: OrganizationId::new(require!(response.organization_id)),
             name: response.name.unwrap_or(name),

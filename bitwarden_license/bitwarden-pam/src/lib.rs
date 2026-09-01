@@ -41,14 +41,13 @@ pub use leases::{
 };
 pub use pam_client::{PamClient, PamClientExt};
 pub use rotation::{
-    AccessConnectorDetailView, AccessConnectorRegistrationView, AccessConnectorStatus,
-    AccessConnectorView, AccessConnectorsClient, ConnectorToken, ConnectorTokenInvalidError,
-    PasswordPolicy, QuartzSchedulePreset, RotationAttemptStatus, RotationAttemptView,
-    RotationClient, RotationConfigActions, RotationConfigCreateRequest, RotationConfigDetailView,
-    RotationConfigUpdateRequest, RotationConfigView, RotationConfigsClient, RotationError,
-    RotationJobStatus, RotationJobView, RotationScheduleClient, RotationSource, RotationSyncState,
-    RotationValidationError, SessionTerminationOutcome, TargetSystemCreateRequest,
+    AccessConnector, AccessConnectorDetail, AccessConnectorRegistrationResponse,
+    AccessConnectorStatus, AccessConnectorsClient, ConnectorToken, ConnectorTokenInvalidError,
+    PasswordPolicy, QuartzSchedulePreset, RotationAttempt, RotationAttemptStatus, RotationClient,
+    RotationConfig, RotationConfigActions, RotationConfigCreateRequest, RotationConfigDetail,
+    RotationConfigUpdateRequest, RotationConfigsClient, RotationError, RotationJob,
+    RotationJobStatus, RotationScheduleClient, RotationSource, RotationSyncState,
+    RotationValidationError, SessionTerminationOutcome, TargetSystem, TargetSystemCreateRequest,
     TargetSystemKind, TargetSystemMethod, TargetSystemStatus, TargetSystemUpdateRequest,
-    TargetSystemView, TargetSystemsClient, is_likely_quartz_cron, preset_for_cron,
-    rotation_config_actions,
+    TargetSystemsClient, is_likely_quartz_cron, preset_for_cron, rotation_config_actions,
 };

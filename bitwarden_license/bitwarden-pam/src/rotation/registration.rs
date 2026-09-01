@@ -21,7 +21,7 @@
 //! the connector derives a different key, `encryptedPayload` fails to decrypt, and it can never
 //! authenticate. They are the same pair Secrets Manager access tokens use - see
 //! [`AccessToken`](bitwarden_core::auth::AccessToken), which parses the identical format - and the
-//! same pair the rotation daemon's own token parser uses.
+//! same pair the access connector's own token parser uses.
 //!
 //! This is the single definition of that contract. It previously lived in the web client in
 //! TypeScript, with a different `info` string, which meant a connector registered from the web
@@ -130,8 +130,8 @@ pub enum ConnectorTokenInvalidError {
 /// This is the *consumer* half of registration, and it lives next to
 /// [`RegistrationSecrets::into_token`] on purpose: the token format and the key derivation are one
 /// contract, and splitting them across crates is what let the derivation constants drift in the
-/// first place. The rotation daemon carries its own copy of this parser and should converge on this
-/// one.
+/// first place. The access connector carries its own copy of this parser and should converge on
+/// this one.
 pub struct ConnectorToken {
     /// The API key identifier. The connector's OAuth `client_id` is
     /// `access-connector.<api_key_id>`.
@@ -333,30 +333,6 @@ mod tests {
         // The connector requires exactly 16 bytes; a different length is rejected at parse time.
         let seed: B64 = seed_b64.parse().expect("the suffix is base64");
         assert_eq!(seed.as_bytes().len(), 16);
-    }
-
-    /// The client-kind segment was renamed from `daemon` to `access-connector` as a clean break:
-    /// the parser must reject the old segment outright rather than still accepting it.
-    #[test]
-    fn a_token_with_the_old_daemon_kind_segment_is_rejected() {
-        let client = client_with_org_key(SymmetricCryptoKey::make(
-            SymmetricKeyAlgorithm::Aes256CbcHmac,
-        ));
-        let secrets = client
-            .registration_secrets(organization_id())
-            .expect("the org key is in the store");
-        let token = secrets.into_token(uuid!("22222222-2222-2222-2222-222222222222"), "secret");
-
-        // A well-formed token, but with the retired `daemon` kind segment in place of
-        // `access-connector`.
-        let stale_token = token.replacen("access-connector", "daemon", 1);
-
-        let result = ConnectorToken::from_str(&stale_token);
-
-        assert!(matches!(
-            result,
-            Err(ConnectorTokenInvalidError::WrongPrefix)
-        ));
     }
 
     /// The `key` field is not read during registration, so a mistake in it would go unnoticed until

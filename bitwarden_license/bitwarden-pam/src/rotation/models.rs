@@ -215,7 +215,7 @@ pub enum RotationAttemptStatus {
     Executing,
     /// The target system accepted the new credential.
     Rotated,
-    /// The attempt failed; see [`RotationAttemptView::failure_reason`].
+    /// The attempt failed; see [`RotationAttempt::failure_reason`].
     Errored,
     /// The attempt was abandoned, for example because the connector was revoked mid-job.
     Abandoned,
@@ -341,7 +341,7 @@ impl From<PasswordPolicy> for PamPasswordPolicyRequestModel {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct RotationAttemptView {
+pub struct RotationAttempt {
     /// The attempt's unique identifier.
     pub id: RotationAttemptId,
     /// The job this attempt belongs to.
@@ -368,7 +368,7 @@ pub struct RotationAttemptView {
     pub ended_at: Option<DateTime<Utc>>,
 }
 
-impl TryFrom<PamRotationAttemptResponseModel> for RotationAttemptView {
+impl TryFrom<PamRotationAttemptResponseModel> for RotationAttempt {
     type Error = RotationError;
 
     fn try_from(response: PamRotationAttemptResponseModel) -> Result<Self, Self::Error> {
@@ -398,7 +398,7 @@ impl TryFrom<PamRotationAttemptResponseModel> for RotationAttemptView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct RotationJobView {
+pub struct RotationJob {
     /// The job's unique identifier.
     pub id: RotationJobId,
     /// The rotation config this job was dispatched for.
@@ -418,10 +418,10 @@ pub struct RotationJobView {
     /// When the job's claim deadline lapses (UTC), after which it is considered timed out.
     pub expires_at: Option<DateTime<Utc>>,
     /// The job's attempts, oldest first.
-    pub attempts: Vec<RotationAttemptView>,
+    pub attempts: Vec<RotationAttempt>,
 }
 
-impl TryFrom<PamRotationJobResponseModel> for RotationJobView {
+impl TryFrom<PamRotationJobResponseModel> for RotationJob {
     type Error = RotationError;
 
     fn try_from(response: PamRotationJobResponseModel) -> Result<Self, Self::Error> {
@@ -444,7 +444,7 @@ impl TryFrom<PamRotationJobResponseModel> for RotationJobView {
                 .attempts
                 .unwrap_or_default()
                 .into_iter()
-                .map(RotationAttemptView::try_from)
+                .map(RotationAttempt::try_from)
                 .collect::<Result<Vec<_>, _>>()?,
         })
     }

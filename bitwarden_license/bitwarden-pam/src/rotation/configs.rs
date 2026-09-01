@@ -16,7 +16,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use super::{
     actions::{RotationConfigActions, rotation_config_actions},
     error::RotationError,
-    models::{RotationJobView, TargetSystemMethod, TargetSystemStatus},
+    models::{RotationJob, TargetSystemMethod, TargetSystemStatus},
     validate::{validate_config_create, validate_config_update},
 };
 use crate::{RotationConfigId, TargetSystemId};
@@ -26,7 +26,7 @@ use crate::{RotationConfigId, TargetSystemId};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct RotationConfigView {
+pub struct RotationConfig {
     /// The config's unique identifier.
     pub id: RotationConfigId,
     /// The organization this config belongs to.
@@ -72,7 +72,7 @@ pub struct RotationConfigView {
     pub revision_date: DateTime<Utc>,
 }
 
-impl RotationConfigView {
+impl RotationConfig {
     /// Which actions this config offers, given the status of its target system.
     ///
     /// See [`rotation_config_actions`] for how `target_status` is treated when the target system
@@ -82,7 +82,7 @@ impl RotationConfigView {
     }
 }
 
-impl TryFrom<PamRotationConfigResponseModel> for RotationConfigView {
+impl TryFrom<PamRotationConfigResponseModel> for RotationConfig {
     type Error = RotationError;
 
     fn try_from(response: PamRotationConfigResponseModel) -> Result<Self, Self::Error> {
@@ -119,15 +119,15 @@ impl TryFrom<PamRotationConfigResponseModel> for RotationConfigView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct RotationConfigDetailView {
+pub struct RotationConfigDetail {
     /// The config itself.
     #[serde(flatten)]
-    pub config: RotationConfigView,
+    pub config: RotationConfig,
     /// The config's rotation jobs, newest first, each carrying its attempts oldest first.
-    pub jobs: Vec<RotationJobView>,
+    pub jobs: Vec<RotationJob>,
 }
 
-impl TryFrom<PamRotationConfigDetailResponseModel> for RotationConfigDetailView {
+impl TryFrom<PamRotationConfigDetailResponseModel> for RotationConfigDetail {
     type Error = RotationError;
 
     fn try_from(response: PamRotationConfigDetailResponseModel) -> Result<Self, Self::Error> {
@@ -136,12 +136,12 @@ impl TryFrom<PamRotationConfigDetailResponseModel> for RotationConfigDetailView 
             .clone()
             .unwrap_or_default()
             .into_iter()
-            .map(RotationJobView::try_from)
+            .map(RotationJob::try_from)
             .collect::<Result<Vec<_>, _>>()?;
 
         // The server flattens the config's own fields onto the detail payload, so the list model is
         // rebuilt from the same object rather than a nested one.
-        let config = RotationConfigView::try_from(PamRotationConfigResponseModel {
+        let config = RotationConfig::try_from(PamRotationConfigResponseModel {
             object: response.object,
             id: response.id,
             organization_id: response.organization_id,
@@ -242,7 +242,7 @@ impl RotationConfigsClient {
     pub async fn list(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Vec<RotationConfigView>, RotationError> {
+    ) -> Result<Vec<RotationConfig>, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -254,7 +254,7 @@ impl RotationConfigsClient {
             .data
             .unwrap_or_default()
             .into_iter()
-            .map(RotationConfigView::try_from)
+            .map(RotationConfig::try_from)
             .collect()
     }
 
@@ -263,7 +263,7 @@ impl RotationConfigsClient {
         &self,
         organization_id: OrganizationId,
         id: RotationConfigId,
-    ) -> Result<RotationConfigDetailView, RotationError> {
+    ) -> Result<RotationConfigDetail, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -271,7 +271,7 @@ impl RotationConfigsClient {
             .get(organization_id.into(), id.into())
             .await?;
 
-        RotationConfigDetailView::try_from(response)
+        RotationConfigDetail::try_from(response)
     }
 
     /// Validates and creates a rotation config.
@@ -279,7 +279,7 @@ impl RotationConfigsClient {
         &self,
         organization_id: OrganizationId,
         request: RotationConfigCreateRequest,
-    ) -> Result<RotationConfigDetailView, RotationError> {
+    ) -> Result<RotationConfigDetail, RotationError> {
         validate_config_create(&request)?;
 
         let response = self
@@ -289,7 +289,7 @@ impl RotationConfigsClient {
             .post(organization_id.into(), request.into())
             .await?;
 
-        RotationConfigDetailView::try_from(response)
+        RotationConfigDetail::try_from(response)
     }
 
     /// Validates and updates a rotation config's account and schedule.
@@ -298,7 +298,7 @@ impl RotationConfigsClient {
         organization_id: OrganizationId,
         id: RotationConfigId,
         request: RotationConfigUpdateRequest,
-    ) -> Result<RotationConfigDetailView, RotationError> {
+    ) -> Result<RotationConfigDetail, RotationError> {
         validate_config_update(&request)?;
 
         let response = self
@@ -308,7 +308,7 @@ impl RotationConfigsClient {
             .put(organization_id.into(), id.into(), request.into())
             .await?;
 
-        RotationConfigDetailView::try_from(response)
+        RotationConfigDetail::try_from(response)
     }
 
     /// Pauses a config, so no new rotation jobs are dispatched.
@@ -391,12 +391,12 @@ impl RotationConfigsClient {
     /// Which actions a config offers, given the status of its target system.
     ///
     /// Exposed on the client so non-Rust callers can reach the same predicates the Rust API has on
-    /// [`RotationConfigView::actions`] - a tsify view crosses the WASM boundary as plain data and
+    /// [`RotationConfig::actions`] - a tsify struct crosses the WASM boundary as plain data and
     /// leaves its methods behind. All five flags are derived in one call because they are not
     /// independent; see [`RotationConfigActions`].
     pub fn actions(
         &self,
-        config: RotationConfigView,
+        config: RotationConfig,
         target_status: Option<TargetSystemStatus>,
     ) -> RotationConfigActions {
         config.actions(target_status)

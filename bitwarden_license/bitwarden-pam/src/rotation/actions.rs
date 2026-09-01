@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use super::{
-    configs::RotationConfigView,
+    configs::RotationConfig,
     models::{TargetSystemMethod, TargetSystemStatus},
 };
 
@@ -38,7 +38,7 @@ pub struct RotationConfigActions {
 /// predicate that depends on it fails closed, so a config never offers a rotation the server would
 /// then refuse.
 pub fn rotation_config_actions(
-    config: &RotationConfigView,
+    config: &RotationConfig,
     target_status: Option<TargetSystemStatus>,
 ) -> RotationConfigActions {
     RotationConfigActions {
@@ -72,8 +72,8 @@ mod tests {
 
     /// An automatic, enabled, idle config - the one shape that offers a rotation. Each test varies
     /// exactly one field so the failing condition is unambiguous.
-    fn rotatable_config() -> RotationConfigView {
-        RotationConfigView {
+    fn rotatable_config() -> RotationConfig {
+        RotationConfig {
             id: RotationConfigId::new(uuid!("11111111-1111-1111-1111-111111111111")),
             organization_id: bitwarden_core::OrganizationId::new(uuid!(
                 "22222222-2222-2222-2222-222222222222"
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn a_paused_config_cannot_rotate_and_offers_resume_instead() {
-        let config = RotationConfigView {
+        let config = RotationConfig {
             enabled: false,
             ..rotatable_config()
         };
@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn a_config_with_a_job_in_flight_cannot_rotate_and_locks_mutations() {
-        let config = RotationConfigView {
+        let config = RotationConfig {
             has_active_job: true,
             ..rotatable_config()
         };
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn a_manual_config_offers_record_manual_rather_than_rotate() {
-        let config = RotationConfigView {
+        let config = RotationConfig {
             target_system_method: TargetSystemMethod::Manual,
             ..rotatable_config()
         };
@@ -172,7 +172,7 @@ mod tests {
     /// the operator would be offered an action the server may reject.
     #[test]
     fn an_unrecognized_method_offers_neither_rotation_action() {
-        let config = RotationConfigView {
+        let config = RotationConfig {
             target_system_method: TargetSystemMethod::Unknown,
             ..rotatable_config()
         };
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn pause_and_resume_are_mutually_exclusive() {
         for enabled in [true, false] {
-            let config = RotationConfigView {
+            let config = RotationConfig {
                 enabled,
                 ..rotatable_config()
             };

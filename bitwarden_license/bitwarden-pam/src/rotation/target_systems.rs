@@ -22,7 +22,7 @@ use crate::TargetSystemId;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-pub struct TargetSystemView {
+pub struct TargetSystem {
     /// The target system's unique identifier.
     pub id: TargetSystemId,
     /// The organization this target system belongs to.
@@ -48,7 +48,7 @@ pub struct TargetSystemView {
     pub revision_date: DateTime<Utc>,
 }
 
-impl TryFrom<PamTargetSystemResponseModel> for TargetSystemView {
+impl TryFrom<PamTargetSystemResponseModel> for TargetSystem {
     type Error = RotationError;
 
     fn try_from(response: PamTargetSystemResponseModel) -> Result<Self, Self::Error> {
@@ -206,7 +206,7 @@ impl TargetSystemsClient {
     pub async fn list(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Vec<TargetSystemView>, RotationError> {
+    ) -> Result<Vec<TargetSystem>, RotationError> {
         let response = self
             .api_configurations
             .api_client
@@ -218,7 +218,7 @@ impl TargetSystemsClient {
             .data
             .unwrap_or_default()
             .into_iter()
-            .map(TargetSystemView::try_from)
+            .map(TargetSystem::try_from)
             .collect()
     }
 
@@ -227,7 +227,7 @@ impl TargetSystemsClient {
         &self,
         organization_id: OrganizationId,
         request: TargetSystemCreateRequest,
-    ) -> Result<TargetSystemView, RotationError> {
+    ) -> Result<TargetSystem, RotationError> {
         validate_target_system_create(&request)?;
 
         let response = self
@@ -237,7 +237,7 @@ impl TargetSystemsClient {
             .post(organization_id.into(), request.try_into()?)
             .await?;
 
-        TargetSystemView::try_from(response)
+        TargetSystem::try_from(response)
     }
 
     /// Validates and updates a target system's name, policy, and session-termination capability.
