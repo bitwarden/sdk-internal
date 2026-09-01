@@ -974,6 +974,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-introspect"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-introspect-macro",
+]
+
+[[package]]
+name = "bitwarden-introspect-macro"
+version = "3.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "bitwarden-ipc"
 version = "3.0.0"
 dependencies = [

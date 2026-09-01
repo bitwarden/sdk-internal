@@ -1,0 +1,27 @@
+[package]
+name = "bitwarden-introspect"
+description = """
+Compile-time-gated runtime introspection of the SDK object graph, used to drive automated debugging tooling. Internal crate for the Bitwarden SDK.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[dependencies]
+bitwarden-introspect-macro = { workspace = true }
+
+[features]
+## Switches `Debuggable<T>` to its lock-backed, writable form and makes the
+## introspection surface live. Consumers enable this only in dev builds; with
+## it off, `Debuggable<T>` is `#[repr(transparent)]` over `T` and costs nothing.
+introspect = []
+
+[lints]
+workspace = true
