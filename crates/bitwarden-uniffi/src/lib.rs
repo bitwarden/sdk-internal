@@ -128,6 +128,11 @@ impl Client {
         SendClient(self.0.sends())
     }
 
+    /// Send sync handler operations
+    pub fn send_sync_handler(&self) -> bitwarden_send::SendSyncHandlerClient {
+        self.0.send_sync_handler()
+    }
+
     /// SSH operations
     pub fn ssh(&self) -> SshClient {
         SshClient()
