@@ -35,7 +35,10 @@ impl AuthClient {
     /// `client_settings` configures a client internal to the returned `LoginClient`, separate from
     /// the one backing this `AuthClient`. Pass settings matching those the SDK client was
     /// constructed with; otherwise login requests target a different server than the rest of the
-    /// SDK. See the TODO on `bitwarden_auth::AuthClient` for the planned consolidation.
+    /// SDK.
+    // `bitwarden_auth::AuthClient` carries a TODO to consolidate this internal client with the
+    // one backing the outer `AuthClient`, which would remove the need to pass `client_settings`
+    // here at all.
     pub fn login(&self, client_settings: ClientSettings) -> LoginClient {
         LoginClient(self.0.auth_new().login(client_settings))
     }

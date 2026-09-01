@@ -5,15 +5,19 @@ use bitwarden_auth::login::{
 
 use crate::error::BitwardenError;
 
-/// UniFFI wrapper for `bitwarden_auth::login::LoginClient`.
+// This wrapper exists so each exported method declares `BitwardenError` as its error type.
+// UniFFI panics when an argument fails to lift and the produced error type does not match the
+// method's declared error type. The converter registered by `setup_error_converter` always
+// produces a `BitwardenError`.
+// Exporting `bitwarden_auth::login::LoginClient` directly would declare `PasswordPreloginError`
+// or `PasswordLoginError` instead. That mismatch would make the method panic instead of
+// returning an error.
+// A caller can trigger this panic in `login_via_password` through a zero value in a
+// `NonZeroU32` KDF field.
+
+/// Client for authenticating a user against the Identity API.
 ///
-/// The wrapper exists so every exported method declares `BitwardenError` as its error type. When an
-/// input argument fails to parse, UniFFI panics instead of returning an error if the produced error
-/// type does not match the method's declared one — and the converter registered by
-/// `setup_error_converter` always produces a `BitwardenError`. Exporting the `bitwarden_auth`
-/// methods directly would declare `PasswordPreloginError` / `PasswordLoginError` instead and panic;
-/// `login_via_password` is reachable that way through the `NonZeroU32` KDF fields, which are a
-/// `uniffi::custom_type!` that rejects zero.
+/// Obtain one via [`crate::auth::AuthClient::login`].
 #[derive(uniffi::Object)]
 pub struct LoginClient(pub(crate) bitwarden_auth::login::LoginClient);
 
