@@ -1189,6 +1189,7 @@ dependencies = [
  "bitwarden-commercial-marker",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-ffi",
  "bitwarden-uuid",
@@ -1203,6 +1204,7 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "zeroize",
 ]
 
 [[package]]
