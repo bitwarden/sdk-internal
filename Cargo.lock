@@ -1196,6 +1196,7 @@ dependencies = [
 name = "bitwarden-send"
 version = "3.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-base",
  "bitwarden-core",
@@ -1203,17 +1204,20 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-sync",
  "bitwarden-test",
  "bitwarden-uuid",
  "bitwarden-vault",
  "chrono",
  "reqwest",
  "serde",
+ "serde_bytes",
  "serde_json",
  "serde_repr",
  "sha2 0.11.0",
  "thiserror 2.0.19",
  "tokio",
+ "tracing",
  "tsify",
  "uniffi",
  "uuid",
