@@ -19,12 +19,6 @@ pub enum CipherAdminGetAttachmentDownloadUrlError {
     NotFound,
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherAdminGetAttachmentDownloadUrlError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentAdminClient {
     /// Fetches the download URL for an attachment from the admin API. The admin client has
@@ -42,7 +36,7 @@ impl AttachmentAdminClient {
             .get_attachment_data_admin(cipher_id.into(), &attachment_id)
             .await
             .map_err(|e| match e {
-                bitwarden_api_api::apis::Error::Response(content)
+                bitwarden_api_api::ApiError::Response(content)
                     if content.status == StatusCode::NOT_FOUND =>
                 {
                     CipherAdminGetAttachmentDownloadUrlError::NotFound
@@ -133,8 +127,8 @@ mod tests {
             mock.ciphers_api
                 .expect_get_attachment_data_admin()
                 .returning(|_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: StatusCode::NOT_FOUND,
                             message: String::new(),
                         },
@@ -161,8 +155,8 @@ mod tests {
             mock.ciphers_api
                 .expect_get_attachment_data_admin()
                 .returning(|_id, _attachment_id| {
-                    Err(bitwarden_api_api::apis::Error::Response(
-                        bitwarden_api_api::apis::ResponseContent {
+                    Err(bitwarden_api_api::ApiError::Response(
+                        bitwarden_api_api::ResponseContent {
                             status: StatusCode::INTERNAL_SERVER_ERROR,
                             message: "bitwarden".to_string(),
                         },

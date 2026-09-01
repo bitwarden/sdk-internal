@@ -6,9 +6,15 @@ use bitwarden_generators::{
 use bitwarden_pm::PasswordManagerClient;
 use clap::Args;
 
-use crate::render::CommandResult;
+use crate::{
+    client_state::{AnyState, BwCommand},
+    render::CommandResult,
+};
 
+mod file_output;
+mod receive;
 mod send;
+mod send_access_token_cache;
 pub use send::SendArgs;
 
 #[derive(Args, Clone)]
@@ -204,7 +210,13 @@ pub struct ExportArgs {
     pub organization_id: Option<String>,
 }
 
-#[derive(Args, Clone)]
+/// `bw receive <url>`. Also used directly as the payload of `SendCommands::Receive` (`bw send
+/// receive`) — the two are the same command reachable under two names, sharing this single arg
+/// struct (rather than a hand-synced copy) so the flag sets can't drift apart. Both delegate to
+/// [`receive::run_receive`].
+#[derive(Args, Clone, Debug)]
+#[command(after_help = "Notes:
+    If a password is required, the provided password is used or the user is prompted.")]
 pub struct ReceiveArgs {
     /// URL to access Send from
     pub url: String,
@@ -212,6 +224,47 @@ pub struct ReceiveArgs {
     #[arg(long, help = "Optional password for the Send.")]
     pub password: Option<String>,
 
-    #[arg(long, help = "Specify a file path to save a File-type Send to.")]
-    pub obj: Option<String>,
+    #[arg(long, help = "Environment variable storing the Send's password.")]
+    pub passwordenv: Option<String>,
+
+    #[arg(
+        long,
+        help = "Path to a file containing the Send's password as its first line."
+    )]
+    pub passwordfile: Option<String>,
+
+    // The internal field is `output_path` (not `output`) to avoid clashing with the top-level
+    // `Cli::output` (the `-o` rendered-output-format arg) — same convention as
+    // `SendGetArgs::output_path`. User-facing long flag stays `--output` to match both that
+    // sibling command and the legacy CLI.
+    #[arg(
+        long = "output",
+        help = "Specify a file path to save a File-type Send to."
+    )]
+    pub output_path: Option<String>,
+
+    #[arg(
+        long = "fullObject",
+        alias = "full-object",
+        help = "Return the Send's json object rather than its content."
+    )]
+    pub full_object: bool,
+}
+
+impl BwCommand for ReceiveArgs {
+    // `receive` is the one Send flow that needs no session at all: the key comes from the url
+    // fragment and the token from the anonymous send-access grant.
+    type Client = AnyState;
+
+    async fn run(self, _: AnyState) -> CommandResult {
+        receive::run_receive(receive::ReceiveInputs {
+            url: self.url,
+            password: self.password,
+            passwordenv: self.passwordenv,
+            passwordfile: self.passwordfile,
+            output_path: self.output_path,
+            full_object: self.full_object,
+        })
+        .await
+    }
 }

@@ -7,7 +7,7 @@ This repository houses the internal Bitwarden SDKs. We also provide a public
 >
 > The password manager SDK is not intended for public use and is not supported by Bitwarden at this
 > stage. It is solely intended to centralize the business logic and to provide a single source of
-> truth for the internal applications. As the SDK evolves into a more stable and feature complete
+> truth for the internal applications. As the SDK evolves into a more stable and feature-complete
 > state we will re-evaluate the possibility of publishing stable bindings for the public. **The
 > password manager interface is unstable and will change without warning.**
 
@@ -63,7 +63,32 @@ For Windows on ARM, you will need the following in your `PATH`:
   - We recommend installing this via the
     [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
 
+## Integrating builds into client applications
+
+`sdk-internal` changes can be integrated with clients in three progressive ways, each suited to a
+different phase of development:
+
+1. **[Local builds during development](#integrating-builds-into-client-applications-for-local-development)**:
+   build the SDK on your machine and link it directly into a client checkout. This is the fastest
+   inner loop for individual developer iteration developing on `clients` and `sdk-internal`
+   together.
+2. **[Unpublished SDK builds via client CI](#integrating-unpublished-sdk-builds-via-client-ci)**:
+   have each client's CI build a client artifact against an unmerged `sdk-internal` branch. This
+   works for QA or CI validation of the combined state before either side merges.
+3. **[Published artifacts on `main`](#integrating-into-clients-from-published-artifacts)**: the
+   merge-and-release path where `sdk-internal` publishes on merge to `main`, and each client picks
+   up the new version through an automated PR.
+
 ## Integrating builds into client applications for local development
+
+> [!TIP]
+>
+> **When do I use this?**
+>
+> Use local linking when you are actively developing SDK changes and want the fastest inner loop for
+> iteration. Local links reflect uncommitted changes immediately, without pushing to GitHub or
+> waiting for CI. It is not suitable for QA or CI validation, since the linked artifact only exists
+> on your machine.
 
 Integrating the SDK into client applications for local development requires two steps:
 
@@ -158,76 +183,176 @@ local SDK build:
 LOCAL_SDK=true ./Scripts/bootstrap.sh
 ```
 
+## Integrating unpublished SDK builds via client CI
+
+> [!TIP]
+>
+> **When do I use this?**
+>
+> Use a client CI build against pre-publish SDK artifacts when the `sdk-internal` change needs to be
+> tested outside of a local developer's environment _before it lands in the `sdk-internal` `main`
+> branch_.
+
+Between [local linking](#integrating-builds-into-client-applications-for-local-development) and
+[published artifacts on `main`](#integrating-into-clients-from-published-artifacts), each client
+repository provides a way for client CI (and its resulting artifacts) to run against SDK artifacts
+produced by an `sdk-internal` feature-branch CI run, without the SDK being published and consumed as
+a dependency.
+
+### Web clients
+
+The `bitwarden/clients` build workflows expose an `sdk_branch` `workflow_dispatch` input:
+
+- [`build-web.yml`](https://github.com/bitwarden/clients/actions/workflows/build-web.yml)
+- [`build-browser.yml`](https://github.com/bitwarden/clients/actions/workflows/build-browser.yml)
+- [`build-desktop.yml`](https://github.com/bitwarden/clients/actions/workflows/build-desktop.yml)
+- [`build-cli.yml`](https://github.com/bitwarden/clients/actions/workflows/build-cli.yml)
+
+Manually dispatch the appropriate build workflow against the desired `clients` branch and set
+`sdk_branch` to your `sdk-internal` feature branch. The workflow downloads the latest successful
+`build-wasm-internal.yml` artifacts from that branch and npm-links them into the client build,
+producing a CI artifact that combines both in-progress branches without any publish step.
+
+### Android
+
+Every push to `sdk-internal` publishes a Maven artifact to GitHub Packages (see the Publish step in
+[`build-android.yml`](./.github/workflows/build-android.yml)). To integrate a feature-branch build
+into the Android client, manually dispatch that workflow against your feature branch with
+`update-android-repo=true`, which triggers
+[`sdlc-sdk-update.yml`](https://github.com/bitwarden/android/actions/workflows/sdlc-sdk-update.yml)
+in `bitwarden/android` to open a PR bumping the SDK to that feature-branch version.
+
+### iOS
+
+Dispatch [`build-swift.yml`](./.github/workflows/build-swift.yml) on your feature branch to produce
+xcframework artifacts, then manually dispatch
+[`release-swift.yml`](./.github/workflows/release-swift.yml) with:
+
+- `build-run-id`: the run ID of your feature-branch `build-swift.yml` run
+- `sdk-swift-branch-name`: a non-`unstable` branch on `bitwarden/sdk-swift`
+- `update-ios-repo`: `true` to trigger the iOS client update workflow with the resulting version
+
 ## Integrating into clients from published artifacts
+
+> [!TIP]
+>
+> **When do I use this?**
+>
+> Use published artifacts when `sdk-internal` changes are either ready to ship into client
+> production releases, or are flagged to allow testing in the clients `main`.
+
+The process for integrating SDK changes into clients varies based on the client, as the method by
+which the `sdk-internal` package is consumed differs.
 
 > [!WARNING]
 >
-> **BREAKING CHANGES** When a pull request is opened to merge changes from `sdk-internal` into
-> `main`, a [Breaking Change Detection ](./.github/workflows/detect-breaking-changes.yml) workflow
-> will run and comment on the PR if breaking changes are detected on any clients. If your PR
-> includes breaking changes **you must be prepared to address them as soon as they merge with a
-> corresponding PR in the client application repository**. If not, any subsequent `sdk-internal`
-> integrations into clients will be blocked, as those other teams will not know how best to resolve
-> the breaking API contracts that you introduced.
+> **BREAKING CHANGES** require tight coordination between `sdk-internal` and the consuming client
+> repo. See [Handling breaking SDK changes](#handling-breaking-sdk-changes) for the full workflow.
 
-In addition to
-[linking to local builds](#integrating-builds-into-client-applications-for-local-development) during
-development, you will need to be able to integrate your `sdk-internal` changes into published
-artifacts, so that the client applications can be tested and published with the requisite SDK
-changes included.
+### What happens when an SDK PR merges to `main`
 
-The process for doing so varies based on the client, as the method by which the `sdk-internal`
-package is consumed differs.
+Merging an `sdk-internal` PR to `main` triggers a chain of automation across the SDK, deploy, and
+client repositories:
+
+1. The
+   [publish workflow](https://github.com/bitwarden/deploy/blob/main/.github/workflows/publish-wasm-internal.yml)
+   (internal access only) in the `deploy` repo publishes the OSS and commercial npm packages with a
+   version of the form `{SemanticVersion}-main.{actionRunNumber}` (e.g., `0.1.0-main.470`).
+2. The
+   [SDK Update workflow](https://github.com/bitwarden/clients/tree/main/.github/workflows/sdk-update.yml)
+   in `bitwarden/clients` opens or updates an automated PR that bumps `@bitwarden/sdk-internal` and
+   `@bitwarden/commercial-sdk-internal` on client `main` to the newly published version.
+3. The [Android](./.github/workflows/build-android.yml) and
+   [iOS](./.github/workflows/build-swift.yml) build workflows publish mobile artifacts and trigger
+   corresponding SDK update workflows in `bitwarden/android` and `bitwarden/ios`.
+
+The client auto-PR is a **rolling update**: it stays open until merged and refreshes to the latest
+published SDK version on each subsequent `sdk-internal` merge. Your SDK change may therefore ride
+into `clients` bundled with other teams' SDK changes.
+
+### Downstream impact of an SDK merge and client version bump
+
+- **Other client feature branches** built against an older SDK version pick up your change when they
+  merge `main` into their branch or manually run the "SDK Update" workflow. Non-breaking changes are
+  absorbed transparently, but breaking changes surface as build failures on their branch and require
+  adjustment.
+- **Leaving a breaking-change window open blocks everyone.** Once an SDK breaking change lands on
+  `main`, the client auto-PR fails to build — **blocking every other team's SDK-update PR from
+  merging to client `main` until the client-side fix ships**. This is why breaking changes require a
+  client PR ready to merge before the SDK PR merges.
+
+### Handling breaking SDK changes
+
+When an `sdk-internal` PR includes API breaking changes, the
+[Breaking Change Detection](./.github/workflows/detect-breaking-changes.yml) workflow will flag it
+on the PR by running client builds against the SDK branch and commenting the results. Breaking
+changes require tighter coordination than other changes because once the SDK merges to `main`,
+client `main` cannot build against it until the consuming client PR ships, and that open window
+blocks every other team's SDK-update PR (see
+[Downstream impact of an SDK merge and client version bump](#downstream-impact-of-an-sdk-merge-and-client-version-bump)).
+
+Recommended sequence:
+
+1. **Develop the SDK change** on a feature branch. Prepare the corresponding client change on a
+   `clients` feature branch, using
+   [local linking](#integrating-builds-into-client-applications-for-local-development) so the client
+   build compiles against your in-progress SDK.
+2. **Get the client PR reviewed and approved** so it's ready to merge. Do not merge it yet — the SDK
+   version it consumes doesn't exist in npm until step 3.
+3. **Merge the `sdk-internal` PR.** This triggers the publish workflow (see
+   [What happens when an SDK PR merges to `main`](#what-happens-when-an-sdk-pr-merges-to-main)) and
+   opens or updates the client auto-PR. The auto-PR will fail to build until step 6 lands. This is
+   the breaking-change window.
+4. **Bump the SDK on your client feature branch** by manually running the
+   [SDK Update workflow](https://github.com/bitwarden/clients/actions/workflows/sdk-update.yml)
+   against your feature branch: enter the published SDK version (see
+   [Finding the published SDK version](#finding-the-published-sdk-version)) and your feature branch
+   as the base.
+
+   ![Manual workflow run of SDK Update targeting a clients feature branch](manual_workflow_run.png)
+
+   The workflow only edits `package.json` and runs `npm install`, so you can make those edits by
+   hand and commit them to your feature branch directly when the automation isn't a fit (e.g.
+   bundling the SDK bump into a larger client commit).
+
+5. **Merge the SDK bump PR into your client feature branch.** Because this adds new commits to the
+   client PR, branch protection will dismiss the earlier approval. Re-request review and get the
+   client PR approved again.
+6. **Merge the client feature branch to `main`.** This closes the breaking-change window: the client
+   auto-PR will now build clean and all other teams' pending SDK-update PRs unblock.
+
+This describes the flow for web clients. Mobile clients follow the same pattern with their
+respective SDK update workflows (see [Mobile clients](#mobile-clients)).
 
 ### Web clients
 
 For our web clients, the `sdk-internal` packages for our OSS- and commercially-licensed SDK versions
-with their WebAssembly bindings is published to npm at:
+with their WebAssembly bindings are published to npm at:
 
 - https://www.npmjs.com/package/@bitwarden/sdk-internal and
 - https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal
 
-These npm packages are referenced as
-[dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
 See [Licensing](#licensing) for details on why we have multiple packages.
 
-Every commit to `main` in `sdk-internal` will trigger a
-[publish](https://github.com/bitwarden/deploy/blob/main/.github/workflows/publish-wasm-internal.yml)
-(internal access only) of these packages, with versions structured as follows:
+These npm packages are referenced as
+[dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
 
-```
-{SemanticVersion}-main.{actionRunNumber}
-```
-
-For example:
-
-```
-0.1.0-main.470
-```
+When an SDK update merges to `sdk-internal` `main` branch, an auto-generated PR will open - or
+update if already open - to bump the SDK version on `clients`. This PR is the recommended and
+easiest way to integrate your changes into `clients`.
 
 > [!TIP]
 >
-> To see what version is published to `npm` for a given publish action, you can check the Summary of
-> the
-> [publish workflow run](https://github.com/bitwarden/deploy/actions/workflows/publish-wasm-internal.yml)
-> in Github (internal access only).
-
-When you have completed development of changes in `sdk-internal` and need to consume them in the
-client application, you will need to update the npm dependency in your feature branch to reference
-the new SDK version:
-
-1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
-2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
-   You can do this either:
-
-- By updating to the latest version using `npm install @bitwarden/sdk-internal@latest` and
-  `npm install @bitwarden/commercial-sdk-internal@latest`, or
-- By referencing the specific published version, using
-  `npm install @bitwarden/sdk-internal@{version}` and
-  `npm install @bitwarden/commercial-sdk-internal@{version}`.
-
-3. Open a `clients` pull request to merge the client application changes that include this new
-   `sdk-internal` version.
+> <a id="finding-the-published-sdk-version"></a>**Finding the published SDK version.** After your
+> `sdk-internal` PR merges, find the version that was published as follows:
+>
+> 1. Open the
+>    [publish workflow](https://github.com/bitwarden/deploy/actions/workflows/publish-wasm-internal.yml)
+>    in the `deploy` repo (internal access only).
+> 2. Find the workflow run whose commit SHA matches the merge commit of your `sdk-internal` PR (the
+>    run title includes the commit message).
+> 3. Open that run and read the **Summary** tab. The published version is printed there in the
+>    `{SemanticVersion}-main.{actionRunNumber}` format shown above (for example, `0.1.0-main.470`).
 
 ### Mobile clients
 

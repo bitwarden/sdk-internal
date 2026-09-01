@@ -11,9 +11,7 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-/// AccessDecisionVerdict : An approver's verdict on a pending access request, as it appears on the
-/// wire: `0 = deny`, `1 = approve`. An approver's verdict on a pending access request, as it
-/// appears on the wire: `0 = deny`, `1 = approve`.
+///
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum AccessDecisionVerdict {
     Deny,

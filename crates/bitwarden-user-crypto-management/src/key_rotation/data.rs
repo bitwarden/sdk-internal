@@ -67,6 +67,14 @@ pub(super) fn reencrypt_data(
     let reencrypted_ciphers =
         reencrypt_ciphers(ciphers, current_user_key_id, new_user_key_id, ctx)?;
     let reencrypted_sends = reencrypt_sends(sends, current_user_key_id, new_user_key_id, ctx)?;
+
+    // Every cipher here was just re-encrypted under the new user key, so that is the key id the
+    // server needs to validate this rotation's cipher writes against. `reencrypt_data` is only
+    // ever passed the user's own ciphers, never organization ciphers.
+    let encrypted_by_key_id = ctx
+        .get_symmetric_key_id(new_user_key_id)
+        .map(|id| id.to_string());
+
     Ok(AccountDataRequestModel {
         folders: Some(
             reencrypted_folders
@@ -82,6 +90,7 @@ pub(super) fn reencrypt_data(
                         // Encrypted for is not used in key-rotation, and ciphers are validated to
                         // be correct server-side
                         encrypted_for: UserId::new(Uuid::nil()),
+                        encrypted_by_key_id: encrypted_by_key_id.clone(),
                         cipher,
                     }
                     .try_into()
@@ -459,6 +468,7 @@ mod tests {
                 text: Some("This is a test send".to_string()),
                 hidden: false,
             }),
+            data: None,
             r#type: bitwarden_send::SendType::Text,
             max_access_count: None,
             access_count: 0,

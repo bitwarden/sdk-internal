@@ -10,8 +10,9 @@ use bitwarden_test::MemoryRepository;
 #[cfg(feature = "test-fixtures")]
 use crate::{
     Client, ClientSettings, UserId,
+    client::ApiConfigurations,
     key_management::{
-        LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
+        LocalUserDataKeyState, MasterPasswordUnlockData,
         account_cryptographic_state::WrappedAccountCryptographicState,
         crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     },
@@ -22,13 +23,11 @@ impl Client {
     /// Creates a client with the necessary state repositories for testing.
     /// Does not initialize any crypto state.
     pub fn new_test(settings: Option<ClientSettings>) -> Self {
-        let client = Client::new(settings);
-        client
-            .platform()
-            .state()
-            .register_client_managed(std::sync::Arc::new(
-                MemoryRepository::<UserKeyState>::default(),
-            ));
+        Self::register_test_repositories(Client::new(settings))
+    }
+
+    /// Registers the state repositories required by the test-account crypto initialization.
+    fn register_test_repositories(client: Client) -> Self {
         client
             .platform()
             .state()
@@ -40,8 +39,27 @@ impl Client {
     }
 
     pub async fn init_test_account(account: TestAccount) -> Self {
-        let client = Client::new_test(None);
+        Self::init_test_account_on(Client::new_test(None), account).await
+    }
 
+    /// Creates a test account client backed by a mocked
+    /// [`bitwarden_api_api::apis::ApiClient`], so tests can assert on API requests made by
+    /// sub-clients that operate on a full [`Client`].
+    pub async fn init_test_account_with_api_client(
+        account: TestAccount,
+        api_client: bitwarden_api_api::apis::ApiClient,
+    ) -> Self {
+        let client = Self::register_test_repositories(
+            Client::builder()
+                .with_api_configurations(std::sync::Arc::new(ApiConfigurations::from_api_client(
+                    api_client,
+                )))
+                .build(),
+        );
+        Self::init_test_account_on(client, account).await
+    }
+
+    async fn init_test_account_on(client: Client, account: TestAccount) -> Self {
         client
             .flags()
             .load(HashMap::from([(
@@ -169,6 +187,7 @@ pub fn test_bitwarden_com_account() -> TestAccount {
                     kdf,
                     master_key_wrapped_user_key: "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap(),
                     salt: email.to_owned(),
+                    contained_key_id: None,
                 },
             },
             upgrade_token: None,
@@ -270,6 +289,7 @@ pub fn test_legacy_user_key_account() -> TestAccount {
                     kdf,
                     master_key_wrapped_user_key: "0.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=".parse().unwrap(),
                     salt: email.to_owned(),
+                    contained_key_id: None,
                 },
             },
             upgrade_token: None,

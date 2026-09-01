@@ -23,7 +23,12 @@ uniffi = [
     "dep:bitwarden-uniffi-error",
     "dep:uniffi",
 ] # Uniffi bindings
-wasm = ["dep:tsify", "dep:wasm-bindgen", "dep:js-sys"] # WASM support
+wasm = [
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:js-sys",
+    "dep:serde-wasm-bindgen",
+] # WASM support
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
@@ -31,7 +36,7 @@ dangerous-crypto-debug = []
 test-utils = []
 
 [dependencies]
-aes = { version = "0.9.0", features = ["zeroize"] }
+aes = { workspace = true }
 aes-gcm = { version = "0.11.0-rc.4", features = ["zeroize"] }
 argon2 = { version = "=0.6.0-rc.8", features = [
     "kdf",
@@ -44,7 +49,7 @@ bitwarden-logging = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
-cbc = { version = "0.2.0", features = ["alloc", "zeroize"] }
+cbc = { workspace = true }
 chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
 ciborium = { workspace = true }
 coset = { version = ">=0.4.2, <0.5" }
@@ -57,12 +62,13 @@ js-sys = { workspace = true, optional = true }
 ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
-pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
+pbkdf2 = { workspace = true }
 rand = { workspace = true }
 rayon = ">=1.8.1, <2.0"
 rsa = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true, optional = true }
 serde_bytes = { workspace = true }
 serde_repr.workspace = true
 sha1 = { workspace = true, features = ["zeroize"] }

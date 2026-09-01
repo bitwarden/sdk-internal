@@ -2,15 +2,17 @@ use std::sync::Arc;
 
 use bitwarden_collections::{
     collection::{Collection, CollectionId, CollectionView},
+    collection_client::AncestorMap,
     tree::{NodeItem, Tree},
 };
-use bitwarden_vault::collection_client::AncestorMap;
 
 use crate::Result;
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
-pub struct CollectionsClient(pub(crate) bitwarden_vault::collection_client::CollectionsClient);
+pub struct CollectionsClient(
+    pub(crate) bitwarden_collections::collection_client::CollectionsClient,
+);
 
 #[uniffi::export]
 impl CollectionsClient {

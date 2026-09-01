@@ -568,6 +568,7 @@ mod tests {
         EncryptionContext {
             cipher,
             encrypted_for: user_id,
+            encrypted_by_key_id: None,
         }
     }
 
@@ -841,6 +842,7 @@ mod tests {
                     },
                     master_key_wrapped_user_key: "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap(),
                     salt: "test@bitwarden.com".to_owned(),
+                    contained_key_id: None,
                 },
             },
             upgrade_token: None,
@@ -905,7 +907,7 @@ mod tests {
                             .unwrap(),
                     ),
                     r#type: request_body.cipher.r#type,
-                    name: Some(request_body.cipher.name),
+                    name: request_body.cipher.name,
                     notes: request_body.cipher.notes,
                     login: request_body.cipher.login,
                     reprompt: request_body.cipher.reprompt,
@@ -1016,7 +1018,7 @@ mod tests {
                             id: Some(cipher.id),
                             organization_id: cipher.organization_id.and_then(|id| id.parse().ok()),
                             r#type: cipher.r#type,
-                            name: Some(cipher.name),
+                            name: cipher.name,
                             notes: cipher.notes,
                             login: cipher.login,
                             reprompt: cipher.reprompt,

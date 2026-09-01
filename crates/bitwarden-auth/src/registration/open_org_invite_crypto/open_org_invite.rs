@@ -39,9 +39,18 @@ pub struct OpenOrgInvite {
 /// The two sealed envelopes that together carry an open-organization-invite payload.
 #[derive(Debug, Clone)]
 pub struct SealedOpenOrgInviteData {
+    /// The OpenOrgInvite plaintext, encrypted under a fresh CEK.
     pub(super) data_envelope: DataEnvelope,
+    /// The CEK, encrypted under the caller's HighEntropySecret.
     pub(super) key_envelope: SecretProtectedKeyEnvelope,
 }
+
+// WASM ABI: `SealedOpenOrgInviteData` marshals as its wire string, matching the JSON wire form.
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type SealedOpenOrgInviteData = Tagged<string, "SealedOpenOrgInviteData">;
+"#;
 
 impl SealedOpenOrgInviteData {
     /// Seals an [`OpenOrgInvite`] into a [`SealedOpenOrgInviteData`] plus a freshly generated

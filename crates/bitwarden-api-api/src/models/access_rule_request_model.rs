@@ -34,10 +34,10 @@ pub struct AccessRuleRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub enabled: Option<bool>,
-    /// The condition tree that decides how access is granted under this rule — for example
-    /// requiring human approval, or restricting to certain times of day or source IPs. Sent as a
-    /// JSON object and stored verbatim; an empty or null value means the rule imposes no
-    /// conditions.
+    /// The conditions that decide how access is granted under this rule — for example requiring
+    /// human approval, or restricting to certain source IPs. Sent as a JSON array of condition
+    /// objects and stored verbatim. Required — a null or omitted value is rejected; an empty array
+    /// means the rule imposes no conditions, so requests under it resolve automatically.
     #[serde(rename = "conditions", alias = "Conditions")]
     pub conditions: Option<serde_json::Value>,
     /// When true, the rule enforces a per-cipher singleton (at most one active lease per cipher

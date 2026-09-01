@@ -56,16 +56,23 @@ let MISMATCHED_UPGRADE_TOKEN_WRAPPED_UK2 =
 /// from the WASM integration tests.
 actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var userKey: SymmetricCryptoKey?
+    private var userKeyId: KeyId?
     private var persistentPinEnvelope: PasswordProtectedKeyEnvelope?
     private var ephemeralPinEnvelope: PasswordProtectedKeyEnvelope?
     private var encryptedPin: EncString?
     private var v2UpgradeToken: V2UpgradeToken?
     private var accountCryptographicState: WrappedAccountCryptographicState?
     private var masterpasswordUnlockData: MasterPasswordUnlockData?
+    private var webauthnPrfUnlockData: WebAuthnPrfUnlockData?
+    private var kdfConfig: Kdf?
 
     func setUserKey(value: SymmetricCryptoKey) { userKey = value }
     func getUserKey() -> SymmetricCryptoKey? { userKey }
     func clearUserKey() { userKey = nil }
+
+    func setUserKeyId(value: KeyId) { userKeyId = value }
+    func getUserKeyId() -> KeyId? { userKeyId }
+    func clearUserKeyId() { userKeyId = nil }
 
     func setPersistentPinEnvelope(value: PasswordProtectedKeyEnvelope) { persistentPinEnvelope = value }
     func getPersistentPinEnvelope() -> PasswordProtectedKeyEnvelope? { persistentPinEnvelope }
@@ -90,6 +97,14 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func setMasterpasswordUnlockData(value: MasterPasswordUnlockData) { masterpasswordUnlockData = value }
     func getMasterpasswordUnlockData() -> MasterPasswordUnlockData? { masterpasswordUnlockData }
     func clearMasterpasswordUnlockData() { masterpasswordUnlockData = nil }
+
+    func setWebauthnPrfUnlockData(value: WebAuthnPrfUnlockData) { webauthnPrfUnlockData = value }
+    func getWebauthnPrfUnlockData() -> WebAuthnPrfUnlockData? { webauthnPrfUnlockData }
+    func clearWebauthnPrfUnlockData() { webauthnPrfUnlockData = nil }
+
+    func setKdfConfig(value: Kdf) { kdfConfig = value }
+    func getKdfConfig() -> Kdf? { kdfConfig }
+    func clearKdfConfig() { kdfConfig = nil }
 }
 
 final class MockTokenProvider: ClientManagedTokens {

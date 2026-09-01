@@ -1,7 +1,7 @@
 #[cfg(any(feature = "wasm", test))]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, CryptoError, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet,
+    BitwardenLegacyKeyBytes, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet,
     SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 #[cfg(feature = "internal")]
@@ -13,10 +13,9 @@ use wasm_bindgen::prelude::*;
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
     MakeJitMasterPasswordRegistrationResponse, MakeKeyConnectorRegistrationResponse,
-    MakeKeyPairResponse, MakeUserMasterPasswordRegistrationResponse, VerifyAsymmetricKeysRequest,
-    VerifyAsymmetricKeysResponse, derive_key_connector, make_key_pair,
+    MakeUserMasterPasswordRegistrationResponse, derive_key_connector,
     make_user_jit_master_password_registration, make_user_key_connector_registration,
-    make_user_password_registration, verify_asymmetric_keys,
+    make_user_password_registration,
 };
 use crate::key_management::V2UpgradeToken;
 #[cfg(feature = "uniffi")]
@@ -71,22 +70,6 @@ impl CryptoClient {
         initialize_org_crypto(&self.client, req).await
     }
 
-    /// Generates a new key pair and encrypts the private key with the provided user key.
-    /// Crypto initialization not required.
-    pub fn make_key_pair(&self, user_key: B64) -> Result<MakeKeyPairResponse, CryptoError> {
-        make_key_pair(user_key)
-    }
-
-    /// Verifies a user's asymmetric keys by decrypting the private key with the provided user
-    /// key. Returns if the private key is decryptable and if it is a valid matching key.
-    /// Crypto initialization not required.
-    pub fn verify_asymmetric_keys(
-        &self,
-        request: VerifyAsymmetricKeysRequest,
-    ) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
-        verify_asymmetric_keys(request)
-    }
-
     /// Makes a new signing key pair and signs the public key for the user
     pub fn make_keys_for_user_crypto_v2(
         &self,
@@ -106,6 +89,8 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the re-encrypted
     /// user key and the new password hash but does not update sdk state.
+    ///
+    /// Note: This is deprecated. Please use the user-crypto-management client instead.
     pub async fn make_update_kdf(
         &self,
         password: String,
