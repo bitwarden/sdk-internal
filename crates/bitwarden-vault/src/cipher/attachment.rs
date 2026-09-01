@@ -407,6 +407,7 @@ mod tests {
 
         let attachment_file = AttachmentFileView {
             cipher: Cipher {
+                partial_data: None,
                 id: None,
                 organization_id: None,
                 folder_id: None,
@@ -467,6 +468,7 @@ mod tests {
         };
 
         let cipher  = Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,
@@ -531,6 +533,7 @@ mod tests {
         };
 
         let cipher  = Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,
