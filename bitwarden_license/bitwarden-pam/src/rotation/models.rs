@@ -493,9 +493,8 @@ mod tests {
         }
     }
 
-    /// The forward-compatibility guarantee from the module docs, which naming a fourth kind must
-    /// not narrow: a kind only a newer server knows still degrades rather than failing the payload
-    /// it arrived in, and still cannot be written back out.
+    /// The forward-compatibility guarantee from the module docs: a kind only a newer server knows
+    /// degrades rather than failing the payload it arrived in, and cannot be written back out.
     #[test]
     fn a_kind_this_version_does_not_model_degrades_to_unknown() {
         assert_eq!(
