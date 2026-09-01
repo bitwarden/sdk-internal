@@ -225,6 +225,11 @@ impl IntegrationRegistry {
     pub(crate) fn get(&self, kind: TargetKind) -> Option<Arc<dyn Integration>> {
         self.map.get(&kind).cloned()
     }
+
+    /// The kinds that have a driver in this build, in no particular order.
+    pub(crate) fn kinds(&self) -> Vec<TargetKind> {
+        self.map.keys().copied().collect()
+    }
 }
 
 impl Default for IntegrationRegistry {
@@ -261,6 +266,19 @@ mod tests {
         let mut reg = IntegrationRegistry::new();
         reg.register(TargetKind::CustomScript, Arc::new(AlwaysOk));
         assert!(reg.get(TargetKind::CustomScript).is_some());
+    }
+
+    #[test]
+    fn registry_kinds_lists_every_registration() {
+        let mut reg = IntegrationRegistry::new();
+        reg.register(TargetKind::CustomScript, Arc::new(AlwaysOk));
+        reg.register(TargetKind::ActiveDirectory, Arc::new(AlwaysOk));
+        let mut kinds = reg.kinds();
+        kinds.sort_by_key(|k| format!("{k:?}"));
+        assert_eq!(
+            kinds,
+            vec![TargetKind::ActiveDirectory, TargetKind::CustomScript]
+        );
     }
 
     #[test]

@@ -36,7 +36,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use url::Url;
 
-use super::{Integration, IntegrationError, RotateContext, TargetEffect, get_cred};
+use super::{Integration, IntegrationError, RotateContext, TargetEffect, as_applied, get_cred};
 use crate::error::{ErrorClass, FailureCode, SafeDetail};
 
 // ---------------------------------------------------------------------------
@@ -541,11 +541,7 @@ impl Integration for EntraIntegration {
             client_secret,
         )
         .await
-        .map_err(|mut e| {
-            // Rotation already applied; re-classify effect to Applied.
-            e.effect = TargetEffect::Applied;
-            e
-        })?;
+        .map_err(as_applied)?;
 
         // ROPC probe first (optional) — authoritative and not subject to directory
         // replication lag.  A definitive result short-circuits the directory poll.
