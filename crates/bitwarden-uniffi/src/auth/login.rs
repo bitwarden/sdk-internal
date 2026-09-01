@@ -24,7 +24,6 @@ pub struct LoginClient(pub(crate) bitwarden_auth::login::LoginClient);
 #[uniffi::export(async_runtime = "tokio")]
 impl LoginClient {
     /// Retrieves the data required before authenticating with a password.
-    /// This includes the user's KDF configuration needed to properly derive the master key.
     pub async fn get_password_prelogin(
         &self,
         email: String,
@@ -34,7 +33,7 @@ impl LoginClient {
 
     /// Authenticates a user via email and master password.
     ///
-    /// Derives the master password hash using KDF settings from prelogin, then sends
+    /// Derives the master password hash using the prelogin response, then sends
     /// the authentication request to obtain access tokens and vault keys.
     pub async fn login_via_password(
         &self,
