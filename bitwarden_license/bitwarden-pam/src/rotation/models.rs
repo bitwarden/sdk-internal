@@ -97,16 +97,34 @@ pub enum TargetSystemKind {
     Mssql,
     /// An operator-supplied script run by the connector.
     CustomScript,
+    /// On-premises Active Directory account password rotation. Distinct from
+    /// [`Entra`](TargetSystemKind::Entra), which is Entra ID / Azure AD.
+    ActiveDirectory,
     /// A kind this SDK version does not recognize.
     Unknown,
 }
 
 impl From<ApiTargetSystemKind> for TargetSystemKind {
+    /// # Interim handling of Active Directory
+    ///
+    /// The server does not yet publish `PamTargetSystemKind.ActiveDirectory = 3` in its OpenAPI
+    /// document, so the generated enum has no named variant for it and wire value `3` arrives
+    /// through the generator's forward-compatibility catch-all as `__Unknown(3)`.
+    ///
+    /// Recognizing it here rather than hand-adding a variant to `bitwarden-api-api` keeps the
+    /// workaround in the crate that owns this boundary: `support/generate-api-bindings-ci.sh`
+    /// deletes the generated crate's `src` before regenerating, so an edit there does not survive.
+    ///
+    /// Once the server publishes the value, regenerating the bindings produces
+    /// `PamTargetSystemKind::ActiveDirectory`, and the two `__Unknown(3)` arms - the one below and
+    /// its outbound counterpart in `TryFrom<TargetSystemKind> for ApiTargetSystemKind` - are
+    /// replaced by matches on that variant. Those two arms are the only sites to change.
     fn from(kind: ApiTargetSystemKind) -> Self {
         match kind {
             ApiTargetSystemKind::Entra => Self::Entra,
             ApiTargetSystemKind::Mssql => Self::Mssql,
             ApiTargetSystemKind::CustomScript => Self::CustomScript,
+            ApiTargetSystemKind::__Unknown(3) => Self::ActiveDirectory,
             ApiTargetSystemKind::__Unknown(_) => Self::Unknown,
         }
     }
@@ -120,6 +138,9 @@ impl TryFrom<TargetSystemKind> for ApiTargetSystemKind {
             TargetSystemKind::Entra => Ok(Self::Entra),
             TargetSystemKind::Mssql => Ok(Self::Mssql),
             TargetSystemKind::CustomScript => Ok(Self::CustomScript),
+            // Interim, per the inbound conversion above: `__Unknown(3)` serializes through
+            // `as_i64()` to the same `3` a named variant would.
+            TargetSystemKind::ActiveDirectory => Ok(Self::__Unknown(3)),
             TargetSystemKind::Unknown => Err(RotationError::UnrecognizedVariant),
         }
     }
@@ -447,5 +468,62 @@ impl TryFrom<PamRotationJobResponseModel> for RotationJob {
                 .map(RotationAttempt::try_from)
                 .collect::<Result<Vec<_>, _>>()?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_named_kind_round_trips_through_its_wire_value() {
+        for (kind, wire) in [
+            (TargetSystemKind::Entra, 0),
+            (TargetSystemKind::Mssql, 1),
+            (TargetSystemKind::CustomScript, 2),
+            (TargetSystemKind::ActiveDirectory, 3),
+        ] {
+            let sent = ApiTargetSystemKind::try_from(kind).expect("a named kind is representable");
+
+            assert_eq!(sent.as_i64(), wire);
+            assert_eq!(
+                TargetSystemKind::from(ApiTargetSystemKind::from_i64(wire)),
+                kind
+            );
+        }
+    }
+
+    /// The forward-compatibility guarantee from the module docs, which naming a fourth kind must
+    /// not narrow: a kind only a newer server knows still degrades rather than failing the payload
+    /// it arrived in, and still cannot be written back out.
+    #[test]
+    fn a_kind_this_version_does_not_model_degrades_to_unknown() {
+        assert_eq!(
+            TargetSystemKind::from(ApiTargetSystemKind::from_i64(4)),
+            TargetSystemKind::Unknown
+        );
+        assert!(matches!(
+            ApiTargetSystemKind::try_from(TargetSystemKind::Unknown),
+            Err(RotationError::UnrecognizedVariant)
+        ));
+    }
+
+    /// These strings are the TypeScript union the clients build their kind list against, so a
+    /// rename here breaks that list at compile time rather than anywhere visible from Rust.
+    #[test]
+    fn kinds_serialize_to_the_snake_case_names_typescript_sees() {
+        for (kind, name) in [
+            (TargetSystemKind::Entra, "entra"),
+            (TargetSystemKind::Mssql, "mssql"),
+            (TargetSystemKind::CustomScript, "custom_script"),
+            (TargetSystemKind::ActiveDirectory, "active_directory"),
+            (TargetSystemKind::Unknown, "unknown"),
+        ] {
+            assert_eq!(serde_json::to_value(kind).expect("it serializes"), name);
+            assert_eq!(
+                serde_json::from_value::<TargetSystemKind>(name.into()).expect("it deserializes"),
+                kind
+            );
+        }
     }
 }
