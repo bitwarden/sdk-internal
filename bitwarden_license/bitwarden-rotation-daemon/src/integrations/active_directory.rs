@@ -123,6 +123,9 @@ const RC_BUSY: u32 = 51;
 /// `unavailable` — the DC is shutting down or offline.
 const RC_UNAVAILABLE: u32 = 52;
 
+/// `invalidCredentials` — the directory checked the password and it did not match.
+const RC_INVALID_CREDENTIALS: u32 = 49;
+
 // ---------------------------------------------------------------------------
 // EffectPolicy
 // ---------------------------------------------------------------------------
@@ -156,7 +159,7 @@ impl EffectPolicy {
     /// directory-returned error code: because the same password is re-sent on
     /// every retry, a rejection does not on its own prove the credential is
     /// unchanged, so `rotate` replaces it with the answer from
-    /// [`ActiveDirectoryIntegration::effect_of_rejected_modify`].
+    /// [`settle_rejected_modify`].
     const MODIFY: Self = Self {
         settled: TargetEffect::NotApplied,
         indeterminate: TargetEffect::Unknown,
@@ -303,38 +306,6 @@ impl ActiveDirectoryIntegration {
         }
         Ok(dn)
     }
-
-    /// Establish what a rejected `unicodePwd` write did to the account.
-    ///
-    /// A rejection is evidence that *this* request was refused, not that the
-    /// account still holds its old password. The executor retries `rotate` with
-    /// the same generated password, so a rejection can follow an earlier
-    /// attempt whose write did reach the directory and whose outcome was never
-    /// observed — password-history enforcement then refuses the identical value
-    /// the second time round with `constraintViolation`. Reporting
-    /// [`TargetEffect::NotApplied`] on the strength of the result code alone
-    /// would tell the server the account was untouched while the directory
-    /// holds a password that never reached the vault.
-    ///
-    /// A rebind as the rotated account settles it, on the same footing as
-    /// [`Integration::verify`]: a bind the directory accepts proves the new
-    /// password is live, a bind it rejects proves it is not, and a transport
-    /// failure leaves the question open.
-    ///
-    /// The bind is attempted on `session`, which is left bound as whatever
-    /// identity the attempt produced; callers must not reuse it afterwards.
-    async fn effect_of_rejected_modify(
-        &self,
-        session: &mut LdapSession,
-        account_dn: &str,
-        new_password: &str,
-    ) -> TargetEffect {
-        effect_from_probe(
-            &session
-                .simple_bind(account_dn, new_password, self.operation_timeout)
-                .await,
-        )
-    }
 }
 
 impl Default for ActiveDirectoryIntegration {
@@ -442,7 +413,7 @@ impl Integration for ActiveDirectoryIntegration {
     /// | bind rejected (rc 49 / 50)       | NotApplied  | Fatal     | target_rejected         |
     /// | account not found / ambiguous    | NotApplied  | Fatal     | target_rejected         |
     /// | modify rejected (rc 13 / 19 / …) | probed      | Fatal     | target_rejected         |
-    /// | DC busy or unavailable           | probed      | Transient | target_unreachable      |
+    /// | DC busy or unavailable           | Unknown     | Transient | target_unreachable      |
     /// | timeout after the modify is sent | Unknown     | Transient | target_unreachable      |
     ///
     /// A TLS failure is `NotApplied` before the modify is sent and `Unknown`
@@ -450,7 +421,7 @@ impl Integration for ActiveDirectoryIntegration {
     /// untrusted chain needs an operator, not a retry.
     ///
     /// "Probed" means the effect is not inferred from the result code but
-    /// established by [`Self::effect_of_rejected_modify`].
+    /// established by a rebind — see [`settle_rejected_modify`].
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let creds = Credentials::resolve(&ctx.creds)?;
 
@@ -471,11 +442,17 @@ impl Integration for ActiveDirectoryIntegration {
             .await
             .map_err(|e| classify_ldap_error(&e, EffectPolicy::MODIFY))?;
         if let Err(rejection) = result.success() {
-            let mut err = classify_ldap_error(&rejection, EffectPolicy::MODIFY);
-            err.effect = self
-                .effect_of_rejected_modify(&mut session, &account_dn, &ctx.new_password)
-                .await;
-            return Err(err);
+            let classified = classify_ldap_error(&rejection, EffectPolicy::MODIFY);
+            let probe = if probe_settles(&classified) {
+                Some(
+                    session
+                        .simple_bind(&account_dn, &ctx.new_password, self.operation_timeout)
+                        .await,
+                )
+            } else {
+                None
+            };
+            return Err(settle_rejected_modify(classified, probe.as_ref()));
         }
 
         session.close(self.operation_timeout).await;
@@ -488,23 +465,18 @@ impl Integration for ActiveDirectoryIntegration {
     /// the new password: unlike a directory attribute read it cannot be stale,
     /// and unlike a timestamp check it cannot be satisfied by some other write.
     ///
+    /// The rebind is issued on the connection the account lookup already
+    /// opened, which is left bound as whatever identity it produced and is
+    /// closed immediately afterwards.
+    ///
     /// Every error carries [`TargetEffect::Applied`] because the password has
     /// already been changed by the time verify runs. A rejected bind is fatal —
     /// retrying it cannot change the answer.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let creds = Credentials::resolve(&ctx.creds).map_err(as_applied)?;
 
-        let (lookup, account_dn) = self
+        let (mut session, account_dn) = self
             .open_and_locate(&creds, &ctx.account_identity, EffectPolicy::AFTER_ROTATION)
-            .await?;
-        lookup.close(self.operation_timeout).await;
-
-        let mut session = self
-            .connect(
-                &creds.url,
-                creds.ca_certificate,
-                EffectPolicy::AFTER_ROTATION,
-            )
             .await?;
         let bind = session
             .simple_bind(&account_dn, &ctx.new_password, self.operation_timeout)
@@ -841,16 +813,64 @@ fn classify_ldap_error(err: &LdapError, policy: EffectPolicy) -> IntegrationErro
     }
 }
 
-/// Interpret the rebind that
-/// [`ActiveDirectoryIntegration::effect_of_rejected_modify`] performs.
+/// Whether rebinding as the account can settle what a rejected `unicodePwd`
+/// write did.
 ///
-/// A bind the directory accepted is proof the new password is live; a bind the
-/// directory answered with a non-zero result code is proof it is not. Anything
-/// else is a transport failure that answers nothing.
+/// Only a rejection that is actually reported is worth probing. A transient
+/// rejection is superseded by the retry that follows it, and the probe is by
+/// construction a bind with a password the directory may not hold: one per
+/// attempt spends an authentication failure against the managed account on
+/// every try, and `badPwdCount` reaching the domain lockout threshold locks
+/// out the very account the daemon exists to keep working. An administrative
+/// reset does not clear a lockout.
+fn probe_settles(classified: &IntegrationError) -> bool {
+    classified.class == ErrorClass::Fatal
+}
+
+/// Attribute the effect of a rejected `unicodePwd` write.
+///
+/// A rejection is evidence that *this* request was refused, not that the
+/// account still holds its old password. The executor retries `rotate` with
+/// the same generated password, so a rejection can follow an earlier attempt
+/// whose write did reach the directory and whose outcome was never observed —
+/// password-history enforcement then refuses the identical value the second
+/// time round with `constraintViolation`. Reporting
+/// [`TargetEffect::NotApplied`] on the strength of the result code alone would
+/// tell the server the account was untouched while the directory holds a
+/// password that never reached the vault.
+///
+/// `probe` is the outcome of rebinding as the rotated account with the new
+/// password, or `None` when [`probe_settles`] declined to spend one; without a
+/// probe the outcome is not knowable and the phase's indeterminate effect
+/// stands.
+fn settle_rejected_modify(
+    mut classified: IntegrationError,
+    probe: Option<&Result<(), LdapError>>,
+) -> IntegrationError {
+    classified.effect = match probe {
+        Some(probe) => effect_from_probe(probe),
+        None => EffectPolicy::MODIFY.indeterminate,
+    };
+    classified
+}
+
+/// Interpret the rebind that [`settle_rejected_modify`] consumes.
+///
+/// A bind the directory accepted is proof the new password is live. Only
+/// `invalidCredentials` is proof it is not: every other result code is the
+/// directory declining to answer the credential question — a DC shedding load
+/// will very likely shed the probe as well — and a transport failure answers
+/// nothing either.
+///
+/// The residual gap is that a locked-out or disabled account answers
+/// `invalidCredentials` whatever password is offered, so the probe reads that
+/// state as proof the write did not land.
 fn effect_from_probe(probe: &Result<(), LdapError>) -> TargetEffect {
     match probe {
         Ok(()) => TargetEffect::Applied,
-        Err(LdapError::LdapResult { .. }) => TargetEffect::NotApplied,
+        Err(LdapError::LdapResult { result }) if result.rc == RC_INVALID_CREDENTIALS => {
+            TargetEffect::NotApplied
+        }
         Err(_) => TargetEffect::Unknown,
     }
 }
@@ -1292,11 +1312,25 @@ mod tests {
     }
 
     #[test]
-    fn a_rebind_the_directory_rejects_proves_the_write_did_not_land() {
+    fn a_rebind_answered_with_invalid_credentials_proves_the_write_did_not_land() {
         let probe = Err(LdapError::LdapResult {
             result: ldap_result(49, "invalid credentials"),
         });
         assert_eq!(effect_from_probe(&probe), TargetEffect::NotApplied);
+    }
+
+    #[test]
+    fn a_rebind_the_directory_declined_to_answer_leaves_the_effect_unknown() {
+        for rc in [1, 11, 51, 52, 53] {
+            let probe = Err(LdapError::LdapResult {
+                result: ldap_result(rc, ""),
+            });
+            assert_eq!(
+                effect_from_probe(&probe),
+                TargetEffect::Unknown,
+                "rc {rc} says nothing about whether the new password is live"
+            );
+        }
     }
 
     #[test]
@@ -1305,6 +1339,62 @@ mod tests {
             source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
         });
         assert_eq!(effect_from_probe(&probe), TargetEffect::Unknown);
+    }
+
+    fn rejected_modify(rc: u32) -> IntegrationError {
+        classify_ldap_error(
+            &LdapError::LdapResult {
+                result: ldap_result(rc, ""),
+            },
+            EffectPolicy::MODIFY,
+        )
+    }
+
+    #[test]
+    fn a_transient_rejection_is_not_probed_and_stays_unknown() {
+        for rc in [11, 51, 52] {
+            let classified = rejected_modify(rc);
+            assert!(
+                !probe_settles(&classified),
+                "rc {rc} is retried, so the probe would only cost a failed bind"
+            );
+            assert_eq!(
+                settle_rejected_modify(classified, None).effect,
+                TargetEffect::Unknown
+            );
+        }
+    }
+
+    #[test]
+    fn a_rejected_write_the_probe_finds_live_is_reported_as_applied() {
+        let settled = settle_rejected_modify(rejected_modify(19), Some(&Ok(())));
+        assert_eq!(settled.effect, TargetEffect::Applied);
+        assert_eq!(settled.class, ErrorClass::Fatal);
+        assert_eq!(settled.code, FailureCode::TargetRejected);
+    }
+
+    #[test]
+    fn a_rejected_write_the_probe_finds_absent_is_reported_as_not_applied() {
+        let classified = rejected_modify(19);
+        assert!(probe_settles(&classified));
+        let probe = Err(LdapError::LdapResult {
+            result: ldap_result(49, ""),
+        });
+        assert_eq!(
+            settle_rejected_modify(classified, Some(&probe)).effect,
+            TargetEffect::NotApplied
+        );
+    }
+
+    #[test]
+    fn a_rejected_write_whose_probe_fails_in_transport_is_reported_as_unknown() {
+        let probe = Err(LdapError::Io {
+            source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
+        });
+        assert_eq!(
+            settle_rejected_modify(rejected_modify(19), Some(&probe)).effect,
+            TargetEffect::Unknown
+        );
     }
 
     #[tokio::test(start_paused = true)]

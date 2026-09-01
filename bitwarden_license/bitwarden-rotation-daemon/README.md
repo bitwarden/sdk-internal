@@ -529,8 +529,8 @@ identity cannot widen the search.
 
 ### Verification
 
-`verify` opens a second LDAPS connection and simple-binds **as the rotated account** using the new
-password. A successful bind is direct proof that the directory accepted the write — unlike a
+`verify` simple-binds **as the rotated account** using the new password, on the connection the
+account lookup already opened. A successful bind is direct proof that the directory accepted the write — unlike a
 timestamp read it cannot be stale, and unlike an attribute compare it cannot be satisfied by some
 other change. A rejected bind is fatal.
 
@@ -599,7 +599,7 @@ once per attempt.
 | Bind rejected (rc 49, 50)                             | Fatal     | unchanged                                                   | `target_rejected`        |
 | Account not found or ambiguous                        | Fatal     | unchanged                                                   | `target_rejected`        |
 | Write rejected (rc 13, 19, 32, 53, schema errors)     | Fatal     | established by a rebind, not assumed                        | `target_rejected`        |
-| DC busy / unavailable / admin limit (rc 51, 52, 11)   | Transient | unchanged before the write; established by a rebind after   | `target_unreachable`     |
+| DC busy / unavailable / admin limit (rc 51, 52, 11)   | Transient | unchanged before the write, **indeterminate** after         | `target_unreachable`     |
 | Timeout or dropped connection after the write is sent | Transient | **indeterminate**                                           | `target_unreachable`     |
 | Rebind with the new password rejected                 | Fatal     | updated                                                     | `verification_failed`    |
 
@@ -608,6 +608,13 @@ re-sends the same generated password, so a rejection can follow an earlier attem
 reached the directory unobserved — password history then refuses the identical value. The daemon
 therefore settles the sync state by rebinding as the account with the new password rather than
 inferring it from the result code.
+
+A bind the directory accepts proves the new password is live; only `invalidCredentials` (rc 49)
+proves it is not. Any other answer is the directory declining the question, and is reported as
+indeterminate. A locked-out or disabled account also answers rc 49 whatever password is offered,
+which is the one state the rebind cannot distinguish. The rebind is spent only on a rejection that
+is actually reported — a transient rejection is superseded by its retry, and probing on every
+attempt would drive `badPwdCount` towards the domain lockout threshold.
 
 Only the numeric LDAP result code reaches the failure report. The directory's `diagnosticMessage`
 and matched DN are never read: both can echo account names and password-policy text.
