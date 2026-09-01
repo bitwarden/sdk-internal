@@ -104,11 +104,11 @@ And the chain, with one inner message withheld from an unauthorized reader:
 flowchart LR
   subgraph OUTERCHAIN["Outer chain — served whole to every authorized reader"]
     direction TB
-    O3["seq 3<br/>remove_key<br/>public"] --> O2["seq 2<br/>join_team<br/>semi_public"] --> O1["seq 1<br/>add_key<br/>public"] --> O0["seq 0<br/>add_key (genesis)<br/>public"]
+    O3["seq 3<br/>revoke_key<br/>public"] --> O2["seq 2<br/>join_team<br/>semi_public"] --> O1["seq 1<br/>add_key<br/>public"] --> O0["seq 0<br/>add_key (genesis)<br/>public"]
   end
   subgraph INNERS["Inner messages — gated by visibility"]
     direction TB
-    I3["RemoveKeyBody"] ~~~ I2["WITHHELD"] ~~~ I1["AddKeyBody"] ~~~ I0["AddKeyBody"]
+    I3["RevokeKeyBody"] ~~~ I2["WITHHELD"] ~~~ I1["AddKeyBody"] ~~~ I0["AddKeyBody"]
   end
   OUTERCHAIN ~~~ INNERS
   O3 -.-> I3
@@ -218,12 +218,12 @@ skippable entry.
 ## Message types
 
 Each link carries a message type. For this document, only two message types are relevant: `add_key`
-and `remove_key`.
+and `revoke_key`.
 
 | Type         | Description                            | Principals                   | Visibility |
 | ------------ | -------------------------------------- | ---------------------------- | ---------- |
 | `add_key`    | The actor added a key it controls.     | user, organization, provider | `public`   |
-| `remove_key` | The actor revoked one of its own keys. | user, organization, provider | `public`   |
+| `revoke_key` | The actor revoked one of its own keys. | user, organization, provider | `public`   |
 
 Applications specify their own message types on top of these, for instance those in
 [Organization Cryptography V2](./organization-cryptography-v2.md).
@@ -248,7 +248,7 @@ flowchart LR
 Each `apply` is a pure function of `(state, outer, inner)`.
 
 Every key an actor learns of, its own or a counterparty's, is recorded as a `KeyState`, derived from
-the `add_key` / `remove_key` links of whichever log the key was read from:
+the `add_key` / `revoke_key` links of whichever log the key was read from:
 
 ```
 KeyState = {
@@ -275,7 +275,7 @@ signature made before the revocation, which must stay checkable forever.
 | Message type | Effect on state                                                                                       |
 | ------------ | ----------------------------------------------------------------------------------------------------- |
 | `add_key`    | Insert into this trust log's key set (`trust_log_keys`). Genesis establishes the first signature key. |
-| `remove_key` | Set `revoked_at_sequence` + `revocation_reason` on that key of `trust_log_keys`.                      |
+| `revoke_key` | Set `revoked_at_sequence` + `revocation_reason` on that key of `trust_log_keys`.                      |
 
 Application-specific message types carry their own effects on the rest of the state — memberships,
 policies, and the positions at which this log has witnessed another actor's log. Those are specified
@@ -341,7 +341,7 @@ A reader therefore requests the message types it actually cares about, and the s
 - the **complete outer chain**, every link, always —
   [Preventing omission by the server](#preventing-omission-by-the-server) is unchanged and
   non-negotiable;
-- signatures and inner messages for the requested types, **plus every `add_key` and `remove_key`
+- signatures and inner messages for the requested types, **plus every `add_key` and `revoke_key`
   link, whether or not they were requested**.
 
 A request for the outer chain accordingly names the types wanted and whether signatures are wanted.
@@ -358,9 +358,9 @@ A request for the outer chain accordingly names the types wanted and whether sig
 | Body validity + state | must               | may skip                     |
 | Principal kind        | must               | must                         |
 
-1. **`add_key` and `remove_key` are never skippable.** A verifier must fully validate every key
+1. **`add_key` and `revoke_key` are never skippable.** A verifier must fully validate every key
    event of the log it is replaying — signature, inner message, and body — whatever else it asked
-   for. Skipping a `remove_key` would leave a revoked key in the derived validity set, and every
+   for. Skipping a `revoke_key` would leave a revoked key in the derived validity set, and every
    signature check is evaluated against that set.
 2. **Hash and sequence integrity are never skippable.** Contiguous sequence numbers and an unbroken
    outer hash chain must be checked over every link, including skipped ones. This is what makes
