@@ -191,9 +191,10 @@ impl From<TargetSystemUpdateRequest> for UpdateTargetSystemRequestModel {
 
 /// Client for PAM rotation target-system operations.
 ///
-/// Note that a target system cannot be deleted: the server exposes no delete route, because configs
-/// reference targets and a rotation's history has to stay attributable. Retiring one is
-/// [`disable`](TargetSystemsClient::disable).
+/// A target can be quieted or removed, and the two are not interchangeable:
+/// [`disable`](TargetSystemsClient::disable) is reversible and leaves the target's configs intact,
+/// while [`delete`](TargetSystemsClient::delete) is permanent and the server refuses it while any
+/// config still names the target.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct TargetSystemsClient {
@@ -289,6 +290,32 @@ impl TargetSystemsClient {
             .api_client
             .pam_access_connector_rotation_target_systems_api()
             .disable(organization_id.into(), id.into())
+            .await?;
+
+        Ok(())
+    }
+
+    /// Permanently deletes a target system.
+    ///
+    /// The server refuses this while any rotation config still names the target: deleting it would
+    /// leave that config, and the credential it manages, pointing at nothing. Delete those configs
+    /// first, which is also what releases each cipher. The connector-to-target assignments are the
+    /// opposite case and go with it - an assignment is only that edge, and means nothing once the
+    /// target is gone. No rotation can be in flight to be torn up, since a job belongs to a config
+    /// on this target and a surviving config blocks the delete outright.
+    ///
+    /// Deliberately narrower than [`disable`](TargetSystemsClient::disable), which stops new
+    /// rotations while the target and its configs stay intact. Disable is for a target that is
+    /// merely unavailable; delete is for one that has left the estate.
+    pub async fn delete(
+        &self,
+        organization_id: OrganizationId,
+        id: TargetSystemId,
+    ) -> Result<(), RotationError> {
+        self.api_configurations
+            .api_client
+            .pam_access_connector_rotation_target_systems_api()
+            .delete(organization_id.into(), id.into())
             .await?;
 
         Ok(())
@@ -939,6 +966,51 @@ mod tests {
 
         let result = client(api_client)
             .disable(organization_id(), target_system_id())
+            .await;
+
+        assert!(matches!(result, Err(RotationError::Api(_))));
+    }
+
+    #[tokio::test]
+    async fn delete_targets_the_requested_target_system() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.pam_access_connector_rotation_target_systems_api
+                .expect_delete()
+                .withf(|org_id, id| {
+                    *org_id == Uuid::from(organization_id())
+                        && *id == Uuid::from(target_system_id())
+                })
+                .returning(move |_org_id, _id| Ok(()))
+                .once();
+        });
+
+        client(api_client)
+            .delete(organization_id(), target_system_id())
+            .await
+            .expect("deleting succeeds");
+    }
+
+    /// The server, not the SDK, holds the "no config may still name it" precondition. That refusal
+    /// has to reach the caller as an error - reading it as success would take a target off the
+    /// operator's list while the server still has it.
+    #[tokio::test]
+    async fn delete_surfaces_the_refusal_when_a_config_still_names_the_target() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.pam_access_connector_rotation_target_systems_api
+                .expect_delete()
+                .returning(move |_org_id, _id| {
+                    Err(bitwarden_api_api::apis::Error::Response(
+                        bitwarden_api_api::apis::ResponseContent {
+                            status: reqwest::StatusCode::CONFLICT,
+                            message: String::new(),
+                        },
+                    ))
+                })
+                .once();
+        });
+
+        let result = client(api_client)
+            .delete(organization_id(), target_system_id())
             .await;
 
         assert!(matches!(result, Err(RotationError::Api(_))));
