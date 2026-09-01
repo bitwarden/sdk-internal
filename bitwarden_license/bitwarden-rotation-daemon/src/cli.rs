@@ -87,7 +87,7 @@ mod tests {
             "bw-rotation-daemon",
             "run",
             "--token",
-            "0.daemon.some-id.secret:key==",
+            "0.access-connector.some-id.secret:key==",
         ]);
         assert!(
             result.is_err(),
