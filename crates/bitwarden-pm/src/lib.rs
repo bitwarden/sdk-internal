@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+mod global;
+pub use global::GlobalPasswordManagerClient;
+
 #[cfg(feature = "bitwarden-license")]
 mod commercial;
 
