@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`0c32f3021f3e9bea08958fca1ec3cefe3462c88e`](https://github.com/bitwarden/server/commit/0c32f3021f3e9bea08958fca1ec3cefe3462c88e)
+  [`f758b982f8b89e8e16b3cd5f56fc129b30b45035`](https://github.com/bitwarden/server/commit/f758b982f8b89e8e16b3cd5f56fc129b30b45035)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -336,6 +336,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationSponsorshipsApi_                | [**resend_sponsorship_offer**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_resend_sponsorship_offer)                                           | **POST** /organization/sponsorship/{organizationId}/families-for-enterprise/resend                       |
 | _OrganizationSponsorshipsApi_                | [**revoke_sponsorship**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_revoke_sponsorship)                                                       | **DELETE** /organization/sponsorship/{sponsoringOrganizationId}                                          |
 | _OrganizationSponsorshipsApi_                | [**sync**](docs/OrganizationSponsorshipsApi.md#organization_sponsorships_sync)                                                                                   | **POST** /organization/sponsorship/sync                                                                  |
+| _OrganizationSubscriptionsApi_               | [**get_organization_subscription_preview**](docs/OrganizationSubscriptionsApi.md#get_organization_subscription_preview)                                          | **GET** /organizations/{organizationId}/billing/subscription/preview                                     |
 | _OrganizationUsersApi_                       | [**accept**](docs/OrganizationUsersApi.md#organization_users_accept)                                                                                             | **POST** /organizations/{orgId}/users/{organizationUserId}/accept                                        |
 | _OrganizationUsersApi_                       | [**accept_init**](docs/OrganizationUsersApi.md#organization_users_accept_init)                                                                                   | **POST** /organizations/{orgId}/users/{organizationUserId}/accept-init                                   |
 | _OrganizationUsersApi_                       | [**accept_invite_link**](docs/OrganizationUsersApi.md#organization_users_accept_invite_link)                                                                     | **POST** /organizations/users/invite-link/accept                                                         |
@@ -412,6 +413,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _PamAccessConnectorRotationConfigsApi_       | [**rotate**](docs/PamAccessConnectorRotationConfigsApi.md#pam_access_connectors_rotation_configs_rotate)                                                         | **POST** /organizations/{orgId}/access-connectors/rotation/configs/{id}/rotate                           |
 | _PamAccessConnectorRotationJobsApi_          | [**claim**](docs/PamAccessConnectorRotationJobsApi.md#pam_access_connectors_rotation_jobs_claim)                                                                 | **POST** /access-connectors/rotation/jobs/{id}/claim                                                     |
 | _PamAccessConnectorRotationJobsApi_          | [**get_all**](docs/PamAccessConnectorRotationJobsApi.md#pam_access_connectors_rotation_jobs_get_all)                                                             | **GET** /access-connectors/rotation/jobs                                                                 |
+| _PamAccessConnectorRotationTargetSystemsApi_ | [**delete**](docs/PamAccessConnectorRotationTargetSystemsApi.md#pam_access_connectors_rotation_target_systems_delete)                                            | **DELETE** /organizations/{orgId}/access-connectors/rotation/target-systems/{id}                         |
 | _PamAccessConnectorRotationTargetSystemsApi_ | [**disable**](docs/PamAccessConnectorRotationTargetSystemsApi.md#pam_access_connectors_rotation_target_systems_disable)                                          | **POST** /organizations/{orgId}/access-connectors/rotation/target-systems/{id}/disable                   |
 | _PamAccessConnectorRotationTargetSystemsApi_ | [**enable**](docs/PamAccessConnectorRotationTargetSystemsApi.md#pam_access_connectors_rotation_target_systems_enable)                                            | **POST** /organizations/{orgId}/access-connectors/rotation/target-systems/{id}/enable                    |
 | _PamAccessConnectorRotationTargetSystemsApi_ | [**get_all**](docs/PamAccessConnectorRotationTargetSystemsApi.md#pam_access_connectors_rotation_target_systems_get_all)                                          | **GET** /organizations/{orgId}/access-connectors/rotation/target-systems                                 |
@@ -654,6 +656,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [BillingSubscriptionUpcomingInvoice](docs/BillingSubscriptionUpcomingInvoice.md)
 - [BillingTransaction](docs/BillingTransaction.md)
 - [BitPayCreditRequest](docs/BitPayCreditRequest.md)
+- [BitwardenDiscountType](docs/BitwardenDiscountType.md)
 - [BulkCollectionAccessRequestModel](docs/BulkCollectionAccessRequestModel.md)
 - [BulkCreateSecurityTasksRequestModel](docs/BulkCreateSecurityTasksRequestModel.md)
 - [BulkDeleteResponseModel](docs/BulkDeleteResponseModel.md)
@@ -793,6 +796,9 @@ All URIs are relative to *https://api.bitwarden.com*
 - [InstallationResponseModel](docs/InstallationResponseModel.md)
 - [Int32Int32KeyValuePair](docs/Int32Int32KeyValuePair.md)
 - [IntegrationType](docs/IntegrationType.md)
+- [InvoicePreview](docs/InvoicePreview.md)
+- [InvoicePreviewDiscount](docs/InvoicePreviewDiscount.md)
+- [InvoicePreviewItem](docs/InvoicePreviewItem.md)
 - [JsonElementPushSendRequestModel](docs/JsonElementPushSendRequestModel.md)
 - [KdfRequestModel](docs/KdfRequestModel.md)
 - [KdfType](docs/KdfType.md)
@@ -937,6 +943,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PasswordHealthReportApplication](docs/PasswordHealthReportApplication.md)
 - [PasswordHealthReportApplicationModel](docs/PasswordHealthReportApplicationModel.md)
 - [PasswordHintRequestModel](docs/PasswordHintRequestModel.md)
+- [PasswordManagerInvoiceItems](docs/PasswordManagerInvoiceItems.md)
 - [PasswordManagerPlanFeaturesResponseModel](docs/PasswordManagerPlanFeaturesResponseModel.md)
 - [PasswordManagerPurchaseSelections](docs/PasswordManagerPurchaseSelections.md)
 - [PasswordManagerUpdateSelections](docs/PasswordManagerUpdateSelections.md)
@@ -949,12 +956,14 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PendingAuthRequestResponseModelListResponseModel](docs/PendingAuthRequestResponseModelListResponseModel.md)
 - [PendingOrganizationAuthRequestResponseModel](docs/PendingOrganizationAuthRequestResponseModel.md)
 - [PendingOrganizationAuthRequestResponseModelListResponseModel](docs/PendingOrganizationAuthRequestResponseModelListResponseModel.md)
+- [PendingSubscriptionChange](docs/PendingSubscriptionChange.md)
 - [PeopleAccessPoliciesRequestModel](docs/PeopleAccessPoliciesRequestModel.md)
 - [Permissions](docs/Permissions.md)
 - [PlanCadenceType](docs/PlanCadenceType.md)
 - [PlanResponseModel](docs/PlanResponseModel.md)
 - [PlanResponseModelListResponseModel](docs/PlanResponseModelListResponseModel.md)
 - [PlanSponsorshipType](docs/PlanSponsorshipType.md)
+- [PlanTierType](docs/PlanTierType.md)
 - [PlanType](docs/PlanType.md)
 - [PolicyRequestModel](docs/PolicyRequestModel.md)
 - [PolicyResponseModel](docs/PolicyResponseModel.md)
@@ -1022,6 +1031,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PublicKeyEncryptionKeyPairRequestModel](docs/PublicKeyEncryptionKeyPairRequestModel.md)
 - [PublicKeyEncryptionKeyPairResponseModel](docs/PublicKeyEncryptionKeyPairResponseModel.md)
 - [PublicKeysResponseModel](docs/PublicKeysResponseModel.md)
+- [PurchasableProration](docs/PurchasableProration.md)
 - [PushDeviceRequestModel](docs/PushDeviceRequestModel.md)
 - [PushRegistrationRequestModel](docs/PushRegistrationRequestModel.md)
 - [PushSettings](docs/PushSettings.md)
@@ -1060,6 +1070,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SecretVersionResponseModelListResponseModel](docs/SecretVersionResponseModelListResponseModel.md)
 - [SecretWithProjectsInnerProject](docs/SecretWithProjectsInnerProject.md)
 - [SecretWithProjectsListResponseModel](docs/SecretWithProjectsListResponseModel.md)
+- [SecretsManagerInvoiceItems](docs/SecretsManagerInvoiceItems.md)
 - [SecretsManagerPlanFeaturesResponseModel](docs/SecretsManagerPlanFeaturesResponseModel.md)
 - [SecretsManagerPurchaseSelections](docs/SecretsManagerPurchaseSelections.md)
 - [SecretsManagerSubscribeRequestModel](docs/SecretsManagerSubscribeRequestModel.md)
@@ -1115,10 +1126,12 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SsoConfigurationDataRequest](docs/SsoConfigurationDataRequest.md)
 - [SsoType](docs/SsoType.md)
 - [SsoUrls](docs/SsoUrls.md)
+- [Storage](docs/Storage.md)
 - [StorageRequestModel](docs/StorageRequestModel.md)
 - [StorageUpdateRequest](docs/StorageUpdateRequest.md)
 - [SubmitCipherUpdateRequestModel](docs/SubmitCipherUpdateRequestModel.md)
 - [SubscriptionCancellationRequestModel](docs/SubscriptionCancellationRequestModel.md)
+- [SubscriptionPreview](docs/SubscriptionPreview.md)
 - [SubscriptionResponseModel](docs/SubscriptionResponseModel.md)
 - [SyncResponseModel](docs/SyncResponseModel.md)
 - [TaxIdRequest](docs/TaxIdRequest.md)

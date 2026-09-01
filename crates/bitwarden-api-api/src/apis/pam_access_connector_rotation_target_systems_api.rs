@@ -26,6 +26,9 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait PamAccessConnectorRotationTargetSystemsApi: Send + Sync {
+    /// DELETE /organizations/{orgId}/access-connectors/rotation/target-systems/{id}
+    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
+
     /// POST /organizations/{orgId}/access-connectors/rotation/target-systems/{id}/disable
     async fn disable<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
@@ -69,6 +72,25 @@ impl PamAccessConnectorRotationTargetSystemsApiClient {
 impl PamAccessConnectorRotationTargetSystemsApi
     for PamAccessConnectorRotationTargetSystemsApiClient
 {
+    async fn delete<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/access-connectors/rotation/target-systems/{id}",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn disable<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
