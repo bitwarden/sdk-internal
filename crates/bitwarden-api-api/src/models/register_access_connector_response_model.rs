@@ -53,7 +53,7 @@ pub struct RegisterAccessConnectorResponseModel {
     )]
     pub creation_date: Option<String>,
     /// The id of the access connector's `dbo.ApiKey` credential. The operator assembles the access
-    /// connector's OAuth client id from it (`access-connector.<ApiKeyId>`, resolved server-side by
+    /// connector's OAuth client id from it (`daemon.<ApiKeyId>`, resolved server-side by
     /// `PamAccessConnectorClientProvider` in Identity).
     #[serde(
         rename = "apiKeyId",
@@ -65,7 +65,7 @@ pub struct RegisterAccessConnectorResponseModel {
     /// credential -- store it now; the server hashes it for storage and never persists or returns
     /// the plaintext again. Pair with the client-wrapped org key you already hold locally to
     /// assemble the access connector's token
-    /// (`0.access-connector.<apiKeyId>.<client_secret>:<encryption_key>`).
+    /// (`0.daemon.<apiKeyId>.<client_secret>:<encryption_key>`).
     #[serde(
         rename = "clientSecret",
         alias = "ClientSecret",
