@@ -63,8 +63,8 @@ const DERIVE_INFO: &str = "sm-access-token";
 const TOKEN_VERSION: &str = "0";
 
 /// The token's client-kind segment. The connector builds its OAuth `client_id` as
-/// `daemon.<api_key_id>`, so this segment and that prefix have to agree.
-const TOKEN_CLIENT_KIND: &str = "daemon";
+/// `access-connector.<api_key_id>`, so this segment and that prefix have to agree.
+const TOKEN_CLIENT_KIND: &str = "access-connector";
 
 /// The locally-derived half of a registration, held between generating the key material and
 /// assembling the token around the server's response.
@@ -82,7 +82,7 @@ pub(super) struct RegistrationSecrets {
 impl RegistrationSecrets {
     /// Assembles the one-time connector token from the server's response and the local seed.
     ///
-    /// Format: `0.daemon.<api-key-id>.<client-secret>:<b64-seed>`.
+    /// Format: `0.access-connector.<api-key-id>.<client-secret>:<b64-seed>`.
     ///
     /// Consumes `self` so the seed cannot be used to mint a second token for the same connector.
     pub(super) fn into_token(self, api_key_id: Uuid, client_secret: &str) -> String {
@@ -106,7 +106,7 @@ pub enum ConnectorTokenInvalidError {
     /// The version segment was not `0`.
     #[error("Is the wrong version")]
     WrongVersion,
-    /// The client-kind segment was not `daemon`.
+    /// The client-kind segment was not `access-connector`.
     #[error("Has the wrong prefix")]
     WrongPrefix,
     /// The API key id segment was not a UUID.
@@ -133,7 +133,8 @@ pub enum ConnectorTokenInvalidError {
 /// first place. The rotation daemon carries its own copy of this parser and should converge on this
 /// one.
 pub struct ConnectorToken {
-    /// The API key identifier. The connector's OAuth `client_id` is `daemon.<api_key_id>`.
+    /// The API key identifier. The connector's OAuth `client_id` is
+    /// `access-connector.<api_key_id>`.
     pub api_key_id: Uuid,
     /// The OAuth client secret. Redacted from [`fmt::Debug`].
     pub client_secret: String,
@@ -327,11 +328,35 @@ mod tests {
         let token = secrets.into_token(api_key_id, "secret");
 
         let (prefix, seed_b64) = token.split_once(':').expect("a `:` separates the seed");
-        assert_eq!(prefix, format!("0.daemon.{api_key_id}.secret"));
+        assert_eq!(prefix, format!("0.access-connector.{api_key_id}.secret"));
 
         // The connector requires exactly 16 bytes; a different length is rejected at parse time.
         let seed: B64 = seed_b64.parse().expect("the suffix is base64");
         assert_eq!(seed.as_bytes().len(), 16);
+    }
+
+    /// The client-kind segment was renamed from `daemon` to `access-connector` as a clean break:
+    /// the parser must reject the old segment outright rather than still accepting it.
+    #[test]
+    fn a_token_with_the_old_daemon_kind_segment_is_rejected() {
+        let client = client_with_org_key(SymmetricCryptoKey::make(
+            SymmetricKeyAlgorithm::Aes256CbcHmac,
+        ));
+        let secrets = client
+            .registration_secrets(organization_id())
+            .expect("the org key is in the store");
+        let token = secrets.into_token(uuid!("22222222-2222-2222-2222-222222222222"), "secret");
+
+        // A well-formed token, but with the retired `daemon` kind segment in place of
+        // `access-connector`.
+        let stale_token = token.replacen("access-connector", "daemon", 1);
+
+        let result = ConnectorToken::from_str(&stale_token);
+
+        assert!(matches!(
+            result,
+            Err(ConnectorTokenInvalidError::WrongPrefix)
+        ));
     }
 
     /// The `key` field is not read during registration, so a mistake in it would go unnoticed until

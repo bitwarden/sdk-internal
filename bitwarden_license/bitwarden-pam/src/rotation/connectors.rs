@@ -141,7 +141,7 @@ pub struct AccessConnectorRegistrationView {
     pub creation_date: DateTime<Utc>,
     /// The credential the operator provisions into the connector's configuration.
     ///
-    /// Format: `0.daemon.<api-key-id>.<client-secret>:<b64-seed>`.
+    /// Format: `0.access-connector.<api-key-id>.<client-secret>:<b64-seed>`.
     ///
     /// **Returned exactly once and unrecoverable.** The server keeps only a hash of the client
     /// secret, and the seed exists nowhere else. Show it for the operator to copy, deliver it
