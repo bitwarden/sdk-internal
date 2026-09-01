@@ -13,7 +13,9 @@ Keys owned by `@bitwarden/team-key-management-dev`:
 - User Private Key
 - User Signature Key
 - Organization Key
-- Organization Private Key must undergo review and requires approval for new usages.
+- Organization Private Key
+
+must undergo review and requires approval for new usages.
 
 - **New wrapping or new access path** — wrapping the key with a new key or in a new format, or
   otherwise exposing a new means of obtaining it.
