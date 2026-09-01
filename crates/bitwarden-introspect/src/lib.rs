@@ -175,6 +175,103 @@ impl<T: Introspect> Introspect for Option<T> {
     }
 }
 
+// Smart pointers are transparent: they introspect as whatever they point to.
+impl<T: Introspect + ?Sized> Introspect for Box<T> {
+    fn node_info(&self) -> NodeInfo {
+        (**self).node_info()
+    }
+
+    fn describe(&self, path: &[&str]) -> Option<NodeInfo> {
+        (**self).describe(path)
+    }
+}
+
+impl<T: Introspect + ?Sized> Introspect for std::sync::Arc<T> {
+    fn node_info(&self) -> NodeInfo {
+        (**self).node_info()
+    }
+
+    fn describe(&self, path: &[&str]) -> Option<NodeInfo> {
+        (**self).describe(path)
+    }
+}
+
+impl<K: std::fmt::Display, V: Introspect> Introspect for std::collections::HashMap<K, V> {
+    fn node_info(&self) -> NodeInfo {
+        let mut entries: Vec<(String, &V)> =
+            self.iter().map(|(key, value)| (key.to_string(), value)).collect();
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        let children = entries
+            .iter()
+            .map(|(key, value)| {
+                let node = value.node_info();
+                ChildRef {
+                    key: key.clone(),
+                    type_name: node.type_name,
+                    preview: node.preview,
+                    writeability: node.writeability,
+                }
+            })
+            .collect();
+        NodeInfo {
+            type_name: "HashMap",
+            preview: format!("{{{} entries}}", self.len()),
+            writeability: Writeability::ReadOnly,
+            children,
+        }
+    }
+
+    fn describe(&self, path: &[&str]) -> Option<NodeInfo> {
+        match path.split_first() {
+            None => Some(self.node_info()),
+            Some((head, rest)) => self
+                .iter()
+                .find(|(key, _)| key.to_string() == *head)
+                .and_then(|(_, value)| value.describe(rest)),
+        }
+    }
+}
+
+#[cfg(feature = "uuid")]
+impl Introspect for uuid::Uuid {
+    fn node_info(&self) -> NodeInfo {
+        NodeInfo {
+            type_name: "Uuid",
+            preview: self.to_string(),
+            writeability: Writeability::ReadOnly,
+            children: Vec::new(),
+        }
+    }
+
+    fn describe(&self, path: &[&str]) -> Option<NodeInfo> {
+        if path.is_empty() {
+            Some(self.node_info())
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(feature = "chrono")]
+impl Introspect for chrono::DateTime<chrono::Utc> {
+    fn node_info(&self) -> NodeInfo {
+        NodeInfo {
+            type_name: "DateTime<Utc>",
+            preview: self.to_rfc3339(),
+            writeability: Writeability::ReadOnly,
+            children: Vec::new(),
+        }
+    }
+
+    fn describe(&self, path: &[&str]) -> Option<NodeInfo> {
+        if path.is_empty() {
+            Some(self.node_info())
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(not(feature = "introspect"))]
 mod debuggable_impl {
     /// A field a developer has marked as worth inspecting at runtime.
@@ -347,5 +444,66 @@ mod tests {
         let root = sample().describe(&[]).unwrap();
         let secret = root.children.iter().find(|c| c.key == "secret").unwrap();
         assert_eq!(secret.writeability, Writeability::InPlace);
+    }
+
+    #[derive(Introspect)]
+    enum Action {
+        Lock,
+        Navigate(String),
+        SetFlag { name: String, enabled: bool },
+    }
+
+    #[test]
+    fn enum_unit_variant_has_no_children() {
+        let node = Action::Lock.node_info();
+        assert_eq!(node.type_name, "Action");
+        assert_eq!(node.preview, "Lock");
+        assert!(node.children.is_empty());
+    }
+
+    #[test]
+    fn enum_tuple_variant_descends_by_index() {
+        let action = Action::Navigate("settings".to_string());
+        assert_eq!(action.describe(&["0"]).unwrap().preview, "\"settings\"");
+    }
+
+    #[test]
+    fn enum_struct_variant_descends_by_field_name() {
+        let action = Action::SetFlag {
+            name: "beta".to_string(),
+            enabled: true,
+        };
+        assert_eq!(action.describe(&[]).unwrap().preview, "SetFlag");
+        assert_eq!(action.describe(&["enabled"]).unwrap().preview, "true");
+    }
+
+    #[test]
+    fn hashmap_sorts_keys_and_descends() {
+        use std::collections::HashMap;
+        let mut map: HashMap<String, i32> = HashMap::new();
+        map.insert("b".to_string(), 2);
+        map.insert("a".to_string(), 1);
+        let node = map.node_info();
+        let keys: Vec<&str> = node.children.iter().map(|c| c.key.as_str()).collect();
+        assert_eq!(keys, ["a", "b"]);
+        assert_eq!(map.describe(&["b"]).unwrap().preview, "2");
+    }
+
+    #[cfg(feature = "uuid")]
+    #[test]
+    fn uuid_is_a_leaf() {
+        let node = uuid::Uuid::nil().node_info();
+        assert_eq!(node.type_name, "Uuid");
+        assert!(node.children.is_empty());
+    }
+
+    #[cfg(feature = "chrono")]
+    #[test]
+    fn datetime_is_a_leaf() {
+        let node = chrono::DateTime::<chrono::Utc>::from_timestamp(0, 0)
+            .unwrap()
+            .node_info();
+        assert_eq!(node.type_name, "DateTime<Utc>");
+        assert!(node.children.is_empty());
     }
 }

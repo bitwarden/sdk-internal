@@ -978,6 +978,8 @@ name = "bitwarden-introspect"
 version = "3.0.0"
 dependencies = [
  "bitwarden-introspect-macro",
+ "chrono",
+ "uuid",
 ]
 
 [[package]]

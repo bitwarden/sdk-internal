@@ -16,12 +16,18 @@ keywords.workspace = true
 
 [dependencies]
 bitwarden-introspect-macro = { workspace = true }
+chrono = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
 
 [features]
 ## Switches `Debuggable<T>` to its lock-backed, writable form and makes the
 ## introspection surface live. Consumers enable this only in dev builds; with
 ## it off, `Debuggable<T>` is `#[repr(transparent)]` over `T` and costs nothing.
 introspect = []
+## `Introspect` impls for common leaf types from these external crates. Kept
+## optional so consumers that don't use them don't pull in the dependency.
+chrono = ["dep:chrono"]
+uuid = ["dep:uuid"]
 
 [lints]
 workspace = true
