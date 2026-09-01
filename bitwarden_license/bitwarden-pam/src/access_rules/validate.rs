@@ -26,6 +26,10 @@ pub enum AccessRuleValidationError {
     /// positive.
     #[error("Lease durations must be positive")]
     InvalidLeaseDuration,
+    /// `default_lease_duration_seconds` exceeded `max_lease_duration_seconds`, which would pre-fill
+    /// every request under the rule with a duration the rule's own cap forbids.
+    #[error("The default lease duration cannot exceed the maximum lease duration")]
+    DefaultLeaseDurationExceedsMax,
     /// More than 10 conditions were provided.
     #[error("A rule may have at most {MAX_CONDITIONS} conditions")]
     TooManyConditions,
@@ -62,6 +66,15 @@ pub fn validate_request(
         || request.max_lease_duration_seconds.is_some_and(|m| m <= 0)
     {
         return Err(AccessRuleValidationError::InvalidLeaseDuration);
+    }
+
+    // An absent max is "no cap", so it never constrains the default.
+    if let (Some(default), Some(max)) = (
+        request.default_lease_duration_seconds,
+        request.max_lease_duration_seconds,
+    ) && default > max
+    {
+        return Err(AccessRuleValidationError::DefaultLeaseDurationExceedsMax);
     }
 
     if request.conditions.len() > MAX_CONDITIONS {
@@ -483,6 +496,34 @@ mod tests {
     fn none_lease_durations_are_valid() {
         let mut request = base_request();
         request.default_lease_duration_seconds = None;
+        request.max_lease_duration_seconds = None;
+        assert_eq!(validate_request(&request), Ok(()));
+    }
+
+    #[test]
+    fn default_lease_duration_above_max_is_invalid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(3600);
+        request.max_lease_duration_seconds = Some(900);
+        assert_eq!(
+            validate_request(&request),
+            Err(AccessRuleValidationError::DefaultLeaseDurationExceedsMax)
+        );
+    }
+
+    #[test]
+    fn default_lease_duration_equal_to_max_is_valid() {
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(900);
+        request.max_lease_duration_seconds = Some(900);
+        assert_eq!(validate_request(&request), Ok(()));
+    }
+
+    #[test]
+    fn default_lease_duration_without_a_max_is_valid() {
+        // An absent max is "no cap" - it cannot be exceeded.
+        let mut request = base_request();
+        request.default_lease_duration_seconds = Some(7 * 86_400);
         request.max_lease_duration_seconds = None;
         assert_eq!(validate_request(&request), Ok(()));
     }
