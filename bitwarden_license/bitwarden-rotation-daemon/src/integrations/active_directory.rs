@@ -56,7 +56,9 @@ use std::{collections::HashSet, time::Duration};
 
 use async_trait::async_trait;
 use bitwarden_sensitive_value::ExposeSensitive as _;
-use ldap3::{Ldap, LdapConnAsync, LdapConnSettings, LdapError, Mod, Scope, SearchEntry};
+use ldap3::{
+    Ldap, LdapConnAsync, LdapConnSettings, LdapError, Mod, ResultEntry, Scope, SearchEntry,
+};
 use tokio::task::JoinHandle;
 use zeroize::Zeroizing;
 
@@ -216,6 +218,9 @@ impl ActiveDirectoryIntegration {
     /// The lookup must match exactly one enabled user object: zero matches and
     /// multiple matches are both fatal, because rotating the wrong account is
     /// worse than not rotating at all.
+    ///
+    /// Only real entries are counted — see [`search_entries_only`] for why the
+    /// search result can hold more than the accounts that matched the filter.
     async fn find_account_dn(
         &self,
         session: &mut LdapSession,
@@ -230,9 +235,10 @@ impl ActiveDirectoryIntegration {
             .search(base_dn, Scope::Subtree, &filter, NO_ATTRS)
             .await
             .map_err(|e| classify_ldap_error(&e, policy))?;
-        let (mut entries, _result) = search
+        let (results, _result) = search
             .success()
             .map_err(|e| classify_ldap_error(&e, policy))?;
+        let mut entries = search_entries_only(results);
 
         if entries.len() > 1 {
             return Err(IntegrationError {
@@ -441,6 +447,36 @@ impl Integration for ActiveDirectoryIntegration {
             detail: SafeDetail::from_kind("ActiveDirectorySessionTerminationUnsupported"),
         })
     }
+}
+
+// ---------------------------------------------------------------------------
+// Search result filtering
+// ---------------------------------------------------------------------------
+
+/// Keep only the `SearchResultEntry` PDUs from a search result.
+///
+/// `ldap3` returns every PDU the search produced in one `Vec<ResultEntry>`:
+/// `SearchResultReference` continuation references and intermediate responses
+/// sit alongside the entries that actually matched the filter, distinguished
+/// only by [`ResultEntry::is_ref`] and [`ResultEntry::is_intermediate`].
+///
+/// Active Directory returns a continuation reference for every naming context
+/// subordinate to the search base, on every subtree search, whatever the filter
+/// matched. A `base_dn` at a domain root therefore always yields references to
+/// `DC=DomainDnsZones,…` and `DC=ForestDnsZones,…`. Counting those as matches
+/// would report `AmbiguousAccountIdentity` for a correctly configured target,
+/// and passing one to [`SearchEntry::construct`] panics, because a reference
+/// carries no entry to unwrap. The README recommends an OU-scoped base, but
+/// nothing rejects a domain-root one, so the count must be taken over entries.
+///
+/// References are dropped rather than chased: this daemon rotates only accounts
+/// below the configured search base, and following a referral would carry the
+/// bind credential to a server the operator never named.
+fn search_entries_only(results: Vec<ResultEntry>) -> Vec<ResultEntry> {
+    results
+        .into_iter()
+        .filter(|entry| !entry.is_ref() && !entry.is_intermediate())
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -680,7 +716,10 @@ fn get_cred<'a>(
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-    use ldap3::result::LdapResult;
+    use ldap3::{
+        asn1::{PL, StructureTag, TagClass},
+        result::LdapResult,
+    };
     use uuid::Uuid;
 
     use super::*;
@@ -707,6 +746,122 @@ mod tests {
             refs: Vec::new(),
             ctrls: Vec::new(),
         }
+    }
+
+    /// LDAP protocol-op tag numbers (RFC 4511 §4.5.2, §4.13).
+    const TAG_SEARCH_RESULT_ENTRY: u64 = 4;
+    const TAG_SEARCH_RESULT_REFERENCE: u64 = 19;
+    const TAG_INTERMEDIATE_RESPONSE: u64 = 25;
+
+    /// A `SearchResultEntry` PDU for `dn` with no attributes, shaped the way
+    /// [`SearchEntry::construct`] expects: the DN followed by an empty
+    /// attribute list.
+    fn entry_pdu(dn: &str) -> ResultEntry {
+        ResultEntry::new(StructureTag {
+            class: TagClass::Application,
+            id: TAG_SEARCH_RESULT_ENTRY,
+            payload: PL::C(vec![
+                StructureTag {
+                    class: TagClass::Universal,
+                    id: 4,
+                    payload: PL::P(dn.as_bytes().to_vec()),
+                },
+                StructureTag {
+                    class: TagClass::Universal,
+                    id: 16,
+                    payload: PL::C(Vec::new()),
+                },
+            ]),
+        })
+    }
+
+    /// A continuation reference of the kind AD returns for a subordinate naming
+    /// context under the search base.
+    fn reference_pdu(uri: &str) -> ResultEntry {
+        ResultEntry::new(StructureTag {
+            class: TagClass::Application,
+            id: TAG_SEARCH_RESULT_REFERENCE,
+            payload: PL::C(vec![StructureTag {
+                class: TagClass::Universal,
+                id: 4,
+                payload: PL::P(uri.as_bytes().to_vec()),
+            }]),
+        })
+    }
+
+    fn intermediate_pdu() -> ResultEntry {
+        ResultEntry::new(StructureTag {
+            class: TagClass::Application,
+            id: TAG_INTERMEDIATE_RESPONSE,
+            payload: PL::C(Vec::new()),
+        })
+    }
+
+    /// The references a domain-root subtree search draws from Active Directory
+    /// on every search, whatever the filter matched.
+    fn domain_root_references() -> Vec<ResultEntry> {
+        vec![
+            reference_pdu("ldap://corp.example/DC=DomainDnsZones,DC=corp,DC=example"),
+            reference_pdu("ldap://corp.example/DC=ForestDnsZones,DC=corp,DC=example"),
+        ]
+    }
+
+    // -----------------------------------------------------------------------
+    // Search result filtering
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn one_match_under_a_domain_root_base_is_not_ambiguous() {
+        let mut results = domain_root_references();
+        results.insert(
+            1,
+            entry_pdu("CN=svc-app,OU=Service Accounts,DC=corp,DC=example"),
+        );
+
+        let entries = search_entries_only(results);
+
+        assert_eq!(
+            entries.len(),
+            1,
+            "continuation references must not count towards the match count"
+        );
+        assert_eq!(
+            SearchEntry::construct(entries.into_iter().next().expect("one entry")).dn,
+            "CN=svc-app,OU=Service Accounts,DC=corp,DC=example"
+        );
+    }
+
+    #[test]
+    fn no_match_under_a_domain_root_base_leaves_nothing_to_construct() {
+        let entries = search_entries_only(domain_root_references());
+
+        assert!(
+            entries.is_empty(),
+            "references alone must resolve to AccountNotFound, never be constructed as an entry"
+        );
+    }
+
+    #[test]
+    fn intermediate_responses_are_dropped_too() {
+        let results = vec![
+            intermediate_pdu(),
+            entry_pdu("CN=svc-app,DC=corp,DC=example"),
+        ];
+
+        assert_eq!(search_entries_only(results).len(), 1);
+    }
+
+    #[test]
+    fn two_real_matches_are_still_ambiguous() {
+        let mut results = domain_root_references();
+        results.push(entry_pdu("CN=svc-app,OU=A,DC=corp,DC=example"));
+        results.push(entry_pdu("CN=svc-app,OU=B,DC=corp,DC=example"));
+
+        assert_eq!(
+            search_entries_only(results).len(),
+            2,
+            "filtering references must not mask a genuinely ambiguous identity"
+        );
     }
 
     // -----------------------------------------------------------------------
