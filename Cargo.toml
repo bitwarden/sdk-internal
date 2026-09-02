@@ -98,6 +98,9 @@ icu_normalizer = { version = "2.2.0", features = [
 ], default-features = false }
 js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.14", default-features = false }
+ldap3 = { version = "0.12.1", default-features = false, features = [
+    "tls-rustls-ring",
+] }
 mockall = { version = ">=0.13.1, <0.16" }
 password-rules-parser = ">=1.1.0, <2"
 pbkdf2 = { version = "0.13.0-rc.10", default-features = false }

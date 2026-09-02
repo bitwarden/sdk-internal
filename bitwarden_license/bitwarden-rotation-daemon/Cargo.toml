@@ -28,6 +28,7 @@ bitwarden-threading = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["env"] }
 http = { workspace = true }
+ldap3 = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde = { workspace = true }
