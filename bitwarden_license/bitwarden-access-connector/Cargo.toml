@@ -35,8 +35,11 @@ bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["env"] }
 http = { workspace = true }
+ldap3 = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
+rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

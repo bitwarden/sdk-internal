@@ -8,6 +8,9 @@ pub(crate) fn required_suffixes(kind: SealedTargetSystemKind) -> &'static [&'sta
     match kind {
         SealedTargetSystemKind::Entra => &["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"],
         SealedTargetSystemKind::CustomScript => &["SCRIPT"],
+        SealedTargetSystemKind::ActiveDirectory => {
+            &["LDAP_HOST", "BIND_DN", "BASE_DN", "BIND_PASSWORD"]
+        }
     }
 }
 
