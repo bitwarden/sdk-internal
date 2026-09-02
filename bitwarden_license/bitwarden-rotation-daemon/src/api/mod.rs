@@ -213,8 +213,7 @@ pub(crate) fn build_api_client(
 ///
 /// # Error classification
 ///
-/// See [`ApiError`] for the full taxonomy.  The classification follows the rules
-/// in the plan §4:
+/// See [`ApiError`] for the full taxonomy.  The classification rules are:
 ///
 /// - Post-retry 401 → consult `session.phase()`: terminal → `SessionLost`, else `Transient`.
 /// - 404 on poll/claim (daemon/job routes) → `NotEligible`.

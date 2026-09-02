@@ -1080,7 +1080,6 @@ mod tests {
 
     #[test]
     fn target_effect_to_sync_state_mapping() {
-        // Verify the explicit mappings specified by the plan.
         assert_eq!(
             effect_to_sync_state(TargetEffect::NotApplied),
             SyncState::TargetUnchanged
@@ -1138,7 +1137,7 @@ mod tests {
         assert_eq!(s, r#""unsupported_kind""#);
     }
 
-    // ── Fix-5: get_cipher Protocol error → target_updated failure reported ──
+    // ── get_cipher Protocol error → target_updated failure reported ──────
 
     /// After a successful rotate (step 3), a Protocol error from get_cipher
     /// must produce a `target_updated` failure report rather than being silently

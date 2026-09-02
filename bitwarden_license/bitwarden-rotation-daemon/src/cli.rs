@@ -112,7 +112,6 @@ mod tests {
 
     #[test]
     fn cli_rejects_removed_settings_flags() {
-        // Per-setting flags were removed; settings live in the config file only.
         for args in [
             ["bw-rotation-daemon", "run", "--poll-interval", "30"].as_slice(),
             [
