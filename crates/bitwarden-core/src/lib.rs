@@ -9,6 +9,10 @@ pub mod auth;
 pub mod client;
 mod error;
 pub mod global;
+/// Hand-rolled, debug-only introspection capabilities. Compiled only under the
+/// `introspect` feature; never ship in production.
+#[cfg(all(feature = "introspect", feature = "internal"))]
+pub mod introspect;
 pub mod key_management;
 pub use error::{
     ApiError, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError, WrongPasswordError,

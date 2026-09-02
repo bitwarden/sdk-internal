@@ -162,8 +162,9 @@ impl PasswordManagerClient {
     /// as they gain their own `Introspect` impls.
     #[cfg(feature = "introspect")]
     pub fn introspect(&self) -> crate::introspect::IntrospectClient {
-        let root = InnerPasswordManagerClient(self.0.0.clone());
-        crate::introspect::IntrospectClient::new(Box::new(root))
+        let client = self.0.0.clone();
+        let root = InnerPasswordManagerClient(client.clone());
+        crate::introspect::IntrospectClient::new(Box::new(root), client)
     }
 }
 

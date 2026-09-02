@@ -32,6 +32,7 @@ dangerous-crypto-debug = ["bitwarden-core/dangerous-crypto-debug"]
 introspect = [
     "dep:bitwarden-introspect",
     "bitwarden-introspect/serde",
+    "bitwarden-core/introspect",
     "bitwarden-pm/introspect",
     "dep:serde_json",
 ]
