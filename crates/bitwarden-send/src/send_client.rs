@@ -4,6 +4,7 @@ use bitwarden_core::Client;
 use bitwarden_crypto::{
     Decryptable, EncString, IdentifyKey, OctetStreamBytes, PrimitiveEncryptable,
 };
+use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -13,8 +14,8 @@ use crate::{Send, SendListView, SendView};
 
 /// Generic error type for send encryption errors.
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SendEncryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),

@@ -189,7 +189,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     // moved directly into the CompositeEncryptable implementation.
     if view.key.is_none() && enable_cipher_key_encryption {
         let key = view.key_identifier();
-        view.generate_cipher_key(&mut key_store.context(), key)?;
+        view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
     }
 
     let encrypted_by_key_id = key_store
@@ -502,7 +502,7 @@ mod tests {
                     Ok(CipherResponseModel {
                         object: Some("cipher".to_string()),
                         id: Some(cipher_id.into()),
-                        name: Some(body.name),
+                        name: body.name,
                         r#type: body.r#type,
                         organization_id: body
                             .organization_id

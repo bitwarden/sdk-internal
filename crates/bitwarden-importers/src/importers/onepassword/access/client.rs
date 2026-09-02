@@ -317,6 +317,7 @@ mod tests {
 
         let error = download_vault_items(VAULT_ID, &Keychain::new(), &session(&server))
             .await
+            .map(|_| ())
             .expect_err("refetching the same page is an error, not a loop");
 
         assert!(
