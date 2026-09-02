@@ -63,7 +63,6 @@ pub struct SendClient {
 impl SendClient {
     /// Decrypt a [`Send`] into a [`SendView`].
     /// This is a temporary function to support the transition to fully using the SDK for Send logic
-    #[allow(missing_docs)]
     pub fn decrypt_send(&self, send: Send) -> Result<SendView, SendDecryptError> {
         self.decrypt(send)
     }

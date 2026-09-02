@@ -199,6 +199,9 @@ pub enum SendAccessDecryptError {
     /// decrypt it (wrong key, or a tampered response).
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    /// The key could not be derived from the URL fragment
+    #[error(transparent)]
+    Key(#[from] SendAccessKeyError),
 }
 
 // ===== Anonymous access key =====
@@ -291,9 +294,12 @@ impl SendAccessKey {
                 let key_store: KeyStore<KeySlotIds> = KeyStore::default();
                 let mut ctx = key_store.context_mut();
                 let key = ctx.add_local_symmetric_key(self.key.clone());
-                let cipher = serde_json::from_str::<Cipher>(
-                    d.data.expect("Item type Send requires data field").as_str(),
-                );
+                let Some(data) = d.data else {
+                    return Err(SendAccessDecryptError::Crypto(CryptoError::MissingField(
+                        "data",
+                    )));
+                };
+                let cipher = serde_json::from_str::<Cipher>(data.as_str());
                 match cipher {
                     Ok(c) => {
                         let cipher_view: CipherView = c.decrypt(&mut ctx, key)?;
@@ -453,13 +459,11 @@ impl SendClient {
 
     /// Decrypt a [`SendAccessResponse`] into a [`SendAccessView`] using a [`SendAccessKey`].
     /// This is a temporary function to support the transition to fully using the SDK for Send logic
-    #[allow(missing_docs)]
     pub fn decrypt_send_access(
-        key_b64: &str,
+        key: SymmetricCryptoKey,
         response: SendAccessResponse,
     ) -> Result<SendAccessView, SendAccessDecryptError> {
-        let access_key = SendAccessKey::from_url_b64(&key_b64)
-            .map_err(|_| SendAccessDecryptError::Crypto(bitwarden_crypto::CryptoError::Decrypt))?;
+        let access_key = SendAccessKey::from_url_b64(key.to_base64().to_string().as_str())?;
         access_key.decrypt_response(response)
     }
 }
