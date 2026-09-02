@@ -226,9 +226,16 @@ impl IntegrationRegistry {
         self.map.get(&kind).cloned()
     }
 
-    /// The kinds that have a driver in this build, in no particular order.
+    /// The kinds that have a driver in this build.
+    ///
+    /// Ordered by each kind's `Debug` rendering, so the result depends only on
+    /// which kinds are registered — never on their insertion order or on the
+    /// backing map's iteration order. Two builds with the same drivers report
+    /// the same list, which is what makes the startup log diffable across runs.
     pub(crate) fn kinds(&self) -> Vec<TargetKind> {
-        self.map.keys().copied().collect()
+        let mut kinds: Vec<TargetKind> = self.map.keys().copied().collect();
+        kinds.sort_by_cached_key(|kind| format!("{kind:?}"));
+        kinds
     }
 }
 
@@ -273,11 +280,56 @@ mod tests {
         let mut reg = IntegrationRegistry::new();
         reg.register(TargetKind::CustomScript, Arc::new(AlwaysOk));
         reg.register(TargetKind::ActiveDirectory, Arc::new(AlwaysOk));
-        let mut kinds = reg.kinds();
-        kinds.sort_by_key(|k| format!("{k:?}"));
         assert_eq!(
-            kinds,
+            reg.kinds(),
             vec![TargetKind::ActiveDirectory, TargetKind::CustomScript]
+        );
+    }
+
+    #[test]
+    fn registry_kinds_does_not_depend_on_registration_order() {
+        let order = [
+            TargetKind::Entra,
+            TargetKind::ActiveDirectory,
+            TargetKind::CustomScript,
+        ];
+        let mut forwards = IntegrationRegistry::new();
+        let mut backwards = IntegrationRegistry::new();
+        for kind in order {
+            forwards.register(kind, Arc::new(AlwaysOk));
+        }
+        for kind in order.iter().rev() {
+            backwards.register(*kind, Arc::new(AlwaysOk));
+        }
+        assert_eq!(forwards.kinds(), backwards.kinds());
+    }
+
+    #[test]
+    fn registry_kinds_is_stable_across_registries() {
+        let build = || {
+            let mut reg = IntegrationRegistry::new();
+            for kind in [
+                TargetKind::Entra,
+                TargetKind::CustomScript,
+                TargetKind::ActiveDirectory,
+            ] {
+                reg.register(kind, Arc::new(AlwaysOk));
+            }
+            reg.kinds()
+        };
+        // A HashMap's iteration order varies per instance, so repeating the
+        // build is what exercises the ordering rather than one lucky layout.
+        let first = build();
+        for _ in 0..16 {
+            assert_eq!(build(), first);
+        }
+        assert_eq!(
+            first,
+            vec![
+                TargetKind::ActiveDirectory,
+                TargetKind::CustomScript,
+                TargetKind::Entra
+            ]
         );
     }
 
