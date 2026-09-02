@@ -61,6 +61,7 @@ use std::{collections::HashSet, path::Path, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use ldap3::{
     Ldap, LdapConnAsync, LdapConnSettings, LdapError, Mod, ResultEntry, Scope, SearchEntry,
+    result::LdapResult,
 };
 use rustls::{
     ClientConfig, RootCertStore,
@@ -220,7 +221,11 @@ impl ActiveDirectoryIntegration {
         let driver = tokio::spawn(async move {
             let _ = conn.drive().await;
         });
-        Ok(LdapSession { ldap, driver })
+        Ok(LdapSession {
+            ldap,
+            driver,
+            operation_timeout: self.operation_timeout,
+        })
     }
 
     /// Open a connection, bind as the delegated service account, and resolve
@@ -235,7 +240,7 @@ impl ActiveDirectoryIntegration {
             .connect(&creds.url, creds.ca_certificate, policy)
             .await?;
         session
-            .simple_bind(creds.bind_dn, creds.bind_password, self.operation_timeout)
+            .simple_bind(creds.bind_dn, creds.bind_password)
             .await
             .map_err(|e| classify_ldap_error(&e, policy))?;
         let dn = self
@@ -327,20 +332,17 @@ struct LdapSession {
     ldap: Ldap,
     /// The spawned task running [`LdapConnAsync::drive`].
     driver: JoinHandle<()>,
+    /// Time budget applied to every operation issued on this connection.
+    operation_timeout: Duration,
 }
 
 impl LdapSession {
     /// Perform a simple bind, treating any non-zero result code as an error.
     ///
     /// `password` is passed straight to the LDAP client and is never retained.
-    async fn simple_bind(
-        &mut self,
-        dn: &str,
-        password: &str,
-        timeout: Duration,
-    ) -> Result<(), LdapError> {
+    async fn simple_bind(&mut self, dn: &str, password: &str) -> Result<(), LdapError> {
         self.ldap
-            .with_timeout(timeout)
+            .with_timeout(self.operation_timeout)
             .simple_bind(dn, password)
             .await?
             .success()?;
@@ -349,13 +351,17 @@ impl LdapSession {
 
     /// Send an unbind request and drop the session.
     ///
-    /// The unbind is bounded by `timeout` like every other operation: the LDAP
-    /// client consumes the timeout set for the preceding call, so an unbind
-    /// left unbounded waits forever on a domain controller that has stopped
-    /// reading its socket. Dropping the session then aborts the driver task
-    /// and closes the socket regardless of the unbind's outcome.
-    async fn close(mut self, timeout: Duration) {
-        let _ = self.ldap.with_timeout(timeout).unbind().await;
+    /// The unbind is bounded like every other operation: the LDAP client
+    /// consumes the timeout set for the preceding call, so an unbind left
+    /// unbounded waits forever on a domain controller that has stopped reading
+    /// its socket. Dropping the session then aborts the driver task and closes
+    /// the socket regardless of the unbind's outcome.
+    async fn close(mut self) {
+        let _ = self
+            .ldap
+            .with_timeout(self.operation_timeout)
+            .unbind()
+            .await;
     }
 }
 
@@ -363,6 +369,89 @@ impl Drop for LdapSession {
     fn drop(&mut self) {
         self.driver.abort();
     }
+}
+
+// ---------------------------------------------------------------------------
+// PasswordWriter
+// ---------------------------------------------------------------------------
+
+/// The two directory operations the password write depends on, issued on a
+/// connection that is already open, bound, and has located the account.
+///
+/// [`LdapSession`] is the only production implementation and does nothing but
+/// forward to `ldap3`. The trait exists so [`apply_password_write`] — which
+/// decides whether a rejected write nonetheless left the account holding the
+/// new password — can be exercised without a domain controller.
+#[async_trait]
+trait PasswordWriter: Send {
+    /// Replace `unicodePwd` on `account_dn` with `encoded`.
+    ///
+    /// A rejection by the directory is carried in the returned [`LdapResult`];
+    /// `Err` is reserved for failing to obtain an answer at all.
+    async fn replace_password(
+        &mut self,
+        account_dn: &str,
+        encoded: &[u8],
+    ) -> Result<LdapResult, LdapError>;
+
+    /// Bind as `account_dn` with `password`, on this same connection.
+    async fn bind_as_account(&mut self, account_dn: &str, password: &str) -> Result<(), LdapError>;
+}
+
+#[async_trait]
+impl PasswordWriter for LdapSession {
+    async fn replace_password(
+        &mut self,
+        account_dn: &str,
+        encoded: &[u8],
+    ) -> Result<LdapResult, LdapError> {
+        let mods = vec![Mod::Replace(
+            UNICODE_PWD_ATTR.to_vec(),
+            HashSet::from([encoded.to_vec()]),
+        )];
+        self.ldap
+            .with_timeout(self.operation_timeout)
+            .modify(account_dn, mods)
+            .await
+    }
+
+    async fn bind_as_account(&mut self, account_dn: &str, password: &str) -> Result<(), LdapError> {
+        self.simple_bind(account_dn, password).await
+    }
+}
+
+/// Write `new_password` to `account_dn`, and settle what a rejection means for
+/// the account's credential.
+///
+/// An accepted write is the whole answer. A rejection is not self-explanatory —
+/// see [`settle_rejected_modify`] — so a rejection that will actually be
+/// reported is followed by a rebind as the rotated account with the same
+/// password, whose outcome decides the effect. [`probe_settles`] gates that
+/// rebind: a rejection the executor is going to retry is left with the phase's
+/// indeterminate effect rather than spending an authentication failure against
+/// the very account the daemon exists to keep working.
+async fn apply_password_write(
+    writer: &mut impl PasswordWriter,
+    account_dn: &str,
+    new_password: &str,
+) -> Result<(), IntegrationError> {
+    let encoded = encode_unicode_pwd(new_password);
+    let answer = writer
+        .replace_password(account_dn, &encoded)
+        .await
+        .map_err(|e| classify_ldap_error(&e, EffectPolicy::MODIFY))?;
+
+    let Err(rejection) = answer.success() else {
+        return Ok(());
+    };
+
+    let classified = classify_ldap_error(&rejection, EffectPolicy::MODIFY);
+    let probe = if probe_settles(&classified) {
+        Some(writer.bind_as_account(account_dn, new_password).await)
+    } else {
+        None
+    };
+    Err(settle_rejected_modify(classified, probe.as_ref()))
 }
 
 // ---------------------------------------------------------------------------
@@ -429,33 +518,9 @@ impl Integration for ActiveDirectoryIntegration {
             .open_and_locate(&creds, &ctx.account_identity, EffectPolicy::BEFORE_MODIFY)
             .await?;
 
-        let encoded = encode_unicode_pwd(&ctx.new_password);
-        let mods = vec![Mod::Replace(
-            UNICODE_PWD_ATTR.to_vec(),
-            HashSet::from([encoded.to_vec()]),
-        )];
+        apply_password_write(&mut session, &account_dn, &ctx.new_password).await?;
 
-        let result = session
-            .ldap
-            .with_timeout(self.operation_timeout)
-            .modify(&account_dn, mods)
-            .await
-            .map_err(|e| classify_ldap_error(&e, EffectPolicy::MODIFY))?;
-        if let Err(rejection) = result.success() {
-            let classified = classify_ldap_error(&rejection, EffectPolicy::MODIFY);
-            let probe = if probe_settles(&classified) {
-                Some(
-                    session
-                        .simple_bind(&account_dn, &ctx.new_password, self.operation_timeout)
-                        .await,
-                )
-            } else {
-                None
-            };
-            return Err(settle_rejected_modify(classified, probe.as_ref()));
-        }
-
-        session.close(self.operation_timeout).await;
+        session.close().await;
         Ok(())
     }
 
@@ -478,10 +543,8 @@ impl Integration for ActiveDirectoryIntegration {
         let (mut session, account_dn) = self
             .open_and_locate(&creds, &ctx.account_identity, EffectPolicy::AFTER_ROTATION)
             .await?;
-        let bind = session
-            .simple_bind(&account_dn, &ctx.new_password, self.operation_timeout)
-            .await;
-        session.close(self.operation_timeout).await;
+        let bind = session.simple_bind(&account_dn, &ctx.new_password).await;
+        session.close().await;
 
         match bind {
             Ok(()) => Ok(()),
@@ -1395,6 +1458,217 @@ mod tests {
             settle_rejected_modify(rejected_modify(19), Some(&probe)).effect,
             TargetEffect::Unknown
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // The password write and its probe
+    // -----------------------------------------------------------------------
+
+    /// The DN the account lookup is taken to have resolved to.
+    const ACCOUNT_DN: &str = "CN=svc-app,OU=Managed,DC=corp,DC=example";
+
+    /// A [`PasswordWriter`] that answers from a script and records what it was
+    /// asked to do, so a test can assert both the outcome and whether the
+    /// rebind probe was issued at all.
+    struct FakeDirectory {
+        /// The directory's answer to the `unicodePwd` write.
+        write: Option<Result<LdapResult, LdapError>>,
+        /// The directory's answer to the rebind probe, if one is issued.
+        probe: Option<Result<(), LdapError>>,
+        /// Each `(dn, value)` the write was asked to send.
+        written: Vec<(String, Vec<u8>)>,
+        /// Each `(dn, password)` the probe was asked to bind with.
+        binds: Vec<(String, String)>,
+    }
+
+    impl FakeDirectory {
+        /// A directory that answers the write with `write` and refuses to be
+        /// probed — any probe fails the test.
+        fn answering(write: Result<LdapResult, LdapError>) -> Self {
+            Self {
+                write: Some(write),
+                probe: None,
+                written: Vec::new(),
+                binds: Vec::new(),
+            }
+        }
+
+        /// The same, with a scripted answer for the rebind probe.
+        fn probed_with(mut self, probe: Result<(), LdapError>) -> Self {
+            self.probe = Some(probe);
+            self
+        }
+    }
+
+    #[async_trait]
+    impl PasswordWriter for FakeDirectory {
+        async fn replace_password(
+            &mut self,
+            account_dn: &str,
+            encoded: &[u8],
+        ) -> Result<LdapResult, LdapError> {
+            self.written
+                .push((account_dn.to_string(), encoded.to_vec()));
+            self.write
+                .take()
+                .expect("the write must be asked for exactly once")
+        }
+
+        async fn bind_as_account(
+            &mut self,
+            account_dn: &str,
+            password: &str,
+        ) -> Result<(), LdapError> {
+            self.binds
+                .push((account_dn.to_string(), password.to_string()));
+            self.probe
+                .take()
+                .expect("the probe was issued without a scripted answer")
+        }
+    }
+
+    #[tokio::test]
+    async fn an_accepted_write_succeeds_and_costs_no_bind() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(0, "")));
+        apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect("a write the directory accepted must succeed");
+        assert!(
+            directory.binds.is_empty(),
+            "an accepted write settles itself; probing it would spend a bind for nothing"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_write_sends_the_encoded_password_to_the_located_account() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(0, "")));
+        apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect("a write the directory accepted must succeed");
+
+        let (dn, value) = directory.written.first().expect("the write must be sent");
+        assert_eq!(dn, ACCOUNT_DN, "the write must target the located account");
+        assert_eq!(
+            value.as_slice(),
+            encode_unicode_pwd(SECRET).as_slice(),
+            "the value must be the unicodePwd encoding, not the raw password"
+        );
+        assert!(
+            value.windows(SECRET.len()).all(|w| w != SECRET.as_bytes()),
+            "the plain password must not be what goes on the wire"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_is_probed_as_the_rotated_account_with_the_new_password() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(19, "constraint violation")))
+            .probed_with(Ok(()));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        assert_eq!(
+            directory.binds,
+            vec![(ACCOUNT_DN.to_string(), SECRET.to_string())],
+            "the probe must rebind once, as the rotated account, with the new password"
+        );
+        assert_eq!(
+            err.effect,
+            TargetEffect::Applied,
+            "a probe the directory accepted proves the rejected write had landed"
+        );
+        assert_eq!(err.class, ErrorClass::Fatal);
+        assert_eq!(err.code, FailureCode::TargetRejected);
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_whose_probe_is_refused_is_reported_not_applied() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(19, ""))).probed_with(Err(
+            LdapError::LdapResult {
+                result: ldap_result(RC_INVALID_CREDENTIALS, ""),
+            },
+        ));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        assert_eq!(directory.binds.len(), 1);
+        assert_eq!(err.effect, TargetEffect::NotApplied);
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_whose_probe_cannot_reach_the_directory_is_reported_unknown() {
+        let mut directory =
+            FakeDirectory::answering(Ok(ldap_result(19, ""))).probed_with(Err(LdapError::Io {
+                source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
+            }));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        assert_eq!(directory.binds.len(), 1);
+        assert_eq!(err.effect, TargetEffect::Unknown);
+    }
+
+    #[tokio::test]
+    async fn a_transiently_rejected_write_is_never_probed() {
+        for rc in [RC_ADMIN_LIMIT_EXCEEDED, RC_BUSY, RC_UNAVAILABLE] {
+            let mut directory = FakeDirectory::answering(Ok(ldap_result(rc, "")));
+
+            let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+                .await
+                .expect_err("a rejected write must not be reported as success");
+
+            assert!(
+                directory.binds.is_empty(),
+                "rc {rc} is retried, so probing it would spend a failed bind against \
+                 the managed account on every attempt"
+            );
+            assert_eq!(err.class, ErrorClass::Transient, "rc {rc}");
+            assert_eq!(err.effect, TargetEffect::Unknown, "rc {rc}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_write_that_got_no_answer_is_never_probed_and_stays_unknown() {
+        let mut directory = FakeDirectory::answering(Err(LdapError::Io {
+            source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
+        }));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a write that got no answer must not be reported as success");
+
+        assert!(
+            directory.binds.is_empty(),
+            "the connection carrying the probe is the one that just failed"
+        );
+        assert_eq!(err.effect, TargetEffect::Unknown);
+        assert_eq!(err.class, ErrorClass::Transient);
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_reports_neither_the_password_nor_directory_text() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(
+            53,
+            &format!("will not perform for {SECRET}"),
+        )))
+        .probed_with(Ok(()));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        let rendered = err.to_string();
+        assert!(!rendered.contains(SECRET), "password leaked: {rendered}");
+        assert!(
+            !rendered.contains("OU=Service Accounts"),
+            "matched DN leaked: {rendered}"
+        );
+        assert_eq!(err.detail.as_str(), "LDAP result code 53");
     }
 
     #[tokio::test(start_paused = true)]
