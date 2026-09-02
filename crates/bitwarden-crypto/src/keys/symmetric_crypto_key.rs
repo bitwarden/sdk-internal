@@ -758,7 +758,19 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
     }
 }
 
-impl CryptoKey for SymmetricCryptoKey {}
+impl CryptoKey for SymmetricCryptoKey {
+    #[cfg(feature = "debug-capabilities")]
+    fn debug_material(&self) -> String {
+        #[cfg(feature = "dangerous-crypto-debug")]
+        {
+            hex::encode(self.to_encoded().to_vec())
+        }
+        #[cfg(not(feature = "dangerous-crypto-debug"))]
+        {
+            "<redacted: enable dangerous-crypto-debug>".to_string()
+        }
+    }
+}
 
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for SymmetricCryptoKey {

@@ -7,6 +7,11 @@ mod uniffi_support;
 
 pub mod auth;
 pub mod client;
+/// Dev-only debug capabilities that reach past the public API into internal
+/// state. Compiled only under the `debug-capabilities` feature; never ship in
+/// production.
+#[cfg(feature = "debug-capabilities")]
+pub mod debug;
 mod error;
 pub mod global;
 pub mod key_management;

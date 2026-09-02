@@ -16,6 +16,9 @@ keywords.workspace = true
 
 [features]
 default = []
+# Dev-only debug capabilities (key-store slot listing with redacted material).
+# Material is only un-redacted when `dangerous-crypto-debug` is also enabled.
+debug-capabilities = []
 no-memory-hardening = [] # Disable memory hardening features
 uniffi = [
     "argon2/parallel",

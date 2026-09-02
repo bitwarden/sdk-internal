@@ -3,6 +3,11 @@
 #[cfg(feature = "bitwarden-license")]
 mod commercial;
 
+/// Dev-only debug-capability tree rooted on the top-level client. Compiled only
+/// under the `debug-capabilities` feature.
+#[cfg(feature = "debug-capabilities")]
+pub mod debug;
+
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
