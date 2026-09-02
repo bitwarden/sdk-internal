@@ -66,7 +66,16 @@
     {
       matchManagers: ["cargo"],
       groupName: "reqwest + TLS crates",
-      matchPackageNames: ["reqwest", "reqwest-middleware", "rustls", "rustls-platform-verifier"],
+      // jni is grouped here because its major version is coupled to rustls-platform-verifier:
+      // bitwarden-uniffi passes a jni `Env` into rustls_platform_verifier::android::init_with_env,
+      // so both crates must resolve to the same jni major and should be updated together.
+      matchPackageNames: [
+        "reqwest",
+        "reqwest-middleware",
+        "rustls",
+        "rustls-platform-verifier",
+        "jni",
+      ],
     },
 
     // ========================= Team review assignment =========================
@@ -106,6 +115,7 @@
         "futures",
         "hmac",
         "http",
+        "jni",
         "js-sys",
         "mockall",
         "password-rules-parser",
