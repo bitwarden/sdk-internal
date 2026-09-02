@@ -23,8 +23,8 @@ pub enum SendEncryptError {
 
 /// Generic error type for send decryption errors
 #[allow(missing_docs)]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SendDecryptError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
@@ -56,6 +56,17 @@ pub enum SendDecryptFileError {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct SendClient {
     pub(crate) client: Client,
+}
+
+#[allow(missing_docs)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Decrypt a [`Send`] into a [`SendView`].
+    /// This is a temporary function to support the transition to fully using the SDK for Send logic
+    #[allow(missing_docs)]
+    pub fn decrypt_send(&self, send: Send) -> Result<SendView, SendDecryptError> {
+        self.decrypt(send)
+    }
 }
 
 impl SendClient {

@@ -33,7 +33,7 @@ pub(crate) const SEND_KEY_LEN: usize = 16;
 /// using the key derived from the URL fragment.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendAccessResponse {
     /// The send access ID
     pub id: Option<String>,
@@ -449,6 +449,18 @@ impl SendClient {
     ) -> Result<SendFileDownloadData, GetFileDownloadDataError> {
         let config = self.client.internal.get_api_configurations();
         get_file_download_data(&config.api_client, &file_id, &access_token).await
+    }
+
+    /// Decrypt a [`SendAccessResponse`] into a [`SendAccessView`] using a [`SendAccessKey`].
+    /// This is a temporary function to support the transition to fully using the SDK for Send logic
+    #[allow(missing_docs)]
+    pub fn decrypt_send_access(
+        key_b64: &str,
+        response: SendAccessResponse,
+    ) -> Result<SendAccessView, SendAccessDecryptError> {
+        let access_key = SendAccessKey::from_url_b64(&key_b64)
+            .map_err(|_| SendAccessDecryptError::Crypto(bitwarden_crypto::CryptoError::Decrypt))?;
+        access_key.decrypt_response(response)
     }
 }
 
