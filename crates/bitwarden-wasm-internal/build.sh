@@ -15,6 +15,9 @@ ENABLE_LICENSE_FEATURE=""
 NPM_FOLDER="npm"
 RELEASE_FLAG=""
 BUILD_FOLDER="debug"
+# Dev-only: exposes the runtime introspection surface (IntrospectClient) to JS.
+# Never enable for production builds.
+INTROSPECT_FEATURE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -25,6 +28,9 @@ while [[ $# -gt 0 ]]; do
     -r)
       RELEASE_FLAG="--release"
       BUILD_FOLDER="release"
+      ;;
+    -i)
+      INTROSPECT_FEATURE="--features introspect"
       ;;
   esac
   shift
@@ -40,6 +46,10 @@ if [ -n "$ENABLE_LICENSE_FEATURE" ]; then
   echo "Build will include BITWARDEN LICENSED FEATURES"
 fi
 
+if [ -n "$INTROSPECT_FEATURE" ]; then
+  echo "Build will include the DEV-ONLY INTROSPECTION surface (do not ship)"
+fi
+
 # Fail the non-commercial build if a bitwarden_license crate leaks in (see bitwarden-commercial-marker).
 NO_COMMERCIAL_CFG=""
 if [ -z "$ENABLE_LICENSE_FEATURE" ]; then
@@ -52,7 +62,7 @@ fi
 # Note that this requires build-std which is an unstable feature,
 # this normally requires a nightly build, but we can also use the
 # RUSTC_BOOTSTRAP hack to use the same stable version as the normal build
-RUSTFLAGS='-Ctarget-cpu=mvp --cfg getrandom_backend="wasm_js"'" ${NO_COMMERCIAL_CFG}" RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE}
+RUSTFLAGS='-Ctarget-cpu=mvp --cfg getrandom_backend="wasm_js"'" ${NO_COMMERCIAL_CFG}" RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE} ${INTROSPECT_FEATURE}
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER} ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodejs --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER}/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 
