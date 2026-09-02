@@ -27,9 +27,14 @@ uuid = { workspace = true, optional = true }
 ## introspection surface live. Consumers enable this only in dev builds; with
 ## it off, `Debuggable<T>` is `#[repr(transparent)]` over `T` and costs nothing.
 introspect = []
+## Makes the discovery snapshot types ([`NodeInfo`], [`ChildRef`],
+## [`Writeability`]) `serde::Serialize`, so a transport can hand them across a
+## boundary (e.g. to JS). The core stays transport-neutral: this only adds
+## serialization, no wasm-bindgen.
+serde = ["dep:serde", "serde/derive"]
 ## The `IntrospectWrite` capability: path-addressed mutation of the object
 ## graph. Kept separate from read so the read path stays serde-free.
-write = ["dep:serde", "dep:serde_json", "dep:thiserror"]
+write = ["serde", "dep:serde_json", "dep:thiserror"]
 ## `Introspect` impls for common leaf types from these external crates. Kept
 ## optional so consumers that don't use them don't pull in the dependency.
 chrono = ["dep:chrono"]

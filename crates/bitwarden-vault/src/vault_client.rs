@@ -28,6 +28,13 @@ impl VaultClient {
     }
 }
 
+// Registers the vault client's introspectable children for the object-graph
+// discovery API. Each listed accessor is called on demand during a crawl and
+// its result introspected, so the accessor's return type must implement
+// `Introspect`. Add more accessors here as their clients gain that impl.
+#[bitwarden_introspect_macro::introspect_methods(folders, ciphers)]
+impl VaultClient {}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl VaultClient {
     /// Attachment related operations.

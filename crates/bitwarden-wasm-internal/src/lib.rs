@@ -4,6 +4,8 @@ mod client;
 mod custom_types;
 mod flight_recorder;
 mod init;
+#[cfg(feature = "introspect")]
+mod introspect;
 mod platform;
 mod pure_crypto;
 mod ssh;
@@ -16,3 +18,5 @@ pub use bitwarden_shared_unlock::wasm::*;
 pub use client::PasswordManagerClient;
 pub use flight_recorder::FlightRecorderClient;
 pub use init::init_sdk;
+#[cfg(feature = "introspect")]
+pub use introspect::IntrospectClient;

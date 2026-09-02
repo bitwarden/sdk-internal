@@ -7,7 +7,10 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, parse_macro_input};
+use syn::{
+    Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, Ident, ItemImpl, Token, Type,
+    parse_macro_input, punctuated::Punctuated,
+};
 
 /// Derive `Introspect` for a struct with named fields, or for an enum.
 ///
@@ -141,6 +144,115 @@ pub fn derive_introspect_write(item: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+/// Generate an `Introspect` impl for a type from a chosen set of its accessor
+/// methods, turning each into a child edge of the object graph.
+///
+/// Apply it to an `impl` block and list the accessors to expose:
+///
+/// ```ignore
+/// #[introspect_methods(vault, crypto)]
+/// impl PasswordManagerClient { /* ... */ }
+/// ```
+///
+/// Each named method must take `&self` and no other arguments, and return a
+/// value whose type implements `Introspect`. The method is called on demand
+/// during a crawl and its result introspected, so this mirrors the accessor
+/// tree without the accessors' return values needing to be stored fields. The
+/// original `impl` block is emitted unchanged alongside the generated impl.
+///
+/// The generated `Introspect` impl is emitted behind `#[cfg(feature =
+/// "introspect")]`, evaluated against the calling crate, so the attribute can
+/// be written unconditionally (no `#[cfg_attr(...)]` at the call site). The
+/// calling crate must therefore declare an `introspect` feature that pulls in
+/// `bitwarden-introspect`; when that feature is off the impl is dropped and
+/// nothing references the (then-absent) trait crate. The attribute itself comes
+/// from this proc-macro crate, which is compile-time only, so depending on it
+/// unconditionally costs nothing at runtime.
+#[proc_macro_attribute]
+pub fn introspect_methods(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let methods = parse_macro_input!(attr with Punctuated::<Ident, Token![,]>::parse_terminated);
+    let input = parse_macro_input!(item as ItemImpl);
+    let self_ty = &input.self_ty;
+    let (impl_generics, _ty_generics, where_clause) = input.generics.split_for_impl();
+    let type_name_str = self_ty_name(self_ty);
+
+    let child_pushes = methods.iter().map(|method| {
+        let key = method.to_string();
+        quote! {
+            {
+                let __value = self.#method();
+                let __node = ::bitwarden_introspect::Introspect::node_info(&__value);
+                __children.push(::bitwarden_introspect::ChildRef {
+                    key: #key.to_string(),
+                    type_name: __node.type_name,
+                    preview: __node.preview,
+                    writeability: __node.writeability,
+                });
+            }
+        }
+    });
+
+    let describe_arms = methods.iter().map(|method| {
+        let key = method.to_string();
+        quote! {
+            #key => {
+                let __value = self.#method();
+                ::bitwarden_introspect::Introspect::describe(&__value, __rest)
+            }
+        }
+    });
+
+    quote! {
+        #input
+
+        #[cfg(feature = "introspect")]
+        impl #impl_generics ::bitwarden_introspect::Introspect for #self_ty #where_clause {
+            fn node_info(&self) -> ::bitwarden_introspect::NodeInfo {
+                let mut __children = ::std::vec::Vec::new();
+                #(#child_pushes)*
+                ::bitwarden_introspect::NodeInfo {
+                    type_name: #type_name_str,
+                    preview: ::std::format!("{} {{ .. }}", #type_name_str),
+                    writeability: ::bitwarden_introspect::Writeability::ReadOnly,
+                    children: __children,
+                }
+            }
+
+            fn describe(
+                &self,
+                __path: &[&str],
+            ) -> ::core::option::Option<::bitwarden_introspect::NodeInfo> {
+                match __path.split_first() {
+                    ::core::option::Option::None => {
+                        ::core::option::Option::Some(
+                            ::bitwarden_introspect::Introspect::node_info(self),
+                        )
+                    }
+                    ::core::option::Option::Some((__head, __rest)) => match *__head {
+                        #(#describe_arms)*
+                        _ => ::core::option::Option::None,
+                    },
+                }
+            }
+        }
+    }
+    .into()
+}
+
+/// The displayed type name for an `impl` block's self type: the last path
+/// segment (e.g. `VaultClient` for `crate::vault::VaultClient`).
+fn self_ty_name(ty: &Type) -> String {
+    match ty {
+        Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .map(|segment| segment.ident.to_string())
+            .unwrap_or_else(|| quote!(#ty).to_string()),
+        _ => quote!(#ty).to_string(),
+    }
 }
 
 fn struct_bodies(name_str: &str, fields: &FieldsNamed) -> (TokenStream2, TokenStream2) {

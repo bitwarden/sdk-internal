@@ -229,6 +229,14 @@ impl PasswordManagerClient {
     }
 }
 
+// Registers the top-level client's introspectable children for the object-graph
+// discovery API, mirroring the accessor tree. Each listed accessor is called on
+// demand during a crawl and its result introspected, so its return type must
+// implement `Introspect`. Add more accessors here as their clients gain that
+// impl.
+#[bitwarden_introspect_macro::introspect_methods(vault)]
+impl PasswordManagerClient {}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;

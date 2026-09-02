@@ -12,20 +12,26 @@
 //! `T` unless the `introspect` feature is on, so it costs nothing in builds
 //! that don't enable introspection.
 //!
-//! This is an early sketch: the read/discovery path and the `Debuggable`
-//! mechanism are implemented; path-addressed writing and serialization of
-//! snapshots are left as follow-ups (see the design doc under `docs/plans`).
+//! Snapshots serialize with `serde` under the `serde` feature, so a transport
+//! (for example the WASM bridge) can hand them across a boundary without the
+//! core depending on any particular transport.
+//!
+//! This is an early sketch: the read/discovery path, the `Debuggable`
+//! mechanism, and path-addressed writing are implemented (see the design doc
+//! under `docs/plans`).
 
 // Allow this crate to refer to itself by name so the derive macro's
 // `::bitwarden_introspect::…` paths resolve in the crate's own tests.
 extern crate self as bitwarden_introspect;
 
-pub use bitwarden_introspect_macro::Introspect;
+pub use bitwarden_introspect_macro::{Introspect, introspect_methods};
 
 /// Whether, and by what mechanism, a node can be mutated. Surfaced in the
 /// discovery API so a caller knows what a node supports before attempting a
 /// write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub enum Writeability {
     /// Cannot be written through the introspection surface.
     ReadOnly,
@@ -40,6 +46,8 @@ pub enum Writeability {
 
 /// A single edge from a node to one of its immediate children.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct ChildRef {
     /// Field name, collection index, or variant name used to descend.
     pub key: String,
@@ -54,6 +62,8 @@ pub struct ChildRef {
 /// A snapshot of one node in the object graph: its own value preview plus the
 /// edges to its immediate children.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct NodeInfo {
     /// Static type name of this node.
     pub type_name: &'static str,
@@ -636,6 +646,43 @@ mod tests {
         let keys: Vec<&str> = node.children.iter().map(|c| c.key.as_str()).collect();
         assert_eq!(keys, ["a", "b"]);
         assert_eq!(map.describe(&["b"]).unwrap().preview, "2");
+    }
+
+    // The generated impl is gated on the `introspect` feature (the macro emits
+    // `#[cfg(feature = "introspect")]`), so this coverage runs under that
+    // feature: `cargo test -p bitwarden-introspect --features introspect`.
+    #[cfg(feature = "introspect")]
+    struct WithAccessors {
+        name: String,
+    }
+
+    #[cfg(feature = "introspect")]
+    #[introspect_methods(greeting, shout)]
+    impl WithAccessors {
+        fn greeting(&self) -> String {
+            format!("hi {}", self.name)
+        }
+
+        fn shout(&self) -> String {
+            self.name.to_uppercase()
+        }
+    }
+
+    #[cfg(feature = "introspect")]
+    #[test]
+    fn introspect_methods_exposes_accessors_as_children() {
+        let value = WithAccessors {
+            name: "ada".to_string(),
+        };
+
+        let root = value.describe(&[]).unwrap();
+        assert_eq!(root.type_name, "WithAccessors");
+        let keys: Vec<&str> = root.children.iter().map(|c| c.key.as_str()).collect();
+        assert_eq!(keys, ["greeting", "shout"]);
+
+        assert_eq!(value.describe(&["greeting"]).unwrap().preview, "\"hi ada\"");
+        assert_eq!(value.describe(&["shout"]).unwrap().preview, "\"ADA\"");
+        assert!(value.describe(&["missing"]).is_none());
     }
 
     #[cfg(feature = "uuid")]
