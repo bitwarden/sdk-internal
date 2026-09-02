@@ -32,12 +32,11 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use bitwarden_sensitive_value::ExposeSensitive as _;
 use reqwest::Client;
 use serde::Deserialize;
 use url::Url;
 
-use super::{Integration, IntegrationError, RotateContext, TargetEffect};
+use super::{Integration, IntegrationError, RotateContext, TargetEffect, as_applied, get_cred};
 use crate::error::{ErrorClass, FailureCode, SafeDetail};
 
 // ---------------------------------------------------------------------------
@@ -542,11 +541,7 @@ impl Integration for EntraIntegration {
             client_secret,
         )
         .await
-        .map_err(|mut e| {
-            // Rotation already applied; re-classify effect to Applied.
-            e.effect = TargetEffect::Applied;
-            e
-        })?;
+        .map_err(as_applied)?;
 
         // ROPC probe first (optional) — authoritative and not subject to directory
         // replication lag.  A definitive result short-circuits the directory poll.
@@ -816,29 +811,6 @@ async fn ropc_probe(
     }
 
     ProbeResult::Inconclusive
-}
-
-// ---------------------------------------------------------------------------
-// Credential lookup helper
-// ---------------------------------------------------------------------------
-
-/// Look up a required credential suffix, returning
-/// `Fatal/NotApplied/credentials_unresolved` if absent.
-///
-/// The error detail names only the missing **suffix** (never a value).
-fn get_cred<'a>(
-    creds: &'a crate::resolver::ResolvedCredentials,
-    suffix: &'static str,
-) -> Result<&'a str, IntegrationError> {
-    creds
-        .get(suffix)
-        .map(|s| s.expose().as_ref() as &str)
-        .ok_or_else(|| IntegrationError {
-            class: ErrorClass::Fatal,
-            effect: TargetEffect::NotApplied,
-            code: FailureCode::CredentialsUnresolved,
-            detail: SafeDetail::from_kind(suffix),
-        })
 }
 
 // ---------------------------------------------------------------------------
@@ -1515,7 +1487,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // Fix-6: Graph error.code validation
+    // Graph error.code validation
     // -----------------------------------------------------------------------
 
     /// Hostile `error.code` values (control chars, punctuation, >64 chars)

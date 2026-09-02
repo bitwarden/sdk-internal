@@ -280,14 +280,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     );
 
     let integrations = Arc::new(registry);
-    tracing::debug!(
-        kinds = ?[
-            crate::api::models::TargetKind::CustomScript,
-            crate::api::models::TargetKind::Entra,
-            crate::api::models::TargetKind::ActiveDirectory,
-        ],
-        "registered integration kinds"
-    );
+    tracing::debug!(kinds = ?integrations.kinds(), "registered integration kinds");
 
     // ── Credential resolver ────────────────────────────────────────────────
     // ConfigCredentialResolver layers config-file overrides on top of env-var fallbacks.

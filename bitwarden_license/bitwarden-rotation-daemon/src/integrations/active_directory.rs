@@ -59,9 +59,9 @@
 use std::{collections::HashSet, path::Path, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use bitwarden_sensitive_value::ExposeSensitive as _;
 use ldap3::{
     Ldap, LdapConnAsync, LdapConnSettings, LdapError, Mod, ResultEntry, Scope, SearchEntry,
+    result::LdapResult,
 };
 use rustls::{
     ClientConfig, RootCertStore,
@@ -70,7 +70,9 @@ use rustls::{
 use tokio::task::JoinHandle;
 use zeroize::Zeroizing;
 
-use super::{Integration, IntegrationError, RotateContext, TargetEffect};
+use super::{
+    Integration, IntegrationError, RotateContext, TargetEffect, as_applied, get_cred, optional_cred,
+};
 use crate::error::{ErrorClass, FailureCode, SafeDetail};
 
 // ---------------------------------------------------------------------------
@@ -122,6 +124,9 @@ const RC_BUSY: u32 = 51;
 /// `unavailable` — the DC is shutting down or offline.
 const RC_UNAVAILABLE: u32 = 52;
 
+/// `invalidCredentials` — the directory checked the password and it did not match.
+const RC_INVALID_CREDENTIALS: u32 = 49;
+
 // ---------------------------------------------------------------------------
 // EffectPolicy
 // ---------------------------------------------------------------------------
@@ -150,9 +155,12 @@ impl EffectPolicy {
 
     /// The `unicodePwd` write itself.
     ///
-    /// A directory-returned error code means the write was rejected, so the
-    /// credential is unchanged. A transport failure after the request was
-    /// flushed leaves the outcome unknown.
+    /// A transport failure after the request was flushed leaves the outcome
+    /// unknown. `settled` is only the classification default for a
+    /// directory-returned error code: because the same password is re-sent on
+    /// every retry, a rejection does not on its own prove the credential is
+    /// unchanged, so `rotate` replaces it with the answer from
+    /// [`settle_rejected_modify`].
     const MODIFY: Self = Self {
         settled: TargetEffect::NotApplied,
         indeterminate: TargetEffect::Unknown,
@@ -213,7 +221,11 @@ impl ActiveDirectoryIntegration {
         let driver = tokio::spawn(async move {
             let _ = conn.drive().await;
         });
-        Ok(LdapSession { ldap, driver })
+        Ok(LdapSession {
+            ldap,
+            driver,
+            operation_timeout: self.operation_timeout,
+        })
     }
 
     /// Open a connection, bind as the delegated service account, and resolve
@@ -228,7 +240,7 @@ impl ActiveDirectoryIntegration {
             .connect(&creds.url, creds.ca_certificate, policy)
             .await?;
         session
-            .simple_bind(creds.bind_dn, creds.bind_password, self.operation_timeout)
+            .simple_bind(creds.bind_dn, creds.bind_password)
             .await
             .map_err(|e| classify_ldap_error(&e, policy))?;
         let dn = self
@@ -240,12 +252,18 @@ impl ActiveDirectoryIntegration {
     /// Resolve an opaque account identity to the account's distinguished name.
     ///
     /// The identity is matched against `sAMAccountName` and `userPrincipalName`.
-    /// The lookup must match exactly one enabled user object: zero matches and
-    /// multiple matches are both fatal, because rotating the wrong account is
-    /// worse than not rotating at all.
+    /// The lookup must match exactly one user object: zero matches and multiple
+    /// matches are both fatal, because rotating the wrong account is worse than
+    /// not rotating at all.
     ///
     /// Only real entries are counted — see [`search_entries_only`] for why the
     /// search result can hold more than the accounts that matched the filter.
+    ///
+    /// Account state is not consulted. `userAccountControl` is not part of the
+    /// filter, so a disabled or locked-out account resolves like any other and
+    /// its password is rotated; the rebind in [`Integration::verify`] is then
+    /// refused by the directory and the attempt is reported as applied but
+    /// unverified.
     async fn find_account_dn(
         &self,
         session: &mut LdapSession,
@@ -314,20 +332,17 @@ struct LdapSession {
     ldap: Ldap,
     /// The spawned task running [`LdapConnAsync::drive`].
     driver: JoinHandle<()>,
+    /// Time budget applied to every operation issued on this connection.
+    operation_timeout: Duration,
 }
 
 impl LdapSession {
     /// Perform a simple bind, treating any non-zero result code as an error.
     ///
     /// `password` is passed straight to the LDAP client and is never retained.
-    async fn simple_bind(
-        &mut self,
-        dn: &str,
-        password: &str,
-        timeout: Duration,
-    ) -> Result<(), LdapError> {
+    async fn simple_bind(&mut self, dn: &str, password: &str) -> Result<(), LdapError> {
         self.ldap
-            .with_timeout(timeout)
+            .with_timeout(self.operation_timeout)
             .simple_bind(dn, password)
             .await?
             .success()?;
@@ -335,8 +350,18 @@ impl LdapSession {
     }
 
     /// Send an unbind request and drop the session.
+    ///
+    /// The unbind is bounded like every other operation: the LDAP client
+    /// consumes the timeout set for the preceding call, so an unbind left
+    /// unbounded waits forever on a domain controller that has stopped reading
+    /// its socket. Dropping the session then aborts the driver task and closes
+    /// the socket regardless of the unbind's outcome.
     async fn close(mut self) {
-        let _ = self.ldap.unbind().await;
+        let _ = self
+            .ldap
+            .with_timeout(self.operation_timeout)
+            .unbind()
+            .await;
     }
 }
 
@@ -344,6 +369,89 @@ impl Drop for LdapSession {
     fn drop(&mut self) {
         self.driver.abort();
     }
+}
+
+// ---------------------------------------------------------------------------
+// PasswordWriter
+// ---------------------------------------------------------------------------
+
+/// The two directory operations the password write depends on, issued on a
+/// connection that is already open, bound, and has located the account.
+///
+/// [`LdapSession`] is the only production implementation and does nothing but
+/// forward to `ldap3`. The trait exists so [`apply_password_write`] — which
+/// decides whether a rejected write nonetheless left the account holding the
+/// new password — can be exercised without a domain controller.
+#[async_trait]
+trait PasswordWriter: Send {
+    /// Replace `unicodePwd` on `account_dn` with `encoded`.
+    ///
+    /// A rejection by the directory is carried in the returned [`LdapResult`];
+    /// `Err` is reserved for failing to obtain an answer at all.
+    async fn replace_password(
+        &mut self,
+        account_dn: &str,
+        encoded: &[u8],
+    ) -> Result<LdapResult, LdapError>;
+
+    /// Bind as `account_dn` with `password`, on this same connection.
+    async fn bind_as_account(&mut self, account_dn: &str, password: &str) -> Result<(), LdapError>;
+}
+
+#[async_trait]
+impl PasswordWriter for LdapSession {
+    async fn replace_password(
+        &mut self,
+        account_dn: &str,
+        encoded: &[u8],
+    ) -> Result<LdapResult, LdapError> {
+        let mods = vec![Mod::Replace(
+            UNICODE_PWD_ATTR.to_vec(),
+            HashSet::from([encoded.to_vec()]),
+        )];
+        self.ldap
+            .with_timeout(self.operation_timeout)
+            .modify(account_dn, mods)
+            .await
+    }
+
+    async fn bind_as_account(&mut self, account_dn: &str, password: &str) -> Result<(), LdapError> {
+        self.simple_bind(account_dn, password).await
+    }
+}
+
+/// Write `new_password` to `account_dn`, and settle what a rejection means for
+/// the account's credential.
+///
+/// An accepted write is the whole answer. A rejection is not self-explanatory —
+/// see [`settle_rejected_modify`] — so a rejection that will actually be
+/// reported is followed by a rebind as the rotated account with the same
+/// password, whose outcome decides the effect. [`probe_settles`] gates that
+/// rebind: a rejection the executor is going to retry is left with the phase's
+/// indeterminate effect rather than spending an authentication failure against
+/// the very account the daemon exists to keep working.
+async fn apply_password_write(
+    writer: &mut impl PasswordWriter,
+    account_dn: &str,
+    new_password: &str,
+) -> Result<(), IntegrationError> {
+    let encoded = encode_unicode_pwd(new_password);
+    let answer = writer
+        .replace_password(account_dn, &encoded)
+        .await
+        .map_err(|e| classify_ldap_error(&e, EffectPolicy::MODIFY))?;
+
+    let Err(rejection) = answer.success() else {
+        return Ok(());
+    };
+
+    let classified = classify_ldap_error(&rejection, EffectPolicy::MODIFY);
+    let probe = if probe_settles(&classified) {
+        Some(writer.bind_as_account(account_dn, new_password).await)
+    } else {
+        None
+    };
+    Err(settle_rejected_modify(classified, probe.as_ref()))
 }
 
 // ---------------------------------------------------------------------------
@@ -386,16 +494,23 @@ impl<'a> Credentials<'a> {
 impl Integration for ActiveDirectoryIntegration {
     /// Replace the account's `unicodePwd` over LDAPS.
     ///
-    /// | Failure                          | Effect     | Class     | Code                     |
-    /// |----------------------------------|------------|-----------|--------------------------|
-    /// | missing / malformed credential   | NotApplied | Fatal     | credentials_unresolved   |
-    /// | TCP or TLS failure               | NotApplied | Transient | target_unreachable       |
-    /// | certificate rejected             | NotApplied | Fatal     | target_unreachable       |
-    /// | bind rejected (rc 49 / 50)       | NotApplied | Fatal     | target_rejected          |
-    /// | account not found / ambiguous    | NotApplied | Fatal     | target_rejected          |
-    /// | modify rejected (rc 13 / 19 / …) | NotApplied | Fatal     | target_rejected          |
-    /// | DC busy or unavailable           | NotApplied | Transient | target_unreachable       |
-    /// | timeout after the modify is sent | Unknown    | Transient | target_unreachable       |
+    /// | Failure                          | Effect      | Class     | Code                    |
+    /// |----------------------------------|-------------|-----------|-------------------------|
+    /// | missing / malformed credential   | NotApplied  | Fatal     | credentials_unresolved  |
+    /// | TCP failure, reset connection    | NotApplied  | Transient | target_unreachable      |
+    /// | TLS handshake / certificate      | see below   | Fatal     | target_unreachable      |
+    /// | bind rejected (rc 49 / 50)       | NotApplied  | Fatal     | target_rejected         |
+    /// | account not found / ambiguous    | NotApplied  | Fatal     | target_rejected         |
+    /// | modify rejected (rc 13 / 19 / …) | probed      | Fatal     | target_rejected         |
+    /// | DC busy or unavailable           | Unknown     | Transient | target_unreachable      |
+    /// | timeout after the modify is sent | Unknown     | Transient | target_unreachable      |
+    ///
+    /// A TLS failure is `NotApplied` before the modify is sent and `Unknown`
+    /// after, because TLS can also fail mid-session. It is never transient: an
+    /// untrusted chain needs an operator, not a retry.
+    ///
+    /// "Probed" means the effect is not inferred from the result code but
+    /// established by a rebind — see [`settle_rejected_modify`].
     async fn rotate(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let creds = Credentials::resolve(&ctx.creds)?;
 
@@ -403,21 +518,7 @@ impl Integration for ActiveDirectoryIntegration {
             .open_and_locate(&creds, &ctx.account_identity, EffectPolicy::BEFORE_MODIFY)
             .await?;
 
-        let encoded = encode_unicode_pwd(&ctx.new_password);
-        let mods = vec![Mod::Replace(
-            UNICODE_PWD_ATTR.to_vec(),
-            HashSet::from([encoded.to_vec()]),
-        )];
-
-        let result = session
-            .ldap
-            .with_timeout(self.operation_timeout)
-            .modify(&account_dn, mods)
-            .await
-            .map_err(|e| classify_ldap_error(&e, EffectPolicy::MODIFY))?;
-        result
-            .success()
-            .map_err(|e| classify_ldap_error(&e, EffectPolicy::MODIFY))?;
+        apply_password_write(&mut session, &account_dn, &ctx.new_password).await?;
 
         session.close().await;
         Ok(())
@@ -429,27 +530,20 @@ impl Integration for ActiveDirectoryIntegration {
     /// the new password: unlike a directory attribute read it cannot be stale,
     /// and unlike a timestamp check it cannot be satisfied by some other write.
     ///
+    /// The rebind is issued on the connection the account lookup already
+    /// opened, which is left bound as whatever identity it produced and is
+    /// closed immediately afterwards.
+    ///
     /// Every error carries [`TargetEffect::Applied`] because the password has
     /// already been changed by the time verify runs. A rejected bind is fatal —
     /// retrying it cannot change the answer.
     async fn verify(&self, ctx: &RotateContext) -> Result<(), IntegrationError> {
         let creds = Credentials::resolve(&ctx.creds).map_err(as_applied)?;
 
-        let (lookup, account_dn) = self
+        let (mut session, account_dn) = self
             .open_and_locate(&creds, &ctx.account_identity, EffectPolicy::AFTER_ROTATION)
             .await?;
-        lookup.close().await;
-
-        let mut session = self
-            .connect(
-                &creds.url,
-                creds.ca_certificate,
-                EffectPolicy::AFTER_ROTATION,
-            )
-            .await?;
-        let bind = session
-            .simple_bind(&account_dn, &ctx.new_password, self.operation_timeout)
-            .await;
+        let bind = session.simple_bind(&account_dn, &ctx.new_password).await;
         session.close().await;
 
         match bind {
@@ -586,8 +680,12 @@ fn tls_config_with_extra_anchors(
 
 /// The host's native trust store, as a [`RootCertStore`].
 ///
-/// Certificates the platform offers but rustls cannot parse are skipped, which
-/// matches what the LDAP client does for its own default configuration.
+/// Certificates the platform offers but rustls cannot add are skipped one by
+/// one; the store is never emptied wholesale. This deliberately diverges from
+/// the LDAP client's own default configuration, which discards the entire
+/// native store when loading it reports any error at all. On a host where that
+/// happens, a target naming a `CA_CERTIFICATE` therefore keeps the platform
+/// roots while a target without one trusts nothing.
 fn platform_roots() -> RootCertStore {
     let mut roots = RootCertStore::empty();
     for cert in rustls_native_certs::load_native_certs().certs {
@@ -713,6 +811,12 @@ fn ldaps_url(host: &str) -> Result<String, IntegrationError> {
 /// echo account names and, on some DCs, policy text.
 fn classify_ldap_error(err: &LdapError, policy: EffectPolicy) -> IntegrationError {
     match err {
+        LdapError::Io { source } if is_tls_error(source) => IntegrationError {
+            class: ErrorClass::Fatal,
+            effect: policy.indeterminate,
+            code: FailureCode::TargetUnreachable,
+            detail: SafeDetail::from_kind("TlsHandshakeFailed"),
+        },
         LdapError::Io { source } => IntegrationError {
             class: ErrorClass::Transient,
             effect: policy.indeterminate,
@@ -735,9 +839,14 @@ fn classify_ldap_error(err: &LdapError, policy: EffectPolicy) -> IntegrationErro
             code: FailureCode::TargetUnreachable,
             detail: SafeDetail::from_kind("ConnectionClosed"),
         },
+        // ldap3 0.12 surfaces TLS failures as `Io` (see `is_tls_error`) and
+        // never constructs this variant itself; the arm is a
+        // forward-compatibility guard so a future version cannot fall through
+        // to `Internal`. Its effect matches the `Io` path for the same reason:
+        // TLS can fail mid-session, after a request has been written.
         LdapError::Rustls { .. } => IntegrationError {
             class: ErrorClass::Fatal,
-            effect: policy.settled,
+            effect: policy.indeterminate,
             code: FailureCode::TargetUnreachable,
             detail: SafeDetail::from_kind("TlsHandshakeFailed"),
         },
@@ -767,6 +876,68 @@ fn classify_ldap_error(err: &LdapError, policy: EffectPolicy) -> IntegrationErro
     }
 }
 
+/// Whether rebinding as the account can settle what a rejected `unicodePwd`
+/// write did.
+///
+/// Only a rejection that is actually reported is worth probing. A transient
+/// rejection is superseded by the retry that follows it, and the probe is by
+/// construction a bind with a password the directory may not hold: one per
+/// attempt spends an authentication failure against the managed account on
+/// every try, and `badPwdCount` reaching the domain lockout threshold locks
+/// out the very account the daemon exists to keep working. An administrative
+/// reset does not clear a lockout.
+fn probe_settles(classified: &IntegrationError) -> bool {
+    classified.class == ErrorClass::Fatal
+}
+
+/// Attribute the effect of a rejected `unicodePwd` write.
+///
+/// A rejection is evidence that *this* request was refused, not that the
+/// account still holds its old password. The executor retries `rotate` with
+/// the same generated password, so a rejection can follow an earlier attempt
+/// whose write did reach the directory and whose outcome was never observed —
+/// password-history enforcement then refuses the identical value the second
+/// time round with `constraintViolation`. Reporting
+/// [`TargetEffect::NotApplied`] on the strength of the result code alone would
+/// tell the server the account was untouched while the directory holds a
+/// password that never reached the vault.
+///
+/// `probe` is the outcome of rebinding as the rotated account with the new
+/// password, or `None` when [`probe_settles`] declined to spend one; without a
+/// probe the outcome is not knowable and the phase's indeterminate effect
+/// stands.
+fn settle_rejected_modify(
+    mut classified: IntegrationError,
+    probe: Option<&Result<(), LdapError>>,
+) -> IntegrationError {
+    classified.effect = match probe {
+        Some(probe) => effect_from_probe(probe),
+        None => EffectPolicy::MODIFY.indeterminate,
+    };
+    classified
+}
+
+/// Interpret the rebind that [`settle_rejected_modify`] consumes.
+///
+/// A bind the directory accepted is proof the new password is live. Only
+/// `invalidCredentials` is proof it is not: every other result code is the
+/// directory declining to answer the credential question — a DC shedding load
+/// will very likely shed the probe as well — and a transport failure answers
+/// nothing either.
+///
+/// The residual gap is that a locked-out or disabled account answers
+/// `invalidCredentials` whatever password is offered, so the probe reads that
+/// state as proof the write did not land.
+fn effect_from_probe(probe: &Result<(), LdapError>) -> TargetEffect {
+    match probe {
+        Ok(()) => TargetEffect::Applied,
+        Err(LdapError::LdapResult { result }) if result.rc == RC_INVALID_CREDENTIALS => {
+            TargetEffect::NotApplied
+        }
+        Err(_) => TargetEffect::Unknown,
+    }
+}
+
 /// Classify a non-zero LDAP result code.
 ///
 /// Load-shedding codes are transient; every other rejection is a decision the
@@ -786,6 +957,24 @@ fn classify_result_code(rc: u32, policy: EffectPolicy) -> IntegrationError {
     }
 }
 
+/// Returns `true` when an I/O error is really a TLS failure in disguise.
+///
+/// `tokio-rustls` reports handshake failures — an untrusted issuer, an expired
+/// certificate, a host name that matches no SAN — as
+/// `io::Error(InvalidData, rustls::Error)`, and `ldap3` forwards that as
+/// [`LdapError::Io`] rather than [`LdapError::Rustls`]. Without this check a
+/// rejected certificate would be classified as a transient network fault and
+/// retried, when in truth no number of retries will make an untrusted chain
+/// verify: it needs an operator to fix the trust configuration.
+///
+/// TLS can also fail mid-session, after a request has been written, so the
+/// caller's `indeterminate` effect applies rather than `settled`.
+fn is_tls_error(source: &std::io::Error) -> bool {
+    source
+        .get_ref()
+        .is_some_and(|inner| inner.is::<rustls::Error>())
+}
+
 /// Map an [`std::io::ErrorKind`] to a fixed name safe to place in a detail.
 fn io_error_kind_name(kind: std::io::ErrorKind) -> &'static str {
     use std::io::ErrorKind;
@@ -799,46 +988,6 @@ fn io_error_kind_name(kind: std::io::ErrorKind) -> &'static str {
         ErrorKind::UnexpectedEof => "UnexpectedEof",
         _ => "NetworkError",
     }
-}
-
-/// Re-attribute an error to [`TargetEffect::Applied`].
-///
-/// Used in `verify`, where helpers that default to `NotApplied` are called
-/// after the password has already been changed.
-fn as_applied(mut err: IntegrationError) -> IntegrationError {
-    err.effect = TargetEffect::Applied;
-    err
-}
-
-// ---------------------------------------------------------------------------
-// Credential lookup helper
-// ---------------------------------------------------------------------------
-
-/// Look up an optional credential suffix, returning `None` if absent.
-fn optional_cred<'a>(
-    creds: &'a crate::resolver::ResolvedCredentials,
-    suffix: &'static str,
-) -> Option<&'a str> {
-    creds.get(suffix).map(|s| s.expose().as_ref() as &str)
-}
-
-/// Look up a required credential suffix, returning
-/// `Fatal/NotApplied/credentials_unresolved` if absent.
-///
-/// The error detail names only the missing **suffix**, never a value.
-fn get_cred<'a>(
-    creds: &'a crate::resolver::ResolvedCredentials,
-    suffix: &'static str,
-) -> Result<&'a str, IntegrationError> {
-    creds
-        .get(suffix)
-        .map(|s| s.expose().as_ref() as &str)
-        .ok_or_else(|| IntegrationError {
-            class: ErrorClass::Fatal,
-            effect: TargetEffect::NotApplied,
-            code: FailureCode::CredentialsUnresolved,
-            detail: SafeDetail::from_kind(suffix),
-        })
 }
 
 // ---------------------------------------------------------------------------
@@ -1204,7 +1353,7 @@ mod tests {
     }
 
     #[test]
-    fn directory_rejection_of_the_modify_is_not_applied() {
+    fn directory_rejection_of_the_modify_classifies_as_not_applied() {
         let err = classify_ldap_error(
             &LdapError::LdapResult {
                 result: ldap_result(19, "constraint violation"),
@@ -1214,9 +1363,312 @@ mod tests {
         assert_eq!(
             err.effect,
             TargetEffect::NotApplied,
-            "an answered rejection means the credential is unchanged"
+            "the classification default for an answered rejection; rotate then \
+             replaces it with the probed effect"
         );
         assert_eq!(err.class, ErrorClass::Fatal);
+    }
+
+    #[test]
+    fn a_rebind_that_succeeds_proves_the_rejected_write_had_landed() {
+        assert_eq!(effect_from_probe(&Ok(())), TargetEffect::Applied);
+    }
+
+    #[test]
+    fn a_rebind_answered_with_invalid_credentials_proves_the_write_did_not_land() {
+        let probe = Err(LdapError::LdapResult {
+            result: ldap_result(49, "invalid credentials"),
+        });
+        assert_eq!(effect_from_probe(&probe), TargetEffect::NotApplied);
+    }
+
+    #[test]
+    fn a_rebind_the_directory_declined_to_answer_leaves_the_effect_unknown() {
+        for rc in [1, 11, 51, 52, 53] {
+            let probe = Err(LdapError::LdapResult {
+                result: ldap_result(rc, ""),
+            });
+            assert_eq!(
+                effect_from_probe(&probe),
+                TargetEffect::Unknown,
+                "rc {rc} says nothing about whether the new password is live"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rebind_that_cannot_reach_the_directory_leaves_the_effect_unknown() {
+        let probe = Err(LdapError::Io {
+            source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
+        });
+        assert_eq!(effect_from_probe(&probe), TargetEffect::Unknown);
+    }
+
+    fn rejected_modify(rc: u32) -> IntegrationError {
+        classify_ldap_error(
+            &LdapError::LdapResult {
+                result: ldap_result(rc, ""),
+            },
+            EffectPolicy::MODIFY,
+        )
+    }
+
+    #[test]
+    fn a_transient_rejection_is_not_probed_and_stays_unknown() {
+        for rc in [11, 51, 52] {
+            let classified = rejected_modify(rc);
+            assert!(
+                !probe_settles(&classified),
+                "rc {rc} is retried, so the probe would only cost a failed bind"
+            );
+            assert_eq!(
+                settle_rejected_modify(classified, None).effect,
+                TargetEffect::Unknown
+            );
+        }
+    }
+
+    #[test]
+    fn a_rejected_write_the_probe_finds_live_is_reported_as_applied() {
+        let settled = settle_rejected_modify(rejected_modify(19), Some(&Ok(())));
+        assert_eq!(settled.effect, TargetEffect::Applied);
+        assert_eq!(settled.class, ErrorClass::Fatal);
+        assert_eq!(settled.code, FailureCode::TargetRejected);
+    }
+
+    #[test]
+    fn a_rejected_write_the_probe_finds_absent_is_reported_as_not_applied() {
+        let classified = rejected_modify(19);
+        assert!(probe_settles(&classified));
+        let probe = Err(LdapError::LdapResult {
+            result: ldap_result(49, ""),
+        });
+        assert_eq!(
+            settle_rejected_modify(classified, Some(&probe)).effect,
+            TargetEffect::NotApplied
+        );
+    }
+
+    #[test]
+    fn a_rejected_write_whose_probe_fails_in_transport_is_reported_as_unknown() {
+        let probe = Err(LdapError::Io {
+            source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
+        });
+        assert_eq!(
+            settle_rejected_modify(rejected_modify(19), Some(&probe)).effect,
+            TargetEffect::Unknown
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // The password write and its probe
+    // -----------------------------------------------------------------------
+
+    /// The DN the account lookup is taken to have resolved to.
+    const ACCOUNT_DN: &str = "CN=svc-app,OU=Managed,DC=corp,DC=example";
+
+    /// A [`PasswordWriter`] that answers from a script and records what it was
+    /// asked to do, so a test can assert both the outcome and whether the
+    /// rebind probe was issued at all.
+    struct FakeDirectory {
+        /// The directory's answer to the `unicodePwd` write.
+        write: Option<Result<LdapResult, LdapError>>,
+        /// The directory's answer to the rebind probe, if one is issued.
+        probe: Option<Result<(), LdapError>>,
+        /// Each `(dn, value)` the write was asked to send.
+        written: Vec<(String, Vec<u8>)>,
+        /// Each `(dn, password)` the probe was asked to bind with.
+        binds: Vec<(String, String)>,
+    }
+
+    impl FakeDirectory {
+        /// A directory that answers the write with `write` and refuses to be
+        /// probed — any probe fails the test.
+        fn answering(write: Result<LdapResult, LdapError>) -> Self {
+            Self {
+                write: Some(write),
+                probe: None,
+                written: Vec::new(),
+                binds: Vec::new(),
+            }
+        }
+
+        /// The same, with a scripted answer for the rebind probe.
+        fn probed_with(mut self, probe: Result<(), LdapError>) -> Self {
+            self.probe = Some(probe);
+            self
+        }
+    }
+
+    #[async_trait]
+    impl PasswordWriter for FakeDirectory {
+        async fn replace_password(
+            &mut self,
+            account_dn: &str,
+            encoded: &[u8],
+        ) -> Result<LdapResult, LdapError> {
+            self.written
+                .push((account_dn.to_string(), encoded.to_vec()));
+            self.write
+                .take()
+                .expect("the write must be asked for exactly once")
+        }
+
+        async fn bind_as_account(
+            &mut self,
+            account_dn: &str,
+            password: &str,
+        ) -> Result<(), LdapError> {
+            self.binds
+                .push((account_dn.to_string(), password.to_string()));
+            self.probe
+                .take()
+                .expect("the probe was issued without a scripted answer")
+        }
+    }
+
+    #[tokio::test]
+    async fn an_accepted_write_succeeds_and_costs_no_bind() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(0, "")));
+        apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect("a write the directory accepted must succeed");
+        assert!(
+            directory.binds.is_empty(),
+            "an accepted write settles itself; probing it would spend a bind for nothing"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_write_sends_the_encoded_password_to_the_located_account() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(0, "")));
+        apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect("a write the directory accepted must succeed");
+
+        let (dn, value) = directory.written.first().expect("the write must be sent");
+        assert_eq!(dn, ACCOUNT_DN, "the write must target the located account");
+        assert_eq!(
+            value.as_slice(),
+            encode_unicode_pwd(SECRET).as_slice(),
+            "the value must be the unicodePwd encoding, not the raw password"
+        );
+        assert!(
+            value.windows(SECRET.len()).all(|w| w != SECRET.as_bytes()),
+            "the plain password must not be what goes on the wire"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_is_probed_as_the_rotated_account_with_the_new_password() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(19, "constraint violation")))
+            .probed_with(Ok(()));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        assert_eq!(
+            directory.binds,
+            vec![(ACCOUNT_DN.to_string(), SECRET.to_string())],
+            "the probe must rebind once, as the rotated account, with the new password"
+        );
+        assert_eq!(
+            err.effect,
+            TargetEffect::Applied,
+            "a probe the directory accepted proves the rejected write had landed"
+        );
+        assert_eq!(err.class, ErrorClass::Fatal);
+        assert_eq!(err.code, FailureCode::TargetRejected);
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_whose_probe_is_refused_is_reported_not_applied() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(19, ""))).probed_with(Err(
+            LdapError::LdapResult {
+                result: ldap_result(RC_INVALID_CREDENTIALS, ""),
+            },
+        ));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        assert_eq!(directory.binds.len(), 1);
+        assert_eq!(err.effect, TargetEffect::NotApplied);
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_whose_probe_cannot_reach_the_directory_is_reported_unknown() {
+        let mut directory =
+            FakeDirectory::answering(Ok(ldap_result(19, ""))).probed_with(Err(LdapError::Io {
+                source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
+            }));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        assert_eq!(directory.binds.len(), 1);
+        assert_eq!(err.effect, TargetEffect::Unknown);
+    }
+
+    #[tokio::test]
+    async fn a_transiently_rejected_write_is_never_probed() {
+        for rc in [RC_ADMIN_LIMIT_EXCEEDED, RC_BUSY, RC_UNAVAILABLE] {
+            let mut directory = FakeDirectory::answering(Ok(ldap_result(rc, "")));
+
+            let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+                .await
+                .expect_err("a rejected write must not be reported as success");
+
+            assert!(
+                directory.binds.is_empty(),
+                "rc {rc} is retried, so probing it would spend a failed bind against \
+                 the managed account on every attempt"
+            );
+            assert_eq!(err.class, ErrorClass::Transient, "rc {rc}");
+            assert_eq!(err.effect, TargetEffect::Unknown, "rc {rc}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_write_that_got_no_answer_is_never_probed_and_stays_unknown() {
+        let mut directory = FakeDirectory::answering(Err(LdapError::Io {
+            source: std::io::Error::from(std::io::ErrorKind::ConnectionReset),
+        }));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a write that got no answer must not be reported as success");
+
+        assert!(
+            directory.binds.is_empty(),
+            "the connection carrying the probe is the one that just failed"
+        );
+        assert_eq!(err.effect, TargetEffect::Unknown);
+        assert_eq!(err.class, ErrorClass::Transient);
+    }
+
+    #[tokio::test]
+    async fn a_rejected_write_reports_neither_the_password_nor_directory_text() {
+        let mut directory = FakeDirectory::answering(Ok(ldap_result(
+            53,
+            &format!("will not perform for {SECRET}"),
+        )))
+        .probed_with(Ok(()));
+
+        let err = apply_password_write(&mut directory, ACCOUNT_DN, SECRET)
+            .await
+            .expect_err("a rejected write must not be reported as success");
+
+        let rendered = err.to_string();
+        assert!(!rendered.contains(SECRET), "password leaked: {rendered}");
+        assert!(
+            !rendered.contains("OU=Service Accounts"),
+            "matched DN leaked: {rendered}"
+        );
+        assert_eq!(err.detail.as_str(), "LDAP result code 53");
     }
 
     #[tokio::test(start_paused = true)]
@@ -1228,6 +1680,47 @@ mod tests {
         assert_eq!(err.effect, TargetEffect::Unknown);
         assert_eq!(err.class, ErrorClass::Transient);
         assert_eq!(err.detail.as_str(), "error kind: OperationTimeout");
+    }
+
+    #[test]
+    fn rejected_certificate_is_fatal_not_transient() {
+        let rustls_err = rustls::Error::InvalidCertificate(rustls::CertificateError::UnknownIssuer);
+        let err = classify_ldap_error(
+            &LdapError::Io {
+                source: std::io::Error::new(std::io::ErrorKind::InvalidData, rustls_err),
+            },
+            EffectPolicy::BEFORE_MODIFY,
+        );
+        assert_eq!(
+            err.class,
+            ErrorClass::Fatal,
+            "an untrusted certificate must not be retried as a network blip"
+        );
+        assert_eq!(err.effect, TargetEffect::NotApplied);
+        assert_eq!(err.detail.as_str(), "error kind: TlsHandshakeFailed");
+    }
+
+    #[test]
+    fn tls_failure_during_the_modify_leaves_the_effect_unknown() {
+        let rustls_err = rustls::Error::InvalidCertificate(rustls::CertificateError::Expired);
+        let err = classify_ldap_error(
+            &LdapError::Io {
+                source: std::io::Error::new(std::io::ErrorKind::InvalidData, rustls_err),
+            },
+            EffectPolicy::MODIFY,
+        );
+        assert_eq!(err.effect, TargetEffect::Unknown);
+    }
+
+    #[test]
+    fn plain_io_errors_stay_transient() {
+        let err = classify_ldap_error(
+            &LdapError::Io {
+                source: std::io::Error::new(std::io::ErrorKind::InvalidData, "not a tls error"),
+            },
+            EffectPolicy::BEFORE_MODIFY,
+        );
+        assert_eq!(err.class, ErrorClass::Transient);
     }
 
     #[test]
@@ -1484,5 +1977,255 @@ D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
             err.detail.as_str(),
             "error kind: ActiveDirectorySessionTerminationUnsupported"
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Live domain-controller QA
+// ---------------------------------------------------------------------------
+
+/// End-to-end checks against a **real** Active Directory domain controller.
+///
+/// Every test here is `#[ignore]`d, so `cargo test` — in CI or locally — never
+/// opens a connection to a directory. Running them is an explicit act:
+///
+/// ```text
+/// BWRD_AD_LIVE_HOST=dc01.example.com:636 \
+/// BWRD_AD_LIVE_BIND_DN='CN=svc-rotate,OU=Service Accounts,DC=example,DC=com' \
+/// BWRD_AD_LIVE_BASE_DN='OU=Managed,DC=example,DC=com' \
+/// BWRD_AD_LIVE_BIND_PASSWORD='…' \
+/// BWRD_AD_LIVE_ACCOUNT='svc-app' \
+/// BWRD_AD_LIVE_ACCOUNT_PASSWORD='current password of that account' \
+/// BWRD_AD_LIVE_CA=/path/to/dc-ca.pem \
+///   cargo test -p bitwarden-rotation-daemon --lib -- --ignored --exact \
+///   integrations::active_directory::live::live_rotation_against_a_real_domain_controller
+/// ```
+///
+/// The run **changes the password of `BWRD_AD_LIVE_ACCOUNT`**. Point it only at
+/// a disposable account in a test directory.
+#[cfg(test)]
+mod live {
+    use std::{
+        io,
+        sync::{Arc, Mutex},
+    };
+
+    use chrono::Utc;
+    use uuid::Uuid;
+    use zeroize::Zeroizing;
+
+    use super::*;
+    use crate::resolver::ResolvedCredentials;
+
+    /// Connection parameters for the live directory, read from the environment.
+    struct LiveTarget {
+        host: String,
+        bind_dn: String,
+        base_dn: String,
+        bind_password: String,
+        ca_certificate: Option<String>,
+        account: String,
+        /// The rotated account's password as it stands before the test runs.
+        account_password: String,
+    }
+
+    impl LiveTarget {
+        /// Read the target from `BWRD_AD_LIVE_*`, or `None` if it is not configured.
+        fn from_env() -> Option<Self> {
+            let var = |n: &str| std::env::var(n).ok().filter(|v| !v.is_empty());
+            Some(Self {
+                host: var("BWRD_AD_LIVE_HOST")?,
+                bind_dn: var("BWRD_AD_LIVE_BIND_DN")?,
+                base_dn: var("BWRD_AD_LIVE_BASE_DN")?,
+                bind_password: var("BWRD_AD_LIVE_BIND_PASSWORD")?,
+                ca_certificate: var("BWRD_AD_LIVE_CA"),
+                account: var("BWRD_AD_LIVE_ACCOUNT")?,
+                account_password: var("BWRD_AD_LIVE_ACCOUNT_PASSWORD")?,
+            })
+        }
+
+        fn creds(&self) -> ResolvedCredentials {
+            let mut creds = ResolvedCredentials::new();
+            creds.insert(HOST_SUFFIX.to_string(), self.host.clone());
+            creds.insert(BIND_DN_SUFFIX.to_string(), self.bind_dn.clone());
+            creds.insert(BASE_DN_SUFFIX.to_string(), self.base_dn.clone());
+            creds.insert(BIND_PASSWORD_SUFFIX.to_string(), self.bind_password.clone());
+            if let Some(ca) = &self.ca_certificate {
+                creds.insert(CA_CERTIFICATE_SUFFIX.to_string(), ca.clone());
+            }
+            creds
+        }
+
+        fn context(&self, password: &str) -> RotateContext {
+            RotateContext {
+                target_system_id: Uuid::nil(),
+                account_identity: self.account.clone(),
+                new_password: Zeroizing::new(password.to_string()),
+                creds: self.creds(),
+                rotation_started_at: Utc::now(),
+            }
+        }
+    }
+
+    /// A `tracing` writer that accumulates everything into a shared buffer.
+    #[derive(Clone)]
+    struct CapturedLog(Arc<Mutex<Vec<u8>>>);
+
+    impl io::Write for CapturedLog {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            if let Ok(mut guard) = self.0.lock() {
+                guard.extend_from_slice(buf);
+            }
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CapturedLog {
+        type Writer = Self;
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    /// A password that satisfies default AD complexity rules.
+    fn generated_password() -> String {
+        format!("Bw!{}aQ9", Uuid::new_v4().simple())
+    }
+
+    /// Rotate a disposable account, prove the new password works and the old one
+    /// does not, and prove neither password reaches the log stream.
+    #[tokio::test]
+    #[ignore = "requires a live Active Directory domain controller; see the module docs"]
+    async fn live_rotation_against_a_real_domain_controller() {
+        let target = LiveTarget::from_env()
+            .expect("BWRD_AD_LIVE_* environment variables must be set for the live test");
+
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let _ = tracing_subscriber::fmt()
+            .with_writer(CapturedLog(Arc::clone(&captured)))
+            .with_max_level(tracing::Level::TRACE)
+            .with_ansi(false)
+            .try_init();
+        tracing::info!("live-ad-capture-probe");
+
+        let integration = ActiveDirectoryIntegration::new();
+        let old_password = target.bind_password.clone();
+        let new_password = generated_password();
+
+        let rotate_ctx = target.context(&new_password);
+        integration
+            .rotate(&rotate_ctx)
+            .await
+            .expect("rotate must succeed against the live directory");
+
+        integration
+            .verify(&rotate_ctx)
+            .await
+            .expect("verify must rebind as the rotated account with the new password");
+
+        let second_password = generated_password();
+        let second_ctx = target.context(&second_password);
+        integration
+            .rotate(&second_ctx)
+            .await
+            .expect("a second rotation must succeed");
+        integration
+            .verify(&second_ctx)
+            .await
+            .expect("verify must succeed after the second rotation");
+
+        // A password the directory has never held must be rejected. Without this
+        // the checks above would also pass against a directory that accepted
+        // anything, which would make them meaningless.
+        let never_set = generated_password();
+        let rejected = integration
+            .verify(&target.context(&never_set))
+            .await
+            .expect_err("a password the account never had must not bind");
+        assert_eq!(rejected.class, ErrorClass::Fatal);
+        assert_eq!(rejected.code, FailureCode::VerificationFailed);
+        assert_eq!(rejected.effect, TargetEffect::Applied);
+
+        // The password the account started with is now two rotations old and
+        // must no longer authenticate.
+        //
+        // Note that the *immediately* preceding password is deliberately not
+        // asserted on: Active Directory keeps accepting it for a grace period
+        // (`OldPasswordAllowedPeriod`, 60 minutes by default), so a rotation
+        // does not revoke the previous credential at once. That is a property
+        // of the directory, not of this connector, and it is why the two-step
+        // rotation above is needed to make this assertion meaningful.
+        let account_password = target.account_password.clone();
+        let superseded = integration
+            .verify(&target.context(&account_password))
+            .await
+            .expect_err("the pre-rotation password must no longer bind");
+        assert_eq!(superseded.class, ErrorClass::Fatal);
+        assert_eq!(superseded.code, FailureCode::VerificationFailed);
+
+        let logged = String::from_utf8_lossy(
+            &captured
+                .lock()
+                .expect("captured log is not poisoned")
+                .clone(),
+        )
+        .into_owned();
+
+        assert!(
+            logged.contains("live-ad-capture-probe"),
+            "log capture must be active, otherwise the leak assertions below prove nothing"
+        );
+        for (label, secret) in [
+            ("bind password", old_password.as_str()),
+            ("account password", target.account_password.as_str()),
+            ("first rotated password", new_password.as_str()),
+            ("second rotated password", second_password.as_str()),
+        ] {
+            assert!(
+                !logged.contains(secret),
+                "{label} appeared in the log stream ({} bytes captured)",
+                logged.len()
+            );
+        }
+    }
+
+    /// The connector must refuse a domain controller whose certificate it cannot
+    /// chain to a trust anchor, rather than falling back to an unverified connection.
+    ///
+    /// The detail is asserted first and exactly. Fatal/`NotApplied` alone proves
+    /// nothing here: a wrong bind DN (rc 49), a stale base DN (rc 32) and a host
+    /// the validator refuses all satisfy those two assertions without a socket
+    /// ever being opened, let alone a certificate being rejected.
+    ///
+    /// The rotation is driven with the account's *current* password rather than
+    /// a generated one, so that on a host whose platform trust store already
+    /// contains the enterprise root — where the write is expected to succeed and
+    /// the assertions below are expected to fail — the fixture account is not
+    /// left holding a password the harness discarded.
+    #[tokio::test]
+    #[ignore = "requires a live Active Directory domain controller; see the module docs"]
+    async fn live_rotation_without_the_trust_anchor_is_refused() {
+        let mut target = LiveTarget::from_env()
+            .expect("BWRD_AD_LIVE_* environment variables must be set for the live test");
+        target.ca_certificate = None;
+
+        let integration = ActiveDirectoryIntegration::new();
+        let ctx = target.context(&target.account_password);
+        let err = integration
+            .rotate(&ctx)
+            .await
+            .expect_err("an untrusted certificate must not be accepted");
+        assert_eq!(
+            err.detail.as_str(),
+            "error kind: TlsHandshakeFailed",
+            "the connection must fail on trust grounds, not for some other \
+             reason before the write: {err}"
+        );
+        assert_eq!(err.code, FailureCode::TargetUnreachable, "error was: {err}");
+        assert_eq!(err.class, ErrorClass::Fatal, "error was: {err}");
+        assert_eq!(err.effect, TargetEffect::NotApplied, "error was: {err}");
     }
 }
