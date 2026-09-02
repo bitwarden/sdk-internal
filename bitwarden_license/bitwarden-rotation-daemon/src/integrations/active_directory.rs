@@ -13,9 +13,13 @@
 //! connection that is not encrypted, answering `confidentialityRequired`
 //! (result code 13).
 //!
-//! The server certificate is validated against the host's native trust store,
-//! so the issuing enterprise CA must be trusted by the machine running the
-//! daemon.
+//! The server certificate is validated against the host's native trust store.
+//! A deployment whose domain controller uses a private or self-signed
+//! certificate can name a PEM file of additional trust anchors with the
+//! `CA_CERTIFICATE` credential; those anchors are **added** to the platform
+//! roots, never substituted for them. There is deliberately no option to skip
+//! verification or relax the host-name check — an extra anchor is the only
+//! escape hatch offered.
 //!
 //! # Bind identity
 //!
@@ -52,12 +56,16 @@
 //! - Directory-supplied diagnostic text (`LdapResult::text`) and matched DNs are never read into a
 //!   detail. Only the numeric LDAP result code is reported.
 
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, path::Path, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use bitwarden_sensitive_value::ExposeSensitive as _;
 use ldap3::{
     Ldap, LdapConnAsync, LdapConnSettings, LdapError, Mod, ResultEntry, Scope, SearchEntry,
+};
+use rustls::{
+    ClientConfig, RootCertStore,
+    pki_types::{CertificateDer, pem::PemObject as _},
 };
 use tokio::task::JoinHandle;
 use zeroize::Zeroizing;
@@ -82,6 +90,12 @@ const BASE_DN_SUFFIX: &str = "BASE_DN";
 ///
 /// Environment-only; the `[targets]` config section deliberately refuses it.
 const BIND_PASSWORD_SUFFIX: &str = "BIND_PASSWORD";
+
+/// Credential suffix holding a path to a PEM file of additional trust anchors.
+///
+/// Optional. A file path, not a secret, so it may be supplied in the
+/// `[targets]` config section as well as in the environment.
+const CA_CERTIFICATE_SUFFIX: &str = "CA_CERTIFICATE";
 
 /// The Active Directory attribute holding the account password.
 const UNICODE_PWD_ATTR: &[u8] = b"unicodePwd";
@@ -178,12 +192,21 @@ impl ActiveDirectoryIntegration {
     }
 
     /// Open an LDAPS connection and start its protocol driver task.
+    ///
+    /// When `ca_certificate` names a PEM file, the connection trusts the
+    /// platform roots plus that file's anchors. When it is `None` the
+    /// connection uses the LDAP client's own platform-root configuration,
+    /// unchanged.
     async fn connect(
         &self,
         url: &str,
+        ca_certificate: Option<&str>,
         policy: EffectPolicy,
     ) -> Result<LdapSession, IntegrationError> {
-        let settings = LdapConnSettings::new().set_conn_timeout(self.connect_timeout);
+        let mut settings = LdapConnSettings::new().set_conn_timeout(self.connect_timeout);
+        if let Some(path) = ca_certificate {
+            settings = settings.set_config(tls_config_with_extra_anchors(path, policy)?);
+        }
         let (conn, ldap) = LdapConnAsync::with_settings(settings, url)
             .await
             .map_err(|e| classify_ldap_error(&e, policy))?;
@@ -201,7 +224,9 @@ impl ActiveDirectoryIntegration {
         account_identity: &str,
         policy: EffectPolicy,
     ) -> Result<(LdapSession, String), IntegrationError> {
-        let mut session = self.connect(&creds.url, policy).await?;
+        let mut session = self
+            .connect(&creds.url, creds.ca_certificate, policy)
+            .await?;
         session
             .simple_bind(creds.bind_dn, creds.bind_password, self.operation_timeout)
             .await
@@ -335,6 +360,8 @@ struct Credentials<'a> {
     base_dn: &'a str,
     /// Password of the delegated service account.
     bind_password: &'a str,
+    /// Optional path to a PEM file of additional TLS trust anchors.
+    ca_certificate: Option<&'a str>,
 }
 
 impl<'a> Credentials<'a> {
@@ -346,6 +373,7 @@ impl<'a> Credentials<'a> {
             bind_dn: get_cred(creds, BIND_DN_SUFFIX)?,
             base_dn: get_cred(creds, BASE_DN_SUFFIX)?,
             bind_password: get_cred(creds, BIND_PASSWORD_SUFFIX)?,
+            ca_certificate: optional_cred(creds, CA_CERTIFICATE_SUFFIX),
         })
     }
 }
@@ -413,7 +441,11 @@ impl Integration for ActiveDirectoryIntegration {
         lookup.close().await;
 
         let mut session = self
-            .connect(&creds.url, EffectPolicy::AFTER_ROTATION)
+            .connect(
+                &creds.url,
+                creds.ca_certificate,
+                EffectPolicy::AFTER_ROTATION,
+            )
             .await?;
         let bind = session
             .simple_bind(&account_dn, &ctx.new_password, self.operation_timeout)
@@ -503,6 +535,98 @@ fn encode_unicode_pwd(password: &str) -> Zeroizing<Vec<u8>> {
         buf.extend_from_slice(&unit.to_le_bytes());
     }
     buf
+}
+
+// ---------------------------------------------------------------------------
+// TLS trust anchors
+// ---------------------------------------------------------------------------
+
+/// Build a TLS client configuration trusting the platform roots **plus** the
+/// certificates in the PEM file at `path`.
+///
+/// # Additive, never substitutive
+///
+/// The file's anchors are appended to the host's native trust store. A domain
+/// controller using a private or self-signed certificate becomes reachable
+/// without any public CA losing its standing, and without weakening the
+/// verification applied to it: the certificate chain and the host name are
+/// checked exactly as they are for a publicly-issued certificate.
+///
+/// # No silent fallback
+///
+/// Every failure to honour the configured anchor is fatal. A missing file, an
+/// unreadable one, a malformed PEM, or a PEM holding no certificate all abort
+/// the rotation rather than quietly continuing with platform roots only —
+/// falling back would turn a misconfiguration into a connection that the
+/// operator believes is pinned but is not.
+///
+/// The path is reported in no error; only a fixed kind name is.
+fn tls_config_with_extra_anchors(
+    path: &str,
+    policy: EffectPolicy,
+) -> Result<Arc<ClientConfig>, IntegrationError> {
+    let failure = |kind: &'static str| IntegrationError {
+        class: ErrorClass::Fatal,
+        effect: policy.settled,
+        code: FailureCode::CredentialsUnresolved,
+        detail: SafeDetail::from_kind(kind),
+    };
+
+    let roots = root_store_with_extra_anchors(path, policy)?;
+
+    let config =
+        ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .with_safe_default_protocol_versions()
+            .map_err(|_| failure("TlsProviderUnavailable"))?
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+
+    Ok(Arc::new(config))
+}
+
+/// The host's native trust store, as a [`RootCertStore`].
+///
+/// Certificates the platform offers but rustls cannot parse are skipped, which
+/// matches what the LDAP client does for its own default configuration.
+fn platform_roots() -> RootCertStore {
+    let mut roots = RootCertStore::empty();
+    for cert in rustls_native_certs::load_native_certs().certs {
+        let _ = roots.add(cert);
+    }
+    roots
+}
+
+/// [`platform_roots`] plus every certificate in the PEM file at `path`.
+///
+/// The platform roots are the starting point, so the configured anchors can
+/// only widen what is trusted for this one target — they can never remove a
+/// public CA or become the sole trust source.
+fn root_store_with_extra_anchors(
+    path: &str,
+    policy: EffectPolicy,
+) -> Result<RootCertStore, IntegrationError> {
+    let failure = |kind: &'static str| IntegrationError {
+        class: ErrorClass::Fatal,
+        effect: policy.settled,
+        code: FailureCode::CredentialsUnresolved,
+        detail: SafeDetail::from_kind(kind),
+    };
+
+    let anchors: Vec<CertificateDer<'static>> = CertificateDer::pem_file_iter(Path::new(path))
+        .map_err(|_| failure("CaCertificateUnreadable"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| failure("CaCertificateInvalid"))?;
+    if anchors.is_empty() {
+        return Err(failure("CaCertificateEmpty"));
+    }
+
+    let mut roots = platform_roots();
+    for anchor in anchors {
+        roots
+            .add(anchor)
+            .map_err(|_| failure("CaCertificateInvalid"))?;
+    }
+    Ok(roots)
 }
 
 // ---------------------------------------------------------------------------
@@ -689,6 +813,14 @@ fn as_applied(mut err: IntegrationError) -> IntegrationError {
 // ---------------------------------------------------------------------------
 // Credential lookup helper
 // ---------------------------------------------------------------------------
+
+/// Look up an optional credential suffix, returning `None` if absent.
+fn optional_cred<'a>(
+    creds: &'a crate::resolver::ResolvedCredentials,
+    suffix: &'static str,
+) -> Option<&'a str> {
+    creds.get(suffix).map(|s| s.expose().as_ref() as &str)
+}
 
 /// Look up a required credential suffix, returning
 /// `Fatal/NotApplied/credentials_unresolved` if absent.
@@ -1190,6 +1322,147 @@ mod tests {
         assert_eq!(err.code, FailureCode::CredentialsUnresolved);
         assert_eq!(err.detail.as_str(), "error kind: MalformedLdapHost");
         assert!(!err.to_string().contains(SECRET));
+    }
+
+    // -----------------------------------------------------------------------
+    // TLS trust anchors
+    // -----------------------------------------------------------------------
+
+    /// A self-signed certificate used only as a parseable trust anchor.
+    const TEST_CA_PEM: &str = "\
+-----BEGIN CERTIFICATE-----\n\
+MIIDJTCCAg2gAwIBAgIUP9bWk+gm4n6VqzhqhQz9YDiwR/UwDQYJKoZIhvcNAQEL\n\
+BQAwIjEgMB4GA1UEAwwXcm90YXRpb24tZGFlbW9uLXRlc3QtY2EwHhcNMjYwODMx\n\
+MjIzODU5WhcNMzYwODI4MjIzODU5WjAiMSAwHgYDVQQDDBdyb3RhdGlvbi1kYWVt\n\
+b24tdGVzdC1jYTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALCVyUmM\n\
+86vormZ7E/vOxdZMvJOYVjp17OrAI1tPWq0PywOizZ1gJORWXjArJFT0PoG2OqmA\n\
+hafaOoZTeZH0J4DwEjgGVn/rGVIa8f5a8qjfnJdDn23fnqa2Wd+9Tf1/LDeCUZil\n\
+7jZ4NqtddZe+GOkkWJXB+55u7JhxPyX/AdfVK9idmGANXGuCOUZhTLSnz+p5SrLP\n\
+WWDgQeAHTvFlWcpu8eff5Agj5cdhqyJiBcpaLzga0xiUifpdG4yEU/7H/909XKOQ\n\
+/O0wiPwnObHwOVFALDppeHo9FtGmvK0OQArxgo40gaeWEvctURyXc6Lqu5u8eZXV\n\
+MX5nIS+hPAYLZ50CAwEAAaNTMFEwHQYDVR0OBBYEFE7MLaoHaLKLcBeZsdAfGTk0\n\
+0ToLMB8GA1UdIwQYMBaAFE7MLaoHaLKLcBeZsdAfGTk00ToLMA8GA1UdEwEB/wQF\n\
+MAMBAf8wDQYJKoZIhvcNAQELBQADggEBAJyvTvcTCL6s3MPlhYHrcCAfc6/PcVro\n\
+NvLM9fOUvmlqdlyXyvwZ/FOwGogLUSVVR+68wLQ4NFac4nhyeaApiFsKoHP+bA6X\n\
+bsgmmsTYuH0fw43szFTlI+Lw2a8Ai9Nx8JTeyILL9FzCV6ranWW7YcQBEPTvpfB7\n\
+vBWeCGTA+sHqgBbltU/5jsWYslt9YhOpxkoJHHxyt2JA8XYCpdSkfgFOsjReofHn\n\
+SavmVaBabR7Vq3QVTfvp+/WO41z7hGKsGAZ2dVldkHeOjgu4oktTOeblDbnZogZ2\n\
+D2kYx4ka5O/dEuqcrMf/qd6GW5H2PJcrdc4PtRJeIBDR0TgweD2xjJ0=\n\
+-----END CERTIFICATE-----\n";
+
+    fn write_temp(contents: &str) -> tempfile::NamedTempFile {
+        use std::io::Write as _;
+        let mut f = tempfile::NamedTempFile::new().expect("temp file");
+        f.write_all(contents.as_bytes()).expect("write pem");
+        f.flush().expect("flush");
+        f
+    }
+
+    #[test]
+    fn extra_anchor_is_added_to_platform_roots_not_substituted() {
+        let f = write_temp(TEST_CA_PEM);
+        let path = f.path().to_str().expect("utf8 path");
+
+        let baseline = platform_roots().len();
+        let widened = root_store_with_extra_anchors(path, EffectPolicy::BEFORE_MODIFY)
+            .expect("valid PEM should build a root store")
+            .len();
+
+        assert_eq!(
+            widened,
+            baseline + 1,
+            "the anchor must be added to the platform roots, not replace them"
+        );
+    }
+
+    #[test]
+    fn valid_ca_certificate_builds_a_client_config() {
+        let f = write_temp(TEST_CA_PEM);
+        let path = f.path().to_str().expect("utf8 path");
+        assert!(tls_config_with_extra_anchors(path, EffectPolicy::BEFORE_MODIFY).is_ok());
+    }
+
+    #[test]
+    fn missing_ca_certificate_file_is_fatal() {
+        let err = root_store_with_extra_anchors(
+            "/nonexistent/path/to/ca-bundle-2f8a1c.pem",
+            EffectPolicy::BEFORE_MODIFY,
+        )
+        .expect_err("a missing PEM must not fall back to platform roots");
+        assert_eq!(err.class, ErrorClass::Fatal);
+        assert_eq!(err.code, FailureCode::CredentialsUnresolved);
+        assert_eq!(err.detail.as_str(), "error kind: CaCertificateUnreadable");
+    }
+
+    #[test]
+    fn malformed_ca_certificate_is_fatal() {
+        let truncated = "-----BEGIN CERTIFICATE-----\nMIIDJTCCAg2gAwIBAgIUP9bWk\n";
+        let f = write_temp(truncated);
+        let path = f.path().to_str().expect("utf8 path");
+        let err = root_store_with_extra_anchors(path, EffectPolicy::BEFORE_MODIFY)
+            .expect_err("a malformed PEM must not fall back to platform roots");
+        assert_eq!(err.class, ErrorClass::Fatal);
+        assert_eq!(err.detail.as_str(), "error kind: CaCertificateInvalid");
+    }
+
+    #[test]
+    fn ca_certificate_without_a_certificate_is_fatal() {
+        let f = write_temp("# no PEM sections here\n");
+        let path = f.path().to_str().expect("utf8 path");
+        let err = root_store_with_extra_anchors(path, EffectPolicy::BEFORE_MODIFY)
+            .expect_err("a PEM with no certificate must not fall back to platform roots");
+        assert_eq!(err.class, ErrorClass::Fatal);
+        assert_eq!(err.detail.as_str(), "error kind: CaCertificateEmpty");
+    }
+
+    #[test]
+    fn ca_certificate_path_never_reaches_the_error_detail() {
+        let path = "/etc/secrets/ad-ca-9f3b2e.pem";
+        let err = root_store_with_extra_anchors(path, EffectPolicy::BEFORE_MODIFY)
+            .expect_err("missing file");
+        assert!(
+            !err.to_string().contains("9f3b2e"),
+            "the configured path must not appear in the error: {err}"
+        );
+    }
+
+    #[test]
+    fn ca_certificate_failure_after_rotation_reports_applied() {
+        let err =
+            root_store_with_extra_anchors("/nonexistent/ca.pem", EffectPolicy::AFTER_ROTATION)
+                .expect_err("missing file");
+        assert_eq!(err.effect, TargetEffect::Applied);
+    }
+
+    #[test]
+    fn ca_certificate_is_optional_and_absent_by_default() {
+        let mut creds = ResolvedCredentials::new();
+        creds.insert(HOST_SUFFIX.to_string(), "dc01.corp.example".to_string());
+        creds.insert(BIND_DN_SUFFIX.to_string(), "CN=svc,DC=corp".to_string());
+        creds.insert(BASE_DN_SUFFIX.to_string(), "DC=corp".to_string());
+        creds.insert(BIND_PASSWORD_SUFFIX.to_string(), SECRET.to_string());
+
+        let resolved = Credentials::resolve(&creds).expect("credentials resolve without a CA");
+        assert!(
+            resolved.ca_certificate.is_none(),
+            "an absent CA_CERTIFICATE must leave the connection on platform roots"
+        );
+    }
+
+    #[test]
+    fn ca_certificate_is_picked_up_when_present() {
+        let mut creds = ResolvedCredentials::new();
+        creds.insert(HOST_SUFFIX.to_string(), "dc01.corp.example".to_string());
+        creds.insert(BIND_DN_SUFFIX.to_string(), "CN=svc,DC=corp".to_string());
+        creds.insert(BASE_DN_SUFFIX.to_string(), "DC=corp".to_string());
+        creds.insert(BIND_PASSWORD_SUFFIX.to_string(), SECRET.to_string());
+        creds.insert(
+            CA_CERTIFICATE_SUFFIX.to_string(),
+            "/etc/pki/ad-ca.pem".to_string(),
+        );
+
+        let resolved = Credentials::resolve(&creds).expect("credentials resolve");
+        assert_eq!(resolved.ca_certificate, Some("/etc/pki/ad-ca.pem"));
     }
 
     // -----------------------------------------------------------------------

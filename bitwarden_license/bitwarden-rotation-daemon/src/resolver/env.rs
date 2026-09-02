@@ -20,6 +20,10 @@
 //! | `Mssql`        | `HOST`, `USER`, `SECRET`                       |
 //! | `ActiveDirectory` | `LDAP_HOST`, `BIND_DN`, `BASE_DN`, `BIND_PASSWORD` |
 //!
+//! `ActiveDirectory` additionally recognises the optional `CA_CERTIFICATE`
+//! suffix: a path to a PEM file whose certificates are added to the platform
+//! trust store for that target's LDAPS connections.
+//!
 //! If any required variable is absent the resolver returns
 //! [`ResolveError::Missing`] carrying the full variable names (safe to log
 //! and report — names only, never values).

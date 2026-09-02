@@ -47,7 +47,13 @@ script = "/tmp/bwrd-dev-rotate.sh"
 # not a Domain Admin. Its password is env-only:
 #   00000000_0000_0000_0000_000000000003_BIND_PASSWORD=<secret>
 #
+# ca_certificate is optional: a PEM of extra trust anchors, ADDED to the platform
+# roots, for a DC whose LDAPS certificate is self-signed or issued by an internal
+# CA. It never relaxes verification, and a bad path is a hard failure rather than
+# a fallback to platform roots. Omit it when the DC's issuer is publicly trusted.
+#
 # [targets.00000000-0000-0000-0000-000000000003]
-# ldap_host = "dc01.corp.example"
-# bind_dn   = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
-# base_dn   = "OU=Managed Accounts,DC=corp,DC=example"
+# ldap_host      = "dc01.corp.example"
+# bind_dn        = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+# base_dn        = "OU=Managed Accounts,DC=corp,DC=example"
+# ca_certificate = "/etc/bitwarden/ad-ca.pem"

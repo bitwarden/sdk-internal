@@ -51,6 +51,11 @@ pub(crate) struct TargetEntry {
     pub(crate) bind_dn: Option<String>,
     /// Search base DN for Active Directory account lookup (`BASE_DN` suffix).
     pub(crate) base_dn: Option<String>,
+    /// Path to a PEM file of additional TLS trust anchors (`CA_CERTIFICATE` suffix).
+    ///
+    /// A file path rather than a secret, so it is accepted here as well as in
+    /// the environment.
+    pub(crate) ca_certificate: Option<String>,
 }
 
 impl TargetEntry {
@@ -63,6 +68,7 @@ impl TargetEntry {
             ("LDAP_HOST", self.ldap_host.as_deref()),
             ("BIND_DN", self.bind_dn.as_deref()),
             ("BASE_DN", self.base_dn.as_deref()),
+            ("CA_CERTIFICATE", self.ca_certificate.as_deref()),
         ]
         .into_iter()
         .filter_map(|(suffix, opt)| opt.map(|v| (suffix, v)))
@@ -190,6 +196,7 @@ mod tests {
                 ldap_host: None,
                 bind_dn: None,
                 base_dn: None,
+                ca_certificate: None,
             },
         );
         // No env vars set for this ID.
@@ -220,6 +227,7 @@ mod tests {
                 ldap_host: None,
                 bind_dn: None,
                 base_dn: None,
+                ca_certificate: None,
             },
         );
 
@@ -262,6 +270,7 @@ mod tests {
                 ldap_host: Some("dc01.corp.example".to_string()),
                 bind_dn: Some("CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example".to_string()),
                 base_dn: Some("DC=corp,DC=example".to_string()),
+                ca_certificate: None,
             },
         );
 
@@ -298,6 +307,7 @@ mod tests {
                 ldap_host: Some("dc01.corp.example".to_string()),
                 bind_dn: Some("CN=svc-rotate,DC=corp,DC=example".to_string()),
                 base_dn: Some("DC=corp,DC=example".to_string()),
+                ca_certificate: None,
             },
         );
 
@@ -322,6 +332,101 @@ bind_password = "should-not-be-accepted"
         assert!(
             err.to_string().contains("unknown field `bind_password`"),
             "must be rejected as an unknown field: {err}"
+        );
+    }
+
+    #[test]
+    fn active_directory_ca_certificate_config_shadows_env() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+
+        let mut targets = HashMap::new();
+        targets.insert(
+            id,
+            TargetEntry {
+                script: None,
+                tenant_id: None,
+                client_id: None,
+                ldap_host: Some("dc01.corp.example".to_string()),
+                bind_dn: Some("CN=svc-rotate,DC=corp,DC=example".to_string()),
+                base_dn: Some("DC=corp,DC=example".to_string()),
+                ca_certificate: Some("/etc/pki/from-config.pem".to_string()),
+            },
+        );
+
+        let mut vars = HashMap::new();
+        vars.insert(format!("{prefix}BIND_PASSWORD"), "bind-secret".to_string());
+        vars.insert(
+            format!("{prefix}CA_CERTIFICATE"),
+            "/etc/pki/from-env.pem".to_string(),
+        );
+
+        let creds = run_resolver_with_env(id, TargetKind::ActiveDirectory, targets, &vars)
+            .expect("should resolve");
+
+        use bitwarden_sensitive_value::ExposeSensitive as _;
+        assert_eq!(
+            **creds.get("CA_CERTIFICATE").expect("ca cert").expose(),
+            "/etc/pki/from-config.pem",
+            "config must win over env for ca_certificate"
+        );
+    }
+
+    #[test]
+    fn active_directory_ca_certificate_falls_back_to_env() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+
+        let mut targets = HashMap::new();
+        targets.insert(
+            id,
+            TargetEntry {
+                script: None,
+                tenant_id: None,
+                client_id: None,
+                ldap_host: Some("dc01.corp.example".to_string()),
+                bind_dn: Some("CN=svc-rotate,DC=corp,DC=example".to_string()),
+                base_dn: Some("DC=corp,DC=example".to_string()),
+                ca_certificate: None,
+            },
+        );
+
+        let mut vars = HashMap::new();
+        vars.insert(format!("{prefix}BIND_PASSWORD"), "bind-secret".to_string());
+        vars.insert(
+            format!("{prefix}CA_CERTIFICATE"),
+            "/etc/pki/from-env.pem".to_string(),
+        );
+
+        let creds = run_resolver_with_env(id, TargetKind::ActiveDirectory, targets, &vars)
+            .expect("should resolve");
+
+        use bitwarden_sensitive_value::ExposeSensitive as _;
+        assert_eq!(
+            **creds.get("CA_CERTIFICATE").expect("ca cert").expose(),
+            "/etc/pki/from-env.pem"
+        );
+    }
+
+    #[test]
+    fn active_directory_ca_certificate_absent_from_both_sources() {
+        let id = Uuid::new_v4();
+        let prefix = prefix_for(id);
+
+        let mut vars = HashMap::new();
+        vars.insert(
+            format!("{prefix}LDAP_HOST"),
+            "dc01.corp.example".to_string(),
+        );
+        vars.insert(format!("{prefix}BIND_DN"), "CN=svc,DC=corp".to_string());
+        vars.insert(format!("{prefix}BASE_DN"), "DC=corp".to_string());
+        vars.insert(format!("{prefix}BIND_PASSWORD"), "bind-secret".to_string());
+
+        let creds = run_resolver_with_env(id, TargetKind::ActiveDirectory, HashMap::new(), &vars)
+            .expect("ca_certificate is optional");
+        assert!(
+            creds.get("CA_CERTIFICATE").is_none(),
+            "an unset ca_certificate must stay unset"
         );
     }
 
@@ -366,6 +471,7 @@ bind_password = "should-not-be-accepted"
                 ldap_host: None,
                 bind_dn: None,
                 base_dn: None,
+                ca_certificate: None,
             },
         );
 
