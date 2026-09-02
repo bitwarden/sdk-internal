@@ -1487,7 +1487,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // Fix-6: Graph error.code validation
+    // Graph error.code validation
     // -----------------------------------------------------------------------
 
     /// Hostile `error.code` values (control chars, punctuation, >64 chars)
