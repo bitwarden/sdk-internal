@@ -134,7 +134,7 @@ serde_repr = ">=0.1.12, <0.2"
 sha1 = "0.11.0"
 sha2 = "0.11.0"
 subtle = ">=2.5.0, <3.0"
-syn = ">=2.0.87, <3"
+syn = ">=2.0.87, <4"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
 tracing = { version = "0.1.41" }
