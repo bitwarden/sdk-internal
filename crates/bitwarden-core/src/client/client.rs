@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::internal::InternalClient;
+use super::{gov_mode, internal::InternalClient};
 use crate::{
     auth::auth_tokens::TokenHandler,
     client::{
@@ -48,5 +48,15 @@ impl Client {
     /// Returns a [`ClientBuilder`] for constructing a new [`Client`].
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
+    }
+
+    /// Whether the client is in Gov Mode.
+    ///
+    /// Inferred today from the configured API URL host. PM-36520 will
+    /// replace the URL inference with a read of the (not yet developed)
+    /// server-published gov_mode from /api/config. The signature does not
+    /// change across that migration.
+    pub fn gov_mode(&self) -> bool {
+        gov_mode::is_gov_mode(&self.internal)
     }
 }

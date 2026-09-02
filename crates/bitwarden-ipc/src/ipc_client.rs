@@ -8,13 +8,10 @@ use tokio::select;
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
     error::{
-        AlreadyRunningError, IpcErrorKind, ReceiveError, SendError, SubscribeError,
+        AlreadyRunningError, ErrorKind, IpcErrorKind, ReceiveError, SendError, SubscribeError,
         TypedReceiveError,
     },
-    message::{
-        IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
-        TypedOutgoingMessage,
-    },
+    message::{IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage},
     rpc::{
         exec::{handler::ErasedRpcHandler, handler_registry::RpcHandlerRegistry},
         request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
@@ -159,7 +156,7 @@ where
                                     break;
                                 };
                             }
-                            Err(error) if error.is_fatal() => {
+                            Err(error) if matches!(error.kind(), ErrorKind::Fatal) => {
                                 tracing::error!(?error, "Fatal error receiving message, stopping IPC client");
                                 break;
                             }
@@ -209,18 +206,27 @@ where
             .await;
 
         if let Err(ref error) = result {
-            if error.is_fatal() {
-                tracing::error!(?error, "Fatal error sending message, stopping IPC client");
-                stop_inner(&self.inner);
-            } else {
-                tracing::warn!(
-                    ?error,
-                    "Recoverable error sending message, IPC client will continue running"
-                );
+            match error.kind() {
+                ErrorKind::Fatal => {
+                    tracing::error!(?error, "Fatal error sending message, stopping IPC client");
+                    stop_inner(&self.inner);
+                }
+                // An unreachable destination is an expected condition and not logged
+                ErrorKind::Unreachable => {}
+                // Every other recoverable send failure is still surfaced.
+                ErrorKind::Other => {
+                    tracing::warn!(
+                        ?error,
+                        "Recoverable error sending message, IPC client will continue running"
+                    );
+                }
             }
         }
 
-        result.map_err(|e| SendError(format!("{e:?}")))
+        result.map_err(|e| match e.kind() {
+            ErrorKind::Unreachable => SendError::Unreachable,
+            _ => SendError::Other(format!("{e:?}")),
+        })
     }
 
     async fn subscribe(
@@ -299,14 +305,15 @@ fn handle_rpc_request<Crypto, Com, Ses>(
                 result: response,
             };
 
-            let outgoing = TypedOutgoingMessage {
-                payload: response_message,
-                destination: incoming_message.source.into(),
-            }
-            .try_into()
-            .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
+            // Publish the response on the dedicated topic the requester is subscribed to.
+            let payload = serde_utils::to_vec(&response_message)
+                .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
 
-            Ok(outgoing)
+            Ok(OutgoingMessage {
+                payload,
+                destination: incoming_message.source.into(),
+                topic: Some(request.response_topic().to_owned()),
+            })
         }
 
         match handle(incoming_message, &inner.handlers).await {
@@ -413,8 +420,12 @@ mod tests {
     }
 
     impl IpcErrorKind for TestCryptoError {
-        fn is_fatal(&self) -> bool {
-            self.fatal
+        fn kind(&self) -> ErrorKind {
+            if self.fatal {
+                ErrorKind::Fatal
+            } else {
+                ErrorKind::Other
+            }
         }
     }
 
@@ -908,6 +919,23 @@ mod tests {
             }
         }
 
+        /// A second request type whose response is a unit enum, which serde serializes to a bare
+        /// JSON string. Deserializing it as [`TestResponse`] fails, which is what makes it a
+        /// faithful stand-in for the real `GetBiometricsStatus` / `UnlockBiometrics` pair.
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        struct OtherRequest;
+
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        enum OtherResponse {
+            Available,
+        }
+
+        impl RpcRequest for OtherRequest {
+            type Response = OtherResponse;
+
+            const NAME: &str = "OtherRequest";
+        }
+
         #[tokio::test]
         async fn request_sends_message_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
@@ -955,15 +983,179 @@ mod tests {
                     tab_id: 9001,
                     document_id: "doc-1".to_string(),
                 },
-                topic: Some(
-                    IncomingRpcResponseMessage::<TestRequest>::PAYLOAD_TYPE_NAME.to_owned(),
-                ),
+                // The requester subscribes to the dedicated topic it minted, so the response must
+                // be published there.
+                topic: Some(outgoing_request.response_topic.clone()),
             };
             communication_provider.push_incoming(simulated_response);
 
             // Wait for the response
             let result = result_handle.await.unwrap();
             assert_eq!(result.unwrap().result, 3);
+        }
+
+        /// Two requests in flight at once must each receive their own response. Each request mints
+        /// its own response topic, so `TestRequest` and `OtherRequest` never see each other's
+        /// responses even though their response types differ (`OtherResponse::Available` is a bare
+        /// JSON string that would not deserialize into `TestResponse`).
+        #[tokio::test]
+        async fn concurrent_request_of_a_different_type_does_not_disturb_a_pending_request() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::default();
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
+            let _ = client.start(None).await;
+
+            // Put both requests in flight at the same time.
+            let test_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::BrowserBackground { id: HostId::Own },
+                            None,
+                        )
+                        .await
+                })
+            };
+            let other_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<OtherRequest>(
+                            OtherRequest,
+                            Endpoint::BrowserBackground { id: HostId::Own },
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // Recover both requests from the wire, keyed by type, so we can answer each on the
+            // dedicated response topic it minted.
+            let outgoing = communication_provider.outgoing().await;
+            let requests: HashMap<String, RpcRequestMessage<serde_json::Value>> = outgoing
+                .iter()
+                .map(|message| {
+                    let partial: RpcRequestMessage<serde_json::Value> =
+                        serde_utils::from_slice(&message.payload)
+                            .expect("Deserialization should not fail");
+                    (partial.request_type.clone(), partial)
+                })
+                .collect();
+
+            let respond = |topic: String, payload: Vec<u8>| {
+                communication_provider.push_incoming(IncomingMessage {
+                    payload,
+                    source: Source::BrowserBackground { id: HostId::Own },
+                    destination: Endpoint::Web {
+                        tab_id: 9001,
+                        document_id: "doc-1".to_string(),
+                    },
+                    topic: Some(topic),
+                });
+            };
+
+            // Answer `OtherRequest` first, while `TestRequest` is still waiting. Each response goes
+            // to its own dedicated topic, so the two can never be confused for one another.
+            respond(
+                requests["OtherRequest"].response_topic.clone(),
+                serde_utils::to_vec(&IncomingRpcResponseMessage {
+                    result: Ok(OtherResponse::Available),
+                    request_id: requests["OtherRequest"].request_id.clone(),
+                    request_type: "OtherRequest".to_string(),
+                })
+                .expect("Serialization should not fail"),
+            );
+
+            respond(
+                requests["TestRequest"].response_topic.clone(),
+                serde_utils::to_vec(&IncomingRpcResponseMessage {
+                    result: Ok(TestResponse { result: 3 }),
+                    request_id: requests["TestRequest"].request_id.clone(),
+                    request_type: "TestRequest".to_string(),
+                })
+                .expect("Serialization should not fail"),
+            );
+
+            assert_eq!(
+                other_handle
+                    .await
+                    .unwrap()
+                    .expect("OtherRequest should succeed"),
+                OtherResponse::Available
+            );
+            assert_eq!(
+                test_handle
+                    .await
+                    .unwrap()
+                    .expect("TestRequest should succeed"),
+                TestResponse { result: 3 }
+            );
+        }
+
+        /// A response that reaches this request's dedicated topic but fails to deserialize into the
+        /// expected response type is a genuine error for *this* request: because the topic is
+        /// dedicated, there is no other request it could belong to, so the failure is surfaced
+        /// immediately.
+        #[tokio::test]
+        async fn malformed_response_surfaces_error_instead_of_hanging() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::default();
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
+            let _ = client.start(None).await;
+
+            let result_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::BrowserBackground { id: HostId::Own },
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // Recover the dedicated response topic and answer it with a body that cannot be
+            // deserialized into `TestResponse` (`OtherResponse::Available` serializes to a bare
+            // string).
+            let outgoing = communication_provider.outgoing().await;
+            let request: RpcRequestMessage<TestRequest> =
+                serde_utils::from_slice(&outgoing[0].payload)
+                    .expect("Deserialization should not fail");
+            let malformed = IncomingRpcResponseMessage {
+                result: Ok(OtherResponse::Available),
+                request_id: request.request_id.clone(),
+                request_type: request.request_type.clone(),
+            };
+            communication_provider.push_incoming(IncomingMessage {
+                payload: serde_utils::to_vec(&malformed).expect("Serialization should not fail"),
+                source: Source::BrowserBackground { id: HostId::Own },
+                destination: Endpoint::Web {
+                    tab_id: 9001,
+                    document_id: "doc-1".to_string(),
+                },
+                topic: Some(request.response_topic.clone()),
+            });
+
+            let result = tokio::time::timeout(Duration::from_secs(5), result_handle)
+                .await
+                .expect("request must not hang on a malformed response")
+                .unwrap();
+            assert!(matches!(
+                result,
+                Err(crate::error::RequestError::Rpc(
+                    crate::rpc::error::RpcError::ResponseDeserialization(_)
+                ))
+            ));
         }
 
         #[tokio::test]
@@ -982,10 +1174,12 @@ mod tests {
             client.register_rpc_handler(TestHandler).await;
 
             // Simulate receiving a request
+            let response_topic = format!("RpcResponseMessage:{request_id}");
             let simulated_request = RpcRequestMessage {
                 request,
                 request_id: request_id.clone(),
                 request_type: "TestRequest".to_string(),
+                response_topic: response_topic.clone(),
             };
             let simulated_request_message = IncomingMessage {
                 payload: serde_utils::to_vec(&simulated_request)
@@ -1009,10 +1203,8 @@ mod tests {
                 serde_utils::from_slice(&outgoing_messages[0].payload)
                     .expect("Deserialization should not fail");
 
-            assert_eq!(
-                outgoing_messages[0].topic,
-                Some(IncomingRpcResponseMessage::<TestResponse>::PAYLOAD_TYPE_NAME.to_owned())
-            );
+            // The response must be published on the dedicated topic carried by the request.
+            assert_eq!(outgoing_messages[0].topic, Some(response_topic));
             assert_eq!(outgoing_response.request_type, "TestRequest");
             assert_eq!(outgoing_response.result, Ok(response));
         }

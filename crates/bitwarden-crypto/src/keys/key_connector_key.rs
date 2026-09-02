@@ -8,7 +8,7 @@ use typenum::U32;
 
 use crate::{
     BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, KeySlotIds, KeyStoreContext,
-    SymmetricCryptoKey, keys::utils::stretch_key,
+    SymmetricCryptoKey, hazmat::symmetric_encryption::Aes256Cbc, keys::utils::stretch_key,
 };
 
 /// Key connector key, used to protect the user key.
@@ -18,7 +18,7 @@ pub struct KeyConnectorKey(pub(super) Pin<Box<Array<u8, U32>>>);
 impl KeyConnectorKey {
     /// Make a new random key for KeyConnector.
     pub fn make() -> Self {
-        let mut rng = rand::rng();
+        let mut rng = bitwarden_random::rng();
         let mut key = Box::pin(Array::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
@@ -116,8 +116,7 @@ impl KeyConnectorKey {
             // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
             // decrypting these old keys.
             EncString::Aes256Cbc_B64 { iv, ref data } => {
-                let legacy_key = self.0.clone();
-                crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)
+                Aes256Cbc::decrypt(&iv, data, &(*self.0).into())
                     .map_err(|_| CryptoError::Decrypt)?
             }
             EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
@@ -215,14 +214,14 @@ mod tests {
         };
 
         assert_eq!(
-            user_key_unwrapped.enc_key.as_slice(),
+            user_key_unwrapped.enc_key().as_slice(),
             [
                 116, 170, 187, 43, 80, 212, 193, 202, 234, 181, 57, 66, 151, 249, 59, 47, 70, 16,
                 57, 4, 170, 78, 85, 241, 152, 232, 91, 57, 9, 87, 209, 245,
             ]
         );
         assert_eq!(
-            user_key_unwrapped.mac_key.as_slice(),
+            user_key_unwrapped.mac_key().as_slice(),
             [
                 40, 245, 106, 140, 2, 225, 138, 213, 98, 223, 92, 168, 135, 208, 22, 194, 31, 21,
                 178, 252, 203, 198, 35, 174, 53, 218, 254, 151, 235, 57, 7, 98,
@@ -249,14 +248,14 @@ mod tests {
         };
 
         assert_eq!(
-            user_key_unwrapped.enc_key.as_slice(),
+            user_key_unwrapped.enc_key().as_slice(),
             [
                 62, 0, 239, 47, 137, 95, 64, 214, 127, 91, 184, 232, 31, 9, 165, 161, 44, 132, 14,
                 195, 206, 154, 127, 59, 24, 27, 225, 136, 239, 113, 26, 30
             ]
         );
         assert_eq!(
-            user_key_unwrapped.mac_key.as_slice(),
+            user_key_unwrapped.mac_key().as_slice(),
             [
                 152, 76, 225, 114, 185, 33, 111, 65, 159, 68, 83, 103, 69, 109, 86, 25, 49, 74, 66,
                 163, 218, 134, 176, 1, 56, 123, 253, 184, 14, 12, 254, 66

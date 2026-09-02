@@ -21,6 +21,8 @@ keywords = ["bitwarden"]
 [workspace.dependencies]
 
 # External crates that are expected to maintain a consistent version across all crates
+aes = { version = "0.9.0", features = ["zeroize"] }
+aes-gcm = { version = "0.11.0", features = ["zeroize"] }
 async-trait = ">=0.1.80, <0.2"
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=3.0.0" }
 bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=3.0.0" }
@@ -29,10 +31,13 @@ bitwarden-api-key-connector = { path = "crates/bitwarden-api-key-connector", ver
 bitwarden-auth = { path = "crates/bitwarden-auth", version = "=3.0.0" }
 bitwarden-cli = { path = "crates/bitwarden-cli", version = "=3.0.0" }
 bitwarden-collections = { path = "crates/bitwarden-collections", version = "=3.0.0" }
+bitwarden-commercial-marker = { path = "bitwarden_license/bitwarden-commercial-marker", version = "=3.0.0" }
 bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-vault", version = "=3.0.0" }
 bitwarden-core = { path = "crates/bitwarden-core", version = "=3.0.0" }
 bitwarden-core-macro = { path = "crates/bitwarden-core-macro", version = "=3.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=3.0.0" }
+bitwarden-crypto-cipher-suite = { path = "crates/bitwarden-crypto-cipher-suite", version = "=3.0.0" }
+bitwarden-crypto-sync-handler = { path = "crates/bitwarden-crypto-sync-handler", version = "=3.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=3.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=3.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=3.0.0" }
@@ -45,11 +50,15 @@ bitwarden-importers = { path = "crates/bitwarden-importers", version = "=3.0.0" 
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=3.0.0" }
 bitwarden-logging = { path = "crates/bitwarden-logging", version = "=3.0.0" }
 bitwarden-logging-macro = { path = "crates/bitwarden-logging-macro", version = "=3.0.0" }
+bitwarden-managed-settings = { path = "crates/bitwarden-managed-settings", version = "=3.0.0" }
+bitwarden-managed-settings-types = { path = "crates/bitwarden-managed-settings-types", version = "=3.0.0" }
 bitwarden-organization-crypto = { path = "crates/bitwarden-organization-crypto", version = "=3.0.0" }
 bitwarden-organization-invite-link = { path = "crates/bitwarden-organization-invite-link", version = "=3.0.0" }
 bitwarden-organizations = { path = "crates/bitwarden-organizations", version = "=3.0.0" }
+bitwarden-pam = { path = "bitwarden_license/bitwarden-pam", version = "=3.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=3.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=3.0.0" }
+bitwarden-random = { path = "crates/bitwarden-random", version = "=3.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=3.0.0" }
 bitwarden-sensitive-value = { path = "crates/bitwarden-sensitive-value", version = "=3.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=3.0.0" }
@@ -67,21 +76,29 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=3.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=3.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=3.0.0" }
+cbc = { version = "0.2.0", features = ["alloc", "zeroize"] }
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",
     "std",
 ], default-features = false }
 ciborium = ">=0.2.2, <0.3"
+crypto-bigint = { version = "0.7.5", features = ["alloc"], default-features = false }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = "3.0.0-pre.7" }
 futures = ">=0.3.31, <0.4"
+hkdf = "0.13.0"
 hmac = "0.13.0"
 http = ">=1.4.0, <2.0"
+icu_normalizer = { version = "2.2.0", features = [
+    "compiled_data",
+    "utf8_iter",
+], default-features = false }
 js-sys = { version = ">=0.3.72, <0.4" }
 keepass = { version = ">=0.13.7, <0.14", default-features = false }
-mockall = { version = ">=0.13.1, <0.15" }
+mockall = { version = ">=0.13.1, <0.16" }
 password-rules-parser = ">=1.1.0, <2"
+pbkdf2 = { version = "0.13.0-rc.10", default-features = false }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.10.0, <0.11"
@@ -129,10 +146,10 @@ tracing-subscriber = { version = "0.3.20", features = [
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
-uniffi = "=0.31.0"
+uniffi = "=0.32.0"
 url = ">=2.5.8, <3.0"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
-validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
+validator = { version = ">=0.18.1, <0.22", features = ["derive"] }
 wasm-bindgen = { version = "=0.2.114", features = ["serde-serialize"] }
 wasm-bindgen-cli = "=0.2.114"
 wasm-bindgen-futures = "0.4.64"
@@ -154,6 +171,8 @@ missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(feature, values("uniffi", "wasm"))',
     'cfg(dylint_lib, values("bitwarden_lints"))',
+    # Set by CI on non-commercial builds; see bitwarden_license/bitwarden-commercial-marker.
+    'cfg(bitwarden_ensure_non_commercial)',
 ] }
 
 [workspace.metadata.dylint]
@@ -169,8 +188,8 @@ cargo-hack = { version = "0.6.33", locked = true }
 cargo-llvm-cov = { version = "0.5.38", locked = true }
 cargo-release = { version = "0.25.20", locked = true }
 cargo-edit = { version = "0.13.6", locked = true, bins = ["cargo-set-version"] }
-cargo-dylint = { version = "5.0.0", locked = true }
-dylint-link = { version = "5.0.0", locked = true }
+cargo-dylint = { version = "6.0.0", locked = true }
+dylint-link = { version = "6.0.0", locked = true }
 cross = { version = "0.2.5", git = "https://github.com/cross-rs/cross.git", rev = "185398b1b885820515a212de720a306b08e2c8c9", locked = true }
 clippy-sarif = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }
 sarif-fmt = { version = "0.4.2", git = "https://github.com/psastras/sarif-rs.git", rev = "11c33a53f6ffeaed736856b86fb6b7b09fabdfd8", locked = true }

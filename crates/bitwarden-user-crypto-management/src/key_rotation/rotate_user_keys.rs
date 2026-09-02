@@ -55,6 +55,8 @@ pub enum UpgradeTokenAction {
 pub struct RotateUserKeysRequest {
     pub key_rotation_method: KeyRotationMethod,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
+    /// Organization public keys the user confirmed as trusted. Only needed when the rotation
+    /// shares the new user key for account recovery.
     pub trusted_organization_public_keys: Vec<PublicKey>,
     pub upgrade_token_action: UpgradeTokenAction,
 }
@@ -155,6 +157,7 @@ async fn internal_rotate_user_keys(
             &sync,
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
+            request.upgrade_token_action.clone(),
             &mut ctx,
         )?;
 
@@ -208,7 +211,7 @@ async fn internal_rotate_user_keys(
             },
             rotation_context.current_user_key_id,
             rotation_context.new_user_key_id,
-            request.upgrade_token_action,
+            rotation_context.creates_v2_upgrade_token,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;
@@ -221,6 +224,10 @@ async fn internal_rotate_user_keys(
                 account_data: Box::new(account_data_model),
                 unlock_data: Box::new(common_unlock_data.clone()),
                 unlock_method_data: Box::new(unlock_method_data),
+                // Only V2 (COSE-encoded) user keys carry a key id; V1 rotations omit the field.
+                new_user_key_id: ctx
+                    .get_symmetric_key_id(rotation_context.new_user_key_id)
+                    .map(|id| id.to_string()),
             },
             StateUpdate {
                 #[allow(deprecated)]
@@ -284,7 +291,9 @@ mod tests {
     use chrono::DateTime;
 
     use super::*;
-    use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
+    use crate::key_rotation::{
+        partial_rotateable_keyset::PartialRotateableKeyset, unlock::V1OrganizationMembership,
+    };
 
     fn make_state_bridge() -> StateBridgeClient {
         let client = Client::new(None);
@@ -322,6 +331,26 @@ mod tests {
                 "test_salt".to_string(),
             )),
         };
+
+        (store, sync)
+    }
+
+    /// Builds a V1 account that is enrolled in account recovery for a single organization.
+    fn make_test_key_store_and_synced_data_with_organization()
+    -> (KeyStore<KeySlotIds>, SyncedAccountData) {
+        let (store, mut sync) = make_test_key_store_and_synced_data();
+        {
+            let mut ctx = store.context_mut();
+            let organization_private_key =
+                ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+            sync.organization_memberships = vec![V1OrganizationMembership {
+                organization_id: uuid::Uuid::new_v4(),
+                name: "Test Org".to_string(),
+                public_key: ctx
+                    .get_public_key(organization_private_key)
+                    .expect("public key should exist"),
+            }];
+        }
 
         (store, sync)
     }
@@ -733,7 +762,7 @@ mod tests {
             edit: false,
             permissions: None,
             view_password: false,
-            name: enc_string.parse().unwrap(),
+            name: Some(enc_string.parse().unwrap()),
             revision_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
             archived_date: None,
             creation_date: DateTime::from_str("2024-01-01T00:00:00Z").unwrap(),
@@ -911,6 +940,148 @@ mod tests {
             key_connector_api_client
         {
             mock.user_keys_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_v1_to_v2_upgrade_defers_organization_account_recovery() {
+        let (key_store, sync) = make_test_key_store_and_synced_data_with_organization();
+        let organization_id = sync.organization_memberships[0].organization_id;
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .once()
+                .returning(move |req| {
+                    let req = req.expect("request body should be present");
+                    assert!(
+                        req.unlock_data.v2_upgrade_token.is_some(),
+                        "without the token, admins cannot update account recovery"
+                    );
+
+                    let account_recovery = req
+                        .unlock_data
+                        .organization_account_recovery_unlock_data
+                        .as_ref()
+                        .expect("account recovery data should be present");
+                    assert_eq!(account_recovery.len(), 1);
+                    assert_eq!(account_recovery[0].organization_id, organization_id);
+                    assert!(
+                        account_recovery[0].reset_password_key.is_none(),
+                        "account recovery is left for organization admins to update"
+                    );
+                    Ok(())
+                });
+        });
+
+        let state_bridge = make_state_bridge();
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            &state_bridge,
+            None,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_v1_to_v2_upgrade_ignores_trusted_organization_public_keys() {
+        let (key_store, sync) = make_test_key_store_and_synced_data_with_organization();
+        let organization_public_key = sync.organization_memberships[0].public_key.clone();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .once()
+                .returning(move |req| {
+                    let req = req.expect("request body should be present");
+                    let account_recovery = req
+                        .unlock_data
+                        .organization_account_recovery_unlock_data
+                        .as_ref()
+                        .expect("account recovery data should be present");
+                    assert_eq!(account_recovery.len(), 1);
+                    assert!(
+                        account_recovery[0].reset_password_key.is_none(),
+                        "trusting a key does not change who updates account recovery"
+                    );
+                    Ok(())
+                });
+        });
+
+        let state_bridge = make_state_bridge();
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            &state_bridge,
+            None,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                // Older callers may still send organization keys. That must keep working.
+                trusted_organization_public_keys: vec![organization_public_key],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: UpgradeTokenAction::CreateIfNeeded,
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await;
+
+        assert!(result.is_ok());
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rotate_user_keys_untrusted_organization_without_upgrade_token_returns_error() {
+        let (key_store, sync) = make_test_key_store_and_synced_data_with_organization();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_rotate_user_keys()
+                .never();
+        });
+
+        let state_bridge = make_state_bridge();
+        let result = internal_rotate_user_keys(
+            &key_store,
+            &api_client,
+            &state_bridge,
+            None,
+            RotateUserKeysRequest {
+                key_rotation_method: KeyRotationMethod::Password {
+                    password: "test_password".to_string(),
+                },
+                trusted_organization_public_keys: vec![],
+                trusted_emergency_access_public_keys: vec![],
+                upgrade_token_action: UpgradeTokenAction::Skip,
+            },
+            sync.wrapped_account_cryptographic_state.clone(),
+            sync,
+        )
+        .await;
+
+        assert!(matches!(result, Err(RotateUserKeysError::UntrustedKey)));
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
         }
     }
 }

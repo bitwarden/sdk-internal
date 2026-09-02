@@ -16,9 +16,9 @@ fn content_type(response: &reqwest::Response) -> ContentType {
 /// used with. This function contains the non-generic logic for processing the response so that it
 /// doesn't get duplicated.
 #[inline(never)]
-async fn process_with_json_response_internal<E>(
+async fn process_with_json_response_internal(
     request: reqwest_middleware::RequestBuilder,
-) -> Result<String, crate::Error<E>> {
+) -> Result<String, crate::Error> {
     let response = request.send().await?;
     let status = response.status();
     let content_type = content_type(&response);
@@ -41,9 +41,9 @@ async fn process_with_json_response_internal<E>(
 }
 
 /// Sends and processes a request expecting a JSON response, deserializing it into the type `T`.
-pub async fn process_with_json_response<T: DeserializeOwned, E>(
+pub async fn process_with_json_response<T: DeserializeOwned>(
     request: reqwest_middleware::RequestBuilder,
-) -> Result<T, crate::Error<E>> {
+) -> Result<T, crate::Error> {
     process_with_json_response_internal(request)
         .await
         .and_then(|content| serde_json::from_str(&content).map_err(Into::into))
@@ -51,9 +51,9 @@ pub async fn process_with_json_response<T: DeserializeOwned, E>(
 
 /// Sends and processes a request expecting an empty response, returning `Ok(())` when successful.
 #[inline(never)]
-pub async fn process_with_empty_response<E>(
+pub async fn process_with_empty_response(
     request: reqwest_middleware::RequestBuilder,
-) -> Result<(), crate::Error<E>> {
+) -> Result<(), crate::Error> {
     let response = request.send().await?;
     let status = response.status();
 

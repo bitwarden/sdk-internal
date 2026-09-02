@@ -26,21 +26,58 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait TwoFactorApi: Send + Sync {
+    /// DELETE /two-factor/authenticator
+    async fn delete_authenticator<'a>(
+        &self,
+        two_factor_authenticator_delete_request_model: Option<
+            models::TwoFactorAuthenticatorDeleteRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
+    /// DELETE /two-factor/duo
+    async fn delete_duo<'a>(
+        &self,
+        two_factor_duo_delete_request_model: Option<models::TwoFactorDuoDeleteRequestModel>,
+    ) -> Result<(), Error>;
+
+    /// DELETE /two-factor/email
+    async fn delete_email<'a>(
+        &self,
+        two_factor_email_delete_request_model: Option<models::TwoFactorEmailDeleteRequestModel>,
+    ) -> Result<(), Error>;
+
+    /// DELETE /organizations/{id}/two-factor/duo
+    async fn delete_organization_duo<'a>(
+        &self,
+        id: &'a str,
+        two_factor_organization_duo_delete_request_model: Option<
+            models::TwoFactorOrganizationDuoDeleteRequestModel,
+        >,
+    ) -> Result<(), Error>;
+
     /// DELETE /two-factor/webauthn
     async fn delete_web_authn<'a>(
         &self,
         two_factor_web_authn_delete_request_model: Option<
             models::TwoFactorWebAuthnDeleteRequestModel,
         >,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error>;
+    ) -> Result<models::TwoFactorWebAuthnDeleteResponseModel, Error>;
 
-    /// DELETE /two-factor/authenticator
-    async fn disable_authenticator<'a>(
+    /// DELETE /two-factor/webauthn/all
+    async fn delete_web_authn_all<'a>(
         &self,
-        two_factor_authenticator_disable_request_model: Option<
-            models::TwoFactorAuthenticatorDisableRequestModel,
+        two_factor_web_authn_delete_all_request_model: Option<
+            models::TwoFactorWebAuthnDeleteAllRequestModel,
         >,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error>;
+    ) -> Result<(), Error>;
+
+    /// DELETE /two-factor/yubikey
+    async fn delete_yubi_key<'a>(
+        &self,
+        two_factor_yubi_key_delete_request_model: Option<
+            models::TwoFactorYubiKeyDeleteRequestModel,
+        >,
+    ) -> Result<(), Error>;
 
     /// GET /two-factor
     async fn get(&self) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error>;
@@ -74,7 +111,7 @@ pub trait TwoFactorApi: Send + Sync {
         &self,
         id: &'a str,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error>;
+    ) -> Result<models::TwoFactorOrganizationDuoResponseModel, Error>;
 
     /// POST /two-factor/get-recover
     async fn get_recover<'a>(
@@ -97,67 +134,56 @@ pub trait TwoFactorApi: Send + Sync {
     /// PUT /two-factor/authenticator
     async fn put_authenticator<'a>(
         &self,
-        update_two_factor_authenticator_request_model: Option<
-            models::UpdateTwoFactorAuthenticatorRequestModel,
+        two_factor_authenticator_update_request_model: Option<
+            models::TwoFactorAuthenticatorUpdateRequestModel,
         >,
-    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error>;
-
-    /// PUT /two-factor/disable
-    async fn put_disable<'a>(
-        &self,
-        two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error>;
+    ) -> Result<models::TwoFactorAuthenticatorUpdateResponseModel, Error>;
 
     /// PUT /two-factor/duo
     async fn put_duo<'a>(
         &self,
-        update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error>;
+        two_factor_duo_update_request_model: Option<models::TwoFactorDuoUpdateRequestModel>,
+    ) -> Result<models::TwoFactorDuoUpdateResponseModel, Error>;
 
     /// PUT /two-factor/email
     async fn put_email<'a>(
         &self,
-        update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
-    ) -> Result<models::TwoFactorEmailResponseModel, Error>;
-
-    /// PUT /organizations/{id}/two-factor/disable
-    async fn put_organization_disable<'a>(
-        &self,
-        id: &'a str,
-        two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error>;
+        two_factor_email_update_request_model: Option<models::TwoFactorEmailUpdateRequestModel>,
+    ) -> Result<models::TwoFactorEmailUpdateResponseModel, Error>;
 
     /// PUT /organizations/{id}/two-factor/duo
     async fn put_organization_duo<'a>(
         &self,
         id: &'a str,
-        update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error>;
+        two_factor_duo_update_request_model: Option<models::TwoFactorDuoUpdateRequestModel>,
+    ) -> Result<models::TwoFactorOrganizationDuoUpdateResponseModel, Error>;
 
     /// PUT /two-factor/webauthn
     async fn put_web_authn<'a>(
         &self,
-        two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error>;
+        two_factor_web_authn_update_request_model: Option<
+            models::TwoFactorWebAuthnUpdateRequestModel,
+        >,
+    ) -> Result<models::TwoFactorWebAuthnUpdateResponseModel, Error>;
 
     /// PUT /two-factor/yubikey
     async fn put_yubi_key<'a>(
         &self,
-        update_two_factor_yubico_otp_request_model: Option<
-            models::UpdateTwoFactorYubicoOtpRequestModel,
+        two_factor_yubi_key_update_request_model: Option<
+            models::TwoFactorYubiKeyUpdateRequestModel,
         >,
-    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error>;
-
-    /// POST /two-factor/send-email
-    async fn send_email<'a>(
-        &self,
-        two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-    ) -> Result<(), Error>;
+    ) -> Result<models::TwoFactorYubiKeyUpdateResponseModel, Error>;
 
     /// POST /two-factor/send-email-login
     async fn send_email_login<'a>(
         &self,
-        two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
+        two_factor_email_login_request_model: Option<models::TwoFactorEmailLoginRequestModel>,
+    ) -> Result<(), Error>;
+
+    /// POST /two-factor/send-email
+    async fn send_email_setup<'a>(
+        &self,
+        two_factor_email_setup_request_model: Option<models::TwoFactorEmailSetupRequestModel>,
     ) -> Result<(), Error>;
 }
 
@@ -174,12 +200,98 @@ impl TwoFactorApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl TwoFactorApi for TwoFactorApiClient {
+    async fn delete_authenticator<'a>(
+        &self,
+        two_factor_authenticator_delete_request_model: Option<
+            models::TwoFactorAuthenticatorDeleteRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/two-factor/authenticator",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&two_factor_authenticator_delete_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn delete_duo<'a>(
+        &self,
+        two_factor_duo_delete_request_model: Option<models::TwoFactorDuoDeleteRequestModel>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!("{}/two-factor/duo", local_var_configuration.base_path);
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&two_factor_duo_delete_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn delete_email<'a>(
+        &self,
+        two_factor_email_delete_request_model: Option<models::TwoFactorEmailDeleteRequestModel>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!("{}/two-factor/email", local_var_configuration.base_path);
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&two_factor_email_delete_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn delete_organization_duo<'a>(
+        &self,
+        id: &'a str,
+        two_factor_organization_duo_delete_request_model: Option<
+            models::TwoFactorOrganizationDuoDeleteRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{id}/two-factor/duo",
+            local_var_configuration.base_path,
+            id = crate::apis::urlencode(id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&two_factor_organization_duo_delete_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn delete_web_authn<'a>(
         &self,
         two_factor_web_authn_delete_request_model: Option<
             models::TwoFactorWebAuthnDeleteRequestModel,
         >,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error> {
+    ) -> Result<models::TwoFactorWebAuthnDeleteResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -196,18 +308,18 @@ impl TwoFactorApi for TwoFactorApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn disable_authenticator<'a>(
+    async fn delete_web_authn_all<'a>(
         &self,
-        two_factor_authenticator_disable_request_model: Option<
-            models::TwoFactorAuthenticatorDisableRequestModel,
+        two_factor_web_authn_delete_all_request_model: Option<
+            models::TwoFactorWebAuthnDeleteAllRequestModel,
         >,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/two-factor/authenticator",
+            "{}/two-factor/webauthn/all",
             local_var_configuration.base_path
         );
         let mut local_var_req_builder =
@@ -215,9 +327,30 @@ impl TwoFactorApi for TwoFactorApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
-            local_var_req_builder.json(&two_factor_authenticator_disable_request_model);
+            local_var_req_builder.json(&two_factor_web_authn_delete_all_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn delete_yubi_key<'a>(
+        &self,
+        two_factor_yubi_key_delete_request_model: Option<
+            models::TwoFactorYubiKeyDeleteRequestModel,
+        >,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!("{}/two-factor/yubikey", local_var_configuration.base_path);
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&two_factor_yubi_key_delete_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get(&self) -> Result<models::TwoFactorProviderResponseModelListResponseModel, Error> {
@@ -317,7 +450,7 @@ impl TwoFactorApi for TwoFactorApiClient {
         &self,
         id: &'a str,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error> {
+    ) -> Result<models::TwoFactorOrganizationDuoResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -401,10 +534,10 @@ impl TwoFactorApi for TwoFactorApiClient {
 
     async fn put_authenticator<'a>(
         &self,
-        update_two_factor_authenticator_request_model: Option<
-            models::UpdateTwoFactorAuthenticatorRequestModel,
+        two_factor_authenticator_update_request_model: Option<
+            models::TwoFactorAuthenticatorUpdateRequestModel,
         >,
-    ) -> Result<models::TwoFactorAuthenticatorResponseModel, Error> {
+    ) -> Result<models::TwoFactorAuthenticatorUpdateResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -418,33 +551,15 @@ impl TwoFactorApi for TwoFactorApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
-            local_var_req_builder.json(&update_two_factor_authenticator_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn put_disable<'a>(
-        &self,
-        two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!("{}/two-factor/disable", local_var_configuration.base_path);
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&two_factor_provider_request_model);
+            local_var_req_builder.json(&two_factor_authenticator_update_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_duo<'a>(
         &self,
-        update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error> {
+        two_factor_duo_update_request_model: Option<models::TwoFactorDuoUpdateRequestModel>,
+    ) -> Result<models::TwoFactorDuoUpdateResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -454,15 +569,15 @@ impl TwoFactorApi for TwoFactorApiClient {
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&update_two_factor_duo_request_model);
+        local_var_req_builder = local_var_req_builder.json(&two_factor_duo_update_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_email<'a>(
         &self,
-        update_two_factor_email_request_model: Option<models::UpdateTwoFactorEmailRequestModel>,
-    ) -> Result<models::TwoFactorEmailResponseModel, Error> {
+        two_factor_email_update_request_model: Option<models::TwoFactorEmailUpdateRequestModel>,
+    ) -> Result<models::TwoFactorEmailUpdateResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -472,30 +587,7 @@ impl TwoFactorApi for TwoFactorApiClient {
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&update_two_factor_email_request_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
-    async fn put_organization_disable<'a>(
-        &self,
-        id: &'a str,
-        two_factor_provider_request_model: Option<models::TwoFactorProviderRequestModel>,
-    ) -> Result<models::TwoFactorProviderResponseModel, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{id}/two-factor/disable",
-            local_var_configuration.base_path,
-            id = crate::apis::urlencode(id)
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&two_factor_provider_request_model);
+        local_var_req_builder = local_var_req_builder.json(&two_factor_email_update_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
@@ -503,8 +595,8 @@ impl TwoFactorApi for TwoFactorApiClient {
     async fn put_organization_duo<'a>(
         &self,
         id: &'a str,
-        update_two_factor_duo_request_model: Option<models::UpdateTwoFactorDuoRequestModel>,
-    ) -> Result<models::TwoFactorDuoResponseModel, Error> {
+        two_factor_duo_update_request_model: Option<models::TwoFactorDuoUpdateRequestModel>,
+    ) -> Result<models::TwoFactorOrganizationDuoUpdateResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -518,15 +610,17 @@ impl TwoFactorApi for TwoFactorApiClient {
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&update_two_factor_duo_request_model);
+        local_var_req_builder = local_var_req_builder.json(&two_factor_duo_update_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_web_authn<'a>(
         &self,
-        two_factor_web_authn_request_model: Option<models::TwoFactorWebAuthnRequestModel>,
-    ) -> Result<models::TwoFactorWebAuthnResponseModel, Error> {
+        two_factor_web_authn_update_request_model: Option<
+            models::TwoFactorWebAuthnUpdateRequestModel,
+        >,
+    ) -> Result<models::TwoFactorWebAuthnUpdateResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -537,17 +631,18 @@ impl TwoFactorApi for TwoFactorApiClient {
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&two_factor_web_authn_request_model);
+        local_var_req_builder =
+            local_var_req_builder.json(&two_factor_web_authn_update_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_yubi_key<'a>(
         &self,
-        update_two_factor_yubico_otp_request_model: Option<
-            models::UpdateTwoFactorYubicoOtpRequestModel,
+        two_factor_yubi_key_update_request_model: Option<
+            models::TwoFactorYubiKeyUpdateRequestModel,
         >,
-    ) -> Result<models::TwoFactorYubiKeyResponseModel, Error> {
+    ) -> Result<models::TwoFactorYubiKeyUpdateResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -558,35 +653,14 @@ impl TwoFactorApi for TwoFactorApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
-            local_var_req_builder.json(&update_two_factor_yubico_otp_request_model);
+            local_var_req_builder.json(&two_factor_yubi_key_update_request_model);
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn send_email<'a>(
-        &self,
-        two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
-    ) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/two-factor/send-email",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&two_factor_email_request_model);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
     async fn send_email_login<'a>(
         &self,
-        two_factor_email_request_model: Option<models::TwoFactorEmailRequestModel>,
+        two_factor_email_login_request_model: Option<models::TwoFactorEmailLoginRequestModel>,
     ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
@@ -600,7 +674,28 @@ impl TwoFactorApi for TwoFactorApiClient {
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder = local_var_req_builder.json(&two_factor_email_request_model);
+        local_var_req_builder = local_var_req_builder.json(&two_factor_email_login_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
+    async fn send_email_setup<'a>(
+        &self,
+        two_factor_email_setup_request_model: Option<models::TwoFactorEmailSetupRequestModel>,
+    ) -> Result<(), Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/two-factor/send-email",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&two_factor_email_setup_request_model);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }

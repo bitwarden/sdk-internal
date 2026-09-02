@@ -238,8 +238,8 @@ impl DecryptorState {
         match self {
             Self::Uninitialized { key } => {
                 *self = Self::Streaming {
-                    decryptor: Box::new(CbcDecryptor::new(&key.enc_key.0, &header.iv)),
-                    integrity_validator: HmacStreamValidator::new(&key.mac_key.0, &header.iv),
+                    decryptor: Box::new(CbcDecryptor::new(key.enc_key(), &header.iv)),
+                    integrity_validator: HmacStreamValidator::new(key.mac_key(), &header.iv),
                     expected_mac: header.mac,
                 };
                 Ok(())
@@ -498,7 +498,7 @@ impl StreamingAes256CbcHmacEncryptor {
         };
 
         let mut iv: Iv = [0u8; AES256_CBC_IV_SIZE];
-        rand::rng().fill_bytes(&mut iv);
+        bitwarden_random::rng().fill_bytes(&mut iv);
 
         // The CBC ciphertext is the PKCS7-padded plaintext, which is always rounded up to the next
         // full block (a full padding block is added when already block-aligned).
@@ -509,8 +509,8 @@ impl StreamingAes256CbcHmacEncryptor {
             ciphertext_buffer: CiphertextBuffer::new(ciphertext_capacity),
             plaintext_buffer: Vec::new(),
             encryptor_state: EncryptorState::Streaming {
-                encryptor: Box::new(CbcEncryptor::new(&key.enc_key.0, &iv)),
-                integrity_validator: HmacStreamValidator::new(&key.mac_key.0, &iv),
+                encryptor: Box::new(CbcEncryptor::new(key.enc_key(), &iv)),
+                integrity_validator: HmacStreamValidator::new(key.mac_key(), &iv),
                 iv,
             },
         })
@@ -606,10 +606,7 @@ mod tests {
     ];
 
     fn test_key() -> SymmetricCryptoKey {
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-            enc_key: Box::pin(ENC_KEY.into()),
-            mac_key: Box::pin(MAC_KEY.into()),
-        })
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey::new(&ENC_KEY, &MAC_KEY))
     }
 
     #[test]

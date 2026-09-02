@@ -23,6 +23,12 @@ pub struct OrganizationUserUpdateRequestModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(
+        rename = "accessPam",
+        alias = "AccessPam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_pam: Option<bool>,
+    #[serde(
         rename = "permissions",
         alias = "Permissions",
         skip_serializing_if = "Option::is_none"
@@ -40,6 +46,24 @@ pub struct OrganizationUserUpdateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub groups: Option<Vec<uuid::Uuid>>,
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub email: Option<String>,
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub name: Option<String>,
+    #[serde(
+        rename = "defaultUserCollectionName",
+        alias = "DefaultUserCollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_user_collection_name: Option<String>,
 }
 
 impl OrganizationUserUpdateRequestModel {
@@ -47,9 +71,13 @@ impl OrganizationUserUpdateRequestModel {
         OrganizationUserUpdateRequestModel {
             r#type,
             access_secrets_manager: None,
+            access_pam: None,
             permissions: None,
             collections: None,
             groups: None,
+            email: None,
+            name: None,
+            default_user_collection_name: None,
         }
     }
 }

@@ -9,12 +9,12 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [dependencies]
 bitwarden-crypto = { workspace = true }
-comfy-table = "7.1.1"
+comfy-table = "8.0.0"
 hex = "0.4.3"
 serde = "1.0.196"
 serde_json = "1.0.113"

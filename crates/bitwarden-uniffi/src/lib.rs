@@ -15,11 +15,13 @@ pub mod crypto;
 pub mod error;
 mod log_callback;
 #[allow(missing_docs)]
+pub mod managed_settings;
+#[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
 pub mod policies;
 #[allow(missing_docs)]
-pub mod tool;
+pub mod tools;
 mod uniffi_support;
 #[allow(missing_docs)]
 pub mod vault;
@@ -35,7 +37,7 @@ pub use platform::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
     ServerCommunicationConfigRepository, SsoCookieVendorConfig,
 };
-use tool::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
+use tools::{ExporterClient, GeneratorClients, ImporterClient, SendClient, SshClient};
 use vault::VaultClient;
 
 #[allow(missing_docs)]
@@ -82,9 +84,23 @@ impl Client {
         self.0.user_crypto_management()
     }
 
+    /// Key management operations that run on every sync.
+    pub fn crypto_sync_handler(&self) -> bitwarden_crypto_sync_handler::CryptoSyncHandlerClient {
+        self.0.crypto_sync_handler()
+    }
+
     /// Vault item operations
     pub fn vault(&self) -> VaultClient {
         VaultClient(self.0.vault())
+    }
+
+    /// Collection related operations.
+    ///
+    /// This is registered directly on the top-level client in addition to being nested under
+    /// [`vault`](Self::vault). Once mobile clients have migrated to this accessor, the nested one
+    /// will be removed.
+    pub fn collections(&self) -> vault::collections::CollectionsClient {
+        vault::collections::CollectionsClient(self.0.collections())
     }
 
     #[allow(missing_docs)]
@@ -112,14 +128,29 @@ impl Client {
         SendClient(self.0.sends())
     }
 
+    /// Send sync handler operations
+    pub fn send_sync_handler(&self) -> bitwarden_send::SendSyncHandlerClient {
+        self.0.send_sync_handler()
+    }
+
     /// SSH operations
     pub fn ssh(&self) -> SshClient {
         SshClient()
     }
 
+    /// Random-number generation operations
+    pub fn random(&self) -> bitwarden_random::SdkRandomNumberClient {
+        bitwarden_random::SdkRandomNumberClient::new()
+    }
+
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
         AuthClient(self.0.0.clone())
+    }
+
+    /// Whether the client is in Gov Mode.
+    pub fn gov_mode(&self) -> bool {
+        self.0.0.gov_mode()
     }
 
     /// Policy operations

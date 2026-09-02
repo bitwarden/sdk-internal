@@ -104,6 +104,7 @@ mod tests {
                     kdf,
                     master_key_wrapped_user_key: user_key.parse().unwrap(),
                     salt: email.to_string(),
+                    contained_key_id: None,
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
                 &None,
@@ -205,8 +206,12 @@ mod tests {
         .unwrap();
 
         let mut envelope_bytes: Vec<u8> = (&envelope).into();
-        // Corrupt some bytes
-        envelope_bytes[60] ^= 0xFF;
+        // Corrupt a byte in the middle of the envelope. The COSE structure is
+        // [protected, unprotected (iv), ciphertext, recipients], so the midpoint lands inside the
+        // ciphertext bstr's content: the envelope still parses as valid COSE, but authentication
+        // fails on unseal.
+        let midpoint = envelope_bytes.len() / 2;
+        envelope_bytes[midpoint] ^= 0xFF;
 
         let envelope: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&envelope_bytes).unwrap();

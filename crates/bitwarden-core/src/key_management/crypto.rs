@@ -12,10 +12,10 @@ use bitwarden_api_api::models::AccountKeysRequestModel;
 #[expect(deprecated)]
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, PrivateKey, PublicKey,
-    RotateableKeySet, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
-    SymmetricCryptoKey, TrustDeviceResponse, UnsignedSharedKey, UserKey,
-    dangerous_get_v2_rotated_account_keys, derive_symmetric_key_from_prf,
+    KeyEncryptable, MasterKey, PrimitiveEncryptable, PublicKey, RotateableKeySet,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    TrustDeviceResponse, UnsignedSharedKey, dangerous_get_v2_rotated_account_keys,
+    derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
@@ -32,9 +32,7 @@ use tracing::info;
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "wasm")]
-use crate::key_management::wasm_unlock_state::{
-    copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
-};
+use crate::key_management::wasm_unlock_state::{copy_user_key_to_state, get_user_key_from_state};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{
@@ -247,7 +245,7 @@ pub(super) async fn initialize_user_crypto(
         }
         #[cfg(feature = "wasm")]
         InitUserCryptoMethod::ClientManagedState {} => {
-            let user_key = get_user_key_from_client_managed_state(client)
+            let user_key = get_user_key_from_state(client)
                 .await
                 .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
             client.internal.initialize_user_crypto_decrypted_key(
@@ -393,7 +391,7 @@ pub(super) async fn initialize_user_crypto(
 
     #[cfg(feature = "wasm")]
     if should_copy_user_key {
-        copy_user_key_to_client_managed_state(client)
+        copy_user_key_to_state(client)
             .await
             .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
     }
@@ -471,6 +469,8 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, Cryp
 }
 
 /// Response from the `update_kdf` function
+///
+/// Note: This is deprecated and will be removed after key-connector fully uses sdk
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -484,6 +484,7 @@ pub struct UpdateKdfResponse {
     old_master_password_authentication_data: MasterPasswordAuthenticationData,
 }
 
+// Note: This is deprecated and will be removed after key-connector fully uses sdk
 pub(super) async fn make_update_kdf(
     client: &Client,
     password: &str,
@@ -580,9 +581,9 @@ pub(super) async fn make_update_password(
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct EnrollPinResponse {
-    /// [UserKey] protected by PIN
+    /// [UserKey][bitwarden_crypto::UserKey] protected by PIN
     pub pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-    /// PIN protected by [UserKey]
+    /// PIN protected by [UserKey][bitwarden_crypto::UserKey]
     pub user_key_encrypted_pin: EncString,
 }
 
@@ -612,9 +613,9 @@ pub(super) fn enroll_pin(
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DerivePinKeyResponse {
-    /// [UserKey] protected by PIN
+    /// [UserKey][bitwarden_crypto::UserKey] protected by PIN
     pin_protected_user_key: EncString,
-    /// PIN protected by [UserKey]
+    /// PIN protected by [UserKey][bitwarden_crypto::UserKey]
     encrypted_pin: EncString,
 }
 
@@ -757,114 +758,6 @@ pub(super) fn derive_key_connector(
     Ok(master_key.to_base64())
 }
 
-/// Response from the `make_key_pair` function
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct MakeKeyPairResponse {
-    /// The user's public key
-    user_public_key: B64,
-    /// User's private key, encrypted with the user key
-    user_key_encrypted_private_key: EncString,
-}
-
-pub(super) fn make_key_pair(user_key: B64) -> Result<MakeKeyPairResponse, CryptoError> {
-    let user_key = UserKey::new(SymmetricCryptoKey::try_from(user_key)?);
-
-    let key_pair = user_key.make_key_pair()?;
-
-    Ok(MakeKeyPairResponse {
-        user_public_key: key_pair.public,
-        user_key_encrypted_private_key: key_pair.private,
-    })
-}
-
-/// Request for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct VerifyAsymmetricKeysRequest {
-    /// The user's user key
-    user_key: B64,
-    /// The user's public key
-    user_public_key: B64,
-    /// User's private key, encrypted with the user key
-    user_key_encrypted_private_key: EncString,
-}
-
-/// Response for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct VerifyAsymmetricKeysResponse {
-    /// Whether the user's private key was decryptable by the user key.
-    private_key_decryptable: bool,
-    /// Whether the user's private key was a valid RSA key and matched the public key provided.
-    valid_private_key: bool,
-}
-
-pub(super) fn verify_asymmetric_keys(
-    request: VerifyAsymmetricKeysRequest,
-) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
-    #[derive(Debug, thiserror::Error)]
-    enum VerifyError {
-        #[error("Failed to decrypt private key: {0:?}")]
-        DecryptFailed(bitwarden_crypto::CryptoError),
-        #[error("Failed to parse decrypted private key: {0:?}")]
-        ParseFailed(bitwarden_crypto::CryptoError),
-        #[error("Failed to derive a public key: {0:?}")]
-        PublicFailed(bitwarden_crypto::CryptoError),
-        #[error("Derived public key doesn't match")]
-        KeyMismatch,
-    }
-
-    fn verify_inner(
-        user_key: &SymmetricCryptoKey,
-        request: &VerifyAsymmetricKeysRequest,
-    ) -> Result<(), VerifyError> {
-        let decrypted_private_key: Vec<u8> = request
-            .user_key_encrypted_private_key
-            .decrypt_with_key(user_key)
-            .map_err(VerifyError::DecryptFailed)?;
-
-        let decrypted_private_key = Pkcs8PrivateKeyBytes::from(decrypted_private_key);
-        let private_key =
-            PrivateKey::from_der(&decrypted_private_key).map_err(VerifyError::ParseFailed)?;
-
-        let derived_public_key_vec = private_key
-            .to_public_key()
-            .to_der()
-            .map_err(VerifyError::PublicFailed)?;
-
-        let derived_public_key = B64::from(derived_public_key_vec);
-
-        if derived_public_key != request.user_public_key {
-            return Err(VerifyError::KeyMismatch);
-        }
-        Ok(())
-    }
-
-    let user_key = SymmetricCryptoKey::try_from(request.user_key.clone())?;
-
-    Ok(match verify_inner(&user_key, &request) {
-        Ok(_) => VerifyAsymmetricKeysResponse {
-            private_key_decryptable: true,
-            valid_private_key: true,
-        },
-        Err(error) => {
-            tracing::debug!(%error, "User asymmetric keys verification");
-
-            VerifyAsymmetricKeysResponse {
-                private_key_decryptable: !matches!(error, VerifyError::DecryptFailed(_)),
-                valid_private_key: false,
-            }
-        }
-    })
-}
-
 /// Response for the `make_keys_for_user_crypto_v2`, containing a set of keys for a user
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -926,7 +819,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let private_key = ctx.dangerous_get_private_key(private_key_id)?.clone();
 
     // New user key
-    let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+    let user_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::XAes256Gcm);
 
     // New signing key
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
@@ -1186,7 +1079,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
-    let kdf = Kdf::default_argon2();
+    let kdf = ctx.cipher_suite().default_kdf_for_new_account();
 
     #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
@@ -1239,13 +1132,13 @@ pub(crate) fn make_user_password_registration(
     master_password: String,
     salt: String,
 ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
-    // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519
-    // signature keypair, and signed security state
+    // make_user_v2_crypto_state() - Creates user key (XAES-256-GCM), RSA key pair, ML-DSA
+    // signing key pair, and signed security state
     let mut ctx = client.internal.get_key_store().context_mut();
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
-    let kdf = Kdf::default_argon2();
+    let kdf = ctx.cipher_suite().default_kdf_for_new_account();
 
     #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
@@ -1276,7 +1169,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{
-        Decryptable, KeyStore, PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair,
+        Decryptable, KeyStore, Pkcs8PrivateKeyBytes, PrivateKey, PublicKeyEncryptionAlgorithm,
         SymmetricKeyAlgorithm,
     };
 
@@ -1289,13 +1182,13 @@ mod tests {
         },
     };
 
-    const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
-    const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ";
+    const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlCxZkKFDpp70P5mWPmOjf3xAzoAARF5BIQDBAUGIFggCFcd6XLISUfLaITyU9yimrYHacdS5XhBayO2663jdSUB";
+    const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAEReQMZARwEULFmQoUOmnvQ/mZY+Y6N/fGhBVgYe16rmgYXX3Orgo6y5U5Z8eb+JHTGfcivWQTR+1rVWtHJhEm8G/AtE78Ud3S8qxZmstUKhC5u9xgPvx2e8Fe8QL80Dv0WoEsy0XEb+5EFd8xDlu7OBuCVv2MaoJ/XzAkbpn9IT1vMCPhvRuaktIWMNrQgJ1jnmqjTGObftA02sHnj938tLRNfilw8ln/PBO2GBZQVzTUYfnc+mBeedGyZAxhSxyUwtFB8h3HC/t9BGtLT/bm83Df8rwTc+rGFL5r+T6vczQ+6hvF6kKpUb37XwgLEDsc+J4UTb+4zHaDcTioOYq6Hki8PrsN9PWL57nkhRMi3fKgfz8GDtY+pjp7D9HYV6OMuveSK9l+h16enJwiFDy6XEx+eth4aHPT5hybnOfTWbkEIhUmPD3K2JKvUUxeL9Z6e1EtSylVitO4Lit485KYaY8VASW4MnAzPOUQVwZ4jowHr5X8g0jVtHiLeUuOwDGcqjO/q6//tkiCwjW/W79jk4eqMtqPbOl0XelYVmM4KZCslPZ+2IYS56g/gl8Q2Oj9UGq7QJCsZvV9rBNa4wS3uC9atoWWRqO2PTWkVTurakkK3Fc9VP2bC1lJaWoWVjYpyJJVZh77ktpD3VrFdrT62+de0iaWUAtAr/1ALToNzoTYu3ihyGb6FZMN//XLTKk8GhZGVCluEDClHnziBxCX7Qg/0HRiU7EjsYGhpFnmG2XkvZQb9Pds8gucTbmbUeVfjXZ/IOLm16G/tdit2VIf80zcsvhgxTYys4Cm12N+62fM3aT5L9lqWvBYOMDksy00/3uLPzWbLFWbKItaC1c+bceGS7UDrLim6Pm/Voo2jXCi6EHpXX2/THrJybRDwqmQi7UVWXR3aPx//q9busEXxRyeu0m4lq2AjhQWhOvfPjpJzNX1hRE9Bu7UKYJhUF6DAsXFFKpob0LoARpcjGLFLcO61yV6He2nQFAa+ULXxhrKbISzqO3Q2xMs2p3jQ4Ctm0T+03w9Y5/Yf1qNKaL6AayA2nf0thYgh+OHNEnnkFwvBnTyB5B32E+/cUy7bb3329Pz7h+ruLo5IhGZM5GiEjF4vOSZmZJZ1t2eR4U7oxX0VTpwFPPBUQ3O7A5C2l0g/pGCFda4QlgR5qRA09kaAd9VBSJbQABGH0zWlXNPAjPQ6M9CxxTv9lM/72RSzTvnJqjQNpWGQjYuTi++EN5QZ37Nmlcw9eSa6X1C97ADndWV46dlFowUUDXiczi+Q0bZmFtpvkRg0TWlicS/cURLIfpG7sGwgqIis5R4haQ+RDB1+4oC0xmncWqy7vMESW6trh+icEL2PybwGPnzdngUqEIw5fG9huX3BmxbJjukSjWWk2CH8AaY2lHRXttzpOhpfP9c1cmrwXXUuHwTFMiKdmdwSqGbgebUP25kB9priXO88Jri3Wb739KRV5M2k6/9AspCwpOqlKN6MZm2vElNI+cXSWMHeX3666p4ALr7Vu7+q7iw4s4cO09MMJWsaiTaZBsVRhdoocsej+091JM/yJ29TVDJEMp2vEiia8HQ4k2bH9W9XCB71cpygRMYTFRDJ3Yjly4MYg7whBQnkeu8IYagCY6UZ60V73qhKRZJKuiV6ZTC+objnMPMmi9Kd05WmYFab8ZDP8s4yhU0WJNXdZGwpX7pnoi0T+g/y94sfZNGs5QuKgNEX";
     #[allow(unused)]
     const TEST_VECTOR_PUBLIC_KEY_V2: &str = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz/+1jPJ1HqcaCdKrTPms8XJcvnmd9alI42U2XF/4GMNTM5KF1gI6snhR/23ZLatZRFMHoK8ZCMSpGNkjLadArz52ldceTvBOhQUiWylkZQ4NfNa3xIYJubXOmkeDyfNuyLxVZvcZOko9PdT+Qx2QxDrFi2XNo2I7aVFd19/COIEkex4mJ0eA3MHFpKCdxYbcTAsGID8+kVR9L84S1JptZoG8x+iB/D3/Q4y02UsQYpFTu0vbPY84YmW03ngJdxWzS8X4/UJI/jaEn5rO4xlU5QcL0l4IybP5LRpE9XEeUHATKVOG7eNfpe9zDfKV2qQoofQMH9VvkWO4psaWDjBSdwIDAQAB";
     #[allow(unused)]
     const TEST_VECTOR_SIGNED_PUBLIC_KEY_V2: &str = "hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8BoFkBTqNpYWxnb3JpdGhtAG1jb250ZW50Rm9ybWF0AGlwdWJsaWNLZXlZASYwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDP/7WM8nUepxoJ0qtM+azxcly+eZ31qUjjZTZcX/gYw1MzkoXWAjqyeFH/bdktq1lEUwegrxkIxKkY2SMtp0CvPnaV1x5O8E6FBSJbKWRlDg181rfEhgm5tc6aR4PJ827IvFVm9xk6Sj091P5DHZDEOsWLZc2jYjtpUV3X38I4gSR7HiYnR4DcwcWkoJ3FhtxMCwYgPz6RVH0vzhLUmm1mgbzH6IH8Pf9DjLTZSxBikVO7S9s9jzhiZbTeeAl3FbNLxfj9Qkj+NoSfms7jGVTlBwvSXgjJs/ktGkT1cR5QcBMpU4bt41+l73MN8pXapCih9Awf1W+RY7imxpYOMFJ3AgMBAAFYQMq/hT4wod2w8xyoM7D86ctuLNX4ZRo+jRHf2sZfaO7QsvonG/ZYuNKF5fq8wpxMRjfoMvnY2TTShbgzLrW8BA4=";
-    const TEST_VECTOR_SIGNING_KEY_V2: &str = "7.g1gcowE6AAERbwMYZQRQAh1FKMmzQLiaGc6jTMc9m6EFWBhYePc2qkCruHAPXgbzXsIP1WVk11ArbLNYUBpifToURlwHKs1je2BwZ1C/5thz4nyNbL0wDaYkRWI9ex1wvB7KhdzC7ltStEd5QttboTSCaXQROSZaGBPNO5+Bu3sTY8F5qK1pBUo6AHNN";
+    const TEST_VECTOR_SIGNING_KEY_V2: &str = "7.g1gcowE6AAEReQMYZQRQsWZChQ6ae9D+Zlj5jo398aEFWBj8Gg/gn4tQKWO3nq5e/2p9gkzIrKD829RYT3aEUIDOetEtnFqRuQ3Cz13693WqDnKHM5Buzi6LcTsxo1jphYR7vlE5nYLjCpOCAftPN1oLfs5SCNkwwMENhujpVftfDzciE99aLEJDS9A=";
     #[allow(unused)]
     const TEST_VECTOR_VERIFYING_KEY_V2: &str =
         "pgEBAlAmkP0QgfdMVbIujX55W/yNAycEgQIgBiFYIEM6JxBmjWQTruAm3s6BTaJy1q6BzQetMBacNeRJ0kxR";
@@ -1333,6 +1226,7 @@ mod tests {
                         },
                         master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
                         salt: TEST_USER_EMAIL.to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: Some(upgrade_token),
@@ -1365,6 +1259,7 @@ mod tests {
                         kdf: kdf.clone(),
                         master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                         salt: "test@bitwarden.com".to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -1399,6 +1294,7 @@ mod tests {
                             .master_password_unlock_data
                             .master_key_wrapped_user_key,
                         salt: "test@bitwarden.com".to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -1469,6 +1365,7 @@ mod tests {
                         kdf: kdf.clone(),
                         master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                         salt: "test@bitwarden.com".to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -1498,6 +1395,7 @@ mod tests {
                         kdf: kdf.clone(),
                         master_key_wrapped_user_key: new_password_response.new_key,
                         salt: "test@bitwarden.com".to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -1563,6 +1461,7 @@ mod tests {
                         },
                         master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
                         salt: "test@bitwarden.com".to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -1803,6 +1702,7 @@ mod tests {
                     },
                     master_key_wrapped_user_key: user_key,
                     salt: "test@bitwarden.com".to_string(),
+                    contained_key_id: None,
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
                 &None,
@@ -1850,97 +1750,6 @@ mod tests {
         );
     }
 
-    fn setup_asymmetric_keys_test() -> (UserKey, RsaKeyPair) {
-        let master_key = MasterKey::derive(
-            "asdfasdfasdf",
-            "test@bitwarden.com",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(600_000).unwrap(),
-            },
-        )
-        .unwrap();
-        let user_key = (master_key.make_user_key().unwrap()).0;
-        let key_pair = user_key.make_key_pair().unwrap();
-
-        (user_key, key_pair)
-    }
-
-    #[test]
-    fn test_make_key_pair() {
-        let (user_key, _) = setup_asymmetric_keys_test();
-
-        let response = make_key_pair(user_key.0.to_base64()).unwrap();
-
-        assert!(!response.user_public_key.to_string().is_empty());
-        let encrypted_private_key = response.user_key_encrypted_private_key;
-        let private_key: Vec<u8> = encrypted_private_key.decrypt_with_key(&user_key.0).unwrap();
-        assert!(!private_key.is_empty());
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_success() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: key_pair.private,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(response.private_key_decryptable);
-        assert!(response.valid_private_key);
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_decrypt_failed() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-        let undecryptable_private_key = "2.cqD39M4erPZ3tWaz2Fng9w==|+Bsp/xvM30oo+HThKN12qirK0A63EjMadcwethCX7kEgfL5nEXgAFsSgRBMpByc1djgpGDMXzUTLOE+FejXRsrEHH/ICZ7jPMgSR+lV64Mlvw3fgvDPQdJ6w3MCmjPueGQtrlPj1K78BkRomN3vQwwRBFUIJhLAnLshTOIFrSghoyG78na7McqVMMD0gmC0zmRaSs2YWu/46ES+2Rp8V5OC4qdeeoJM9MQfaOtmaqv7NRVDeDM3DwoyTJAOcon8eovMKE4jbFPUboiXjNQBkBgjvLhco3lVJnFcQuYgmjqrwuUQRsfAtZjxFXg/RQSH2D+SI5uRaTNQwkL4iJqIw7BIKtI0gxDz6eCVdq/+DLhpImgCV/aaIhF/jkpGqLCceFsYMbuqdULMM1VYKgV+IAuyC65R+wxOaKS+1IevvPnNp7tgKAvT5+shFg8piusj+rQ49daX2SmV2OImwdWMmmX93bcVV0xJ/WYB1yrqmyRUcTwyvX3RQF25P5okIIzFasRp8jXFZe8C6f93yzkn1TPQbp95zF4OsWjfPFVH4hzca07ACt2HjbAB75JakWbFA5MbCF8aOIwIfeLVhVlquQXCldOHCsl22U/f3HTGLB9OS8F83CDAy7qZqpKha9Im8RUhHoyf+lXrky0gyd6un7Ky8NSkVOGd8CEG7bvZfutxv/qtAjEM9/lV78fh8TQIy9GNgioMzplpuzPIJOgMaY/ZFZj6a8H9OMPneN5Je0H/DwHEglSyWy7CMgwcbQgXYGXc8rXTTxL71GUAFHzDr4bAJvf40YnjndoL9tf+oBw8vVNUccoD4cjyOT5w8h7M3Liaxk9/0O8JR98PKxxpv1Xw6XjFCSEHeG2y9FgDUASFR4ZwG1qQBiiLMnJ7e9kvxsdnmasBux9H0tOdhDhAM16Afk3NPPKA8eztJVHJBAfQiaNiUA4LIJ48d8EpUAe2Tvz0WW/gQThplUINDTpvPf+FojLwc5lFwNIPb4CVN1Ui8jOJI5nsOw4BSWJvLzJLxawHxX/sBuK96iXza+4aMH+FqYKt/twpTJtiVXo26sPtHe6xXtp7uO4b+bL9yYUcaAci69L0W8aNdu8iF0lVX6kFn2lOL8dBLRleGvixX9gYEVEsiI7BQBjxEBHW/YMr5F4M4smqCpleZIAxkse1r2fQ33BSOJVQKInt4zzgdKwrxDzuVR7RyiIUuNXHsprKtRHNJrSc4x5kWFUeivahed2hON+Ir/ZvrxYN6nJJPeYYH4uEm1Nn4osUzzfWILlqpmDPK1yYy365T38W8wT0cbdcJrI87ycS37HeB8bzpFJZSY/Dzv48Yy19mDZJHLJLCRqyxNeIlBPsVC8fvxQhzr+ZyS3Wi8Dsa2Sgjt/wd0xPULLCJlb37s+1aWgYYylr9QR1uhXheYfkXFED+saGWwY1jlYL5e2Oo9n3sviBYwJxIZ+RTKFgwlXV5S+Jx/MbDpgnVHP1KaoU6vvzdWYwMChdHV/6PhZVbeT2txq7Qt+zQN59IGrOWf6vlMkHxfUzMTD58CE+xAaz/D05ljHMesLj9hb3MSrymw0PcwoFGWUMIzIQE73pUVYNE7fVHa8HqUOdoxZ5dRZqXRVox1xd9siIPE3e6CuVQIMabTp1YLno=|Y38qtTuCwNLDqFnzJ3Cgbjm1SE15OnhDm9iAMABaQBA=".parse().unwrap();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: undecryptable_private_key,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(!response.private_key_decryptable);
-        assert!(!response.valid_private_key);
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_parse_failed() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-
-        let invalid_private_key = "bad_key".to_string().encrypt_with_key(&user_key.0).unwrap();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: invalid_private_key,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(response.private_key_decryptable);
-        assert!(!response.valid_private_key);
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_key_mismatch() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-        let new_key_pair = user_key.make_key_pair().unwrap();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: new_key_pair.private,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(response.private_key_decryptable);
-        assert!(!response.valid_private_key);
-    }
-
     #[tokio::test]
     async fn test_make_v2_keys_for_v1_user() {
         let client = Client::new_test(None);
@@ -1967,6 +1776,7 @@ mod tests {
                         },
                         master_key_wrapped_user_key: encrypted_userkey.clone(),
                         salt: "test@bitwarden.com".into(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -2015,6 +1825,7 @@ mod tests {
                         },
                         master_key_wrapped_user_key: encrypted_userkey_v2,
                         salt: "test@bitwarden.com".to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -2137,6 +1948,7 @@ mod tests {
                         },
                         master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
                         salt: TEST_USER_EMAIL.to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,
@@ -2318,7 +2130,7 @@ mod tests {
         let result_key =
             SymmetricCryptoKey::try_from(get_user_encryption_key(&client2).await.unwrap()).unwrap();
         assert!(
-            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            matches!(result_key, SymmetricCryptoKey::XAes256GcmKey(_)),
             "User key should be upgraded to V2 after initialization with upgrade token"
         );
         assert_eq!(result_key, expected_v2_key);
@@ -2330,7 +2142,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(v1_id, v2_id, &ctx).unwrap()
         };
 
@@ -2362,7 +2174,7 @@ mod tests {
         let result_key =
             SymmetricCryptoKey::try_from(get_user_encryption_key(&client).await.unwrap()).unwrap();
         assert!(
-            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            matches!(result_key, SymmetricCryptoKey::XAes256GcmKey(_)),
             "Upgrade token must be ignored for a V2 user key"
         );
         let expected_key =
@@ -2377,7 +2189,7 @@ mod tests {
             let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let wrong_v1_id = ctx.generate_symmetric_key();
-            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XAes256Gcm);
             V2UpgradeToken::create(wrong_v1_id, v2_id, &ctx).unwrap()
         };
 
@@ -2402,6 +2214,7 @@ mod tests {
                         },
                         master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
                         salt: "test@bitwarden.com".to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: Some(mismatched_token),
@@ -2485,6 +2298,7 @@ mod tests {
                         },
                         master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
                         salt: TEST_USER_EMAIL.to_string(),
+                        contained_key_id: None,
                     },
                 },
                 upgrade_token: None,

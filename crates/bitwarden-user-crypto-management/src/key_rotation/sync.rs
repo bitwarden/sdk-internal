@@ -314,6 +314,7 @@ mod tests {
             organization_id: None,
             r#type: Some(bitwarden_api_api::models::CipherType::Login),
             data: None,
+            partial_data: None,
             name: Some(TEST_ENC_STRING.to_string()),
             notes: None,
             login: None,
@@ -353,6 +354,7 @@ mod tests {
             notes: None,
             file: None,
             text: None,
+            data: None,
             key: Some(KEY_ENC_STRING.to_string()),
             max_access_count: None,
             access_count: Some(0),
@@ -378,9 +380,11 @@ mod tests {
                 }),
                 master_key_encrypted_user_key: None,
                 salt: Some("test_salt".to_string()),
+                contained_key_id: None,
             })),
             web_authn_prf_options: None,
             v2_upgrade_token: None,
+            user_key_id: None,
         }
     }
 
@@ -712,7 +716,7 @@ mod tests {
         // Verify ciphers
         assert_eq!(data.ciphers.len(), 1);
         assert_eq!(data.ciphers[0].id, Some(CipherId::new(cipher_id)));
-        assert_eq!(data.ciphers[0].name, TEST_ENC_STRING.parse().unwrap());
+        assert_eq!(data.ciphers[0].name, Some(TEST_ENC_STRING.parse().unwrap()));
 
         // Verify sends
         assert_eq!(data.sends.len(), 1);

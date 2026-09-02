@@ -311,6 +311,12 @@ pub struct OrganizationSubscriptionResponseModel {
     )]
     pub use_invite_links: Option<bool>,
     #[serde(
+        rename = "usePam",
+        alias = "UsePam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_pam: Option<bool>,
+    #[serde(
         rename = "storageName",
         alias = "StorageName",
         skip_serializing_if = "Option::is_none"
@@ -340,6 +346,24 @@ pub struct OrganizationSubscriptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub upcoming_invoice: Option<Box<models::BillingSubscriptionUpcomingInvoice>>,
+    #[serde(
+        rename = "pendingAnnualUpgrade",
+        alias = "PendingAnnualUpgrade",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pending_annual_upgrade: Option<Box<models::PendingAnnualUpgradeResponseModel>>,
+    /// The count of permanently-free Secrets Manager service accounts granted beyond the plan
+    /// baseline during a pricing migration. Clients subtract this from
+    /// Bit.Api.AdminConsole.Models.Response.Organizations.OrganizationResponseModel.
+    /// SmServiceAccounts so the migration-grace allotment is not billed. Null on self-hosted and
+    /// when there is no gateway subscription; a concrete count (including 0 for a non-migrated
+    /// cloud organization) otherwise.
+    #[serde(
+        rename = "smServiceAccountsGrace",
+        alias = "SmServiceAccountsGrace",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sm_service_accounts_grace: Option<i32>,
     /// Date when a self-hosted organization's subscription expires, without any grace period.
     #[serde(
         rename = "expirationWithoutGracePeriod",
@@ -415,11 +439,14 @@ impl OrganizationSubscriptionResponseModel {
             use_phishing_blocker: None,
             use_my_items: None,
             use_invite_links: None,
+            use_pam: None,
             storage_name: None,
             storage_gb: None,
             customer_discount: None,
             subscription: None,
             upcoming_invoice: None,
+            pending_annual_upgrade: None,
+            sm_service_accounts_grace: None,
             expiration_without_grace_period: None,
             expiration: None,
             exempt_from_billing_automation: None,

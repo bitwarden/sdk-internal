@@ -3,7 +3,7 @@ use std::sync::RwLock;
 use std::sync::{Arc, OnceLock};
 
 use bitwarden_api_base::new_http_client_builder;
-use bitwarden_crypto::KeyStore;
+use bitwarden_crypto::{CipherSuite, KeyStore};
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
@@ -24,6 +24,8 @@ pub struct ClientBuilder {
     token_handler: Arc<dyn TokenHandler>,
     state_registry: Option<StateRegistry>,
     middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    #[cfg(feature = "test-fixtures")]
+    api_configurations: Option<Arc<ApiConfigurations>>,
 }
 
 impl ClientBuilder {
@@ -34,7 +36,18 @@ impl ClientBuilder {
             token_handler: Arc::new(NoopTokenHandler),
             state_registry: None,
             middleware: Vec::new(),
+            #[cfg(feature = "test-fixtures")]
+            api_configurations: None,
         }
+    }
+
+    /// Overrides the [`ApiConfigurations`] used by the client being built, allowing tests to inject
+    /// a mocked [`bitwarden_api_api::apis::ApiClient`] via
+    /// [`ApiConfigurations::from_api_client`]. Only available for testing.
+    #[cfg(feature = "test-fixtures")]
+    pub fn with_api_configurations(mut self, api_configurations: Arc<ApiConfigurations>) -> Self {
+        self.api_configurations = Some(api_configurations);
+        self
     }
 
     /// Sets the [`ClientSettings`] for the client being built.
@@ -132,11 +145,18 @@ impl ClientBuilder {
             client: bw_http_client,
         };
 
-        Client {
+        #[cfg(feature = "test-fixtures")]
+        let api_configurations = self
+            .api_configurations
+            .unwrap_or_else(|| ApiConfigurations::new(identity, api, settings.device_type));
+        #[cfg(not(feature = "test-fixtures"))]
+        let api_configurations = ApiConfigurations::new(identity, api, settings.device_type);
+
+        let client = Client {
             internal: Arc::new(InternalClient {
                 user_id: OnceLock::new(),
                 token_handler: self.token_handler,
-                api_configurations: ApiConfigurations::new(identity, api, settings.device_type),
+                api_configurations,
                 external_http_client,
                 key_store,
                 #[cfg(feature = "internal")]
@@ -145,7 +165,16 @@ impl ClientBuilder {
                 state_bridge: StateBridge::new(),
                 state_registry,
             }),
-        }
+        };
+
+        // Configure the key store's cipher suite from the client's environment, so all crypto
+        // operations (e.g. the KDF for a new account) pick compliant algorithms.
+        client
+            .internal
+            .get_key_store()
+            .set_cipher_suite(CipherSuite::from_gov_mode(client.gov_mode()));
+
+        client
     }
 }
 

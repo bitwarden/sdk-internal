@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::{
-    SendFileModel, SendResponseModel, SendTextModel, SendWithIdRequestModel,
+    SendDataModel, SendFileModel, SendResponseModel, SendTextModel, SendWithIdRequestModel,
 };
 use bitwarden_core::{
     key_management::{KeySlotIds, SymmetricKeySlotId},
@@ -11,6 +11,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_uuid::uuid_newtype;
+use bitwarden_vault::{Cipher, CipherView, EncryptMode};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -19,8 +20,9 @@ use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::SendParseError;
+use crate::{SendParseError, access::SEND_KEY_LEN, error::SendItemDeserializationFailureError};
 pub const SEND_ITERATIONS: u32 = 100_000;
+pub const DEFAULT_SEND_ENCRYPTION: SendEncryptionType = SendEncryptionType::V1;
 
 uuid_newtype!(pub SendId);
 
@@ -71,6 +73,26 @@ pub struct SendText {
     pub hidden: bool,
 }
 
+/// View model for decrypted SendItem
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendItemView {
+    /// The item content of the send
+    pub data: CipherView,
+}
+
+/// Item-based send content
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendItem {
+    pub encryption_version: SendEncryptionType,
+    pub data: Cipher,
+}
+
 /// View model for decrypted SendText
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -83,7 +105,7 @@ pub struct SendTextView {
     pub hidden: bool,
 }
 
-/// The type of Send, either text or file
+/// The type of Send, either text, file, or item
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -93,6 +115,8 @@ pub enum SendType {
     Text = 0,
     /// File-based send
     File = 1,
+    /// Item-based send
+    Item = 2,
 }
 
 /// Indicates the authentication strategy to use when accessing a Send
@@ -111,6 +135,16 @@ pub enum AuthType {
     None = 2,
 }
 
+/// Indicates the version of Send data encryption that is being used
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub enum SendEncryptionType {
+    /// V1 encryption (field by field)
+    V1 = 1,
+}
+
 /// Type-safe authentication method for a Send, including the authentication data.
 /// This ensures that password and email authentication are mutually exclusive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,10 +154,21 @@ pub enum AuthType {
 pub enum SendAuthType {
     /// No authentication required
     None,
-    /// Password-based authentication
+    /// Password-based authentication. The SDK derives the wire-format `keyB64` via PBKDF2
+    /// over the send key.
     Password {
-        /// The password required to access the Send
+        /// The plaintext password the recipient will enter to access the Send.
         password: String,
+    },
+    /// Pre-derived password. The caller has already run PBKDF2 client-side and supplies the
+    /// resulting base64-encoded hash; the SDK forwards it verbatim. Use this when the
+    /// hashing happens outside the SDK (e.g. the legacy TypeScript clients that derive in
+    /// `SendService.encrypt`). For new code that holds a plaintext password, use
+    /// `Password { ... }` and let the SDK do the derivation.
+    HashedPassword {
+        /// Base64-encoded PBKDF2 output (`keyB64`) ready for the wire.
+        #[serde(rename = "keyB64")]
+        key_b64: String,
     },
     /// Email-based OTP authentication
     Emails {
@@ -133,11 +178,26 @@ pub enum SendAuthType {
 }
 
 impl SendAuthType {
+    /// Construct a `Password` variant from a plaintext password. The SDK will run PBKDF2
+    /// during encryption.
+    pub fn from_plaintext_password(password: String) -> Self {
+        SendAuthType::Password { password }
+    }
+
+    /// Construct a `HashedPassword` variant from an already-derived `keyB64`. The SDK
+    /// forwards it verbatim — no further derivation. Misuse (passing plaintext here)
+    /// produces an unsatisfiable server-side hash.
+    pub fn from_hashed_password(key_b64: String) -> Self {
+        SendAuthType::HashedPassword { key_b64 }
+    }
+
     /// Returns the AuthType discriminant for this authentication method
     pub fn auth_type(&self) -> AuthType {
         match self {
             SendAuthType::None => AuthType::None,
-            SendAuthType::Password { .. } => AuthType::Password,
+            SendAuthType::Password { .. } | SendAuthType::HashedPassword { .. } => {
+                AuthType::Password
+            }
             SendAuthType::Emails { .. } => AuthType::Email,
         }
     }
@@ -153,14 +213,16 @@ impl SendAuthType {
         Ok(())
     }
 
-    /// Returns the password if this is a Password variant, emails if this is an Emails variant, or
-    /// None otherwise
+    /// Returns `(password, emails)` for the wire request. For `Password`, runs PBKDF2 over
+    /// the plaintext using `k` as the salt. For `HashedPassword`, forwards the supplied
+    /// `keyB64` verbatim — `k` is unused on that branch.
     pub(crate) fn auth_data(&self, k: &[u8]) -> (Option<String>, Option<String>) {
         match self {
             SendAuthType::Password { password } => {
                 let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), k, SEND_ITERATIONS);
                 (Some(B64::from(hashed.as_slice()).to_string()), None)
             }
+            SendAuthType::HashedPassword { key_b64 } => (Some(key_b64.clone()), None),
             SendAuthType::Emails { emails } => {
                 let emails_str = if emails.is_empty() {
                     None
@@ -182,6 +244,8 @@ pub enum SendViewType {
     File(SendFileView),
     /// Text-based send
     Text(SendTextView),
+    /// Item-based send
+    Item(Box<SendItemView>),
 }
 
 /// Type alias for the tuple returned by SendViewType::into_api_models
@@ -189,6 +253,7 @@ type SendApiModels = (
     bitwarden_api_api::models::SendType,
     Option<Box<bitwarden_api_api::models::SendFileModel>>,
     Option<Box<bitwarden_api_api::models::SendTextModel>>,
+    Option<Box<bitwarden_api_api::models::SendDataModel>>,
 );
 
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for SendViewType {
@@ -207,6 +272,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                     size_name: f.size_name.clone(),
                 })),
                 None,
+                None,
             )),
             SendViewType::Text(t) => Ok((
                 bitwarden_api_api::models::SendType::Text,
@@ -220,7 +286,22 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendApiModels> for Sen
                         .map(|e| e.to_string()),
                     hidden: Some(t.hidden),
                 })),
+                None,
             )),
+            SendViewType::Item(i) => {
+                let encrypted = i.encrypt_composite(ctx, key)?;
+                let serialized_cipher =
+                    serde_json::to_string(&encrypted.data).unwrap_or("{}".to_string());
+                Ok((
+                    bitwarden_api_api::models::SendType::Item,
+                    None,
+                    None,
+                    Some(Box::new(bitwarden_api_api::models::SendDataModel {
+                        encryption_version: Some(DEFAULT_SEND_ENCRYPTION.into()),
+                        data: Some(serialized_cipher),
+                    })),
+                ))
+            }
         }
     }
 }
@@ -242,6 +323,7 @@ pub struct Send {
     pub r#type: SendType,
     pub file: Option<SendFile>,
     pub text: Option<SendText>,
+    pub data: Option<SendItem>,
 
     pub max_access_count: Option<u32>,
     pub access_count: u32,
@@ -282,6 +364,8 @@ impl From<Send> for SendWithIdRequestModel {
             deletion_date: send.deletion_date.to_rfc3339(),
             file: send.file.map(|file| Box::new(file.into())),
             text: send.text.map(|text| Box::new(text.into())),
+            // TODO: Implement logic for item-based Sends
+            data: None,
             password: send.password,
             emails: send.emails,
             disabled: send.disabled,
@@ -318,6 +402,7 @@ pub struct SendView {
     pub r#type: SendType,
     pub file: Option<SendFileView>,
     pub text: Option<SendTextView>,
+    pub data: Option<SendItemView>,
 
     pub max_access_count: Option<u32>,
     pub access_count: u32,
@@ -445,6 +530,31 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendFile> for SendFile
     }
 }
 
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendItemView> for SendItem {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItemView, CryptoError> {
+        let data: CipherView = self.data.decrypt(ctx, key)?;
+        Ok(SendItemView { data })
+    }
+}
+
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SendItem> for SendItemView {
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Result<SendItem, CryptoError> {
+        let cipher: Cipher = EncryptMode::Legacy(self.data.clone()).encrypt_composite(ctx, key)?;
+        Ok(SendItem {
+            encryption_version: DEFAULT_SEND_ENCRYPTION,
+            data: cipher,
+        })
+    }
+}
+
 impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendView> for Send {
     fn decrypt(
         &self,
@@ -470,6 +580,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, SendView> for Send {
             r#type: self.r#type,
             file: self.file.decrypt(ctx, key).ok().flatten(),
             text: self.text.decrypt(ctx, key).ok().flatten(),
+            data: self.data.decrypt(ctx, key).ok().flatten(),
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -540,7 +651,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
                 .to_vec(),
             // New send, generate random key
             (None, None) => {
-                let key = generate_random_bytes::<[u8; 16]>();
+                let key = generate_random_bytes::<[u8; SEND_KEY_LEN]>();
                 key.to_vec()
             }
             // Existing send without key
@@ -555,6 +666,12 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             name: self.name.encrypt(ctx, send_key)?,
             notes: self.notes.encrypt(ctx, send_key)?,
             key: OctetStreamBytes::from(k.clone()).encrypt(ctx, key)?,
+            // A decrypted SendView never carries the existing password hash (only
+            // `has_password`), so a call site with no new password to set (e.g. key rotation)
+            // always produces `password: None` here. This is safe: the server's rotation and
+            // edit validators special-case AuthType::Password on both the stored and incoming
+            // record and preserve the stored hash unconditionally in that case, ignoring
+            // whatever this field carries. See `ToSendBase` server-side.
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
                 B64::from(password.as_slice()).to_string()
@@ -563,6 +680,7 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Send> for SendView {
             r#type: self.r#type,
             file: self.file.encrypt_composite(ctx, send_key)?,
             text: self.text.encrypt_composite(ctx, send_key)?,
+            data: self.data.encrypt_composite(ctx, send_key)?,
 
             max_access_count: self.max_access_count,
             access_count: self.access_count,
@@ -605,6 +723,7 @@ impl TryFrom<SendResponseModel> for Send {
             r#type: require!(send.r#type).try_into()?,
             file: send.file.map(|f| (*f).try_into()).transpose()?,
             text: send.text.map(|t| (*t).try_into()).transpose()?,
+            data: send.data.map(|d| (*d).try_into()).transpose()?,
             max_access_count: send.max_access_count.map(|s| s as u32),
             access_count: require!(send.access_count) as u32,
             disabled: send.disabled.unwrap_or(false),
@@ -625,6 +744,7 @@ impl TryFrom<bitwarden_api_api::models::SendType> for SendType {
         Ok(match t {
             bitwarden_api_api::models::SendType::Text => SendType::Text,
             bitwarden_api_api::models::SendType::File => SendType::File,
+            bitwarden_api_api::models::SendType::Item => SendType::Item,
             bitwarden_api_api::models::SendType::__Unknown(_) => {
                 return Err(bitwarden_core::MissingFieldError("type"));
             }
@@ -637,6 +757,7 @@ impl From<SendType> for bitwarden_api_api::models::SendType {
         match t {
             SendType::Text => bitwarden_api_api::models::SendType::Text,
             SendType::File => bitwarden_api_api::models::SendType::File,
+            SendType::Item => bitwarden_api_api::models::SendType::Item,
         }
     }
 }
@@ -677,6 +798,27 @@ impl From<SendFile> for SendFileModel {
     }
 }
 
+impl From<SendEncryptionType> for bitwarden_api_api::models::SendEncryptionType {
+    fn from(t: SendEncryptionType) -> Self {
+        match t {
+            SendEncryptionType::V1 => bitwarden_api_api::models::SendEncryptionType::V1,
+        }
+    }
+}
+
+impl TryFrom<bitwarden_api_api::models::SendEncryptionType> for SendEncryptionType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(value: bitwarden_api_api::models::SendEncryptionType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            bitwarden_api_api::models::SendEncryptionType::V1 => SendEncryptionType::V1,
+            bitwarden_api_api::models::SendEncryptionType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("encryption_version"));
+            }
+        })
+    }
+}
+
 impl From<SendText> for SendTextModel {
     fn from(text: SendText) -> Self {
         SendTextModel {
@@ -707,6 +849,26 @@ impl TryFrom<SendTextModel> for SendText {
             text: EncString::try_from_optional(text.text)?,
             hidden: text.hidden.unwrap_or(false),
         })
+    }
+}
+
+impl TryFrom<SendDataModel> for SendItem {
+    type Error = SendParseError;
+
+    fn try_from(data: SendDataModel) -> Result<Self, Self::Error> {
+        let cipher = serde_json::from_str::<Cipher>(data.data.unwrap_or("{}".to_string()).as_str());
+        match cipher {
+            Err(_e) => Err(SendParseError::DeserializationFailure(
+                SendItemDeserializationFailureError,
+            )),
+            Ok(c) => Ok(SendItem {
+                encryption_version: SendEncryptionType::try_from(
+                    data.encryption_version
+                        .unwrap_or(DEFAULT_SEND_ENCRYPTION.into()),
+                )?,
+                data: c,
+            }),
+        }
     }
 }
 
@@ -756,6 +918,7 @@ mod tests {
                 text: "2.2VPyLzk1tMLug0X3x7RkaQ==|mrMt9vbZsCJhJIj4eebKyg==|aZ7JeyndytEMR1+uEBupEvaZuUE69D/ejhfdJL8oKq0=".parse().ok(),
                 hidden: false,
             }),
+            data: None,
             key: "2.KLv/j0V4Ebs0dwyPdtt4vw==|jcrFuNYN1Qb3onBlwvtxUV/KpdnR1LPRL4EsCoXNAt4=|gHSywGy4Rj/RsCIZFwze4s2AACYKBtqDXTrQXjkgtIE=".parse().unwrap(),
             max_access_count: None,
             access_count: 0,
@@ -785,6 +948,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -818,6 +982,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -855,6 +1020,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -895,6 +1061,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -939,6 +1106,7 @@ mod tests {
                 text: Some("This is a test".to_owned()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,
@@ -998,6 +1166,7 @@ mod tests {
                 text: Some(text_value.parse().unwrap()),
                 hidden: true,
             }),
+            data: None,
             max_access_count: Some(42),
             access_count: 0,
             disabled: true,
@@ -1054,5 +1223,117 @@ mod tests {
         let text = model.text.unwrap();
         assert_eq!(text.text.as_deref(), Some(text_value));
         assert_eq!(text.hidden, Some(true));
+    }
+
+    #[test]
+    fn auth_data_hashed_password_returns_key_b64_verbatim() {
+        // `HashedPassword` is the wire-form contract: the caller supplies the already-
+        // derived base64 hash and the SDK must NOT run PBKDF2 again. We assert by
+        // checking that the returned password equals the input byte-for-byte, including
+        // for inputs that wouldn't be valid base64 (proves no decode/re-encode happens).
+        let key_b64 = "pretend-this-is-a-pbkdf2-output==".to_string();
+        let auth = SendAuthType::HashedPassword {
+            key_b64: key_b64.clone(),
+        };
+
+        let (password, emails) = auth.auth_data(b"any-send-key-bytes-here");
+
+        assert_eq!(password, Some(key_b64));
+        assert_eq!(emails, None);
+    }
+
+    #[test]
+    fn auth_data_hashed_and_plaintext_diverge_for_same_input() {
+        // Sanity check: passing the same string through `Password` and `HashedPassword`
+        // produces different wire outputs, so a mis-routed caller (plaintext into
+        // `HashedPassword`) fails loudly server-side rather than silently producing the
+        // same hash as the plaintext path would.
+        let same_string = "abc123".to_string();
+        let send_key = b"send-key-salt-bytes";
+
+        let (plaintext_out, _) = SendAuthType::Password {
+            password: same_string.clone(),
+        }
+        .auth_data(send_key);
+        let (hashed_out, _) = SendAuthType::HashedPassword {
+            key_b64: same_string,
+        }
+        .auth_data(send_key);
+
+        assert_ne!(
+            plaintext_out, hashed_out,
+            "Plaintext path must run PBKDF2; HashedPassword path must not"
+        );
+    }
+
+    #[test]
+    fn auth_type_for_hashed_password_maps_to_password() {
+        // Both `Password` and `HashedPassword` produce `authType = Password` on the wire;
+        // the server doesn't distinguish.
+        assert_eq!(
+            SendAuthType::Password {
+                password: "p".to_string()
+            }
+            .auth_type(),
+            AuthType::Password,
+        );
+        assert_eq!(
+            SendAuthType::HashedPassword {
+                key_b64: "k".to_string()
+            }
+            .auth_type(),
+            AuthType::Password,
+        );
+    }
+
+    /// Pins the wire shape of `SendAuthType` including the new `HashedPassword` variant
+    /// (`"type": "hashedPassword"` under camelCase rename). Same pattern as the existing
+    /// regression tests that pin internally-tagged serde enums.
+    #[test]
+    fn send_auth_type_round_trips_through_json() {
+        let cases = [
+            (SendAuthType::None, serde_json::json!({"type": "none"})),
+            (
+                SendAuthType::Password {
+                    password: "hunter2".to_string(),
+                },
+                serde_json::json!({"type": "password", "password": "hunter2"}),
+            ),
+            (
+                SendAuthType::HashedPassword {
+                    key_b64: "deadbeef==".to_string(),
+                },
+                serde_json::json!({"type": "hashedPassword", "keyB64": "deadbeef=="}),
+            ),
+            (
+                SendAuthType::Emails {
+                    emails: vec!["a@b.com".to_string()],
+                },
+                serde_json::json!({"type": "emails", "emails": ["a@b.com"]}),
+            ),
+        ];
+        for (value, expected) in cases {
+            let serialized = serde_json::to_value(&value).expect("serialize");
+            assert_eq!(serialized, expected, "wire shape mismatch for {value:?}");
+            let deserialized: SendAuthType =
+                serde_json::from_value(serialized).expect("round-trip");
+            assert_eq!(deserialized, value, "round-trip mismatch for {value:?}");
+        }
+    }
+
+    #[test]
+    fn typed_constructors_produce_expected_variants() {
+        assert_eq!(
+            SendAuthType::from_plaintext_password("hunter2".to_string()),
+            SendAuthType::Password {
+                password: "hunter2".to_string()
+            },
+        );
+        assert_eq!(
+            SendAuthType::from_hashed_password("deadbeef==".to_string()),
+            SendAuthType::HashedPassword {
+                key_b64: "deadbeef==".to_string()
+            },
+        );
     }
 }

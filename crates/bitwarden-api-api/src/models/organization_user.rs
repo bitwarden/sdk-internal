@@ -56,6 +56,16 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub reset_password_key: Option<String>,
+    /// The V2 user key wrapped with the V1 user key, as JSON. Set during a V1 to V2 upgrade
+    /// rotation. An Organization admin reaches the V1 user key through account recovery, so the
+    /// admin can unwrap the V2 user key from this token and update
+    /// Bit.Core.Entities.OrganizationUser.ResetPasswordKey to it. NULL at all other times.
+    #[serde(
+        rename = "v2UpgradeToken",
+        alias = "V2UpgradeToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub v2_upgrade_token: Option<String>,
     #[serde(
         rename = "status",
         alias = "Status",
@@ -114,6 +124,14 @@ pub struct OrganizationUser {
         skip_serializing_if = "Option::is_none"
     )]
     pub access_secrets_manager: Option<bool>,
+    /// True if the User has access to Privileged Access Management for this Organization, false
+    /// otherwise.
+    #[serde(
+        rename = "accessPam",
+        alias = "AccessPam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_pam: Option<bool>,
     #[serde(
         rename = "revocationReason",
         alias = "RevocationReason",
@@ -134,6 +152,7 @@ impl OrganizationUser {
             email: None,
             key: None,
             reset_password_key: None,
+            v2_upgrade_token: None,
             status: None,
             status_new: None,
             r#type: None,
@@ -142,6 +161,7 @@ impl OrganizationUser {
             revision_date: None,
             permissions: None,
             access_secrets_manager: None,
+            access_pam: None,
             revocation_reason: None,
         }
     }

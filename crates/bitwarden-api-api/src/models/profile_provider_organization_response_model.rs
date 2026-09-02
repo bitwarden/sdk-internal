@@ -194,6 +194,12 @@ pub struct ProfileProviderOrganizationResponseModel {
     )]
     pub use_invite_links: Option<bool>,
     #[serde(
+        rename = "usePam",
+        alias = "UsePam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_pam: Option<bool>,
+    #[serde(
         rename = "selfHost",
         alias = "SelfHost",
         skip_serializing_if = "Option::is_none"
@@ -310,6 +316,12 @@ pub struct ProfileProviderOrganizationResponseModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(
+        rename = "accessPam",
+        alias = "AccessPam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_pam: Option<bool>,
+    #[serde(
         rename = "userId",
         alias = "UserId",
         skip_serializing_if = "Option::is_none"
@@ -371,6 +383,7 @@ impl ProfileProviderOrganizationResponseModel {
             use_phishing_blocker: None,
             use_my_items: None,
             use_invite_links: None,
+            use_pam: None,
             self_host: None,
             seats: None,
             max_collections: None,
@@ -391,6 +404,7 @@ impl ProfileProviderOrganizationResponseModel {
             key_connector_url: None,
             sso_member_decryption_type: None,
             access_secrets_manager: None,
+            access_pam: None,
             user_id: None,
             status: None,
             r#type: None,

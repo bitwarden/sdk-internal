@@ -21,12 +21,6 @@ pub enum CipherDeleteAttachmentError {
     VaultParse(#[from] VaultParseError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherDeleteAttachmentError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AttachmentsClient {
     /// Deletes an attachment from a cipher, and updates the local repository with the new
@@ -94,7 +88,7 @@ mod tests {
     fn test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: TEST_CIPHER_NAME.parse().unwrap(),
+            name: Some(TEST_CIPHER_NAME.parse().unwrap()),
             r#type: CipherType::Login,
             attachments: Some(vec![Attachment {
                 id: Some(TEST_ATTACHMENT_ID.to_string()),

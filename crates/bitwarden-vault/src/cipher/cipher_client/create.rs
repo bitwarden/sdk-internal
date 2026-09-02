@@ -18,7 +18,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::cipher::{EncryptMode, PartialCipher, StrictDecrypt},
     cipher_view_type::CipherViewType,
 };
 
@@ -38,12 +38,6 @@ pub enum CreateCipherError {
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
     Repository(#[from] RepositoryError),
-}
-
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
 }
 
 /// Request to add a cipher.
@@ -117,12 +111,22 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     view: CipherView,
     use_strict_decryption: bool,
+    use_blob: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let collection_ids = view.collection_ids.clone();
-
-    let cipher: Cipher = key_store.encrypt(view)?;
+    let encrypted_by_key_id = key_store
+        .context()
+        .get_symmetric_key_id(view.key_identifier())
+        .map(|id| id.to_string());
+    let mode = if use_blob {
+        EncryptMode::Blob(view)
+    } else {
+        EncryptMode::Legacy(view)
+    };
+    let cipher: Cipher = key_store.encrypt(mode)?;
     let mut cipher_request: CipherRequestModel = cipher.try_into()?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
+    cipher_request.encrypted_by_key_id = encrypted_by_key_id;
 
     let mut cipher: Cipher;
     if !collection_ids.is_empty() {
@@ -132,8 +136,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
                 collection_ids: Some(collection_ids.iter().cloned().map(Into::into).collect()),
                 cipher: Box::new(cipher_request),
             }))
-            .await
-            .map_err(ApiError::from)?
+            .await?
             .merge_with_cipher(None)?;
         cipher.collection_ids = collection_ids;
         repository.set(require!(cipher.id), cipher.clone()).await?;
@@ -141,8 +144,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
         cipher = api_client
             .ciphers_api()
             .post(Some(cipher_request))
-            .await
-            .map_err(ApiError::from)?
+            .await?
             .merge_with_cipher(None)?;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
@@ -178,8 +180,10 @@ impl CiphersClient {
         // be moved directly into the CompositeEncryptable implementation.
         if self.client.flags().get().await.enable_cipher_key_encryption {
             let key = view.key_identifier();
-            view.generate_cipher_key(&mut key_store.context(), key)?;
+            view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
         }
+
+        let use_blob = self.should_use_blob_encryption(view.organization_id);
 
         create_cipher(
             key_store,
@@ -188,6 +192,7 @@ impl CiphersClient {
             user_id,
             view,
             self.is_strict_decrypt().await,
+            use_blob,
         )
         .await
     }
@@ -252,7 +257,7 @@ mod tests {
                     Ok(CipherResponseModel {
                         object: Some("cipher".to_string()),
                         id: Some(cipher_id.into()),
-                        name: Some(body.name.clone()),
+                        name: body.name.clone(),
                         r#type: body.r#type,
                         organization_id: body
                             .organization_id
@@ -285,6 +290,7 @@ mod tests {
                         attachments: None,
                         permissions: None,
                         data: None,
+                        partial_data: None,
                         archived_date: None,
                     })
                 })
@@ -300,6 +306,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
             false,
         )
         .await
@@ -358,6 +365,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
             false,
+            false,
         )
         .await;
 
@@ -379,7 +387,7 @@ mod tests {
                             .cipher
                             .organization_id
                             .and_then(|id| id.parse().ok()),
-                        name: Some(request_body.cipher.name.clone()),
+                        name: request_body.cipher.name.clone(),
                         r#type: request_body.cipher.r#type,
                         creation_date: Some(Utc::now().to_string()),
                         revision_date: Some(Utc::now().to_string()),
@@ -427,6 +435,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             convert_request_to_cipher_view(request),
+            false,
             false,
         )
         .await
