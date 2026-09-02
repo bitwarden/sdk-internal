@@ -50,7 +50,10 @@ js-sys = { workspace = true }
 [dev-dependencies]
 bitwarden-encoding = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["test-support"] }
+# Self dependency so the integration tests are compiled against the crate with `test-support` on.
+bitwarden-shared-unlock = { path = ".", features = ["test-support"] }
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+tracing-subscriber = { workspace = true }
 
 [lints]
 workspace = true
