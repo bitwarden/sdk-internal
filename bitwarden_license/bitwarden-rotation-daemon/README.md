@@ -537,6 +537,5 @@ matched DN are never read: both can echo account names and password-policy text.
 
 ## References
 
-- Plan: `~/.claude/plans/let-s-explore-implementing-the-spicy-sun.md`
 - Spec: `rotation-daemon/rotation-daemon.allium`
 - Architecture: https://contributing.bitwarden.com/architecture/sdk/

@@ -11,9 +11,7 @@
 //! # TargetKind
 //!
 //! [`TargetKind`] is defined in [`crate::api::models`] and re-exported here for
-//! use by the resolver and integration implementations.  The local mirror that
-//! was written while `api/models.rs` was still a stub has been removed now that
-//! the parallel agent has landed the canonical definition.
+//! use by the resolver and integration implementations.
 
 pub(crate) mod active_directory;
 pub(crate) mod custom_script;
