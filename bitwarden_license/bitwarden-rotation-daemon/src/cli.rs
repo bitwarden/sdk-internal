@@ -87,7 +87,7 @@ mod tests {
             "bw-rotation-daemon",
             "run",
             "--token",
-            "0.daemon.some-id.secret:key==",
+            "0.access-connector.some-id.secret:key==",
         ]);
         assert!(
             result.is_err(),
@@ -112,7 +112,6 @@ mod tests {
 
     #[test]
     fn cli_rejects_removed_settings_flags() {
-        // Per-setting flags were removed; settings live in the config file only.
         for args in [
             ["bw-rotation-daemon", "run", "--poll-interval", "30"].as_slice(),
             [

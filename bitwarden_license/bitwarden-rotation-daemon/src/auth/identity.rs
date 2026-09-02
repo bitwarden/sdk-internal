@@ -182,7 +182,7 @@ mod tests {
     use super::{AuthError, IdentityClient};
     use crate::token::DaemonToken;
 
-    const VALID_TOKEN_STR: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+    const VALID_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
     fn test_token() -> DaemonToken {
         DaemonToken::from_str(VALID_TOKEN_STR).expect("valid token")
@@ -228,7 +228,7 @@ mod tests {
             .and(path("/connect/token"))
             .and(body_string_contains("grant_type=client_credentials"))
             .and(body_string_contains("scope=api.pam.rotation"))
-            .and(body_string_contains("client_id=daemon."))
+            .and(body_string_contains("client_id=access-connector."))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_string(success_body("tok", 3600))

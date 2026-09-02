@@ -350,7 +350,7 @@ mod tests {
     use super::*;
 
     /// A valid token string for testing (same vector used in token.rs tests).
-    const VALID_TOKEN: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+    const VALID_TOKEN: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
     /// Use the process-wide env lock so config tests and custom_script tests
     /// serialise all environment mutations across modules.

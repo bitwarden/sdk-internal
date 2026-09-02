@@ -234,7 +234,7 @@ fn main() {
     // it in the token string — but it goes to stdout only, not logs.
     println!();
     println!(
-        "token template: 0.daemon.<apiKeyId>.<clientSecret>:{}",
+        "token template: 0.access-connector.<apiKeyId>.<clientSecret>:{}",
         payload.encryption_key_b64.as_str()
     );
     println!("(substitute <apiKeyId> and <clientSecret> from the register API response)");
@@ -278,7 +278,7 @@ mod tests {
         let fake_api_key_id = "00000000-0000-0000-0000-000000000001";
         let fake_client_secret = "testsecret";
         let token_str = format!(
-            "0.daemon.{}.{}:{}",
+            "0.access-connector.{}.{}:{}",
             fake_api_key_id,
             fake_client_secret,
             payload.encryption_key_b64.as_str()

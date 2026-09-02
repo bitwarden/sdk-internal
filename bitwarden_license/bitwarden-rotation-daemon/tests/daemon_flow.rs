@@ -42,7 +42,7 @@ static ENV_LOCK: Mutex<()> = Mutex::new(());
 // ---------------------------------------------------------------------------
 
 /// The test daemon token (SM test vector, adapted to the 4-part daemon format).
-const TEST_TOKEN_STR: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+const TEST_TOKEN_STR: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
 fn test_token() -> DaemonToken {
     DaemonToken::from_str(TEST_TOKEN_STR).expect("test token must parse")
