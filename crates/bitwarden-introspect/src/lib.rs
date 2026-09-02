@@ -42,6 +42,11 @@ pub enum Writeability {
     /// Written in place through a shared reference, backed by [`Debuggable`],
     /// so the change is visible to every holder of the same value.
     InPlace,
+    /// Written through a hand-rolled debug capability rather than the structural
+    /// graph: an async `debug_*` function reaches past the public API to mutate
+    /// shared client state. Carried by capability nodes that the discovery crawl
+    /// surfaces but that belong to no `#[derive(Introspect)]` type.
+    Capability,
 }
 
 /// A single edge from a node to one of its immediate children.

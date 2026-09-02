@@ -18,7 +18,7 @@
 //! a typed (`tsify`) surface is a later polish.
 
 use bitwarden_core::{Client, client::login_method::UserLoginMethod};
-use bitwarden_introspect::Introspect;
+use bitwarden_introspect::{ChildRef, Introspect, NodeInfo, Writeability};
 use wasm_bindgen::prelude::*;
 
 /// JS-facing handle for crawling one live SDK object graph.
@@ -44,9 +44,33 @@ impl IntrospectClient {
     /// Structural crawl: the [`NodeInfo`](bitwarden_introspect::NodeInfo) at
     /// `path` as JSON (type, preview, writeability, children), or `undefined` if
     /// the path does not resolve. An empty path yields the root. Synchronous.
+    ///
+    /// The hand-rolled async capabilities (see [`CAPABILITIES`]) are overlaid on
+    /// the structural graph so a crawler discovers them the same way it finds
+    /// derived nodes: their namespace segments appear as children of the nodes
+    /// they hang under, and the capability leaves resolve to their own node.
     pub fn describe(&self, path: Vec<String>) -> Result<Option<String>, JsError> {
         let segments: Vec<&str> = path.iter().map(String::as_str).collect();
-        match self.root.describe(&segments) {
+        let node = match self.root.describe(&segments) {
+            // Structural node: fold in any capability children that hang under it
+            // (for example `auth` under the root), skipping keys it already has.
+            Some(mut node) => {
+                for child in capability_children(&segments) {
+                    if !node
+                        .children
+                        .iter()
+                        .any(|existing| existing.key == child.key)
+                    {
+                        node.children.push(child);
+                    }
+                }
+                Some(node)
+            }
+            // No structural node: the path may still be a capability namespace or
+            // a capability leaf that lives outside any derived type.
+            None => capability_overlay(&segments),
+        };
+        match node {
             Some(node) => Ok(Some(to_json(&node)?)),
             None => Ok(None),
         }
@@ -81,6 +105,107 @@ impl IntrospectClient {
     }
 }
 
+/// A hand-rolled capability's metadata: where it sits in the crawlable path
+/// space and how it presents there. The [`describe`](IntrospectClient::describe)
+/// overlay is generated from this list, so a capability appears in the graph
+/// with no bespoke describe code.
+///
+/// This is the metadata half of the registry; the typed read/write logic lives
+/// in [`IntrospectClient::read_capability`] / [`write_capability`]. Every entry
+/// here must have a matching arm in both, and every arm an entry here, so the
+/// graph advertises exactly what the verbs accept.
+struct Capability {
+    /// Full path to the capability leaf, e.g. `["auth", "login_method"]`.
+    path: &'static [&'static str],
+    /// Static type name reported for the leaf node.
+    type_name: &'static str,
+    /// How the leaf is written.
+    writeability: Writeability,
+}
+
+const CAPABILITIES: &[Capability] = &[Capability {
+    path: &["auth", "login_method"],
+    type_name: "UserLoginMethod",
+    writeability: Writeability::Capability,
+}];
+
+/// Type name for a synthetic namespace node — an interior path segment (such as
+/// `auth`) that exists only to group capabilities and has no backing value.
+const CAPABILITY_NAMESPACE_TYPE: &str = "IntrospectCapabilities";
+
+/// Preview string shared by every synthetic namespace node.
+const NAMESPACE_PREVIEW: &str = "{ hand-rolled capabilities }";
+
+/// The [`NodeInfo`] for a capability path, or `None` when `path` is neither a
+/// capability leaf nor a namespace grouping one. Consulted only when the
+/// structural graph does not itself resolve `path`.
+fn capability_overlay(path: &[&str]) -> Option<NodeInfo> {
+    if let Some(capability) = CAPABILITIES
+        .iter()
+        .find(|capability| capability.path == path)
+    {
+        return Some(capability_leaf_node(capability));
+    }
+    let children = capability_children(path);
+    if children.is_empty() {
+        None
+    } else {
+        Some(namespace_node(children))
+    }
+}
+
+/// The immediate capability children hanging directly under `prefix` (the root
+/// `[]` or an interior namespace). A child is a leaf when its path ends one
+/// segment past `prefix`, otherwise a nested namespace.
+fn capability_children(prefix: &[&str]) -> Vec<ChildRef> {
+    let mut children: Vec<ChildRef> = Vec::new();
+    for capability in CAPABILITIES {
+        let under_prefix = capability.path.len() > prefix.len()
+            && capability
+                .path
+                .iter()
+                .zip(prefix)
+                .all(|(seg, want)| seg == want);
+        if !under_prefix {
+            continue;
+        }
+        let key = capability.path[prefix.len()];
+        if children.iter().any(|child| child.key == key) {
+            continue;
+        }
+        let node = if capability.path.len() == prefix.len() + 1 {
+            capability_leaf_node(capability)
+        } else {
+            namespace_node(Vec::new())
+        };
+        children.push(ChildRef {
+            key: key.to_string(),
+            type_name: node.type_name,
+            preview: node.preview,
+            writeability: node.writeability,
+        });
+    }
+    children
+}
+
+fn capability_leaf_node(capability: &Capability) -> NodeInfo {
+    NodeInfo {
+        type_name: capability.type_name,
+        preview: format!("{} (hand-rolled capability)", capability.type_name),
+        writeability: capability.writeability,
+        children: Vec::new(),
+    }
+}
+
+fn namespace_node(children: Vec<ChildRef>) -> NodeInfo {
+    NodeInfo {
+        type_name: CAPABILITY_NAMESPACE_TYPE,
+        preview: NAMESPACE_PREVIEW.to_string(),
+        writeability: Writeability::ReadOnly,
+        children,
+    }
+}
+
 /// Outcome of trying to resolve a path as an async capability.
 enum CapabilityRead {
     /// The path is a registered capability; the value is its JSON (or `None`).
@@ -90,9 +215,11 @@ enum CapabilityRead {
     NotACapability,
 }
 
-// Async capability registry: hand-rolled capabilities that reach past the public
-// API, each addressed by path. Extending this is adding an arm here plus a core
-// `debug_*` function, keeping the JS surface a fixed set of generic verbs.
+// Async capability registry: the typed read/write logic for hand-rolled
+// capabilities that reach past the public API, each addressed by path. Adding a
+// capability is an arm here, a matching [`CAPABILITIES`] entry so `describe`
+// surfaces it, and a core `debug_*` function — the JS surface stays a fixed set
+// of generic verbs.
 impl IntrospectClient {
     async fn read_capability(&self, path: &[&str]) -> Result<CapabilityRead, JsError> {
         match path {
