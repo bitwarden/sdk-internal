@@ -36,6 +36,8 @@ mod store;
 pub use store::{
     CipherSuite, KeyStore, KeyStoreContext, RotatedUserKeys, dangerous_get_v2_rotated_account_keys,
 };
+#[cfg(feature = "debug-capabilities")]
+pub use store::{KeyBackendSummary, KeySlotSummary, KeyStoreDebug, KeyStoreSummary};
 mod cose;
 pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
 pub use cose::{CoseKeyThumbprint, CoseKeyThumbprintExt, CoseSerializable};

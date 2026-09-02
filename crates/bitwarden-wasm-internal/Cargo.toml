@@ -22,6 +22,10 @@ crate-type = ["cdylib"]
 
 [features]
 bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
+# Dev-only hand-rolled debug capabilities, exposed to JS as a typed debug tree.
+# Never enable in production. Key material stays redacted unless
+# `dangerous-crypto-debug` is also enabled.
+debug-capabilities = ["bitwarden-pm/debug-capabilities"]
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.

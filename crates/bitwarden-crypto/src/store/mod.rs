@@ -477,3 +477,78 @@ pub(crate) mod tests {
         }
     }
 }
+
+/// Dev-only debug capabilities over a [`KeyStore`].
+///
+/// Framework-free: a plain wrapper that snapshots the store's loaded slots as
+/// redacted, serializable summaries. Lives here (rather than a sibling crate)
+/// so it can read the store's private backends. Compiled only under the
+/// `debug-capabilities` feature.
+#[cfg(feature = "debug-capabilities")]
+mod debug {
+    use serde::Serialize;
+    #[cfg(feature = "wasm")]
+    use tsify::Tsify;
+
+    use super::{KeySlotIds, KeyStore, StoreBackend};
+
+    /// Redacted snapshot of a key store's loaded slots.
+    #[derive(Serialize)]
+    #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+    pub struct KeyStoreSummary {
+        pub cipher_suite: String,
+        pub security_state_version: u64,
+        pub backends: Vec<KeyBackendSummary>,
+    }
+
+    /// One key backend (symmetric / private / signing) and its loaded slots.
+    #[derive(Serialize)]
+    #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+    pub struct KeyBackendSummary {
+        pub name: String,
+        pub slots: Vec<KeySlotSummary>,
+    }
+
+    /// One loaded slot. `material` is redacted unless the crate was built with
+    /// `dangerous-crypto-debug`.
+    #[derive(Serialize)]
+    #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi))]
+    pub struct KeySlotSummary {
+        pub id: String,
+        pub material: String,
+    }
+
+    /// Read-only debug view of a key store. Holds a cheap, `Arc`-backed clone.
+    pub struct KeyStoreDebug<Ids: KeySlotIds>(KeyStore<Ids>);
+
+    impl<Ids: KeySlotIds> KeyStoreDebug<Ids> {
+        /// Wrap the owning store. Built by the debug-tree root.
+        pub fn new(store: KeyStore<Ids>) -> Self {
+            Self(store)
+        }
+
+        /// Snapshot the loaded slots per backend, key material redacted.
+        pub fn summary(&self) -> KeyStoreSummary {
+            let inner = self.0.inner.read().expect("KeyStore lock poisoned");
+            let backend = |name: &str, slots: Vec<(String, String)>| KeyBackendSummary {
+                name: name.to_string(),
+                slots: slots
+                    .into_iter()
+                    .map(|(id, material)| KeySlotSummary { id, material })
+                    .collect(),
+            };
+            KeyStoreSummary {
+                cipher_suite: format!("{:?}", inner.cipher_suite),
+                security_state_version: inner.security_state_version,
+                backends: vec![
+                    backend("symmetric_keys", inner.symmetric_keys.debug_slots()),
+                    backend("private_keys", inner.private_keys.debug_slots()),
+                    backend("signing_keys", inner.signing_keys.debug_slots()),
+                ],
+            }
+        }
+    }
+}
+
+#[cfg(feature = "debug-capabilities")]
+pub use debug::{KeyBackendSummary, KeySlotSummary, KeyStoreDebug, KeyStoreSummary};

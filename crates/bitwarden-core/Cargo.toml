@@ -23,6 +23,9 @@ normal = [
 
 [features]
 internal = ["dep:zxcvbn"]
+# Dev-only debug capabilities that reach past the public API into internal
+# state. Never enable in production.
+debug-capabilities = []
 no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening",
 ] # Disable memory hardening features

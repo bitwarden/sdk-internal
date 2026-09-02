@@ -17,7 +17,19 @@ impl<T: KeyContainer> KeyContainer for Arc<T> {
 }
 
 #[allow(missing_docs)]
-pub trait CryptoKey {}
+pub trait CryptoKey {
+    /// A debug rendering of this key's material for the introspection surface.
+    ///
+    /// The default is opaque; concrete key types override it. When
+    /// `dangerous-crypto-debug` is off, overrides return a redacted placeholder,
+    /// so raw key bytes can only ever appear behind that gate. A safer
+    /// alternative would be to return a non-reversible fingerprint (a hash of
+    /// the key) here, which would not need the extra gate.
+    #[cfg(feature = "debug-capabilities")]
+    fn debug_material(&self) -> String {
+        "<opaque>".to_string()
+    }
+}
 
 /// An encryption operation that takes the input value and encrypts it into the output value
 /// using a key reference. Implementing this requires a content type to be specified in

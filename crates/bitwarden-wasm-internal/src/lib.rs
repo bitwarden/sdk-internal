@@ -2,6 +2,8 @@
 
 mod client;
 mod custom_types;
+#[cfg(feature = "debug-capabilities")]
+mod debug;
 mod flight_recorder;
 mod init;
 mod platform;
@@ -14,5 +16,7 @@ pub use bitwarden_organization_invite_link::*;
 pub use bitwarden_server_communication_config::wasm::*;
 pub use bitwarden_shared_unlock::wasm::*;
 pub use client::PasswordManagerClient;
+#[cfg(feature = "debug-capabilities")]
+pub use debug::{AuthDebugClient, DebugClient, KeyStoreDebugClient};
 pub use flight_recorder::FlightRecorderClient;
 pub use init::init_sdk;
