@@ -40,3 +40,14 @@ script = "/tmp/bwrd-dev-rotate.sh"
 # [targets.00000000-0000-0000-0000-000000000001]
 # tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 # client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+
+# Active Directory target. The daemon always connects with ldaps:// on port 636;
+# ldap_host is a bare host name (optionally host:port), never a URL.
+# bind_dn is a delegated service account with Reset Password on the target OU —
+# not a Domain Admin. Its password is env-only:
+#   00000000_0000_0000_0000_000000000003_BIND_PASSWORD=<secret>
+#
+# [targets.00000000-0000-0000-0000-000000000003]
+# ldap_host = "dc01.corp.example"
+# bind_dn   = "CN=svc-rotate,OU=Service Accounts,DC=corp,DC=example"
+# base_dn   = "OU=Managed Accounts,DC=corp,DC=example"

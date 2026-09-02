@@ -31,16 +31,37 @@ pub(crate) enum TargetKind {
     Mssql,
     /// Operator-supplied custom rotation script.
     CustomScript,
+    /// On-premises Active Directory reached over LDAPS.
+    ActiveDirectory,
     /// Any other integer the server returned; treated as unsupported.
     Unknown(i64),
 }
 
 impl From<PamTargetSystemKind> for TargetKind {
+    /// Maps a wire kind onto the kinds this build can rotate.
+    ///
+    /// # Interim handling of Active Directory
+    ///
+    /// Wire value `3` is Active Directory, but the server does not yet publish
+    /// `PamTargetSystemKind.ActiveDirectory = 3` in its OpenAPI document, so the
+    /// generated enum has no named variant for it and the value arrives through
+    /// the generator's forward-compatibility catch-all as `__Unknown(3)`.
+    ///
+    /// Recognising it here rather than hand-adding a variant to
+    /// `bitwarden-api-api` keeps the workaround in the crate that owns this
+    /// boundary: the generated crates are rebuilt from scratch by
+    /// `support/generate-api-bindings-ci.sh`, which deletes their `src` before
+    /// regenerating, so an edit there does not survive.
+    ///
+    /// Once the server publishes the value, regenerating the bindings produces
+    /// `PamTargetSystemKind::ActiveDirectory` and the `__Unknown(3)` arm below is
+    /// replaced by a match on that variant. That arm is the only site to change.
     fn from(kind: PamTargetSystemKind) -> Self {
         match kind {
             PamTargetSystemKind::Entra => TargetKind::Entra,
             PamTargetSystemKind::Mssql => TargetKind::Mssql,
             PamTargetSystemKind::CustomScript => TargetKind::CustomScript,
+            PamTargetSystemKind::__Unknown(3) => TargetKind::ActiveDirectory,
             PamTargetSystemKind::__Unknown(v) => TargetKind::Unknown(v),
         }
     }
@@ -297,6 +318,16 @@ mod tests {
         assert_eq!(
             TargetKind::from(PamTargetSystemKind::CustomScript),
             TargetKind::CustomScript
+        );
+    }
+
+    #[test]
+    fn target_kind_from_active_directory() {
+        assert_eq!(
+            TargetKind::from(PamTargetSystemKind::from_i64(3)),
+            TargetKind::ActiveDirectory,
+            "wire value 3 is Active Directory, and reaches us as __Unknown until the \
+             server publishes the variant"
         );
     }
 

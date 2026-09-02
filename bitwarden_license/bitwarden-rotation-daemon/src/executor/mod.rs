@@ -259,7 +259,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     // ── Build the integration registry ────────────────────────────────────
     let mut registry = IntegrationRegistry::new();
 
-    // CustomScript integration.
     let custom_script = Arc::new(
         crate::integrations::custom_script::CustomScriptIntegration::new(
             cfg.script_root.clone(),
@@ -268,17 +267,24 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     );
     registry.register(crate::api::models::TargetKind::CustomScript, custom_script);
 
-    // Entra integration (if enabled).
     let entra = Arc::new(crate::integrations::entra::EntraIntegration::new(
         cfg.entra_verify_probe,
     ));
     registry.register(crate::api::models::TargetKind::Entra, entra);
+
+    let active_directory =
+        Arc::new(crate::integrations::active_directory::ActiveDirectoryIntegration::new());
+    registry.register(
+        crate::api::models::TargetKind::ActiveDirectory,
+        active_directory,
+    );
 
     let integrations = Arc::new(registry);
     tracing::debug!(
         kinds = ?[
             crate::api::models::TargetKind::CustomScript,
             crate::api::models::TargetKind::Entra,
+            crate::api::models::TargetKind::ActiveDirectory,
         ],
         "registered integration kinds"
     );
