@@ -60,7 +60,7 @@ hmac = { workspace = true, features = ["zeroize"] }
 hybrid-array = { version = "0.4.10", features = ["alloc", "serde", "zeroize"] }
 js-sys = { workspace = true, optional = true }
 ml-dsa = { version = "0.1.0-rc.8", features = ["zeroize"] }
-num-bigint = ">=0.4, <0.5"
+num-bigint = ">=0.4, <0.6"
 num-traits = ">=0.2.15, <0.3"
 pbkdf2 = { workspace = true }
 rand = { workspace = true }
