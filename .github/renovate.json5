@@ -66,7 +66,16 @@
     {
       matchManagers: ["cargo"],
       groupName: "reqwest + TLS crates",
-      matchPackageNames: ["reqwest", "reqwest-middleware", "rustls", "rustls-platform-verifier"],
+      // jni is grouped here because its major version is coupled to rustls-platform-verifier:
+      // bitwarden-uniffi passes a jni `Env` into rustls_platform_verifier::android::init_with_env,
+      // so both crates must resolve to the same jni major and should be updated together.
+      matchPackageNames: [
+        "reqwest",
+        "reqwest-middleware",
+        "rustls",
+        "rustls-platform-verifier",
+        "jni",
+      ],
     },
 
     // ========================= Team review assignment =========================
@@ -77,13 +86,13 @@
     },
     {
       matchManagers: ["cargo"],
-      matchPackageNames: ["aes-gcm", "crypto-bigint", "hkdf", "icu_normalizer", "keepass"],
+      matchPackageNames: ["crypto-bigint", "icu_normalizer", "keepass"],
       commitMessagePrefix: "[deps] Tools:",
       reviewers: ["team:team-tools-dev"],
     },
     {
       matchManagers: ["cargo"],
-      matchPackageNames: ["rand"],
+      matchPackageNames: ["aes-gcm", "hkdf", "pbkdf2", "rand"],
       commitMessagePrefix: "[deps] Key Management (cargo):",
       reviewers: ["team:team-key-management-dev"],
     },
@@ -106,10 +115,10 @@
         "futures",
         "hmac",
         "http",
+        "jni",
         "js-sys",
         "mockall",
         "password-rules-parser",
-        "pbkdf2",
         "proc-macro2",
         "quote",
         "rand_chacha",

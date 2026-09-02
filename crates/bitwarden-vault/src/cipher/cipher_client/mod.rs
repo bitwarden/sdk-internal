@@ -100,7 +100,7 @@ impl CiphersClient {
         // be moved directly into the KeyEncryptable implementation
         if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
         {
-            cipher_view.generate_cipher_key(&mut key_store.context())?;
+            cipher_view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
         }
 
         let encrypted_by_key_id = key_store
@@ -154,7 +154,7 @@ impl CiphersClient {
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         if cipher_view.key.is_none() && enable_cipher_key_encryption {
-            cipher_view.generate_cipher_key(&mut ctx)?;
+            cipher_view.upgrade_to_cipher_key_encryption(&mut ctx)?;
         } else {
             cipher_view.validate_attachment_keys()?;
         }
@@ -208,7 +208,7 @@ impl CiphersClient {
             .map(|mut cv| {
                 let wrapping_key = cv.key_identifier();
                 if cv.key.is_none() && enable_cipher_key {
-                    cv.generate_cipher_key(&mut ctx)?;
+                    cv.upgrade_to_cipher_key_encryption(&mut ctx)?;
                 }
                 let encrypted_by_key_id = ctx
                     .get_symmetric_key_id(wrapping_key)

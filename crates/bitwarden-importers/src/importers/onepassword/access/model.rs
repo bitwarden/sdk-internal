@@ -2,12 +2,9 @@
 //!
 //! Mapping these onto Bitwarden ciphers is the importer's job and happens elsewhere.
 
-use std::fmt;
-
 use super::wire::{VaultItemDetails, VaultItemOverview};
 
 /// A decrypted vault with its items.
-#[derive(Debug)]
 pub struct Vault {
     /// The vault's 1Password uuid.
     pub id: String,
@@ -20,7 +17,6 @@ pub struct Vault {
 }
 
 /// A decrypted item: its identity plus both payloads exactly as 1Password sends them.
-#[derive(Debug)]
 pub struct Item {
     /// The item's 1Password uuid.
     pub id: String,
@@ -111,35 +107,5 @@ impl ItemCategory {
             "114" => ItemCategory::SshKey,
             other => ItemCategory::Unknown(other.to_string()),
         }
-    }
-}
-
-impl fmt::Display for ItemCategory {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = match self {
-            ItemCategory::Login => "Login",
-            ItemCategory::CreditCard => "Credit Card",
-            ItemCategory::SecureNote => "Secure Note",
-            ItemCategory::Identity => "Identity",
-            ItemCategory::Password => "Password",
-            ItemCategory::Document => "Document",
-            ItemCategory::SoftwareLicense => "Software License",
-            ItemCategory::BankAccount => "Bank Account",
-            ItemCategory::Database => "Database",
-            ItemCategory::DriverLicense => "Driver License",
-            ItemCategory::OutdoorLicense => "Outdoor License",
-            ItemCategory::Membership => "Membership",
-            ItemCategory::Passport => "Passport",
-            ItemCategory::RewardProgram => "Reward Program",
-            ItemCategory::SocialSecurityNumber => "Social Security Number",
-            ItemCategory::WirelessRouter => "Wireless Router",
-            ItemCategory::Server => "Server",
-            ItemCategory::EmailAccount => "Email Account",
-            ItemCategory::ApiCredential => "API Credential",
-            ItemCategory::MedicalRecord => "Medical Record",
-            ItemCategory::SshKey => "SSH Key",
-            ItemCategory::Unknown(id) => return write!(f, "Unknown({id})"),
-        };
-        f.write_str(name)
     }
 }

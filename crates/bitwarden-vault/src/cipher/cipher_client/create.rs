@@ -179,7 +179,7 @@ impl CiphersClient {
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
         if self.client.flags().get().await.enable_cipher_key_encryption {
-            view.generate_cipher_key(&mut key_store.context())?;
+            view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
         }
 
         let use_blob = self.should_use_blob_encryption(view.organization_id);

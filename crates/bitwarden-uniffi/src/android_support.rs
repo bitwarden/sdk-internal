@@ -1,6 +1,9 @@
 use std::{error::Error, sync::OnceLock};
 
-use jni::sys::{JavaVM, jint, jsize};
+use jni::{
+    jni_sig, jni_str,
+    sys::{JavaVM, jint, jsize},
+};
 use tracing::{error, info};
 
 pub static JAVA_VM: OnceLock<jni::JavaVM> = OnceLock::new();
@@ -9,9 +12,15 @@ pub static JAVA_VM: OnceLock<jni::JavaVM> = OnceLock::new();
 // Important: This function must be named `JNI_OnLoad` or otherwise it won't be called
 #[allow(non_snake_case)]
 #[unsafe(no_mangle)]
-pub extern "system" fn JNI_OnLoad(vm_ptr: jni::JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
+pub extern "system" fn JNI_OnLoad(
+    vm_ptr: *mut jni::sys::JavaVM,
+    _reserved: *mut std::ffi::c_void,
+) -> jint {
     info!("JNI_OnLoad initializing");
-    JAVA_VM.get_or_init(|| vm_ptr);
+    // SAFETY: `vm_ptr` is the JavaVM pointer the runtime passes to `JNI_OnLoad`; it is valid for
+    // the whole lifetime of the process.
+    let jvm = unsafe { jni::JavaVM::from_raw(vm_ptr) };
+    JAVA_VM.get_or_init(|| jvm);
     jni::sys::JNI_VERSION_1_6
 }
 
@@ -29,9 +38,13 @@ pub fn init() {
             }
         };
 
-        let mut env = jvm.attach_current_thread_permanently()?;
-        info!("Initializing Android verifier");
-        init_verifier(&mut env)?;
+        // `attach_current_thread` requests a permanent attachment (unlike
+        // `attach_current_thread_for_scope`), keeping the thread attached beyond the callback so
+        // later JNI calls stay cheap. The borrowed `Env` is only valid inside the callback.
+        jvm.attach_current_thread(|env| -> jni::errors::Result<()> {
+            info!("Initializing Android verifier");
+            init_verifier(env)
+        })?;
         info!("SDK Android support initialized");
         Ok(())
     }
@@ -70,30 +83,30 @@ fn java_vm() -> Result<jni::JavaVM, Box<dyn Error>> {
         return Err(format!("Invalid JavaVM count: {vm_count}").into());
     }
 
-    let jvm = unsafe { jni::JavaVM::from_raw(java_vms[0]) }?;
+    // SAFETY: `get_created_java_vms` reported exactly one JavaVM above, so `java_vms[0]` is a valid
+    // pointer to the process' Java VM.
+    let jvm = unsafe { jni::JavaVM::from_raw(java_vms[0]) };
     Ok(jvm)
 }
 
-fn init_verifier(env: &mut jni::JNIEnv<'_>) -> jni::errors::Result<()> {
+fn init_verifier(env: &mut jni::Env<'_>) -> jni::errors::Result<()> {
     let activity_thread = env
         .call_static_method(
-            "android/app/ActivityThread",
-            "currentActivityThread",
-            "()Landroid/app/ActivityThread;",
+            jni_str!("android/app/ActivityThread"),
+            jni_str!("currentActivityThread"),
+            jni_sig!("()Landroid/app/ActivityThread;"),
             &[],
         )?
         .l()?;
 
     let context = env
         .call_method(
-            activity_thread,
-            "getApplication",
-            "()Landroid/app/Application;",
+            &activity_thread,
+            jni_str!("getApplication"),
+            jni_sig!("()Landroid/app/Application;"),
             &[],
         )?
         .l()?;
 
-    Ok(rustls_platform_verifier::android::init_with_env(
-        env, context,
-    )?)
+    rustls_platform_verifier::android::init_with_env(env, context)
 }

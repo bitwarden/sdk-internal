@@ -900,8 +900,10 @@ impl Cipher {
     }
 }
 impl CipherView {
-    #[allow(missing_docs)]
-    pub fn generate_cipher_key(
+    /// Upgrades the cipher to cipher-key encryption: generates a fresh per-item cipher key and
+    /// re-wraps the cipher's attachment and FIDO2 sub-keys under it. The existing sub-keys are
+    /// assumed to be wrapped under [`self.key_identifier()`](IdentifyKey::key_identifier).
+    pub fn upgrade_to_cipher_key_encryption(
         &mut self,
         ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<(), CryptoError> {
@@ -2364,7 +2366,8 @@ mod tests {
         let key_store = create_test_crypto_with_user_key(user_key);
 
         let mut view = generate_cipher();
-        view.generate_cipher_key(&mut key_store.context()).unwrap();
+        view.upgrade_to_cipher_key_encryption(&mut key_store.context())
+            .unwrap();
         assert!(view.key.is_some());
 
         let actual = key_store
@@ -2473,7 +2476,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cipher_key() {
+    fn test_upgrade_to_cipher_key_encryption() {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
@@ -2488,7 +2491,7 @@ mod tests {
 
         let mut cipher = generate_cipher();
         cipher
-            .generate_cipher_key(&mut key_store.context())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context())
             .unwrap();
 
         // Check that the cipher gets encrypted correctly when it's assigned it's own key
@@ -2499,7 +2502,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_cipher_key_when_a_cipher_key_already_exists() {
+    fn test_upgrade_to_cipher_key_encryption_when_a_cipher_key_already_exists() {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
@@ -2513,14 +2516,14 @@ mod tests {
         }
 
         original_cipher
-            .generate_cipher_key(&mut key_store.context())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context())
             .unwrap();
 
         assert!(original_cipher.key.is_some());
     }
 
     #[test]
-    fn test_generate_cipher_key_ignores_attachments_without_key() {
+    fn test_upgrade_to_cipher_key_encryption_ignores_attachments_without_key() {
         let key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let key_store = create_test_crypto_with_user_key(key);
 
@@ -2536,7 +2539,7 @@ mod tests {
         cipher.attachments = Some(vec![attachment]);
 
         cipher
-            .generate_cipher_key(&mut key_store.context())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context())
             .unwrap();
         assert!(cipher.attachments.unwrap()[0].key.is_none());
     }
@@ -2548,7 +2551,7 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         let mut cipher = generate_cipher();
-        cipher.generate_cipher_key(&mut ctx).unwrap();
+        cipher.upgrade_to_cipher_key_encryption(&mut ctx).unwrap();
 
         cipher.validate_attachment_keys().unwrap();
 
@@ -2576,7 +2579,7 @@ mod tests {
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
         cipher
-            .generate_cipher_key(&mut key_store.context())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context())
             .unwrap();
 
         cipher.move_to_organization(org).unwrap();
@@ -2599,7 +2602,7 @@ mod tests {
         // Create a cipher with a user key
         let mut cipher = generate_cipher();
         cipher
-            .generate_cipher_key(&mut key_store.context())
+            .upgrade_to_cipher_key_encryption(&mut key_store.context())
             .unwrap();
 
         cipher.organization_id = Some(org);

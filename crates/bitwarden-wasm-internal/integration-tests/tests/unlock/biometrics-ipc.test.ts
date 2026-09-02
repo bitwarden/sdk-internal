@@ -109,15 +109,16 @@ describe("biometrics ipc", () => {
       authenticate_biometrics: async () => true,
     });
 
-    // Capture the settled state up front: the rejection we are hunting happens
-    // while awaiting the status request, before any handler would be attached.
+    // Capture the unlock's settled state without awaiting it, so that if the concurrent status
+    // request below were to settle the unlock early, it surfaces as a failed assertion rather than
+    // an unhandled rejection.
     const unlock = ipcRequestUnlockBiometrics(requester, TEST_USER_ID).then(
       (ok) => ({ ok }),
       (err) => ({ err: String(err) }),
     );
 
-    // A status poll completes while the unlock is still in flight. Its response is
-    // broadcast to every pending RPC waiter, including the unlock waiter.
+    // A status request completes while the unlock is still in flight. Its response is delivered
+    // only to that request's own response topic, so it must leave the pending unlock untouched.
     await expect(ipcRequestGetBiometricsStatus(requester, TEST_USER_ID)).resolves.toBe(
       BiometricsStatus.Available,
     );

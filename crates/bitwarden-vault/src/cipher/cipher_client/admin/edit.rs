@@ -73,7 +73,7 @@ async fn edit_cipher(
     // TODO: Once this flag is removed, the key generation logic should be
     // moved directly into the CompositeEncryptable implementation.
     if view.key.is_none() && enable_cipher_key_encryption {
-        view.generate_cipher_key(&mut key_store.context())?;
+        view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
     }
 
     // Admin endpoints operate on organization-owned ciphers, which aren't

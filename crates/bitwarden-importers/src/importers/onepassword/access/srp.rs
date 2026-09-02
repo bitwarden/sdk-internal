@@ -62,12 +62,10 @@ const N_HEX: &str = concat!(
 
 /// The account's public SRP parameters, as returned by `v3/auth/start`.
 ///
-/// Validated on construction, so [`compute_x`] cannot fail on an unsupported method or a zero
-/// iteration count. These are public KDF parameters and carry no secret.
+/// Validated on construction, so [`compute_x`] cannot fail on an unsupported method or too few
+/// iterations. These are public KDF parameters and carry no secret.
 #[derive(Debug, PartialEq)]
 pub(super) struct SrpInfo {
-    srp_method: String,
-    key_method: String,
     iterations: u32,
     salt: Vec<u8>,
 }
@@ -75,30 +73,28 @@ pub(super) struct SrpInfo {
 impl SrpInfo {
     /// Rejects parameters this module cannot honour.
     pub(super) fn new(
-        srp_method: String,
+        method: String,
         key_method: String,
         iterations: u32,
         salt: Vec<u8>,
     ) -> Result<SrpInfo, OnePasswordError> {
-        if srp_method != SRP_METHOD {
+        // TODO: Support the legacy `SRP-4096`. The client derives its x differently and ends in
+        // SHA-1.
+        if method != SRP_METHOD {
             return Err(OnePasswordError::Unsupported(format!(
-                "Method '{srp_method}' is not supported"
+                "Method '{method}' is not supported"
             )));
         }
-        if iterations == 0 {
-            return Err(OnePasswordError::Unsupported(
-                "0 iterations is not supported".into(),
-            ));
+        if iterations < kdf::MIN_PBKDF2_ITERATIONS {
+            return Err(OnePasswordError::Unsupported(format!(
+                "{iterations} iterations is below the minimum of {}",
+                kdf::MIN_PBKDF2_ITERATIONS
+            )));
         }
 
         kdf::validate_pbes2(&key_method)?;
 
-        Ok(SrpInfo {
-            srp_method,
-            key_method,
-            iterations,
-            salt,
-        })
+        Ok(SrpInfo { iterations, salt })
     }
 
     /// The salt, also mixed into the client verification hash.
@@ -379,7 +375,7 @@ fn compute_x(
     srp_info: &SrpInfo,
 ) -> Result<[u8; 32], OnePasswordError> {
     let k1 = kdf::hkdf_sha256(
-        &srp_info.srp_method,
+        SRP_METHOD,
         &srp_info.salt,
         kdf::normalize_username(&credentials.username).as_bytes(),
     );
@@ -626,9 +622,9 @@ mod tests {
             .expect_err("only SRPg-4096 is supported");
         assert!(bad_method.to_string().contains("SRPg-2048"));
 
-        let no_iterations = SrpInfo::new("SRPg-4096".into(), "PBES2g-HS256".into(), 0, vec![])
-            .expect_err("0 iterations is rejected");
-        assert!(no_iterations.to_string().contains("0 iterations"));
+        let too_few = SrpInfo::new("SRPg-4096".into(), "PBES2g-HS256".into(), 9999, vec![])
+            .expect_err("a count below the floor is rejected");
+        assert!(too_few.to_string().contains("9999 iterations"));
 
         let bad_key_method =
             SrpInfo::new("SRPg-4096".into(), "PBES2g-HS512".into(), 100000, vec![])

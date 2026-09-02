@@ -2,7 +2,6 @@ use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{
     Cipher, CipherListView, CipherView, DecryptCipherListResult, EncryptionContext,
-    Fido2CredentialView,
 };
 
 use crate::Result;
