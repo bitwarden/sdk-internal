@@ -38,8 +38,9 @@ pub fn init() {
             }
         };
 
-        // Requesting a permanent attachment keeps the thread attached beyond the callback so later
-        // JNI calls stay cheap. The borrowed `Env` is only valid inside the callback.
+        // `attach_current_thread` requests a permanent attachment (unlike
+        // `attach_current_thread_for_scope`), keeping the thread attached beyond the callback so
+        // later JNI calls stay cheap. The borrowed `Env` is only valid inside the callback.
         jvm.attach_current_thread(|env| -> jni::errors::Result<()> {
             info!("Initializing Android verifier");
             init_verifier(env)
