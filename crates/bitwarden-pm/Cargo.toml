@@ -18,7 +18,11 @@ keywords.workspace = true
 cli = ["bitwarden-unlock/cli"]
 # Read-only introspection of the object graph (dev tooling). Surfaces the
 # top-level client's accessor tree via the discovery API.
-introspect = ["dep:bitwarden-introspect", "bitwarden-vault/introspect"]
+introspect = [
+    "dep:bitwarden-introspect",
+    "bitwarden-vault/introspect",
+    "bitwarden-crypto/introspect",
+]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
     "bitwarden-collections/uniffi",
