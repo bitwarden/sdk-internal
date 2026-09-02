@@ -48,14 +48,20 @@ pub fn should_use_blob_encryption(
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "introspect", derive(bitwarden_introspect::Introspect))]
 pub struct CiphersClient {
     #[allow(dead_code)]
     pub(crate) key_store: KeyStore<KeySlotIds>,
+    // TODO: give these their own Introspect impls (ApiConfigurations in
+    // bitwarden-core, an opaque one for the repository) and drop the skips.
+    #[cfg_attr(feature = "introspect", introspect(skip))]
     pub(crate) api_configurations: Arc<ApiConfigurations>,
+    #[cfg_attr(feature = "introspect", introspect(skip))]
     pub(crate) repository: Option<Arc<dyn Repository<Cipher>>>,
     #[deprecated(
         note = "Use the component fields (key_store, api_configurations, repository) for new operations"
     )]
+    #[cfg_attr(feature = "introspect", introspect(skip))]
     pub(crate) client: Client,
 }
 

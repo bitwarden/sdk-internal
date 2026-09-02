@@ -16,6 +16,13 @@ keywords.workspace = true
 
 [features]
 cli = ["bitwarden-unlock/cli"]
+# Read-only introspection of the object graph (dev tooling). Surfaces the
+# top-level client's accessor tree via the discovery API.
+introspect = [
+    "dep:bitwarden-introspect",
+    "bitwarden-vault/introspect",
+    "bitwarden-crypto/introspect",
+]
 no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
 uniffi = [
     "bitwarden-collections/uniffi",
@@ -68,6 +75,10 @@ bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }
+bitwarden-introspect = { workspace = true, optional = true }
+# Compile-time only (proc-macro); the generated impl it emits is gated on the
+# `introspect` feature, so this adds no runtime weight when the feature is off.
+bitwarden-introspect-macro = { workspace = true }
 bitwarden-organization-invite-link = { workspace = true }
 bitwarden-pam = { workspace = true, optional = true }
 bitwarden-policies = { workspace = true }

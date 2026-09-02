@@ -23,6 +23,9 @@ normal = [
 
 [features]
 internal = ["dep:zxcvbn"]
+# Hand-rolled, debug-only introspection capabilities (dev tooling). Requires
+# `internal`; never enable in production.
+introspect = []
 no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening",
 ] # Disable memory hardening features

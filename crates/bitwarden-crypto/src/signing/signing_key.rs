@@ -55,7 +55,19 @@ const _: fn() = || {
     assert_zeroize_on_drop::<ml_dsa::ExpandedSigningKey<MlDsa44>>();
 };
 impl zeroize::ZeroizeOnDrop for SigningKey {}
-impl CryptoKey for SigningKey {}
+impl CryptoKey for SigningKey {
+    #[cfg(feature = "introspect")]
+    fn debug_material(&self) -> String {
+        #[cfg(feature = "dangerous-crypto-debug")]
+        {
+            hex::encode(self.to_cose().to_vec())
+        }
+        #[cfg(not(feature = "dangerous-crypto-debug"))]
+        {
+            "<redacted: enable dangerous-crypto-debug>".to_string()
+        }
+    }
+}
 
 impl std::fmt::Debug for SigningKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

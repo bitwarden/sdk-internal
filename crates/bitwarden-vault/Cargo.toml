@@ -15,6 +15,8 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
+# Read-only introspection of the object graph (dev tooling).
+introspect = ["dep:bitwarden-introspect", "bitwarden-crypto/introspect"]
 uniffi = [
     "bitwarden-collections/uniffi",
     "bitwarden-core/uniffi",
@@ -40,6 +42,10 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-introspect = { workspace = true, optional = true }
+# Compile-time only (proc-macro); the generated impl it emits is gated on the
+# `introspect` feature, so this adds no runtime weight when the feature is off.
+bitwarden-introspect-macro = { workspace = true }
 bitwarden-logging = { workspace = true }
 bitwarden-ssh = { workspace = true }
 bitwarden-state = { workspace = true }

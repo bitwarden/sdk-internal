@@ -157,6 +157,20 @@ impl PasswordManagerClient {
     pub fn gov_mode(&self) -> bool {
         self.0.0.gov_mode()
     }
+
+    /// Read-only introspection of the live SDK object graph, for automated
+    /// debugging tooling.
+    ///
+    /// Available only when this crate is built with the `introspect` feature,
+    /// which is dev-only and must never be enabled in production. The returned
+    /// handle is rooted at the whole client; feature clients appear as children
+    /// as they gain their own `Introspect` impls.
+    #[cfg(feature = "introspect")]
+    pub fn introspect(&self) -> crate::introspect::IntrospectClient {
+        let client = self.0.0.clone();
+        let root = InnerPasswordManagerClient(client.clone());
+        crate::introspect::IntrospectClient::new(Box::new(root), client)
+    }
 }
 
 #[bitwarden_error(basic)]

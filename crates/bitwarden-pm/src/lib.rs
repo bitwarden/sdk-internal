@@ -198,6 +198,19 @@ impl PasswordManagerClient {
         self.0.sync()
     }
 
+    /// Cryptographic key store, as an entry point for object-graph introspection.
+    ///
+    /// Dev-only: gated on the `introspect` feature, and the store is
+    /// navigable-but-opaque — key material is redacted unless the crypto crate is
+    /// also built with `dangerous-crypto-debug`. Returns an owned handle (an
+    /// `Arc` clone of the live store), so the crawl sees current state.
+    #[cfg(feature = "introspect")]
+    pub fn key_store(
+        &self,
+    ) -> bitwarden_crypto::KeyStore<bitwarden_core::key_management::KeySlotIds> {
+        self.0.internal.get_key_store().clone()
+    }
+
     /// Returns true when the user's symmetric key is loaded into the key store.
     pub fn is_unlocked(&self) -> bool {
         use bitwarden_core::key_management::SymmetricKeySlotId;
@@ -234,6 +247,14 @@ impl PasswordManagerClient {
         Ok(PasswordManagerClient(client))
     }
 }
+
+// Registers the top-level client's introspectable children for the object-graph
+// discovery API, mirroring the accessor tree. Each listed accessor is called on
+// demand during a crawl and its result introspected, so its return type must
+// implement `Introspect`. Add more accessors here as their clients gain that
+// impl.
+#[bitwarden_introspect_macro::introspect_methods(vault, key_store)]
+impl PasswordManagerClient {}
 
 #[cfg(test)]
 mod tests {

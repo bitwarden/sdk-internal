@@ -37,6 +37,15 @@ impl<Key: KeySlotId> StoreBackend<Key> for BasicBackend<Key> {
     fn retain(&mut self, f: fn(Key) -> bool) {
         self.keys.retain(|k, _| f(*k));
     }
+
+    #[cfg(feature = "introspect")]
+    fn debug_slots(&self) -> Vec<(String, String)> {
+        use crate::CryptoKey;
+        self.keys
+            .iter()
+            .map(|(id, key)| (format!("{id:?}"), key.debug_material()))
+            .collect()
+    }
 }
 
 /// [KeySlotId::KeyValue] already implements [ZeroizeOnDrop],

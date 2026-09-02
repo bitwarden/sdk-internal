@@ -710,6 +710,7 @@ dependencies = [
  "bitwarden-api-key-connector",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-introspect",
  "bitwarden-logging",
  "bitwarden-random",
  "bitwarden-sensitive-value",
@@ -974,6 +975,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-introspect"
+version = "3.0.0"
+dependencies = [
+ "bitwarden-introspect-macro",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
+name = "bitwarden-introspect-macro"
+version = "3.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "bitwarden-ipc"
 version = "3.0.0"
 dependencies = [
@@ -1138,6 +1160,8 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",
+ "bitwarden-introspect",
+ "bitwarden-introspect-macro",
  "bitwarden-organization-invite-link",
  "bitwarden-pam",
  "bitwarden-policies",
@@ -1555,6 +1579,8 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-introspect",
+ "bitwarden-introspect-macro",
  "bitwarden-logging",
  "bitwarden-ssh",
  "bitwarden-state",
@@ -1596,6 +1622,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-crypto-sync-handler",
  "bitwarden-error",
+ "bitwarden-introspect",
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-managed-settings",
@@ -1616,6 +1643,7 @@ dependencies = [
  "rand 0.10.2",
  "rsa",
  "serde",
+ "serde_json",
  "sha1",
  "tracing",
  "tracing-subscriber",
