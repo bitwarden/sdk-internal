@@ -39,4 +39,10 @@ impl DebugClient {
     ) -> bitwarden_crypto::KeyStoreDebug<bitwarden_core::key_management::KeySlotIds> {
         bitwarden_crypto::KeyStoreDebug::new(self.client.internal.get_key_store().clone())
     }
+
+    /// Persisted-state debug capabilities (browse the SDK's setting registry).
+    /// Authored in `bitwarden-core`, where the state registry lives.
+    pub fn state(&self) -> bitwarden_core::debug::StateDebug {
+        bitwarden_core::debug::StateDebug::new(self.client.clone())
+    }
 }

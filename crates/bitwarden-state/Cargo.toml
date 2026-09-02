@@ -15,6 +15,8 @@ keywords.workspace = true
 [features]
 uniffi = ["dep:uniffi"]
 wasm = ["bitwarden-threading/wasm"]
+# Dev-only: generic debug dump over registered repositories. Never enable in production.
+debug-capabilities = []
 # Enables browser-mode integration tests (IndexedDB). Requires a webdriver
 # (geckodriver/chromedriver) on PATH at test time.
 browser-tests = []
