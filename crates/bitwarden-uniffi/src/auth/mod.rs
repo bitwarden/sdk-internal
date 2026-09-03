@@ -1,6 +1,10 @@
-use bitwarden_core::auth::{
-    AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
-    password::MasterPasswordPolicyOptions,
+use bitwarden_auth::AuthClientExt;
+use bitwarden_core::{
+    ClientSettings,
+    auth::{
+        AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
+        password::MasterPasswordPolicyOptions,
+    },
 };
 use bitwarden_crypto::{
     EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey,
@@ -8,8 +12,12 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 
-use crate::{auth::registration::RegistrationClient, error::Result};
+use crate::{
+    auth::{login::LoginClient, registration::RegistrationClient},
+    error::Result,
+};
 
+mod login;
 mod registration;
 
 #[derive(uniffi::Object)]
@@ -20,6 +28,19 @@ impl AuthClient {
     /// Client for initializing user account cryptography and unlock methods after JIT provisioning
     pub fn registration(&self) -> RegistrationClient {
         RegistrationClient(self.0.clone())
+    }
+
+    /// Client for login functionality
+    ///
+    /// `client_settings` configures a client internal to the returned `LoginClient`, separate from
+    /// the one backing this `AuthClient`. Pass settings matching those the SDK client was
+    /// constructed with; otherwise login requests target a different server than the rest of the
+    /// SDK.
+    // `bitwarden_auth::AuthClient` carries a TODO to consolidate this internal client with the
+    // one backing the outer `AuthClient`, which would remove the need to pass `client_settings`
+    // here at all.
+    pub fn login(&self, client_settings: ClientSettings) -> LoginClient {
+        LoginClient(self.0.auth_new().login(client_settings))
     }
 
     /// Calculate Password Strength
