@@ -91,6 +91,7 @@
       matchManagers: ["cargo"],
       matchPackageNames: [
         "aes",
+        "anyhow",
         "async-trait",
         "cargo-dylint",
         "cargo-sort",
@@ -98,6 +99,7 @@
         "cbc",
         "ciborium",
         "chrono",
+        "clap",
         "data-encoding",
         "dylint-link",
         "dylint_linting",
@@ -130,6 +132,7 @@
         "syn",
         "thiserror",
         "tokio",
+        "toml",
         "tracing",
         "tracing-subscriber",
         "tsify",
