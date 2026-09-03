@@ -47,9 +47,7 @@ impl VaultClient {
 
     /// TOTP related operations.
     pub fn totp(&self) -> TotpClient {
-        TotpClient {
-            client: self.client.clone(),
-        }
+        TotpClient
     }
 
     /// Collection related operations.

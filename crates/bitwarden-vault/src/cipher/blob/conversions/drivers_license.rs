@@ -43,9 +43,6 @@ mod tests {
 
     #[test]
     fn test_drivers_license_cipher_round_trip() {
-        let (key_store, key_id) = create_test_key_store();
-        let mut ctx = key_store.context_mut();
-
         let original = crate::CipherView {
             name: "My Driver's License".to_string(),
             notes: None,
@@ -66,10 +63,9 @@ mod tests {
             ..create_shell_cipher_view(CipherType::DriversLicense)
         };
 
-        let blob = CipherBlobV1::from_cipher_view(&original, &mut ctx, key_id).unwrap();
+        let blob = CipherBlobV1::from_cipher_view(&original).unwrap();
         let mut restored = create_shell_cipher_view(CipherType::DriversLicense);
-        blob.apply_to_cipher_view(&mut restored, &mut ctx, key_id)
-            .unwrap();
+        blob.apply_to_cipher_view(&mut restored).unwrap();
 
         assert_eq!(restored.name, "My Driver's License");
         assert_eq!(restored.r#type, CipherType::DriversLicense);

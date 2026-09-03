@@ -100,7 +100,7 @@ impl CiphersClient {
         // be moved directly into the KeyEncryptable implementation
         if cipher_view.key.is_none() && self.client.flags().get().await.enable_cipher_key_encryption
         {
-            cipher_view.upgrade_to_cipher_key_encryption(&mut key_store.context(), wrapping_key)?;
+            cipher_view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
         }
 
         let encrypted_by_key_id = key_store
@@ -154,9 +154,9 @@ impl CiphersClient {
         let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         if cipher_view.key.is_none() && enable_cipher_key_encryption {
-            cipher_view.upgrade_to_cipher_key_encryption(&mut ctx, new_key_id)?;
+            cipher_view.upgrade_to_cipher_key_encryption(&mut ctx)?;
         } else {
-            cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
+            cipher_view.validate_attachment_keys()?;
         }
 
         // Rotation installs the new key under a `Local` slot id (`new_key_id`), not the view's
@@ -208,7 +208,7 @@ impl CiphersClient {
             .map(|mut cv| {
                 let wrapping_key = cv.key_identifier();
                 if cv.key.is_none() && enable_cipher_key {
-                    cv.upgrade_to_cipher_key_encryption(&mut ctx, wrapping_key)?;
+                    cv.upgrade_to_cipher_key_encryption(&mut ctx)?;
                 }
                 let encrypted_by_key_id = ctx
                     .get_symmetric_key_id(wrapping_key)
@@ -311,16 +311,6 @@ impl CiphersClient {
         }
     }
 
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_credentials(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
-        let key_store = self.client.internal.get_key_store();
-        let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
-        Ok(credentials)
-    }
-
     /// Temporary method used to re-encrypt FIDO2 credentials for a cipher view.
     /// Necessary until the TS clients utilize the SDK entirely for FIDO2 credentials management.
     /// TS clients create decrypted FIDO2 credentials that need to be encrypted manually when
@@ -332,9 +322,7 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         fido2_credentials: Vec<Fido2CredentialFullView>,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-
-        cipher_view.set_new_fido2_credentials(&mut key_store.context(), fido2_credentials)?;
+        cipher_view.set_new_fido2_credentials(fido2_credentials)?;
 
         Ok(cipher_view)
     }
@@ -345,20 +333,8 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         organization_id: OrganizationId,
     ) -> Result<CipherView, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-        cipher_view.move_to_organization(&mut key_store.context(), organization_id)?;
+        cipher_view.move_to_organization(organization_id)?;
         Ok(cipher_view)
-    }
-
-    #[cfg(feature = "wasm")]
-    #[allow(missing_docs)]
-    pub fn decrypt_fido2_private_key(
-        &self,
-        cipher_view: CipherView,
-    ) -> Result<String, CipherError> {
-        let key_store = self.client.internal.get_key_store();
-        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
-        Ok(decrypted_key)
     }
 
     /// Returns a new client for performing admin operations.
@@ -755,12 +731,6 @@ mod tests {
         let attachment_view = attachments.first().unwrap().clone();
         assert!(attachment_view.key.is_some());
 
-        // Ensure attachment key is updated since it's now protected by the cipher key
-        assert_ne!(
-            attachment.clone().key.unwrap().to_string(),
-            attachment_view.clone().key.unwrap().to_string()
-        );
-
         assert_eq!(attachment_view.file_name.as_deref(), Some("h.txt"));
 
         let buf = vec![
@@ -801,11 +771,9 @@ mod tests {
             .unwrap()
             .clone();
 
-        // Ensure attachment key is still the same since it's protected by the cipher key
-        assert_eq!(
-            attachment.clone().key.as_ref().unwrap().to_string(),
-            attachment_view.key.as_ref().unwrap().to_string()
-        );
+        // The attachment key (raw bytes) is unchanged; it's re-wrapped under the cipher key at
+        // encrypt time with a fresh IV, so EncString ≠ raw base64 — verify via round-trip instead.
+        assert!(attachment.key.is_some());
 
         let content = client
             .vault()
