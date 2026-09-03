@@ -519,6 +519,8 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
  "uniffi",
  "url",
 ]
@@ -670,6 +672,7 @@ dependencies = [
  "rand_chacha 0.10.0",
  "reqwest",
  "reqwest-middleware",
+ "rustls",
  "schemars 1.2.1",
  "serde",
  "serde-wasm-bindgen",
