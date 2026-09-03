@@ -48,7 +48,11 @@ fn test_message_visitor_captures_message_field() {
     // Initialize logger with callback
     init_logger(Some(callback), None);
 
-    let _client = Client::new(Arc::new(MockTokenProvider), None);
+    let _client = Client::new(
+        Arc::new(MockTokenProvider),
+        None,
+        Arc::new(ManagedSettingsBindingClient::new()),
+    );
 
     // Emit logs at different levels with message text
     tracing::info!("info message");
