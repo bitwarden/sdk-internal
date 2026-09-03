@@ -44,7 +44,8 @@ struct ContentView: View {
             configuration: URLSessionConfiguration.default, delegate: IgnoreHttpsDelegate(),
             delegateQueue: nil)
 
-        client = Client(tokenProvider: Token(), settings: nil)
+        // A fresh handle has no active profile, so no setting reads as administrator-forced.
+        client = Client(tokenProvider: Token(), settings: nil, managedSettings: ManagedSettingsBindingClient())
     }
 
     @State var setupBiometrics: Bool = true
@@ -110,7 +111,7 @@ struct ContentView: View {
             })
 
             Button(action: {
-                client = Client(tokenProvider: Token(), settings: nil)
+                client = Client(tokenProvider: Token(), settings: nil, managedSettings: ManagedSettingsBindingClient())
             }, label: {
                 Text("Lock & reset client")
             }).padding()
