@@ -1,4 +1,4 @@
-import { PasswordManagerClient, init_sdk } from "@bitwarden/sdk-internal";
+import { ManagedSettingsClient, PasswordManagerClient, init_sdk } from "@bitwarden/sdk-internal";
 
 import { makeStateBridge, makeV2AccountClient } from "../utils";
 import { CHANGED_KDF_PARAMS, SYNC_VECTOR, SYNC_VECTOR_USER_KEY_ID } from "./crypto-sync-fixtures";
@@ -131,7 +131,11 @@ describe("crypto sync handler", () => {
       // Built without `makePasswordManagerClient`, which always registers a bridge. The handler has
       // to no-op rather than fail when a host has not wired one up.
       init_sdk();
-      const client = new PasswordManagerClient({ get_access_token: async () => undefined });
+      const client = new PasswordManagerClient(
+        { get_access_token: async () => undefined },
+        undefined,
+        new ManagedSettingsClient(),
+      );
 
       await expect(client.crypto_sync_handler().on_sync(SYNC_VECTOR)).resolves.toBeUndefined();
     });
