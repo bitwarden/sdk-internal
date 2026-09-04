@@ -160,7 +160,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{MasterPasswordPolicy, MasterPasswordPolicyResponse, policy_type::PolicyDataType};
+    use crate::{MasterPasswordPolicy, MasterPasswordPolicyData, policy_type::PolicyDataType};
 
     fn policy_view(
         organization_id: OrganizationId,
@@ -209,7 +209,7 @@ mod tests {
             assert!(result.enforced);
             assert_eq!(
                 result.data,
-                MasterPasswordPolicyResponse {
+                MasterPasswordPolicyData {
                     min_complexity: Some(3),
                     min_length: Some(12),
                     ..Default::default()
@@ -265,7 +265,7 @@ mod tests {
             assert!(result.enforced);
             assert_eq!(
                 result.data,
-                PolicyDataType::MasterPassword(MasterPasswordPolicyResponse {
+                PolicyDataType::MasterPassword(MasterPasswordPolicyData {
                     min_complexity: Some(3),
                     ..Default::default()
                 })
@@ -275,18 +275,18 @@ mod tests {
         #[test]
         fn unit_variant_carries_no_data() {
             let org_id = OrganizationId::new_v4();
-            let views = vec![policy_view(org_id, PolicyType::PasswordGenerator, None)];
+            let views = vec![policy_view(org_id, PolicyType::SingleOrg, None)];
             let contexts = vec![confirmed_member(org_id)];
 
             let result = PolicyClient::new().get_enforced_erased(
-                PolicyType::PasswordGenerator,
+                PolicyType::SingleOrg,
                 org_id,
                 views,
                 contexts,
             );
 
             assert!(result.enforced);
-            assert_eq!(result.data, PolicyDataType::PasswordGenerator);
+            assert_eq!(result.data, PolicyDataType::SingleOrg);
         }
 
         #[test]
@@ -306,7 +306,7 @@ mod tests {
             assert!(!result.enforced);
             assert_eq!(
                 result.data,
-                PolicyDataType::MasterPassword(MasterPasswordPolicyResponse::default())
+                PolicyDataType::MasterPassword(MasterPasswordPolicyData::default())
             );
         }
     }
@@ -331,7 +331,7 @@ mod tests {
             assert!(results[0].enforced);
             assert_eq!(
                 results[0].data,
-                PolicyDataType::MasterPassword(MasterPasswordPolicyResponse::default())
+                PolicyDataType::MasterPassword(MasterPasswordPolicyData::default())
             );
         }
 

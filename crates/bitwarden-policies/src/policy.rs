@@ -212,7 +212,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{MasterPasswordPolicy, MasterPasswordPolicyResponse, policy_type::PolicyDataType};
+    use crate::{MasterPasswordPolicy, MasterPasswordPolicyData, policy_type::PolicyDataType};
 
     /// A minimal policy with no data, used to exercise the enforcement gates
     /// independently of any real policy's configuration. Overrides mirror the
@@ -445,7 +445,7 @@ mod tests {
             let views = [mp_view(org, None)];
             let decision = MasterPasswordPolicy.get_enforced(org, &views, &[confirmed_member(org)]);
             assert!(decision.enforced);
-            assert_eq!(decision.data, MasterPasswordPolicyResponse::default());
+            assert_eq!(decision.data, MasterPasswordPolicyData::default());
         }
 
         #[test]
@@ -456,7 +456,7 @@ mod tests {
             // enforcement decision is still evaluated normally.
             let decision = MasterPasswordPolicy.get_enforced(org, &views, &[confirmed_member(org)]);
             assert!(decision.enforced);
-            assert_eq!(decision.data, MasterPasswordPolicyResponse::default());
+            assert_eq!(decision.data, MasterPasswordPolicyData::default());
         }
 
         #[test]
@@ -471,7 +471,59 @@ mod tests {
             };
             let decision = MasterPasswordPolicy.get_enforced(org, &views, &[ctx]);
             assert!(!decision.enforced);
-            assert_eq!(decision.data, MasterPasswordPolicyResponse::default());
+            assert_eq!(decision.data, MasterPasswordPolicyData::default());
+        }
+
+        // --- Data parsing for the more complex data-carrying policies ---
+
+        fn typed_view(org: OrganizationId, policy_type: PolicyType, data: &str) -> PolicyView {
+            PolicyView {
+                id: Uuid::new_v4(),
+                organization_id: org,
+                r#type: policy_type,
+                data: Some(data.to_owned()),
+                enabled: true,
+                revision_date: None,
+            }
+        }
+
+        #[test]
+        fn maximum_vault_timeout_data_is_parsed() {
+            use crate::{MaximumVaultTimeoutPolicy, VaultTimeoutAction, VaultTimeoutType};
+
+            let org = OrganizationId::new_v4();
+            let views = [typed_view(
+                org,
+                PolicyType::MaximumVaultTimeout,
+                r#"{"type":"custom","minutes":480,"action":"logOut"}"#,
+            )];
+            let decision =
+                MaximumVaultTimeoutPolicy.get_enforced(org, &views, &[confirmed_member(org)]);
+            assert!(decision.enforced);
+            assert_eq!(decision.data.timeout_type, Some(VaultTimeoutType::Custom));
+            assert_eq!(decision.data.minutes, Some(480));
+            assert_eq!(decision.data.action, Some(VaultTimeoutAction::LogOut));
+        }
+
+        #[test]
+        fn password_generator_data_is_parsed() {
+            use crate::{PasswordGeneratorPolicy, PasswordGeneratorType};
+
+            let org = OrganizationId::new_v4();
+            let views = [typed_view(
+                org,
+                PolicyType::PasswordGenerator,
+                r#"{"overridePasswordType":"passphrase","minLength":14,"capitalize":true}"#,
+            )];
+            let decision =
+                PasswordGeneratorPolicy.get_enforced(org, &views, &[confirmed_member(org)]);
+            assert!(decision.enforced);
+            assert_eq!(
+                decision.data.override_password_type,
+                Some(PasswordGeneratorType::Passphrase)
+            );
+            assert_eq!(decision.data.min_length, Some(14));
+            assert_eq!(decision.data.capitalize, Some(true));
         }
     }
 
