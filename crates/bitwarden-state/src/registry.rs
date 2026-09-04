@@ -8,7 +8,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{
-    repository::{Repository, RepositoryItem, RepositoryMigrations},
+    repository::{RepositoryItem, RepositoryMigrations, RepositoryTrait, handle::Repository},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
     settings::{Key, Setting, SettingItem},
 };
@@ -60,51 +60,52 @@ impl StateRegistry {
 
     /// Get a handle to a setting by its type-safe key.
     pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
-        let repo = self.get::<SettingItem>()?;
-        Ok(Setting::new(repo, key))
+        Ok(Setting::new(self.backend::<SettingItem>(), key))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
-    pub fn register_client_managed<T: RepositoryItem>(&self, value: Arc<dyn Repository<T>>) {
+    pub fn register_client_managed<T: RepositoryItem>(&self, value: Arc<dyn RepositoryTrait<T>>) {
         self.client_managed
             .write()
             .expect("RwLock should not be poisoned")
             .insert(TypeId::of::<T>(), Box::new(value));
     }
 
-    /// Retrieves a client-managed repository from the map given its type.
-    fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
+    /// Get a handle to the repository storing items of type `T`, preferring a client-managed
+    /// repository and falling back to SDK-managed storage.
+    pub fn repo<T: RepositoryItem>(&self) -> Repository<T> {
+        Repository::new(self.backend::<T>())
+    }
+
+    /// Resolve the backing implementation for `T`: client-managed if registered, SDK-managed
+    /// otherwise.
+    fn backend<T: RepositoryItem>(&self) -> Arc<dyn RepositoryTrait<T>> {
+        self.get_client_managed::<T>()
+            .unwrap_or_else(|| self.database.get_repository::<T>())
+    }
+
+    /// Retrieves a client-managed repository, without falling back to SDK-managed storage.
+    fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn RepositoryTrait<T>>> {
         self.client_managed
             .read()
             .expect("RwLock should not be poisoned")
             .get(&TypeId::of::<T>())
-            .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Repository<T>>>())
+            .and_then(|boxed| boxed.downcast_ref::<Arc<dyn RepositoryTrait<T>>>())
             .map(Arc::clone)
-    }
-
-    /// Retrieves a SDK-managed repository from the database.
-    fn get_sdk_managed<T: RepositoryItem>(
-        &self,
-    ) -> Result<Arc<dyn Repository<T>>, StateRegistryError> {
-        Ok(self.database.get_repository::<T>())
     }
 
     /// Get a repository with fallback: prefer client-managed, fall back to SDK-managed.
     ///
-    /// This method first attempts to retrieve a client-managed repository. If not found,
-    /// it falls back to an SDK-managed repository. Both are returned as `Arc<dyn Repository<T>>`.
+    /// Superseded by [`Self::repo`], which returns a [`Repository`] handle and cannot
+    /// fail. Removed once every caller has migrated.
     ///
     /// # Errors
     /// This method never fails, but returns a Result for backwards compatibility.
-    pub fn get<T>(&self) -> Result<Arc<dyn Repository<T>>, StateRegistryError>
+    pub fn get<T>(&self) -> Result<Arc<dyn RepositoryTrait<T>>, StateRegistryError>
     where
         T: RepositoryItem,
     {
-        if let Some(repo) = self.get_client_managed::<T>() {
-            return Ok(repo);
-        }
-
-        self.get_sdk_managed::<T>()
+        Ok(self.backend::<T>())
     }
 
     /// Wipes all state from this registry, and deletes any files or databases associated with it.
@@ -113,9 +114,10 @@ impl StateRegistry {
     /// # Warning
     ///
     /// This closes the SDK-managed database and deletes persistent storage (SQLite file + WAL/SHM,
-    /// IndexedDB database). Outstanding [`Repository`] handles will return
-    /// [`DatabaseError::Closed`] on subsequent operations. Client-managed repositories are also
-    /// cleared.
+    /// IndexedDB database). Outstanding repository handles will return
+    /// [`RepositoryError::Closed`](crate::repository::RepositoryError::Closed) on subsequent
+    /// operations. Client-managed repositories are dropped, not asked to delete their contents —
+    /// clients own their own teardown.
     pub async fn wipe(&self) -> Result<(), DatabaseError> {
         // Clear client-managed first so a failure in the persistent-store wipe
         // still releases the in-memory Arc references.
@@ -133,13 +135,12 @@ mod tests {
     use crate::{
         register_repository_item,
         repository::{RepositoryError, RepositoryItem},
-        sdk_managed::DatabaseError,
     };
 
     macro_rules! impl_repository {
         ($name:ident, $ty:ty) => {
             #[async_trait::async_trait]
-            impl Repository<$ty> for $name {
+            impl RepositoryTrait<$ty> for $name {
                 async fn get(&self, _key: String) -> Result<Option<$ty>, RepositoryError> {
                     Ok(Some(TestItem(self.0.clone())))
                 }
@@ -261,12 +262,9 @@ mod tests {
 
         assert!(matches!(
             repo.get(String::new()).await,
-            Err(RepositoryError::Database(DatabaseError::Closed))
+            Err(RepositoryError::Closed)
         ));
-        assert!(matches!(
-            repo.list().await,
-            Err(RepositoryError::Database(DatabaseError::Closed))
-        ));
+        assert!(matches!(repo.list().await, Err(RepositoryError::Closed)));
     }
 
     #[tokio::test]
@@ -280,7 +278,7 @@ mod tests {
         let repo = registry.get::<TestItem<usize>>().unwrap();
         assert!(matches!(
             repo.get(String::new()).await,
-            Err(RepositoryError::Database(DatabaseError::Closed))
+            Err(RepositoryError::Closed)
         ));
     }
 
@@ -289,6 +287,76 @@ mod tests {
         let registry = StateRegistry::new_with_memory_db();
         registry.wipe().await.unwrap();
         registry.wipe().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_repo_get_errors_when_absent() {
+        let registry = StateRegistry::new_with_memory_db();
+        let repo = registry.repo::<TestItem<usize>>();
+
+        assert!(matches!(
+            repo.get(String::new()).await,
+            Err(RepositoryError::NotFound)
+        ));
+        assert_eq!(repo.get_opt(String::new()).await.unwrap(), None);
+        assert!(!repo.has(String::new()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_repo_get_returns_value_when_present() {
+        let registry = StateRegistry::new_with_memory_db();
+        let repo = registry.repo::<TestItem<usize>>();
+
+        repo.set(String::new(), TestItem(7usize)).await.unwrap();
+
+        assert_eq!(repo.get(String::new()).await.unwrap(), TestItem(7));
+        assert_eq!(
+            repo.get_opt(String::new()).await.unwrap(),
+            Some(TestItem(7))
+        );
+        assert!(repo.has(String::new()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_repo_prefers_client_managed() {
+        let registry = StateRegistry::new_with_memory_db();
+        registry.register_client_managed(Arc::new(TestA(4242)));
+
+        // TestA always answers with its own value, so reading a key never written to the
+        // SDK-managed database proves the client-managed repository was used.
+        let repo = registry.repo::<TestItem<usize>>();
+        assert_eq!(repo.get(String::new()).await.unwrap(), TestItem(4242));
+    }
+
+    #[tokio::test]
+    async fn test_repo_reports_closed_after_wipe() {
+        let registry = StateRegistry::new_with_memory_db();
+        let repo = registry.repo::<TestItem<usize>>();
+        repo.set(String::new(), TestItem(1usize)).await.unwrap();
+
+        registry.wipe().await.unwrap();
+
+        // Closed must not be reported as NotFound — the distinction is the whole point of
+        // keeping the variant.
+        assert!(matches!(
+            repo.get(String::new()).await,
+            Err(RepositoryError::Closed)
+        ));
+        assert!(matches!(
+            repo.get_opt(String::new()).await,
+            Err(RepositoryError::Closed)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_repo_handle_is_cloneable_and_shares_storage() {
+        let registry = StateRegistry::new_with_memory_db();
+        let repo = registry.repo::<TestItem<usize>>();
+        let clone = repo.clone();
+
+        repo.set(String::new(), TestItem(11usize)).await.unwrap();
+
+        assert_eq!(clone.get(String::new()).await.unwrap(), TestItem(11));
     }
 
     #[tokio::test]

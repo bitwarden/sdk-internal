@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bitwarden_state::{
     Key, Setting, SettingItem, SettingsError,
     registry::StateRegistryError,
-    repository::{Repository, RepositoryItem},
+    repository::{RepositoryItem, RepositoryTrait},
 };
 
 use crate::Client;
@@ -15,7 +15,7 @@ pub struct StateClient {
 
 impl StateClient {
     /// Register a client managed state repository for a specific type.
-    pub fn register_client_managed<T: 'static + Repository<V>, V: RepositoryItem>(
+    pub fn register_client_managed<T: 'static + RepositoryTrait<V>, V: RepositoryItem>(
         &self,
         store: Arc<T>,
     ) {
@@ -25,14 +25,19 @@ impl StateClient {
             .register_client_managed(store)
     }
 
+    /// Get a handle to the repository storing items of type `T`, preferring a client-managed
+    /// repository and falling back to SDK-managed storage.
+    pub fn repo<T: RepositoryItem>(&self) -> bitwarden_state::Repository<T> {
+        self.client.internal.state_registry.repo::<T>()
+    }
+
     /// Get a repository with fallback: prefer client-managed, fall back to SDK-managed.
     ///
-    /// This method first attempts to retrieve a client-managed repository. If not registered,
-    /// it falls back to an SDK-managed repository. Both are returned as `Arc<dyn Repository<T>>`.
+    /// Superseded by [`Self::repo`]. Removed once callers have migrated.
     ///
     /// # Errors
-    /// Returns `StateRegistryError` when neither repository type is available.
-    pub fn get<T>(&self) -> Result<Arc<dyn Repository<T>>, StateRegistryError>
+    /// This method never fails, but returns a Result for backwards compatibility.
+    pub fn get<T>(&self) -> Result<Arc<dyn RepositoryTrait<T>>, StateRegistryError>
     where
         T: RepositoryItem,
     {

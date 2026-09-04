@@ -38,7 +38,7 @@ impl From<RepositoryError> for bitwarden_state::repository::RepositoryError {
 }
 
 /// This macro creates a Uniffi repository trait and its implementation for the
-/// [bitwarden_state::repository::Repository] trait
+/// [bitwarden_state::repository::RepositoryTrait] trait
 macro_rules! create_uniffi_repositories {
     ( $container_name:ident ; $( $qualified_type_name:ty, $type_name:ident, $field_name:ident, $repo_name:ident );+ $(;)? ) => {
 
@@ -97,7 +97,7 @@ macro_rules! create_uniffi_repositories {
             }
 
             #[async_trait::async_trait]
-            impl bitwarden_state::repository::Repository<$qualified_type_name>
+            impl bitwarden_state::repository::RepositoryTrait<$qualified_type_name>
                 for $crate::platform::repository::UniffiRepositoryBridge<Arc<dyn $repo_name>>
             {
                 async fn get(

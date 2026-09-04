@@ -1,4 +1,4 @@
-use bitwarden_state::repository::{Repository, RepositoryError, RepositoryItem};
+use bitwarden_state::repository::{RepositoryError, RepositoryItem, RepositoryTrait};
 
 /// A simple in-memory repository implementation. The data is only stored in memory and will not
 /// persist beyond the lifetime of the repository instance.
@@ -17,7 +17,7 @@ impl<V: RepositoryItem + Clone> Default for MemoryRepository<V> {
 }
 
 #[async_trait::async_trait]
-impl<V: RepositoryItem + Clone> Repository<V> for MemoryRepository<V> {
+impl<V: RepositoryItem + Clone> RepositoryTrait<V> for MemoryRepository<V> {
     async fn get(&self, key: V::Key) -> Result<Option<V>, RepositoryError> {
         let store = self
             .store

@@ -329,10 +329,11 @@ mod tests {
         api_client: bitwarden_api_api::apis::ApiClient,
         stored_last_sync: Option<DateTime<Utc>>,
     ) -> SyncClient {
-        let repo: Arc<dyn bitwarden_state::repository::Repository<bitwarden_state::SettingItem>> =
-            Arc::new(bitwarden_test::MemoryRepository::<
-                bitwarden_state::SettingItem,
-            >::default());
+        let repo: Arc<
+            dyn bitwarden_state::repository::RepositoryTrait<bitwarden_state::SettingItem>,
+        > = Arc::new(bitwarden_test::MemoryRepository::<
+            bitwarden_state::SettingItem,
+        >::default());
         let setting = bitwarden_state::Setting::new(repo, crate::state::LAST_SYNC);
         if let Some(dt) = stored_last_sync {
             setting.update(dt).await.expect("pre-populate last_sync");
@@ -614,10 +615,11 @@ mod tests {
         let error_log_clone = error_log.clone();
 
         // Build Setting manually so we can inspect it after sync.
-        let repo: Arc<dyn bitwarden_state::repository::Repository<bitwarden_state::SettingItem>> =
-            Arc::new(bitwarden_test::MemoryRepository::<
-                bitwarden_state::SettingItem,
-            >::default());
+        let repo: Arc<
+            dyn bitwarden_state::repository::RepositoryTrait<bitwarden_state::SettingItem>,
+        > = Arc::new(bitwarden_test::MemoryRepository::<
+            bitwarden_state::SettingItem,
+        >::default());
         let setting = bitwarden_state::Setting::new(repo, crate::state::LAST_SYNC);
         setting
             .update(stored_last_sync)

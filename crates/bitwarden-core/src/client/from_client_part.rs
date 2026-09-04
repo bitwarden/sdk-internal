@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
-use bitwarden_state::repository::{Repository, RepositoryItem};
+use bitwarden_state::repository::{RepositoryItem, RepositoryTrait};
 
 use super::Client;
 use crate::{client::ApiConfigurations, key_management::KeySlotIds};
@@ -31,7 +31,7 @@ use crate::{client::ApiConfigurations, key_management::KeySlotIds};
 /// pub struct FoldersClient {
 ///     key_store: KeyStore<KeySlotIds>,
 ///     api_configurations: Arc<ApiConfigurations>,
-///     repository: Option<Arc<dyn Repository<Folder>>>,
+///     repository: Option<Arc<dyn RepositoryTrait<Folder>>>,
 /// }
 ///
 /// // Usage:
@@ -106,8 +106,17 @@ impl FromClientPart<reqwest::Client> for Client {
 }
 
 #[cfg(feature = "internal")]
-impl<T: RepositoryItem> FromClientPart<Option<Arc<dyn Repository<T>>>> for Client {
-    fn get_part(&self) -> Option<Arc<dyn Repository<T>>> {
+impl<T: RepositoryItem> FromClientPart<bitwarden_state::Repository<T>> for Client {
+    fn get_part(&self) -> bitwarden_state::Repository<T> {
+        self.platform().state().repo::<T>()
+    }
+}
+
+/// Superseded by the [`bitwarden_state::Repository`] impl above. Removed once callers have
+/// migrated off `Option<Arc<dyn RepositoryTrait<T>>>` fields.
+#[cfg(feature = "internal")]
+impl<T: RepositoryItem> FromClientPart<Option<Arc<dyn RepositoryTrait<T>>>> for Client {
+    fn get_part(&self) -> Option<Arc<dyn RepositoryTrait<T>>> {
         self.platform().state().get::<T>().ok()
     }
 }

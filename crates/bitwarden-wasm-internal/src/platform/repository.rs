@@ -1,6 +1,7 @@
 /*!
- * To support clients implementing the [Repository] trait in a [::wasm_bindgen] environment,
- * we need to deal with an `extern "C"` interface, as that is what [::wasm_bindgen] supports:
+ * To support clients implementing the [RepositoryTrait] trait in a [::wasm_bindgen]
+ * environment, we need to deal with an `extern "C"` interface, as that is what [::wasm_bindgen]
+ * supports:
  *
  * This looks something like this:
  *
@@ -16,7 +17,7 @@
  *
  * As you can see, this has a few limitations:
  * - The type must be known at compile time, so we cannot use generics directly, which means we
- *   can't use the existing [Repository] trait directly.
+ *   can't use the existing [RepositoryTrait] trait directly.
  * - The return type must be [JsValue], so we need to convert our types to and from [JsValue].
  *
  * To facilitate this, we provide some utilities:
@@ -24,9 +25,9 @@
  *   [::wasm_bindgen], using [JsValue]. This is generic and should be implemented for each
  *   concrete repository we define, but the implementation should be very straightforward.
  * - [WasmRepositoryChannel] struct, which wraps a [WasmRepository] in a [ThreadBoundRunner] and
- *   implements the [Repository] trait. This has a few special considerations:
+ *   implements the [RepositoryTrait] trait. This has a few special considerations:
  *   - It uses [tsify::serde_wasm_bindgen] to convert between [JsValue] and our types, so we can
- *     use the existing [Repository] trait.
+ *     use the existing [RepositoryTrait] trait.
  *   - It runs the calls in a thread-bound manner, so we can safely call the [WasmRepository]
  *     methods from any thread.
  * - The [create_wasm_repositories] macro, defines the [::wasm_bindgen] interface and implements
@@ -35,7 +36,7 @@
 
 use std::{future::Future, marker::PhantomData, rc::Rc};
 
-use bitwarden_state::repository::{Repository, RepositoryError, RepositoryItem};
+use bitwarden_state::repository::{RepositoryError, RepositoryItem, RepositoryTrait};
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
@@ -53,8 +54,8 @@ pub(crate) trait WasmRepository<T> {
 }
 
 /// This struct wraps a [WasmRepository] in a [ThreadBoundRunner] to allow it to be used as a
-/// [Repository] in a thread-safe manner. It implements the [Repository] trait directly, by
-/// converting the values as needed with [tsify::serde_wasm_bindgen].
+/// [RepositoryTrait] in a thread-safe manner. It implements the [RepositoryTrait] trait directly,
+/// by converting the values as needed with [tsify::serde_wasm_bindgen].
 pub(crate) struct WasmRepositoryChannel<T, R: WasmRepository<T> + 'static>(
     ThreadBoundRunner<R>,
     PhantomData<T>,
@@ -67,7 +68,7 @@ impl<T, R: WasmRepository<T> + 'static> WasmRepositoryChannel<T, R> {
 }
 
 #[async_trait::async_trait]
-impl<T: RepositoryItem, R: WasmRepository<T> + 'static> Repository<T>
+impl<T: RepositoryItem, R: WasmRepository<T> + 'static> RepositoryTrait<T>
     for WasmRepositoryChannel<T, R>
 {
     async fn get(&self, key: T::Key) -> Result<Option<T>, RepositoryError> {
@@ -128,7 +129,7 @@ export interface Repository<T> {
 
 /// This macro generates a [::wasm_bindgen] interface for a repository type, and provides the
 /// implementation of [WasmRepository] and a way to convert it into something that implements
-/// the [Repository] trait.
+/// the [RepositoryTrait] trait.
 macro_rules! create_wasm_repositories {
     ( $container_name:ident ; $( $qualified_type_name:ty, $type_name:ident, $field_name:ident, $repo_name:ident );+ $(;)? ) => {
 
@@ -253,7 +254,7 @@ macro_rules! create_wasm_repositories {
             impl $repo_name {
                 pub fn into_channel_impl(
                     self,
-                ) -> ::std::sync::Arc<impl bitwarden_state::repository::Repository<$qualified_type_name>> {
+                ) -> ::std::sync::Arc<impl bitwarden_state::repository::RepositoryTrait<$qualified_type_name>> {
                     use $crate::platform::repository::WasmRepositoryChannel;
                     ::std::sync::Arc::new(WasmRepositoryChannel::new(self))
                 }

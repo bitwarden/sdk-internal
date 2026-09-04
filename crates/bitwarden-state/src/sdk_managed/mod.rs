@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
-use crate::repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations};
+use crate::repository::{RepositoryError, RepositoryItem, RepositoryMigrations, RepositoryTrait};
 
 mod configuration;
 pub use configuration::DatabaseConfiguration;
@@ -208,7 +208,7 @@ struct DBRepository<T: RepositoryItem> {
 }
 
 #[async_trait::async_trait]
-impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
+impl<V: RepositoryItem> RepositoryTrait<V> for DBRepository<V> {
     async fn get(&self, key: V::Key) -> Result<Option<V>, RepositoryError> {
         let key = key.to_string();
         let value = self.database.get::<V>(&key).await?;
@@ -243,7 +243,7 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
 }
 
 impl SystemDatabase {
-    pub(super) fn get_repository<V: RepositoryItem>(&self) -> Arc<dyn Repository<V>> {
+    pub(super) fn get_repository<V: RepositoryItem>(&self) -> Arc<dyn RepositoryTrait<V>> {
         Arc::new(DBRepository {
             database: self.clone(),
             _marker: std::marker::PhantomData,

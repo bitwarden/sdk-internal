@@ -2,47 +2,213 @@ use std::{any::TypeId, sync::Arc};
 
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::registry::StateRegistryError;
+use crate::{registry::StateRegistryError, sdk_managed::DatabaseError};
 
 /// An error resulting from operations on a repository.
+///
+/// Models only the distinctions a caller can act on; detailed diagnostics are logged at the point
+/// of failure instead, where the repository name and key are still in scope.
 #[derive(thiserror::Error, Debug)]
 pub enum RepositoryError {
-    /// An internal unspecified error.
+    /// The requested key is not present in the repository.
+    #[error("Item not found")]
+    NotFound,
+
+    /// The underlying database was closed by [`crate::registry::StateRegistry::wipe`], usually
+    /// because the handle was held across logout.
+    #[error("Repository is closed")]
+    Closed,
+
+    /// Any other failure, flattened to a message.
     #[error("Internal error: {0}")]
     Internal(String),
-
-    /// A serialization or deserialization error.
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
-
-    /// An internal database error.
-    #[error(transparent)]
-    Database(#[from] crate::sdk_managed::DatabaseError),
-
-    /// State registry error.
-    #[error(transparent)]
-    StateRegistry(#[from] StateRegistryError),
 }
 
-/// Extension trait for `Option<Arc<dyn Repository<V>>>` to concisely require that a repository
-/// is available.
-pub trait RepositoryOption<V: RepositoryItem> {
-    /// Returns a reference to the repository, or a
-    /// [`StateRegistryError::DatabaseNotInitialized`] error if it is `None`.
-    fn require(&self) -> Result<&Arc<dyn Repository<V>>, RepositoryError>;
-}
-
-impl<V: RepositoryItem> RepositoryOption<V> for Option<Arc<dyn Repository<V>>> {
-    fn require(&self) -> Result<&Arc<dyn Repository<V>>, RepositoryError> {
-        self.as_ref()
-            .ok_or(StateRegistryError::DatabaseNotInitialized.into())
+impl From<serde_json::Error> for RepositoryError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::Internal(e.to_string())
     }
 }
 
-/// This trait represents a generic repository interface, capable of storing and retrieving
-/// items using a key-value API.
+impl From<DatabaseError> for RepositoryError {
+    fn from(e: DatabaseError) -> Self {
+        match e {
+            DatabaseError::Closed => Self::Closed,
+            other => Self::Internal(other.to_string()),
+        }
+    }
+}
+
+impl From<StateRegistryError> for RepositoryError {
+    fn from(e: StateRegistryError) -> Self {
+        match e {
+            StateRegistryError::Database(e) => e.into(),
+            other => Self::Internal(other.to_string()),
+        }
+    }
+}
+
+/// The concrete handle over a [`RepositoryTrait`].
+///
+/// Nested so the handle can be named `Repository` at the crate root while the transitional
+/// `repository::Repository` alias still points at the trait. Collapsed into this module once every
+/// caller has migrated.
+pub(crate) mod handle {
+    use std::sync::Arc;
+
+    use super::{RepositoryError, RepositoryItem, RepositoryTrait};
+
+    /// Log a failed operation. Skips `NotFound`, which is normal control flow rather than a
+    /// failure.
+    ///
+    /// A macro so `tracing` resolves `file!`/`line!` per call site; a function would collapse every
+    /// event onto its own line. Records the repository name and key only, never stored values.
+    macro_rules! trace_failure {
+        ($operation:literal, $name:expr, $error:expr $(, key = $key:expr)?) => {
+            if !matches!($error, RepositoryError::NotFound) {
+                tracing::error!(
+                    repository = $name,
+                    operation = $operation,
+                    $(key = $key,)?
+                    error = %$error,
+                    "repository operation failed"
+                );
+            }
+        };
+    }
+
+    /// A handle to the repository storing items of type `T`. Cloning shares the same storage.
+    ///
+    /// Every operation fails with [`RepositoryError::Closed`] once
+    /// [`StateRegistry::wipe`](crate::registry::StateRegistry::wipe) has run, so do not hold a
+    /// handle across logout.
+    pub struct Repository<T: RepositoryItem>(Arc<dyn RepositoryTrait<T>>);
+
+    impl<T: RepositoryItem> Clone for Repository<T> {
+        fn clone(&self) -> Self {
+            Self(Arc::clone(&self.0))
+        }
+    }
+
+    impl<T: RepositoryItem> std::fmt::Debug for Repository<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_tuple("Repository").field(&T::NAME).finish()
+        }
+    }
+
+    impl<T: RepositoryItem> Repository<T> {
+        /// Wrap an implementation into a handle.
+        pub(crate) fn new(inner: Arc<dyn RepositoryTrait<T>>) -> Self {
+            Self(inner)
+        }
+
+        /// Retrieve the item stored under `key`, failing with [`RepositoryError::NotFound`] if it
+        /// is absent. Use [`Self::get_opt`] where absence is an expected outcome.
+        pub async fn get(&self, key: T::Key) -> Result<T, RepositoryError> {
+            self.get_opt(key).await?.ok_or(RepositoryError::NotFound)
+        }
+
+        /// Retrieve the item stored under `key`, or `None` if it is absent.
+        pub async fn get_opt(&self, key: T::Key) -> Result<Option<T>, RepositoryError> {
+            let logged = key.to_string();
+            self.0
+                .get(key)
+                .await
+                .inspect_err(|e| trace_failure!("get", T::NAME, e, key = logged))
+        }
+
+        /// Returns whether an item is stored under `key`.
+        pub async fn has(&self, key: T::Key) -> Result<bool, RepositoryError> {
+            Ok(self.get_opt(key).await?.is_some())
+        }
+
+        /// List every item in the repository.
+        pub async fn list(&self) -> Result<Vec<T>, RepositoryError> {
+            self.0
+                .list()
+                .await
+                .inspect_err(|e| trace_failure!("list", T::NAME, e))
+        }
+
+        /// Store `value` under `key`, replacing any existing item.
+        pub async fn set(&self, key: T::Key, value: T) -> Result<(), RepositoryError> {
+            let logged = key.to_string();
+            self.0
+                .set(key, value)
+                .await
+                .inspect_err(|e| trace_failure!("set", T::NAME, e, key = logged))
+        }
+
+        /// Store multiple items, replacing any existing items under the same keys.
+        pub async fn set_bulk(&self, values: Vec<(T::Key, T)>) -> Result<(), RepositoryError> {
+            self.0
+                .set_bulk(values)
+                .await
+                .inspect_err(|e| trace_failure!("set_bulk", T::NAME, e))
+        }
+
+        /// Remove the item stored under `key`. Removing an absent key is not an error.
+        pub async fn remove(&self, key: T::Key) -> Result<(), RepositoryError> {
+            let logged = key.to_string();
+            self.0
+                .remove(key)
+                .await
+                .inspect_err(|e| trace_failure!("remove", T::NAME, e, key = logged))
+        }
+
+        /// Remove the items stored under `keys`.
+        pub async fn remove_bulk(&self, keys: Vec<T::Key>) -> Result<(), RepositoryError> {
+            self.0
+                .remove_bulk(keys)
+                .await
+                .inspect_err(|e| trace_failure!("remove_bulk", T::NAME, e))
+        }
+
+        /// Remove every item in the repository.
+        pub async fn remove_all(&self) -> Result<(), RepositoryError> {
+            self.0
+                .remove_all()
+                .await
+                .inspect_err(|e| trace_failure!("remove_all", T::NAME, e))
+        }
+
+        /// Replace the entire contents of the repository with `values`.
+        pub async fn replace_all(&self, values: Vec<(T::Key, T)>) -> Result<(), RepositoryError> {
+            self.0
+                .replace_all(values)
+                .await
+                .inspect_err(|e| trace_failure!("replace_all", T::NAME, e))
+        }
+    }
+}
+
+/// Extension trait for `Option<Arc<dyn RepositoryTrait<V>>>` to concisely require that a repository
+/// is available.
+///
+/// Superseded by [`crate::Repository`], which is never absent. Removed once callers have migrated.
+pub trait RepositoryOption<V: RepositoryItem> {
+    /// Returns a reference to the repository, or an error if it is `None`.
+    fn require(&self) -> Result<&Arc<dyn RepositoryTrait<V>>, RepositoryError>;
+}
+
+impl<V: RepositoryItem> RepositoryOption<V> for Option<Arc<dyn RepositoryTrait<V>>> {
+    fn require(&self) -> Result<&Arc<dyn RepositoryTrait<V>>, RepositoryError> {
+        self.as_ref().ok_or_else(|| {
+            RepositoryError::Internal("no repository registered for this type".to_string())
+        })
+    }
+}
+
+/// The old name of [`RepositoryTrait`]. Removed once every caller has migrated to
+/// [`crate::Repository`].
+pub use RepositoryTrait as Repository;
+
+/// The backing implementation of a [`crate::Repository`], capable of storing and retrieving items
+/// using a key-value API. Implemented by SDK-managed storage and by the client-managed bindings.
+///
+/// Feature code should use [`crate::Repository`] instead.
 #[async_trait::async_trait]
-pub trait Repository<V: RepositoryItem>: Send + Sync {
+pub trait RepositoryTrait<V: RepositoryItem>: Send + Sync {
     /// Retrieves an item from the repository by its key.
     async fn get(&self, key: V::Key) -> Result<Option<V>, RepositoryError>;
     /// Lists all items in the repository.

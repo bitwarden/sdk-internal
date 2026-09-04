@@ -8,7 +8,7 @@ use thiserror::Error;
 use super::Key;
 use crate::{
     registry::StateRegistryError,
-    repository::{Repository, RepositoryError},
+    repository::{RepositoryError, RepositoryTrait},
 };
 
 /// Internal setting value stored in the settings repository.
@@ -47,13 +47,13 @@ crate::register_repository_item!(String => SettingItem, "Setting");
 /// ```
 #[derive(Clone)]
 pub struct Setting<T> {
-    repository: Arc<dyn Repository<SettingItem>>,
+    repository: Arc<dyn RepositoryTrait<SettingItem>>,
     key: Key<T>,
 }
 
 impl<T> Setting<T> {
     /// Create a new setting handle from a repository and key.
-    pub fn new(repository: Arc<dyn Repository<SettingItem>>, key: Key<T>) -> Self {
+    pub fn new(repository: Arc<dyn RepositoryTrait<SettingItem>>, key: Key<T>) -> Self {
         Self { repository, key }
     }
 

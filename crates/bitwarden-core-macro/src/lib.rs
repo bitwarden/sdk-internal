@@ -25,7 +25,7 @@ use syn::{DeriveInput, Expr, ItemTrait, parse::Parser, parse_macro_input};
 /// pub struct FoldersClient {
 ///     key_store: KeyStore<KeySlotIds>,
 ///     api_configurations: Arc<ApiConfigurations>,
-///     repository: Option<Arc<dyn Repository<Folder>>>,
+///     repository: Option<Arc<dyn RepositoryTrait<Folder>>>,
 /// }
 /// ```
 ///
@@ -37,7 +37,7 @@ use syn::{DeriveInput, Expr, ItemTrait, parse::Parser, parse_macro_input};
 ///         Self {
 ///             key_store: FromClientPart::<KeyStore<KeySlotIds>>::get_part(client),
 ///             api_configs: FromClientPart::<Arc<ApiConfigurations>>::get_part(client),
-///             repository: FromClientPart::<Option<Arc<dyn Repository<Folder>>>>::get_part(client),
+///             repository: FromClientPart::<Option<Arc<dyn RepositoryTrait<Folder>>>>::get_part(client),
 ///         }
 ///     }
 /// }
