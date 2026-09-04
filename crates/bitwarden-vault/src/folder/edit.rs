@@ -31,7 +31,7 @@ pub enum EditFolderError {
     Uuid(#[from] uuid::Error),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl FoldersClient {
     /// Edit the [Folder] and save it to the server.
     pub async fn edit(

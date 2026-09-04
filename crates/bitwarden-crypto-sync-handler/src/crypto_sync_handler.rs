@@ -22,11 +22,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct CryptoSyncData {
     /// The account's user decryption options, as the server reports them on sync.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -42,11 +38,7 @@ pub struct CryptoSyncData {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct CryptoSyncUserDecryption {
     /// Unlock data for accounts that have a master password.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -251,7 +243,7 @@ fn is_v2_to_v1_downgrade(
 /// Client for the key management work that runs on every sync.
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CryptoSyncHandlerClient {
     client: Client,
 }
@@ -262,7 +254,7 @@ impl CryptoSyncHandlerClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl CryptoSyncHandlerClient {
     /// Runs the key management sync work. Call this after each sync, once the user's cryptographic

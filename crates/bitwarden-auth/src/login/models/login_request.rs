@@ -7,11 +7,7 @@ use super::LoginDeviceRequest;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)] // add wasm support
+#[bitwarden_ffi::wasm_record] // add wasm support
 pub struct LoginRequest {
     /// OAuth client identifier
     pub client_id: String,

@@ -387,6 +387,9 @@ export type DataEnvelope = Tagged<string, "DataEnvelope">;
 "#;
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(DataEnvelope);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for DataEnvelope {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

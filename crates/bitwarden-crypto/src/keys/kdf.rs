@@ -4,8 +4,6 @@ use hybrid_array::Array;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use typenum::U32;
 use zeroize::Zeroize;
 
@@ -123,7 +121,7 @@ pub fn dangerous_derive_kdf_material(
 #[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum Kdf {
     PBKDF2 {
         iterations: NonZeroU32,

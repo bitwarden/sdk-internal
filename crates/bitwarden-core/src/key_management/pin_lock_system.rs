@@ -14,8 +14,6 @@ use bitwarden_crypto::{
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -29,7 +27,7 @@ use crate::{
 /// For this, the PIN-encrypted vault key is stored on disk.
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum PinLockType {
     /// Pin unlock is available after app start
     BeforeFirstUnlock,
@@ -40,7 +38,7 @@ pub enum PinLockType {
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 /// Current availability state for PIN-based unlock.
 pub enum PinUnlockStatus {
     /// A PIN is configured and the PIN envelope is available for decryption, so PIN-based unlock

@@ -9,6 +9,9 @@ use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
 
 use crate::invite::{Invite, InviteKeyBundleError, InviteSecret};
 
+bitwarden_ffi::impl_wire_object!(Invite);
+bitwarden_ffi::impl_wire_object!(InviteSecret);
+
 impl wasm_bindgen::describe::WasmDescribe for Invite {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

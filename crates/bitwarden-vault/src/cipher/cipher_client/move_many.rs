@@ -18,7 +18,7 @@ pub enum MoveCipherError {
     Repository(#[from] RepositoryError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Moves multiple [`Cipher`](crate::Cipher) objects to a folder, or clears their folder when
     /// `folder_id` is `None`.

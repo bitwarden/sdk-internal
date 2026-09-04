@@ -9,12 +9,12 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct GeneratorClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl GeneratorClient {
     fn new(client: Client) -> Self {
         Self { client }

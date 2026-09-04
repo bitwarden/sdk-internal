@@ -71,4 +71,7 @@ pub mod wasm {
             token
         }
     }
+
+    bitwarden_ffi::impl_wire_object!(AbortController);
+    bitwarden_ffi::impl_wire_object!(AbortSignal);
 }

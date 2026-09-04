@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::{error::CollectionsParseError, tree::TreeItem};
 
@@ -23,7 +23,7 @@ uuid_newtype!(pub CollectionId);
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Collection {
     pub id: Option<CollectionId>,
     pub organization_id: OrganizationId,
@@ -40,7 +40,7 @@ pub struct Collection {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CollectionView {
     pub id: Option<CollectionId>,
     pub organization_id: OrganizationId,
@@ -56,7 +56,7 @@ pub struct CollectionView {
 #[derive(Serialize_repr, Deserialize_repr, Debug, Clone, Eq, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum CollectionType {
     /// Default collection type. Can be assigned by an organization to user(s) or group(s)
     SharedCollection = 0,

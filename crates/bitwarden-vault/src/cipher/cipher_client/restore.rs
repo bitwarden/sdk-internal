@@ -104,7 +104,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Restores a soft-deleted cipher on the server.
     pub async fn restore(&self, cipher_id: CipherId) -> Result<CipherView, RestoreCipherError> {

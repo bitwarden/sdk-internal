@@ -11,8 +11,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
@@ -44,7 +42,7 @@ pub enum CreateCipherError {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherCreateRequest {
     pub organization_id: Option<OrganizationId>,
     pub collection_ids: Vec<CollectionId>,
@@ -157,7 +155,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Creates a new [Cipher] and saves it to the server.
     pub async fn create(

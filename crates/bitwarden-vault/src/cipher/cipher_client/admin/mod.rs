@@ -6,8 +6,6 @@ use bitwarden_core::{
     key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 mod create;
 mod delete;
@@ -19,7 +17,7 @@ pub use get::GetAssignedOrgCiphersAdminError;
 
 /// Client for performing admin operations on ciphers. Unlike the regular CiphersClient,
 /// this client uses the admin server API endpoints, and does not modify local state.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CipherAdminClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,

@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 /// Clones share the underlying profile, so an update pushed through one clone is observed by all of
 /// them.
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct ManagedSettingsClient {
     profile: Arc<RwLock<Option<ManagementProfile>>>,
 }
@@ -46,7 +46,7 @@ impl ManagedSettingsClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl ManagedSettingsClient {
     /// Fresh handle with no active profile. The host should call this once at boot.
     #[cfg_attr(feature = "wasm", wasm_bindgen(constructor))]

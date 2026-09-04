@@ -19,7 +19,7 @@ pub enum GetFolderError {
     Repository(#[from] RepositoryError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl FoldersClient {
     /// Get a specific [crate::Folder] by its ID from state and decrypt it to a [FolderView].
     pub async fn get(&self, folder_id: FolderId) -> Result<FolderView, GetFolderError> {

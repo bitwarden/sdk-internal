@@ -47,7 +47,7 @@ pub fn should_use_blob_encryption(
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CiphersClient {
     #[allow(dead_code)]
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -72,7 +72,7 @@ impl FromClient for CiphersClient {
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     pub(crate) fn should_use_blob_encryption(
         &self,

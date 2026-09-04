@@ -51,14 +51,14 @@ pub enum InviteLinkError {
 }
 
 /// Client for organization invite link cryptographic and network operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct InviteLinkClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl InviteLinkClient {
     /// Creates a new organization invite and posts it to the server, returning the full
     /// [`OrganizationInviteLink`] persisted by the server.

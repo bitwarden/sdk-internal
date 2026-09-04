@@ -13,8 +13,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -43,7 +41,7 @@ pub enum CreateSendError {
 /// Request model for creating a new Send.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendAddRequest {
     /// The name of the Send.
     pub name: String,
@@ -144,7 +142,7 @@ async fn create_send<R: Repository<Send> + ?Sized>(
     Ok(key_store.decrypt(&send)?)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Create a new [Send] and save it to the server.
     pub async fn create(&self, request: SendAddRequest) -> Result<SendView, CreateSendError> {

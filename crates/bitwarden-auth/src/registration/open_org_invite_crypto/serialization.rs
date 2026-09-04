@@ -90,6 +90,9 @@ impl<'de> Deserialize<'de> for SealedOpenOrgInviteData {
 }
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(SealedOpenOrgInviteData);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for SealedOpenOrgInviteData {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

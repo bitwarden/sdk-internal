@@ -19,6 +19,7 @@ cli = [] # CLI support
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -34,6 +35,7 @@ uniffi = [
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-state = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

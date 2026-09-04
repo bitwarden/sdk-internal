@@ -35,7 +35,7 @@ pub enum KeyPairRegenerationError {
     Crypto,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// Checks whether the user's public key encryption key pair needs regeneration, and if so,
     /// generates a new key pair and submits it to the server.

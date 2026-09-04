@@ -6,7 +6,7 @@ use crate::{login::LoginClient, registration::RegistrationClient, send_access::S
 
 /// Subclient containing auth functionality.
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct AuthClient {
     // TODO: The AuthClient should probably not contain the whole bitwarden-core client.
     // Instead, it should contain the ApiConfigurations and Tokens struct to do API requests and
@@ -21,7 +21,7 @@ impl AuthClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AuthClient {
     // TODO: in a future PR, we need to figure out a consistent mechanism for CoreClient
     // vs ClientSettings instantiation across all subclients.

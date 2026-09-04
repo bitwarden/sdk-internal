@@ -92,7 +92,7 @@ async fn create_cipher(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Creates a new [Cipher] for an organization, using the admin server endpoints.
     /// Creates the Cipher on the server only, does not store it to local state.

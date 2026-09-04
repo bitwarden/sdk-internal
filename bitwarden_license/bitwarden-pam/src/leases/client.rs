@@ -12,13 +12,13 @@ use crate::{AccessLeaseId, access_requests::AccessRequestView, error::LeasingErr
 /// A lease is minted by [`AccessRequestsClient::activate`](crate::AccessRequestsClient::activate);
 /// this client covers the rest of a lease's life: listing the caller's leases, extending an active
 /// one, and ending one early.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct LeasesClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl LeasesClient {
     /// Lists the caller's currently active leases.
     pub async fn list_active(&self) -> Result<Vec<AccessLeaseView>, LeasingError> {

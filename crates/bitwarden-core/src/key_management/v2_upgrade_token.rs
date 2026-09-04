@@ -13,11 +13,7 @@ use bitwarden_crypto::{
 use thiserror::Error;
 
 /// Holds both V1 and V2 user keys, each wrapped by the other.
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct V2UpgradeToken {

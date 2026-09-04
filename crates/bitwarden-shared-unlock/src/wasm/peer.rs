@@ -6,12 +6,12 @@ use super::drivers::{JsSharedUnlockDriver, RawJsSharedUnlockDriver};
 use crate::{DeviceEvent, PeerStartError, SharedUnlockClient, SharedUnlockPeer as Peer};
 
 /// Shared-unlock peer for WASM clients.
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub struct SharedUnlockPeer {
     peer: Peer<JsSharedUnlockDriver>,
 }
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl SharedUnlockPeer {
     /// Creates a new shared-unlock peer
     #[wasm_bindgen(constructor)]

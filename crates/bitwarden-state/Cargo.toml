@@ -14,7 +14,7 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi"]
-wasm = ["bitwarden-threading/wasm"]
+wasm = ["bitwarden-ffi/wasm", "bitwarden-threading/wasm"]
 # Enables browser-mode integration tests (IndexedDB). Requires a webdriver
 # (geckodriver/chromedriver) on PATH at test time.
 browser-tests = []
@@ -22,6 +22,7 @@ browser-tests = []
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-threading = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

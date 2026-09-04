@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::UserCryptoManagementClient;
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// Migrates an initialized account to Key Connector unlock.
     ///

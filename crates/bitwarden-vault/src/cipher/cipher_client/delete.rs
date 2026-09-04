@@ -92,7 +92,7 @@ async fn process_soft_delete<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Deletes the [Cipher] with the matching [CipherId] from the server.
     pub async fn delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {

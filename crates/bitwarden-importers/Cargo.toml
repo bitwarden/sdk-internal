@@ -28,6 +28,7 @@ uniffi = [
 ]
 wasm = [
     "bitwarden-collections/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-vault/wasm",
     "bitwarden-exporters/wasm",
     "dep:tsify",
@@ -45,6 +46,7 @@ bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-exporters = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-vault = { workspace = true }
 cbc = { workspace = true }

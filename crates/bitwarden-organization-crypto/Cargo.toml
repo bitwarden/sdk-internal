@@ -17,16 +17,18 @@ keywords.workspace = true
 [features]
 default = []
 wasm = [
-    "dep:tsify",
-    "dep:wasm-bindgen",
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-random/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
 ]
 
 [dependencies]
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-random = { workspace = true }
 bitwarden-sensitive-value = { workspace = true }
 rand = { workspace = true }

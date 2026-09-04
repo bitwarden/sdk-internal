@@ -1,4 +1,4 @@
-error: unknown attribute, expected `note`
+error: unknown argument, expected `note`
  --> tests/compilation_tests/unknown_wasm_only_attribute.rs:7:17
   |
 7 |     #[wasm_only(message = "hello")]

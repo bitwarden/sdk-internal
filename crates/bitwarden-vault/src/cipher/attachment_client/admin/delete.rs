@@ -20,7 +20,7 @@ pub enum DeleteAttachmentAdminError {
     VaultParse(#[from] VaultParseError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentAdminClient {
     /// Deletes an attachment from a cipher using the admin endpoint.
     /// Affects server data only, does not modify local state.

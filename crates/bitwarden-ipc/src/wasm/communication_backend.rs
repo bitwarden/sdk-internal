@@ -88,8 +88,10 @@ extern "C" {
     pub async fn receive(this: &JsCommunicationBackendSender) -> Result<JsValue, JsValue>;
 }
 
+bitwarden_ffi::impl_wire_object!(JsCommunicationBackendSender);
+
 /// JavaScript implementation of the `CommunicationBackend` trait for IPC communication.
-#[wasm_bindgen(js_name = IpcCommunicationBackend)]
+#[bitwarden_ffi::wasm_object(js_name = IpcCommunicationBackend)]
 pub struct JsCommunicationBackend {
     sender: Arc<ThreadBoundRunner<JsCommunicationBackendSender>>,
     receive_rx: tokio::sync::broadcast::Receiver<IncomingMessage>,
@@ -106,7 +108,8 @@ impl Clone for JsCommunicationBackend {
     }
 }
 
-#[wasm_bindgen(js_class = IpcCommunicationBackend)]
+// Exchanges `#[wasm_bindgen]` handles rather than serde DTOs, so nothing needs `Ts<T>`.
+#[bitwarden_ffi::wasm_export(js_class = IpcCommunicationBackend)]
 impl JsCommunicationBackend {
     /// Creates a new instance of the JavaScript communication backend.
     #[wasm_bindgen(constructor)]

@@ -508,6 +508,9 @@ export type SecretProtectedKeyEnvelope = Tagged<string, "SecretProtectedKeyEnvel
 "#;
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(SecretProtectedKeyEnvelope);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for SecretProtectedKeyEnvelope {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

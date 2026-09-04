@@ -7,11 +7,7 @@ use crate::login::api::response::TrustedDeviceUserDecryptionOptionApiResponse;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct TrustedDeviceUserDecryptionOption {
     /// Whether the user has admin approval for device login.
     pub has_admin_approval: bool,

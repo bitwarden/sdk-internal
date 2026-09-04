@@ -41,6 +41,7 @@ wasm = [
     "bitwarden-crypto-cipher-suite/wasm",
     "bitwarden-crypto-sync-handler/wasm",
     "bitwarden-exporters/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-generators/wasm",
     "bitwarden-importers/wasm",
     "bitwarden-managed-settings/wasm",
@@ -67,6 +68,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-crypto-cipher-suite = { workspace = true }
 bitwarden-crypto-sync-handler = { workspace = true }
 bitwarden-exporters = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }

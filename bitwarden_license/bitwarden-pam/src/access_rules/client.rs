@@ -12,13 +12,13 @@ use super::{
 use crate::AccessRuleId;
 
 /// Client for PAM access rule CRUD operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct AccessRulesClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AccessRulesClient {
     /// Lists all access rules for an organization.
     pub async fn list(

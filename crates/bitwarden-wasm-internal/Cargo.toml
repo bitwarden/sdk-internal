@@ -14,6 +14,7 @@ keywords.workspace = true
 
 [package.metadata.cargo-udeps.ignore]
 normal = [
+    "bitwarden-ffi",
     "bitwarden-organization-crypto",
 ] # Only used to enable wasm-bindgen, not imported directly
 
@@ -21,6 +22,10 @@ normal = [
 crate-type = ["cdylib"]
 
 [features]
+default = ["wasm"]
+# Always on. `#[wasm_export]` gates the bindings it generates on the enclosing crate's `wasm`
+# feature; this crate has no non-wasm build, so the feature exists only to satisfy that.
+wasm = []
 bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
@@ -39,6 +44,7 @@ bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-crypto-sync-handler = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-logging = { workspace = true, features = ["wasm"] }
 bitwarden-managed-settings = { workspace = true, features = ["wasm"] }

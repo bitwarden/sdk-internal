@@ -29,7 +29,7 @@ fn encrypt_send_for_rotation(
 }
 
 #[cfg(feature = "wasm")]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Encrypt a send with the provided key. This should only be used when rotating encryption
     /// keys in the Web client.

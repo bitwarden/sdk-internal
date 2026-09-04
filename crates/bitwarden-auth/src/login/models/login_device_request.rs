@@ -7,11 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)] // add wasm support
+#[bitwarden_ffi::wasm_record] // add wasm support
 pub struct LoginDeviceRequest {
     /// The type of device making the login request
     /// Note: today, we already have the DeviceType on the ApiConfigurations

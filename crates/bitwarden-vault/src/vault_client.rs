@@ -10,7 +10,7 @@ use crate::{
 
 #[allow(missing_docs)]
 #[derive(Clone)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct VaultClient {
     pub(crate) client: Client,
 }
@@ -28,7 +28,7 @@ impl VaultClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl VaultClient {
     /// Attachment related operations.
     pub fn attachments(&self) -> AttachmentsClient {

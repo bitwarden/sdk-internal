@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::{RpcHandler, rpc::request::RpcRequest};
 
@@ -11,7 +11,7 @@ use crate::{RpcHandler, rpc::request::RpcRequest};
 pub struct DiscoverRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 /// The response to a discover/ping request.
 pub struct DiscoverResponse {
     /// The version of the client that responded to the discover request.

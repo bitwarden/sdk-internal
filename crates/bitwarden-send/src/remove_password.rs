@@ -42,7 +42,7 @@ async fn remove_send_password<R: Repository<Send> + ?Sized>(
     Ok(key_store.decrypt(&send)?)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Remove the password from a [Send], saving the updated state to the server and local state.
     pub async fn remove_password(

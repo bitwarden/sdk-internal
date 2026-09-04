@@ -1,6 +1,6 @@
 use bitwarden_threading::ThreadBoundRunner;
 use serde::{Deserialize, Serialize};
-use tsify::{Tsify, serde_wasm_bindgen};
+use tsify::{Ts, Tsify, serde_wasm_bindgen};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -11,7 +11,6 @@ trait Store<T> {
 }
 
 #[derive(Clone, Debug, Tsify, Serialize, Deserialize, PartialEq, Eq)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
 struct Cipher {
     id: String,
     name: String,
@@ -41,7 +40,7 @@ extern "C" {
     pub async fn get(this: &CipherService, id: String) -> JsValue;
 
     #[wasm_bindgen(method)]
-    pub async fn save(this: &CipherService, cipher: Cipher);
+    pub async fn save(this: &CipherService, cipher: Ts<Cipher>);
 }
 
 #[wasm_bindgen_test]
@@ -69,6 +68,7 @@ pub async fn test_get_cipher() {
         }
 
         async fn save(&self, item: Cipher) {
+            let item = Ts::from_rust(&item).expect("Failed to convert Cipher to JsValue");
             self.0
                 .run_in_thread(|state| async move {
                     state.save(item).await;

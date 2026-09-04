@@ -14,12 +14,27 @@ repository.workspace = true
 license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
+[features]
+wasm = [
+    "bitwarden-error/wasm",
+    "dep:bitwarden-error",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+]
+
 [dependencies]
+bitwarden-error = { workspace = true, optional = true }
 bitwarden-ffi-macro = { workspace = true }
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+serde = { workspace = true }
 trybuild = "1.0.101"
 wasm-bindgen = { workspace = true }
+# Required by wasm_bindgen to export the async shims exercised in tests/wasm_export.rs
+wasm-bindgen-futures = { workspace = true }
+wasm-bindgen-test = { workspace = true }
 
 [lints]
 workspace = true

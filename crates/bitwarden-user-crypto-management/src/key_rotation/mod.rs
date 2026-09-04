@@ -13,8 +13,6 @@ use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -29,13 +27,13 @@ use crate::{
 /// Response model for untrusted memberships, containing both organization and emergency access
 /// memberships.
 #[derive(Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct UntrustedMembershipsResponse {
     emergency_access_memberships: Vec<V1EmergencyAccessMembership>,
     organization_memberships: Vec<V1OrganizationMembership>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl UserCryptoManagementClient {
     /// The organization public keys the user has to confirm as trusted before a key rotation.
     ///

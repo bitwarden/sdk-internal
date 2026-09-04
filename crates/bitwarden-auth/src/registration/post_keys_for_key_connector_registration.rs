@@ -11,11 +11,7 @@ use wasm_bindgen::prelude::*;
 use crate::registration::{RegistrationClient, RegistrationError};
 
 /// Result of Key Connector registration process.
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct KeyConnectorRegistrationResult {
@@ -29,7 +25,7 @@ pub struct KeyConnectorRegistrationResult {
     pub user_key: B64,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl RegistrationClient {
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls the
     /// user to key connector unlock.

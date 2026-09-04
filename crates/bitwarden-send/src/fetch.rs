@@ -35,7 +35,7 @@ async fn fetch_send<R: Repository<Send> + ?Sized>(
     Ok(send)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Fetch a single [Send] by its ID from the server and persist it to local state.
     ///

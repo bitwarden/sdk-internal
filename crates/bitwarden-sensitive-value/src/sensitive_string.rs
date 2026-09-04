@@ -112,6 +112,9 @@ uniffi::custom_type!(SensitiveString, String, {
 });
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(SensitiveString);
+
+#[cfg(feature = "wasm")]
 const _: () = {
     use wasm_bindgen::{
         JsValue,

@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use bitwarden_crypto::{
     EncString, Kdf, KeyId, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope,
 };
-#[cfg(feature = "wasm")]
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -58,7 +58,7 @@ impl Default for StateBridge {
 /// state held by the clients
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct StateBridgeClient {
     pub(crate) client: crate::Client,
 }
@@ -93,6 +93,9 @@ extern "C" {
     #[wasm_bindgen(typescript_type = "WasmStateBridge")]
     pub type RawWasmStateBridge;
 }
+
+#[cfg(target_arch = "wasm32")]
+bitwarden_ffi::impl_wire_object!(RawWasmStateBridge);
 
 #[cfg(target_arch = "wasm32")]
 use bitwarden_threading::ThreadBoundRunner;
@@ -143,11 +146,11 @@ impl StateBridgeClient {
 // matching `WasmStateBridge` TypeScript interface; and a `#[cfg(test)] pub(crate) mod test_support`
 // containing an `InMemoryStateBridge` test fixture.
 bitwarden_state_bridge_macro::state_bridge! {
-    user_key: SymmetricCryptoKey as ts "SymmetricKey",
-    user_key_id: KeyId as ts "KeyId",
-    persistent_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
-    ephemeral_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
-    encrypted_pin: EncString as ts "EncString",
+    #[ts(skip)] user_key: SymmetricCryptoKey as ts "SymmetricKey",
+    #[ts(skip)] user_key_id: KeyId as ts "KeyId",
+    #[ts(skip)] persistent_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
+    #[ts(skip)] ephemeral_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
+    #[ts(skip)] encrypted_pin: EncString as ts "EncString",
     v2_upgrade_token: V2UpgradeToken as ts "V2UpgradeToken",
     account_cryptographic_state: WrappedAccountCryptographicState as ts "WrappedAccountCryptographicState",
     masterpassword_unlock_data: MasterPasswordUnlockData as ts "MasterPasswordUnlockData",

@@ -19,7 +19,7 @@ pub enum CipherAdminGetAttachmentDownloadUrlError {
     NotFound,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentAdminClient {
     /// Fetches the download URL for an attachment from the admin API. The admin client has
     /// no local repository to fall back to on 404, so a server-side 404 is surfaced as

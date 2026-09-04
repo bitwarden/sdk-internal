@@ -66,7 +66,7 @@ pub enum CipherUpgradeAttachmentError {
     Upload,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Upgrades a legacy v1 attachment to `CipherKey(AttachmentKey(Contents))`.
     ///

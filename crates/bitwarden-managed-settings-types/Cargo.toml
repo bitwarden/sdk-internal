@@ -20,12 +20,14 @@ keywords.workspace = true
 uniffi = ["dep:uniffi"] # Uniffi bindings
 wasm = [
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
 ] # WASM support
 
 [dependencies]
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

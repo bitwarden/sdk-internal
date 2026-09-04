@@ -4,8 +4,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_state::Setting;
 use chrono::{DateTime, Duration, Utc};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{
     Client,
@@ -30,7 +28,7 @@ pub enum FetchFlagsError {
 }
 
 /// A client for inspecting and refreshing feature flags.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct FlagsClient {
     flags: Setting<Flags>,
     flags_fetched_at: Setting<DateTime<Utc>>,

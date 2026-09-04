@@ -22,7 +22,7 @@ pub fn uuid_newtype(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[doc = #doc_string]
-        #[cfg_attr(feature = "wasm", derive(::tsify::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+        #[cfg_attr(feature = "wasm", derive(::tsify::Tsify))]
         #[derive(
             ::serde::Serialize, ::serde::Deserialize,
             ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::cmp::PartialOrd, ::std::cmp::Ord,
@@ -37,6 +37,9 @@ pub fn uuid_newtype(input: TokenStream) -> TokenStream {
 
         #[cfg(feature = "uniffi")]
         uniffi::custom_newtype!(#ident, uuid::Uuid);
+
+        #[cfg(feature = "wasm")]
+        ::bitwarden_ffi::impl_wire_record!(#ident);
 
         impl #ident {
             #[allow(missing_docs)]

@@ -29,12 +29,12 @@ pub enum CipherRiskError {
 const MAX_CONCURRENT_REQUESTS: usize = 100;
 
 /// Client for evaluating credential risk for login ciphers.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CipherRiskClient {
     pub(crate) client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherRiskClient {
     /// Build password reuse map for a list of login ciphers.
     ///

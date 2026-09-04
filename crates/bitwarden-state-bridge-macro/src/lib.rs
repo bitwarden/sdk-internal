@@ -5,9 +5,10 @@
 //! WASM extern bindings, the `WasmStateBridge` trait impl, and the matching TypeScript interface.
 
 use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-    Ident, LitStr, Token, Type,
+    Attribute, Ident, LitStr, Token, Type,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
@@ -21,17 +22,46 @@ struct StateBridgeField {
     name: Ident,
     ty: Type,
     ts: LitStr,
+    /// `#[ts(skip)]`: the type crosses the ABI on its own rather than through serde, so it is not
+    /// wrapped in `Ts<T>`. Applies to the crypto types that hand-roll `IntoWasmAbi`.
+    bare: bool,
+}
+
+impl StateBridgeField {
+    /// The type the JavaScript side of the bridge exchanges.
+    fn wire_ty(&self) -> TokenStream2 {
+        let ty = &self.ty;
+        if self.bare {
+            quote!(#ty)
+        } else {
+            quote!(::bitwarden_ffi::Ts<#ty>)
+        }
+    }
 }
 
 impl Parse for StateBridgeField {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut bare = false;
+        for attr in Attribute::parse_outer(input)? {
+            if !attr.path().is_ident("ts") {
+                return Err(syn::Error::new_spanned(attr, "expected `#[ts(skip)]`"));
+            }
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("skip") {
+                    bare = true;
+                    Ok(())
+                } else {
+                    Err(meta.error("unknown argument, expected `skip`"))
+                }
+            })?;
+        }
         let name: Ident = input.parse()?;
         input.parse::<Token![:]>()?;
         let ty: Type = input.parse()?;
         input.parse::<Token![as]>()?;
         input.parse::<state_bridge_kw::ts>()?;
         let ts: LitStr = input.parse()?;
-        Ok(Self { name, ty, ts })
+        Ok(Self { name, ty, ts, bare })
     }
 }
 
@@ -172,7 +202,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
     ts_iface.push_str("}\n");
 
     let extern_methods = fields.iter().map(|f| {
-        let ty = &f.ty;
+        let wire = f.wire_ty();
         let n = f.name.to_string();
         let set = format_ident!("set_{}", f.name);
         let get = format_ident!("get_{}", f.name);
@@ -185,7 +215,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
             #[wasm_bindgen(method)]
             pub async fn #set(
                 this: &crate::key_management::state_bridge::RawWasmStateBridge,
-                value: #ty,
+                value: #wire,
             );
             #[doc = #get_doc]
             #[wasm_bindgen(method)]
@@ -269,10 +299,23 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
         let get = format_ident!("get_{}", f.name);
         let clear = format_ident!("clear_{}", f.name);
         let get_err = format!("State bridge `get_{n}` failed to deserialize value from JsValue");
+        let set_err = format!("State bridge `set_{n}` failed to serialize value to JsValue");
+        // Conversion happens inside the thread because `Ts<T>` is a JS handle, and so `!Send`.
+        let to_wire = (!f.bare)
+            .then(|| quote!(let value = ::bitwarden_ffi::Ts::from_rust(&value).expect(#set_err);));
+        let from_wire = if f.bare {
+            quote!(<#ty as ::core::convert::TryFrom<::wasm_bindgen::JsValue>>::try_from(js)
+                .expect(#get_err))
+        } else {
+            quote!(::bitwarden_ffi::Ts::<#ty>::new_unchecked(js)
+                .to_rust()
+                .expect(#get_err))
+        };
         quote! {
             async fn #set(&self, value: #ty) {
                 self.0
                     .run_in_thread(move |state| async move {
+                        #to_wire
                         state.#set(value).await
                     })
                     .await
@@ -288,10 +331,7 @@ pub fn state_bridge(input: TokenStream) -> TokenStream {
                 if js.is_null() || js.is_undefined() {
                     None
                 } else {
-                    Some(
-                        <#ty as ::core::convert::TryFrom<::wasm_bindgen::JsValue>>::try_from(js)
-                            .expect(#get_err),
-                    )
+                    Some(#from_wire)
                 }
             }
             async fn #clear(&self) {

@@ -17,6 +17,8 @@ keywords.workspace = true
 # recorded lock state. Not enabled in any production build.
 test-support = []
 wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-ffi/wasm",
     "dep:bitwarden-encoding",
     "bitwarden-threading/wasm",
     "dep:tsify",
@@ -32,6 +34,7 @@ bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true, optional = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-ipc = { workspace = true }
 bitwarden-threading = { workspace = true }
 serde = { workspace = true }

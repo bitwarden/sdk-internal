@@ -9,7 +9,7 @@ use crate::login::{
     models::LoginResponse,
 };
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl LoginClient {
     /// Authenticates a user via email and master password.
     ///

@@ -16,12 +16,18 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi"]
-wasm = ["bitwarden-core/wasm", "dep:tsify", "dep:wasm-bindgen"]
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-ffi/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+]
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-random = { workspace = true }
 password-rules-parser = { workspace = true }
 rand = { workspace = true }

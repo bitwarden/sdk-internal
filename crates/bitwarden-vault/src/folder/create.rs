@@ -12,8 +12,6 @@ use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{Folder, FolderView, FoldersClient, VaultParseError};
@@ -22,7 +20,7 @@ use crate::{Folder, FolderView, FoldersClient, VaultParseError};
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct FolderAddEditRequest {
     /// The new name of the folder.
     pub name: String,
@@ -64,7 +62,7 @@ pub enum CreateFolderError {
     Repository(#[from] RepositoryError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl FoldersClient {
     /// Create a new [Folder] and save it to the server.
     pub async fn create(

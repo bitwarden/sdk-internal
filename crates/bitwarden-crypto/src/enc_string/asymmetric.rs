@@ -146,6 +146,9 @@ impl Display for UnsignedSharedKey {
 }
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(UnsignedSharedKey);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for UnsignedSharedKey {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

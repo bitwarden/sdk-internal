@@ -19,13 +19,13 @@ use crate::{AccessRequestId, error::LeasingError, leases::AccessLeaseView};
 /// ([`request`](AccessRequestsClient::request)), listing and reading the caller's own requests,
 /// [`activate`](AccessRequestsClient::activate)ing an approved request to mint a lease, and
 /// [`cancel`](AccessRequestsClient::cancel)ling a request that is still pending.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct AccessRequestsClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AccessRequestsClient {
     /// Resolves the approval outcome for a cipher without submitting a request, so the client can
     /// present the right workflow (pick a duration vs. pick a window and justify) before the

@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::CipherId;
 
 /// Result of checking password exposure via HIBP API.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(tag = "type", content = "value")]
 pub enum ExposedPasswordResult {
     /// Password exposure check was not performed (check_exposed was false or password was empty)
@@ -23,7 +23,7 @@ pub enum ExposedPasswordResult {
 /// Login cipher data needed for risk evaluation.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherLoginDetails {
     /// Cipher ID to identify which cipher in results.
     pub id: CipherId,
@@ -36,7 +36,7 @@ pub struct CipherLoginDetails {
 /// Password reuse map wrapper for WASM compatibility.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(transparent)]
 pub struct PasswordReuseMap {
     /// Map of passwords to their occurrence count.
@@ -60,7 +60,7 @@ impl PasswordReuseMap {
 /// Options for configuring risk computation.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct CipherRiskOptions {
     /// Pre-computed password reuse map (password → count).
@@ -80,7 +80,7 @@ pub struct CipherRiskOptions {
 /// Risk evaluation result for a single cipher.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherRiskResult {
     /// Cipher ID matching the input CipherLoginDetails.
     pub id: CipherId,

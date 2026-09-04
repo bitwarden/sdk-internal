@@ -21,6 +21,7 @@ wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-organization-crypto/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -33,6 +34,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-organization-crypto = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }

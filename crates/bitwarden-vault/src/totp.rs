@@ -14,8 +14,6 @@ use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, percent_encode};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::CipherListView;
 
@@ -47,7 +45,7 @@ pub enum TotpError {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct TotpResponse {
     /// Generated TOTP code
     pub code: String,

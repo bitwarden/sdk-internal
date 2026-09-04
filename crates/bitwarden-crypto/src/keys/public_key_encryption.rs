@@ -23,6 +23,9 @@ export type PublicKey = Tagged<string, "PublicKey">;
 "#;
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(PublicKey);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for PublicKey {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

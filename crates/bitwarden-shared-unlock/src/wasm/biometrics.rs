@@ -10,6 +10,7 @@ use std::str::FromStr;
 
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
+use bitwarden_ffi::Ts;
 use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest};
 use bitwarden_threading::{
     ThreadBoundRunner,
@@ -51,7 +52,7 @@ extern "C" {
     #[wasm_bindgen(method, catch)]
     async fn get_biometrics_status(
         this: &RawJsBiometricsDriver,
-        user_id: UserId,
+        user_id: Ts<UserId>,
     ) -> Result<JsValue, JsValue>;
 
     /// Triggers a biometric unlock flow for the given user. Returns the user's
@@ -59,13 +60,15 @@ extern "C" {
     #[wasm_bindgen(method, catch)]
     async fn unlock_biometrics(
         this: &RawJsBiometricsDriver,
-        user_id: UserId,
+        user_id: Ts<UserId>,
     ) -> Result<JsValue, JsValue>;
 
     /// Triggers a biometrics UV check. Returns true if the check succeeded.
     #[wasm_bindgen(method, catch)]
     async fn authenticate_biometrics(this: &RawJsBiometricsDriver) -> Result<JsValue, JsValue>;
 }
+
+bitwarden_ffi::impl_wire_object!(RawJsBiometricsDriver);
 
 pub(super) struct JsBiometricsUnlock {
     runner: ThreadBoundRunner<RawJsBiometricsDriver>,
@@ -79,6 +82,9 @@ impl JsBiometricsUnlock {
     pub(super) async fn get_biometrics_status(&self, user_id: UserId) -> BiometricsStatus {
         self.runner
             .run_in_thread(move |driver| async move {
+                let Ok(user_id) = Ts::from_rust(&user_id) else {
+                    return BiometricsStatus::NotEnabled;
+                };
                 let status = driver
                     .get_biometrics_status(user_id)
                     .await
@@ -93,7 +99,7 @@ impl JsBiometricsUnlock {
         self.runner
             .run_in_thread(move |driver| async move {
                 driver
-                    .unlock_biometrics(user_id)
+                    .unlock_biometrics(Ts::from_rust(&user_id).ok()?)
                     .await
                     .map(|js_value| {
                         SymmetricCryptoKey::from_str(js_value.as_string()?.as_str()).ok()
@@ -122,7 +128,7 @@ impl JsBiometricsUnlock {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 /// The current biometric capability state for a specific user on this client.
 pub enum BiometricsStatus {
     /// Biometrics is available and can be used immediately.
@@ -173,11 +179,7 @@ pub struct UnlockBiometricsRequest {
 /// RPC response for [`UnlockBiometricsRequest`]. `user_key` is `None` if the
 /// biometric prompt was canceled or otherwise failed on the responding device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct UnlockBiometricsResponse {
     /// The unlocked user's symmetric key, if the unlock succeeded.
     #[tsify(optional, type = "SymmetricKey")]
@@ -267,7 +269,7 @@ impl RpcHandler for AuthenticateBiometricsHandler {
 }
 
 /// Registers shared-unlock biometrics RPC handlers on the IPC client.
-#[wasm_bindgen(js_name = ipcRegisterBiometricsHandlers)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRegisterBiometricsHandlers)]
 pub async fn ipc_register_biometrics_handlers(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     biometrics_unlock: RawJsBiometricsDriver,
@@ -294,7 +296,7 @@ pub async fn ipc_register_biometrics_handlers(
 }
 
 /// Sends a `GetBiometricsStatus` RPC request to the desktop renderer
-#[wasm_bindgen(js_name = ipcRequestGetBiometricsStatus)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRequestGetBiometricsStatus)]
 pub async fn ipc_request_get_biometrics_status(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     user_id: UserId,
@@ -311,7 +313,7 @@ pub async fn ipc_request_get_biometrics_status(
 }
 
 /// Sends an `UnlockBiometrics` RPC request to the desktop renderer.
-#[wasm_bindgen(js_name = ipcRequestUnlockBiometrics)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRequestUnlockBiometrics)]
 pub async fn ipc_request_unlock_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     user_id: UserId,
@@ -328,7 +330,7 @@ pub async fn ipc_request_unlock_biometrics(
 }
 
 /// Sends an `AuthenticateBiometrics` RPC request to the desktop renderer.
-#[wasm_bindgen(js_name = ipcRequestAuthenticateBiometrics)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRequestAuthenticateBiometrics)]
 pub async fn ipc_request_authenticate_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     abort_signal: Option<AbortSignal>,

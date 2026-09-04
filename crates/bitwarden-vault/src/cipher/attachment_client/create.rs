@@ -7,7 +7,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::{AttachmentsClient, Cipher, CipherId, VaultParseError, cipher::cipher::PartialCipher};
 
@@ -29,7 +29,7 @@ pub enum CipherCreateAttachmentError {
 
 /// Where attachment bytes should be uploaded.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum AttachmentFileUploadType {
     /// Upload directly to the Bitwarden server.
     Direct,
@@ -57,7 +57,7 @@ impl TryFrom<bitwarden_api_api::models::FileUploadType> for AttachmentFileUpload
 /// the caller uploads. See `upgrade_attachment` for the alternative where the SDK owns the
 /// encryption and upload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct CreateAttachmentRequest {
     /// Encrypted attachment key.
@@ -92,7 +92,7 @@ impl From<CreateAttachmentRequest> for AttachmentRequestModel {
 /// Server data for a newly created attachment slot. The caller uploads the
 /// encrypted bytes to [`Self::upload_url`] using [`Self::file_upload_type`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct CreatedAttachment {
     /// Server-assigned attachment ID.
@@ -106,7 +106,7 @@ pub struct CreatedAttachment {
     pub cipher: Cipher,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Creates a new attachment slot on the server and updates local repository
     /// state with the merged cipher returned by the server.

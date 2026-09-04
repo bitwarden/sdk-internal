@@ -21,7 +21,7 @@ pub enum BulkUpdateCollectionsCipherError {
     Repository(#[from] RepositoryError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Updates collection membership for multiple [`Cipher`](crate::Cipher) objects.
     ///

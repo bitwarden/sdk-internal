@@ -6,7 +6,7 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberI
 use tracing_web::MakeWebConsoleWriter;
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub enum LogLevel {
     Trace,
     Debug,

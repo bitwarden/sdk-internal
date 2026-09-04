@@ -97,7 +97,7 @@ pub fn validate_request(
 /// IPv4-mapped IPv6 addresses (e.g. `::ffff:10.0.0.0/104`) are also rejected as ambiguous:
 /// client and server may disagree about whether such a range overlaps the equivalent native IPv4
 /// CIDR. Use the native IPv4 form (e.g. `10.0.0.0/8`) instead.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 pub fn is_valid_cidr(value: &str) -> bool {
     let Some((addr, prefix)) = value.split_once('/') else {
         return false;

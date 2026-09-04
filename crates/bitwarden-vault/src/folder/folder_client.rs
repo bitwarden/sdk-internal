@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Wrapper for folder specific functionality.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[derive(FromClient)]
 pub struct FoldersClient {
     pub(crate) key_store: KeyStore<KeySlotIds>,
@@ -20,7 +20,7 @@ pub struct FoldersClient {
     pub(crate) repository: Option<Arc<dyn Repository<Folder>>>,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[deprecated(
     note = "Use the higher level `FoldersClient` methods instead, which handle encryption and decryption for you."
 )]

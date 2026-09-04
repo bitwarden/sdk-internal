@@ -24,10 +24,12 @@ export type BitwardenClient = PasswordManagerClient;
 "#;
 
 /// The main entry point for the Bitwarden SDK in WebAssembly environments
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 
-#[wasm_bindgen]
+// Every method here hands back a `#[wasm_bindgen]` sub-client handle, so inference is off for the
+// block and the one value that does cross via serde is marked.
+#[bitwarden_ffi::wasm_export]
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     ///

@@ -146,6 +146,9 @@ export type HighEntropySecret = Tagged<string, "HighEntropySecret">;
 "#;
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(HighEntropySecret);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for HighEntropySecret {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

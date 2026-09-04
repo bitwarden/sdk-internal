@@ -4,8 +4,6 @@ use rand::{Rng, RngExt, seq::IndexedRandom};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::util::capitalize_first_letter;
 
@@ -21,7 +19,7 @@ pub enum PassphraseError {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct PassphraseGeneratorRequest {
     /// Number of words in the generated passphrase.
     /// This value must be between 3 and 20.

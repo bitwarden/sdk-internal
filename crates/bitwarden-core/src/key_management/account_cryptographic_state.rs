@@ -23,8 +23,6 @@ use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{
     MissingFieldError,
@@ -95,7 +93,7 @@ pub enum AccountKeysResponseParseError {
 /// Private keys are protected by the user key.
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[allow(clippy::large_enum_variant)]
 pub enum WrappedAccountCryptographicState {
     /// A V1 user has only a private key.

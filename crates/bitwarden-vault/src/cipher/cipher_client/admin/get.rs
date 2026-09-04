@@ -66,7 +66,7 @@ pub async fn list_org_ciphers(
     })
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Fetches and decrypts all ciphers assigned to the current user for an organization.
     pub async fn list_assigned_org_ciphers(

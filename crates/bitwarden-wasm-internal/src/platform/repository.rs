@@ -154,6 +154,8 @@ macro_rules! create_wasm_repositories {
             )+
         }
 
+        ::bitwarden_ffi::impl_wire_object!($container_name);
+
         impl $container_name {
             pub fn register_all(self, client: &bitwarden_core::platform::StateClient) {
                 $(
@@ -183,7 +185,7 @@ macro_rules! create_wasm_repositories {
                 async fn set(
                     this: &$repo_name,
                     id: String,
-                    value: $qualified_type_name,
+                    value: ::bitwarden_ffi::Ts<$qualified_type_name>,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
                 #[wasm_bindgen(method, catch, js_name = "setBulk")]
                 async fn set_bulk(
@@ -221,6 +223,8 @@ macro_rules! create_wasm_repositories {
                     id: String,
                     value: $qualified_type_name,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
+                    let value = ::bitwarden_ffi::Ts::from_rust(&value)
+                        .map_err(|e| ::wasm_bindgen::JsValue::from_str(&e.to_string()))?;
                     self.set(id, value).await
                 }
                 async fn set_bulk(

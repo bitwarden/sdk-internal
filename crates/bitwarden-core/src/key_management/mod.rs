@@ -37,8 +37,6 @@ pub use security_state::{
 #[cfg(feature = "internal")]
 mod user_decryption;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
 #[cfg(feature = "internal")]
@@ -76,7 +74,7 @@ use crate::{OrganizationId, UserId};
 /// Represents the local user data key, wrapped by user key.
 /// This key is used to encrypt local user data (e.g., password generator history).
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LocalUserDataKeyState {
     wrapped_key: EncString,

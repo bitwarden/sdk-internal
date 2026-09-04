@@ -16,7 +16,7 @@ pub enum CipherRenewFileUploadUrlError {
     MissingField(#[from] MissingFieldError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Returns a renewed upload URL for an attachment.
     /// Does not modify the attachment slot.

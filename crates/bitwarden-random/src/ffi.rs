@@ -37,10 +37,10 @@ pub enum GenRangeError {
 /// Client exposing random-number generation to cross-platform bindings.
 #[derive(Default)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct SdkRandomNumberClient;
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 impl SdkRandomNumberClient {
     /// Construct a new client.

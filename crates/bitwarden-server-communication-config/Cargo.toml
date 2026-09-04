@@ -14,6 +14,7 @@ keywords.workspace = true
 
 [features]
 wasm = [
+    "bitwarden-ffi/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -28,6 +29,7 @@ uniffi = ["dep:uniffi"]
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-threading = { workspace = true }
 http = { workspace = true }
 js-sys = { workspace = true, optional = true }

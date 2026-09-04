@@ -160,7 +160,7 @@ async fn share_ciphers_bulk(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     fn update_organization_and_collections(
         &self,

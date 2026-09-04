@@ -83,7 +83,7 @@ pub async fn restore_many_as_admin(
     })
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Restores a soft-deleted cipher on the server, using the admin endpoint.
     pub async fn restore(

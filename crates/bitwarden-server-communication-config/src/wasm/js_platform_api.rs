@@ -43,6 +43,8 @@ extern "C" {
     ) -> Result<JsValue, JsValue>;
 }
 
+bitwarden_ffi::impl_wire_object!(RawJsServerCommunicationConfigPlatformApi);
+
 /// Thread-safe JavaScript implementation of ServerCommunicationConfigPlatformApi
 ///
 /// This wrapper ensures the JavaScript platform API can be safely used across

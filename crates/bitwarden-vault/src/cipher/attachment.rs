@@ -5,8 +5,6 @@ use bitwarden_crypto::{
     OctetStreamBytes, PrimitiveEncryptable, SymmetricCryptoKey,
 };
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::Cipher;
 use crate::VaultParseError;
@@ -25,7 +23,7 @@ pub(crate) struct AttachmentMaterial {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct Attachment {
     pub id: Option<String>,
     pub url: Option<String>,
@@ -68,7 +66,7 @@ impl Attachment {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct AttachmentView {
     pub id: Option<String>,
     pub url: Option<String>,

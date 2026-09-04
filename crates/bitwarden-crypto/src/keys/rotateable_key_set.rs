@@ -19,11 +19,7 @@ use crate::{
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 pub struct RotateableKeySet {
     /// `DownstreamKey` protected by encapsulation key
     pub encapsulated_downstream_key: UnsignedSharedKey,

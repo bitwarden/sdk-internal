@@ -22,11 +22,11 @@ use wasm_bindgen::prelude::*;
 /// clients. It is not intended to be used outside of the JS clients and this pattern should not be
 /// proliferated. It is necessary because we want to use SDK crypto prior to the SDK being fully
 /// responsible for state and keys.
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub struct PureCrypto {}
 
 // Encryption
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl PureCrypto {
     /// DEPRECATED: Use `symmetric_decrypt_string` instead.
     /// Cleanup ticket: <https://bitwarden.atlassian.net/browse/PM-21247>
@@ -440,7 +440,7 @@ impl PureCrypto {
     }
 }
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 #[derive(Debug)]
 pub enum RsaError {
     Decryption,

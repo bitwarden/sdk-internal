@@ -5,7 +5,7 @@ use credential_exchange_format::{
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
-use {tsify::Tsify, wasm_bindgen::prelude::*};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherType, Login,
@@ -17,11 +17,8 @@ use crate::{
 /// Eventually the SDK itself should have this state and we get rid of this struct.
 #[derive(Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 pub struct Account {
     id: Uuid,
     email: String,

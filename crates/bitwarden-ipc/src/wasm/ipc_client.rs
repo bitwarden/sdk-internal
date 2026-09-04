@@ -20,7 +20,7 @@ use crate::{
 
 /// JavaScript wrapper around the IPC client. For more information, see the
 /// [`IpcClient`] trait documentation.
-#[wasm_bindgen(js_name = IpcClient)]
+#[bitwarden_ffi::wasm_object(js_name = IpcClient)]
 pub struct JsIpcClient {
     #[wasm_bindgen(skip)]
     /// The underlying IPC client instance. Use this to create WASM-compatible functions
@@ -32,13 +32,13 @@ pub struct JsIpcClient {
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
 /// [IpcClientSubscription](crate::IpcClientSubscription) documentation.
-#[wasm_bindgen(js_name = IpcClientSubscription)]
+#[bitwarden_ffi::wasm_object(js_name = IpcClientSubscription)]
 pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription,
 }
 
-#[bitwarden_ffi::wasm_export]
-#[wasm_bindgen(js_class = IpcClientSubscription)]
+// Exchanges `#[wasm_bindgen]` handles rather than serde DTOs, so nothing needs `Ts<T>`.
+#[bitwarden_ffi::wasm_export(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
     #[wasm_only(
         note = "Use the `subscribe` method on `IpcClient` to create a subscription instance."
@@ -53,8 +53,8 @@ impl JsIpcClientSubscription {
     }
 }
 
-#[bitwarden_ffi::wasm_export]
-#[wasm_bindgen(js_class = IpcClient)]
+// Exchanges `#[wasm_bindgen]` handles rather than serde DTOs, so nothing needs `Ts<T>`.
+#[bitwarden_ffi::wasm_export(js_class = IpcClient)]
 impl JsIpcClient {
     /// Create a new `IpcClient` instance with an in-memory session repository for saving
     /// sessions within the SDK.

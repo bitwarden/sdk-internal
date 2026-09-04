@@ -45,12 +45,12 @@ use crate::{
 };
 
 /// A client for the crypto operations.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct CryptoClient {
     pub(crate) client: crate::Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CryptoClient {
     /// Initialization method for the user crypto. Needs to be called before any other crypto
     /// operations.

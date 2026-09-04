@@ -148,7 +148,7 @@ pub async fn add_to_collections(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(

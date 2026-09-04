@@ -53,13 +53,13 @@ pub enum SendDecryptFileError {
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct SendClient {
     pub(crate) client: Client,
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Decrypt a [`Send`] into a [`SendView`].
     /// This is a temporary function to support the transition to fully using the SDK for Send logic

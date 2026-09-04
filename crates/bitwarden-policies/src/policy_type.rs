@@ -3,8 +3,6 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{MasterPasswordPolicyResponse, policies::*, policy::ErasedPolicy};
@@ -14,7 +12,7 @@ use crate::{MasterPasswordPolicyResponse, policies::*, policy::ErasedPolicy};
 /// The integer value matches the server's wire format.
 #[derive(PartialEq, Eq, Hash, Serialize_repr, Deserialize_repr, Debug, Copy, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 #[repr(u8)]
 pub enum PolicyType {
     /// Requires members to have two-step login enabled on their account.
@@ -128,7 +126,7 @@ impl PolicyType {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum PolicyDataType {
     TwoFactorAuthentication,
     MasterPassword(MasterPasswordPolicyResponse),

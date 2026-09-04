@@ -21,7 +21,7 @@ pub enum CipherDeleteAttachmentError {
     VaultParse(#[from] VaultParseError),
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Deletes an attachment from a cipher, and updates the local repository with the new
     /// cipher data returned from the API.

@@ -6,8 +6,6 @@ use bitwarden_core::OrganizationId;
 use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use uuid::Uuid;
 
 use crate::{
@@ -21,7 +19,7 @@ use crate::{
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct PolicyView {
     /// The policy's unique ID.
     pub id: Uuid,
@@ -43,7 +41,7 @@ pub struct PolicyView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct OrganizationUserPolicyContext {
     /// The organization's unique ID.
     pub id: OrganizationId,
@@ -109,7 +107,7 @@ impl<P: Policy> EnforcedPolicy<P> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct EnforcedPolicyErased {
     /// The organization this enforcement decision is for.
     pub organization_id: OrganizationId,

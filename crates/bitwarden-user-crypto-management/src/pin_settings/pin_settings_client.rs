@@ -8,7 +8,7 @@ use crate::UserCryptoManagementClient;
 
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 /// Sub-client for configuring PIN unlock behavior.
 pub struct PinSettingsClient {
     pub(crate) client: bitwarden_core::Client,
@@ -29,7 +29,7 @@ impl PinSettingsClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl PinSettingsClient {
     /// Sets or updates the account PIN and stores the corresponding unlock state.
@@ -79,7 +79,7 @@ impl PinSettingsClient {
     }
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 impl UserCryptoManagementClient {
     /// Returns the PIN settings sub-client.

@@ -21,6 +21,7 @@ uniffi = [
 ] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-organizations/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -30,6 +31,7 @@ wasm = [
 [dependencies]
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-organizations = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }

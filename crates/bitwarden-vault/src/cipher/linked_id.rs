@@ -2,13 +2,11 @@ use bitwarden_core::MissingFieldError;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
 #[serde(untagged)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum LinkedIdType {
     Login(LoginLinkedIdType),
     Card(CardLinkedIdType),
@@ -29,7 +27,7 @@ impl From<LinkedIdType> for u32 {
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum LoginLinkedIdType {
     Username = 100,
     Password = 101,
@@ -37,7 +35,7 @@ pub enum LoginLinkedIdType {
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum CardLinkedIdType {
     CardholderName = 300,
     ExpMonth = 301,
@@ -49,7 +47,7 @@ pub enum CardLinkedIdType {
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr, Debug)]
 #[repr(u16)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum IdentityLinkedIdType {
     Title = 400,
     MiddleName = 401,

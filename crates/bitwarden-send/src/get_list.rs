@@ -41,7 +41,7 @@ async fn list_sends(
     Ok(views)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Get all sends from state and decrypt them to a list of [SendView].
     pub async fn list(&self) -> Result<Vec<SendView>, GetSendError> {

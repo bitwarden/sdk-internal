@@ -67,7 +67,7 @@ async fn soft_delete_many(
     Ok(())
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Deletes the Cipher with the matching CipherId from the server, using the admin endpoint.
     /// Affects server data only, does not modify local state.

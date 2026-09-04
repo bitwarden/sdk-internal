@@ -41,6 +41,9 @@ export type SymmetricKey = Tagged<string, "SymmetricKey">;
 "#;
 
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(SymmetricCryptoKey);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for SymmetricCryptoKey {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 /// # Returns
 /// - `Ok(SshKey)` if the key was successfully generated
 /// - `Err(KeyGenerationError)` if the key could not be generated
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 pub fn generate_ssh_key(
     key_algorithm: bitwarden_ssh::generator::KeyAlgorithm,
 ) -> Result<SshKeyView, bitwarden_ssh::error::KeyGenerationError> {
@@ -29,7 +29,7 @@ pub fn generate_ssh_key(
 /// - `Err(WrongPassword)` if the password provided is incorrect
 /// - `Err(Parsing)` if the key could not be parsed
 /// - `Err(UnsupportedKeyType)` if the key type is not supported
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 pub fn import_ssh_key(
     imported_key: &str,
     password: Option<String>,

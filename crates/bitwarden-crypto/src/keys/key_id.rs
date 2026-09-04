@@ -125,6 +125,9 @@ impl<'de> Deserialize<'de> for KeyId {
 
 // Key ids cross the WASM boundary as their hex string form, mirroring the other crypto types.
 #[cfg(feature = "wasm")]
+bitwarden_ffi::impl_wire_object!(KeyId);
+
+#[cfg(feature = "wasm")]
 impl wasm_bindgen::describe::WasmDescribe for KeyId {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();

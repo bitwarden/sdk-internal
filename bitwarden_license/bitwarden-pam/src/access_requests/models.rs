@@ -12,8 +12,6 @@ use bitwarden_core::{OrganizationId, UserId, require};
 use bitwarden_vault::CipherId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use crate::{
     AccessLeaseId, AccessLeaseStatus, AccessRequestId, AccessRuleId, error::LeasingError,
@@ -28,7 +26,7 @@ use crate::{
 /// [`produced_lease_status`](AccessRequestView::produced_lease_status). `Denied`, `Canceled`, and
 /// `Expired` are terminal states in which no lease exists.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessRequestStatus {
     /// Awaiting a decision (or, on the automatic path, awaiting the server's auto-approval).
@@ -61,7 +59,7 @@ impl From<ApiAccessRequestStatus> for AccessRequestStatus {
 
 /// An approver's verdict on an access request decision.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessDecisionVerdict {
     /// The request was denied.
@@ -90,7 +88,7 @@ impl From<ApiAccessDecisionVerdict> for AccessDecisionVerdict {
 /// automatic (access-rule) decision from a human one and, for a human, carries the approver's
 /// identity.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestDecisionView {
     /// Who made the decision.
@@ -105,7 +103,7 @@ pub struct AccessRequestDecisionView {
 
 /// Who made a decision on an access request.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub enum AccessDecider {
     /// The decision was made automatically by the governing access rule; no human approval was
@@ -117,7 +115,7 @@ pub enum AccessDecider {
 
 /// The identity of a human approver, denormalized by the server.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessApprover {
     /// The approver's user id; `None` when the server omitted it.
@@ -159,7 +157,7 @@ impl TryFrom<AccessRequestDecisionResponseModel> for AccessRequestDecisionView {
 /// [`activate`](crate::AccessRequestsClient::activate)s it to mint an
 /// [`AccessLease`](crate::AccessLeaseView).
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestView {
     /// The request's unique identifier.
@@ -240,7 +238,7 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestView {
 /// [`pre_check`](crate::AccessRequestsClient::pre_check) so the client can present the right
 /// workflow before the requester commits.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "snake_case")]
 pub enum AccessApprovalMode {
     /// A request would be approved immediately - the client should let the requester pick a
@@ -265,7 +263,7 @@ impl From<ApiAccessApprovalMode> for AccessApprovalMode {
 
 /// The resolved approval outcome for a cipher, read without submitting a request.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessPreCheckView {
     /// The cipher this pre-check was resolved for.
@@ -295,7 +293,7 @@ impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
 /// pinned rule, produced-lease linkage, or denormalized requester identity, since none of those
 /// exist yet for a request that was just opened.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestSummaryView {
     /// The request's unique identifier.
@@ -341,7 +339,7 @@ impl TryFrom<AccessRequestDetailsResponseModel> for AccessRequestSummaryView {
 /// No lease is minted at submit on either path - the requester
 /// [`activate`](crate::AccessRequestsClient::activate)s the request to start the lease.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestResultView {
     /// [`Automatic`](AccessApprovalMode::Automatic) when [`request`](Self::request) was approved
@@ -371,7 +369,7 @@ impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
 /// authorizes access, a pending request awaits a decision, and an approved request awaits
 /// activation by the caller.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct CipherAccessStateView {
     /// The cipher this state was resolved for.
@@ -421,7 +419,7 @@ impl TryFrom<CipherAccessStateResponseModel> for CipherAccessStateView {
 /// [`pre_check`](crate::AccessRequestsClient::pre_check) first to know which shape the server
 /// expects.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestCreateRequest {
     /// How long the automatic path's lease should run, in seconds. None on the human path.

@@ -13,8 +13,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
@@ -51,7 +49,7 @@ pub enum EditCipherError {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherEditRequest {
     pub id: CipherId,
 
@@ -109,7 +107,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct CipherPartialEditRequest {
     pub id: CipherId,
     pub folder_id: Option<FolderId>,
@@ -257,7 +255,7 @@ async fn partial_edit_cipher<R: Repository<Cipher> + ?Sized>(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {

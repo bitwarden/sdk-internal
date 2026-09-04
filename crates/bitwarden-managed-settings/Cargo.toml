@@ -23,12 +23,14 @@ uniffi = [
 ] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
+    "bitwarden-ffi/wasm",
     "bitwarden-managed-settings-types/wasm",
     "dep:wasm-bindgen",
 ] # WASM support
 
 [dependencies]
 bitwarden-core = { workspace = true }
+bitwarden-ffi = { workspace = true }
 bitwarden-managed-settings-types = { workspace = true }
 tracing = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }

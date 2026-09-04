@@ -3,15 +3,13 @@ use bitwarden_core::{OrganizationId, require};
 use bitwarden_organization_crypto::invite::Invite;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use uuid::Uuid;
 
 use crate::InviteLinkError;
 
 /// An organization invite link as persisted by the server.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 #[serde(rename_all = "camelCase")]
 pub struct OrganizationInviteLink {
     /// Unique identifier of the invite link.

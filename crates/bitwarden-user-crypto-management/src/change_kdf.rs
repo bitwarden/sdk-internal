@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::UserCryptoManagementClient;
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl UserCryptoManagementClient {
     /// Changes the account's KDF settings, and sets them on the server.

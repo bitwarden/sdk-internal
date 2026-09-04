@@ -11,6 +11,7 @@ keywords.workspace = true
 
 [features]
 wasm = [
+    "bitwarden-ffi/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",

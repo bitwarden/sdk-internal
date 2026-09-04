@@ -8,11 +8,7 @@ use thiserror::Error;
 /// For sharded cookies (AWS ALB pattern), each shard is a separate `AcquiredCookie` with
 /// its own name including the `-{N}` suffix (e.g., `AWSELBAuthSessionCookie-0`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AcquiredCookie {
     /// Cookie name

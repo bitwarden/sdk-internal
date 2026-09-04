@@ -1,3 +1,4 @@
+use bitwarden_ffi::Ts;
 use bitwarden_threading::ThreadBoundRunner;
 use serde::{Serialize, de::DeserializeOwned};
 use tsify::serde_wasm_bindgen;
@@ -22,21 +23,28 @@ extern "C" {
 
     /// Used by the IPC framework to get a session for a specific endpoint.
     #[wasm_bindgen(catch, method, structural)]
-    pub async fn get(this: &RawJsSessionRepository, endpoint: Endpoint)
-    -> Result<JsValue, JsValue>;
+    pub async fn get(
+        this: &RawJsSessionRepository,
+        endpoint: Ts<Endpoint>,
+    ) -> Result<JsValue, JsValue>;
 
     /// Used by the IPC framework to save a session for a specific endpoint.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn save(
         this: &RawJsSessionRepository,
-        endpoint: Endpoint,
+        endpoint: Ts<Endpoint>,
         session: JsValue,
     ) -> Result<(), JsValue>;
 
     /// Used by the IPC framework to remove a session for a specific endpoint.
     #[wasm_bindgen(catch, method, structural)]
-    pub async fn remove(this: &RawJsSessionRepository, endpoint: Endpoint) -> Result<(), JsValue>;
+    pub async fn remove(
+        this: &RawJsSessionRepository,
+        endpoint: Ts<Endpoint>,
+    ) -> Result<(), JsValue>;
 }
+
+bitwarden_ffi::impl_wire_object!(RawJsSessionRepository);
 
 /// Thread safe JavaScript implementation of the `SessionRepository` trait for IPC sessions.
 pub struct JsSessionRepository(ThreadBoundRunner<RawJsSessionRepository>);
@@ -65,6 +73,7 @@ where
     async fn get(&self, endpoint: Endpoint) -> Result<Option<Session>, Self::GetError> {
         self.0
             .run_in_thread(move |repo| async move {
+                let endpoint = Ts::from_rust(&endpoint).map_err(|e| e.to_string())?;
                 let js_value = repo.get(endpoint).await.map_err(|e| format!("{e:?}"))?;
                 if js_value.is_undefined() || js_value.is_null() {
                     return Ok(None);
@@ -81,6 +90,7 @@ where
     async fn save(&self, endpoint: Endpoint, session: Session) -> Result<(), Self::SaveError> {
         self.0
             .run_in_thread(move |repo| async move {
+                let endpoint = Ts::from_rust(&endpoint).map_err(|e| e.to_string())?;
                 let js_value = serde_wasm_bindgen::to_value(&session).map_err(|e| e.to_string())?;
                 repo.save(endpoint, js_value)
                     .await
@@ -93,6 +103,7 @@ where
     async fn remove(&self, endpoint: Endpoint) -> Result<(), Self::RemoveError> {
         self.0
             .run_in_thread(move |repo| async move {
+                let endpoint = Ts::from_rust(&endpoint).map_err(|e| e.to_string())?;
                 repo.remove(endpoint).await.map_err(|e| format!("{e:?}"))
             })
             .await

@@ -36,11 +36,8 @@ pub use importers::onepassword::access as onepassword_access;
 /// dropped before submission.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 pub struct ImportOptions {
     pub organization_id: Option<OrganizationId>,
     pub target_folder: Option<ImportTargetFolder>,
@@ -54,11 +51,8 @@ pub struct ImportOptions {
 /// An existing personal folder to nest a personal import under.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 pub struct ImportTargetFolder {
     pub id: FolderId,
     pub name: String,
@@ -67,11 +61,8 @@ pub struct ImportTargetFolder {
 /// An existing organization collection to assign an org import to.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(from_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 pub struct ImportTargetCollection {
     pub id: CollectionId,
     pub name: String,
@@ -81,11 +72,8 @@ pub struct ImportTargetCollection {
 /// render its per-type result table.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 pub struct ImportSummary {
     pub ciphers: Vec<CipherTypeCount>,
     pub folders: u32,
@@ -95,11 +83,8 @@ pub struct ImportSummary {
 /// Number of imported ciphers of a given type.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(
-    feature = "wasm",
-    derive(serde::Serialize, serde::Deserialize, tsify::Tsify),
-    tsify(into_wasm_abi)
-)]
+#[bitwarden_ffi::wasm_record]
+#[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 pub struct CipherTypeCount {
     #[cfg_attr(feature = "wasm", tsify(type = "CipherType"))]
     pub r#type: VaultCipherType,

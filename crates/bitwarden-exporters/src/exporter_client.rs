@@ -10,12 +10,12 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct ExporterClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl ExporterClient {
     fn new(client: Client) -> Self {
         Self { client }

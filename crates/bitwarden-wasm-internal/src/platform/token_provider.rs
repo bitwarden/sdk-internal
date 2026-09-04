@@ -18,6 +18,8 @@ extern "C" {
     pub async fn get_access_token(this: &JsTokenProvider) -> JsValue;
 }
 
+bitwarden_ffi::impl_wire_object!(JsTokenProvider);
+
 /// Thread-bound runner for JavaScript token provider
 pub(crate) struct WasmClientManagedTokens(ThreadBoundRunner<JsTokenProvider>);
 

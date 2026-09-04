@@ -34,7 +34,7 @@ pub enum KeyIdBackfillError {
     Api,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 #[cfg_attr(feature = "uniffi", uniffi::export(async_runtime = "tokio"))]
 impl UserCryptoManagementClient {
     /// Returns whether the server is missing the id of the user's current user key.

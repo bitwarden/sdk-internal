@@ -1,6 +1,4 @@
 use bitwarden_core::{Client, ClientSettings};
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// Client for authenticating Bitwarden users.
 ///
@@ -65,7 +63,7 @@ use wasm_bindgen::prelude::*;
 /// # Ok(())
 /// # }
 /// ```
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct LoginClient {
     pub(crate) client: Client,
 }

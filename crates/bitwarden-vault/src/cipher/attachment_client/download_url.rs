@@ -24,7 +24,7 @@ pub enum CipherGetAttachmentDownloadUrlError {
     InvalidEmergencyAccessId,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl AttachmentsClient {
     /// Returns the attachment download URL.
     ///

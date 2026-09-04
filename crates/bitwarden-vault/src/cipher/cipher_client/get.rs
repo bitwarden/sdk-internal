@@ -85,7 +85,7 @@ async fn get_all_ciphers(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CiphersClient {
     /// Get all ciphers from state and decrypt them to [crate::CipherListView], returning both
     /// successes and failures. This method will not fail when some ciphers fail to decrypt,

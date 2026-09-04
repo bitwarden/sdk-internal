@@ -8,7 +8,7 @@ use crate::{
     endpoint::Endpoint,
 };
 
-#[wasm_bindgen(js_name = ipcRegisterDiscoverHandler)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRegisterDiscoverHandler)]
 /// Registers a DiscoverHandler so that the client can respond to DiscoverRequests.
 pub async fn ipc_register_discover_handler(ipc_client: &JsIpcClient, response: DiscoverResponse) {
     ipc_client
@@ -17,7 +17,7 @@ pub async fn ipc_register_discover_handler(ipc_client: &JsIpcClient, response: D
         .await;
 }
 
-#[wasm_bindgen(js_name = ipcRequestDiscover)]
+#[bitwarden_ffi::wasm_export(js_name = ipcRequestDiscover)]
 /// Sends a DiscoverRequest to the specified destination and returns the response.
 pub async fn ipc_request_discover(
     ipc_client: &JsIpcClient,

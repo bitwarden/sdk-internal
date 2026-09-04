@@ -143,7 +143,7 @@ tracing-subscriber = { version = "0.3.20", features = [
     "env-filter",
     "tracing-log",
 ] }
-tsify = { version = ">=0.5.5, <0.6", features = [
+tsify = { version = ">=0.5.7, <0.6", features = [
     "js",
 ], default-features = false }
 uniffi = "=0.32.0"

@@ -12,8 +12,6 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -55,7 +53,7 @@ pub enum EditSendError {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub enum AuthEdit {
     /// Keep the existing auth on the Send.
     Preserve,
@@ -69,7 +67,7 @@ pub enum AuthEdit {
 /// Request model for editing an existing Send.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SendEditRequest {
     /// The name of the Send.
     pub name: String,
@@ -231,7 +229,7 @@ async fn edit_send<R: Repository<Send> + ?Sized>(
     Ok(key_store.decrypt(&send)?)
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl SendClient {
     /// Edit the [Send] and save it to the server.
     pub async fn edit(

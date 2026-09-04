@@ -5,12 +5,12 @@ use wasm_bindgen::prelude::*;
 use crate::{ImportError, ImportOptions, ImportSummary, import::import_kdbx};
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub struct ImporterClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl ImporterClient {
     fn new(client: Client) -> Self {
         Self { client }
