@@ -120,10 +120,9 @@ jobs:
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*
           if-no-files-found: error
 
-  integration-tests:
-    name: Integration tests
+  build-debug:
+    name: Building @bitwarden/sdk-wasm-internal - debug profile
     runs-on: ubuntu-24.04
-    needs: build
     permissions:
       contents: read
     steps:
@@ -146,12 +145,86 @@ jobs:
         with:
           node-version: 20
           cache: "npm"
+
+      - name: Install dependencies
+        run: npm i -g binaryen
+
+      - name: Set Rust Toolchain
+        id: toolchain
+        run: |
+          RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' ../../rust-toolchain.toml)"
+          echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: NPM setup
+        run: npm ci
+        working-directory: crates/bitwarden-wasm-internal/npm
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
+          targets: wasm32-unknown-unknown
+          components: rust-src
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: wasm-debug-cargo-cache
+
+      # Debug splits the crate into many small object files and the linker skips the unreferenced
+      # ones, dropping any wasm-bindgen custom section inside them — so the generated .d.ts
+      # references types it never declares, and the generated JS glue can differ. Release hides
+      # this with codegen-units = 1. See https://github.com/wasm-bindgen/wasm-bindgen/issues/5137.
+      # Debug also enables debug-assertions and overflow-checks, which release turns off.
+      - name: Build
+        env:
+          # rust-cache sets CARGO_INCREMENTAL=0, coarsening codegen-units from 256 to 16, which
+          # hides the failure too. Restore what developers get locally.
+          CARGO_INCREMENTAL: 1
+        run: ./build.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdk-internal-debug
+          path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/npm/*
+          if-no-files-found: error
+
+  integration-tests:
+    name: Integration tests - ${{ matrix.artifact.readable }} profile
+    runs-on: ubuntu-24.04
+    needs:
+      - build
+      - build-debug
+    permissions:
+      contents: read
+    strategy:
+      # Both profiles are worth seeing independently — a debug-only failure is the interesting
+      # signal and cancelling the release run hides whether it is profile-specific.
+      fail-fast: false
+      matrix:
+        artifact:
+          - name: "sdk-internal"
+            readable: "release"
+          - name: "sdk-internal-debug"
+            readable: "debug"
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: "npm"
           cache-dependency-path: crates/bitwarden-wasm-internal/integration-tests/package-lock.json
 
       - name: Download SDK artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: sdk-internal
+          name: ${{ matrix.artifact.name }}
           path: crates/bitwarden-wasm-internal/npm
 
       - name: Install dependencies
