@@ -342,6 +342,7 @@ impl PinLockSystem<'_> {
     }
 
     /// Sets the PIN and stores the generated envelope according to the lock type.
+    #[allow(clippy::result_unit_err)]
     pub async fn set_pin(&self, pin: String, lock_type: PinLockType) -> Result<(), ()> {
         // Clear the existing configuration
         self.client
