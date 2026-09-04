@@ -35,6 +35,7 @@ import com.bitwarden.crypto.HashPurpose
 import com.bitwarden.crypto.Kdf
 import com.bitwarden.myapplication.ui.theme.MyApplicationTheme
 import com.bitwarden.sdk.Client
+import com.bitwarden.sdk.ManagedSettingsBindingClient
 import com.bitwarden.servercommunicationconfig.AcquiredCookie
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -108,7 +109,8 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         biometric = Biometric(this)
-        client = Client(Token(), null)
+        // A fresh handle has no active profile, so no setting reads as administrator-forced.
+        client = Client(Token(), null, ManagedSettingsBindingClient())
         http = httpClient()
 
         setContent {
@@ -182,7 +184,7 @@ class MainActivity : FragmentActivity() {
                         Button({
                             GlobalScope.launch {
                                 client.destroy()
-                                client = Client(Token(), null)
+                                client = Client(Token(), null, ManagedSettingsBindingClient())
                                 outputText.value = "OK"
                             }
                         }) {

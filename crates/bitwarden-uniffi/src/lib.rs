@@ -230,7 +230,7 @@ impl LogLevel {
 /// ```kotlin
 /// // Initialize with callback and trace-level logging before creating clients
 /// initLogger(FlightRecorderCallback(), LogLevel.TRACE)
-/// val client = Client(tokenProvider, settings)
+/// val client = Client(tokenProvider, settings, ManagedSettingsBindingClient())
 /// ```
 ///
 /// # Notes
