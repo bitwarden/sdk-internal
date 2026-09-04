@@ -198,53 +198,59 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
 }
 ```
 
-## Settings
+## Values
 
-This crate also provides a type-safe settings API for storing application configuration and state.
-The settings system uses type-safe keys to ensure compile-time type checking when getting and
-setting values.
+This crate also provides a type-safe API for individual named values, such as the active user or the
+last sync time. Where a repository holds a collection keyed by id, a value is a singleton the SDK
+reads and writes by itself.
 
 ### Usage
 
 ```rust
-use bitwarden_state::{register_setting_key, Setting};
+use bitwarden_state::{register_value_key, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-struct AppConfig {
+pub struct AppConfig {
     theme: String,
     auto_save: bool,
 }
 
-// Register a type-safe key
-register_setting_key!(const CONFIG: AppConfig = "app_config");
+register_value_key!(pub CONFIG: AppConfig = "app_config");
 
 struct TestClient {
-    // Access settings via bitwarden_core::Client.platform().state().setting()
-    app_config: Setting<AppConfig>,
+    // Obtained from bitwarden_core::Client.platform().state().value::<CONFIG>(),
+    // or injected with #[derive(FromClient)]
+    app_config: Value<CONFIG>,
 }
 
 async fn example(client: &TestClient) -> Result<(), Box<dyn std::error::Error>> {
-    // Get value
-    let config: Option<AppConfig> = client.app_config.get().await?;
+    // Read, erroring if the value has never been written
+    let config: AppConfig = client.app_config.get().await?;
 
-    // Update value
-    let new_config = AppConfig {
-        theme: "dark".to_string(),
-        auto_save: true,
-    };
-    client.app_config.update(new_config).await?;
+    // Read, treating absence as an expected outcome
+    let config: Option<AppConfig> = client.app_config.get_opt().await?;
 
-    // Delete setting
-    client.app_config.delete().await?;
+    client
+        .app_config
+        .set(AppConfig {
+            theme: "dark".to_string(),
+            auto_save: true,
+        })
+        .await?;
+
+    client.app_config.remove().await?;
 
     Ok(())
 }
 ```
 
-The `Key<T>` type associates a string key name with a value type at compile time, preventing type
-mismatches while maintaining ergonomic usage. The `Setting<T>` handle provides async methods to get,
-update, and delete the setting value.
+`register_value_key!` emits a marker type carrying the storage name and the value type, so
+`Value<CONFIG>` identifies exactly one value and injection with `#[derive(FromClient)]` falls out for
+free.
+
+The older `Setting<T>` handle, addressed by a `Key<T>` passed at runtime, still works and reads the
+same storage. Both spellings come from one declaration, so call sites migrate independently.
 
 ## Testing
 

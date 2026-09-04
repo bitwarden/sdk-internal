@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
-    Key, Setting, SettingItem, SettingsError,
+    Key, Setting, SettingsError, Value, ValueKey,
     registry::StateRegistryError,
     repository::{RepositoryItem, RepositoryTrait},
 };
@@ -44,30 +44,39 @@ impl StateClient {
         self.client.internal.state_registry.get()
     }
 
-    /// Get a handle to a setting by its type-safe key.
+    /// Get a handle to the value identified by `K`.
     ///
-    /// Returns a [`Setting`] handle that can be used to get, update, or delete the value.
+    /// Returns a [`Value`] handle that can be used to read, write, or remove the value.
     ///
     /// # Example
     /// ```rust
-    /// use bitwarden_state::register_setting_key;
+    /// use bitwarden_state::register_value_key;
     /// use serde::{Deserialize, Serialize};
     ///
     /// #[derive(Serialize, Deserialize)]
-    /// struct AppConfig {
+    /// pub struct AppConfig {
     ///     theme: String,
     /// }
     ///
-    /// register_setting_key!(const CONFIG: AppConfig = "app_config");
+    /// register_value_key!(CONFIG: AppConfig = "app_config");
     ///
-    /// # async fn example(client: bitwarden_core::Client) -> Result<(), bitwarden_state::SettingsError> {
-    /// let setting = client.platform().state().setting(CONFIG)?;
-    /// let value: Option<AppConfig> = setting.get().await?;
+    /// # async fn example(client: bitwarden_core::Client) -> Result<(), bitwarden_state::ValueError> {
+    /// let config = client.platform().state().value::<CONFIG>();
+    /// let value: Option<AppConfig> = config.get_opt().await?;
     /// # Ok(())
     /// # }
     /// ```
+    pub fn value<K: ValueKey>(&self) -> Value<K> {
+        self.client.internal.state_registry.value::<K>()
+    }
+
+    /// Get a handle to a setting by its type-safe key.
+    ///
+    /// Superseded by [`Self::value`]. Removed once callers have migrated.
+    ///
+    /// # Errors
+    /// This method never fails, but returns a Result for backwards compatibility.
     pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
-        let repository = self.client.internal.state_registry.get::<SettingItem>()?;
-        Ok(Setting::new(repository, key))
+        Ok(self.client.internal.state_registry.setting(key)?)
     }
 }

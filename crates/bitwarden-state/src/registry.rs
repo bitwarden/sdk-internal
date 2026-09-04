@@ -10,7 +10,7 @@ use thiserror::Error;
 use crate::{
     repository::{RepositoryItem, RepositoryMigrations, RepositoryTrait, handle::Repository},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
-    settings::{Key, Setting, SettingItem},
+    values::{Key, Setting, Value, ValueItem, ValueKey},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -58,9 +58,20 @@ impl StateRegistry {
         })
     }
 
+    /// Get a handle to the value identified by `K`.
+    pub fn value<K: ValueKey>(&self) -> Value<K> {
+        Value::new(self.backend::<ValueItem>())
+    }
+
     /// Get a handle to a setting by its type-safe key.
+    ///
+    /// Superseded by [`Self::value`], which cannot fail and identifies the value by type.
+    /// Removed once every caller has migrated.
+    ///
+    /// # Errors
+    /// This method never fails, but returns a Result for backwards compatibility.
     pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
-        Ok(Setting::new(self.backend::<SettingItem>(), key))
+        Ok(Setting::new(self.backend::<ValueItem>(), key))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
@@ -377,5 +388,82 @@ mod tests {
         // Delete and confirm gone
         setting.delete().await.unwrap();
         assert_eq!(setting.get().await.unwrap(), None::<String>);
+    }
+
+    #[tokio::test]
+    async fn test_value_on_memory_db() {
+        use crate::{register_value_key, values::ValueError};
+        register_value_key!(TEST_VALUE: String = "test_registry_value_key");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let value = registry.value::<TEST_VALUE>();
+
+        assert!(matches!(value.get().await, Err(ValueError::NotFound)));
+        assert_eq!(value.get_opt().await.unwrap(), None);
+
+        value.set("hello".to_string()).await.unwrap();
+        assert_eq!(value.get().await.unwrap(), "hello");
+        assert_eq!(value.get_opt().await.unwrap(), Some("hello".to_string()));
+
+        value.remove().await.unwrap();
+        assert!(matches!(value.get().await, Err(ValueError::NotFound)));
+    }
+
+    #[tokio::test]
+    async fn test_value_and_setting_share_storage() {
+        use crate::register_value_key;
+        register_value_key!(SHARED: String = "test_shared_key");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let setting = registry.setting(SHARED).unwrap();
+        let value = registry.value::<SHARED>();
+
+        // Both spellings address the same stored value, so call sites can migrate one at a time.
+        setting
+            .update("written-as-setting".to_string())
+            .await
+            .unwrap();
+        assert_eq!(value.get().await.unwrap(), "written-as-setting");
+
+        value.set("written-as-value".to_string()).await.unwrap();
+        assert_eq!(
+            setting.get().await.unwrap(),
+            Some("written-as-value".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_values_are_isolated_by_key() {
+        use crate::register_value_key;
+        register_value_key!(THEME: String = "test_theme_key");
+        register_value_key!(LOCALE: String = "test_locale_key");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let theme = registry.value::<THEME>();
+        let locale = registry.value::<LOCALE>();
+
+        theme.set("dark".to_string()).await.unwrap();
+        locale.set("en-US".to_string()).await.unwrap();
+
+        theme.remove().await.unwrap();
+        assert_eq!(locale.get().await.unwrap(), "en-US");
+    }
+
+    #[tokio::test]
+    async fn test_value_reports_closed_after_wipe() {
+        use crate::{register_value_key, values::ValueError};
+        register_value_key!(WIPED: String = "test_wiped_key");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let value = registry.value::<WIPED>();
+        value.set("gone".to_string()).await.unwrap();
+
+        registry.wipe().await.unwrap();
+
+        // Closed must not be reported as NotFound.
+        assert!(matches!(
+            value.get().await,
+            Err(ValueError::Repository(RepositoryError::Closed))
+        ));
     }
 }

@@ -112,6 +112,13 @@ impl<T: RepositoryItem> FromClientPart<bitwarden_state::Repository<T>> for Clien
     }
 }
 
+#[cfg(feature = "internal")]
+impl<K: bitwarden_state::ValueKey> FromClientPart<bitwarden_state::Value<K>> for Client {
+    fn get_part(&self) -> bitwarden_state::Value<K> {
+        self.platform().state().value::<K>()
+    }
+}
+
 /// Superseded by the [`bitwarden_state::Repository`] impl above. Removed once callers have
 /// migrated off `Option<Arc<dyn RepositoryTrait<T>>>` fields.
 #[cfg(feature = "internal")]
