@@ -113,4 +113,15 @@ impl CryptoClient {
     pub fn get_upgraded_user_key(&self, upgrade_token: Option<V2UpgradeToken>) -> Result<B64> {
         Ok(self.0.get_upgraded_user_key(upgrade_token)?)
     }
+
+    /// Takes a base64-encoded raw key and returns the corresponding hex-encoded key id.
+    ///
+    /// Mirrors the associated function on [`bitwarden_core::key_management::CryptoClient`],
+    /// because UniFFI does not generate static functions.
+    pub fn get_key_id_for_symmetric_key(&self, key: B64) -> Result<Option<String>> {
+        let key_id = bitwarden_core::key_management::CryptoClient::get_key_id_for_symmetric_key(
+            key.into_bytes(),
+        )?;
+        Ok(key_id.map(|id| id.iter().map(|byte| format!("{byte:02x}")).collect()))
+    }
 }
