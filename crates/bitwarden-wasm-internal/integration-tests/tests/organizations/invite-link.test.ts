@@ -276,7 +276,7 @@ describe("invite link client", () => {
       .invite_link()
       .accept_and_optionally_confirm(
         TEST_ORGANIZATION_ID,
-        link.code,
+        String(link.code),
         secret,
         COLLECTION_NAME,
         true,
