@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+    "test": "npm run typecheck && NODE_OPTIONS=--experimental-vm-modules jest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@bitwarden/sdk-internal": "file:../npm/"

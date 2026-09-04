@@ -5,9 +5,11 @@ import {
   PolicyType,
   OrganizationUserType,
   OrganizationUserStatusType,
+  OrganizationId,
   Uuid,
 } from "@bitwarden/sdk-internal";
 
+import { asOrganizationId } from "../type-assertion-helpers";
 import { makePasswordManagerClient, makeStateBridge } from "../utils";
 
 // `filter_by_type` is a pure function with no crypto or network, so the client needs no unlock.
@@ -17,8 +19,8 @@ import { makePasswordManagerClient, makeStateBridge } from "../utils";
 const uuid = (s: string) => s as unknown as Uuid;
 
 const POLICY_ID = uuid("1c4d9d5a-0000-4000-8000-000000000000");
-const ORG_A = uuid("1c4d9d5a-0000-4000-8000-00000000000a");
-const ORG_B = uuid("1c4d9d5a-0000-4000-8000-00000000000b");
+const ORG_A = asOrganizationId("1c4d9d5a-0000-4000-8000-00000000000a");
+const ORG_B = asOrganizationId("1c4d9d5a-0000-4000-8000-00000000000b");
 
 interface PolicyViewOptions {
   id?: Uuid;
@@ -28,7 +30,7 @@ interface PolicyViewOptions {
 }
 
 function policyView(
-  organizationId: Uuid,
+  organizationId: OrganizationId,
   type: PolicyType,
   options: PolicyViewOptions = {},
 ): PolicyView {
@@ -51,7 +53,10 @@ interface OrgContextOptions {
   isProviderUser?: boolean;
 }
 
-function orgContext(id: Uuid, options: OrgContextOptions = {}): OrganizationUserPolicyContext {
+function orgContext(
+  id: OrganizationId,
+  options: OrgContextOptions = {},
+): OrganizationUserPolicyContext {
   return {
     id,
     role: options.role ?? OrganizationUserType.User,
