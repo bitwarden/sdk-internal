@@ -12,10 +12,10 @@ repository.workspace = true
 license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
+# Neither is imported directly: bitwarden-organization-crypto is here to enable wasm-bindgen,
+# tsify-macros to hold the workspace version bound. See [dependencies] below.
 [package.metadata.cargo-udeps.ignore]
-normal = [
-    "bitwarden-organization-crypto",
-] # Only used to enable wasm-bindgen, not imported directly
+normal = ["bitwarden-organization-crypto", "tsify-macros"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -67,6 +67,9 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-web = { version = "0.1.3" }
 tsify = { workspace = true }
+# Not used directly. `tsify` only requires `tsify-macros ^0.5.5`, so the workspace pin
+# on it is only enforced if a member depends on it directly.
+tsify-macros = { workspace = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
