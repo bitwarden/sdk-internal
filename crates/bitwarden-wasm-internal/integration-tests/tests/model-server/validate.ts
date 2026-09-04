@@ -182,7 +182,25 @@ export async function validateLocalState(
 }
 
 /**
- * Locks and reopens the client that performed a write, without syncing.
+ * How to unlock from what a client persisted, with nothing from the server.
+ *
+ * The unlock data is read back out of the state bridge, which is the point: a method built from the
+ * server's copy would open the account no matter what the client wrote locally, and the check would
+ * pass for a client that can no longer unlock itself.
+ */
+export async function unlockMethodFromLocalState(
+  local: LocalState,
+  password: string,
+): Promise<InitUserCryptoMethod> {
+  const unlock = await local.bridge.get_masterpassword_unlock_data();
+  if (unlock === null) {
+    throw new Error("local state holds no master-password unlock data");
+  }
+  return { masterPasswordUnlock: { password, master_password_unlock: unlock } };
+}
+
+/**
+ * Locks and reopens the client that performed a write, using only what that client persisted.
  *
  * This has to run before anything that syncs, because a sync overwrites the local state it checks. A
  * write that posts a correct account but fails to persist locally is invisible to a sync-first
@@ -190,11 +208,21 @@ export async function validateLocalState(
  */
 export async function validateAfterLockUnlock(
   local: LocalState,
-  method: InitUserCryptoMethod,
+  password: string,
   expected: ExpectedVault,
   options: ValidateOptions = {},
 ): Promise<ValidationResult> {
+  const method = await unlockMethodFromLocalState(local, password);
   await local.clearEphemeral();
+
+  // The KDF the bridge holds, not the one the account was seeded with: an unlock that re-derives
+  // under the old settings would succeed against unlock data written under the new ones only by
+  // accident.
+  const kdf = await local.bridge.get_kdf_config();
+  if (kdf !== null) {
+    local.seededAccount.kdf = kdf;
+  }
+
   return await validateLocalState(local, method, expected, options);
 }
 
@@ -216,17 +244,52 @@ export async function validateAfterLogoutLogin(
   return fresh;
 }
 
-/** Compares two decrypted values after normalizing away the differences that are not real. */
+/**
+ * Compares two decrypted values after normalizing away the differences that are not real.
+ *
+ * Guards against an `ignore` list that has grown until nothing is left to compare. An assertion that
+ * excuses every field it was meant to check passes against anything, which is worse than no
+ * assertion at all because it looks like coverage.
+ */
 export function expectPlaintextEqual(
   actual: unknown,
   expected: unknown,
   label: string,
   ignore: readonly string[] = SERVER_OWNED_FIELDS,
 ): void {
+  assertSomethingLeftToCompare(expected, ignore, label);
+
   expect({ label, value: normalize(actual, ignore) }).toEqual({
     label,
     value: normalize(expected, ignore),
   });
+}
+
+/**
+ * Throws when `ignore` covers every field `expected` actually carries.
+ *
+ * Checked against the raw value rather than the normalized one, so it still holds if `normalize`
+ * itself is what went wrong.
+ */
+function assertSomethingLeftToCompare(
+  expected: unknown,
+  ignore: readonly string[],
+  label: string,
+): void {
+  if (expected === null || typeof expected !== "object" || Array.isArray(expected)) {
+    return;
+  }
+
+  const present = Object.entries(expected as Record<string, unknown>).filter(
+    ([, value]) => value !== null && value !== undefined,
+  );
+  if (present.length === 0) {
+    return;
+  }
+
+  if (present.every(([key]) => ignore.includes(key))) {
+    throw new Error(`${label}: every field present is ignored, so this comparison proves nothing`);
+  }
 }
 
 /**
