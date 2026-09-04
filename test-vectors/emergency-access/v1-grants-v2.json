@@ -1,0 +1,10 @@
+{
+  "description": "A V1 account grants emergency access to a V2 account.",
+  "granteePublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvDb29I3cRYNk2CfhnjNfP6vPFxurlKeYohbyYU8YQwpTETqoMnXlJ6oUokJcXmPD7H/9Zkwdhr1/4GkGmT2h10qY6RnMPXV+BkZ3YdvnYRhU58bcMUMBsLJDbrAiAajK03xaDfYKts1+czPdt6hvkz3IWdzGjbqzO87/GRQ86IbOCcFyXCdv+veIRtwRnaDBT7lc/qH+vh2R7Pqy0p32KmI12WXsiWkcQaXVMCGHiFE70ZyTfN527XK56IhkR+3S5Oo4E+asdSrbgPJE9C5OirbXKRCM0s6SEAVNwLu5fq6W6CkCxeDj2Rs1Dk0q2a4myJspviipV2i0PkS9zQ3eoQIDAQAB",
+  "granteeVector": "v2-argon2id-blob",
+  "grantorUserKeySealedToGrantee": "4.UWTeWeSrT6m2tkx8D+q/ho+VwvWu8T+XRLrWodztGmSPE8dR2RogS1BP610B7zxrHpaTrr1nr6+f7/qX9QTWe91JKb0i6kIJZzNtSVuQ374lhILTVNUQv5qZRtz+xUnrndTMwbx8+LONNfVz1DaYadFOHZ4zjpwbMCTq77nGvY3+riVoFm6QacuezFHEauIvtwS4P5wxhP6qbnbwQ9zmgWF+Zow7dM0eYo/5+LjAKchxlv0BU7WDVqpVyx1p/KFa5fHuq+isqS6Fo3N60QLH+9KwOfILRMC8xCLJDXQ0JyQD1syp0Lezy7TZ4/RyekJK4veqkXIUIl/nxPbQsXCf/A==",
+  "grantorVector": "v1-pbkdf2-password",
+  "id": "bc066e00-0000-4000-8000-000000000000",
+  "name": "v1-grants-v2",
+  "schemaVersion": 1
+}

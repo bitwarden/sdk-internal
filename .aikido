@@ -1,4 +1,5 @@
-# Test vectors are derived from a throwaway account, no real secrets there.
+# Committed cryptographic test vectors. They contain real private keys, master keys and passwords
+# by design, generated for tests and never used by an account that exists.
 exclude:
   paths:
-    - crates/bitwarden-importers/src/importers/onepassword/access/fixtures
+    - test-vectors

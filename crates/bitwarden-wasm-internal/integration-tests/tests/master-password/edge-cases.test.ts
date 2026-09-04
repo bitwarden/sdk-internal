@@ -8,10 +8,10 @@
 import type { Kdf } from "@bitwarden/sdk-internal";
 import { isChangeKdfError, type ChangeKdfError } from "@bitwarden/sdk-internal";
 
-import { NO_MASTER_PASSWORD_ACCOUNT } from "../fixtures/accounts";
 import { unlockMethodFor, validateAfterLockUnlock } from "../model-server/validate";
 import {
   CHANGE_KDF_ROUTE,
+  NO_MASTER_PASSWORD_ACCOUNT,
   CHANGE_KDF_TIMEOUT,
   NEW_PBKDF2,
   setupChangeKdf,
@@ -66,7 +66,7 @@ describe("change kdf", () => {
       async () => {
         // An account with no master password has no unlock data, and so nothing the change could
         // be based on.
-        harness = await setupChangeKdf({ account: NO_MASTER_PASSWORD_ACCOUNT, vault: "empty" });
+        harness = await setupChangeKdf({ account: NO_MASTER_PASSWORD_ACCOUNT });
         const { api, client, servers } = harness;
         const before = servers.requests.length;
 
