@@ -298,14 +298,19 @@ function assertSomethingLeftToCompare(
  * serde_json renders a Rust `None` as `null` while serde_wasm_bindgen renders it as `undefined`, so
  * a raw comparison fails on every optional field while proving nothing. Dropping is recursive
  * because a nested `revisionDate` is as server-owned as a top-level one.
+ *
+ * `inAttachments` scopes one exclusion. An `AttachmentView` carries `decryptedKey` — the attachment
+ * key in the clear — which a vector deliberately does not record, because a vector is committed to
+ * git. The scope matters: `decryptedKey` is also the variant tag of `InitUserCryptoMethod`, and
+ * dropping that would erase whole unlock methods.
  */
-function normalize(value: unknown, ignore: readonly string[]): unknown {
+function normalize(value: unknown, ignore: readonly string[], inAttachments = false): unknown {
   if (value === null || value === undefined) {
     return undefined;
   }
 
   if (Array.isArray(value)) {
-    return value.map((entry) => normalize(entry, ignore));
+    return value.map((entry) => normalize(entry, ignore, inAttachments));
   }
 
   if (typeof value !== "object") {
@@ -317,7 +322,14 @@ function normalize(value: unknown, ignore: readonly string[]): unknown {
     if (ignore.includes(key)) {
       continue;
     }
-    const entry = normalize((value as Record<string, unknown>)[key], ignore);
+    if (inAttachments && key === "decryptedKey") {
+      continue;
+    }
+    const entry = normalize(
+      (value as Record<string, unknown>)[key],
+      ignore,
+      inAttachments || key === "attachments",
+    );
     if (entry !== undefined) {
       normalized[key] = entry;
     }

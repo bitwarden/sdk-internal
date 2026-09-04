@@ -9,6 +9,10 @@ crates/bitwarden-uniffi/swift/*
 
 # Test fixtures
 crates/bitwarden-exporters/resources/*
+# Committed test vectors. Ignored so prettier cannot reformat them, which would change bytes that
+# the Rust and TypeScript suites both read as fixed input.
+test-vectors/*.json
+test-vectors/**/*.json
 crates/bitwarden-importers/src/importers/onepassword/access/fixtures/*
 
 # CI output
