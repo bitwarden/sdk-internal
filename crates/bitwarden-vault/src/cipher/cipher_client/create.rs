@@ -70,6 +70,7 @@ pub(crate) fn convert_request_to_cipher_view(r: CipherCreateRequest) -> CipherVi
     // merge; `Utc::now()` is a safe placeholder.
     let now = chrono::Utc::now();
     CipherView {
+        partial: false,
         id: None,
         organization_id: r.organization_id,
         folder_id: r.folder_id,
