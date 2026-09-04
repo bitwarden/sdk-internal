@@ -3,7 +3,11 @@ use std::sync::Arc;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
-use crate::repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations};
+use crate::{
+    persistent_value::PersistentValue,
+    repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations},
+    settings::{SettingItem, SettingTrait, SettingsError},
+};
 
 mod configuration;
 pub use configuration::DatabaseConfiguration;
@@ -242,10 +246,47 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
     }
 }
 
+/// Stores a single setting in the `Setting` table, keyed by `name`, as the bare serialized value.
+struct DBSetting<T> {
+    database: SystemDatabase,
+    name: &'static str,
+    _marker: std::marker::PhantomData<fn() -> T>,
+}
+
+#[async_trait::async_trait]
+impl<T: PersistentValue> SettingTrait<T> for DBSetting<T> {
+    async fn get(&self) -> Result<Option<T>, SettingsError> {
+        match self.database.get::<SettingItem>(self.name).await? {
+            Some(item) => Ok(Some(serde_json::from_value::<T>(item.0)?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn set(&self, value: T) -> Result<(), SettingsError> {
+        let item = SettingItem(serde_json::to_value(&value)?);
+        Ok(self.database.set::<SettingItem>(self.name, item).await?)
+    }
+
+    async fn remove(&self) -> Result<(), SettingsError> {
+        Ok(self.database.remove::<SettingItem>(self.name).await?)
+    }
+}
+
 impl SystemDatabase {
     pub(super) fn get_repository<V: RepositoryItem>(&self) -> Arc<dyn Repository<V>> {
         Arc::new(DBRepository {
             database: self.clone(),
+            _marker: std::marker::PhantomData,
+        })
+    }
+
+    pub(super) fn get_setting<T: PersistentValue>(
+        &self,
+        name: &'static str,
+    ) -> Arc<dyn SettingTrait<T>> {
+        Arc::new(DBSetting {
+            database: self.clone(),
+            name,
             _marker: std::marker::PhantomData,
         })
     }

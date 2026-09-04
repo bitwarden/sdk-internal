@@ -323,17 +323,13 @@ mod tests {
 
     /// Helper to create a SyncClient with a state-backed last_sync setting.
     ///
-    /// If `stored_last_sync` is `Some`, it is written into the in-memory repository so
+    /// If `stored_last_sync` is `Some`, it is written into the in-memory setting so
     /// that subsequent calls to `needs_sync` see it.
     async fn test_client_with_last_sync(
         api_client: bitwarden_api_api::apis::ApiClient,
         stored_last_sync: Option<DateTime<Utc>>,
     ) -> SyncClient {
-        let repo: Arc<dyn bitwarden_state::repository::Repository<bitwarden_state::SettingItem>> =
-            Arc::new(bitwarden_test::MemoryRepository::<
-                bitwarden_state::SettingItem,
-            >::default());
-        let setting = bitwarden_state::Setting::new(repo, crate::state::LAST_SYNC);
+        let setting = bitwarden_test::MemorySetting::create();
         if let Some(dt) = stored_last_sync {
             setting.update(dt).await.expect("pre-populate last_sync");
         }
@@ -614,11 +610,7 @@ mod tests {
         let error_log_clone = error_log.clone();
 
         // Build Setting manually so we can inspect it after sync.
-        let repo: Arc<dyn bitwarden_state::repository::Repository<bitwarden_state::SettingItem>> =
-            Arc::new(bitwarden_test::MemoryRepository::<
-                bitwarden_state::SettingItem,
-            >::default());
-        let setting = bitwarden_state::Setting::new(repo, crate::state::LAST_SYNC);
+        let setting = bitwarden_test::MemorySetting::create();
         setting
             .update(stored_last_sync)
             .await

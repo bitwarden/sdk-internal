@@ -1,8 +1,6 @@
 use std::{any::TypeId, sync::Arc};
 
-use serde::{Serialize, de::DeserializeOwned};
-
-use crate::registry::StateRegistryError;
+use crate::{persistent_value::PersistentValue, registry::StateRegistryError};
 
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
@@ -72,9 +70,9 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
 /// It should not be implemented manually; instead, users should
 /// use the [crate::register_repository_item] macro to register their item types.
 ///
-/// All repository items must implement `Serialize` and `DeserializeOwned` to support
-/// SDK-managed repositories that persist items to storage.
-pub trait RepositoryItem: Internal + Serialize + DeserializeOwned + Send + Sync + 'static {
+/// All repository items must be a [`PersistentValue`] to support SDK-managed repositories
+/// that persist items to storage.
+pub trait RepositoryItem: Internal + PersistentValue {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
 

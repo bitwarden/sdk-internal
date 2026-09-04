@@ -5,13 +5,11 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::Key;
 use crate::{
-    registry::StateRegistryError,
-    repository::{Repository, RepositoryError},
+    persistent_value::PersistentValue, registry::StateRegistryError, sdk_managed::DatabaseError,
 };
 
-/// Internal setting value stored in the settings repository.
+/// Internal setting value as stored in the SDK-managed database.
 ///
 /// This type wraps a JSON value for flexible storage. Users should not work with
 /// this type directly - use the [`Setting<T>`] handle via `StateClient::setting()` instead,
@@ -20,8 +18,15 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SettingItem(pub(crate) serde_json::Value);
 
-// Register SettingItem for repository usage
 crate::register_repository_item!(String => SettingItem, "Setting");
+
+#[doc(hidden)]
+#[async_trait::async_trait]
+pub trait SettingTrait<T: PersistentValue>: Send + Sync {
+    async fn get(&self) -> Result<Option<T>, SettingsError>;
+    async fn set(&self, value: T) -> Result<(), SettingsError>;
+    async fn remove(&self) -> Result<(), SettingsError>;
+}
 
 /// A handle to a single setting value in storage.
 ///
@@ -46,15 +51,16 @@ crate::register_repository_item!(String => SettingItem, "Setting");
 /// setting.delete().await?;
 /// ```
 #[derive(Clone)]
-pub struct Setting<T> {
-    repository: Arc<dyn Repository<SettingItem>>,
-    key: Key<T>,
+pub struct Setting<T: PersistentValue> {
+    backend: Arc<dyn SettingTrait<T>>,
 }
 
-impl<T> Setting<T> {
-    /// Create a new setting handle from a repository and key.
-    pub fn new(repository: Arc<dyn Repository<SettingItem>>, key: Key<T>) -> Self {
-        Self { repository, key }
+impl<T: PersistentValue> Setting<T> {
+    /// Create a new setting handle from a backend.
+    ///
+    /// The backend is already bound to a single key, so it decides where the value is stored.
+    pub fn new(backend: Arc<dyn SettingTrait<T>>) -> Self {
+        Self { backend }
     }
 
     /// Get the current value of this setting.
@@ -67,34 +73,18 @@ impl<T> Setting<T> {
     /// - Schema evolution problems (type definition changed)
     /// - Data corruption
     /// - Type mismatch (wrong `Key<T>` type for stored data)
-    pub async fn get(&self) -> Result<Option<T>, SettingsError>
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        match self.repository.get(self.key.name.to_string()).await? {
-            Some(item) => Ok(Some(serde_json::from_value::<T>(item.0)?)),
-            None => Ok(None),
-        }
+    pub async fn get(&self) -> Result<Option<T>, SettingsError> {
+        self.backend.get().await
     }
 
     /// Update (or create) this setting with a new value.
-    pub async fn update(&self, value: T) -> Result<(), SettingsError>
-    where
-        T: Serialize,
-    {
-        let json_value = serde_json::to_value(&value)?;
-        let item = SettingItem(json_value);
-
-        self.repository.set(self.key.name.to_string(), item).await?;
-
-        Ok(())
+    pub async fn update(&self, value: T) -> Result<(), SettingsError> {
+        self.backend.set(value).await
     }
 
     /// Delete this setting from storage.
     pub async fn delete(&self) -> Result<(), SettingsError> {
-        self.repository.remove(self.key.name.to_string()).await?;
-
-        Ok(())
+        self.backend.remove().await
     }
 }
 
@@ -104,9 +94,9 @@ pub enum SettingsError {
     /// Failed to serialize/deserialize setting value
     #[error("Failed to serialize/deserialize setting: {0}")]
     Json(#[from] serde_json::Error),
-    /// Repository operation failed
+    /// Database operation failed
     #[error(transparent)]
-    Repository(#[from] RepositoryError),
+    Database(#[from] DatabaseError),
     /// State registry operation failed
     #[error(transparent)]
     Registry(#[from] StateRegistryError),
