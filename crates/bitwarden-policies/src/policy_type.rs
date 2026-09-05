@@ -115,6 +115,46 @@ impl PolicyType {
     }
 }
 
+impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
+    type Error = crate::models::PolicyParseError;
+
+    /// Converts the server's wire policy type into the domain [`PolicyType`].
+    ///
+    /// Maps each variant explicitly. An unrecognised value (the API's
+    /// forward-compat `__Unknown` variant) is rejected rather than silently mapped.
+    fn try_from(value: bitwarden_api_api::models::PolicyType) -> Result<Self, Self::Error> {
+        use bitwarden_api_api::models::PolicyType as Api;
+        Ok(match value {
+            Api::TwoFactorAuthentication => PolicyType::TwoFactorAuthentication,
+            Api::MasterPassword => PolicyType::MasterPassword,
+            Api::PasswordGenerator => PolicyType::PasswordGenerator,
+            Api::SingleOrg => PolicyType::SingleOrg,
+            Api::RequireSso => PolicyType::RequireSso,
+            Api::OrganizationDataOwnership => PolicyType::OrganizationDataOwnership,
+            Api::DisableSend => PolicyType::DisableSend,
+            Api::SendOptions => PolicyType::SendOptions,
+            Api::ResetPassword => PolicyType::ResetPassword,
+            Api::MaximumVaultTimeout => PolicyType::MaximumVaultTimeout,
+            Api::DisablePersonalVaultExport => PolicyType::DisablePersonalVaultExport,
+            Api::ActivateAutofill => PolicyType::ActivateAutofill,
+            Api::AutomaticAppLogIn => PolicyType::AutomaticAppLogIn,
+            Api::FreeFamiliesSponsorshipPolicy => PolicyType::FreeFamiliesSponsorship,
+            Api::RemoveUnlockWithPin => PolicyType::RemoveUnlockWithPin,
+            Api::RestrictedItemTypesPolicy => PolicyType::RestrictedItemTypes,
+            Api::UriMatchDefaults => PolicyType::UriMatchDefaults,
+            Api::AutotypeDefaultSetting => PolicyType::AutotypeDefaultSetting,
+            Api::AutomaticUserConfirmation => PolicyType::AutomaticUserConfirmation,
+            Api::BlockClaimedDomainAccountCreation => PolicyType::BlockClaimedDomainAccountCreation,
+            Api::OrganizationUserNotification => PolicyType::OrganizationUserNotification,
+            Api::SendControls => PolicyType::SendControls,
+            Api::FillAssist => PolicyType::FillAssist,
+            Api::__Unknown(value) => {
+                return Err(crate::models::PolicyParseError::UnknownPolicyType(value));
+            }
+        })
+    }
+}
+
 /// Type-erased policy type + data for crossing the FFI boundary.
 ///
 /// Each variant carries the strongly-typed data for one policy, mirroring the
