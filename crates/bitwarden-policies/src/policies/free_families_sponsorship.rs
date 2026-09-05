@@ -1,11 +1,11 @@
 use bitwarden_organizations::OrganizationUserType;
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Free Families Sponsorship policy.
 pub struct FreeFamiliesSponsorshipPolicy;
 
-impl Policy for FreeFamiliesSponsorshipPolicy {
+impl PolicyDefinition for FreeFamiliesSponsorshipPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {
