@@ -4,38 +4,11 @@ use std::{any::TypeId, collections::HashMap};
 
 use bitwarden_core::OrganizationId;
 use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
-use uuid::Uuid;
 
-use crate::{
-    Policy,
-    policy_type::{PolicyDataType, PolicyType},
-};
-
-/// An organization policy in the raw data format that is sent over the FFI.
-///
-/// TODO: this is misnamed, but changing it is a breaking change.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct PolicyView {
-    /// The policy's unique ID.
-    pub id: Uuid,
-    /// The organization this policy belongs to.
-    pub organization_id: OrganizationId,
-    /// The type of policy.
-    pub r#type: PolicyType,
-    /// The policy's additional configuration data as a JSON string, if any.
-    pub data: Option<String>,
-    /// Whether the policy is enabled.
-    pub enabled: bool,
-    /// When the policy was last modified.
-    pub revision_date: Option<DateTime<Utc>>,
-}
+use crate::{Policy, PolicyView, policy_type::PolicyDataType};
 
 /// A minimal set of data for a user in an organization. This provides
 /// the context needed to evaluate the policies that are applied to the
