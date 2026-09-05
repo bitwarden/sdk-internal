@@ -209,10 +209,11 @@ impl<P: Policy> ErasedPolicy for P {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::OrganizationId;
-    use uuid::Uuid;
 
     use super::*;
-    use crate::{MasterPasswordPolicy, MasterPasswordPolicyData, policy_type::PolicyDataType};
+    use crate::{
+        MasterPasswordPolicy, MasterPasswordPolicyData, PolicyId, policy_type::PolicyDataType,
+    };
 
     /// A minimal policy with no data, used to exercise the enforcement gates
     /// independently of any real policy's configuration. Overrides mirror the
@@ -251,7 +252,7 @@ mod tests {
         enabled: bool,
     ) -> PolicyView {
         PolicyView {
-            id: Uuid::new_v4(),
+            id: PolicyId::new_v4(),
             organization_id,
             r#type: policy_type,
             data: None,
@@ -420,7 +421,7 @@ mod tests {
 
         fn mp_view(org: OrganizationId, data: Option<&str>) -> PolicyView {
             PolicyView {
-                id: Uuid::new_v4(),
+                id: PolicyId::new_v4(),
                 organization_id: org,
                 r#type: PolicyType::MasterPassword,
                 data: data.map(str::to_owned),
@@ -478,7 +479,7 @@ mod tests {
 
         fn typed_view(org: OrganizationId, policy_type: PolicyType, data: &str) -> PolicyView {
             PolicyView {
-                id: Uuid::new_v4(),
+                id: PolicyId::new_v4(),
                 organization_id: org,
                 r#type: policy_type,
                 data: Some(data.to_owned()),

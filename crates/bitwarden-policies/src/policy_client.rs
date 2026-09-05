@@ -157,10 +157,11 @@ impl PoliciesClientExt for Client {
 #[cfg(test)]
 mod tests {
     use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
-    use uuid::Uuid;
 
     use super::*;
-    use crate::{MasterPasswordPolicy, MasterPasswordPolicyData, policy_type::PolicyDataType};
+    use crate::{
+        MasterPasswordPolicy, MasterPasswordPolicyData, PolicyId, policy_type::PolicyDataType,
+    };
 
     fn policy_view(
         organization_id: OrganizationId,
@@ -168,7 +169,7 @@ mod tests {
         data: Option<&str>,
     ) -> PolicyView {
         PolicyView {
-            id: Uuid::new_v4(),
+            id: PolicyId::new_v4(),
             organization_id,
             r#type: policy_type,
             data: data.map(str::to_owned),
