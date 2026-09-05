@@ -2,6 +2,7 @@ use std::sync::Mutex;
 
 use bitwarden_core::Client;
 use bitwarden_crypto::CryptoError;
+use bitwarden_error::bitwarden_error;
 use bitwarden_vault::{CipherError, CipherView, EncryptError, VaultClientExt};
 use itertools::Itertools;
 use passkey::{
@@ -36,7 +37,7 @@ pub enum GetSelectedCredentialError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+#[bitwarden_error(flat)]
 pub enum MakeCredentialError {
     #[error(transparent)]
     PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
@@ -44,13 +45,15 @@ pub enum MakeCredentialError {
     UnknownEnum(#[from] UnknownEnumError),
     #[error("Missing attested_credential_data")]
     MissingAttestedCredentialData,
+    #[error("The created credential's public key algorithm is not supported")]
+    UnsupportedPublicKeyAlgorithm,
     #[error("make_credential error: {0}")]
     Other(String),
 }
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+#[bitwarden_error(flat)]
 pub enum GetAssertionError {
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnumError),
@@ -66,7 +69,7 @@ pub enum GetAssertionError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+#[bitwarden_error(flat)]
 pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
     Cipher(#[from] CipherError),
@@ -80,7 +83,7 @@ pub enum SilentlyDiscoverCredentialsError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
+#[bitwarden_error(flat)]
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
     Cipher(#[from] CipherError),
@@ -180,6 +183,9 @@ impl<'a> Fido2Authenticator<'a> {
             .attested_credential_data
             .ok_or(MakeCredentialError::MissingAttestedCredentialData)?;
         let credential_id = attested_credential_data.credential_id().to_vec();
+        let (public_key, public_key_algorithm) =
+            public_key_der_and_algorithm(&attested_credential_data.key)
+                .ok_or(MakeCredentialError::UnsupportedPublicKeyAlgorithm)?;
         let extensions = response.unsigned_extension_outputs.into();
 
         Ok(MakeCredentialResult {
@@ -187,6 +193,8 @@ impl<'a> Fido2Authenticator<'a> {
             attestation_object,
             credential_id,
             extensions,
+            public_key,
+            public_key_algorithm,
         })
     }
 
@@ -698,10 +706,21 @@ mod tests {
         CheckUserOptions, CheckUserResult, Fido2CallbackError, Fido2CredentialStore,
         Fido2UserInterface, GetAssertionExtensionsInput, GetAssertionPrfInput, PrfInputValues,
         guid_bytes_to_string,
-        types::{GetAssertionRequest, Options, UV},
+        types::{
+            GetAssertionRequest, MakeCredentialRequest, Options, PublicKeyCredentialParameters,
+            PublicKeyCredentialRpEntity, PublicKeyCredentialUserEntity, UV,
+        },
     };
 
-    struct MockUserInterface;
+    /// The only algorithm this authenticator creates keys for.
+    const ES256_ALGORITHM: i64 = -7;
+
+    /// Approves everything it is asked. `new_credential_cipher` is the cipher the creation path
+    /// hands back, and is only set by tests that call `make_credential`.
+    #[derive(Default)]
+    struct MockUserInterface {
+        new_credential_cipher: Option<CipherView>,
+    }
 
     #[async_trait]
     impl Fido2UserInterface for MockUserInterface {
@@ -731,7 +750,18 @@ mod tests {
             _options: CheckUserOptions,
             _new_credential: Fido2CredentialNewView,
         ) -> Result<(CipherView, CheckUserResult), Fido2CallbackError> {
-            unimplemented!("not needed for this test")
+            let cipher = self
+                .new_credential_cipher
+                .clone()
+                .expect("this test does not create credentials");
+
+            Ok((
+                cipher,
+                CheckUserResult {
+                    user_present: true,
+                    user_verified: true,
+                },
+            ))
         }
 
         fn is_verification_enabled(&self) -> bool {
@@ -850,9 +880,16 @@ mod tests {
     /// authenticator, we have disabled the configuration.
     /// When we implement PRF, this test should be updated to test that PRF _is_
     /// evaluated when PRF extension input is received.
-    #[tokio::test]
-    async fn test_prf_is_not_evaluated() {
+    async fn create_test_client() -> Client {
         let client = Client::new(None);
+
+        // `save_credential` encrypts through `client.vault().ciphers()`, which needs a user id.
+        client
+            .internal
+            .init_user_id("11111111-1111-1111-1111-111111111111".parse().unwrap())
+            .await
+            .unwrap();
+
         let user_key: SymmetricCryptoKey =
             "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q=="
                 .to_string()
@@ -867,12 +904,19 @@ mod tests {
             .set_symmetric_key(SymmetricKeySlotId::User, user_key)
             .unwrap();
 
+        client
+    }
+
+    #[tokio::test]
+    async fn test_prf_is_not_evaluated() {
+        let client = create_test_client().await;
+
         let cipher = {
             let mut ctx = client.internal.get_key_store().context();
             create_test_cipher(&mut ctx)
         };
 
-        let user_interface = MockUserInterface;
+        let user_interface = MockUserInterface::default();
         let credential_store = MockCredentialStore { cipher };
         let mut authenticator =
             Fido2Authenticator::new(&client, &user_interface, &credential_store);
@@ -905,5 +949,66 @@ mod tests {
             result.extensions.prf.is_none(),
             "PRF should not be evaluated"
         );
+    }
+
+    /// `public_key` and `public_key_algorithm` exist so that callers of this CTAP-level operation
+    /// can build a WebAuthn `AuthenticatorAttestationResponse` without parsing the attestation
+    /// object themselves. The DER is parsed back into a P-256 point here, so the test fails if the
+    /// encoding is ever anything other than what `getPublicKey()` is specified to return.
+    #[tokio::test]
+    async fn test_make_credential_returns_the_public_key() {
+        use p256::pkcs8::DecodePublicKey;
+
+        let client = create_test_client().await;
+
+        // The creation path is handed a cipher with no passkey on it yet; the authenticator adds
+        // one and saves it back.
+        let cipher = {
+            let mut ctx = client.internal.get_key_store().context();
+            let mut cipher = create_test_cipher(&mut ctx);
+            cipher
+                .login
+                .as_mut()
+                .expect("the test cipher is a login")
+                .fido2_credentials = None;
+            cipher
+        };
+
+        let user_interface = MockUserInterface {
+            new_credential_cipher: Some(cipher.clone()),
+        };
+        let credential_store = MockCredentialStore { cipher };
+        let mut authenticator =
+            Fido2Authenticator::new(&client, &user_interface, &credential_store);
+
+        let result = authenticator
+            .make_credential(MakeCredentialRequest {
+                client_data_hash: vec![0u8; 32],
+                rp: PublicKeyCredentialRpEntity {
+                    id: TEST_FIDO_RP_ID.to_string(),
+                    name: Some("Example".to_string()),
+                },
+                user: PublicKeyCredentialUserEntity {
+                    id: vec![1, 2, 3, 4],
+                    display_name: "Test User".to_string(),
+                    name: "test@example.com".to_string(),
+                },
+                pub_key_cred_params: vec![PublicKeyCredentialParameters {
+                    ty: "public-key".to_string(),
+                    alg: ES256_ALGORITHM,
+                }],
+                exclude_list: None,
+                options: Options {
+                    rk: true,
+                    uv: UV::Required,
+                },
+                extensions: None,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(ES256_ALGORITHM, result.public_key_algorithm);
+        p256::PublicKey::from_public_key_der(&result.public_key)
+            .expect("the public key should be a parseable SPKI-encoded P-256 key");
     }
 }

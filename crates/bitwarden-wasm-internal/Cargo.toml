@@ -39,6 +39,7 @@ bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-crypto-sync-handler = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
+bitwarden-fido = { workspace = true, features = ["wasm"] }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-logging = { workspace = true, features = ["wasm"] }
 bitwarden-managed-settings = { workspace = true, features = ["wasm"] }
