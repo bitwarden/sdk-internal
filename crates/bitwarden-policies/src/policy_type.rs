@@ -116,7 +116,7 @@ impl PolicyType {
 }
 
 impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
-    type Error = crate::models::PolicyParseError;
+    type Error = crate::PolicyParseError;
 
     /// Converts the server's wire policy type into the domain [`PolicyType`].
     ///
@@ -149,7 +149,7 @@ impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
             Api::SendControls => PolicyType::SendControls,
             Api::FillAssist => PolicyType::FillAssist,
             Api::__Unknown(value) => {
-                return Err(crate::models::PolicyParseError::UnknownPolicyType(value));
+                return Err(crate::PolicyParseError::UnknownPolicyType(value));
             }
         })
     }
