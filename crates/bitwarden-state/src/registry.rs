@@ -18,6 +18,95 @@ use crate::{
 pub struct StateRegistry {
     database: SystemDatabase,
     client_managed: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+    /// Dev-only: per-type get/set/list shims, keyed by `TypeId`. Populated at
+    /// registration (both client-managed and SDK-managed) where the concrete
+    /// type is known, so the generic debug surface can address any registered
+    /// repository by its string name and key.
+    #[cfg(feature = "debug-capabilities")]
+    debug_repos: RwLock<HashMap<TypeId, DebugRepo>>,
+}
+
+/// A future borrowing the registry, boxed so it can cross a fn pointer.
+#[cfg(feature = "debug-capabilities")]
+type DebugFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a>>;
+/// Shim: list a repository's values as JSON.
+#[cfg(feature = "debug-capabilities")]
+type DebugListFn = for<'a> fn(&'a StateRegistry) -> DebugFuture<'a, Vec<serde_json::Value>>;
+/// Shim: read one item by string key as JSON.
+#[cfg(feature = "debug-capabilities")]
+type DebugGetFn =
+    for<'a> fn(&'a StateRegistry, &'a str) -> DebugFuture<'a, Option<serde_json::Value>>;
+/// Shim: write one item by string key.
+#[cfg(feature = "debug-capabilities")]
+type DebugSetFn = for<'a> fn(&'a StateRegistry, &'a str, serde_json::Value) -> DebugFuture<'a, ()>;
+
+/// Dev-only monomorphized get/set/list shims for one repository type, so the
+/// registry can offer generic string-addressed access without naming the type.
+#[cfg(feature = "debug-capabilities")]
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct DebugRepo {
+    name: &'static str,
+    list: DebugListFn,
+    get: DebugGetFn,
+    set: DebugSetFn,
+}
+
+#[cfg(feature = "debug-capabilities")]
+impl DebugRepo {
+    /// Capture the shims for a concrete repository type.
+    pub(crate) fn for_type<T: RepositoryItem>() -> Self {
+        Self {
+            name: T::NAME,
+            list: |registry| Box::pin(debug_list_repo::<T>(registry)),
+            get: |registry, key| Box::pin(debug_get_repo::<T>(registry, key)),
+            set: |registry, key, value| Box::pin(debug_set_repo::<T>(registry, key, value)),
+        }
+    }
+}
+
+/// List every item in the `T` repository (client- or SDK-managed) as JSON.
+#[cfg(feature = "debug-capabilities")]
+async fn debug_list_repo<T: RepositoryItem>(registry: &StateRegistry) -> Vec<serde_json::Value> {
+    let Ok(repository) = registry.get::<T>() else {
+        return Vec::new();
+    };
+    match repository.list().await {
+        Ok(items) => items
+            .iter()
+            .filter_map(|item| serde_json::to_value(item).ok())
+            .collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Read one item from the `T` repository by its string key, as JSON.
+#[cfg(feature = "debug-capabilities")]
+async fn debug_get_repo<T: RepositoryItem>(
+    registry: &StateRegistry,
+    key: &str,
+) -> Option<serde_json::Value> {
+    let key = <T::Key as std::str::FromStr>::from_str(key).ok()?;
+    let value = registry.get::<T>().ok()?.get(key).await.ok().flatten()?;
+    serde_json::to_value(&value).ok()
+}
+
+/// Write one item to the `T` repository at its string key. No-ops on a bad key
+/// or a value that does not deserialize to `T`.
+#[cfg(feature = "debug-capabilities")]
+async fn debug_set_repo<T: RepositoryItem>(
+    registry: &StateRegistry,
+    key: &str,
+    value: serde_json::Value,
+) {
+    let Ok(key) = <T::Key as std::str::FromStr>::from_str(key) else {
+        return;
+    };
+    let Ok(value) = serde_json::from_value::<T>(value) else {
+        return;
+    };
+    if let Ok(repository) = registry.get::<T>() {
+        let _ = repository.set(key, value).await;
+    }
 }
 
 impl std::fmt::Debug for StateRegistry {
@@ -43,6 +132,8 @@ impl StateRegistry {
         StateRegistry {
             database: SystemDatabase::Memory(MemoryDatabase::new()),
             client_managed: RwLock::new(HashMap::new()),
+            #[cfg(feature = "debug-capabilities")]
+            debug_repos: RwLock::new(HashMap::new()),
         }
     }
 
@@ -52,10 +143,25 @@ impl StateRegistry {
         migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
         let database = SystemDatabase::initialize(configuration, migrations.clone()).await?;
-        Ok(StateRegistry {
+        let registry = StateRegistry {
             database,
             client_managed: RwLock::new(HashMap::new()),
-        })
+            #[cfg(feature = "debug-capabilities")]
+            debug_repos: RwLock::new(HashMap::new()),
+        };
+        // Register get/set/list shims for every SDK-managed type declared in the
+        // migrations, so the debug surface can enumerate and address them.
+        #[cfg(feature = "debug-capabilities")]
+        {
+            let mut debug_repos = registry
+                .debug_repos
+                .write()
+                .expect("RwLock should not be poisoned");
+            for item in migrations.into_repository_items() {
+                debug_repos.insert(item.type_id(), item.debug);
+            }
+        }
+        Ok(registry)
     }
 
     /// Get a handle to a setting by its type-safe key.
@@ -70,6 +176,60 @@ impl StateRegistry {
             .write()
             .expect("RwLock should not be poisoned")
             .insert(TypeId::of::<T>(), Box::new(value));
+        // Register get/set/list shims for this client-managed type.
+        #[cfg(feature = "debug-capabilities")]
+        self.debug_repos
+            .write()
+            .expect("RwLock should not be poisoned")
+            .insert(TypeId::of::<T>(), DebugRepo::for_type::<T>());
+    }
+
+    /// Dev-only: names of every registered repository (client- and SDK-managed).
+    #[cfg(feature = "debug-capabilities")]
+    pub fn debug_types(&self) -> Vec<String> {
+        self.debug_repos
+            .read()
+            .expect("RwLock should not be poisoned")
+            .values()
+            .map(|repo| repo.name.to_string())
+            .collect()
+    }
+
+    /// Dev-only: list a repository's values as JSON, addressed by type name.
+    /// Values only — the repository API lists values without their keys.
+    #[cfg(feature = "debug-capabilities")]
+    pub async fn debug_list(&self, type_name: &str) -> Vec<serde_json::Value> {
+        match self.debug_repo_named(type_name) {
+            Some(repo) => (repo.list)(self).await,
+            None => Vec::new(),
+        }
+    }
+
+    /// Dev-only: read one item by type name and string key, as JSON.
+    #[cfg(feature = "debug-capabilities")]
+    pub async fn debug_get(&self, type_name: &str, key: &str) -> Option<serde_json::Value> {
+        let repo = self.debug_repo_named(type_name)?;
+        (repo.get)(self, key).await
+    }
+
+    /// Dev-only: write one item by type name and string key. No-ops on an
+    /// unknown type, a bad key, or a value that does not deserialize.
+    #[cfg(feature = "debug-capabilities")]
+    pub async fn debug_set(&self, type_name: &str, key: &str, value: serde_json::Value) {
+        if let Some(repo) = self.debug_repo_named(type_name) {
+            (repo.set)(self, key, value).await;
+        }
+    }
+
+    /// Look up the (copyable) shim set for a repository by its type name.
+    #[cfg(feature = "debug-capabilities")]
+    fn debug_repo_named(&self, type_name: &str) -> Option<DebugRepo> {
+        self.debug_repos
+            .read()
+            .expect("RwLock should not be poisoned")
+            .values()
+            .find(|repo| repo.name == type_name)
+            .copied()
     }
 
     /// Retrieves a client-managed repository from the map given its type.

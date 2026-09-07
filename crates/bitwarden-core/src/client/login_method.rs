@@ -19,6 +19,11 @@ pub enum LoginMethod {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub enum UserLoginMethod {
     Username {
         client_id: String,

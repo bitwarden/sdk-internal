@@ -195,7 +195,22 @@ const _: fn() = || {
     assert_zeroize_on_drop::<RsaPrivateKey>();
 };
 impl zeroize::ZeroizeOnDrop for PrivateKey {}
-impl CryptoKey for PrivateKey {}
+impl CryptoKey for PrivateKey {
+    #[cfg(feature = "debug-capabilities")]
+    fn debug_material(&self) -> String {
+        #[cfg(feature = "dangerous-crypto-debug")]
+        {
+            match self.to_der() {
+                Ok(der) => hex::encode(der.to_vec()),
+                Err(_) => "<error>".to_string(),
+            }
+        }
+        #[cfg(not(feature = "dangerous-crypto-debug"))]
+        {
+            "<redacted: enable dangerous-crypto-debug>".to_string()
+        }
+    }
+}
 
 impl PrivateKey {
     /// Generate a random PrivateKey (RSA-2048).
