@@ -1,49 +1,17 @@
 //! PAM credential rotation operations.
 //!
-//! Credential rotation replaces a managed account's secret on a schedule (or on demand), writing
-//! the new value into both the target system and the vault cipher that holds it. Three things have
-//! to be configured for that to happen, and this module has a client for each:
+//! Credential rotation replaces a managed account's secret on schedule or on demand, writing
+//! it into both the target system and the vault cipher. Three clients configure it:
+//! [`AccessConnectorsClient`] (the unattended rotation agent), [`TargetSystemsClient`] (what's
+//! being rotated against), and [`RotationConfigsClient`] (the cipher-to-target link).
 //!
-//! - An **access connector** ([`AccessConnectorsClient`]) - the unattended agent that performs
-//!   rotations. Registering one hands it the organization key, wrapped under a one-time token; see
-//!   `AccessConnectorsClient::register` for that contract.
-//! - A **target system** ([`TargetSystemsClient`]) - the thing being rotated against, either an
-//!   integration a connector drives ([`Automatic`](TargetSystemMethod::Automatic)) or a note that
-//!   an operator will do it by hand ([`Manual`](TargetSystemMethod::Manual)). A connector must be
-//!   assigned a target before it can rotate against it.
-//! - A **rotation config** ([`RotationConfigsClient`]), surfaced to operators as a *managed
-//!   credential* - the link between one vault cipher and one target-system account, carrying the
-//!   schedule and the triggers.
+//! A dispatch is a [`RotationJob`]; each [`RotationAttempt`] reports the target and vault
+//! outcomes separately via [`sync_state`](RotationAttempt::sync_state) and
+//! [`cipher_updated`](RotationAttempt::cipher_updated), since they can disagree.
 //!
-//! Every route lives under the server's `access-connectors` prefix. The standalone agent that
-//! consumes the token is also called the *access connector* - the same actor seen from either end.
-//!
-//! # Reading a rotation's outcome
-//!
-//! A dispatch is a [`RotationJob`], and each of a connector's goes at it is a
-//! [`RotationAttempt`]. An attempt reports the target system and the vault separately -
-//! [`sync_state`](RotationAttempt::sync_state) and
-//! [`cipher_updated`](RotationAttempt::cipher_updated) - because they can disagree.
-//! [`Indeterminate`](RotationSyncState::Indeterminate) is the case to handle deliberately: the
-//! target may or may not hold the new credential, and no vault write was attempted, so the two are
-//! possibly out of step until the next rotation succeeds.
-//!
-//! # Forward compatibility
-//!
-//! Every enum here carries an `Unknown` variant, so a newer server naming a status this version
-//! does not model degrades to an unrecognized value rather than failing a whole list. Writes are
-//! the exception: sending `Unknown` back is refused with
-//! [`RotationError::UnrecognizedVariant`], since the SDK cannot say what it would mean.
-//!
-//! # Where the rules live
-//!
-//! Requests are validated locally before being sent ([`RotationValidationError`]) so a malformed
-//! name, an unsatisfiable password policy, or a cron that is not Quartz-shaped fails fast rather
-//! than after a round trip. Two pieces of presentation logic live here as well, so every client
-//! renders rotation the same way: [`preset_for_cron`] maps cron expressions to and from named
-//! presets, and [`rotation_config_actions`] derives which actions a config currently offers. The
-//! server remains authoritative on both - notably the minimum rotation interval, which is
-//! deliberately not duplicated here.
+//! Every enum carries an `Unknown` variant for forward compatibility; writing one back is
+//! refused with [`RotationError::UnrecognizedVariant`]. Requests are validated locally
+//! ([`RotationValidationError`]) before being sent.
 
 use std::sync::Arc;
 

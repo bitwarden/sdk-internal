@@ -1,28 +1,15 @@
 //! Rotation job executor: scheduling, retry, and lifecycle management.
 //!
-//! # ServerConnection poll-model mapping
-//!
-//! The spec's `ServerConnection` state machine maps onto the poll loop as follows:
-//!
-//! | Spec state     | Poll-model meaning                                                         |
-//! |----------------|----------------------------------------------------------------------------|
-//! | `connecting`   | Startup initial `authenticate()` (cancellable — `select!` on cancel token) |
-//! | `connected`    | Authenticated and polling; `ConnectivityMonitor.last_ok` is fresh           |
-//! | `disconnected` | Server calls failing transiently → exponential backoff (base 1 s, cap 60 s) |
-//! | `refused`      | Terminal auth rejection → `RunExit::CredentialRefused`; actionable message   |
-//!
 //! # Divergences
 //!
-//! **D1** — `ExecuteRotationWithoutSession`: see `rotation.rs`.
+//! **D1**: `ExecuteRotationWithoutSession`, see `rotation.rs`.
 //!
-//! **D2** — `ConnectionDropClosesSessions` / `CloseActiveSession` / `CloseIdleSession`:
-//! no socket → a network blip does not close the session (bearer kept through
-//! `disconnected`).  What the rule protects is held by the singleton `SessionManager`,
-//! the gate's connectivity pause, and the `execute_by` fence.  Shutdown maps to
-//! `session.close()` → `Closed`.
+//! **D2**: `ConnectionDropClosesSessions` / `CloseActiveSession` / `CloseIdleSession`. No
+//! socket exists, so a network blip does not close the session; shutdown maps to
+//! `session.close()` instead.
 //!
-//! **D4** — `execute_by` gates only target-side steps; server-side cipher write /
-//! report continue past it under the transient budget while the session lives.
+//! **D4**: `execute_by` gates only target-side steps; server-side cipher write and report
+//! continue past it under the transient budget while the session lives.
 
 pub(crate) mod retry;
 pub(crate) mod rotation;
@@ -48,17 +35,9 @@ use crate::{
     resolver::CredentialResolver,
 };
 
-// ---------------------------------------------------------------------------
-// ConnectivityMonitor (gate arm 5 — not yet wired into the poll loop)
-// ---------------------------------------------------------------------------
-
-/// Watches the `connectivity_tx` watch channel and tracks whether the daemon
-/// has recently received a successful server response.
+/// Watches the `connectivity_tx` channel for the daemon's last successful server contact.
 ///
-/// The monitor will be used by the step-boundary gate (arm 5) to detect
-/// network partitions: if no successful API call has been received within
-/// `offline_grace`, the daemon pauses target-side steps until connectivity
-/// recovers or `execute_by` expires.
+/// For the future gate arm 5 (network-partition pause); not yet wired into the poll loop.
 #[cfg(test)]
 pub(crate) struct ConnectivityMonitor {
     rx: watch::Receiver<Instant>,
@@ -77,17 +56,13 @@ impl ConnectivityMonitor {
         *self.rx.borrow()
     }
 
-    /// Returns `true` when the last successful contact is within `offline_grace`.
+    /// Whether the last successful contact is within `offline_grace`.
     pub(crate) fn is_connected(&self) -> bool {
         self.last_ok().elapsed() <= self.offline_grace
     }
 }
 
-// ---------------------------------------------------------------------------
-// RunExit
-// ---------------------------------------------------------------------------
-
-/// The reason the daemon's main loop exited cleanly.
+/// Why the daemon's main loop exited cleanly.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunExit {
     /// The cancellation token was cancelled (clean shutdown).
@@ -101,10 +76,6 @@ pub enum RunExit {
     /// the server configuration.
     NotEligible,
 }
-
-// ---------------------------------------------------------------------------
-// DaemonConfig  (passed in by the caller — lib.rs / cli.rs)
-// ---------------------------------------------------------------------------
 
 /// Configuration for the daemon run loop.
 ///
@@ -137,13 +108,10 @@ pub struct DaemonConfig {
 }
 
 impl DaemonConfig {
-    /// Build a [`DaemonConfig`] for integration tests, bypassing the CLI
-    /// validation layer (e.g. poll-interval minimum).
+    /// Build a [`DaemonConfig`] for integration tests, bypassing CLI validation
+    /// (e.g. poll-interval minimum).
     ///
-    /// Intentionally `pub` so that integration tests in `tests/` can use it.
-    /// The `#[doc(hidden)]` attribute keeps it out of the published docs; the
-    /// name signals that this is test infrastructure and must not be used in
-    /// production code.
+    /// `pub` so `tests/` can use it; `#[doc(hidden)]` keeps it out of published docs.
     #[doc(hidden)]
     pub fn new_for_test(
         api_url: String,
@@ -171,39 +139,12 @@ impl DaemonConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
-// run
-// ---------------------------------------------------------------------------
-
 /// Run the daemon poll loop until a clean exit condition is reached.
 ///
-/// Startup: builds the [`SessionManager`] with capped exponential backoff under
-/// a `select!` on `cancel` so that a graceful shutdown can interrupt an
-/// in-progress connection attempt.
-///
-/// Loop: `tokio::time::interval(poll_interval)` with
-/// [`MissedTickBehavior::Delay`] (the default `Burst` would violate the
-/// `HeartbeatMinInterval SHOULD` after a long inline execution).
-///
-/// # Credential refused
-///
-/// On `SessionLost::Revoked` (either during startup or at any point in the
-/// loop), the daemon logs an actionable message and returns
-/// [`RunExit::CredentialRefused`]:
-///
-/// > "Daemon credential refused.  Have an admin reissue the credential via
-/// > `ReissueDaemonCredential`, then restart the daemon with the new token."
-///
-/// # Not eligible
-///
-/// A 404 on the poll route triggers a refresh probe.  If the refresh is
-/// rejected → `CredentialRefused`.  If the refresh succeeds but the 404
-/// persists → [`RunExit::NotEligible`] with an actionable message:
-///
-/// > "Daemon not eligible for rotation endpoints.  Check: daemon record not
-/// > revoked or disabled, organisation license active, `UsePam` enabled."
+/// Builds the [`SessionManager`] under a `select!` on `cancel` so shutdown can interrupt
+/// startup. `SessionLost::Revoked` maps to [`RunExit::CredentialRefused`]; a poll 404
+/// surviving a refresh probe maps to [`RunExit::NotEligible`].
 pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit {
-    // ── Build session manager (startup / connecting phase) ─────────────────
     let identity_client = match crate::auth::identity::IdentityClient::new(cfg.identity_url.clone())
     {
         Ok(c) => c,
@@ -213,7 +154,7 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         }
     };
 
-    // Log startup configuration (URLs only — never the token).
+    // Log startup configuration (URLs only, never the token).
     tracing::info!(
         api_url = %cfg.api_url,
         identity_url = %cfg.identity_url,
@@ -223,9 +164,8 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         "daemon starting"
     );
 
-    // SessionManager::new performs its own backoff internally (up to
-    // NO_DEADLINE_MAX_TRIES=3 on transient errors).  We wrap the call in a
-    // select! so a cancellation during startup triggers a clean exit.
+    // SessionManager::new backs off internally (up to NO_DEADLINE_MAX_TRIES=3); the
+    // select! lets a cancellation during startup trigger a clean exit.
     let session = tokio::select! {
         result = crate::auth::session::SessionManager::new(identity_client, cfg.token) => {
             match result {
@@ -251,15 +191,12 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         }
     };
 
-    // ── Build the API client ───────────────────────────────────────────────
     let (connectivity_tx, connectivity_rx) = watch::channel(Instant::now());
     let api_client = build_api_client(cfg.api_url.clone(), Arc::clone(&session));
     let api = Arc::new(RotationApi::new(api_client, connectivity_tx));
 
-    // ── Build the integration registry ────────────────────────────────────
     let mut registry = IntegrationRegistry::new();
 
-    // CustomScript integration.
     let custom_script = Arc::new(
         crate::integrations::custom_script::CustomScriptIntegration::new(
             cfg.script_root.clone(),
@@ -268,7 +205,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
     );
     registry.register(crate::api::models::TargetKind::CustomScript, custom_script);
 
-    // Entra integration (if enabled).
     let entra = Arc::new(crate::integrations::entra::EntraIntegration::new(
         cfg.entra_verify_probe,
     ));
@@ -283,22 +219,16 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         "registered integration kinds"
     );
 
-    // ── Credential resolver ────────────────────────────────────────────────
-    // ConfigCredentialResolver layers config-file overrides on top of env-var fallbacks.
-    // When targets is empty the behaviour is identical to the plain EnvCredentialResolver.
     let resolver: Arc<dyn CredentialResolver> = Arc::new(
         crate::resolver::config::ConfigCredentialResolver::new(cfg.targets),
     );
 
-    // ── Key store (shared with session via the session's key_store()) ──────
     let key_store: Arc<DaemonKeyStore> = session.key_store().await;
 
-    // ── Connectivity last_ok closure ───────────────────────────────────────
     let connectivity_rx_for_gate = connectivity_rx.clone();
     let last_ok: Arc<dyn Fn() -> Instant + Send + Sync> =
         Arc::new(move || *connectivity_rx_for_gate.borrow());
 
-    // ── Poll loop ─────────────────────────────────────────────────────────
     let mut poll_ticker = interval(cfg.poll_interval);
     poll_ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
@@ -316,7 +246,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             _ = poll_ticker.tick() => {}
         }
 
-        // ── Poll for jobs ──────────────────────────────────────────────────
         let jobs = match api.poll_jobs().await {
             Ok(jobs) => {
                 // Reset transient backoff on success.
@@ -373,7 +302,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             continue;
         }
 
-        // ── Claim (single-flight: first success wins, then stop) ───────────
         let mut snapshot = None;
         for job in jobs {
             match api.claim(job.id).await {
@@ -387,7 +315,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
                     break; // at most one claim per tick
                 }
                 Ok(None) => {
-                    // 409: lost the race; try the next job.
                     tracing::debug!(job_id = %job.id, "claim race lost (409); trying next job");
                 }
                 Err(ApiError::SessionLost(SessionLost::Revoked)) => {
@@ -420,10 +347,8 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             continue;
         };
 
-        // ── Heartbeat task ─────────────────────────────────────────────────
-        // Spawned task polls the jobs endpoint (ignoring the returned list —
-        // only the connectivity bump matters).  Cancelled when the rotation
-        // completes.
+        // Polls the jobs endpoint for the connectivity bump only; the returned list is
+        // ignored, and cancelled on rotation completion.
         let heartbeat_cancel = cancel.child_token();
         let heartbeat_api = Arc::clone(&api);
         let heartbeat_interval = cfg.heartbeat_interval;
@@ -445,7 +370,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
             }
         });
 
-        // ── Execute the rotation (inline) ──────────────────────────────────
         let exec_ctx = ExecutionContext {
             api: Arc::clone(&api),
             session: Arc::clone(&session),
@@ -461,7 +385,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         let attempt_id = snap.attempt_id;
         let result = execute(snap, &exec_ctx).await;
 
-        // Cancel the heartbeat.
         heartbeat_cancel.cancel();
         let _ = heartbeat_handle.await;
 
@@ -483,10 +406,6 @@ pub(crate) async fn run(cfg: DaemonConfig, cancel: CancellationToken) -> RunExit
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// NotEligible probe
-// ---------------------------------------------------------------------------
 
 enum NotEligibleOutcome {
     CredentialRefused,
@@ -518,7 +437,7 @@ async fn handle_not_eligible(session: &SessionManager, api: &RotationApi) -> Not
             return NotEligibleOutcome::CredentialRefused;
         }
         Err(_) => {
-            // Transient refresh failure — may be a connectivity issue; continue polling.
+            // Transient refresh failure, possibly connectivity; continue polling.
             return NotEligibleOutcome::Retry;
         }
     }
@@ -531,10 +450,6 @@ async fn handle_not_eligible(session: &SessionManager, api: &RotationApi) -> Not
         Err(_) => NotEligibleOutcome::Retry,
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -626,8 +541,6 @@ mod tests {
         (api, rx)
     }
 
-    // ── ConnectivityMonitor ────────────────────────────────────────────────
-
     #[test]
     fn connectivity_monitor_fresh_is_connected() {
         let (tx, rx) = watch::channel(Instant::now());
@@ -660,8 +573,6 @@ mod tests {
         let after = monitor.last_ok();
         assert!(after >= before);
     }
-
-    // ── Single-flight: poll returns 2 jobs, exactly 1 claim ───────────────
 
     #[tokio::test]
     async fn single_flight_only_one_claim_per_tick() {
@@ -699,9 +610,8 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        // Second claim (job2) would succeed, but single-flight: we only stop
-        // after the first success. Here we verify that if job1 fails (409) the
-        // loop continues to job2 but stops after claiming it.
+        // Single-flight stops after the first success: job1 fails with 409,
+        // so the loop continues to job2 and stops after claiming it.
         let attempt_id = uuid::Uuid::new_v4();
         let target_system_id = uuid::Uuid::new_v4();
         let cipher_id = uuid::Uuid::new_v4();
@@ -737,7 +647,6 @@ mod tests {
             .mount(&api_server)
             .await;
 
-        // Poll.
         let jobs = api.poll_jobs().await.unwrap();
         assert_eq!(jobs.len(), 2);
 
@@ -768,8 +677,6 @@ mod tests {
             .collect();
         assert_eq!(claim_reqs.len(), 2, "should have tried both jobs");
     }
-
-    // ── Heartbeat stops after rotation completes ───────────────────────────
 
     #[tokio::test]
     async fn heartbeat_fires_during_rotation_then_stops() {
@@ -837,16 +744,12 @@ mod tests {
         );
     }
 
-    // ── RunExit variants exist ────────────────────────────────────────────
-
     #[test]
     fn run_exit_variants_exist() {
         let _ = RunExit::Shutdown;
         let _ = RunExit::CredentialRefused;
         let _ = RunExit::NotEligible;
     }
-
-    // ── Poll 404 → NotEligible classification ─────────────────────────────
 
     #[tokio::test]
     async fn poll_404_returns_not_eligible() {

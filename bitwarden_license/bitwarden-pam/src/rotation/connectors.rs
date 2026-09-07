@@ -42,13 +42,13 @@ pub struct AccessConnector {
     /// Whether the connector is currently connected. Reflects the server's presence check, so it
     /// can lag reality by up to one heartbeat interval.
     pub is_connected: bool,
-    /// The last heartbeat the server recorded (UTC), or `None` if it has never connected.
+    /// The last heartbeat the server recorded (UTC), or `None` absent any connection.
     pub last_heartbeat_at: Option<DateTime<Utc>>,
     /// The target systems this connector may rotate.
     pub assigned_target_system_ids: Vec<TargetSystemId>,
-    /// When the connector was registered (UTC).
+    /// The connector's registration time (UTC).
     pub creation_date: DateTime<Utc>,
-    /// When the connector was last modified (UTC).
+    /// The connector's last-modified time (UTC).
     pub revision_date: DateTime<Utc>,
 }
 
@@ -136,16 +136,15 @@ pub struct AccessConnectorRegistrationResponse {
     /// Lifecycle state. A freshly registered connector is
     /// [`Enabled`](AccessConnectorStatus::Enabled).
     pub status: AccessConnectorStatus,
-    /// When the connector was registered (UTC).
+    /// The connector's registration time (UTC).
     pub creation_date: DateTime<Utc>,
     /// The credential the operator provisions into the connector's configuration.
     ///
     /// Format: `0.access-connector.<api-key-id>.<client-secret>:<b64-seed>`.
     ///
-    /// **Returned exactly once and unrecoverable.** The server keeps only a hash of the client
-    /// secret, and the seed exists nowhere else. Show it for the operator to copy, deliver it
-    /// out-of-band, and do not persist or log it. If it is lost, delete the connector and register
-    /// again.
+    /// Returned a single time and unrecoverable: the server keeps only a hash of the client
+    /// secret. Show it to the operator to copy out-of-band, never persisted or logged; a lost
+    /// token means deleting the connector and registering again.
     pub token: String,
 }
 
@@ -275,7 +274,8 @@ impl AccessConnectorsClient {
     /// Permanently deletes a connector and invalidates its credential.
     ///
     /// The connector held the plaintext organization key in memory, so deletion alone does not
-    /// undo a compromise: rotating the organization key is the remediation if one is suspected.
+    /// undo a compromise: rotating the organization key remains the remediation for a
+    /// suspected compromise.
     pub async fn delete(
         &self,
         organization_id: OrganizationId,
@@ -575,7 +575,7 @@ mod tests {
 
     /// The detail conversion hand-copies the connector's nine fields out of the flattened payload,
     /// so a field dropped there would silently read as absent. Comparing against the list
-    /// conversion of the same connector pins all nine at once.
+    /// conversion of the same connector pins all nine together.
     #[test]
     fn the_detail_payload_yields_the_same_connector_as_the_list_payload() {
         let detail =
@@ -761,10 +761,9 @@ mod tests {
         assert!(matches!(result, Err(RotationError::Api(_))));
     }
 
-    /// The whole point of `register`: the connector must be able to recover the organization key
-    /// from the token it is handed plus the `encryptedPayload` the server stored. This walks that
-    /// path end to end through the public method - the token comes from the response, the payload
-    /// from the request that was actually sent - so a mismatch between the two halves fails here.
+    /// The whole point of `register`: the connector must recover the organization key from
+    /// its token plus the server's `encryptedPayload`. Walks that path through the public
+    /// method, so a mint/parse mismatch fails here.
     #[tokio::test]
     async fn register_returns_a_token_that_recovers_the_organization_key() {
         let organization_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -823,7 +822,7 @@ mod tests {
     }
 
     /// The token is unrecoverable, so the caller has to be able to show the operator which
-    /// connector it belongs to even if the server echoes no name back.
+    /// connector it belongs to, regardless of whether the server echoes a name back.
     #[tokio::test]
     async fn register_falls_back_to_the_requested_name_when_the_server_omits_it() {
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -847,8 +846,8 @@ mod tests {
     }
 
     /// A registration that cannot produce a usable token must not leave a registered connector
-    /// behind - the operator would have no way to provision it and no way to recover the secret.
-    /// The mock has no expectations, so any call to the server fails the test.
+    /// behind: the operator would have no way to provision it or recover the secret. The mock
+    /// has no expectations, so any call to the server fails the test.
     #[tokio::test]
     async fn register_rejects_an_invalid_name_before_calling_the_server() {
         for name in ["", "   ", &"a".repeat(201)] {

@@ -16,8 +16,8 @@ pub struct AccessDecisionRequest {
     /// The verdict to record. [`AccessDecisionVerdict::Unknown`] is a read-side spelling and
     /// cannot be submitted.
     pub verdict: AccessDecisionVerdict,
-    /// An optional note recorded with the decision - for example the reason for a denial. Surfaced
-    /// to the requester.
+    /// An optional note recorded with the decision (e.g. denial context). Surfaced to the
+    /// requester.
     pub comment: Option<String>,
 }
 

@@ -1,16 +1,8 @@
 //! HTTP API client wrappers for the Bitwarden server's PAM rotation endpoints.
 //!
-//! This module provides:
-//!
-//! - [`DaemonAuthMiddleware`]: a [`reqwest_middleware::Middleware`] that attaches the daemon bearer
-//!   token to outgoing requests, retries once on 401 with a forced
-//!   [`crate::auth::session::SessionManager::force_refresh`], and converts session-loss into a hard
-//!   middleware error rather than soft-failing.
-//! - [`build_api_client`]: assembles the full HTTP + middleware + generated-client stack from a
-//!   `base_url` string and a [`crate::auth::session::SessionManager`].
-//! - [`RotationApi`]: a thin wrapper over the generated [`bitwarden_api_api::apis::ApiClient`] that
-//!   maps every generated call into local domain types and [`models::ApiError`] variants, bumping
-//!   the connectivity watch on every successful response.
+//! [`DaemonAuthMiddleware`] attaches the bearer token and handles 401 retry.
+//! [`build_api_client`] assembles the client stack; [`RotationApi`] wraps it, mapping calls
+//! into domain types and bumping connectivity on success.
 
 pub(crate) mod models;
 
@@ -37,40 +29,11 @@ use crate::{
     error::{FailureCode, SafeDetail, SessionTermination, SyncState},
 };
 
-// ---------------------------------------------------------------------------
-// DaemonAuthMiddleware
-// ---------------------------------------------------------------------------
-
-/// [`reqwest_middleware::Middleware`] that attaches a daemon bearer token and
-/// handles the token-refresh-on-401 cycle.
+/// [`reqwest_middleware::Middleware`] that attaches a daemon bearer token, retries a single
+/// 401 via forced refresh for a cloneable request body, and hard-fails on session loss so the
+/// executor can consult `session.phase()`.
 ///
-/// # Bearer attachment
-///
-/// Requests carrying the [`AuthRequired::Bearer`] extension (set by the
-/// generated API calls) get an `Authorization: Bearer <token>` header via
-/// [`SessionManager::bearer`].  Requests without that extension are forwarded
-/// untouched.
-///
-/// # 401 retry
-///
-/// On a 401 response the middleware calls
-/// [`SessionManager::force_refresh`] with the token it originally sent, then
-/// re-issues the request **once** with the new token.  The retry is only
-/// possible when the request body can be cloned (`try_clone` succeeds); if the
-/// body is a one-shot stream the 401 is returned as-is.
-///
-/// This mirrors the logic in
-/// `crates/bitwarden-auth/src/token_management/middleware.rs:41-77`.
-///
-/// # Session loss
-///
-/// Unlike bitwarden-auth's middleware (which soft-fails by sending the request
-/// without a token when renewal fails), this middleware **hard-fails** with a
-/// middleware error if a bearer token cannot be obtained.  A
-/// [`crate::auth::session::SessionError::Lost`] propagates as
-/// [`reqwest_middleware::Error::Middleware`] backed by an `anyhow` error; the
-/// executor can then consult `session.phase()` to decide on `CredentialRefused`
-/// vs reconnect.
+/// Unlike bitwarden-auth's middleware, this one does not soft-fail without a token.
 pub(crate) struct DaemonAuthMiddleware {
     session: Arc<SessionManager>,
 }
@@ -107,7 +70,7 @@ impl Middleware for DaemonAuthMiddleware {
         ext: &mut http::Extensions,
         next: Next<'_>,
     ) -> Result<reqwest::Response, reqwest_middleware::Error> {
-        // Only attach auth when the generated API sets the AuthRequired::Bearer extension.
+        // The generated API opts into auth via the AuthRequired::Bearer extension.
         let auth_required = matches!(ext.get::<AuthRequired>(), Some(AuthRequired::Bearer));
 
         let used_token: Option<String> = if auth_required {
@@ -123,8 +86,7 @@ impl Middleware for DaemonAuthMiddleware {
 
         let response = next.clone().run(req, ext).await?;
 
-        // 401 retry: only when auth was required, body is cloneable, and the first
-        // response was 401.
+        // Retry requires a cloneable body.
         if auth_required
             && let Some(mut cloned) = req_clone
             && response.status() == http::StatusCode::UNAUTHORIZED
@@ -147,9 +109,8 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
     let value = match format!("Bearer {token}").parse::<http::HeaderValue>() {
         Ok(v) => v,
         Err(e) => {
-            // Token contains a character that cannot appear in a header value.
-            // Log a warning and proceed without the header — the server will return 401
-            // and the middleware's retry path will surface the error.
+            // Token has a character invalid in a header value; proceed without it,
+            // the server will 401 and the retry path surfaces the error.
             tracing::warn!("daemon API: cannot format bearer token as header value: {e}");
             return;
         }
@@ -157,19 +118,10 @@ fn attach_bearer_header(req: &mut reqwest::Request, token: &str) {
     req.headers_mut().insert(http::header::AUTHORIZATION, value);
 }
 
-// ---------------------------------------------------------------------------
-// Client construction
-// ---------------------------------------------------------------------------
-
 /// Build the generated [`ApiClient`] with authentication middleware.
 ///
-/// Uses [`bitwarden_api_base::new_http_client_builder`] to get a `reqwest`
-/// client with rustls + platform-certificate-verifier + https-only (release)
-/// + Bitwarden user-agent headers.  A 30 s per-request timeout is applied so that a black-holed
-///   connection cannot starve the heartbeat past `DaemonOfflineAfter` (2 minutes).
-///
-/// The [`DaemonAuthMiddleware`] is layered on top to handle token attachment
-/// and 401 refresh.
+/// The 30 s per-request timeout keeps a black-holed connection from starving the
+/// heartbeat past `DaemonOfflineAfter` (2 minutes).
 pub(crate) fn build_api_client(
     base_url: impl Into<String>,
     session: Arc<SessionManager>,
@@ -193,36 +145,11 @@ pub(crate) fn build_api_client(
     ApiClient::new(&config)
 }
 
-// ---------------------------------------------------------------------------
-// RotationApi
-// ---------------------------------------------------------------------------
-
 /// Thin, domain-typed wrapper around the generated PAM rotation API clients.
 ///
-/// Every method translates between the generated wire types and the local domain
-/// types in [`models`], classifies errors into [`ApiError`] variants, and bumps
-/// the `connectivity_tx` watch on every successful server response.
-///
-/// # Connectivity watch
-///
-/// The `connectivity_tx` sender (a [`watch::Sender<Instant>`]) is bumped (to
-/// `Instant::now()`) on **every `Ok` result** returned by an API method.  The
-/// executor's `ConnectivityMonitor` subscribes to this channel and uses it to
-/// decide whether the daemon is still connected to the server during a running
-/// rotation.
-///
-/// # Error classification
-///
-/// See [`ApiError`] for the full taxonomy.  The classification follows the rules
-/// in the plan §4:
-///
-/// - Post-retry 401 → consult `session.phase()`: terminal → `SessionLost`, else `Transient`.
-/// - 404 on poll/claim (daemon/job routes) → `NotEligible`.
-/// - 404 on attempt routes → `UnknownAttempt`.
-/// - 409 → `Rejected` (or `Ok(None)` for the claim endpoint).
-/// - 429 / 5xx / transport → `Transient`.
-/// - Decode failure → `Protocol`.
-/// - Response bodies are **never** included in errors.
+/// Every method maps wire types to [`models`] domain types, classifies errors into
+/// [`ApiError`] variants per the plan §4 rules, and bumps `connectivity_tx` on every
+/// successful response so the executor's `ConnectivityMonitor` can track liveness.
 pub(crate) struct RotationApi {
     client: ApiClient,
     connectivity_tx: watch::Sender<Instant>,
@@ -230,9 +157,6 @@ pub(crate) struct RotationApi {
 
 impl RotationApi {
     /// Build a `RotationApi` wrapping the provided [`ApiClient`].
-    ///
-    /// `connectivity_tx` is bumped to `Instant::now()` on every successful API
-    /// call; the executor's `ConnectivityMonitor` feeds off it.
     pub(crate) fn new(client: ApiClient, connectivity_tx: watch::Sender<Instant>) -> Self {
         Self {
             client,
@@ -245,18 +169,10 @@ impl RotationApi {
         self.connectivity_tx.send_modify(|t| *t = Instant::now());
     }
 
-    // -----------------------------------------------------------------------
-    // Poll
-    // -----------------------------------------------------------------------
-
     /// Poll for claimable rotation jobs.
     ///
-    /// Returns the list of [`JobRef`]s the daemon may attempt to claim.  An
-    /// empty list means no jobs are currently available (the daemon should wait
-    /// for the next poll interval).
-    ///
-    /// A 404 on this (daemon-scoped) route maps to [`ApiError::NotEligible`]
-    /// per the eligibility-filter semantics.
+    /// An empty list means no jobs are available. A 404 on this daemon-scoped route
+    /// maps to [`ApiError::NotEligible`].
     pub(crate) async fn poll_jobs(&self) -> Result<Vec<JobRef>, ApiError> {
         let result = self
             .client
@@ -279,17 +195,10 @@ impl RotationApi {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Claim
-    // -----------------------------------------------------------------------
-
     /// Attempt to claim a rotation job.
     ///
-    /// Returns:
-    /// - `Ok(Some(snapshot))` — the daemon won the race and holds the claim.
-    /// - `Ok(None)` — another daemon claimed it first (409); not an error.
-    /// - `Err(ApiError::NotEligible)` — 404 on a daemon route (ineligible).
-    /// - `Err(…)` — any other failure.
+    /// `Ok(None)` means another daemon won the race (409), not an error;
+    /// [`ApiError::NotEligible`] means a 404 on the daemon route.
     pub(crate) async fn claim(&self, job_id: Uuid) -> Result<Option<WorkSnapshot>, ApiError> {
         let result = self
             .client
@@ -304,16 +213,12 @@ impl RotationApi {
                 Ok(Some(snapshot))
             }
             Err(bitwarden_api_base::Error::Response(ref rc)) if rc.status.as_u16() == 409 => {
-                // 409 = race lost — not an error, caller continues to the next job.
+                // 409 = race lost, not an error; caller continues to the next job.
                 Ok(None)
             }
             Err(e) => Err(classify_error(e, &self.client, Route::DaemonOrJob)),
         }
     }
-
-    // -----------------------------------------------------------------------
-    // Cipher read
-    // -----------------------------------------------------------------------
 
     /// Fetch the encrypted cipher for an executing attempt.
     ///
@@ -334,16 +239,9 @@ impl RotationApi {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Cipher write
-    // -----------------------------------------------------------------------
-
     /// Write the re-encrypted cipher data back to the server.
     ///
-    /// - Returns `Ok(())` on success.
-    /// - Returns `Err(ApiError::Rejected { status: 409 })` on revision-drift / capability-lost
-    ///   (409).
-    /// - Returns `Err(ApiError::UnknownAttempt)` if the attempt is not found (404).
+    /// A 409 means revision-drift or capability-lost; a 404 means the attempt is unknown.
     pub(crate) async fn put_cipher(
         &self,
         attempt_id: Uuid,
@@ -370,15 +268,10 @@ impl RotationApi {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Success report
-    // -----------------------------------------------------------------------
-
     /// Report a successful rotation attempt.
     ///
-    /// A 409 or 404 on the report endpoint is **final** — the server rejected
-    /// or abandoned the attempt.  Do not retry; the caller should log at
-    /// warn-level and move on.
+    /// A 409 or 404 here is final: the server rejected or abandoned the attempt.
+    /// Do not retry; log at warn-level and move on.
     pub(crate) async fn report_success(
         &self,
         attempt_id: Uuid,
@@ -403,19 +296,10 @@ impl RotationApi {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Failure report
-    // -----------------------------------------------------------------------
-
     /// Report a failed rotation attempt.
     ///
-    /// `error_code` is serialised as the snake_case serde name of the
-    /// [`FailureCode`] enum variant (e.g. `"credentials_unresolved"`), which is
-    /// ≤ 100 characters by construction (the longest is `"cipher_write_rejected"` at
-    /// 21 chars).
-    ///
-    /// A 409 or 404 on the report endpoint is **final** — see
-    /// [`Self::report_success`].
+    /// `error_code` is the snake_case serde name of the [`FailureCode`] variant, at
+    /// most 21 characters. A 409 or 404 here is final, as in [`Self::report_success`].
     pub(crate) async fn report_failure(
         &self,
         attempt_id: Uuid,
@@ -448,11 +332,7 @@ impl RotationApi {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Which class of route was called — used to disambiguate 404 semantics.
+/// Route class, for disambiguating 404 semantics.
 #[derive(Clone, Copy)]
 enum Route {
     /// A daemon-scoped or job-scoped route (`/access-connectors/rotation/jobs`
@@ -473,21 +353,8 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
             let status = rc.status.as_u16();
             match status {
                 401 => {
-                    // Post-retry 401: consult the session phase to distinguish
-                    // terminal session loss from a transient auth glitch.
-                    //
-                    // We do not have an async context here so we cannot call
-                    // session.phase().  Instead, we map 401 to Transient and let
-                    // the caller inspect the session phase if needed. The middleware
-                    // already handled the single refresh-and-retry, so a 401 here
-                    // means the refresh itself failed or produced another 401.
-                    //
-                    // If the session became terminal during the refresh attempt the
-                    // middleware would have returned a middleware error (Lost), not a
-                    // 401 response, so mapping to Transient is correct for the
-                    // non-terminal case.  For the terminal case, the middleware error
-                    // path (get_bearer → Lost) takes precedence and this branch is
-                    // not reached.
+                    // No async context to call session.phase() here, so a post-retry 401
+                    // maps to Transient; a terminal session loss surfaces earlier instead.
                     ApiError::Transient("HTTP 401 (post-retry)".to_string())
                 }
                 404 => match route {
@@ -500,13 +367,9 @@ fn classify_error(err: bitwarden_api_base::Error, _client: &ApiClient, route: Ro
             }
         }
         Error::ReqwestMiddleware(mw_err) => {
-            // A middleware error wrapping a SessionError::Lost comes through here.
-            // The error message will contain "session lost: …" but we do not parse it;
-            // instead, we must determine the actual session loss kind.
-            //
-            // We inspect the error string to detect the "session lost" case.  This is
-            // safe — the message was constructed by us in get_bearer / force_refresh_bearer
-            // and never contains credential data.
+            // Session loss is detected by string-matching "session lost" in the message,
+            // which get_bearer / force_refresh_bearer construct internally and never
+            // populate with credential data.
             let msg = mw_err.to_string();
             if msg.contains("session lost") {
                 // Determine which kind of session loss occurred.  The message contains
@@ -542,8 +405,7 @@ fn safe_middleware_description(err: &reqwest_middleware::Error) -> &'static str 
 }
 
 /// Parse a [`bitwarden_api_api::models::RotationClaimResponseModel`] into a
-/// [`WorkSnapshot`], returning [`ApiError::Protocol`] if any required field is
-/// missing or unparseable.
+/// [`WorkSnapshot`]; a missing or unparseable required field is [`ApiError::Protocol`].
 fn parse_work_snapshot(
     model: bitwarden_api_api::models::RotationClaimResponseModel,
 ) -> Result<WorkSnapshot, ApiError> {
@@ -563,7 +425,6 @@ fn parse_work_snapshot(
     let account_identity = required!(model.account_identity, "accountIdentity");
     let terminate_sessions = model.terminate_sessions.unwrap_or(false);
 
-    // Parse the password policy.
     let raw_policy = required!(model.password_policy, "passwordPolicy");
     let password_policy = crate::policy::PasswordPolicy::from(*raw_policy);
 
@@ -605,9 +466,8 @@ fn parse_rotation_cipher(
     let cipher_id = required!(model.cipher_id, "cipherId");
     let revision_date = required!(model.revision_date, "revisionDate");
 
-    // The `data` field is the cipher's encrypted JSON blob as a STRING.
-    // Parse it into serde_json::Value; a missing or unparseable value is a
-    // protocol error — we do NOT echo the content.
+    // `data` is the cipher's encrypted JSON blob as a string; a decode failure is
+    // a protocol error, and the content is never echoed.
     let data_str = required!(model.data, "data");
     let data = serde_json::from_str::<serde_json::Value>(&data_str)
         .map_err(|_| ApiError::Protocol("cipher data field is not valid JSON".to_owned()))?;
@@ -637,10 +497,6 @@ fn failure_code_string(code: FailureCode) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use std::{sync::Arc, time::Instant};
@@ -659,8 +515,6 @@ mod tests {
         auth::{identity::IdentityClient, session::SessionManager},
         error::{FailureCode, SafeDetail, SyncState},
     };
-
-    // ── Shared test helpers ────────────────────────────────────────────────
 
     const VALID_TOKEN_STR: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
@@ -744,8 +598,6 @@ mod tests {
         (api, rx)
     }
 
-    // ── failure_code_string ────────────────────────────────────────────────
-
     #[test]
     fn failure_code_string_snake_case() {
         assert_eq!(
@@ -794,8 +646,6 @@ mod tests {
             );
         }
     }
-
-    // ── parse_work_snapshot ────────────────────────────────────────────────
 
     #[test]
     fn parse_work_snapshot_converts_correctly() {
@@ -899,8 +749,6 @@ mod tests {
         assert!(matches!(api_err, ApiError::Rejected { status: 409 }));
     }
 
-    // ── parse_rotation_cipher ──────────────────────────────────────────────
-
     #[test]
     fn parse_rotation_cipher_parses_data_string_to_value() {
         use bitwarden_api_api::models::RotationCipherResponseModel;
@@ -955,8 +803,6 @@ mod tests {
         let err = parse_rotation_cipher(model).expect_err("should fail");
         assert!(matches!(err, ApiError::Protocol(_)));
     }
-
-    // ── Connectivity bump ──────────────────────────────────────────────────
 
     #[tokio::test]
     async fn poll_happy_path_bumps_connectivity_and_parses_jobs() {
