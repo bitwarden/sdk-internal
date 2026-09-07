@@ -1,13 +1,6 @@
 #!/bin/sh
-# Fixture: reads the JSON payload from stdin, extracts the "EXIT_CODE" field
-# from the credentials map, and exits with that code.
-#
-# Usage (invoked by the daemon as):  exit_code.sh <operation>
-#
-# The payload credentials map must contain:
-#   "EXIT_CODE": "<integer>"
-#
-# This lets tests drive any exit-code path through the custom-script integration.
+# Fixture: reads stdin's JSON, extracts "EXIT_CODE" from the credentials map, and exits with
+# that code (invoked as `exit_code.sh <operation>`), letting tests drive any exit path.
 
 set -e
 

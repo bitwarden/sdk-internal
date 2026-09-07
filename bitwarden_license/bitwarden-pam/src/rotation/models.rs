@@ -19,11 +19,9 @@ use crate::{AccessConnectorId, RotationAttemptId, RotationConfigId, RotationJobI
 
 /// Lifecycle state of an access connector.
 ///
-/// [`Disabled`](AccessConnectorStatus::Disabled) is **reversible**: re-enabling flips it back to
-/// [`Enabled`](AccessConnectorStatus::Enabled). Removing a connector entirely - which invalidates
-/// its credential - is a delete, not a disable. Because a connector holds the plaintext
-/// organization key, rotating the organization key remains the remediation for a suspected
-/// compromise.
+/// [`Disabled`](AccessConnectorStatus::Disabled) is reversible; removing a connector
+/// entirely (invalidating its credential) is a delete, not a disable. A connector holds the
+/// plaintext organization key, so a suspected compromise is remediated by rotating that key.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
@@ -85,8 +83,8 @@ impl TryFrom<TargetSystemMethod> for ApiTargetSystemMethod {
     }
 }
 
-/// The technology a target system represents. Only meaningful when the target system's method is
-/// [`Automatic`](TargetSystemMethod::Automatic) - a manual rotation has no integration.
+/// The technology a target system represents. Only meaningful for
+/// [`Automatic`](TargetSystemMethod::Automatic) systems; a manual rotation has no integration.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
@@ -217,7 +215,7 @@ pub enum RotationAttemptStatus {
     Rotated,
     /// The attempt failed; see [`RotationAttempt::failure_reason`].
     Errored,
-    /// The attempt was abandoned, for example because the connector was revoked mid-job.
+    /// The attempt was abandoned (e.g. the connector was revoked mid-job).
     Abandoned,
     /// A status this SDK version does not recognize.
     Unknown,
@@ -291,8 +289,8 @@ impl From<ApiSessionTerminationOutcome> for SessionTerminationOutcome {
 /// Password generation policy for a target system.
 ///
 /// For [`Automatic`](TargetSystemMethod::Automatic) systems the connector generates the new
-/// credential under these constraints. For [`Manual`](TargetSystemMethod::Manual) systems they are
-/// the rules the operator is expected to follow when rotating by hand - nothing enforces them.
+/// credential under these constraints. For [`Manual`](TargetSystemMethod::Manual) systems they
+/// are the rules the operator is expected to follow by hand; nothing enforces them.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -350,9 +348,9 @@ pub struct RotationAttempt {
     pub claimed_by_access_connector_id: Option<AccessConnectorId>,
     /// Current execution state of the attempt.
     pub status: RotationAttemptStatus,
-    /// Operator-facing failure reason, set when the attempt errored or was abandoned.
+    /// Operator-facing failure reason, set for an errored or abandoned attempt.
     ///
-    /// Server-authored text describing the *failure*, never the credential - safe to render, but
+    /// Server-authored text describing the failure, never the credential: safe to render, but
     /// it originates off-client, so treat it as untrusted for anything beyond display.
     pub failure_reason: Option<String>,
     /// Whether the vault cipher was written with the rotated credential.
@@ -362,9 +360,9 @@ pub struct RotationAttempt {
     pub sync_state: Option<RotationSyncState>,
     /// Whether active sessions were terminated after rotating. `None` until the attempt resolves.
     pub session_termination: Option<SessionTerminationOutcome>,
-    /// When the connector began this attempt (UTC).
+    /// The connector's start time for this attempt (UTC).
     pub started_at: DateTime<Utc>,
-    /// When the attempt resolved (UTC), or `None` while it is still executing.
+    /// The attempt's resolution time (UTC), or `None` while still executing.
     pub ended_at: Option<DateTime<Utc>>,
 }
 
@@ -407,15 +405,15 @@ pub struct RotationJob {
     pub source: RotationSource,
     /// Current lifecycle state of the job.
     pub status: RotationJobStatus,
-    /// The connector holding the job, when one has claimed it.
+    /// The connector holding the job; `None` while unclaimed.
     pub claimed_by_access_connector_id: Option<AccessConnectorId>,
-    /// When the job was claimed (UTC), or `None` while it is still pending.
+    /// The job's claim time (UTC), or `None` while still pending.
     pub claimed_at: Option<DateTime<Utc>>,
-    /// When the job was queued (UTC).
+    /// The job's queued time (UTC).
     pub created_at: DateTime<Utc>,
     /// The earliest a connector may claim this job again after a released or failed attempt (UTC).
     pub next_claimable_at: Option<DateTime<Utc>>,
-    /// When the job's claim deadline lapses (UTC), after which it is considered timed out.
+    /// The job's claim deadline (UTC); past this it is considered timed out.
     pub expires_at: Option<DateTime<Utc>>,
     /// The job's attempts, oldest first.
     pub attempts: Vec<RotationAttempt>,

@@ -40,8 +40,8 @@ pub struct RotationConfig {
     pub target_system_id: TargetSystemId,
     /// The target system's display name as of the config's last write.
     ///
-    /// Denormalized by the server, so it can lag a rename. Prefer the name from the target system
-    /// itself when it has been loaded, and treat this as the fallback.
+    /// Denormalized by the server, so it can lag a rename. Prefer the loaded target system's
+    /// own name; treat this as the fallback.
     pub target_system_name: String,
     /// The target system's rotation method as of the config's last write. Denormalized, and the
     /// field that decides which actions the config offers.
@@ -52,31 +52,30 @@ pub struct RotationConfig {
     pub terminate_sessions: bool,
     /// The Quartz cron expression driving scheduled rotation, or `None` for no schedule.
     pub schedule_cron: Option<String>,
-    /// Whether the credential is rotated when an access lease over the cipher ends.
+    /// Whether the credential is rotated at the end of an access lease over the cipher.
     pub rotate_on_access_end: bool,
-    /// When false, no new rotation jobs are dispatched. Jobs in flight run to completion.
+    /// False stops new rotation jobs from dispatching; jobs in flight run to completion.
     pub enabled: bool,
-    /// The most recent completed rotation (UTC), or `None` if it has never rotated.
+    /// The most recent completed rotation (UTC), or `None` absent any rotation.
     pub last_rotation_at: Option<DateTime<Utc>>,
-    /// The next scheduled rotation (UTC). `None` when there is no schedule or the config is
-    /// paused.
+    /// The next scheduled rotation (UTC), or `None` absent a schedule or while paused.
     pub next_rotation_at: Option<DateTime<Utc>>,
     /// Whether a job is currently pending or claimed for this config.
     pub has_active_job: bool,
     /// Whether a manual-method config is waiting for an operator to record an out-of-band
     /// rotation.
     pub awaiting_manual_rotation: bool,
-    /// When the config was created (UTC).
+    /// The config's creation time (UTC).
     pub creation_date: DateTime<Utc>,
-    /// When the config was last modified (UTC).
+    /// The config's last-modified time (UTC).
     pub revision_date: DateTime<Utc>,
 }
 
 impl RotationConfig {
     /// Which actions this config offers, given the status of its target system.
     ///
-    /// See [`rotation_config_actions`] for how `target_status` is treated when the target system
-    /// has not been loaded.
+    /// See [`rotation_config_actions`] for how an unloaded target system's `target_status` is
+    /// treated.
     pub fn actions(&self, target_status: Option<TargetSystemStatus>) -> RotationConfigActions {
         rotation_config_actions(self, target_status)
     }
@@ -180,7 +179,7 @@ pub struct RotationConfigCreateRequest {
     pub terminate_sessions: bool,
     /// A Quartz cron expression, or `None` for no scheduled rotation.
     pub schedule_cron: Option<String>,
-    /// Whether to rotate when an access lease over the cipher ends.
+    /// Whether to rotate at the end of an access lease over the cipher.
     pub rotate_on_access_end: bool,
 }
 
@@ -199,10 +198,9 @@ impl From<RotationConfigCreateRequest> for CreateRotationConfigRequestModel {
 
 /// Request to update a rotation config.
 ///
-/// The account identity and the schedule travel together because the server takes them in one
-/// `PUT`, so a caller changing only the schedule still sends the current account identity. Note
-/// that the server locks the account identity while a job is in flight - see
-/// [`RotationConfigActions::mutations_locked`].
+/// Account identity and schedule travel together in one `PUT`; a caller changing only the
+/// schedule still sends the current identity. The server locks identity during an in-flight
+/// job; see [`RotationConfigActions::mutations_locked`].
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -213,7 +211,7 @@ pub struct RotationConfigUpdateRequest {
     pub terminate_sessions: bool,
     /// A Quartz cron expression, or `None` for no scheduled rotation.
     pub schedule_cron: Option<String>,
-    /// Whether to rotate when an access lease over the cipher ends.
+    /// Whether to rotate at the end of an access lease over the cipher.
     pub rotate_on_access_end: bool,
 }
 
@@ -389,10 +387,9 @@ impl RotationConfigsClient {
 
     /// Which actions a config offers, given the status of its target system.
     ///
-    /// Exposed on the client so non-Rust callers can reach the same predicates the Rust API has on
-    /// [`RotationConfig::actions`] - a tsify struct crosses the WASM boundary as plain data and
-    /// leaves its methods behind. All five flags are derived in one call because they are not
-    /// independent; see [`RotationConfigActions`].
+    /// Exposed on the client for non-Rust callers, since a tsify struct crosses the WASM
+    /// boundary as plain data and leaves [`RotationConfig::actions`]'s methods behind. See
+    /// [`RotationConfigActions`].
     pub fn actions(
         &self,
         config: RotationConfig,
@@ -690,10 +687,9 @@ mod tests {
         assert_eq!(config.target_system_method, TargetSystemMethod::Unknown);
     }
 
-    /// The detail conversion hand-copies the config's eighteen fields out of the flattened payload,
-    /// so a field dropped there would silently read as absent - and for `enabled` that would flip
-    /// an active config to paused. Comparing against the list conversion of the same config pins
-    /// all eighteen at once.
+    /// The detail conversion hand-copies eighteen fields out of the flattened payload; a
+    /// dropped field would silently read as absent (flipping an active `enabled` to paused).
+    /// This pins all eighteen against the list conversion of the same config.
     #[test]
     fn the_detail_payload_yields_the_same_config_as_the_list_payload() {
         let detail = RotationConfigDetail::try_from(sample_detail_response(Some(vec![
