@@ -13,16 +13,10 @@ use crate::{
     policy::PasswordPolicy,
 };
 
-// ---------------------------------------------------------------------------
-// TargetKind
-// ---------------------------------------------------------------------------
-
 /// The target-system kind understood by this daemon build.
 ///
-/// Derived from [`PamTargetSystemKind`] at the API boundary.  Unknown / future
-/// variants (including `Mssql`, which is wire-known but not yet implemented)
-/// are surfaced as [`TargetKind::Unknown`] so the executor can report
-/// `unsupported_kind` without crashing.
+/// Unknown or future variants, including `Mssql` (wire-known but not yet
+/// implemented), surface as [`TargetKind::Unknown`] rather than crashing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum TargetKind {
     /// Microsoft Entra ID (formerly Azure AD).
@@ -46,20 +40,13 @@ impl From<PamTargetSystemKind> for TargetKind {
     }
 }
 
-// ---------------------------------------------------------------------------
-// PasswordPolicy conversion
-// ---------------------------------------------------------------------------
-
 /// Converts the generated [`PamPasswordPolicyResponseModel`] into the daemon's
 /// [`PasswordPolicy`].
 ///
-/// The generated model uses `Option<i32>` for length fields (the OpenAPI spec
-/// represents them as nullable integers).  Negative values are treated as
-/// `None` (unconstrained) since a negative length is not meaningful.
+/// Negative length values are treated as `None` (unconstrained), since the
+/// wire's `Option<i32>` allows them but a negative length is not meaningful.
 impl From<PamPasswordPolicyResponseModel> for PasswordPolicy {
     fn from(m: PamPasswordPolicyResponseModel) -> Self {
-        // Convert i32 → Option<u32>: negative values are silently treated as
-        // unconstrained (None) because a negative policy length is nonsensical.
         let min_length = m.min_length.and_then(|v| u32::try_from(v).ok());
         let max_length = m.max_length.and_then(|v| u32::try_from(v).ok());
 
@@ -74,10 +61,6 @@ impl From<PamPasswordPolicyResponseModel> for PasswordPolicy {
     }
 }
 
-// ---------------------------------------------------------------------------
-// JobRef
-// ---------------------------------------------------------------------------
-
 /// A reference to a claimable rotation job returned by the poll endpoint.
 ///
 /// The daemon iterates over these and attempts to claim each one until it
@@ -87,10 +70,6 @@ pub(crate) struct JobRef {
     /// The rotation job UUID used in the claim request.
     pub(crate) id: Uuid,
 }
-
-// ---------------------------------------------------------------------------
-// WorkSnapshot
-// ---------------------------------------------------------------------------
 
 /// The self-contained work snapshot returned by a successful claim.
 ///
@@ -124,10 +103,6 @@ pub(crate) struct WorkSnapshot {
     pub(crate) execute_by: DateTime<Utc>,
 }
 
-// ---------------------------------------------------------------------------
-// RotationCipher
-// ---------------------------------------------------------------------------
-
 /// The cipher snapshot returned by the cipher-read endpoint.
 ///
 /// The `data` field holds the cipher's encrypted JSON blob parsed into a
@@ -139,21 +114,17 @@ pub(crate) struct RotationCipher {
     pub(crate) cipher_id: Uuid,
     /// The cipher's encrypted JSON blob, parsed from the wire string.
     ///
-    /// Parsing is done at the API boundary so that the crypto layer can safely
-    /// treat it as structured JSON.  A missing or unparseable `data` field is
-    /// a [`super::ApiError::Protocol`] error — the content is never echoed.
+    /// Parsed at the API boundary so the crypto layer can treat it as
+    /// structured JSON; a decode failure is [`super::ApiError::Protocol`],
+    /// never echoing content.
     pub(crate) data: serde_json::Value,
-    /// Optional per-item cipher key (EncString), present when the cipher uses
-    /// item-level key wrapping.
+    /// Optional per-item cipher key (EncString), present with item-level key
+    /// wrapping.
     pub(crate) key: Option<String>,
     /// The revision date string (RFC-3339), echoed back verbatim on the cipher
     /// write as `lastKnownRevisionDate` for optimistic-concurrency enforcement.
     pub(crate) revision_date: String,
 }
-
-// ---------------------------------------------------------------------------
-// Report conversion helpers
-// ---------------------------------------------------------------------------
 
 /// Convert the daemon's `SessionTermination` into the generated
 /// [`bitwarden_api_api::models::PamSessionTerminationOutcome`] integer enum.
@@ -191,59 +162,45 @@ impl From<SyncState> for bitwarden_api_api::models::PamRotationSyncState {
     }
 }
 
-// ---------------------------------------------------------------------------
-// ApiError
-// ---------------------------------------------------------------------------
-
 /// Errors returned by the [`super::RotationApi`] wrapper.
 ///
-/// Each variant maps to a distinct server or transport condition.  Response
-/// bodies are **never** included — they can contain sensitive data.
+/// Each variant maps to a distinct server or transport condition. Response
+/// bodies are never included; they can contain sensitive data.
 #[derive(Debug)]
 pub(crate) enum ApiError {
     /// The daemon's session was terminally lost (revoked or closed).
     ///
-    /// This is returned when [`crate::auth::session::SessionManager::bearer`]
-    /// or [`crate::auth::session::SessionManager::force_refresh`] returns
-    /// [`crate::auth::session::SessionError::Lost`].  The executor consults
-    /// `session.phase()` after receiving this to decide whether to exit or
-    /// pause.
+    /// Returned by `SessionManager::bearer` or `force_refresh` as
+    /// [`crate::auth::session::SessionError::Lost`]; the executor then consults
+    /// `session.phase()` to decide whether to exit or pause.
     SessionLost(SessionLost),
 
-    /// The server returned 409 (conflict / race lost on a claim) or an
-    /// analogous rejection.
+    /// The server returned 409 (conflict or race lost on a claim) or an analogous rejection.
     ///
-    /// For the claim endpoint a 409 means another daemon won the race and is
-    /// mapped to `Ok(None)` by [`super::RotationApi::claim`] — it is NOT
-    /// surfaced as this variant.  For the cipher-write endpoint a 409 maps to
-    /// this variant (revision drift or capability lost).
+    /// For the claim endpoint, this maps to `Ok(None)` instead (another daemon won the race);
+    /// for cipher-write, it means revision drift or capability lost.
     Rejected {
         /// The HTTP status code of the rejection (typically 409).
         status: u16,
     },
 
     /// The server returned 404 for an attempt-scoped route (`/cipher`,
-    /// `/success`, `/failure`).
-    ///
-    /// This means the attempt is no longer known to the server (it was
-    /// abandoned or never registered).  The executor should abort the rotation
-    /// unreported.
+    /// `/success`, `/failure`): the attempt is no longer known to the server.
+    /// The executor should abort the rotation unreported.
     UnknownAttempt,
 
     /// The daemon is not eligible to use the rotation endpoints.
     ///
-    /// The server's `DaemonRequestEndpointFilter` returns 404 on **any**
-    /// daemon route when the organisation's PAM license is revoked, the daemon
-    /// record is disabled, or `UsePam` is off.  A 404 on the poll/claim routes
-    /// maps here; the executor triggers a refresh-probe and then decides
-    /// between `CredentialRefused` and `NotEligible`.
+    /// The server's `DaemonRequestEndpointFilter` returns 404 on any daemon route for a
+    /// revoked PAM license, a disabled daemon, or `UsePam` off; the executor runs a
+    /// refresh-probe before choosing between `CredentialRefused` and `NotEligible`.
     NotEligible,
 
     /// A transient error: network failure, 429, 5xx, or a 401 that persisted
     /// after the single refresh-and-retry.
     ///
-    /// The description is a bounded static-ish string (status code or error
-    /// kind) — no response body content.
+    /// The description is a bounded status/error-kind string; no response
+    /// body content.
     Transient(String),
 
     /// A protocol error: the server's response could not be decoded, or a
@@ -266,15 +223,9 @@ impl std::fmt::Display for ApiError {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ── TargetKind conversion ──────────────────────────────────────────────
 
     #[test]
     fn target_kind_from_entra() {
@@ -307,8 +258,6 @@ mod tests {
             TargetKind::Unknown(99)
         );
     }
-
-    // ── PasswordPolicy conversion ──────────────────────────────────────────
 
     #[test]
     fn password_policy_from_full_model() {
@@ -363,8 +312,6 @@ mod tests {
         assert!(!p.include_symbols);
     }
 
-    // ── SessionTermination → PamSessionTerminationOutcome ─────────────────
-
     #[test]
     fn session_termination_not_requested() {
         let out = bitwarden_api_api::models::PamSessionTerminationOutcome::from(
@@ -400,8 +347,6 @@ mod tests {
         );
         assert_eq!(out.as_i64(), 2);
     }
-
-    // ── SyncState → PamRotationSyncState ──────────────────────────────────
 
     #[test]
     fn sync_state_target_unchanged() {

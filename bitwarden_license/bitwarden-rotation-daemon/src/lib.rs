@@ -1,22 +1,16 @@
 //! Bitwarden PAM credential rotation daemon library.
 //!
-//! This crate implements the core logic for the `bw-rotation-daemon` binary,
-//! which continuously rotates PAM-managed credentials according to configured
-//! policies and schedules.
+//! Implements the core logic for the `bw-rotation-daemon` binary, which continuously rotates
+//! PAM-managed credentials according to configured policies and schedules.
 //!
-//! # Entry point
+//! The primary entry point is [`run`], which starts the polling loop and returns an
+//! [`executor::RunExit`] on clean shutdown. Callers build a [`executor::DaemonConfig`] via
+//! [`crate::config::Config::from_cli`] and pass a
+//! [`bitwarden_threading::cancellation_token::CancellationToken`] for graceful shutdown.
 //!
-//! The primary entry point is [`run`], which starts the polling loop and
-//! returns a [`executor::RunExit`] when the daemon shuts down cleanly.
-//! Callers construct a [`executor::DaemonConfig`] via the CLI/config layer
-//! (see [`crate::config::Config::from_cli`]) and pass in a
-//! [`bitwarden_threading::cancellation_token::CancellationToken`] for
-//! graceful shutdown.
+//! # Spec rule to executor mapping
 //!
-//! # Spec-rule → executor mapping
-//!
-//! The following table maps spec rules from `rotation-daemon.allium` to the
-//! executor module that implements them.
+//! Maps spec rules from `rotation-daemon.allium` to the executor module implementing them.
 //!
 //! | Spec rule                          | Implementation                                 |
 //! |------------------------------------|------------------------------------------------|
@@ -56,17 +50,11 @@ pub(crate) mod resolver;
 /// Token parsing, key derivation, and C1 constants (exposed for `examples/register.rs`).
 pub mod token;
 
-// ---------------------------------------------------------------------------
-// Public run surface
-// ---------------------------------------------------------------------------
-
 /// Start the daemon poll loop.
 ///
-/// Runs until one of the following clean-exit conditions is reached:
-///
-/// - `cancel` is cancelled → [`executor::RunExit::Shutdown`]
-/// - the daemon credential is rejected → [`executor::RunExit::CredentialRefused`]
-/// - the daemon is not eligible for rotation endpoints → [`executor::RunExit::NotEligible`]
+/// Runs until a clean-exit condition: `cancel` cancelled ([`executor::RunExit::Shutdown`]),
+/// the credential rejected ([`executor::RunExit::CredentialRefused`]), or the daemon not
+/// eligible for rotation endpoints ([`executor::RunExit::NotEligible`]).
 pub async fn run(
     cfg: executor::DaemonConfig,
     cancel: bitwarden_threading::cancellation_token::CancellationToken,
@@ -74,17 +62,11 @@ pub async fn run(
     executor::run(cfg, cancel).await
 }
 
-// ---------------------------------------------------------------------------
-// Test utilities
-// ---------------------------------------------------------------------------
-
 /// Shared mutex that serialises all tests mutating process-environment variables.
 ///
-/// `std::env::set_var` / `remove_var` are `unsafe` in Rust 2024 because
-/// concurrent mutation is UB in a multi-threaded process.  Tests that read or
-/// write *any* environment variable (e.g. `BWRD_TOKEN`) must hold this lock for
-/// the duration of the mutable window.  Different test modules (`config::tests`,
-/// `integrations::custom_script::tests`) share this process-wide lock so they
-/// can coordinate even when the test harness runs them on separate threads.
+/// `std::env::set_var` / `remove_var` are `unsafe` in Rust 2024, since concurrent mutation is
+/// UB in a multi-threaded process. Tests touching any environment variable (e.g. `BWRD_TOKEN`)
+/// must hold this lock for the mutable window; different test modules share this process-wide
+/// lock to coordinate across threads.
 #[cfg(test)]
 pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
