@@ -1,21 +1,9 @@
-//! Error taxonomy for the rotation daemon.
-//!
-//! This module defines:
-//! - `FailureCode`: failure reason codes reported to the server on a failed rotation attempt.
-//! - `SyncState`: vault-to-target synchronisation state at the time of a failure report.
-//! - `SessionTermination`: outcome of the best-effort session-termination step.
-//! - `ErrorClass`: transient vs. fatal classification used by the retry helpers.
-//! - `SafeDetail`: a bounded, zero-knowledge detail string constructible only from vetted scalars.
-//! - [`crate::error::RotationDaemonError`]: top-level CLI/startup errors.
+//! Error taxonomy for the rotation daemon: failure codes, sync state, session
+//! termination outcome, retry classification, and safe report details.
 
 use thiserror::Error;
 
-// ---------------------------------------------------------------------------
-// Wire enums (C3: final encoding is pinned by the generated bitwarden-api-api
-// models; the api layer maps these if the generated enum variants differ)
-// ---------------------------------------------------------------------------
-
-/// Failure reason reported to the server when a rotation attempt does not succeed.
+/// Failure reason reported to the server for a failed rotation attempt.
 ///
 /// Serialised as `snake_case` over the wire.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -50,12 +38,9 @@ pub(crate) enum FailureCode {
 
 /// Vault-to-target synchronisation state reported alongside a failure.
 ///
-/// Tells the server whether the target system's credential was changed before the attempt
-/// failed, allowing it (and the operator) to know whether the vault and target are in sync.
-///
-/// Serialised as `snake_case` over the wire.
-///
-/// **C3 note**: final wire encoding is pinned by the generated bitwarden-api-api models.
+/// Tells the server whether the target credential changed before the attempt
+/// failed, so the vault/target sync state is known. Wire encoding is pinned by
+/// the generated bitwarden-api-api models.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SyncState {
@@ -71,15 +56,11 @@ pub(crate) enum SyncState {
 
 /// Outcome of the best-effort session-termination step (step 6 of `ExecuteRotation`).
 ///
-/// A termination failure never fails the overall rotation — the step returns this value
-/// rather than propagating an error.
+/// A termination failure never fails the overall rotation; the step returns this value
+/// instead of propagating an error.
 ///
-/// Serialised as `snake_case` over the wire.
-///
-/// **C3 note / D3**: `TermFailed` is also reported when termination was never initiated at
-/// all (e.g. the `execute_by` lease expired or a connectivity pause occurred before step 6
-/// could begin). This is deliberate bounded-enum widening: it is the only honest value in
-/// the bounded enum when the step did not run.
+/// `TermFailed` (D3) also covers termination never running (lease expiry or a connectivity
+/// pause before step 6): the only honest value in the bounded enum for that case.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SessionTermination {
@@ -91,10 +72,6 @@ pub(crate) enum SessionTermination {
     TermFailed,
 }
 
-// ---------------------------------------------------------------------------
-// Retry classification
-// ---------------------------------------------------------------------------
-
 /// Classifies an integration or server error as transient (eligible for local retry) or
 /// fatal (retry would not help; propagate immediately).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,24 +82,11 @@ pub(crate) enum ErrorClass {
     Fatal,
 }
 
-// ---------------------------------------------------------------------------
-// SafeDetail
-// ---------------------------------------------------------------------------
-
 /// A bounded, zero-knowledge detail string that may be included in a failure report.
 ///
-/// # Safety contract
-///
-/// Raw target-system output (stdout, stderr, error messages from remote APIs) can echo
-/// credentials back. `SafeDetail` is constructible **only** from vetted scalars — HTTP
-/// status codes, process exit codes, environment variable *names* (not values), error kind
-/// names — so that no secret can flow into a report by construction.
-///
-/// There is deliberately no `From<String>` or `From<&str>` impl, and the inner field is
-/// private.
-///
-/// The server truncates detail strings at 500 chars server-side as well; we enforce the
-/// limit locally so callers never silently produce an oversized payload.
+/// Constructible only from vetted scalars (HTTP status codes, exit codes, env var and error
+/// kind names); no `From<String>` impl exists. The server-mirrored 500-char limit is
+/// enforced locally.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SafeDetail(String);
 
@@ -165,7 +129,7 @@ impl SafeDetail {
     }
 
     /// Build a detail from an opaque error kind name (a `'static` string constant such
-    /// as `"GraphRequest"` or `"ParseError"` — never a user-supplied string).
+    /// as `"GraphRequest"` or `"ParseError"`, never a user-supplied string).
     pub(crate) fn from_kind(kind: &'static str) -> Self {
         Self(Self::truncate(format!("error kind: {kind}")))
     }
@@ -175,12 +139,9 @@ impl SafeDetail {
         Self(Self::truncate(format!("timed out after {secs}s")))
     }
 
-    /// Build a detail from an HTTP status code and an optional Graph `error.code`
-    /// string.
+    /// Build a detail from an HTTP status code and an optional Graph `error.code`.
     ///
-    /// Only the status code (an integer) and the Graph error code (a static-safe
-    /// server-assigned string like `"Request_ResourceNotFound"`) are included.
-    /// The Graph `error.message` field is **never** included because it can echo
+    /// The Graph `error.message` field is never included, since it can echo
     /// user-supplied content (e.g. account identities, policy text).
     pub(crate) fn from_http_status_and_graph_code(status: u16, graph_code: Option<&str>) -> Self {
         let s = match graph_code {
@@ -204,14 +165,10 @@ impl std::fmt::Display for SafeDetail {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Top-level daemon error
-// ---------------------------------------------------------------------------
-
 /// Top-level errors produced during CLI parsing and daemon startup.
 ///
-/// These are printed to stderr and result in a non-zero exit code. No
-/// `#[bitwarden_error]` attribute is needed — the daemon has no language bindings.
+/// Printed to stderr with a non-zero exit code. No `#[bitwarden_error]` attribute
+/// is needed; the daemon has no language bindings.
 #[derive(Debug, Error)]
 pub enum RotationDaemonError {
     /// The configuration supplied is invalid (bad URL, conflicting options, etc.).
@@ -235,15 +192,9 @@ pub enum RotationDaemonError {
     Io(#[from] std::io::Error),
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // --- SafeDetail ---
 
     #[test]
     fn safe_detail_from_status() {
@@ -278,7 +229,7 @@ mod tests {
 
     #[test]
     fn safe_detail_truncated_at_500_chars() {
-        // Build a string longer than 500 chars using only ASCII so char == byte.
+        // ASCII-only, so char length equals byte length.
         let long = "x".repeat(600);
         let d = SafeDetail::from_kind(Box::leak(long.into_boxed_str()));
         assert_eq!(
@@ -307,11 +258,9 @@ mod tests {
             d.as_str().len() <= SafeDetail::MAX_LEN,
             "truncated string must not exceed MAX_LEN bytes"
         );
-        // Confirm it's valid UTF-8 (would panic on as_str() otherwise, but be explicit).
+        // as_str() would panic on invalid UTF-8; confirm explicitly.
         assert!(std::str::from_utf8(d.as_str().as_bytes()).is_ok());
     }
-
-    // --- Serde snake_case encoding ---
 
     #[test]
     fn failure_code_serde_snake_case() {

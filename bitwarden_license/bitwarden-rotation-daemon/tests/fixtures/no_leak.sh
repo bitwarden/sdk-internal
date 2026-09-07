@@ -1,16 +1,8 @@
 #!/bin/sh
-# Fixture: verifies that the daemon passes credentials via stdin only.
+# Fixture: verifies the daemon passes credentials via stdin only.
 #
-# Checks:
-#  1. The first (and only) argument is the operation name (no extra args).
-#  2. The newPassword value from the stdin payload does NOT appear in any
-#     process environment variable.
-#
-# Exit 0 = both checks passed (no leakage detected).
-# Exit 1 = leak or unexpected args detected.
-#
-# The test injects a known sentinel as newPassword.  If that sentinel appears
-# in the process environment, something passed it via argv or env — a bug.
+# Checks the op name is the only arg and that newPassword never leaks into the environment;
+# exits 0 on success, 1 otherwise.
 
 set -e
 
@@ -28,7 +20,7 @@ password=$(printf '%s' "$payload" \
     | grep -o '"newPassword"[[:space:]]*:[[:space:]]*"[^"]*"' \
     | sed 's/"newPassword"[[:space:]]*:[[:space:]]*"\([^"]*\)"/\1/')
 
-# If newPassword is absent (e.g. terminate operation), that is fine.
+# newPassword is absent for e.g. the terminate operation; that is fine.
 if [ -z "$password" ]; then
     exit 0
 fi

@@ -1,29 +1,12 @@
 //! Secret and configuration value resolution from various sources.
 //!
-//! The [`CredentialResolver`] trait abstracts the mechanism by which per-target
-//! credentials (e.g. service-principal secrets, script paths) are obtained.
+//! [`CredentialResolver`] abstracts how per-target credentials are obtained. The active
+//! resolver is [`config::ConfigCredentialResolver`]: the config file wins per key, the
+//! environment variable is the fallback.
 //!
-//! # Two-layer resolution
-//!
-//! The active resolver is [`config::ConfigCredentialResolver`], which layers a TOML
-//! config-file source on top of the environment-variable fallback:
-//!
-//! 1. **Config file** (`[targets.<uuid>]` in the daemon's TOML) — wins per key.
-//! 2. **Environment variable** — fallback for any key not set in the config file.
-//!
-//! Missing-key errors always report the **env var name** as the actionable hint,
-//! regardless of which source was expected to provide the value.
-//!
-//! # Resolver contract
-//!
-//! A resolved credential map's keys are the **suffix** portion of the
-//! environment variable name — i.e. everything after the `<TARGET_ID>_` prefix.
-//! For example, for target id `abc-123`, the variable `ABC_123_CLIENT_SECRET`
-//! resolves under the key `CLIENT_SECRET`.
-//!
-//! Variable **values** are wrapped in [`zeroize::Zeroizing`] via
-//! [`bitwarden_sensitive_value::Sensitive`] so that they are wiped from memory
-//! when dropped.  Variable **names** are safe to log/report; values never are.
+//! A resolved map's keys are the suffix after the `<TARGET_ID>_` prefix (e.g.
+//! `ABC_123_CLIENT_SECRET` resolves under `CLIENT_SECRET`). Values are wrapped in
+//! [`zeroize::Zeroizing`] and wiped on drop; names are safe to log, values never are.
 
 pub(crate) mod config;
 pub(crate) mod env;
@@ -37,25 +20,9 @@ use zeroize::Zeroizing;
 
 use crate::api::models::TargetKind;
 
-// ---------------------------------------------------------------------------
-// ResolvedCredentials
-// ---------------------------------------------------------------------------
-
-/// A map of resolved credential values keyed by their **suffix** (the portion
-/// of the environment variable name after the `<TARGET_ID>_` prefix).
-///
-/// Values are [`Sensitive<Zeroizing<String>>`] so that the raw secret bytes
-/// are zeroed when dropped.
-///
-/// # Example
-///
-/// For a variable `ABC_123_CLIENT_SECRET`, the entry is stored under the key
-/// `"CLIENT_SECRET"`.  Retrieving it:
-///
-/// ```ignore
-/// use bitwarden_sensitive_value::ExposeSensitive as _;
-/// let val = creds.get("CLIENT_SECRET").map(|s| s.expose());
-/// ```
+/// A map of resolved credential values keyed by their suffix (the portion of the environment
+/// variable name after the `<TARGET_ID>_` prefix). Values are
+/// [`Sensitive<Zeroizing<String>>`], zeroed on drop.
 #[derive(Debug)]
 pub(crate) struct ResolvedCredentials {
     inner: HashMap<String, Sensitive<Zeroizing<String>>>,
@@ -76,12 +43,12 @@ impl ResolvedCredentials {
             .insert(key, Sensitive::from(Zeroizing::new(value)));
     }
 
-    /// Returns a reference to the value for the given suffix key, or `None`.
+    /// The value for the given suffix key, or `None`.
     pub(crate) fn get(&self, key: &str) -> Option<&Sensitive<Zeroizing<String>>> {
         self.inner.get(key)
     }
 
-    /// Returns an iterator over all `(key, value)` pairs.
+    /// An iterator over all `(key, value)` pairs.
     pub(crate) fn iter(&self) -> impl Iterator<Item = (&String, &Sensitive<Zeroizing<String>>)> {
         self.inner.iter()
     }
@@ -93,47 +60,35 @@ impl Default for ResolvedCredentials {
     }
 }
 
-// ---------------------------------------------------------------------------
-// ResolveError
-// ---------------------------------------------------------------------------
-
-/// Errors that can occur when resolving credentials for a target system.
+/// Errors from resolving credentials for a target system.
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum ResolveError {
     /// One or more required environment variables are absent.
     ///
-    /// The payload carries the **variable names** only — never values — so it
-    /// is safe to include in failure reports.
+    /// The payload carries the variable names only, never values, so it is safe to include
+    /// in failure reports.
     #[error("missing required credential variables: {}", .0.join(", "))]
     Missing(Vec<String>),
 }
 
-// ---------------------------------------------------------------------------
-// CredentialResolver trait
-// ---------------------------------------------------------------------------
-
 /// Resolves credentials for a given target system.
 ///
 /// Implementations are expected to be cheap to clone/share (`Arc<dyn
-/// CredentialResolver>`).  Resolution is `async` so that future implementations
-/// can talk to an external secrets manager.
+/// CredentialResolver>`). Resolution is `async`, so future implementations can talk to an
+/// external secrets manager.
 #[async_trait]
 pub(crate) trait CredentialResolver: Send + Sync {
     /// Resolves all credentials for the given target.
     ///
-    /// On success returns a [`ResolvedCredentials`] map containing at least the
-    /// required suffixes for `kind`.  On failure returns a [`ResolveError`]
-    /// whose payload contains only safe-to-log variable names.
+    /// On success, a [`ResolvedCredentials`] map containing at least the required suffixes
+    /// for `kind`; on failure, a [`ResolveError`] whose payload contains only safe-to-log
+    /// variable names.
     async fn resolve(
         &self,
         target_system_id: Uuid,
         kind: TargetKind,
     ) -> Result<ResolvedCredentials, ResolveError>;
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

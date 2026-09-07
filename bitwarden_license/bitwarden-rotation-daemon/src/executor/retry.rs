@@ -1,48 +1,16 @@
 //! Retry helpers for target-side and server-side rotation steps.
 //!
-//! # Overview
+//! [`with_retries`] is a plain backoff loop, optionally deadline-capped; [`with_retries_gated`]
+//! also gates every try, aborting on session loss or `execute_by` expiry.
 //!
-//! Two variants of retry loop are provided:
-//!
-//! - [`with_retries`]: unconditional exponential-backoff loop up to a total try count (optionally
-//!   deadline-capped).  Used for server-side steps where no session gate check is needed.
-//! - [`with_retries_gated`]: same loop but awaits a caller-supplied `gate` closure **before every
-//!   try including the first**.  Used for target-side steps 3 (rotate), 4 (verify), and 6
-//!   (terminate) so that session loss or `execute_by` expiry aborts before the next target-side
-//!   action is initiated, not mid-call.
-//!
-//! # Total-try semantics
-//!
-//! `RetryCfg::max_retry_attempts` (default 5) counts **total tries**, not extra
-//! retries.  With 5 total tries there are 4 backoff sleeps between them.  The
-//! sleep durations follow `retry_base_delay * 2^(n-1)`:
-//!
-//! | Try | Sleep before next try |
-//! |-----|-----------------------|
-//! | 1   | base × 1              |
-//! | 2   | base × 2              |
-//! | 3   | base × 4              |
-//! | 4   | base × 8              |
-//! | 5   | (none, last try)      |
-//!
-//! With `base = 1 s` the sleeps are 1 s, 2 s, 4 s, 8 s.
-//!
-//! # Deadline capping
-//!
-//! When `deadline` is `Some`, a sleep that would reach or pass the deadline is
-//! truncated to the remaining time; if the deadline has already passed, the
-//! loop stops immediately with the last error.  This ensures the loop never
-//! overshoots `execute_by`.
+//! `RetryCfg::max_retry_attempts` counts total tries: the default of 5 produces 4 backoff
+//! sleeps, truncated or skipped at `deadline`.
 
 use std::{future::Future, time::Duration};
 
 use tokio::time::Instant;
 
 use crate::error::ErrorClass;
-
-// ---------------------------------------------------------------------------
-// RetryCfg
-// ---------------------------------------------------------------------------
 
 /// Configuration for the retry helpers.
 ///
@@ -53,7 +21,7 @@ use crate::error::ErrorClass;
 pub(crate) struct RetryCfg {
     /// Total number of tries (including the first attempt).
     ///
-    /// Must be ≥ 1.  Saturates at `u32::MAX`.  Default: 5.
+    /// Must be ≥ 1 (saturates at `u32::MAX`); default 5.
     pub(crate) max_retry_attempts: u32,
 
     /// Base delay for the exponential backoff.
@@ -72,10 +40,6 @@ impl Default for RetryCfg {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Outcome of a gated retry loop
-// ---------------------------------------------------------------------------
-
 /// The three possible outcomes of a [`with_retries_gated`] call.
 #[derive(Debug)]
 pub(crate) enum GatedOutcome<T, E, A> {
@@ -87,20 +51,11 @@ pub(crate) enum GatedOutcome<T, E, A> {
     Failed(E),
 }
 
-// ---------------------------------------------------------------------------
-// with_retries
-// ---------------------------------------------------------------------------
-
-/// Retry `op` up to `cfg.max_retry_attempts` total tries with exponential
-/// backoff, optionally deadline-capped.
+/// Retry `op` up to `cfg.max_retry_attempts` total tries with exponential backoff,
+/// optionally deadline-capped.
 ///
-/// - [`ErrorClass::Fatal`] errors short-circuit immediately.
-/// - [`ErrorClass::Transient`] errors are retried up to the total-try limit.
-/// - If `deadline` is `Some` and sleeping would cross it, the sleep is truncated; if the deadline
-///   is already past when checking, the loop stops with the last error.
-///
-/// Returns `Ok(T)` on the first success, or `Err(E)` after the last failed
-/// attempt.
+/// [`ErrorClass::Fatal`] short-circuits immediately; [`ErrorClass::Transient`] retries up to
+/// the limit, truncating or skipping the sleep at `deadline`. Returns `Ok(T)` on first success.
 pub(crate) async fn with_retries<F, Fut, T, E>(
     cfg: &RetryCfg,
     deadline: Option<Instant>,
@@ -121,17 +76,15 @@ where
             Err((ErrorClass::Transient, e)) => {
                 last_err = Some(e);
 
-                // If this was the last allowed attempt, don't sleep.
+                // Don't sleep after the last attempt.
                 if attempt + 1 >= max_tries {
                     break;
                 }
 
-                // Compute exponential sleep: base * 2^attempt (0-indexed, so
-                // first sleep is base * 1, second is base * 2, …).
                 let sleep = exponential_delay(base, attempt);
                 let capped = cap_to_deadline(sleep, deadline);
                 if capped == Duration::ZERO {
-                    // Deadline already passed or truncated to zero — stop.
+                    // Deadline already passed or truncated to zero; stop.
                     break;
                 }
                 tokio::time::sleep(capped).await;
@@ -139,24 +92,16 @@ where
         }
     }
 
-    // Unwrap is safe: max_tries >= 1 so at least one attempt ran.
+    // Unwrap is safe: at least one attempt ran, since max_tries is at least 1.
     #[allow(clippy::unwrap_used)]
     Err(last_err.unwrap())
 }
 
-// ---------------------------------------------------------------------------
-// with_retries_gated
-// ---------------------------------------------------------------------------
-
-/// Like [`with_retries`] but calls `gate().await` before **every** try
-/// including the first.
+/// Like [`with_retries`] but calls `gate().await` before every try, including
+/// the first; an abort stops the loop and surfaces as [`GatedOutcome::Aborted`].
 ///
-/// The gate returns `Ok(())` to proceed, or `Err(A)` to abort.  An abort stops
-/// the loop immediately and surfaces as [`GatedOutcome::Aborted`].
-///
-/// This is used for target-side steps (rotate, verify, terminate_sessions) so
-/// that session loss or `execute_by` expiry is checked before initiating each
-/// new target-side action, not mid-call.
+/// Used for target-side steps so session loss or `execute_by` expiry is
+/// checked before each action, not mid-call.
 pub(crate) async fn with_retries_gated<G, GFut, F, Fut, T, E, A>(
     cfg: &RetryCfg,
     mut gate: G,
@@ -173,7 +118,7 @@ where
     let mut last_err: Option<E> = None;
 
     for attempt in 0..max_tries {
-        // Gate check before every try — including the first.
+        // Gate check before every try, including the first.
         if let Err(abort) = gate().await {
             return GatedOutcome::Aborted(abort);
         }
@@ -189,11 +134,8 @@ where
                 }
 
                 let sleep = exponential_delay(base, attempt);
-                // Note: gated retries do not cap to a deadline here; the gate
-                // itself is responsible for deadline enforcement (it checks
-                // execute_by before every try).  We sleep the full backoff
-                // duration; if the deadline passes during the sleep the gate
-                // will abort on the next iteration.
+                // Not deadline-capped: the gate checks execute_by before every try,
+                // so a deadline crossed during sleep is caught on the next iteration.
                 tokio::time::sleep(sleep).await;
             }
         }
@@ -203,23 +145,16 @@ where
     GatedOutcome::Failed(last_err.unwrap())
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 /// Compute `base * 2^attempt` (attempt is 0-indexed), capping at 32 * base to
 /// avoid overflow with very large attempt counts.
 fn exponential_delay(base: Duration, attempt: u32) -> Duration {
-    // Cap the shift to avoid overflow; 2^5 = 32 is a reasonable practical cap
-    // (at 1 s base that's 32 s, well within the spirit of the spec's 1,2,4,8 s
-    // schedule for 5 total tries).
+    // Cap the shift at 5 (32x) to avoid overflow at large attempt counts.
     let shift = attempt.min(5);
     base * (1u32 << shift)
 }
 
-/// Truncate `delay` so it does not push past `deadline`.
-///
-/// Returns `Duration::ZERO` if the deadline has already passed.
+/// Truncate `delay` so it does not push past `deadline`, or `Duration::ZERO`
+/// after the deadline passes.
 fn cap_to_deadline(delay: Duration, deadline: Option<Instant>) -> Duration {
     match deadline {
         None => delay,
@@ -235,10 +170,6 @@ fn cap_to_deadline(delay: Duration, deadline: Option<Instant>) -> Duration {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use std::{
@@ -250,8 +181,6 @@ mod tests {
 
     use super::*;
     use crate::error::ErrorClass;
-
-    // ── with_retries backoff schedule ──────────────────────────────────────
 
     /// Count how many times `op` is called and verify the sleep schedule.
     #[tokio::test(start_paused = true)]
@@ -340,7 +269,7 @@ mod tests {
         };
         // Deadline already in the past.
         let past = Instant::now().checked_sub(Duration::from_secs(1));
-        // If the subtraction underflows we skip this test.
+        // Skip this test on subtraction underflow.
         let Some(past_deadline) = past else {
             return;
         };
@@ -364,8 +293,6 @@ mod tests {
             "past deadline should stop after first try"
         );
     }
-
-    // ── with_retries_gated: gate called before every try ───────────────────
 
     #[tokio::test(start_paused = true)]
     async fn gated_gate_called_before_each_try() {
@@ -439,9 +366,9 @@ mod tests {
         .await;
 
         assert!(matches!(result, GatedOutcome::Aborted("aborted")));
-        // Gate was called 2 times: once before try 1 (Ok), once before try 2 (Err).
+        // Gate: before try 1 (Ok) and before try 2 (Err).
         assert_eq!(*gate_calls.lock().unwrap(), 2);
-        // Op was called only once (try 1; aborted before try 2).
+        // Op: try 1 only; aborted before try 2.
         assert_eq!(*op_calls.lock().unwrap(), 1);
     }
 
