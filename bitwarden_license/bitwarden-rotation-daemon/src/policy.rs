@@ -9,7 +9,7 @@ use bitwarden_generators::{
 use serde::Deserialize;
 use thiserror::Error;
 
-/// Errors that can occur when converting a [`PasswordPolicy`] into a generator request.
+/// Errors from converting a [`PasswordPolicy`] into a generator request.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub(crate) enum PolicyError {
     /// All character-class flags (`include_uppercase`, `include_lowercase`,
@@ -25,12 +25,11 @@ pub(crate) enum PolicyError {
 
 /// Password-policy snapshot delivered inside a rotation claim.
 ///
-/// Field names use the wire casing from the server's OpenAPI spec (camelCase or
-/// snake_case depending on the generated bindings). We accept both via `#[serde(alias)]`
-/// so that hand-written tests and future generated-model migration can coexist.
+/// Field names use the wire casing from the server's OpenAPI spec; both camelCase and
+/// snake_case are accepted via `#[serde(alias)]`.
 ///
-/// Note: `include_digits` maps to `numbers` in `PasswordGeneratorRequest` and
-/// `include_symbols` maps to `special` — the generator crate uses its own naming.
+/// `include_digits`/`include_symbols` map to `numbers`/`special` in
+/// `PasswordGeneratorRequest`, which uses its own naming.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PasswordPolicy {
@@ -61,18 +60,16 @@ pub(crate) struct PasswordPolicy {
     pub(crate) include_symbols: bool,
 }
 
-/// The default password length used when the policy specifies no `max_length`.
+/// Default password length, used absent an explicit `max_length`.
 const DEFAULT_POLICY_PASSWORD_LENGTH: u32 = 64;
 
-/// Convert a [`PasswordPolicy`] into a [`PasswordGeneratorRequest`] ready for the
-/// password generator.
+/// Convert a [`PasswordPolicy`] into a [`PasswordGeneratorRequest`].
 ///
 /// # Errors
 ///
-/// - [`PolicyError::NoCharacterClasses`] — all four `include_*` flags are `false`.
-/// - [`PolicyError::InvalidBounds`] — `min_length > max_length` (when both are `Some`), or the
-///   effective floor (after applying the generator minimum of 5) exceeds the generator maximum of
-///   128.
+/// [`PolicyError::NoCharacterClasses`] for all four `include_*` flags `false`;
+/// [`PolicyError::InvalidBounds`] for `min_length > max_length`, or a floor exceeding the
+/// generator maximum of 128.
 pub(crate) fn to_generator_request(
     policy: &PasswordPolicy,
 ) -> Result<PasswordGeneratorRequest, PolicyError> {
@@ -92,12 +89,9 @@ pub(crate) fn to_generator_request(
         return Err(PolicyError::InvalidBounds);
     }
 
-    // Generator minimum: MINIMUM_PASSWORD_LENGTH = 5 (u8).
     let gen_min = u32::from(MINIMUM_PASSWORD_LENGTH);
-    // Generator maximum: MAXIMUM_PASSWORD_LENGTH = 128 (u8).
     let gen_max = u32::from(MAXIMUM_PASSWORD_LENGTH);
 
-    // Effective floor: max(policy min_length, generator minimum 5).
     let floor = policy.min_length.unwrap_or(0).max(gen_min);
 
     // The floor itself must not exceed the generator maximum.
@@ -148,8 +142,6 @@ mod tests {
         }
     }
 
-    // ── Basic mapping ────────────────────────────────────────────────────────────────
-
     #[test]
     fn test_defaults_produce_length_64() {
         // No bounds → length = clamp(64, 5, 128) = 64.
@@ -169,11 +161,8 @@ mod tests {
         assert_eq!(req.length, 50);
     }
 
-    // ── Floor: generator minimum of 5 ───────────────────────────────────────────────
-
     #[test]
     fn test_min_length_zero_floors_to_generator_min() {
-        // min_length=0 → floor = max(0, 5) = 5; max defaults to 64 → length = 64.
         let req = to_generator_request(&all_classes(Some(0), None)).unwrap();
         assert_eq!(req.length, 64);
     }
@@ -183,7 +172,6 @@ mod tests {
         // min_length=3 → floor = max(3, 5) = 5; max = 10 → length = 10.
         let req = to_generator_request(&all_classes(Some(3), Some(10))).unwrap();
         assert_eq!(req.length, 10);
-        // floor (5) <= length (10) is valid.
     }
 
     #[test]
@@ -191,8 +179,6 @@ mod tests {
         let req = to_generator_request(&all_classes(Some(5), Some(5))).unwrap();
         assert_eq!(req.length, 5);
     }
-
-    // ── Clamp at generator maximum (128) ────────────────────────────────────────────
 
     #[test]
     fn test_max_length_above_128_clamps_to_128() {
@@ -207,8 +193,6 @@ mod tests {
         assert_eq!(req.length, 128);
     }
 
-    // ── Error: min > max ────────────────────────────────────────────────────────────
-
     #[test]
     fn test_min_greater_than_max_returns_invalid_bounds() {
         let err = to_generator_request(&all_classes(Some(50), Some(30))).unwrap_err();
@@ -221,8 +205,6 @@ mod tests {
         assert_eq!(req.length, 16);
     }
 
-    // ── Error: floor > 128 ──────────────────────────────────────────────────────────
-
     #[test]
     fn test_min_length_above_128_returns_invalid_bounds() {
         // floor = max(200, 5) = 200 > 128 → InvalidBounds.
@@ -232,12 +214,9 @@ mod tests {
 
     #[test]
     fn test_min_length_exactly_128_is_valid() {
-        // floor = 128 == gen_max → clamp(max(128), 128, 128) = 128.
         let req = to_generator_request(&all_classes(Some(128), Some(128))).unwrap();
         assert_eq!(req.length, 128);
     }
-
-    // ── Error: no character classes ─────────────────────────────────────────────────
 
     #[test]
     fn test_all_classes_false_returns_no_character_classes() {
@@ -277,8 +256,6 @@ mod tests {
         }
     }
 
-    // ── Character-class mapping ──────────────────────────────────────────────────────
-
     #[test]
     fn test_include_flags_map_correctly() {
         let policy = PasswordPolicy {
@@ -305,7 +282,7 @@ mod tests {
         assert!(req.max_consecutive.is_none());
     }
 
-    // ── End-to-end: generated request passes validate_options and produces a password ─
+    // End-to-end: generated request passes validate_options and produces a password.
 
     #[test]
     fn test_generated_request_produces_valid_password() {

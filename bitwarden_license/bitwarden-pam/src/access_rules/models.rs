@@ -124,16 +124,13 @@ impl TryFrom<AccessRuleResponseModel> for AccessRuleView {
 
 /// Rebuilds the write payload for a rule that already exists.
 ///
-/// The rule endpoints have no PATCH: changing one field means PUTting the whole rule back. Doing
-/// that by hand means listing every editable field at the call site and getting it right - and a
-/// caller that forgets one silently erases it. The web client shipped exactly that bug, wiping a
-/// rule's extension settings whenever its enabled state was toggled, because its hand-written
-/// mapping omitted `allows_extensions` and `max_extension_duration_seconds`.
+/// The rule endpoints have no PATCH, so changing one field means PUTting the whole rule
+/// back; the web client's hand-enumerated mapping did exactly that incompletely, wiping a
+/// rule's extension settings on every `enabled` toggle.
 ///
-/// Mapped field by field rather than by struct update syntax on purpose: the view carries
-/// server-owned fields (`id`, `organization_id`, the timestamps) that are not part of the request,
-/// so a wholesale copy would not compile the day one is added - which is the point, since that is
-/// when a human has to decide whether the new field is editable.
+/// Mapped field by field rather than via struct update syntax: the view carries server-owned
+/// fields (`id`, `organization_id`, timestamps) not part of the request, so adding one can't
+/// silently compile without a human decision.
 impl From<AccessRuleView> for AccessRuleAddEditRequest {
     fn from(view: AccessRuleView) -> Self {
         Self {

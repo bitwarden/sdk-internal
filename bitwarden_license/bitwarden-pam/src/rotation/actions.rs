@@ -11,10 +11,9 @@ use super::{
 
 /// The actions a rotation config offers right now.
 ///
-/// Computed together rather than one predicate at a time because a caller rendering a config always
-/// needs all of them, and because they are not independent - `can_pause` and `can_resume` are
-/// exclusive, and `can_rotate_now` and `can_record_manual` are decided by the same method field.
-/// Deriving them in one place keeps a caller from showing a contradictory pair.
+/// Computed together rather than one predicate at a time: they are not independent
+/// (`can_pause`/`can_resume` are exclusive; `can_rotate_now`/`can_record_manual` share the
+/// same method field), so deriving them together avoids a contradictory pair.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -33,25 +32,22 @@ pub struct RotationConfigActions {
 
 /// Derives the actions a config offers, given the status of its target system.
 ///
-/// `target_status` is `None` when the target system has not been loaded yet, which is the common
-/// case on first paint - the configs list and the target-systems list are separate calls. Every
-/// predicate that depends on it fails closed, so a config never offers a rotation the server would
-/// then refuse.
+/// `target_status` is `None` before the target system loads (the common case on first paint,
+/// since the two lists are separate calls); every dependent predicate fails closed.
 pub fn rotation_config_actions(
     config: &RotationConfig,
     target_status: Option<TargetSystemStatus>,
 ) -> RotationConfigActions {
     RotationConfigActions {
-        // All four conditions are the server's own guard on dispatching a job. `Unknown` for either
-        // the method or the status fails closed: this SDK cannot tell whether the server would
-        // accept, so it does not invite the operator to find out.
+        // All four conditions mirror the server's own guard on dispatching a job; `Unknown`
+        // for method or status fails closed.
         can_rotate_now: config.enabled
             && config.target_system_method == TargetSystemMethod::Automatic
             && target_status == Some(TargetSystemStatus::Active)
             && !config.has_active_job,
         can_record_manual: config.target_system_method == TargetSystemMethod::Manual,
-        // A running job owns the credential until it resolves. Editing the account it rotates, or
-        // deleting the config underneath it, would leave the target and the vault disagreeing.
+        // A running job owns the credential until it resolves; editing the account or deleting
+        // the config underneath it would leave the target and vault disagreeing.
         mutations_locked: config.has_active_job,
         can_pause: config.enabled,
         can_resume: !config.enabled,
@@ -168,7 +164,7 @@ mod tests {
         assert!(actions.can_record_manual);
     }
 
-    /// A newer server naming a method this SDK cannot model must not fall through to either branch:
+    /// A newer server naming a method this SDK cannot model must not match either branch:
     /// the operator would be offered an action the server may reject.
     #[test]
     fn an_unrecognized_method_offers_neither_rotation_action() {

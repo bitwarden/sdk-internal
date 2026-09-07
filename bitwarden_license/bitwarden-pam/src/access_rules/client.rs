@@ -42,7 +42,7 @@ impl AccessRulesClient {
     }
 
     /// Retrieves a single access rule by ID. Fails with
-    /// [`NotFound`](AccessRuleError::NotFound) when no such rule is visible to the caller.
+    /// [`NotFound`](AccessRuleError::NotFound) for a rule not visible to the caller.
     pub async fn get(
         &self,
         organization_id: OrganizationId,
@@ -78,7 +78,7 @@ impl AccessRulesClient {
     }
 
     /// Validates and updates an existing access rule. Fails with
-    /// [`NotFound`](AccessRuleError::NotFound) when the rule was deleted before the write landed.
+    /// [`NotFound`](AccessRuleError::NotFound) for a rule deleted before the write landed.
     pub async fn update(
         &self,
         organization_id: OrganizationId,
@@ -101,25 +101,15 @@ impl AccessRulesClient {
     /// Where this rule fails to gate: the collections letting the ciphers it governs through
     /// without a lease.
     ///
-    /// `GET /organizations/{orgId}/access-rules/{id}/bypassable-ciphers`. Gating is a union — a
-    /// cipher is withheld only when EVERY collection reaching it gates — so a credential also
-    /// sitting in an ordinary collection is not protected at all. These are the ordinary
-    /// collections, de-duplicated across the ciphers they expose.
+    /// `GET /organizations/{orgId}/access-rules/{id}/bypassable-ciphers`. Gating requires every
+    /// collection reaching a cipher to gate it; one ungated collection leaves it fully exposed.
+    /// An empty list is normal; non-empty is the "something is wrong" signal.
     ///
-    /// An empty list is the normal answer and means the rule protects everything it governs; a rule
-    /// that is switched off answers empty too, since it gates nothing. A NON-EMPTY list is itself
-    /// the "something is wrong" signal, so there is no separate flag to keep in step.
+    /// Affected ciphers aren't named: decrypting one needs the caller's own vault key, which an
+    /// admin outside the warned collection lacks. Collections are nameable without it.
     ///
-    /// The affected ciphers are deliberately not reported: naming one means decrypting it from the
-    /// caller's own vault, and an admin outside the collection — the one being warned — has none of
-    /// them there. Collections are both reliably nameable and what remediation acts on.
-    ///
-    /// Errors surface as [`Api`](AccessRuleError::Api), NOT
-    /// [`NotFound`](AccessRuleError::NotFound): this endpoint never 404s a missing rule (the server
-    /// answers empty for absent, other-organization and disabled alike), so every 404 that can
-    /// actually arrive is infrastructural — the PAM feature flag off, or a server predating the
-    /// endpoint. Reporting those as "the rule does not exist" would be a lie about a rule the admin
-    /// is looking at. See `from_by_id_api_error`.
+    /// Errors surface as [`Api`](AccessRuleError::Api), not [`NotFound`](AccessRuleError::NotFound):
+    /// this endpoint never 404s a missing rule, so any 404 is infrastructural.
     pub async fn bypassable_ciphers(
         &self,
         organization_id: OrganizationId,
@@ -141,13 +131,11 @@ impl AccessRulesClient {
             .collect())
     }
 
-    /// Enables or disables a rule, leaving everything else about it untouched.
+    /// Enables or disables a rule; no other field changes.
     ///
-    /// Takes the rule as the caller already has it - every surface that offers this toggle is
-    /// listing rules - so this costs one round trip rather than a read followed by a write. The
-    /// full payload is rebuilt from that view by [`From<AccessRuleView>`], so no caller has to
-    /// enumerate the editable fields and none can drop one; see that conversion for the bug this
-    /// prevents.
+    /// Takes the rule as the caller already has it (every caller is listing rules), one round
+    /// trip instead of read-then-write. Rebuilt via [`From<AccessRuleView>`], so no caller
+    /// enumerates the editable fields.
     pub async fn set_enabled(
         &self,
         organization_id: OrganizationId,
@@ -163,8 +151,8 @@ impl AccessRulesClient {
         self.update(organization_id, id, request).await
     }
 
-    /// Deletes an access rule. Fails with [`NotFound`](AccessRuleError::NotFound) when the rule is
-    /// already gone.
+    /// Deletes an access rule. Fails with [`NotFound`](AccessRuleError::NotFound) for an
+    /// already-gone rule.
     pub async fn delete(
         &self,
         organization_id: OrganizationId,
@@ -304,8 +292,8 @@ mod tests {
             .await
             .unwrap();
 
-        // Identity and order, not just length: a conversion that dropped, defaulted or reordered
-        // ids would otherwise pass.
+        // Identity and order, not just length: a conversion that dropped, defaulted, or
+        // reordered ids would still pass a length-only check.
         assert_eq!(
             result.into_iter().map(uuid::Uuid::from).collect::<Vec<_>>(),
             vec![collection_id(), other]
@@ -339,9 +327,9 @@ mod tests {
         })
     }
 
-    /// This endpoint never 404s a missing rule — the server answers empty for absent, other-org and
-    /// disabled alike. So a 404 is infrastructural (PAM flag off, or a server predating the
-    /// endpoint) and must NOT be reported as a missing rule the admin is looking at.
+    /// This endpoint never 404s a missing rule; the server answers empty for absent, other-org
+    /// and disabled alike. A 404 is infrastructural (PAM flag off, or a server predating the
+    /// endpoint), not a missing rule.
     #[tokio::test]
     async fn bypassable_ciphers_leaves_not_found_as_api() {
         let organization_id = org_id();
@@ -557,8 +545,8 @@ mod tests {
     }
 
     /// The regression this exists to prevent: flipping `enabled` must not disturb any other field.
-    /// The web client's hand-written equivalent once omitted the two extension fields, so toggling
-    /// a rule silently wiped its extension settings.
+    /// The web client's hand-written equivalent previously omitted the two extension fields, so
+    /// toggling a rule silently wiped its extension settings.
     #[tokio::test]
     async fn set_enabled_flips_enabled_and_preserves_every_other_field() {
         let organization_id = org_id();

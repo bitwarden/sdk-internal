@@ -1,38 +1,18 @@
 //! The cryptographic half of registering an access connector.
 //!
-//! A connector runs unattended, outside any user's session, so it cannot unlock a vault the way a
-//! client does. Registration therefore hands it the organization key up front, wrapped so that only
-//! the holder of one operator-provisioned token can unwrap it:
+//! A connector runs unattended, so the organization key is wrapped so only the holder of the
+//! operator-provisioned token can unwrap it: a fresh 16-byte seed becomes the token's `:`
+//! suffix; a key derived from it (via
+//! [`derive_shareable_key`](bitwarden_crypto::derive_shareable_key) with [`DERIVE_NAME`] and
+//! [`DERIVE_INFO`]) encrypts `encryptedPayload`; and `key` is that derived key's base64,
+//! encrypted under the organization key so it can be re-wrapped on rotation.
 //!
-//! 1. A fresh 16-byte seed is generated. Base64-encoded, it becomes the `:` suffix of the token.
-//! 2. A symmetric key is derived from that seed via
-//!    [`derive_shareable_key`](bitwarden_crypto::derive_shareable_key), using [`DERIVE_NAME`] and
-//!    [`DERIVE_INFO`].
-//! 3. `encryptedPayload` - `{"encryptionKey":"<org key b64>"}` - is encrypted under the derived
-//!    key. The connector re-derives that key from the seed in its token and unwraps the
-//!    organization key.
-//! 4. `key` is the derived key's base64, encrypted under the organization key. Nothing in the
-//!    registration flow reads it back; it exists so an organization-key holder can re-wrap the
-//!    connector's key during an organization-key rotation.
+//! [`DERIVE_NAME`] / [`DERIVE_INFO`] are this module's single definition of that contract:
+//! they previously lived in the web client's TypeScript with a different `info` string, so a
+//! connector registered from the web derived a key it could not reproduce.
 //!
-//! # Why the derivation constants are what they are
-//!
-//! [`DERIVE_NAME`] and [`DERIVE_INFO`] must match what the connector computes from its token, or
-//! the connector derives a different key, `encryptedPayload` fails to decrypt, and it can never
-//! authenticate. They are the same pair Secrets Manager access tokens use - see
-//! [`AccessToken`](bitwarden_core::auth::AccessToken), which parses the identical format - and the
-//! same pair the access connector's own token parser uses.
-//!
-//! This is the single definition of that contract. It previously lived in the web client in
-//! TypeScript, with a different `info` string, which meant a connector registered from the web
-//! derived a key the connector itself could not reproduce.
-//!
-//! # Handling the result
-//!
-//! The token is returned exactly once and is never recoverable: the server stores only a hash of
-//! the client secret, and the seed never leaves this function except inside the token. A caller
-//! must show it once for the operator to copy and must not persist or log it. Losing it means
-//! deleting the connector and registering again.
+//! The token is returned a single time and is never recoverable: the server stores only a
+//! hash of the client secret. Show it to the operator to copy; never persist or log it.
 
 use std::{fmt, str::FromStr};
 
@@ -127,11 +107,9 @@ pub enum ConnectorTokenInvalidError {
 
 /// A parsed connector token.
 ///
-/// This is the *consumer* half of registration, and it lives next to
-/// [`RegistrationSecrets::into_token`] on purpose: the token format and the key derivation are one
-/// contract, and splitting them across crates is what let the derivation constants drift in the
-/// first place. The access connector carries its own copy of this parser and should converge on
-/// this one.
+/// The consumer half of registration; lives next to [`RegistrationSecrets::into_token`]
+/// since token format and key derivation are one contract that drifted across split crates.
+/// The access connector should converge on this parser.
 pub struct ConnectorToken {
     /// The API key identifier. The connector's OAuth `client_id` is
     /// `access-connector.<api_key_id>`.
@@ -202,10 +180,8 @@ impl FromStr for ConnectorToken {
 impl AccessConnectorsClient {
     /// Generates the key material a connector registration needs.
     ///
-    /// Fails with [`MissingOrganizationKey`](RotationError::MissingOrganizationKey) when the
-    /// caller's key store holds no key for the organization - they are not a member of it, or the
-    /// store has not been populated. Registration cannot proceed without it, since the whole point
-    /// is to hand that key to the connector.
+    /// Fails with [`MissingOrganizationKey`](RotationError::MissingOrganizationKey) for a caller
+    /// whose key store holds no key for the organization (not a member, or an unpopulated store).
     pub(super) fn registration_secrets(
         &self,
         organization_id: OrganizationId,
@@ -278,10 +254,9 @@ mod tests {
         }
     }
 
-    /// The contract that matters: the connector re-derives its key from the seed in the token
-    /// alone, then decrypts `encryptedPayload` to recover the organization key. This walks that
-    /// path using [`ConnectorToken`], the parser a connector uses - so if the mint and parse
-    /// halves of this contract ever drift apart, this fails.
+    /// The contract that matters: the connector re-derives its key from the token's seed alone,
+    /// then decrypts `encryptedPayload` to recover the org key. Walks that path via
+    /// [`ConnectorToken`] so a mint/parse drift fails here.
     #[test]
     fn a_connector_recovers_the_organization_key_from_its_token_alone() {
         let organization_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);

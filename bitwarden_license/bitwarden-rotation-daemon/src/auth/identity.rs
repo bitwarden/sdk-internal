@@ -1,7 +1,7 @@
 //! Identity server interaction for obtaining access tokens.
 //!
 //! Implements the OAuth2 client-credentials grant against
-//! `{identity_url}/connect/token` — the same endpoint the SM daemon uses,
+//! `{identity_url}/connect/token`, the same endpoint the SM daemon uses,
 //! but with `scope=api.pam.rotation` and a 4-part daemon token format.
 
 use std::time::Duration;
@@ -43,7 +43,7 @@ impl std::fmt::Debug for AuthSuccess {
 #[derive(Debug, Error)]
 pub(crate) enum AuthError {
     /// The identity server explicitly rejected the credential (e.g. `invalid_client`,
-    /// `invalid_grant`, `unauthorized_client`).  This is a terminal condition — the
+    /// `invalid_grant`, `unauthorized_client`). This is a terminal condition; the
     /// daemon must not retry with the same credential.
     #[error("credential rejected by identity server")]
     Rejected,
@@ -69,7 +69,7 @@ impl IdentityClient {
     /// Build a new client targeting `identity_url`.
     ///
     /// Uses [`new_http_client_builder`] (rustls + platform verifier + `https_only`
-    /// in release) — the workspace `reqwest` has no TLS backend built in.
+    /// in release); the workspace `reqwest` has no TLS backend built in.
     pub(crate) fn new(identity_url: String) -> Result<Self, reqwest::Error> {
         let http = new_http_client_builder()
             .timeout(REQUEST_TIMEOUT)
@@ -88,14 +88,14 @@ impl IdentityClient {
     pub(crate) async fn authenticate(&self, token: &DaemonToken) -> Result<AuthSuccess, AuthError> {
         let url = format!("{}/connect/token", self.identity_url.trim_end_matches('/'));
 
-        // We must expose the client_secret value to place it in the form.
-        // It is a short-lived local borrow; it never enters any log or error message.
+        // The client_secret is exposed to place it in the form as a short-lived local
+        // borrow; it never enters any log or error message.
         use bitwarden_sensitive_value::ExposeSensitive as _;
         let secret_value = token.client_secret.expose().to_owned();
         let client_id = token.client_id();
 
-        // Build the form as a vec so all fields — including the sensitive secret —
-        // are assembled in one place and discarded immediately after the send call.
+        // Built as a vec so all fields, including the sensitive secret, are assembled
+        // in one place and discarded immediately after the send call.
         let form: Vec<(&str, &str)> = vec![
             ("grant_type", "client_credentials"),
             ("client_id", &client_id),
@@ -164,10 +164,6 @@ impl IdentityClient {
         })
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -373,7 +369,7 @@ mod tests {
     }
 
     /// Regression guard: the old camelCase field name (`encryptedPayload`) must no
-    /// longer be accepted — the real identity server now emits `encrypted_payload`.
+    /// longer be accepted, since the real identity server now emits `encrypted_payload`.
     /// A response that only carries the camelCase variant must yield `Protocol`.
     #[tokio::test]
     async fn camel_case_encrypted_payload_gives_protocol() {

@@ -8,9 +8,9 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The canonical Quartz cron expression for each named preset.
 ///
-/// Quartz's format is `seconds minutes hours day-of-month month day-of-week [year]` - 6 or 7
-/// fields, one more than the 5-field UNIX cron. Getting that wrong shifts every field by one
-/// position, which is why these are constants rather than assembled per call site.
+/// Quartz's format is `seconds minutes hours day-of-month month day-of-week [year]`: 6 or 7
+/// fields, one more than the 5-field UNIX cron. These are constants rather than assembled per
+/// call site, since a wrong field count shifts every field by one position.
 const HOURLY_CRON: &str = "0 0 * * * ?";
 const EVERY_6_HOURS_CRON: &str = "0 0 */6 * * ?";
 const DAILY_CRON: &str = "0 0 0 * * ?";
@@ -19,9 +19,9 @@ const MONTHLY_CRON: &str = "0 0 0 1 * ?";
 
 /// A named rotation schedule, or the escape hatches either side of the presets.
 ///
-/// This is a *presentation* concept, not a server one: the server stores only the cron string.
-/// [`Custom`](QuartzSchedulePreset::Custom) therefore means "a valid cron that is not one of ours",
-/// and round-trips unchanged.
+/// A presentation concept, not a server one: the server stores only the cron string.
+/// [`Custom`](QuartzSchedulePreset::Custom) means "a valid cron matching no preset" and
+/// round-trips unchanged.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
@@ -61,9 +61,8 @@ impl QuartzSchedulePreset {
 /// Derives the preset that best describes a stored cron expression.
 ///
 /// `None` maps to [`QuartzSchedulePreset::None`]; an exact match against a preset's expression
-/// (ignoring surrounding whitespace) maps to that preset; anything else is
-/// [`Custom`](QuartzSchedulePreset::Custom) - including a blank string, which the server should
-/// have stored as `null` but which must not be reported as a real schedule if it wasn't.
+/// (ignoring surrounding whitespace) maps to that preset; every other value, including blank,
+/// is [`Custom`](QuartzSchedulePreset::Custom).
 pub fn preset_for_cron(cron: Option<&str>) -> QuartzSchedulePreset {
     let Some(cron) = cron else {
         return QuartzSchedulePreset::None;
@@ -88,9 +87,8 @@ pub fn preset_for_cron(cron: Option<&str>) -> QuartzSchedulePreset {
 
 /// Reports whether a string is shaped like a Quartz cron expression.
 ///
-/// Advisory only - it checks field count and the character set, not that the expression describes a
-/// reachable time. The server is authoritative, so this exists to fail an obviously-malformed entry
-/// without a round trip, and deliberately errs towards accepting.
+/// Advisory only: checks field count and character set, not that the expression describes a
+/// reachable time. Errs towards accepting; the server is authoritative.
 pub fn is_likely_quartz_cron(value: &str) -> bool {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -113,9 +111,8 @@ pub fn is_likely_quartz_cron(value: &str) -> bool {
 
 /// The WASM-facing surface for the schedule helpers.
 ///
-/// The functions above are plain Rust so Rust callers - and the rest of this crate - can use them
-/// without going through a client. This zero-sized client exists only because `wasm_bindgen` cannot
-/// export free functions from a crate that is not itself the entry point.
+/// The functions above are plain Rust and usable directly elsewhere in the crate; this
+/// zero-sized client exists only because `wasm_bindgen` cannot export free functions.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct RotationScheduleClient;
 
@@ -126,7 +123,7 @@ impl RotationScheduleClient {
         preset_for_cron(cron.as_deref())
     }
 
-    /// The cron expression for a preset, or `None` when the preset has no fixed expression.
+    /// The cron expression for a preset, or `None` absent a fixed expression.
     pub fn cron_for_preset(&self, preset: QuartzSchedulePreset) -> Option<String> {
         preset.cron().map(ToString::to_string)
     }
