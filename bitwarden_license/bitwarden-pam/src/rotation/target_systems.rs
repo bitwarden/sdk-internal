@@ -31,20 +31,19 @@ pub struct TargetSystem {
     pub name: String,
     /// How credentials are rotated for this target.
     pub method: TargetSystemMethod,
-    /// The integration behind the target. `None` when the method is
-    /// [`Manual`](TargetSystemMethod::Manual) - there is no integration to name.
+    /// The integration behind the target; absent for
+    /// [`Manual`](TargetSystemMethod::Manual), which names no integration.
     pub kind: Option<TargetSystemKind>,
     /// Lifecycle state.
     pub status: TargetSystemStatus,
-    /// Constraints applied when generating a rotated credential. `None` when no policy has been
-    /// configured.
+    /// Constraints on generating a rotated credential, or `None` absent a configured policy.
     pub password_policy: Option<PasswordPolicy>,
-    /// Whether the integration can terminate the account's sessions after rotating. `None` when
-    /// the method is Manual or the server has not surfaced the capability.
+    /// Whether the integration can terminate sessions after rotating; `None` for Manual
+    /// targets or an unsurfaced capability.
     pub supports_session_termination: Option<bool>,
-    /// When the target system was created (UTC).
+    /// The target system's creation time (UTC).
     pub creation_date: DateTime<Utc>,
-    /// When the target system was last modified (UTC).
+    /// The target system's last-modified time (UTC).
     pub revision_date: DateTime<Utc>,
 }
 
@@ -69,10 +68,8 @@ impl TryFrom<PamTargetSystemResponseModel> for TargetSystem {
 
 /// Request to create a target system.
 ///
-/// Modeled as a discriminated union rather than a struct of optional fields because the two methods
-/// take genuinely different input: an automatic target needs an integration and a
-/// session-termination capability, a manual one has neither. Encoding that in the type stops a
-/// caller from constructing the combination the server rejects.
+/// A discriminated union rather than a struct of optional fields: an automatic target needs
+/// an integration and session-termination capability, a manual one has neither.
 ///
 /// Serializes with a `method` discriminant matching the server's own, e.g.
 /// `{"method":"manual","name":"...","passwordPolicy":{...}}`.
@@ -97,8 +94,8 @@ pub enum TargetSystemCreateRequest {
     Manual {
         /// Display name.
         name: String,
-        /// The rules the operator is expected to follow when rotating by hand. Nothing enforces
-        /// them - no connector runs a manual rotation.
+        /// The rules the operator is expected to follow by hand; nothing enforces them, since
+        /// no connector runs a manual rotation.
         password_policy: PasswordPolicy,
     },
 }
@@ -159,23 +156,22 @@ impl TryFrom<TargetSystemCreateRequest> for RegisterTargetSystemRequestModel {
 
 /// Request to update an existing target system.
 ///
-/// The name and the policy travel together because the server takes them in one `PUT`; a caller
-/// changing only one still has to send the other's current value. Neither the method nor the
-/// integration kind can be changed after creation - the server derives rotation behaviour from
-/// them, and configs already reference the target.
+/// Name and policy travel together since the server takes them in one `PUT`; changing only
+/// one still requires sending the other's current value. Method and integration kind cannot
+/// change after creation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct TargetSystemUpdateRequest {
     /// Display name.
     pub name: String,
-    /// Constraints applied when generating a rotated credential.
+    /// Constraints on generating a rotated credential.
     pub password_policy: PasswordPolicy,
     /// Whether the integration can terminate the account's sessions after rotating.
     ///
-    /// Applies only to automatic targets; a manual target has no session to terminate, so the
-    /// server ignores it. Withdrawing the capability can be *rejected* when live configs depend on
-    /// it, so a caller should warn before submitting a change from `true` to `false`.
+    /// Applies only to automatic targets; the server ignores it for a manual one. A caller
+    /// should warn before flipping this to `false`, since a live config depending on it can be
+    /// rejected.
     pub supports_session_termination: bool,
 }
 
@@ -191,10 +187,9 @@ impl From<TargetSystemUpdateRequest> for UpdateTargetSystemRequestModel {
 
 /// Client for PAM rotation target-system operations.
 ///
-/// A target can be quieted or removed, and the two are not interchangeable:
-/// [`disable`](TargetSystemsClient::disable) is reversible and leaves the target's configs intact,
-/// while [`delete`](TargetSystemsClient::delete) is permanent and the server refuses it while any
-/// config still names the target.
+/// [`disable`](TargetSystemsClient::disable) is reversible and leaves the target's configs
+/// intact; [`delete`](TargetSystemsClient::delete) is permanent, and the server refuses it
+/// while any config still names the target.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
 pub struct TargetSystemsClient {
@@ -263,8 +258,7 @@ impl TargetSystemsClient {
         Ok(())
     }
 
-    /// Returns a disabled target system to service, so new rotation jobs are dispatched for it
-    /// again.
+    /// Puts a disabled target system back into service; new rotation jobs dispatch for it again.
     pub async fn enable(
         &self,
         organization_id: OrganizationId,
@@ -297,16 +291,11 @@ impl TargetSystemsClient {
 
     /// Permanently deletes a target system.
     ///
-    /// The server refuses this while any rotation config still names the target: deleting it would
-    /// leave that config, and the credential it manages, pointing at nothing. Delete those configs
-    /// first, which is also what releases each cipher. The connector-to-target assignments are the
-    /// opposite case and go with it - an assignment is only that edge, and means nothing once the
-    /// target is gone. No rotation can be in flight to be torn up, since a job belongs to a config
-    /// on this target and a surviving config blocks the delete outright.
+    /// The server refuses this while any rotation config still names the target; delete those
+    /// configs first.
     ///
-    /// Deliberately narrower than [`disable`](TargetSystemsClient::disable), which stops new
-    /// rotations while the target and its configs stay intact. Disable is for a target that is
-    /// merely unavailable; delete is for one that has left the estate.
+    /// Narrower than [`disable`](TargetSystemsClient::disable): disable is for a target that's
+    /// merely unavailable, delete for one that has left the estate.
     pub async fn delete(
         &self,
         organization_id: OrganizationId,
@@ -586,7 +575,7 @@ mod tests {
     }
 
     /// The write-side refusal from the module docs: a kind this SDK could not name on the way in
-    /// cannot be sent back out, because `__Unknown` would serialize a meaningless tinyint.
+    /// cannot be sent back out, since `__Unknown` would serialize a meaningless tinyint.
     #[test]
     fn an_unrecognized_kind_cannot_be_written_back() {
         let request = TargetSystemCreateRequest::Automatic {

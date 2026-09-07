@@ -1,31 +1,10 @@
 //! Environment-variable-based credential resolver.
 //!
-//! [`EnvCredentialResolver`] reads credentials from environment variables whose
-//! names follow a well-known prefix scheme:
+//! [`EnvCredentialResolver`] reads variables named `<TARGET_ID_UPPER_UNDERSCORE>_<SUFFIX>`;
+//! see [`required_suffixes`] for the required suffixes per kind.
 //!
-//! ```text
-//! <TARGET_ID_UPPER_UNDERSCORE>_<SUFFIX>
-//! ```
-//!
-//! where `<TARGET_ID_UPPER_UNDERSCORE>` is the target system UUID uppercased
-//! with hyphens replaced by underscores, and `<SUFFIX>` identifies the
-//! credential (e.g. `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`, `SCRIPT`).
-//!
-//! # Required suffixes per kind
-//!
-//! | Kind           | Required suffixes                              |
-//! |----------------|------------------------------------------------|
-//! | `Entra`        | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`      |
-//! | `CustomScript` | `SCRIPT`                                       |
-//! | `Mssql`        | `HOST`, `USER`, `SECRET`                       |
-//!
-//! If any required variable is absent the resolver returns
-//! [`ResolveError::Missing`] carrying the full variable names (safe to log
-//! and report — names only, never values).
-//!
-//! Additional variables matching the prefix (beyond the required set) are
-//! collected into the map and forwarded to the integration via
-//! `ctx.creds.get("<SUFFIX>")`.
+//! A missing required variable returns [`ResolveError::Missing`] with the variable name (safe
+//! to log). Extras matching the prefix are forwarded via `ctx.creds.get("<SUFFIX>")`.
 
 use async_trait::async_trait;
 use uuid::Uuid;
@@ -45,15 +24,9 @@ pub(crate) fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
     }
 }
 
-/// Converts a target system UUID into the environment variable prefix.
-///
-/// Algorithm:
-/// 1. Stringify the UUID (e.g. `"abc-1234-…"`).
-/// 2. Uppercase.
-/// 3. Replace `-` with `_`.
-/// 4. Append a trailing `_`.
-///
-/// Result example: `"ABC_1234_…_"`.
+/// Converts a target system UUID into the environment variable prefix: the UUID
+/// stringified, uppercased, with `-` replaced by `_`, and a trailing `_` appended.
+/// Example: `"ABC_1234_..._"`.
 pub(crate) fn prefix_for(id: Uuid) -> String {
     let mut s = id.to_string().to_uppercase();
     // Safety: replace is purely ASCII.
@@ -64,11 +37,9 @@ pub(crate) fn prefix_for(id: Uuid) -> String {
 
 /// A credential resolver that reads values from the process environment.
 ///
-/// Thread-safe; constructed once and shared behind an `Arc`.
-///
-/// In production the active resolver is [`super::config::ConfigCredentialResolver`], which
-/// falls back to env vars for any key not set in the config file.  This struct is kept as
-/// a testable standalone implementation and as a reference for the env-var naming scheme.
+/// Thread-safe, shared behind an `Arc`. The production resolver is
+/// [`super::config::ConfigCredentialResolver`], which falls back to this for any key not in
+/// the config file; kept as a testable standalone reference for the naming scheme.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EnvCredentialResolver;
 
@@ -109,10 +80,6 @@ impl CredentialResolver for EnvCredentialResolver {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -122,10 +89,8 @@ mod tests {
     use super::*;
     use crate::api::models::TargetKind;
 
-    // Helper: run resolver with a synthetic env by setting vars in the process
-    // environment under a mutex (std::env::set_var is not thread-safe in general;
-    // tests that call this helper must not run concurrently with other env-mutating
-    // tests).  We namespace by UUID so parallel crate tests don't collide.
+    // Sets vars under a mutex (std::env::set_var is not thread-safe); namespaced by UUID
+    // so parallel crate tests don't collide.
     fn run_resolver_with_env(
         id: Uuid,
         kind: TargetKind,
@@ -151,10 +116,6 @@ mod tests {
         result
     }
 
-    // -----------------------------------------------------------------------
-    // Prefix derivation
-    // -----------------------------------------------------------------------
-
     #[test]
     fn prefix_plain_uuid() {
         let id: Uuid = "ec2c1d46-6a4b-4751-a310-af9601317f2d".parse().unwrap();
@@ -173,13 +134,8 @@ mod tests {
     fn prefix_fully_uppercased() {
         let id: Uuid = "aabbccdd-eeff-1122-3344-556677889900".parse().unwrap();
         let p = prefix_for(id);
-        // Every letter in the prefix must be uppercase.
         assert_eq!(p, p.to_uppercase(), "prefix must be all-uppercase: {p}");
     }
-
-    // -----------------------------------------------------------------------
-    // Successful resolution
-    // -----------------------------------------------------------------------
 
     #[test]
     fn entra_all_required_vars_present() {
@@ -221,10 +177,6 @@ mod tests {
             "extra var should be collected"
         );
     }
-
-    // -----------------------------------------------------------------------
-    // Missing-var listing
-    // -----------------------------------------------------------------------
 
     #[test]
     fn entra_missing_all_reports_full_names() {

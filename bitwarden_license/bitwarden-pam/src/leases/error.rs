@@ -8,14 +8,9 @@ use crate::error::PamDecodeError;
 
 /// Errors returned from [`super::LeasesClient`] operations.
 ///
-/// The lease surface has no local validation and no write-side enum narrowing, so it mostly carries
-/// the decode and transport variants every PAM call can produce. It decodes access-request payloads
-/// as well as lease payloads, because [`extend`](super::LeasesClient::extend) returns the updated
-/// [`AccessRequestView`](crate::AccessRequestView).
-///
-/// [`VaultParse`](Self::VaultParse) and [`Crypto`](Self::Crypto) are reachable only from
-/// [`leased_cipher`](super::LeasesClient::leased_cipher), the one call that reads a vault payload
-/// rather than a leasing one.
+/// Mostly the decode/transport variants every PAM call can produce, plus the access-request
+/// payload from [`extend`](super::LeasesClient::extend). [`VaultParse`](Self::VaultParse) and
+/// [`Crypto`](Self::Crypto) come only from [`leased_cipher`](super::LeasesClient::leased_cipher).
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum AccessLeaseError {

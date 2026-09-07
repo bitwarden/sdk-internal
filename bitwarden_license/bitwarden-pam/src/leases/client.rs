@@ -95,22 +95,9 @@ impl LeasesClient {
 
     /// Reads the full cipher a lease unlocks, straight from the server.
     ///
-    /// Returns `None` when the server still answers with a restricted (partial) payload, which
-    /// means the caller's lease is not in effect - it lapsed between the access-state read that
-    /// sent them here and this call. Handing the partial back as if it were unlocked would show
-    /// an empty credential as though it were the real one.
-    ///
-    /// Three properties make this a lease operation rather than a plain vault read:
-    ///
-    /// - It goes through the STANDARD single-cipher endpoint. The server already decides per caller
-    ///   what a cipher's payload contains - restricted without a lease, complete with one - so
-    ///   there is no PAM-specific route to call, and the partial-cipher pivot deliberately left the
-    ///   old `GET /leases/ciphers/{id}/cipher` without a successor.
-    /// - The result is NEVER written to the cipher repository. Local state stays partial for the
-    ///   lease's whole life, so closing and reopening the item re-reads it, and a lapsed lease
-    ///   cannot leave decryptable secrets behind in state.
-    /// - It is the read that a lease authorizes, so it fails with the same [`AccessLeaseError`] as
-    ///   the rest of this client.
+    /// Returns `None` for a still-restricted (partial) payload: the lease lapsed between the
+    /// access-state read and this call. Never written to the cipher repository, so a lapsed
+    /// lease cannot leave decryptable secrets in state.
     pub async fn leased_cipher(
         &self,
         cipher_id: CipherId,
@@ -313,11 +300,9 @@ mod tests {
         assert!(result.is_none());
     }
 
-    /// A full payload is decrypted and handed back. Producing the *right* plaintext is
-    /// bitwarden-vault's contract, covered by its own tests - and note that its decrypt degrades
-    /// gracefully, so a field this store holds no key for arrives as an empty string rather than an
-    /// error. What matters here is that a non-restricted payload takes the decrypt branch and comes
-    /// back as a view the caller can render, marked `partial: false`.
+    /// A full payload is decrypted and handed back; plaintext correctness is bitwarden-vault's
+    /// own contract. What matters here: a non-restricted payload takes the decrypt branch and
+    /// comes back marked `partial: false`.
     #[tokio::test]
     async fn leased_cipher_returns_a_view_for_a_full_payload() {
         let api_client = ApiClient::new_mocked(move |mock| {

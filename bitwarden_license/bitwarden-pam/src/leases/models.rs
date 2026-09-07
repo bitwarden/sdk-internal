@@ -73,14 +73,11 @@ pub struct AccessLeaseView {
     pub not_before: DateTime<Utc>,
     /// When the lease's access window closes (UTC).
     pub not_after: DateTime<Utc>,
-    /// How the lease's access ended ahead of its window, or None if it ran to
-    /// [`Expired`](AccessLeaseStatus::Expired) or is still [`Active`](AccessLeaseStatus::Active).
+    /// How the lease's access ended ahead of its window, or `None` for an
+    /// [`Expired`](AccessLeaseStatus::Expired) or still-[`Active`](AccessLeaseStatus::Active) lease.
     ///
-    /// This carries what [`AccessLeaseStatus::Revoked`] cannot: that status covers both a
-    /// self-service end and an operator-initiated revoke, and callers had to tell them apart by
-    /// scanning the originating request's decision log for a human `deny` whose decider id matched
-    /// the requester. Modelling it as an enum also makes the incoherent states unrepresentable -
-    /// a revoker with no revocation time, or a self-end attributed to another user.
+    /// Carries what [`AccessLeaseStatus::Revoked`] alone cannot: it covers both a self-service
+    /// end and an operator revoke, and rules out incoherent states like a revoker with no time.
     pub termination: Option<AccessLeaseTermination>,
 }
 
@@ -91,14 +88,14 @@ pub struct AccessLeaseView {
 pub enum AccessLeaseTermination {
     /// The holder ended their own lease.
     EndedByHolder {
-        /// When the holder ended it (UTC).
+        /// Time the holder ended it (UTC).
         at: DateTime<Utc>,
     },
     /// An operator revoked the lease out from under the holder.
     Revoked {
-        /// When it was revoked (UTC).
+        /// Time it was revoked (UTC).
         at: DateTime<Utc>,
-        /// The operator who revoked it. None when the server did not attribute the revocation.
+        /// The operator who revoked it, or `None` absent an attributed revocation.
         by_user_id: Option<UserId>,
     },
 }
@@ -109,9 +106,8 @@ impl TryFrom<AccessLeaseResponseModel> for AccessLeaseView {
     fn try_from(response: AccessLeaseResponseModel) -> Result<Self, Self::Error> {
         let requester_id = UserId::new(require!(response.requester_id));
         let revoked_by_user_id = response.revoked_by_user_id.map(UserId::new);
-        // `revoked_at` is the authoritative marker that access was cut short: a revoker id without
-        // a revocation time is incoherent server data, and treating it as "not terminated" keeps
-        // the lease readable rather than failing the whole list.
+        // `revoked_at` is the authoritative marker; a revoker id without a time is incoherent
+        // data, kept as "not terminated" rather than failing the whole list.
         let termination = response
             .revoked_at
             .map(|at| at.parse())
