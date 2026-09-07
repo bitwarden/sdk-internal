@@ -44,10 +44,9 @@ pub enum AccessRequestStatus {
     /// Cancelled by the requester before resolution; terminal.
     Canceled,
     /// The window lapsed with nothing to show for it: either nobody answered an open request, or
-    /// an approval was never activated. The two origins share this one value; distinguish them
-    /// via [`decisions`](AccessRequestView::decisions) (empty = unanswered, contains an approval
-    /// = unactivated). An expired request's end time is
-    /// [`lease_not_after`](AccessRequestView::lease_not_after); terminal.
+    /// an approval was never activated. Distinguish the two via
+    /// [`decisions`](AccessRequestView::decisions) (empty = unanswered, contains an approval =
+    /// unactivated). Terminal.
     Expired,
     /// A status value this SDK version does not recognize. Kept as a distinct variant so listing
     /// requests never fails on a newer server's status.
@@ -194,9 +193,9 @@ pub struct AccessRequestView {
     pub reason: Option<String>,
     /// When the request was opened (UTC).
     pub submitted_at: DateTime<Utc>,
-    /// When a party approved, denied, or cancelled the request (UTC); None while pending - and
-    /// None for expired requests, which nobody resolved (their end time is
-    /// [`lease_not_after`](Self::lease_not_after)).
+    /// Time a party approved, denied, or cancelled the request (UTC). None while pending, and
+    /// None for expired requests, which nobody resolved; see
+    /// [`lease_not_after`](Self::lease_not_after).
     pub resolved_at: Option<DateTime<Utc>>,
     /// The request's decision log, oldest first. Empty only while pending.
     pub decisions: Vec<AccessRequestDecisionView>,
@@ -212,27 +211,14 @@ pub struct AccessRequestView {
     /// The requester's email, denormalized by the server. None only when the user could not be
     /// resolved.
     pub requester_email: Option<String>,
-    /// True when this request is approved but has not been activated into a lease yet, so the
-    /// requester still has something to do with it.
+    /// True while this request is approved but not yet activated into a lease.
     ///
     /// Activation is not a status: an activated request stays
-    /// [`Approved`](AccessRequestStatus::Approved) and is recognised by the
-    /// [`produced_lease_id`](Self::produced_lease_id) it minted. Every client needs this
-    /// distinction - to badge a navigation counter, to decide whether to offer a Start action, to
-    /// keep an already-started grant out of a pending list - and deriving it from two fields is
-    /// exactly the kind of rule each of them would otherwise get subtly wrong.
-    ///
-    /// Deliberately says nothing about whether the activation window is still open. That depends
-    /// on wall-clock time at the moment the client renders, not at the moment this view was
-    /// fetched, so it stays a client decision - the same line [`AccessBadgeState`] draws for its
-    /// "ending soon" escalation.
+    /// [`Approved`](AccessRequestStatus::Approved), recognised by its
+    /// [`produced_lease_id`](Self::produced_lease_id).
     pub awaiting_activation: bool,
-    /// The human decision recorded on this request - the deciding approver, or the holder ending
-    /// their own lease - or None when only an access rule decided it, or nothing has yet.
-    ///
-    /// An automatic (access-rule) decision carries no approver identity, so "who approved this"
-    /// and "was this decided by a rule" are the same question, answered here once instead of by
-    /// each client scanning the decision log for a non-automatic decider.
+    /// The human decision recorded on this request: the deciding approver, or the holder ending
+    /// their own lease. None for a rule decision, or none yet.
     pub human_decision: Option<AccessRequestDecisionView>,
 }
 
@@ -328,22 +314,15 @@ pub struct AccessPreCheckView {
     /// The longest duration (automatic path) or window span (human path), in seconds, the server
     /// will accept for this cipher: the governing rule's cap narrowed by the global ceiling.
     ///
-    /// A duration picker should offer nothing above this. It is not merely advisory - submit
-    /// enforces the same number and rejects a request that exceeds it.
+    /// Not advisory; submit enforces the same number.
     pub max_duration_seconds: u32,
-    /// Whether access could be started right now - the spec's `RuleAllowsLease`.
+    /// Whether access could be started right now, the spec's `RuleAllowsLease`; false only while
+    /// the per-cipher single-active-lease constraint binds and another member holds the slot.
     ///
-    /// False only when the per-cipher single-active-lease constraint binds for this member *and*
-    /// another member currently holds the slot. A member with an ungated or non-singleton path to
-    /// the cipher is unconstrained and reads true regardless.
-    ///
-    /// A current-state hint, not a gate: the server re-checks it under a lock at start. False does
-    /// not mean "do not submit" - the request is still worth making, it just cannot be activated
-    /// until the slot frees.
+    /// A hint, not a gate: the server re-checks it under a lock at start.
     pub can_start_lease: bool,
-    /// When the lease currently holding the slot ends, so a requester can be given a retry time
-    /// instead of polling. None whenever [`can_start_lease`](Self::can_start_lease) is true - and
-    /// possibly when it is false, if the server omitted it. Carries no holder identity by design.
+    /// End time of the lease holding the slot, for a retry time instead of polling. Absent
+    /// while [`can_start_lease`](Self::can_start_lease) holds; carries no holder identity by design.
     pub slot_frees_at: Option<DateTime<Utc>>,
 }
 
@@ -351,9 +330,8 @@ impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
     type Error = PamDecodeError;
 
     fn try_from(response: AccessPreCheckResponseModel) -> Result<Self, Self::Error> {
-        // Both bounds fall back rather than `require!`: a server predating them omits both, and a
-        // client that cannot read a pre-check at all cannot render a request form. Falling back to
-        // the global constants reproduces the pre-per-rule-cap behaviour instead.
+        // Both bounds fall back rather than `require!`: a predating server omits both, and
+        // falling back to the global constants reproduces the pre-per-rule-cap behaviour.
         let max_duration_seconds = positive_u32(response.max_duration_seconds)
             .unwrap_or(MAX_REQUEST_ACCESS_WINDOW_SECONDS)
             .min(MAX_REQUEST_ACCESS_WINDOW_SECONDS);
@@ -362,17 +340,14 @@ impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
             cipher_id: CipherId::new(require!(response.cipher_id)),
             approval_mode: AccessApprovalMode::from(require!(response.approval_mode)),
             has_active_lease: require!(response.has_active_lease),
-            // Re-clamped here as well as server-side: the two bounds arrive as independent fields,
-            // so a default above the cap would otherwise pre-fill a value submit refuses.
+            // Re-clamped here and server-side: the two bounds arrive as independent fields,
+            // so a default above the cap would pre-fill a value submit refuses.
             default_duration_seconds: positive_u32(response.default_duration_seconds)
                 .unwrap_or(DEFAULT_REQUEST_ACCESS_DURATION_SECONDS)
                 .min(max_duration_seconds),
             max_duration_seconds,
-            // Fails open, like the bounds above: a server predating this field omits it, and
-            // reading absence as false would paint every gated cipher as blocked. The lock at
-            // activation is the real gate, so an over-permissive hint costs only the old,
-            // unhelpful error - an over-restrictive one would suppress a request that would
-            // have succeeded.
+            // Fails open like the bounds above: a predating server omits this field, and
+            // reading absence as false would block every gated cipher.
             can_start_lease: response.can_start_lease.unwrap_or(true),
             slot_frees_at: response.slot_frees_at.map(|d| d.parse()).transpose()?,
         })
@@ -460,31 +435,19 @@ impl TryFrom<AccessRequestResultResponseModel> for AccessRequestResultView {
     }
 }
 
-/// The single badge to show for a gated cipher, derived from [`CipherAccessStateView`]'s
-/// [`active_lease`](CipherAccessStateView::active_lease),
-/// [`approved_request`](CipherAccessStateView::approved_request), and
-/// [`pending_request`](CipherAccessStateView::pending_request) by precedence: exactly one badge
-/// shows for a gated item at a time - an active lease authorizes access right now, an approved
-/// request is ready to activate, and a pending request is merely awaiting a decision, so the
-/// first of those that is present wins over the rest. Absent all three, the item is gated but
-/// resting - no lease, no request in flight.
+/// The single badge to show for a gated cipher, derived from [`CipherAccessStateView`]'s active
+/// lease, approved request, and pending request, in that precedence order. Absent all three, the
+/// item is gated but resting.
 ///
-/// [`Active`](Self::Active) carries only [`expires_at`](Self::Active::expires_at). Whether that
-/// time is soon enough to warrant an "ending soon" escalation is a live-countdown threshold that
-/// depends on wall-clock time as the client renders it, so it stays a presentation concern for
-/// the client rather than something this view decides once at fetch time.
-///
-/// This deliberately does not model `unavailable` (the item is currently held by another user) or
-/// `expired`: the server's per-cipher access-state response is scoped to the calling user, so
-/// there is no data today from which either could be derived. Producing them would need a server
-/// response-model change plus a new SDK field, and is tracked separately.
+/// Does not model `unavailable` or `expired`: the per-cipher access-state response is scoped to
+/// the calling user, so there is no data to derive either from.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub enum AccessBadgeState {
     /// The caller holds an active lease; the cipher is unlocked until it expires.
     Active {
-        /// When the active lease's access window closes (UTC).
+        /// The active lease's access window close time (UTC).
         #[serde(rename = "expiresAt")]
         expires_at: DateTime<Utc>,
     },
@@ -499,11 +462,9 @@ pub enum AccessBadgeState {
 /// A single-snapshot read of the caller's access state for one cipher, powering the cipher-view
 /// banner and the vault-row badge.
 ///
-/// At most one of [`active_lease`](Self::active_lease), [`pending_request`](Self::pending_request),
-/// and [`approved_request`](Self::approved_request) is meaningfully "next": an active lease
-/// authorizes access, a pending request awaits a decision, and an approved request awaits
-/// activation by the caller. [`badge_state`](Self::badge_state) collapses those three into the
-/// single badge the client should show.
+/// [`badge_state`](Self::badge_state) collapses [`active_lease`](Self::active_lease),
+/// [`pending_request`](Self::pending_request), and [`approved_request`](Self::approved_request)
+/// into the single badge to show.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
@@ -595,13 +556,8 @@ pub struct AccessRequestCreateRequest {
 /// Renders an instant for the wire as a `Z`-suffixed UTC timestamp, e.g.
 /// `2025-01-01T00:00:00.000Z`.
 ///
-/// Not [`DateTime::to_rfc3339`], which spells a zero offset `+00:00`. Both name the same instant,
-/// but the server binds the requested window to a .NET `DateTime`, and its deserializer resolves
-/// *any* explicit offset against the API host's timezone — handing the command a local-kind value
-/// it then stores in a column read as UTC. On a host that is not UTC the window shifted by the
-/// host's offset (PM-42275). A `Z` designator is the one spelling that cannot be reinterpreted, and
-/// it matches what every other Bitwarden client sends (JavaScript's `toISOString()`) and what the
-/// rest of this SDK writes.
+/// Not [`DateTime::to_rfc3339`], which spells a zero offset as `+00:00`: the server's .NET
+/// `DateTime` resolves an explicit offset against the API host's timezone, shifting the window.
 fn to_wire_timestamp(value: DateTime<Utc>) -> String {
     value.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
@@ -902,7 +858,7 @@ mod tests {
 
     #[test]
     fn pre_check_view_clamps_default_to_max() {
-        // PM-39858's shape: a rule left at a 1h default but capped at 15m. Pre-filling the default
+        // A rule left at a 1h default but capped at 15m; pre-filling the default
         // would hand the requester a duration submit refuses.
         let view = AccessPreCheckView::try_from(pre_check_response(Some(3600), Some(900))).unwrap();
 
@@ -920,8 +876,8 @@ mod tests {
 
     #[test]
     fn pre_check_view_treats_non_positive_bounds_as_absent() {
-        // Zero is the client's "no cap" sentinel and never a meaningful bound; a negative value
-        // only arises from a malformed response. Neither should collapse the picker to nothing.
+        // Zero means "no cap", never a real bound; a negative value only comes from
+        // a malformed response. Neither should collapse the picker to nothing.
         let view = AccessPreCheckView::try_from(pre_check_response(Some(0), Some(-1))).unwrap();
 
         assert_eq!(
@@ -1144,9 +1100,8 @@ mod tests {
         );
     }
 
-    /// The window sits in the far future because `TryFrom` runs `validate`, which refuses a window
-    /// that has already ended -- a literal date close to today would pass on the day it was written
-    /// and fail later. The instant is arbitrary here; only its rendering is under test.
+    /// Far future because `validate` rejects an already-ended window; only the rendering is
+    /// under test here.
     #[test]
     fn access_request_create_request_converts_to_model() {
         let request = AccessRequestCreateRequest {
@@ -1164,11 +1119,8 @@ mod tests {
         assert_eq!(model.reason, Some("Need access".to_string()));
     }
 
-    /// The window must go out `Z`-suffixed, not as a `+00:00` offset. The server resolves an
-    /// explicit offset against the API host's timezone, so the offset spelling shifted the
-    /// stored window by that host's offset (PM-42275). Pinned as its own test because the two
-    /// spellings name the same instant and the difference is invisible to a reader of the value
-    /// alone. Far-future for the same reason as the conversion test above.
+    /// Must be `Z`-suffixed, not `+00:00`: the server resolves an explicit offset against the
+    /// API host's timezone, shifting the stored window. Far future for the same reason as above.
     #[test]
     fn access_request_create_request_window_is_serialized_as_utc_with_a_z_designator() {
         let request = AccessRequestCreateRequest {
@@ -1187,8 +1139,8 @@ mod tests {
 
     #[test]
     fn access_request_create_request_conversion_enforces_validation() {
-        // Building the wire model is the only route to the server, so an invalid window cannot
-        // reach it even if a caller skips the client method.
+        // The wire model is the only route to the server, so an invalid window
+        // can't skip validation by bypassing the client method.
         let request = AccessRequestCreateRequest {
             start: Some("2025-01-01T01:00:00Z".parse().unwrap()),
             end: Some("2025-01-01T00:00:00Z".parse().unwrap()),

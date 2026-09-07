@@ -13,24 +13,18 @@ pub const MAX_REQUEST_ACCESS_WINDOW_SECONDS: u32 = 86_400;
 
 /// [`MAX_REQUEST_ACCESS_WINDOW_SECONDS`], for callers that cannot read a Rust `const`.
 ///
-/// A client collecting a window in a form validates it as the requester types - long before there
-/// is an [`AccessRequestCreateRequest`] to hand to
-/// [`request`](super::AccessRequestsClient::request), which is where
-/// `validate` applies the same cap. So the number has to be readable on its own, or every client
-/// hardcodes its own copy and they drift the day the server's cap moves. wasm-bindgen exports
-/// functions rather than constants, hence a getter.
+/// wasm-bindgen exports functions, not constants, so this is a getter rather than a re-exported
+/// value.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn max_request_access_window_seconds() -> u32 {
     MAX_REQUEST_ACCESS_WINDOW_SECONDS
 }
 
-/// Duration, in seconds, a request form pre-selects when neither the governing rule nor the server
-/// names one - mirrors the server's global default.
+/// Duration, in seconds, a request form pre-selects absent a rule- or server-named default;
+/// mirrors the server's global default.
 ///
-/// Only a fallback. The authority is
-/// [`default_duration_seconds`](super::AccessPreCheckView::default_duration_seconds), which
-/// resolves the governing rule's own default; this applies when a pre-check response predates that
-/// field.
+/// Only a fallback for a pre-check response that predates
+/// [`default_duration_seconds`](super::AccessPreCheckView::default_duration_seconds).
 pub const DEFAULT_REQUEST_ACCESS_DURATION_SECONDS: u32 = 3_600;
 
 /// [`DEFAULT_REQUEST_ACCESS_DURATION_SECONDS`], for callers that cannot read a Rust `const`.
@@ -43,8 +37,8 @@ pub fn default_request_access_duration_seconds() -> u32 {
     DEFAULT_REQUEST_ACCESS_DURATION_SECONDS
 }
 
-/// Errors returned when a locally-constructed [`AccessRequestCreateRequest`] fails validation
-/// before being sent to the server.
+/// Errors from a locally-constructed [`AccessRequestCreateRequest`] failing validation before
+/// being sent to the server.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum AccessRequestWindowError {
     /// `end` was not strictly after `start`.
@@ -52,12 +46,8 @@ pub enum AccessRequestWindowError {
     EndBeforeStart,
     /// `end` had already passed, so the window could never be activated.
     ///
-    /// This sentence is NOT the server's, which refuses the same window with "The end date must be
-    /// in the future." The two were once claimed to be verbatim-identical and were not, so the web
-    /// client recognised only this one and fell back to generic copy on every server-side refusal
-    /// (PM-42592). It now carries a catalog entry per side — `REQUEST_ACCESS_SDK_ERRORS` for this
-    /// spelling, `REQUEST_ACCESS_SERVER_ERRORS` for the server's — so changing this string means
-    /// changing the former, not the latter.
+    /// Deliberately not the server's wording ("The end date must be in the future."): each has a
+    /// separate catalog entry (`REQUEST_ACCESS_SDK_ERRORS` vs `REQUEST_ACCESS_SERVER_ERRORS`).
     #[error("The requested window has already ended.")]
     EndInPast,
     /// The requested window was longer than the server's 24h cap.
@@ -70,15 +60,9 @@ pub enum AccessRequestWindowError {
 impl AccessRequestCreateRequest {
     /// Validates the request's activation window before it is sent to the server.
     ///
-    /// - When both [`start`](Self::start) and [`end`](Self::end) are supplied (the human path),
-    ///   `end` must be strictly after `start`, must not already have passed, and the span between
-    ///   them must not exceed `MAX_REQUEST_ACCESS_WINDOW_SECONDS`.
-    /// - When [`duration_seconds`](Self::duration_seconds) is supplied (the automatic path), it
-    ///   must not exceed `MAX_REQUEST_ACCESS_WINDOW_SECONDS`. It is a `NonZeroU32`, so positivity
-    ///   is already guaranteed by the type and is not re-checked here.
-    /// - A request with neither a duration nor a start/end pair is **not** rejected here: the
-    ///   server decides which path applies to an incomplete request, and rejecting it locally would
-    ///   reject requests the server is willing to accept.
+    /// The human path requires `end` strictly after `start`, not already passed, and within
+    /// `MAX_REQUEST_ACCESS_WINDOW_SECONDS`; the automatic path's `duration_seconds` faces the
+    /// same cap.
     pub(crate) fn validate(&self) -> Result<(), AccessRequestWindowError> {
         self.validate_at(Utc::now())
     }
@@ -90,11 +74,8 @@ impl AccessRequestCreateRequest {
             if end <= start {
                 return Err(AccessRequestWindowError::EndBeforeStart);
             }
-            // Measured on the END, not the start: a window already under way is still usable, and
-            // a form that pre-fills `start` at "now" always submits a little after it. An ended
-            // window is the one the server can never activate -- it refuses at activation with
-            // "The approved access window has already ended", so accepting it here only buys the
-            // requester a pending request that is dead on arrival (PM-42592).
+            // Measured on the end, not the start: a window already under way is still usable.
+            // An ended window can never be activated.
             if end <= now {
                 return Err(AccessRequestWindowError::EndInPast);
             }
@@ -197,8 +178,8 @@ mod tests {
 
     #[test]
     fn window_that_has_already_ended_is_invalid() {
-        // PM-42592: a window dated days before it is submitted. The server used to persist this as
-        // a pending request that activation could then never start.
+        // A window dated days before submission. The server persisted this as a pending
+        // request that activation could never start.
         let request = AccessRequestCreateRequest {
             start: Some("2024-12-23T07:00:00Z".parse().unwrap()),
             end: Some("2024-12-23T08:00:00Z".parse().unwrap()),
@@ -213,8 +194,7 @@ mod tests {
 
     #[test]
     fn window_ending_exactly_now_is_invalid() {
-        // The boundary matches activation's own `NotAfter <= now` refusal: a window with no time
-        // left on it is not a window.
+        // Matches activation's own already-expired refusal: a window with no time left isn't one.
         let request = AccessRequestCreateRequest {
             start: Some("2024-12-31T22:00:00Z".parse().unwrap()),
             end: Some(now()),
@@ -229,9 +209,8 @@ mod tests {
 
     #[test]
     fn window_already_under_way_is_valid() {
-        // Deliberately not rejected: only the END is checked. The request form seeds `start` at
-        // "now", so every submit lands fractionally after its own start, and a requester who wants
-        // access to begin immediately must stay able to ask for it.
+        // Deliberately not rejected: only the end is checked, so access starting immediately
+        // must be requestable.
         let request = AccessRequestCreateRequest {
             start: Some("2024-12-31T22:00:00Z".parse().unwrap()),
             end: Some("2025-01-01T00:00:00Z".parse().unwrap()),
@@ -243,9 +222,7 @@ mod tests {
 
     #[test]
     fn reversed_window_reports_end_before_start_rather_than_end_in_past() {
-        // Both rules fire on a reversed window sitting in the past. Ordering puts the reversal
-        // first, because that is the edit the requester has to make before the window's position
-        // is even meaningful.
+        // Both rules fire on a reversed window in the past; ordering puts the reversal first.
         let request = AccessRequestCreateRequest {
             start: Some("2024-12-23T08:00:00Z".parse().unwrap()),
             end: Some("2024-12-23T07:00:00Z".parse().unwrap()),
@@ -260,9 +237,8 @@ mod tests {
 
     #[test]
     fn validate_measures_against_the_real_clock() {
-        // `validate` is what `TryFrom` calls on the way to the wire; `validate_at` is only the seam
-        // the tests above use. A window in the distant past has to fail through the real entry
-        // point too.
+        // `validate` is what `TryFrom` calls on the way to the wire; `validate_at` is only the
+        // seam the tests use.
         let request = AccessRequestCreateRequest {
             start: Some("2020-01-01T00:00:00Z".parse().unwrap()),
             end: Some("2020-01-01T01:00:00Z".parse().unwrap()),

@@ -1,20 +1,16 @@
 //! Entry point for the `bw-rotation-daemon` binary.
 //!
-//! Parses CLI arguments → initialises tracing → wires shutdown signals →
-//! delegates to [`bitwarden_rotation_daemon::run`].
+//! Parses CLI arguments, initialises tracing, and delegates to
+//! [`bitwarden_rotation_daemon::run`].
 //!
 //! # Exit codes
 //!
 //! | Code | Meaning                                                          |
-//! |------|------------------------------------------------------------------|
-//! | `0`  | Clean shutdown (SIGTERM / Ctrl-C).                               |
-//! | `1`  | Startup error (invalid config, I/O error, parse failure).        |
-//! | `2`  | Daemon credential refused.  An admin must reissue the credential |
-//! |      | server-side (via `ReissueDaemonCredential`) and restart the      |
-//! |      | daemon with the new token.                                       |
-//! | `3`  | Daemon not eligible for rotation endpoints.  Check: daemon       |
-//! |      | record not revoked or disabled, organisation license active,     |
-//! |      | `UsePam` enabled.                                                |
+//! |------|-------------------------------------------------------------------|
+//! | `0`  | Clean shutdown (SIGTERM / Ctrl-C)                                |
+//! | `1`  | Startup error (invalid config, I/O error, parse failure)         |
+//! | `2`  | Credential refused; reissue via `ReissueDaemonCredential` and restart |
+//! | `3`  | Not eligible for rotation endpoints (record, license, `UsePam`)  |
 
 use bitwarden_rotation_daemon::{
     cli::{Cli, Command},
@@ -29,11 +25,8 @@ use tracing_subscriber::{
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    // ── Tracing ────────────────────────────────────────────────────────────
-    // `from_env_lossy` reads the RUST_LOG environment variable at runtime,
-    // parsing full filter strings (including comma-separated directive lists)
-    // leniently.  When RUST_LOG is unset or empty it falls back to the INFO
-    // default directive below.
+    // from_env_lossy reads RUST_LOG at runtime, parsing filter strings leniently; an unset
+    // or empty value falls back to the INFO default below.
     let filter = EnvFilter::builder()
         .with_default_directive(tracing_subscriber::filter::LevelFilter::INFO.into())
         .from_env_lossy();
@@ -43,11 +36,9 @@ async fn main() {
         .with(filter)
         .init();
 
-    // ── Parse CLI ─────────────────────────────────────────────────────────
     let cli = Cli::parse();
     let Command::Run(run_args) = cli.command;
 
-    // ── Build config ──────────────────────────────────────────────────────
     let daemon_cfg = match Config::from_cli(run_args) {
         Ok(cfg) => cfg.into_daemon_config(),
         Err(e) => {
@@ -56,7 +47,6 @@ async fn main() {
         }
     };
 
-    // ── Cancellation token ────────────────────────────────────────────────
     let cancel = CancellationToken::new();
 
     // Spawn a watcher task that cancels the token on Ctrl-C or SIGTERM.
@@ -67,7 +57,6 @@ async fn main() {
         watcher_cancel.cancel();
     });
 
-    // ── Run ───────────────────────────────────────────────────────────────
     let exit = bitwarden_rotation_daemon::run(daemon_cfg, cancel).await;
 
     match exit {
