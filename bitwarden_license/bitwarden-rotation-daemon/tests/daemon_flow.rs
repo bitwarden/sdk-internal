@@ -1,18 +1,11 @@
 //! Black-box integration tests for the rotation daemon end-to-end flow.
 //!
-//! Each test starts a wiremock MockServer pretending to be the identity and
-//! API servers, then drives `bitwarden_rotation_daemon::run(cfg, cancel)`
-//! against them.  The daemon token, encrypted_payload, and cipher fixtures
-//! are all internally consistent, generated from the crate's own crypto helpers.
+//! Each test starts a wiremock MockServer for the identity and API servers, then drives
+//! `bitwarden_rotation_daemon::run(cfg, cancel)` against them using self-consistent token,
+//! payload, and cipher fixtures.
 //!
-//! # Credential resolution
-//!
-//! The daemon's env resolver reads env vars with the pattern
-//! `{TARGET_ID_UPPER_UNDERSCORE}_<SUFFIX>`.  Each test sets the appropriate
-//! vars before starting the daemon and removes them afterward.  Because
-//! env mutation is unsafe in multi-threaded programs, each test that mutates
-//! the environment acquires a process-wide mutex (ENV_LOCK) before touching
-//! any env vars.
+//! The env resolver reads vars as `{TARGET_ID_UPPER_UNDERSCORE}_<SUFFIX>`; each test that
+//! mutates them acquires the process-wide `ENV_LOCK` mutex first.
 
 use std::{path::PathBuf, str::FromStr, sync::Mutex, time::Duration};
 
@@ -30,16 +23,8 @@ use wiremock::{
 };
 use zeroize::Zeroizing;
 
-// ---------------------------------------------------------------------------
-// Process-wide env lock for tests that mutate environment variables
-// ---------------------------------------------------------------------------
-
-/// Serialise all tests that mutate env vars so that concurrent mutation is safe.
+/// Serialises tests that mutate env vars, for safe concurrent mutation.
 static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-// ---------------------------------------------------------------------------
-// Shared constants and helpers
-// ---------------------------------------------------------------------------
 
 /// The test daemon token (SM test vector, adapted to the 4-part daemon format).
 const TEST_TOKEN_STR: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
@@ -163,15 +148,6 @@ fn claim_body(
         "executeBy": execute_by_future()
     })
 }
-
-// ---------------------------------------------------------------------------
-// Scenario 1 — Happy path
-// ---------------------------------------------------------------------------
-//
-// Identity auth succeeds → poll returns one job → claim (CustomScript,
-// exit_code.sh with exit 0) → GET cipher → PUT (password re-encrypted under
-// org_key) → success report with sessionTermination=0 (NotRequested).
-// Then cancel → Shutdown.
 
 #[tokio::test]
 async fn happy_path_rotate_and_report_success() {
@@ -314,16 +290,6 @@ async fn happy_path_rotate_and_report_success() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Scenario 2 — Failure budget: exit 4 (transient) exhausts retries
-// ---------------------------------------------------------------------------
-//
-// The rotate script exits 4 (transient) every call.  After max_retry_attempts=2
-// (set by new_for_test), a failure report is sent with:
-//   errorCode = "script_failed"
-//   syncState = 0 (TargetUnchanged — rotate never succeeded)
-// No PUT cipher should be sent.
-
 #[tokio::test]
 async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     let identity = MockServer::start().await;
@@ -459,13 +425,6 @@ async fn transient_exit_exhausts_retry_budget_and_reports_failure() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Scenario 3 — Claim race: 409 on claim → no error, keeps polling
-// ---------------------------------------------------------------------------
-//
-// The claim endpoint always returns 409.  The daemon must keep polling without
-// sending any report.  After cancel it exits Shutdown.
-
 #[tokio::test]
 async fn claim_race_409_does_not_error_keeps_polling() {
     let identity = MockServer::start().await;
@@ -524,13 +483,6 @@ async fn claim_race_409_does_not_error_keeps_polling() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Scenario 4 — Credential refused at startup
-// ---------------------------------------------------------------------------
-//
-// Identity returns invalid_client on POST /connect/token.
-// run() must return CredentialRefused immediately with no API calls made.
-
 #[tokio::test]
 async fn invalid_client_at_startup_returns_credential_refused() {
     let identity = MockServer::start().await;
@@ -564,17 +516,6 @@ async fn invalid_client_at_startup_returns_credential_refused() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Scenario 5 — terminate_sessions=true, terminate script exits nonzero
-// ---------------------------------------------------------------------------
-//
-// The rotate and verify steps succeed (exit 0), but the terminate step exits 1.
-// The success report must have sessionTermination=2 (TermFailed).
-// The cipher PUT must still be called (rotation succeeded despite term failure).
-//
-// Implementation: we write a temporary script that checks argv[1] (the
-// operation name) and exits 1 for "terminate", 0 for everything else.
-
 #[tokio::test]
 async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let identity = MockServer::start().await;
@@ -589,7 +530,7 @@ async fn terminate_sessions_nonzero_reports_term_failed_rotation_succeeds() {
     let cipher_id = Uuid::new_v4();
     let prefix = env_prefix(target_id);
 
-    // Write a temporary script: exit 1 for terminate, 0 otherwise.
+    // Script exits 1 for terminate, 0 for every other operation.
     let tmpdir = tempfile::tempdir().expect("tempdir");
     let wrapper_path = tmpdir.path().join("terminate_fail.sh");
     std::fs::write(
