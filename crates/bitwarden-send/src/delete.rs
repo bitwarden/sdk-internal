@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 use crate::{Send, SendId, send_client::SendClient};
 
 // Durable queue of Sends whose server-side delete failed, retried later to avoid orphaned records.
-register_setting_key!(const PENDING_SEND_DELETIONS: Vec<SendId> = "pendingSendDeletions");
+register_setting_key!(const PENDING_SEND_DELETIONS: Vec<SendId> = "pending_send_deletions");
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -495,5 +495,52 @@ mod tests {
         retry_pending_deletions(&api_client, &repository, &pending)
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_delete_send_failure_then_retry_success_resolves_orphan() {
+        let send_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
+        let (_store, repository) = make_store_with_send(send_id).await;
+        let pending = make_pending_setting();
+
+        let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let api_client = ApiClient::new_mocked(move |mock| {
+            let attempts = attempts.clone();
+            mock.sends_api.expect_delete().returning(move |_id| {
+                if attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                    Err(bitwarden_api_api::ApiError::Io(std::io::Error::other(
+                        "offline",
+                    )))
+                } else {
+                    Ok(())
+                }
+            });
+        });
+
+        // Create-then-upload-fails rollback: the delete itself fails, e.g. still offline.
+        let result = delete_send(&api_client, &repository, &pending, SendId::new(send_id)).await;
+        assert!(result.is_err());
+        assert!(
+            repository
+                .get(SendId::new(send_id))
+                .await
+                .unwrap()
+                .is_some(),
+            "orphaned Send stays visible until a retry resolves it"
+        );
+
+        // Next sync retries once connectivity is back.
+        retry_pending_deletions(&api_client, &repository, &pending)
+            .await
+            .unwrap();
+
+        assert!(
+            repository
+                .get(SendId::new(send_id))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(pending.get().await.unwrap().unwrap_or_default().is_empty());
     }
 }
