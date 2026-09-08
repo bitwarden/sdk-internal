@@ -63,6 +63,10 @@ pub struct InviteLinkClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
+// The `wasm_bindgen`-generated shims for the deprecated `create_invite_link` /
+// `refresh_invite_link` exports call those methods, which would otherwise emit deprecation
+// warnings from generated code we cannot annotate individually.
+#[allow(deprecated)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl InviteLinkClient {
     /// Get an existing invite link.
@@ -105,16 +109,13 @@ impl InviteLinkClient {
     /// Only the sealed invite is posted to the server; the invite secret is never sent. Use
     /// [`InviteLinkClient::get_invite_secret`] to recover the secret needed to reconstruct the
     /// invite link.
-    pub async fn create(
+    #[deprecated(note = "Use `create`, which returns an `OrganizationInviteLinkView`, instead")]
+    pub async fn create_invite_link(
         &self,
         organization_id: OrganizationId,
         allowed_domains: Vec<String>,
         supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
-        if allowed_domains.is_empty() {
-            return Err(InviteLinkError::NoAllowedDomains);
-        }
-
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
         let invite = self
             .make_invite(organization_id, supports_confirmation)
             .await?;
@@ -133,17 +134,17 @@ impl InviteLinkClient {
             )
             .await?;
 
-        let mut ctx = self.key_store.context();
-        OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
+        OrganizationInviteLink::try_from(response)
     }
 
     /// Refresh an existing invite link.
     /// This generates a new code and secret.
-    pub async fn refresh(
+    #[deprecated(note = "Use `refresh`, which returns an `OrganizationInviteLinkView`, instead")]
+    pub async fn refresh_invite_link(
         &self,
         organization_id: OrganizationId,
         supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
         let invite = self
             .make_invite(organization_id, supports_confirmation)
             .await?;
@@ -161,8 +162,61 @@ impl InviteLinkClient {
             )
             .await?;
 
+        OrganizationInviteLink::try_from(response)
+    }
+
+    /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
+    /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_return_type = "InviteSecret"))]
+    pub fn get_invite_secret(
+        &self,
+        organization_id: OrganizationId,
+        invite: Invite,
+    ) -> Result<InviteSecret, InviteLinkError> {
         let mut ctx = self.key_store.context();
-        OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
+        let org_key = SymmetricKeySlotId::Organization(organization_id);
+        let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
+        let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
+        Ok(invite_secret)
+    }
+
+    /// Creates a new organization invite link and returns it as a display
+    /// [`OrganizationInviteLinkView`].
+    ///
+    /// Thin wrapper around [`InviteLinkClient::create_invite_link`].
+    pub async fn create(
+        &self,
+        organization_id: OrganizationId,
+        allowed_domains: Vec<String>,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
+        if allowed_domains.is_empty() {
+            return Err(InviteLinkError::NoAllowedDomains);
+        }
+
+        let link = self
+            .create_invite_link(organization_id, allowed_domains, supports_confirmation)
+            .await?;
+
+        let mut ctx = self.key_store.context();
+        link.to_view(&mut ctx)
+    }
+
+    /// Refreshes an existing invite link and returns it as a display
+    /// [`OrganizationInviteLinkView`]. This generates a new code and secret.
+    ///
+    /// Thin wrapper around [`InviteLinkClient::refresh_invite_link`].
+    pub async fn refresh(
+        &self,
+        organization_id: OrganizationId,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
+        let link = self
+            .refresh_invite_link(organization_id, supports_confirmation)
+            .await?;
+
+        let mut ctx = self.key_store.context();
+        link.to_view(&mut ctx)
     }
 
     /// Updates the allowed domains for an existing organization invite link.
