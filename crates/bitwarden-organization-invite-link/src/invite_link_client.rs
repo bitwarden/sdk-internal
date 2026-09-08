@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use bitwarden_api_api::models::{
     AcceptOrganizationInviteLinkRequestModel, ConfirmOrganizationInviteLinkRequestModel,
-    CreateOrganizationInviteLinkRequestModel, GetOrganizationInviteRequestModel,
+    CreateOrganizationInviteLinkRequestModel, GetOrganizationInviteLinkStatusRequestModel,
+    GetOrganizationInviteRequestModel, OrganizationInviteLinkValidateEmailDomainRequestModel,
     RefreshOrganizationInviteLinkRequestModel, UpdateOrganizationInviteLinkRequestModel,
 };
 use bitwarden_core::{
@@ -23,7 +24,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{OrganizationInviteLink, OrganizationInviteLinkView};
+use crate::{OrganizationInviteLink, OrganizationInviteLinkStatusView, OrganizationInviteLinkView};
 
 /// Errors returned from [`InviteLinkClient`] operations.
 #[bitwarden_error(flat)]
@@ -186,6 +187,55 @@ impl InviteLinkClient {
 
         let mut ctx = self.key_store.context();
         OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
+    }
+
+    /// Retrieves the status of an invite link.
+    /// Used to verify basic availability before attempting to accept.
+    pub async fn get_status(
+        &self,
+        organization_id: OrganizationId,
+        code: String,
+    ) -> Result<OrganizationInviteLinkStatusView, InviteLinkError> {
+        let code =
+            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .get_status(Some(GetOrganizationInviteLinkStatusRequestModel {
+                organization_id: organization_id.into(),
+                code,
+            }))
+            .await?;
+
+        OrganizationInviteLinkStatusView::try_from(response)
+    }
+
+    /// Returns whether the given email address is in the allowed domains for an invite link.
+    pub async fn is_email_allowed(
+        &self,
+        organization_id: OrganizationId,
+        code: String,
+        email: String,
+    ) -> Result<bool, InviteLinkError> {
+        let code =
+            uuid::Uuid::parse_str(&code).map_err(|_| InviteLinkError::ParseFailure("code"))?;
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .validate_email_domain(Some(
+                OrganizationInviteLinkValidateEmailDomainRequestModel {
+                    organization_id: organization_id.into(),
+                    code,
+                    email,
+                },
+            ))
+            .await?;
+
+        Ok(require!(response.is_allowed))
     }
 
     /// Accepts an organization invite for the current user, optionally enrolling into account
@@ -362,8 +412,11 @@ mod tests {
     use bitwarden_api_api::{
         apis::ApiClient,
         models::{
-            OrganizationInviteLinkResponseModel, OrganizationInviteResponseModel,
-            OrganizationPrivateKeyResponseModel, OrganizationPublicKeyResponseModel,
+            OrganizationInviteLinkResponseModel, OrganizationInviteLinkSsoResponseModel,
+            OrganizationInviteLinkStatusResponseModel,
+            OrganizationInviteLinkValidateEmailDomainResponseModel,
+            OrganizationInviteResponseModel, OrganizationPrivateKeyResponseModel,
+            OrganizationPublicKeyResponseModel,
         },
     };
     use bitwarden_core::{
@@ -912,5 +965,74 @@ mod tests {
             .await;
 
         assert!(matches!(result, Err(InviteLinkError::RecoveryKeyMismatch)));
+    }
+
+    #[tokio::test]
+    async fn get_status_returns_mapped_view() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_get_status()
+                    .returning(|_model| {
+                        Ok(OrganizationInviteLinkStatusResponseModel {
+                            object: None,
+                            organization_name: Some("Test Org".to_string()),
+                            links_enabled: Some(true),
+                            seats_available: Some(true),
+                            supports_confirmation: Some(true),
+                            sso: Some(Box::new(OrganizationInviteLinkSsoResponseModel {
+                                object: None,
+                                org_sso_id: Some("sso-id".to_string()),
+                                required: Some(true),
+                            })),
+                        })
+                    })
+                    .once();
+            }),
+        );
+
+        let status = client
+            .get_status(org_id, uuid::Uuid::new_v4().to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(status.organization_name, "Test Org");
+        assert!(status.links_enabled);
+        assert!(status.seats_available);
+        assert!(status.supports_confirmation);
+        let sso = status.sso.expect("sso should be present");
+        assert_eq!(sso.org_sso_id.as_deref(), Some("sso-id"));
+        assert!(sso.required);
+    }
+
+    #[tokio::test]
+    async fn is_email_allowed_returns_is_allowed() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_validate_email_domain()
+                    .returning(|_model| {
+                        Ok(OrganizationInviteLinkValidateEmailDomainResponseModel {
+                            is_allowed: Some(true),
+                        })
+                    })
+                    .once();
+            }),
+        );
+
+        let allowed = client
+            .is_email_allowed(
+                org_id,
+                uuid::Uuid::new_v4().to_string(),
+                "user@example.com".to_string(),
+            )
+            .await
+            .unwrap();
+
+        assert!(allowed);
     }
 }

@@ -1,4 +1,7 @@
-use bitwarden_api_api::models::OrganizationInviteLinkResponseModel;
+use bitwarden_api_api::models::{
+    OrganizationInviteLinkResponseModel, OrganizationInviteLinkSsoResponseModel,
+    OrganizationInviteLinkStatusResponseModel,
+};
 use bitwarden_core::{
     OrganizationId,
     key_management::{KeySlotIds, SymmetricKeySlotId},
@@ -100,4 +103,56 @@ pub struct OrganizationInviteLinkView {
     pub creation_date: DateTime<Utc>,
     /// The invite link URL fragment (to be appended on the web vault URL)
     pub url_fragment: String,
+}
+
+/// The status of an organization invite link, used to verify basic availability before an invitee
+/// attempts to accept.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct OrganizationInviteLinkStatusView {
+    /// The name of the organization the invite link belongs to.
+    pub organization_name: String,
+    /// Whether invite links are currently enabled for the organization.
+    pub links_enabled: bool,
+    /// Whether the organization has seats available for new members.
+    pub seats_available: bool,
+    /// Whether invitees can self-confirm using this invite link.
+    pub supports_confirmation: bool,
+    /// SSO details for the organization, when SSO is configured.
+    pub sso: Option<OrganizationInviteLinkSsoView>,
+}
+
+/// SSO details for an organization referenced by an invite link status.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
+pub struct OrganizationInviteLinkSsoView {
+    /// The organization's SSO identifier, when configured.
+    pub org_sso_id: Option<String>,
+    /// Whether SSO is required to redeem this invite link.
+    pub required: bool,
+}
+
+impl From<OrganizationInviteLinkSsoResponseModel> for OrganizationInviteLinkSsoView {
+    fn from(response: OrganizationInviteLinkSsoResponseModel) -> Self {
+        Self {
+            org_sso_id: response.org_sso_id,
+            required: response.required.unwrap_or(false),
+        }
+    }
+}
+
+impl TryFrom<OrganizationInviteLinkStatusResponseModel> for OrganizationInviteLinkStatusView {
+    type Error = InviteLinkError;
+
+    fn try_from(response: OrganizationInviteLinkStatusResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            organization_name: require!(response.organization_name),
+            links_enabled: response.links_enabled.unwrap_or(false),
+            seats_available: response.seats_available.unwrap_or(false),
+            supports_confirmation: response.supports_confirmation.unwrap_or(false),
+            sso: response.sso.map(|sso| (*sso).into()),
+        })
+    }
 }
