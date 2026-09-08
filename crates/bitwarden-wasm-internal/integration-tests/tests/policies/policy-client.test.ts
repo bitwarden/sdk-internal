@@ -5,20 +5,20 @@ import {
   PolicyType,
   OrganizationUserType,
   OrganizationUserStatusType,
+  OrganizationId,
   Uuid,
 } from "@bitwarden/sdk-internal";
 
+import { asOrganizationId, asUuid } from "../type-assertion-helpers";
 import { makePasswordManagerClient, makeStateBridge } from "../utils";
 
 // `filter_by_type` is a pure function with no crypto or network, so the client needs no unlock.
 // The filtering *behavior* is covered comprehensively by the crate's Rust unit tests
 // (`PolicyClient::filter_by_type`). These integration tests exist only to prove FFI-specific concerns.
 
-const uuid = (s: string) => s as unknown as Uuid;
-
-const POLICY_ID = uuid("1c4d9d5a-0000-4000-8000-000000000000");
-const ORG_A = uuid("1c4d9d5a-0000-4000-8000-00000000000a");
-const ORG_B = uuid("1c4d9d5a-0000-4000-8000-00000000000b");
+const POLICY_ID = asUuid("1c4d9d5a-0000-4000-8000-000000000000");
+const ORG_A = asOrganizationId("1c4d9d5a-0000-4000-8000-00000000000a");
+const ORG_B = asOrganizationId("1c4d9d5a-0000-4000-8000-00000000000b");
 
 interface PolicyViewOptions {
   id?: Uuid;
@@ -28,7 +28,7 @@ interface PolicyViewOptions {
 }
 
 function policyView(
-  organizationId: Uuid,
+  organizationId: OrganizationId,
   type: PolicyType,
   options: PolicyViewOptions = {},
 ): PolicyView {
@@ -51,7 +51,10 @@ interface OrgContextOptions {
   isProviderUser?: boolean;
 }
 
-function orgContext(id: Uuid, options: OrgContextOptions = {}): OrganizationUserPolicyContext {
+function orgContext(
+  id: OrganizationId,
+  options: OrgContextOptions = {},
+): OrganizationUserPolicyContext {
   return {
     id,
     role: options.role ?? OrganizationUserType.User,
@@ -84,7 +87,7 @@ describe("PolicyClient", () => {
     });
 
     it("round-trips every PolicyView field unchanged", () => {
-      const id = uuid("1c4d9d5a-0000-4000-8000-0000000000ff");
+      const id = asUuid("1c4d9d5a-0000-4000-8000-0000000000ff");
       const data = JSON.stringify({ minComplexity: 3, minLength: 12 });
       const revisionDate = "2024-01-01T00:00:00.000Z";
 
@@ -263,10 +266,10 @@ describe("PolicyClient", () => {
         PolicyType.MaximumVaultTimeout,
         [
           policyView(ORG_A, PolicyType.MaximumVaultTimeout, {
-            id: uuid("1c4d9d5a-0000-4000-8000-0000000000a1"),
+            id: asUuid("1c4d9d5a-0000-4000-8000-0000000000a1"),
           }),
           policyView(ORG_B, PolicyType.MaximumVaultTimeout, {
-            id: uuid("1c4d9d5a-0000-4000-8000-0000000000b1"),
+            id: asUuid("1c4d9d5a-0000-4000-8000-0000000000b1"),
           }),
         ],
         [

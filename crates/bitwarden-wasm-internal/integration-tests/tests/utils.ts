@@ -167,16 +167,42 @@ export const MASTER_KEY_WRAPPED_USER_KEY =
   "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=";
 
 /**
+ * Awaits a rejection and narrows it with `guard`, which the caller supplies for the error type the
+ * operation under test rejects with (`isChangeKdfError`, …).
+ *
+ * Throws when the promise resolves, or rejects with something else — a test asserting on the
+ * variant of an error it never got would otherwise read as a pass.
+ */
+export async function rejection<T>(
+  promise: Promise<unknown>,
+  guard: (thrown: unknown) => thrown is T,
+): Promise<T> {
+  const thrown = await promise.then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+
+  if (!guard(thrown)) {
+    throw new Error(`expected a rejection the guard accepts, got ${thrown}`);
+  }
+
+  return thrown;
+}
+
+/**
  * Makes an uninitialized password manager client and registers the supplied state bridge.
  */
 export function makePasswordManagerClient(
   stateBridge: WasmStateBridge,
   settings?: ClientSettings,
+  // The emulated api server reads the acting account off `Authorization: Bearer <token>`, and the
+  // token it expects is the user id. Omitted for clients that make no authenticated request.
+  accessToken?: string,
 ): PasswordManagerClient {
   init_sdk();
 
   const tokens: TokenProvider = {
-    get_access_token: async () => undefined,
+    get_access_token: async () => accessToken,
   };
 
   // A fresh handle has no active profile, so no setting reads as administrator-forced.

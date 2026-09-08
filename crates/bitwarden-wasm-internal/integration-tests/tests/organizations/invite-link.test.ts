@@ -1,6 +1,6 @@
 import { ClientSettings, PasswordManagerClient } from "@bitwarden/sdk-internal";
 
-import { HttpMock, installHttpMock } from "../http-mock";
+import { HttpMock, installHttpMock } from "../../server-emulator/http-mock";
 import {
   TEST_INVITE,
   TEST_INVITE_NO_CONFIRMATION,
@@ -9,6 +9,7 @@ import {
 } from "../org-fixtures";
 import { makeOrgAccountClient, makeOrgInitializedClient, makeStateBridge } from "../utils";
 import { CREATION_DATE, LINK_CODE, LINK_ID, ROUTES, inviteLinkRoutes } from "./invite-link-server";
+import { asString, asUuid, fromUuid } from "../type-assertion-helpers";
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
 // SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
@@ -379,7 +380,7 @@ describe("invite link client", () => {
       .invite_link()
       .accept_and_optionally_confirm(
         TEST_ORGANIZATION_ID,
-        link.code,
+        fromUuid(link.code),
         secret,
         COLLECTION_NAME,
         true,
