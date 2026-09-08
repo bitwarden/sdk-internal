@@ -23,7 +23,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::OrganizationInviteLink;
+use crate::{OrganizationInviteLink, OrganizationInviteLinkView};
 
 /// Errors returned from [`InviteLinkClient`] operations.
 #[bitwarden_error(flat)]
@@ -49,6 +49,9 @@ pub enum InviteLinkError {
     /// public key bound into the invite.
     #[error("Account recovery public key does not match the invite's bound organization key")]
     RecoveryKeyMismatch,
+    /// No allowed domains were specified.
+    #[error("At least one allowed domain is required.")]
+    NoAllowedDomains,
 }
 
 /// Client for organization invite link cryptographic and network operations.
@@ -65,21 +68,23 @@ impl InviteLinkClient {
     pub async fn get(
         &self,
         organization_id: OrganizationId,
-    ) -> Result<Option<OrganizationInviteLink>, InviteLinkError> {
+    ) -> Result<Option<OrganizationInviteLinkView>, InviteLinkError> {
         let response = match self
             .api_configurations
             .api_client
             .organization_invite_links_api()
             .get(organization_id.into())
             .await
-            .map_err(ApiError::from)
         {
             Ok(response) => response,
             Err(ApiError::Response(rc)) if rc.status == StatusCode::NOT_FOUND => return Ok(None),
             Err(e) => return Err(e.into()),
         };
 
-        OrganizationInviteLink::try_from(response).map(Some)
+        let mut ctx = self.key_store.context();
+        OrganizationInviteLink::try_from(response)
+            .and_then(|link| link.to_view(&mut ctx))
+            .map(Some)
     }
 
     /// Delete an existing invite link.
@@ -88,8 +93,7 @@ impl InviteLinkClient {
             .api_client
             .organization_invite_links_api()
             .delete(organization_id.into())
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
         Ok(())
     }
 
@@ -105,7 +109,11 @@ impl InviteLinkClient {
         organization_id: OrganizationId,
         allowed_domains: Vec<String>,
         supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
+        if allowed_domains.is_empty() {
+            return Err(InviteLinkError::NoAllowedDomains);
+        }
+
         let invite = self
             .make_invite(organization_id, supports_confirmation)
             .await?;
@@ -124,7 +132,8 @@ impl InviteLinkClient {
             )
             .await?;
 
-        OrganizationInviteLink::try_from(response)
+        let mut ctx = self.key_store.context();
+        OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
     }
 
     /// Refresh an existing invite link.
@@ -133,7 +142,7 @@ impl InviteLinkClient {
         &self,
         organization_id: OrganizationId,
         supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
         let invite = self
             .make_invite(organization_id, supports_confirmation)
             .await?;
@@ -151,42 +160,8 @@ impl InviteLinkClient {
             )
             .await?;
 
-        OrganizationInviteLink::try_from(response)
-    }
-
-    /// Backwards-compatible alias for [`InviteLinkClient::create`].
-    pub async fn create_invite_link(
-        &self,
-        organization_id: OrganizationId,
-        allowed_domains: Vec<String>,
-        supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        self.create(organization_id, allowed_domains, supports_confirmation)
-            .await
-    }
-
-    /// Backwards-compatible alias for [`InviteLinkClient::refresh`].
-    pub async fn refresh_invite_link(
-        &self,
-        organization_id: OrganizationId,
-        supports_confirmation: bool,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
-        self.refresh(organization_id, supports_confirmation).await
-    }
-
-    /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
-    /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(unchecked_return_type = "InviteSecret"))]
-    pub fn get_invite_secret(
-        &self,
-        organization_id: OrganizationId,
-        invite: Invite,
-    ) -> Result<InviteSecret, InviteLinkError> {
         let mut ctx = self.key_store.context();
-        let org_key = SymmetricKeySlotId::Organization(organization_id);
-        let invite_key = invite.unseal_invite_key_with_organization_key(org_key, &mut ctx)?;
-        let invite_secret = invite.get_invite_secret(invite_key, &mut ctx)?;
-        Ok(invite_secret)
+        OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
     }
 
     /// Updates the allowed domains for an existing organization invite link.
@@ -194,7 +169,11 @@ impl InviteLinkClient {
         &self,
         organization_id: OrganizationId,
         allowed_domains: Vec<String>,
-    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
+        if allowed_domains.is_empty() {
+            return Err(InviteLinkError::NoAllowedDomains);
+        }
+
         let response = self
             .api_configurations
             .api_client
@@ -203,10 +182,10 @@ impl InviteLinkClient {
                 organization_id.into(),
                 Some(UpdateOrganizationInviteLinkRequestModel { allowed_domains }),
             )
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
-        OrganizationInviteLink::try_from(response)
+        let mut ctx = self.key_store.context();
+        OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
     }
 
     /// Accepts an organization invite for the current user, optionally enrolling into account
@@ -549,8 +528,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(link.allowed_domains, vec!["example.com".to_string()]);
-        assert!(!String::from(&link.invite).is_empty());
-        assert!(!link.invite.supports_confirmation());
+        assert!(!link.supports_confirmation);
     }
 
     #[tokio::test]
@@ -592,8 +570,59 @@ mod tests {
             .unwrap();
 
         assert_eq!(link.allowed_domains, vec!["example.com".to_string()]);
-        assert!(!String::from(&link.invite).is_empty());
-        assert!(link.invite.supports_confirmation());
+        assert!(link.supports_confirmation);
+    }
+
+    #[tokio::test]
+    async fn create_builds_url_fragment_from_org_code_and_secret() {
+        let org_id = OrganizationId::new_v4();
+        let code = uuid::Uuid::new_v4();
+        let wrapped = Arc::new(std::sync::Mutex::new(None::<String>));
+        let for_mock = wrapped.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organizations_api
+                    .expect_get_private_key()
+                    .returning(move |_org| {
+                        Ok(OrganizationPrivateKeyResponseModel {
+                            object: None,
+                            private_key: for_mock.lock().unwrap().clone(),
+                        })
+                    })
+                    .once();
+                mock.organization_invite_links_api
+                    .expect_create()
+                    .returning(move |org, model| {
+                        let model = model.unwrap();
+                        // Pin the code so the fragment's middle segment is deterministic.
+                        let mut response = echo_link_response(
+                            org,
+                            model.allowed_domains,
+                            model.invite,
+                            model.supports_confirmation,
+                        );
+                        response.code = Some(code);
+                        Ok(response)
+                    })
+                    .once();
+            }),
+        );
+        *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
+
+        let link = client
+            .create(org_id, vec!["example.com".to_string()], false)
+            .await
+            .unwrap();
+
+        // Fragment shape: /join/{org}/{code}?key={secret}. The org id and server-issued code are
+        // deterministic; the trailing secret must be a real, parseable `InviteSecret`.
+        let prefix = format!("/join/{org_id}/{code}?key=");
+        let key = link
+            .url_fragment
+            .strip_prefix(&prefix)
+            .unwrap_or_else(|| panic!("unexpected fragment: {}", link.url_fragment));
+        assert!(key.parse::<InviteSecret>().is_ok());
     }
 
     #[tokio::test]
@@ -629,10 +658,16 @@ mod tests {
         );
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
-        let link1 = client.create(org_id, vec![], false).await.unwrap();
-        let link2 = client.create(org_id, vec![], false).await.unwrap();
+        let link1 = client
+            .create(org_id, vec!["example.com".to_string()], false)
+            .await
+            .unwrap();
+        let link2 = client
+            .create(org_id, vec!["example.com".to_string()], false)
+            .await
+            .unwrap();
 
-        assert_ne!(String::from(&link1.invite), String::from(&link2.invite));
+        assert_ne!(&link1.url_fragment, &link2.url_fragment);
     }
 
     #[tokio::test]
@@ -659,7 +694,9 @@ mod tests {
         // organization's key slot (which is absent from the store) must fail.
         *wrapped.lock().unwrap() = Some(wrapped_org_private_key(&client, org_id));
 
-        let result = client.create(other_org_id, vec![], false).await;
+        let result = client
+            .create(other_org_id, vec![String::from("example.com")], false)
+            .await;
 
         assert!(matches!(result, Err(InviteLinkError::Invite(_))));
     }
@@ -676,20 +713,11 @@ mod tests {
             }),
         );
 
-        let result = client.create(org_id, vec![], false).await;
+        let result = client
+            .create(org_id, vec![String::from("example.com")], false)
+            .await;
 
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
-    }
-
-    #[tokio::test]
-    async fn get_invite_secret_round_trips_to_the_invite_secret() {
-        let org_id = OrganizationId::new_v4();
-        let client = make_client(org_id, ApiClient::new_mocked(|_| {}));
-
-        // A valid invite for the org must yield a non-empty secret recovered via the org key.
-        let (_secret, invite, _org_public_key) = build_invite(&client, org_id);
-        let secret = client.get_invite_secret(org_id, invite).unwrap();
-        assert!(!String::from(&secret).is_empty());
     }
 
     #[tokio::test]
