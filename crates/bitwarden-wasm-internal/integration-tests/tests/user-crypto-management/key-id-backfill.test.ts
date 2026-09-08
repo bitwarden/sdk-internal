@@ -2,6 +2,7 @@ import {
   ClientSettings,
   KeyId,
   KeyIdBackfillError,
+  ManagedSettingsClient,
   PasswordManagerClient,
   WasmStateBridge,
   init_sdk,
@@ -109,6 +110,7 @@ describe("user key id backfill", () => {
         const client = new PasswordManagerClient(
           { get_access_token: async () => undefined },
           SETTINGS,
+          new ManagedSettingsClient(),
         );
 
         const error = await rejection(client.user_crypto_management().user_key_id_needs_backfill());

@@ -9,6 +9,9 @@ import {
   WebAuthnPrfUnlockData,
   Kdf,
   KeyId,
+  DateTime,
+  Utc,
+  ManagedSettingsClient,
   PasswordManagerClient,
   init_sdk,
   TokenProvider,
@@ -56,6 +59,7 @@ export function makeStateBridge(): WasmStateBridge {
   let accountCryptographicState: WrappedAccountCryptographicState | null;
   let masterPasswordUnlockData: MasterPasswordUnlockData | null;
   let webauthnPrfUnlockData: WebAuthnPrfUnlockData | null;
+  let v2EncryptedMigrationsGracePeriodStart: DateTime<Utc> | null;
   // Initialized, unlike the slots above, so an untouched bridge reports `null` rather than
   // `undefined` — tests assert on the absence of a KDF config after a failed change.
   let kdfConfig: Kdf | null = null;
@@ -140,6 +144,15 @@ export function makeStateBridge(): WasmStateBridge {
     clear_kdf_config: async () => {
       kdfConfig = null;
     },
+
+    set_v2_encrypted_migrations_grace_period_start: async (v: DateTime<Utc>) => {
+      v2EncryptedMigrationsGracePeriodStart = v;
+    },
+    get_v2_encrypted_migrations_grace_period_start: async () =>
+      v2EncryptedMigrationsGracePeriodStart,
+    clear_v2_encrypted_migrations_grace_period_start: async () => {
+      v2EncryptedMigrationsGracePeriodStart = null;
+    },
   };
 }
 
@@ -166,7 +179,8 @@ export function makePasswordManagerClient(
     get_access_token: async () => undefined,
   };
 
-  const client = new PasswordManagerClient(tokens, settings);
+  // A fresh handle has no active profile, so no setting reads as administrator-forced.
+  const client = new PasswordManagerClient(tokens, settings, new ManagedSettingsClient());
   client.km_state_bridge().register_bridge_impl(stateBridge);
   return client;
 }

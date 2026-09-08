@@ -4,6 +4,7 @@ use std::{fmt::Display, sync::Arc};
 use bitwarden_core::{ClientSettings, key_management::state_bridge::StateBridgeClient};
 use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
 use bitwarden_error::bitwarden_error;
+use bitwarden_managed_settings::ManagedSettingsClient;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
 use bitwarden_policies::PolicyClient;
 use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
@@ -29,12 +30,27 @@ pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 #[wasm_bindgen]
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
+    ///
+    /// `managed_settings` is the host-owned handle onto the operating system's Unified Endpoint
+    /// Management profile. The client shares its profile, so profiles pushed after construction
+    /// are visible here. Pass a fresh `ManagedSettingsClient` where the host has no UEM source.
     #[wasm_bindgen(constructor)]
-    pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
+    pub fn new(
+        token_provider: JsTokenProvider,
+        settings: Option<ClientSettings>,
+        managed_settings: &ManagedSettingsClient,
+    ) -> Self {
         let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
         Self(InnerPasswordManagerClient::new_with_client_tokens(
-            settings, tokens,
+            settings,
+            tokens,
+            managed_settings,
         ))
+    }
+
+    /// Administrator-enforced settings operations.
+    pub fn managed_settings(&self) -> ManagedSettingsClient {
+        self.0.managed_settings()
     }
 
     /// Test method, echoes back the input
