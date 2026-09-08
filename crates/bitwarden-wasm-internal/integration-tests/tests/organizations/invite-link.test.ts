@@ -9,7 +9,7 @@ import {
 } from "../org-fixtures";
 import { makeOrgAccountClient, makeOrgInitializedClient, makeStateBridge } from "../utils";
 import { CREATION_DATE, LINK_CODE, LINK_ID, ROUTES, inviteLinkRoutes } from "./invite-link-server";
-import { asString, asUuid, fromUuid } from "../type-assertion-helpers";
+import { fromUuid } from "../type-assertion-helpers";
 
 // Nothing listens here; every request is served by the fetch mock. A concrete host keeps the
 // SDK's request URLs parseable and makes an unmocked route fail loudly rather than escape to
