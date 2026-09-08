@@ -101,7 +101,8 @@ pub struct OrganizationInviteLinkView {
     pub supports_confirmation: bool,
     /// When the invite link was created.
     pub creation_date: DateTime<Utc>,
-    /// The invite link URL fragment (to be appended on the web vault URL)
+    /// The invite link URL fragment (to be appended on the web vault URL).
+    /// Example format: /join/{org_id}/{code}?key={key}
     pub url_fragment: String,
 }
 
