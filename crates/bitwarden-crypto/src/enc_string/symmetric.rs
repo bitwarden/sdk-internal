@@ -153,6 +153,22 @@ impl FromStr for EncString {
     }
 }
 
+/// Infallible conversion, since parsing never fails: unknown formats become
+/// [EncString::Unparseable].
+impl From<&str> for EncString {
+    fn from(s: &str) -> Self {
+        Self::parse_known_format(s).unwrap_or_else(|| EncString::Unparseable { raw: s.to_owned() })
+    }
+}
+
+/// Infallible conversion, since parsing never fails: unknown formats become
+/// [EncString::Unparseable].
+impl From<String> for EncString {
+    fn from(s: String) -> Self {
+        Self::parse_known_format(&s).unwrap_or(EncString::Unparseable { raw: s })
+    }
+}
+
 impl EncString {
     /// Parses one of the known [EncString] formats, or [None] if the string matches none of them.
     fn parse_known_format(s: &str) -> Option<Self> {
@@ -896,6 +912,21 @@ mod tests {
             assert_eq!(enc_string.to_string(), enc_str);
             assert_eq!(enc_string.enc_type(), None);
         }
+    }
+
+    #[test]
+    fn test_from_string_and_str() {
+        let known = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        let unknown = "8.ABC";
+
+        assert_eq!(EncString::from(known).enc_type(), Some(2));
+        assert_eq!(EncString::from(known.to_owned()).enc_type(), Some(2));
+
+        assert!(matches!(
+            EncString::from(unknown),
+            EncString::Unparseable { .. }
+        ));
+        assert_eq!(EncString::from(unknown.to_owned()).to_string(), unknown);
     }
 
     #[test]
