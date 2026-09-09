@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
-    Key, PersistentValue, Setting, SettingsError,
+    Key, Persist, Setting, SettingsError,
     registry::StateRegistryError,
     repository::{Repository, RepositoryItem},
 };
@@ -61,7 +61,7 @@ impl StateClient {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn setting<T: PersistentValue>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
+    pub fn setting<T: Persist>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
         Ok(self.client.internal.state_registry.setting(key)?)
     }
 }

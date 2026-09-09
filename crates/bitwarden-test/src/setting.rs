@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use bitwarden_state::{PersistentValue, Setting, SettingTrait, SettingsError};
+use bitwarden_state::{Persist, Setting, SettingTrait, SettingsError};
 
 /// A simple in-memory setting backend. The data is only stored in memory and will not persist
 /// beyond the lifetime of the backend instance.
@@ -10,7 +10,7 @@ pub struct MemorySetting<T> {
     value: Mutex<Option<T>>,
 }
 
-impl<T: Clone + PersistentValue> MemorySetting<T> {
+impl<T: Clone + Persist> MemorySetting<T> {
     /// Create a setting handle backed by a fresh in-memory store.
     pub fn create() -> Setting<T> {
         Setting::new(Arc::new(Self {
@@ -20,7 +20,7 @@ impl<T: Clone + PersistentValue> MemorySetting<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: Clone + PersistentValue> SettingTrait<T> for MemorySetting<T> {
+impl<T: Clone + Persist> SettingTrait<T> for MemorySetting<T> {
     async fn get(&self) -> Result<Option<T>, SettingsError> {
         Ok(self.value.lock().expect("Mutex is not poisoned").clone())
     }

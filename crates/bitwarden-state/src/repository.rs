@@ -1,6 +1,6 @@
 use std::{any::TypeId, sync::Arc};
 
-use crate::{persistent_value::PersistentValue, registry::StateRegistryError};
+use crate::{persist::Persist, registry::StateRegistryError};
 
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
@@ -70,9 +70,9 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
 /// It should not be implemented manually; instead, users should
 /// use the [crate::register_repository_item] macro to register their item types.
 ///
-/// All repository items must be a [`PersistentValue`] to support SDK-managed repositories
-/// that persist items to storage.
-pub trait RepositoryItem: Internal + PersistentValue {
+/// The [`Persist`] bound is what makes an item storable by SDK-managed repositories. It is
+/// satisfied automatically by any type that is serializable and thread-safe.
+pub trait RepositoryItem: Internal + Persist {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
 

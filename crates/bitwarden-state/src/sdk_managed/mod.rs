@@ -4,7 +4,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{
-    persistent_value::PersistentValue,
+    persist::Persist,
     repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations},
     settings::{SettingItem, SettingTrait, SettingsError},
 };
@@ -254,7 +254,7 @@ struct DBSetting<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: PersistentValue> SettingTrait<T> for DBSetting<T> {
+impl<T: Persist> SettingTrait<T> for DBSetting<T> {
     async fn get(&self) -> Result<Option<T>, SettingsError> {
         match self.database.get::<SettingItem>(self.name).await? {
             Some(item) => Ok(Some(serde_json::from_value::<T>(item.0)?)),
@@ -280,10 +280,7 @@ impl SystemDatabase {
         })
     }
 
-    pub(super) fn get_setting<T: PersistentValue>(
-        &self,
-        name: &'static str,
-    ) -> Arc<dyn SettingTrait<T>> {
+    pub(super) fn get_setting<T: Persist>(&self, name: &'static str) -> Arc<dyn SettingTrait<T>> {
         Arc::new(DBSetting {
             database: self.clone(),
             name,

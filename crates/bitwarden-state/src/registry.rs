@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::{
     any_map::AnyMap,
-    persistent_value::PersistentValue,
+    persist::Persist,
     repository::{Repository, RepositoryItem, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError, MemoryDatabase, SystemDatabase},
     settings::{Key, Setting},
@@ -60,10 +60,7 @@ impl StateRegistry {
     ///
     /// # Errors
     /// This method never fails, but returns a Result for backwards compatibility.
-    pub fn setting<T: PersistentValue>(
-        &self,
-        key: Key<T>,
-    ) -> Result<Setting<T>, StateRegistryError> {
+    pub fn setting<T: Persist>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
         Ok(Setting::new(self.database.get_setting::<T>(key.name)))
     }
 

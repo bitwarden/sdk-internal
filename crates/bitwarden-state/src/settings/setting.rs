@@ -5,9 +5,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{
-    persistent_value::PersistentValue, registry::StateRegistryError, sdk_managed::DatabaseError,
-};
+use crate::{persist::Persist, registry::StateRegistryError, sdk_managed::DatabaseError};
 
 /// Internal setting value as stored in the SDK-managed database.
 ///
@@ -22,7 +20,7 @@ crate::register_repository_item!(String => SettingItem, "Setting");
 
 #[doc(hidden)]
 #[async_trait::async_trait]
-pub trait SettingTrait<T: PersistentValue>: Send + Sync {
+pub trait SettingTrait<T: Persist>: Send + Sync {
     async fn get(&self) -> Result<Option<T>, SettingsError>;
     async fn set(&self, value: T) -> Result<(), SettingsError>;
     async fn remove(&self) -> Result<(), SettingsError>;
@@ -51,11 +49,11 @@ pub trait SettingTrait<T: PersistentValue>: Send + Sync {
 /// setting.delete().await?;
 /// ```
 #[derive(Clone)]
-pub struct Setting<T: PersistentValue> {
+pub struct Setting<T: Persist> {
     backend: Arc<dyn SettingTrait<T>>,
 }
 
-impl<T: PersistentValue> Setting<T> {
+impl<T: Persist> Setting<T> {
     /// Create a new setting handle from a backend.
     ///
     /// The backend is already bound to a single key, so it decides where the value is stored.

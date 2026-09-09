@@ -13,9 +13,9 @@ pub mod registry;
 pub mod settings;
 
 pub(crate) mod any_map;
-pub(crate) mod persistent_value;
+pub(crate) mod persist;
 pub(crate) mod sdk_managed;
 
-pub use persistent_value::PersistentValue;
+pub use persist::Persist;
 pub use sdk_managed::{DatabaseConfiguration, DatabaseError};
 pub use settings::{Key, Setting, SettingItem, SettingTrait, SettingsError};
