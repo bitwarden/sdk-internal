@@ -78,6 +78,7 @@ describe("change kdf", () => {
       await client.lock();
       await client.unlock(TEST_PASSWORD);
       const lockUnlockSdk = client.getPasswordManagerClient();
+      expect(await client.bridge.get_kdf_config()).toEqual(kdf);
 
       // 3. Verify server state is fine: Sync from new cliend and unlock
       const reloginClient = harness.newClientEmulator();
@@ -85,8 +86,8 @@ describe("change kdf", () => {
       await reloginClient.unlock(TEST_PASSWORD);
       const reloginSdk = reloginClient.getPasswordManagerClient();
 
-      // 4. Verify the server has the new KDF values
-      expect(await client.bridge.get_kdf_config()).toEqual(kdf);
+      // 4. Verify the new KDF values reached the new client through the sync
+      expect(await reloginClient.bridge.get_kdf_config()).toEqual(kdf);
 
       // 5. Verify the encryption key has not changed
       expect(await lockUnlockSdk.crypto().get_user_encryption_key()).toBe(userKey);

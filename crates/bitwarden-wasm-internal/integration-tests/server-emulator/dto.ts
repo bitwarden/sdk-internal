@@ -20,6 +20,7 @@ import type {
 
 import {
   asCipherId,
+  asCollectionId,
   asEncString,
   asFolderId,
   asOrganizationId,
@@ -212,7 +213,7 @@ export const CIPHER_FIELD_SOURCE = {
   data: "request",
   archivedDate: "request",
   organizationId: "server",
-  collectionIds: "previous",
+  collectionIds: "server",
   attachments: "previous",
   permissions: "previous",
   organizationUseTotp: "previous",
@@ -230,6 +231,14 @@ export interface CipherServerFields {
   id: string;
   /** The owning organization, or `null` for a user cipher. Assigned on create, kept on edit. */
   organizationId: string | null;
+  /**
+   * The collections the cipher is in.
+   *
+   * Not part of the cipher body: on a create it comes from the `POST /ciphers/create` wrapper
+   * ({@link CipherCreateRequest}), and on an edit it is kept, since a collection move is its own
+   * endpoint.
+   */
+  collectionIds: string[];
   creationDate: string;
   revisionDate: string;
   deletedDate: string | null;
@@ -312,7 +321,7 @@ export class CipherRequest {
 
       organizationId:
         server.organizationId === null ? undefined : asOrganizationId(server.organizationId),
-      collectionIds: previous?.collectionIds ?? [],
+      collectionIds: server.collectionIds.map(asCollectionId),
       attachments: previous?.attachments,
       permissions: previous?.permissions,
       organizationUseTotp: previous?.organizationUseTotp ?? true,
@@ -321,6 +330,17 @@ export class CipherRequest {
       localData: previous?.localData,
     };
   }
+}
+
+/**
+ * `CipherCreateRequestModel` — the body of `POST /ciphers/create`.
+ *
+ * The SDK posts here instead of `POST /ciphers` when the new item goes into collections, and the
+ * cipher sits one level down with the collection ids beside it.
+ */
+export class CipherCreateRequest {
+  cipher!: CipherRequest;
+  collectionIds?: string[];
 }
 
 export class CipherResponse {

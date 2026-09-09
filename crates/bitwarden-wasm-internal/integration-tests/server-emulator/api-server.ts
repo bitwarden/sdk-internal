@@ -4,7 +4,7 @@ import type { Cipher, Folder } from "@bitwarden/sdk-internal";
 
 import type { MockReply, Routes } from "./http-mock";
 
-import { asKeyId } from "../tests/type-assertion-helpers";
+import { asKeyId, asString } from "../tests/type-assertion-helpers";
 
 import { authenticatedRoute } from "./authentication";
 
@@ -21,6 +21,7 @@ const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 import { Database } from "./database";
 import {
   AccountKeysResponse,
+  type CipherCreateRequest,
   CipherRequest,
   CipherResponse,
   FolderRequest,
@@ -55,11 +56,13 @@ export class ApiServer {
       ),
 
       "POST /ciphers": authenticatedRoute(this.db, (user, request) =>
-        this.createCipher(user, request.json<CipherRequest>()),
+        this.createCipher(user, request.json<CipherRequest>(), []),
       ),
-      "POST /ciphers/create": authenticatedRoute(this.db, (user, request) =>
-        this.createCipher(user, request.json<CipherRequest>()),
-      ),
+      // A create into collections posts a different body: the cipher nested under the ids.
+      "POST /ciphers/create": authenticatedRoute(this.db, (user, request) => {
+        const posted = request.json<CipherCreateRequest>();
+        return this.createCipher(user, posted.cipher, posted.collectionIds ?? []);
+      }),
       "PUT /ciphers/:id": authenticatedRoute(this.db, (user, request) =>
         this.updateCipher(user, request.params.id, request.json<CipherRequest>()),
       ),
@@ -185,7 +188,11 @@ export class ApiServer {
     return undefined;
   }
 
-  private createCipher(user: UserEntity, posted: CipherRequest): MockReply {
+  private createCipher(
+    user: UserEntity,
+    posted: CipherRequest,
+    collectionIds: string[],
+  ): MockReply {
     const organizationId = posted.organizationId ?? null;
     if (organizationId !== null && !this.isMember(user, organizationId)) {
       return error(HTTP_NOT_FOUND, `no organization ${organizationId} for this account`);
@@ -199,6 +206,7 @@ export class ApiServer {
       creationDate: now,
       revisionDate: now,
       deletedDate: null,
+      collectionIds,
     });
 
     // Exactly one owner: the posting account, unless the cipher was created into an organization.
@@ -229,6 +237,7 @@ export class ApiServer {
       creationDate: stored.cipher.creationDate,
       revisionDate: this.db.revisions.next(),
       deletedDate: stored.cipher.deletedDate ?? null,
+      collectionIds: stored.cipher.collectionIds.map(asString),
     });
 
     this.db.ciphers.update(id, { ...stored, cipher });
