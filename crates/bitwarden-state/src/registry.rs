@@ -57,9 +57,6 @@ impl StateRegistry {
     }
 
     /// Get a handle to a setting by its type-safe key.
-    ///
-    /// # Errors
-    /// This method never fails, but returns a Result for backwards compatibility.
     pub fn setting<T: Persist>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
         Ok(Setting::new(self.database.get_setting::<T>(key.name)))
     }
