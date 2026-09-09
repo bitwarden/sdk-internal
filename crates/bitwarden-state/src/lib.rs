@@ -12,6 +12,7 @@ pub mod registry;
 /// Type-safe settings API for storing application configuration and state.
 pub mod settings;
 
+pub(crate) mod any_map;
 pub(crate) mod persistent_value;
 pub(crate) mod sdk_managed;
 
