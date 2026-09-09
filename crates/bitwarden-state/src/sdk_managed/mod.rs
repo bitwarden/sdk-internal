@@ -250,7 +250,7 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
 struct DBSetting<T> {
     database: SystemDatabase,
     name: &'static str,
-    _marker: std::marker::PhantomData<fn() -> T>,
+    _marker: std::marker::PhantomData<T>,
 }
 
 #[async_trait::async_trait]
