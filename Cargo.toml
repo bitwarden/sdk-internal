@@ -172,6 +172,10 @@ unwrap_used = "deny"
 string_slice = "warn"
 print_stdout = "warn"
 print_stderr = "warn"
+# Some errors are logged where they occur, so there is no need to return them.
+result_unit_err = "allow"
+# `chunks_exact(N)` reads better than the suggested `as_chunks::<N>().0`.
+chunks_exact_to_as_chunks = "allow"
 
 [workspace.lints.rust]
 missing_docs = "warn"
