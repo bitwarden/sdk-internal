@@ -26,14 +26,6 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ReportsApi: Send + Sync {
-    /// POST /reports/password-health-report-application
-    async fn add_password_health_report_application<'a>(
-        &self,
-        password_health_report_application_model: Option<
-            models::PasswordHealthReportApplicationModel,
-        >,
-    ) -> Result<models::PasswordHealthReportApplication, Error>;
-
     /// POST /reports/password-health-report-applications
     async fn add_password_health_report_applications<'a>(
         &self,
@@ -87,30 +79,6 @@ impl ReportsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ReportsApi for ReportsApiClient {
-    async fn add_password_health_report_application<'a>(
-        &self,
-        password_health_report_application_model: Option<
-            models::PasswordHealthReportApplicationModel,
-        >,
-    ) -> Result<models::PasswordHealthReportApplication, Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/reports/password-health-report-application",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&password_health_report_application_model);
-
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
-    }
-
     async fn add_password_health_report_applications<'a>(
         &self,
         password_health_report_application_model: Option<
