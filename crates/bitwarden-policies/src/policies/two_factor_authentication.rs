@@ -1,9 +1,9 @@
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Two-factor Authentication policy.
 pub struct TwoFactorAuthenticationPolicy;
 
-impl Policy for TwoFactorAuthenticationPolicy {
+impl PolicyDefinition for TwoFactorAuthenticationPolicy {
     type Data = ();
 
     fn policy_type(&self) -> PolicyType {

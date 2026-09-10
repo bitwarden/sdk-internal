@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Maximum Vault Timeout policy.
 pub struct MaximumVaultTimeoutPolicy;
 
-impl Policy for MaximumVaultTimeoutPolicy {
+impl PolicyDefinition for MaximumVaultTimeoutPolicy {
     type Data = MaximumVaultTimeoutPolicyData;
 
     fn policy_type(&self) -> PolicyType {

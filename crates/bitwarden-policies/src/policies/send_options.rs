@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Send Options policy.
 pub struct SendOptionsPolicy;
 
-impl Policy for SendOptionsPolicy {
+impl PolicyDefinition for SendOptionsPolicy {
     type Data = SendOptionsPolicyData;
 
     fn policy_type(&self) -> PolicyType {

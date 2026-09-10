@@ -6,11 +6,11 @@ use bitwarden_core::{Client, OrganizationId};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{OrganizationUserPolicyContext, PolicyType, PolicyView, models::EnforcedPolicyErased};
+use crate::{OrganizationUserPolicyContext, Policy, PolicyType, models::PolicyDecisionErased};
 // The strongly-typed native enforcement API is test-only for now: it is exercised by tests but
 // not yet exposed to consumers. See the `#[cfg(test)]` impl block below.
 #[cfg(test)]
-use crate::{Policy, models::EnforcedPolicy, policy::EnforceablePolicy};
+use crate::{PolicyDefinition, models::PolicyDecision, policy_definition::EnforceablePolicy};
 
 /// Client for policy domain operations.
 ///
@@ -46,9 +46,9 @@ impl PolicyClient {
         policy_type: PolicyType,
         // TODO: policy_views and ctx should come from state rather than being specified by the
         // caller
-        policy_views: Vec<PolicyView>,
+        policy_views: Vec<Policy>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
-    ) -> Vec<EnforcedPolicyErased> {
+    ) -> Vec<PolicyDecisionErased> {
         policy_type
             .resolve_policy()
             .get_all_enforced_erased(&policy_views, &organization_user_policy_contexts)
@@ -66,9 +66,9 @@ impl PolicyClient {
         organization_id: OrganizationId,
         // TODO: policy_views and ctx should come from state rather than being specified by the
         // caller
-        policy_views: Vec<PolicyView>,
+        policy_views: Vec<Policy>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
-    ) -> EnforcedPolicyErased {
+    ) -> PolicyDecisionErased {
         policy_type.resolve_policy().get_enforced_erased(
             organization_id,
             &policy_views,
@@ -79,13 +79,13 @@ impl PolicyClient {
     /// Filter policies of the given type for the current user.
     pub fn filter_by_type(
         &self,
-        policies: Vec<PolicyView>,
+        policies: Vec<Policy>,
         organization_user_policy_contexts: Vec<OrganizationUserPolicyContext>,
         policy_type: PolicyType,
-    ) -> Vec<PolicyView> {
-        // Use the enforced path as the canonical logic, then use it to filter the PolicyViews for
+    ) -> Vec<Policy> {
+        // Use the enforced path as the canonical logic, then use it to filter the policies for
         // return
-        let enforced: HashMap<OrganizationId, EnforcedPolicyErased> = policy_type
+        let enforced: HashMap<OrganizationId, PolicyDecisionErased> = policy_type
             .resolve_policy()
             .get_all_enforced_erased(&policies, &organization_user_policy_contexts)
             .into_iter()
@@ -112,28 +112,28 @@ impl PolicyClient {
 impl PolicyClient {
     /// Evaluate enforcement of the given policy across all organizations,
     /// returning strongly-typed enforcement results.
-    fn get_all_enforced<P: Policy>(
+    fn get_all_enforced<P: PolicyDefinition>(
         &self,
         policy: P,
         // TODO: policy_views and ctx should come from state rather than being specified by the
         // caller
-        policy_views: &[PolicyView],
+        policy_views: &[Policy],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
-    ) -> Vec<EnforcedPolicy<P>> {
+    ) -> Vec<PolicyDecision<P>> {
         policy.get_all_enforced(policy_views, organization_user_policy_contexts)
     }
 
     /// Evaluate enforcement of the given policy for a single organization,
     /// returning a strongly-typed enforcement result.
-    fn get_enforced<P: Policy>(
+    fn get_enforced<P: PolicyDefinition>(
         &self,
         policy: P,
         organization_id: OrganizationId,
         // TODO: policy_views and ctx should come from state rather than being specified by the
         // caller
-        policy_views: &[PolicyView],
+        policy_views: &[Policy],
         organization_user_policy_contexts: &[OrganizationUserPolicyContext],
-    ) -> EnforcedPolicy<P> {
+    ) -> PolicyDecision<P> {
         policy.get_enforced(
             organization_id,
             policy_views,
@@ -157,18 +157,19 @@ impl PoliciesClientExt for Client {
 #[cfg(test)]
 mod tests {
     use bitwarden_organizations::{OrganizationUserStatusType, OrganizationUserType};
-    use uuid::Uuid;
 
     use super::*;
-    use crate::{MasterPasswordPolicy, MasterPasswordPolicyData, policy_type::PolicyDataType};
+    use crate::{
+        MasterPasswordPolicy, MasterPasswordPolicyData, PolicyId, policy_type::PolicyDataType,
+    };
 
     fn policy_view(
         organization_id: OrganizationId,
         policy_type: PolicyType,
         data: Option<&str>,
-    ) -> PolicyView {
-        PolicyView {
-            id: Uuid::new_v4(),
+    ) -> Policy {
+        Policy {
+            id: PolicyId::new_v4(),
             organization_id,
             r#type: policy_type,
             data: data.map(str::to_owned),
@@ -384,19 +385,19 @@ mod tests {
 
         /// Convenience wrapper around the method under test.
         fn filter(
-            policies: Vec<PolicyView>,
+            policies: Vec<Policy>,
             orgs: Vec<OrganizationUserPolicyContext>,
             policy_type: PolicyType,
-        ) -> Vec<PolicyView> {
+        ) -> Vec<Policy> {
             PolicyClient::new().filter_by_type(policies, orgs, policy_type)
         }
 
-        /// A disabled `PolicyView` for the gate that drops disabled policies.
+        /// A disabled `Policy` for the gate that drops disabled policies.
         fn disabled_policy_view(
             organization_id: OrganizationId,
             policy_type: PolicyType,
-        ) -> PolicyView {
-            PolicyView {
+        ) -> Policy {
+            Policy {
                 enabled: false,
                 ..policy_view(organization_id, policy_type, None)
             }

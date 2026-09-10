@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Organization Data Ownership policy.
 pub struct OrganizationDataOwnershipPolicy;
 
-impl Policy for OrganizationDataOwnershipPolicy {
+impl PolicyDefinition for OrganizationDataOwnershipPolicy {
     type Data = OrganizationDataOwnershipPolicyData;
 
     fn policy_type(&self) -> PolicyType {
