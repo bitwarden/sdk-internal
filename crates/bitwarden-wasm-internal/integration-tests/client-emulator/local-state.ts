@@ -115,6 +115,26 @@ export class LocalState {
   }
 
   /**
+   * A client on this state with no user crypto initialized — what a locked app holds.
+   *
+   * The repositories are registered here rather than at unlock: a real client wires them up when it
+   * starts, not when the vault opens.
+   */
+  locked(): PasswordManagerClient {
+    const client = makePasswordManagerClient(this.bridge, SETTINGS, this.account.userId);
+
+    client.platform().state().register_client_managed_repositories({
+      cipher: this.ciphers,
+      folder: this.folders,
+      local_user_data_key_state: null,
+      organization_shared_key: null,
+      send: null,
+    });
+
+    return client;
+  }
+
+  /**
    * Brings a client up on this state and unlocks it with `method`.
    *
    * The KDF settings, cryptographic state and upgrade token are read back out of the bridge, which
@@ -131,15 +151,7 @@ export class LocalState {
 
     const upgradeToken = await this.bridge.get_v2_upgrade_token();
 
-    const client = makePasswordManagerClient(this.bridge, SETTINGS, userId);
-
-    client.platform().state().register_client_managed_repositories({
-      cipher: this.ciphers,
-      folder: this.folders,
-      local_user_data_key_state: null,
-      organization_shared_key: null,
-      send: null,
-    });
+    const client = this.locked();
 
     await client.crypto().initialize_user_crypto({
       userId: asUserId(userId),
