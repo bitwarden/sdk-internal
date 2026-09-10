@@ -18,6 +18,7 @@ keywords.workspace = true
 test-support = []
 wasm = [
     "dep:bitwarden-encoding",
+    "bitwarden-core/wasm",
     "bitwarden-threading/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
