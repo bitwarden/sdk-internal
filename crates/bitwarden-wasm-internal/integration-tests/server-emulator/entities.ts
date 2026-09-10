@@ -39,6 +39,13 @@ export interface UserEntity {
   userKeyId?: KeyId;
   /** `null` for an account with no master password. */
   masterPasswordUnlock: StoredMasterPasswordUnlock | null;
+  /**
+   * The user key wrapped with the account's key-connector key.
+   *
+   * Set for an account that unlocks through key connector. The key itself lives on the
+   * key-connector deployment, not here, so this alone unlocks nothing.
+   */
+  keyConnectorKeyWrappedUserKey?: EncString;
   /** Set while a V1 to V2 upgrade is outstanding; served in the account's decryption options. */
   upgradeToken?: V2UpgradeToken;
   /** Organization keys sealed to this account, keyed by organization id. */
