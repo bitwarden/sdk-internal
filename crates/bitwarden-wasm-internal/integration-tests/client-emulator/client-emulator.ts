@@ -55,7 +55,11 @@ export class ClientEmulator {
     const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
     await locked.crypto_sync_handler().on_sync(data);
 
-    await this.local.bridge.set_kdf_config(user.masterPasswordUnlock?.kdf ?? user.kdf);
+    // Quirk, the crypto sync handler writes the kdf only when the account has no master-password
+    // but clients always write it.
+    if (user.masterPasswordUnlock === null) {
+      await this.local.bridge.set_kdf_config(user.kdf);
+    }
 
     // The vault the server would serve this account, not the whole database: an account's local
     // state must not hold items a sync could never hand it.

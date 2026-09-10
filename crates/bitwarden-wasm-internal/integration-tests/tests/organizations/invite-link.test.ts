@@ -213,7 +213,7 @@ describe("invite link client", () => {
         .invite_link()
         .accept_and_optionally_confirm(
           TEST_ORGANIZATION_ID,
-          link.code,
+          fromUuid(link.code),
           TEST_INVITE_SECRET,
           COLLECTION_NAME,
           false,
