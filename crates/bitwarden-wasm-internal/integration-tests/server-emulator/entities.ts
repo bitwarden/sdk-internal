@@ -17,6 +17,13 @@ export interface StoredMasterPasswordUnlock {
   containedKeyId?: string;
 }
 
+/** The keys a trusted device holds, as `PUT /devices/{identifier}/keys` posts them. */
+export interface TrustedDeviceKeys {
+  deviceProtectedUserKey: string;
+  protectedDevicePublicKey: string;
+  protectedDevicePrivateKey: string;
+}
+
 /** An account as the server holds it. */
 export interface UserEntity {
   userId: string;
@@ -58,6 +65,8 @@ export interface UserEntity {
   upgradeToken?: V2UpgradeToken;
   /** Organization keys sealed to this account, keyed by organization id. */
   organizationKeys: Record<string, string>;
+  /** The keys that make a device trusted, keyed by device identifier. */
+  trustedDeviceKeys?: Record<string, TrustedDeviceKeys>;
 }
 
 /**

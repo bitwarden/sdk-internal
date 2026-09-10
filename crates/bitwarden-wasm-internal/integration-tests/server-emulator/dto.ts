@@ -609,6 +609,67 @@ export class MasterPasswordUnlockResponse {
   }
 }
 
+/**
+ * `AccountKeysRequestModel` — the key material a registration posts.
+ *
+ * A registration always builds a V2 state, so the signature key pair and security state are
+ * present. They are optional on the wire because the model is shared with older callers.
+ */
+export class AccountKeysRequest {
+  publicKeyEncryptionKeyPair?: PublicKeyEncryptionKeyPairRequest;
+  signatureKeyPair?: SignatureKeyPairRequest;
+  securityState?: SecurityStateRequest;
+}
+
+/** `RegisterFinishRequestModel` — the body of `POST /accounts/register/finish`. */
+export class RegisterFinishRequest {
+  email!: string;
+  masterPasswordUnlock!: MasterPasswordUnlockDataModel;
+  masterPasswordAuthentication!: MasterPasswordAuthenticationDataModel;
+  accountKeys!: AccountKeysRequest;
+}
+
+/**
+ * `KeysRequestModel` — the body of `POST /accounts/keys`.
+ *
+ * Posted by a registration that provisions key material onto an account the server already has,
+ * which is how TDE registration works: SSO creates the account, the client gives it keys.
+ */
+export class KeysRequest {
+  accountKeys!: AccountKeysRequest;
+  publicKey!: string;
+  encryptedPrivateKey!: string;
+  userKeyId?: string;
+}
+
+/** `SetInitialPasswordRequestModel` — the body of `POST /accounts/set-password`. */
+export class SetInitialPasswordRequest {
+  accountKeys!: AccountKeysRequest;
+  masterPasswordUnlock!: MasterPasswordUnlockDataModel;
+  masterPasswordAuthentication!: MasterPasswordAuthenticationDataModel;
+  orgIdentifier!: string;
+}
+
+/** `SetKeyConnectorKeyRequestModel` — the body of `POST /accounts/set-key-connector-key`. */
+export class SetKeyConnectorKeyRequest {
+  accountKeys!: AccountKeysRequest;
+  keyConnectorKeyWrappedUserKey!: string;
+  orgIdentifier!: string;
+}
+
+/** `OrganizationUserResetPasswordEnrollmentRequestModel` — an account-recovery enrollment. */
+export class ResetPasswordEnrollmentRequest {
+  resetPasswordKey?: string;
+  masterPasswordHash?: string;
+}
+
+/** `DeviceKeysRequestModel` — the keys that make a device trusted. */
+export class DeviceKeysRequest {
+  encryptedUserKey!: string;
+  encryptedPublicKey!: string;
+  encryptedPrivateKey!: string;
+}
+
 /** `PasswordPreloginRequestModel` — the body of `POST /accounts/prelogin/password`. */
 export class PasswordPreloginRequest {
   email!: string;

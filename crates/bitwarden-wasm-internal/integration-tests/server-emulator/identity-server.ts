@@ -3,11 +3,19 @@
 import type { Database } from "./database";
 import {
   OAuth2ErrorResponse,
+  MasterPasswordUnlockDataModel,
   PasswordPreloginRequest,
   PasswordPreloginResponse,
+  RegisterFinishRequest,
+  toKdf,
   TokenResponse,
 } from "./dto";
 import type { MockReply, Routes } from "./http-mock";
+import {
+  asEncString,
+  asSignedPublicKey,
+  asSignedSecurityState,
+} from "../tests/type-assertion-helpers";
 import type { UserEntity } from "./entities";
 import { HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from "./replies";
 
@@ -24,6 +32,9 @@ export class IdentityServer {
 
       // Form-encoded per the OAuth2 spec, so this route reads the raw body rather than JSON.
       "POST /connect/token": (request) => this.token(new URLSearchParams(request.body)),
+
+      "POST /accounts/register/finish": (request) =>
+        this.registerFinish(request.json<RegisterFinishRequest>()),
     };
   }
 
@@ -61,6 +72,54 @@ export class IdentityServer {
     }
 
     return { json: TokenResponse.forUser(user) };
+  }
+
+  /**
+   * Creates an account from the key material a client generated for it.
+   *
+   * This is the only route that creates an account rather than reading a seeded one, so the
+   * registered account has to be complete enough for a later login and unlock to work off it.
+   */
+  private registerFinish(posted: RegisterFinishRequest): MockReply {
+    if (this.userFor(posted.email) !== undefined) {
+      return oauth2Error(HTTP_BAD_REQUEST, "invalid_request", `${posted.email} already registered`);
+    }
+
+    const {
+      publicKeyEncryptionKeyPair: pair,
+      signatureKeyPair,
+      securityState,
+    } = posted.accountKeys;
+    if (pair === undefined || signatureKeyPair === undefined || securityState === undefined) {
+      return oauth2Error(HTTP_BAD_REQUEST, "invalid_request", "incomplete account keys");
+    }
+    if (pair.signedPublicKey === undefined) {
+      return oauth2Error(HTTP_BAD_REQUEST, "invalid_request", "a V2 key pair must be signed");
+    }
+
+    const userId = this.db.users.newId();
+    this.db.users.set(userId, {
+      userId,
+      email: posted.email,
+      accountCryptographicState: {
+        V2: {
+          private_key: asEncString(pair.wrappedPrivateKey),
+          signing_key: asEncString(signatureKeyPair.wrappedSigningKey),
+          security_state: asSignedSecurityState(securityState.securityState),
+          signed_public_key: asSignedPublicKey(pair.signedPublicKey),
+        },
+      },
+      publicKey: pair.publicKey,
+      verifyingKey: signatureKeyPair.verifyingKey,
+      securityVersion: securityState.securityVersion,
+      kdf: toKdf(posted.masterPasswordUnlock.kdf),
+      masterPasswordUnlock: MasterPasswordUnlockDataModel.toStored(posted.masterPasswordUnlock),
+      masterPasswordAuthenticationHash:
+        posted.masterPasswordAuthentication.masterPasswordAuthenticationHash,
+      organizationKeys: {},
+    });
+
+    return { json: { object: "register" } };
   }
 
   /** The seeded account with this email, addressed as the rest of the harness does. */
