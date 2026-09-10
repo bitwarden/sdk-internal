@@ -167,6 +167,16 @@ export class KeyRegenerationRequest {
   userKeyEncryptedUserPrivateKey!: string;
 }
 
+/**
+ * `KeyConnectorEnrollmentRequestModel` — the body of `POST /accounts/key-connector/enroll`.
+ *
+ * Carries the user key wrapped with a key-connector key the client has just posted to the
+ * key-connector deployment. Accepting it moves the account off its master password.
+ */
+export class KeyConnectorEnrollmentRequest {
+  keyConnectorKeyWrappedUserKey!: string;
+}
+
 /** `RotateUserKeysRequestModel` — the body of `POST /accounts/key-management/rotate-user-keys`. */
 export class RotateUserKeysRequest {
   wrappedAccountCryptographicState!: WrappedAccountCryptographicStateRequest;
