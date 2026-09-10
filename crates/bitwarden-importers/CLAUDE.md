@@ -14,3 +14,12 @@ fields become sub-fields of a Login cipher. The per-type result counts reflect t
 **Submission encrypts for the destination**: setting `organization_id` on the `CipherView` makes
 `key_identifier()` select the org key; org imports also map the target collection. Inputs over 10
 MiB are rejected (`KdbxFileTooLarge`).
+
+**Keeper crypto is competitor hazmat, kept out of `bitwarden-crypto`**: `keeper::crypto` ports
+Keeper's wire formats (unauthenticated AES-CBC, AES-GCM with prepended nonce, ECDH-P256 → SHA-256 →
+AES-GCM, the custom `encryptionParams` blob). RSA PKCS#1 v1.5 is not supported. It must stay
+byte-for-byte compatible with Keeper — do not change the formats. Use RustCrypto. The crypto is
+currently internal Rust with no WASM / UniFFI bindings — the low-level primitives are deliberately
+not exposed across the FFI boundary; bindings will be created once the structured access layer is
+ported. `AesV2Packet::encrypt` only ever generates random AES-GCM nonces — never expose a
+caller-supplied nonce (`encrypt_with_nonce` is private and test-only).

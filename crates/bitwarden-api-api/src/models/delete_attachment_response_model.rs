@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// DeleteAttachmentResponseModel : The mutated cipher returned after deleting one of its
+/// attachments. Whether it carries full or reduced data is the controller's decision under PAM
+/// credential leasing; this model only wraps the result.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeleteAttachmentResponseModel {
     #[serde(
@@ -29,6 +32,9 @@ pub struct DeleteAttachmentResponseModel {
 }
 
 impl DeleteAttachmentResponseModel {
+    /// The mutated cipher returned after deleting one of its attachments. Whether it carries full
+    /// or reduced data is the controller's decision under PAM credential leasing; this model only
+    /// wraps the result.
     pub fn new() -> DeleteAttachmentResponseModel {
         DeleteAttachmentResponseModel {
             object: None,

@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+bitwarden_commercial_marker::commercial_crate!();
+
 pub mod client;
 mod client_projects;
 mod client_secrets;

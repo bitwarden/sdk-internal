@@ -14,4 +14,5 @@ pub fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint
     bitwarden_repr_with_tsify::register_lints(sess, lint_store);
     bitwarden_tracing_instrument::register_lints(sess, lint_store);
     bitwarden_uniffi_async_export::register_lints(sess, lint_store);
+    bitwarden_uniffi_config::register_lints(sess, lint_store);
 }

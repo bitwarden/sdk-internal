@@ -9,9 +9,16 @@ pub enum SendParseError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     MissingField(#[from] bitwarden_core::MissingFieldError),
+    #[error(transparent)]
+    DeserializationFailure(#[from] SendItemDeserializationFailureError),
 }
 
 /// Item does not exist error.
 #[derive(Debug, thiserror::Error)]
 #[error("Item does not exist")]
 pub struct ItemNotFoundError;
+
+/// Unable to deserialize Item-type Send data
+#[derive(Debug, thiserror::Error)]
+#[error("Send item deserialization failure")]
+pub struct SendItemDeserializationFailureError;

@@ -1,0 +1,4 @@
+# Test vectors are derived from a throwaway account, no real secrets there.
+exclude:
+  paths:
+    - crates/bitwarden-importers/src/importers/onepassword/access/fixtures

@@ -56,13 +56,12 @@ pub struct SendAccessResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub text: Option<Box<models::SendTextModel>>,
-    /// Encrypted string containing secret Send data
     #[serde(
         rename = "data",
         alias = "Data",
         skip_serializing_if = "Option::is_none"
     )]
-    pub data: Option<String>,
+    pub data: Option<Box<models::SendDataModel>>,
     /// The date after which a send cannot be accessed. When this value is null, there is no
     /// expiration date.
     #[serde(

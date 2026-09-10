@@ -24,7 +24,7 @@ pub struct CommonUnlockDataRequestModel {
         alias = "OrganizationAccountRecoveryUnlockData"
     )]
     pub organization_account_recovery_unlock_data:
-        Option<Vec<models::ResetPasswordWithOrgIdRequestModel>>,
+        Option<Vec<models::OrganizationUserAccountRecoveryRequestModel>>,
     #[serde(rename = "passkeyUnlockData", alias = "PasskeyUnlockData")]
     pub passkey_unlock_data: Option<Vec<models::WebAuthnLoginRotateKeyRequestModel>>,
     #[serde(rename = "deviceKeyUnlockData", alias = "DeviceKeyUnlockData")]
@@ -41,7 +41,7 @@ impl CommonUnlockDataRequestModel {
     pub fn new(
         emergency_access_unlock_data: Option<Vec<models::EmergencyAccessWithIdRequestModel>>,
         organization_account_recovery_unlock_data: Option<
-            Vec<models::ResetPasswordWithOrgIdRequestModel>,
+            Vec<models::OrganizationUserAccountRecoveryRequestModel>,
         >,
         passkey_unlock_data: Option<Vec<models::WebAuthnLoginRotateKeyRequestModel>>,
         device_key_unlock_data: Option<Vec<models::OtherDeviceKeysUpdateRequestModel>>,

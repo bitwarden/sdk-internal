@@ -1,8 +1,9 @@
+use bitwarden_core::UserId;
 use bitwarden_threading::cancellation_token::wasm::{AbortController, AbortControllerExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::drivers::{JsSharedUnlockDriver, RawJsSharedUnlockDriver};
-use crate::{DeviceEvent, PeerStartError, SharedUnlockPeer as Peer};
+use crate::{DeviceEvent, PeerStartError, SharedUnlockClient, SharedUnlockPeer as Peer};
 
 /// Shared-unlock peer for WASM clients.
 #[wasm_bindgen]
@@ -21,6 +22,12 @@ impl SharedUnlockPeer {
         let driver = JsSharedUnlockDriver::new(driver);
         let peer = Peer::create(driver, ipc_client.client.clone());
         Self { peer }
+    }
+
+    /// Sets which clients this peer shares one user's unlock state with. Defaults to none.
+    #[wasm_bindgen]
+    pub fn set_destinations(&self, user_id: UserId, destinations: Vec<SharedUnlockClient>) {
+        self.peer.set_destinations(user_id, destinations);
     }
 
     /// Starts the shared-unlock peer

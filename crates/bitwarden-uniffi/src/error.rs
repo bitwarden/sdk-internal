@@ -32,6 +32,10 @@ pub enum BitwardenError {
     TrustDevice(#[from] bitwarden_core::auth::auth_client::TrustDeviceError),
     #[error(transparent)]
     Registration(#[from] bitwarden_auth::registration::RegistrationError),
+    #[error(transparent)]
+    PasswordPrelogin(#[from] bitwarden_auth::login::login_via_password::PasswordPreloginError),
+    #[error(transparent)]
+    PasswordLogin(#[from] bitwarden_auth::login::login_via_password::PasswordLoginError),
 
     #[error(transparent)]
     Fingerprint(#[from] bitwarden_core::platform::FingerprintError),
@@ -67,6 +71,12 @@ pub enum BitwardenError {
     Encrypt(#[from] bitwarden_vault::EncryptError),
     #[error(transparent)]
     EncryptFile(#[from] bitwarden_vault::EncryptFileError),
+
+    // Collections
+    #[error(transparent)]
+    CollectionDecrypt(#[from] bitwarden_collections::error::CollectionDecryptError),
+    #[error(transparent)]
+    CollectionEncrypt(#[from] bitwarden_collections::error::CollectionEncryptError),
 
     // Send
     #[error(transparent)]

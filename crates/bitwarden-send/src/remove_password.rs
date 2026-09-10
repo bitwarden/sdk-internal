@@ -94,6 +94,7 @@ mod tests {
                 text: Some("Secret text".to_string()),
                 hidden: false,
             }),
+            data: None,
             max_access_count: None,
             access_count: 0,
             disabled: false,

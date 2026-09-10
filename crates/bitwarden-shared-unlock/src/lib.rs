@@ -111,6 +111,7 @@
 
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
+use bitwarden_ipc::Endpoint;
 use serde::{Deserialize, Serialize};
 
 mod active_peers;
@@ -180,4 +181,34 @@ pub enum DeviceEvent {
         #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey"))]
         user_key: SymmetricCryptoKey,
     },
+}
+
+/// A kind of client a peer may share unlock state with, independent of the IPC endpoint variants
+/// that address its individual contexts (foreground/background, renderer/main).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+pub enum SharedUnlockClient {
+    /// The browser extension, in any of its contexts.
+    Browser,
+    /// The desktop app, in any of its processes.
+    Desktop,
+    /// A web vault tab.
+    Web,
+}
+
+impl SharedUnlockClient {
+    /// The client an endpoint belongs to.
+    pub(crate) fn of_endpoint(endpoint: &Endpoint) -> Self {
+        match endpoint {
+            Endpoint::Web { .. } => SharedUnlockClient::Web,
+            Endpoint::BrowserForeground { .. } | Endpoint::BrowserBackground { .. } => {
+                SharedUnlockClient::Browser
+            }
+            Endpoint::DesktopRenderer | Endpoint::DesktopMain => SharedUnlockClient::Desktop,
+        }
+    }
 }

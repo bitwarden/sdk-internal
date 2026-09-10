@@ -29,7 +29,7 @@ pub struct UnlockDataRequestModel {
         alias = "OrganizationAccountRecoveryUnlockData"
     )]
     pub organization_account_recovery_unlock_data:
-        Option<Vec<models::ResetPasswordWithOrgIdRequestModel>>,
+        Option<Vec<models::OrganizationUserAccountRecoveryRequestModel>>,
     #[serde(rename = "passkeyUnlockData", alias = "PasskeyUnlockData")]
     pub passkey_unlock_data: Option<Vec<models::WebAuthnLoginRotateKeyRequestModel>>,
     #[serde(rename = "deviceKeyUnlockData", alias = "DeviceKeyUnlockData")]
@@ -47,7 +47,7 @@ impl UnlockDataRequestModel {
         master_password_unlock_data: models::MasterPasswordUnlockAndAuthenticationDataModel,
         emergency_access_unlock_data: Option<Vec<models::EmergencyAccessWithIdRequestModel>>,
         organization_account_recovery_unlock_data: Option<
-            Vec<models::ResetPasswordWithOrgIdRequestModel>,
+            Vec<models::OrganizationUserAccountRecoveryRequestModel>,
         >,
         passkey_unlock_data: Option<Vec<models::WebAuthnLoginRotateKeyRequestModel>>,
         device_key_unlock_data: Option<Vec<models::OtherDeviceKeysUpdateRequestModel>>,
