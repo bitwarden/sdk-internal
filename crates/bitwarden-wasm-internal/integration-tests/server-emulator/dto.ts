@@ -30,15 +30,14 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { Database } from "./database";
 import type { StoredMasterPasswordUnlock, UserEntity } from "./entities";
 
 /** The server's numeric `KdfType`. */
 export const KdfType = { pbkdf2Sha256: 0, argon2id: 1 } as const;
 export type KdfTypeValue = (typeof KdfType)[keyof typeof KdfType];
 
-function optionalString(value: { toString(): string } | undefined): string | null {
-  return value === undefined ? null : String(value);
+function optionalString(value: { toString(): string } | null | undefined): string | null {
+  return value === null || value === undefined ? null : String(value);
 }
 
 function optionalEnc(value: string | null | undefined) {

@@ -2,3 +2,4 @@
 exclude:
   paths:
     - crates/bitwarden-importers/src/importers/onepassword/access/fixtures
+    - test-vectors
