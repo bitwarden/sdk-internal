@@ -1,6 +1,6 @@
 // An in-memory model of the Bitwarden's api server
 
-import type { Cipher, Folder } from "@bitwarden/sdk-internal";
+import type { Cipher, Folder, WrappedAccountCryptographicState } from "@bitwarden/sdk-internal";
 
 import type { MockReply, Routes } from "./http-mock";
 
@@ -26,24 +26,67 @@ const PBKDF2_MIN_ITERATIONS = 600_000;
 const KEY_ID_PATTERN = /^[0-9a-f]{32}$/;
 import { Database } from "./database";
 import {
+  AccountKeysRequest,
   AccountKeysResponse,
   type CipherCreateRequest,
   CipherRequest,
   CipherResponse,
   FolderRequest,
   FolderResponse,
+  DeviceKeysRequest,
   KdfType,
   KeyConnectorEnrollmentRequest,
   KeyRegenerationRequest,
+  KeysRequest,
   KeyRotationDataResponse,
   MasterPasswordUnlockDataModel,
+  ResetPasswordEnrollmentRequest,
   RotateUserKeysRequest,
+  SetInitialPasswordRequest,
+  SetKeyConnectorKeyRequest,
   SyncResponse,
   UserKeyIdRequest,
   type ChangeKdfRequest,
 } from "./dto";
 import type { CipherEntity, UserEntity } from "./entities";
 import { error, HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_NOT_FOUND } from "./replies";
+
+/**
+ * The parts of an account's V2 state, from the key material a registration posted.
+ *
+ * `undefined` when the posted keys are incomplete: a registration always builds a V2 state, so a
+ * missing signature key pair or security state is a malformed request rather than a V1 account.
+ */
+function toV2State(keys: AccountKeysRequest):
+  | {
+      accountCryptographicState: WrappedAccountCryptographicState;
+      publicKey: string;
+      verifyingKey: string;
+      securityVersion: number;
+    }
+  | undefined {
+  const { publicKeyEncryptionKeyPair: pair, signatureKeyPair, securityState } = keys;
+  if (pair === undefined || signatureKeyPair === undefined || securityState === undefined) {
+    return undefined;
+  }
+  if (pair.signedPublicKey === undefined) {
+    return undefined;
+  }
+
+  return {
+    accountCryptographicState: {
+      V2: {
+        private_key: asEncString(pair.wrappedPrivateKey),
+        signing_key: asEncString(signatureKeyPair.wrappedSigningKey),
+        security_state: asSignedSecurityState(securityState.securityState),
+        signed_public_key: asSignedPublicKey(pair.signedPublicKey),
+      },
+    },
+    publicKey: pair.publicKey,
+    verifyingKey: signatureKeyPair.verifyingKey,
+    securityVersion: securityState.securityVersion,
+  };
+}
 
 export class ApiServer {
   constructor(readonly db: Database) {}
@@ -59,6 +102,32 @@ export class ApiServer {
 
       "POST /accounts/kdf": authenticatedRoute(this.db, (user, request) =>
         this.changeKdf(user, request.json<ChangeKdfRequest>()),
+      ),
+
+      "POST /accounts/keys": authenticatedRoute(this.db, (user, request) =>
+        this.setAccountKeys(user, request.json<KeysRequest>()),
+      ),
+
+      "POST /accounts/set-password": authenticatedRoute(this.db, (user, request) =>
+        this.setInitialPassword(user, request.json<SetInitialPasswordRequest>()),
+      ),
+
+      "PUT /organizations/:orgId/users/:userId/reset-password-enrollment": authenticatedRoute(
+        this.db,
+        (user, request) =>
+          this.enrollAccountRecovery(
+            user,
+            request.params.orgId,
+            request.json<ResetPasswordEnrollmentRequest>(),
+          ),
+      ),
+
+      "PUT /devices/:identifier/keys": authenticatedRoute(this.db, (user, request) =>
+        this.trustDevice(user, request.params.identifier, request.json<DeviceKeysRequest>()),
+      ),
+
+      "POST /accounts/set-key-connector-key": authenticatedRoute(this.db, (user, request) =>
+        this.setKeyConnectorKey(user, request.json<SetKeyConnectorKeyRequest>()),
       ),
 
       "POST /accounts/key-connector/enroll": authenticatedRoute(this.db, (user, request) =>
@@ -173,6 +242,127 @@ export class ApiServer {
     user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(posted.unlockData);
     user.kdf = user.masterPasswordUnlock.kdf;
     this.db.revisions.next();
+    return {};
+  }
+
+  /**
+   * Provisions key material onto an account that has none.
+   *
+   * A TDE account is created by SSO before it has any keys, so this is where its cryptographic
+   * state first arrives. The account has no unlock method until a later call gives it one.
+   */
+  private setAccountKeys(user: UserEntity, posted: KeysRequest): MockReply {
+    const state = toV2State(posted.accountKeys);
+    if (state === undefined) {
+      return error(HTTP_BAD_REQUEST, "incomplete account keys");
+    }
+
+    user.accountCryptographicState = state.accountCryptographicState;
+    user.publicKey = state.publicKey;
+    user.verifyingKey = state.verifyingKey;
+    user.securityVersion = state.securityVersion;
+    if (posted.userKeyId !== undefined) {
+      if (!KEY_ID_PATTERN.test(posted.userKeyId)) {
+        return error(HTTP_BAD_REQUEST, `malformed key id ${posted.userKeyId}`);
+      }
+      user.userKeyId = asKeyId(posted.userKeyId);
+    }
+    this.db.revisions.next();
+
+    // Unlike the other key-management routes, this one answers with the account's keys.
+    return { json: AccountKeysResponse.fromUser(user) };
+  }
+
+  /**
+   * Gives an SSO-provisioned account its first master password.
+   *
+   * Unlike a registration, the account already exists; unlike a password change, it has no unlock
+   * data to replace.
+   */
+  private setInitialPassword(user: UserEntity, posted: SetInitialPasswordRequest): MockReply {
+    if (user.masterPasswordUnlock !== null) {
+      return error(HTTP_BAD_REQUEST, "account already has a master password");
+    }
+
+    const state = toV2State(posted.accountKeys);
+    if (state === undefined) {
+      return error(HTTP_BAD_REQUEST, "incomplete account keys");
+    }
+
+    user.accountCryptographicState = state.accountCryptographicState;
+    user.publicKey = state.publicKey;
+    user.verifyingKey = state.verifyingKey;
+    user.securityVersion = state.securityVersion;
+    user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(posted.masterPasswordUnlock);
+    user.kdf = user.masterPasswordUnlock.kdf;
+    user.masterPasswordAuthenticationHash =
+      posted.masterPasswordAuthentication.masterPasswordAuthenticationHash;
+    this.db.revisions.next();
+
+    return {};
+  }
+
+  /**
+   * Records the account's user key sealed to an organization's account-recovery public key.
+   *
+   * Held against the membership rather than the account: recovery is the organization's capability,
+   * and a user enrolled in one organization is not enrolled in another.
+   */
+  private enrollAccountRecovery(
+    user: UserEntity,
+    organizationId: string,
+    posted: ResetPasswordEnrollmentRequest,
+  ): MockReply {
+    const organization = this.db.organizations.get(organizationId);
+    const member = organization?.members.find((candidate) => candidate.userId === user.userId);
+    if (member === undefined) {
+      return error(HTTP_NOT_FOUND, `no membership of ${organizationId} for this account`);
+    }
+    if (posted.resetPasswordKey === undefined) {
+      return error(HTTP_BAD_REQUEST, "reset password key required");
+    }
+
+    member.accountRecoveryKey = posted.resetPasswordKey;
+    this.db.revisions.next();
+
+    return {};
+  }
+
+  /** Records the keys that let a device unlock the account without a password. */
+  private trustDevice(user: UserEntity, identifier: string, posted: DeviceKeysRequest): MockReply {
+    user.trustedDeviceKeys = {
+      ...user.trustedDeviceKeys,
+      [identifier]: {
+        deviceProtectedUserKey: posted.encryptedUserKey,
+        protectedDevicePublicKey: posted.encryptedPublicKey,
+        protectedDevicePrivateKey: posted.encryptedPrivateKey,
+      },
+    };
+    this.db.revisions.next();
+
+    return { json: { id: this.db.deviceIds.next(), object: "device" } };
+  }
+
+  /**
+   * Gives an SSO-provisioned account its first key material and key-connector unlock at once.
+   *
+   * Distinct from {@link enrollToKeyConnector}, which moves an *existing* account with a master
+   * password onto key connector: this account never had one.
+   */
+  private setKeyConnectorKey(user: UserEntity, posted: SetKeyConnectorKeyRequest): MockReply {
+    const state = toV2State(posted.accountKeys);
+    if (state === undefined) {
+      return error(HTTP_BAD_REQUEST, "incomplete account keys");
+    }
+
+    user.accountCryptographicState = state.accountCryptographicState;
+    user.publicKey = state.publicKey;
+    user.verifyingKey = state.verifyingKey;
+    user.securityVersion = state.securityVersion;
+    user.keyConnectorKeyWrappedUserKey = asEncString(posted.keyConnectorKeyWrappedUserKey);
+    user.masterPasswordUnlock = null;
+    this.db.revisions.next();
+
     return {};
   }
 
