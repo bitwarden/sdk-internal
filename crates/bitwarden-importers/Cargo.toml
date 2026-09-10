@@ -16,8 +16,8 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-# Re-exports the 1Password access module so the out-of-tree CLI can drive it against a real
-# account. Never enable in production builds.
+# Re-exports the 1Password access and convert modules so the out-of-tree CLI can drive them
+# against a real account. Never enable in production builds.
 # TODO: Remove once the importer consumes the module directly.
 test-utils = []
 uniffi = [
@@ -54,6 +54,7 @@ data-encoding = { workspace = true }
 hkdf = { workspace = true }
 hmac = { workspace = true }
 icu_normalizer = { workspace = true }
+itertools = ">=0.15.0, <0.16"
 keepass = { workspace = true }
 p256 = { version = "=0.14.0", features = ["alloc", "ecdh", "pkcs8"], default-features = false }
 pbkdf2 = { workspace = true, features = ["hmac"] }

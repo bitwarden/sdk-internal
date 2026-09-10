@@ -1,0 +1,688 @@
+{
+  "uuid": "QTRB3RZGRRE67KBZU76TTXE55Q",
+  "name": "LastPass Ruby",
+  "type": "I",
+  "state": "A",
+  "avatar": "",
+  "domain": "my",
+  "attrVersion": 3,
+  "createdAt": "2026-04-01T18:14:27Z",
+  "storageUsed": 112,
+  "baseAvatarURL": "https://a.1passwordusercontent.com/",
+  "baseAttachmentURL": "https://f.1passwordusercontent.com/",
+  "me": {
+    "uuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+    "createdAt": "2026-04-01T18:14:27Z",
+    "updatedAt": "2026-08-16T10:56:42Z",
+    "lastAuthAt": "2026-08-31T20:58:52Z",
+    "email": "lastpass.ruby+01-april-2026@gmail.com",
+    "firstName": "LastPass Ruby",
+    "lastName": "",
+    "name": "LastPass Ruby",
+    "attrVersion": 12,
+    "keysetVersion": 12,
+    "state": "A",
+    "type": "R",
+    "avatar": "",
+    "language": "en",
+    "accountKeyFormat": "A3",
+    "accountKeyUuid": "9RVQ2J",
+    "keysets": [
+      {
+        "uuid": "vkpeayor2tsxlnxo5vahqz2jee",
+        "encryptedBy": "mp",
+        "sn": 1,
+        "encSymKey": {
+          "alg": "PBES2g-HS256",
+          "cty": "b5+jwk+json",
+          "data": "EUfHdnMpEmywEzVw4su5eG4uvrnKM7_Hj_8sdDA_B27uqSByjJLRXYRNfEL-p2LvFN-3tTP7y_AX7wBLix9NEJDP-1Tgo82fPWVyJ1ORwhc00Nr8j7-DqprT2wA3d-Tpkw-rk-S1qgkMFOpiT0ld1G6QuNcc1nYrG0VyrHwww9s2vF_lueB6989DlLIBZp2hHKAJ0EP1-A7Sb1dBj7e00DPe6lfsZQjP3iI0ybI",
+          "enc": "A256GCM",
+          "iv": "Lfa_bA7rzDNghfia",
+          "kid": "mp",
+          "p2c": 650000,
+          "p2s": "huA1o3xP4Sl29ZbV-ABRBQ"
+        },
+        "encPriKey": {
+          "cty": "b5+jwk+json",
+          "data": "UQ5vfuZe32o_EGsoW2eqMmAOdPS-5LME2LBkKTizId9AkX7Ps8Q0X495LshVGtgervxwwjNESgZD_6qUfo070y4uA6cwMCXbU_YzAE-JJNvLHFcnGgdu2XqD7D_EwpW0CoCWcVSs66uTltVzR_MXl_uWAOTtbJrK1pbiZG_sP3l2CT0z8fzcI_nSKN-UbOp-biuTYDT_UPByEcZIqQP3FrB0uFOAHt80IDhsHnPEW4bZC9A4UzlrsGlIj2oc7hmcpuOabvqAxztBUIhwMKrcqR-lgDJyXH9NXX-Bi3FQbG3hgYg7auCfPuSddhoLjo6TeD6eEMvfH5WJtzfA74ygiQ0Ak9OUtsBplbDYY2fwfl9iGz8GgJAHqHV5dQcRXYsigwHpZaanVT7oPH_MLV2f85LHOK1KSTIHObrkhPGymzG3ChgfHvNTouG4soKU5-OxD7g5RgdJH564FedcsEBsCsLyDzwTg1auBpRIM7DD7Gc2HD8iKnbk3vGH0KXg4qvNbLEKQXB59oNCIapN-Bf45bP32zIVhNLJ9jwyjnEnMysktdwSqMsOmSiAX1Jw4QuB1Br6XsMXaaEJ6hBOzMCSxQuylZy2wu6QbZo9KwWeMYlRVcSIAac-2xp0t8wAd6dPu6kpGosa8rg8rUBTpakQ67IWBNaMIv90zFRPZs8Y3Bl-RZanJZIoPMBOkZ-nuDtK3VwYawK5jtSeTrgcH1yNGWbSU7y_5La_iLddvWVLGF-NOGVOXmJvgAOsQv2Vmimvpwz8Pm3EmWcIPVdQd3c2zce-y6mwrhn17gUFU0DX9TW5O3vMkmr3HbfS5PnV6mdzsgr8zg7nKiwew1kcw61FDi-VmzJC-t8wBa8yW2Ut7uzdrRnmKE6x4-XhNCp9uq7_mJW-jTIk1rOQc0xt1yJo8TXU3JrSkl6ODgHijL1N4puvVdW2sYsjYympSMIiGFMB_-KbTY6eEvhE8AcTYtkHLNBIpM3GGyTk-Dg6IrzQ3dzvuxcJYP5IpmDrPlAu0EnlUtvKrcnjgHN0HX3NIwnKbOmfQePllZO1I_LLAfq3JEO_iPoX1t0rd4FSatQ4UgvVA-2EEaYaqaOLFiDC87nhfEF4M5CxF8mQa1UDg6w41oT_sgQWVLZPc6yTioQwtxRu2zFpTSBjOlpbp6GcOX8ZmjsWov2LIYDN8I3tYGyAV6cg8EltguaMm2k-m2KkeJx8OACMhqwoOaA6rY5Wl0tjz_rn_8d2Z62RoXPE9GLyMZqKRaIuTBjjd9VcYjOGPecO4vIoa2qkPTMaewTSA1PNtNR-xoe7_rFwkhneQmEIWfyFJQPhzvGjWw1NzHJ3PZHKV2T4ReQzDyvNpWCeVB8HD1rt6QQj2p3As3WZo8ohQ04jHXUIQ6f2yIBCo_1hXyjbyvIdksNzj_O2noAJkPd7vHjV5qDL5oDuk8VQpMQJJGA40qutbXgEGL_Vm_u11tPMciY8jwn6KM3_XI0Z_F6OtfYy2bAo7q2nHULXhVAxjItuRUH6VocwoqqJQxQ2Wo6AVb_upW1tUXD1hlxinntku5SQjcCbH7arWjvE6tok8geDQujJAlnN8E7kJiZOuB5jOjEwLS-xxcArj3VXMFZepzYW7JlV_ZppAwA-x72_jdQTPaJzRXKwZ2fc0-S6aSweOMEX54dn9UcaSKljeU2ILMJI5oqgGVELeKiuTWVgCiIvP6YzloViotfm0Q3jMcsSMWxVzE_-zTmO-xXxcSccaRgN5QNDXoSgpsFcr5Rn15jb1ADLwwg9AnzNaEtSirAscLAGjn9Ee4w7GNFpFOHzhMaECdO-JB1pBcbrbsUjVKypERjUDpGa3JjC942gGTvHu_-fxNtWpp-YlEqAmi5xvk53YMls_yq2RZg5pWOq4PbVZ_1YlBDJalliWQVGNEq5o2o3zyxhF27Ez-sLjZBZMw1YJhGW8JqPHf1XW9mMvjF714-xwoSYE4hE6x_ml9NCf4Fc5zUcBqsWc0HOsPQFGoMemjVwKpmS6d_CB5cdMgRmfnXEKC9aUZEpkoQAXekO_49nrRSfRCi-wiHndUeXdgO47uuRXO-FS3Xg0H5CGk4bvOsP2cXEJ6At9Je5-dZE9UOjTd-eIX_1GB0brlocA8MpJf0EgYYhDSPHM0GTjiyHicOzmBsQtc6qnK2KSO3RHQmGIBab5GsXILXZfD4jQFUaNOxviRHbKFu9W5nJD-AKUsjbJ_gXPFxl9XsIdcRcpgwMAB_NDnD4YCFHtj7o_c8hP6UmE0prkyzGIHaAlGEh1RXI",
+          "enc": "A256GCM",
+          "iv": "Tc2oppiliezNSF3T",
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+        },
+        "pubKey": {
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee",
+          "kty": "RSA",
+          "alg": "RSA-OAEP",
+          "key_ops": ["encrypt"],
+          "ext": true,
+          "e": "AQAB",
+          "n": "sAoDWJuMdCA99krpVb38RJdHuxxuZQyUxbij4NtmdjIlFXMUWWEVUGcZ7mT3EIvyvVqzjJ6yeNjfvv1G56fwceuxjt8k18OCbQq3ZlxbU8iRtKHpWdfsEGdIukXt0B941DHBXSZ5Hbz4TkFeSIBW_9JKexe2DzLrG1dHJa5N-pxoYulMkOkQqy7WA6rsDQ5HP9FffVFNgqvwuE2QmZ4jXiyXpvrRDReCwVS8r3tKLEKONThhmdlHCdbrnogDNvwWY_Y4WauD-lWfsX31AGM9PFlgmTv7gH2MF_a2O0UIxD0SPvIyF_acKFDd1T2J9DtscpA4RKtjpvgVanB-23WhkQ"
+        },
+        "encSPriKey": {
+          "cty": "b5+jwk+json",
+          "data": "sBW-vz_uX-uNkyJDNUFOnOBN6Qn_Iha2rvzQePtE3nulDEHB9ScUA91c6IClK4P4pCPq-MB_ACG9HMQUOYz0blQ0D9gTCcWETR0gy3htj9DHxXe2zsgtOfm2qp0e43yjg1iQO9dgy3RanLIcEPucv6dxhilKeXh7UtJDo8kgsNWst3OJgPjeI7kGiSUBevDbLS9VfhY2zNv8fXr3svhwcJAWgCYzsR30hfVy6hes1XFD6w5z6VNscRJUfMg7_tVepF1IJG9fU1K_tacjw03cjSy1VdgNw27GdewV8TnL-KLkrAKoTAGeaFS_uWvx9L-z57FfJ_uciKjKUH29N1ie8zY",
+          "enc": "A256GCM",
+          "iv": "vr8E9DQQLs-p0NxY",
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+        },
+        "spubKey": {
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee",
+          "kty": "EC",
+          "alg": "ES256",
+          "key_ops": ["verify"],
+          "ext": true,
+          "crv": "P-256",
+          "x": "J9_RwX_oIOMlSO1_4TmQzz5PHXOslfbRtt5ZVfKlwlc",
+          "y": "nOU_G47Z5ZsIHzmnPJNNjjXmZOOcYQYqownQw9xW_wU"
+        },
+        "createdAt": "2026-04-01T18:14:27Z",
+        "updatedAt": "2026-08-16T10:56:35Z"
+      }
+    ],
+    "vaultAccess": [
+      {
+        "vaultUuid": "wv2hn4jgomxwvfh4oiubyjppym",
+        "accessorType": "user",
+        "accessorUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "acl": 15730674,
+        "leaseTimeout": 0,
+        "vaultKeySN": 1,
+        "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+        "encVaultKey": {
+          "cty": "b5+jwk+json",
+          "data": "AsSNVgJJm2Ws3Jte8G_VzURjM5LjH3mI6krva1Nb7FdOyYowjGlCR_2ybTMcGyf2tHKdGq2rNqSWTAH-8dXe3_MtxxR2g0yt6aHzBhnYgilNWXJ5Li4V6kN5csoeBWFyVmNE-GyLk5wKKn3gZqRNYeojzNkfEL8bXKsx4otm-LT1305L5meO_sFeyGp-P5kSKMgjk5luZoSed3m2WRxj6lbwCwK17sq_QBsqAd4QaAUy8P3uh9bd-g91LZQIrrYeNwDhb6sIC-vRujecfiXc4w3VY4sNKPvA5MiqZDXjgr_XiCPDdit5O69v9DRlNUIouA0CpLsSACCIJptjkiAb2Q",
+          "enc": "RSA-OAEP",
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+        }
+      },
+      {
+        "vaultUuid": "d7z3byaorasfq5xixos3tgaddu",
+        "accessorType": "user",
+        "accessorUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "acl": 2147483647,
+        "leaseTimeout": 0,
+        "vaultKeySN": 1,
+        "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+        "encVaultKey": {
+          "cty": "b5+jwk+json",
+          "data": "O3qcQnuLaeo4gE0b_RZxrNLsBZPvJ74It3VEkfMjRDEvGPHUZdoIZdnn9u1R3NxcuRPrbdy7PsjjJ5z-T3pwpyf81DR5LDarj5EFwDXI6qEMPO7sM1LxkRLIoiuL4A3OzVVEtyhRfAKM-kufdaDzh23y93bXz3j-p2eOHk385HjMIjlBw95kjWqFeiGKSN5dUKcQdCnMHwEpVgKOiQGT6lqSRnloZQ2YOmX6A2EbgG2pekX1iYb88yZIfaYkyhsgAky5ABc5zF8ptZEYsunCsOvTBl-RwUojQ-grVS76nPsILjzwtfmNHeFxAfxdi1VqSHzrLVOpBUXAZ5-rMJgdQw",
+          "enc": "RSA-OAEP",
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+        }
+      },
+      {
+        "vaultUuid": "d7z3byaorasfq5xixos3tgaddu",
+        "accessorType": "group",
+        "accessorUuid": "3vsps52ae4au7wmr4wshmp2r4m",
+        "acl": 2,
+        "leaseTimeout": 0,
+        "vaultKeySN": 1,
+        "encryptedBy": "3cahzchvndscx5gjm4jdfcxmca",
+        "encVaultKey": {
+          "cty": "b5+jwk+json",
+          "data": "m34lD8MgAtgsydrHxnHvM5lmcLN5qxpBuJHdJOQ6xZusnaRJsy3M7EC_RhKSNUuw0ctSZsTqc96BEO4pPjbn4S1YTBRLG9vW4uGhkAwKF5o_Y4KdsyPysDjA-38wcL1uaW1IcXLRCebmbJ2hCcDTdz3G-XkSfURzwjla-RpxhhqVSC-2n1S44Tr8xMzYlnbVSpGOGdUl6L8kiUabdRoRw-QkhHgWuvG3SMDoM117SP15i79T4YMBtYmVlIiGNSMCKX993B1MgPVRVdoBKoYWCEnJPUnsc8n_VN8hYsC_BchOTenQ63gq6k6zc6ICGeHeief1_3w0L7CxdAWMp3a9lg",
+          "enc": "RSA-OAEP",
+          "kid": "3cahzchvndscx5gjm4jdfcxmca"
+        }
+      },
+      {
+        "vaultUuid": "d7z3byaorasfq5xixos3tgaddu",
+        "accessorType": "group",
+        "accessorUuid": "fqz5jmlrpdnnbjkggqpm5x2d4q",
+        "acl": 2,
+        "leaseTimeout": 0,
+        "vaultKeySN": 1,
+        "encryptedBy": "zb5pkc2oefehd4cxve7linvmri",
+        "encVaultKey": {
+          "cty": "b5+jwk+json",
+          "data": "mhAO8PwLfHaXeKesRRkprXjj5-Z58k_hYmVFXz3KGSG1Naf5fUaw1bH24dGQtoFqacdFG3KrA9WTYfJGB8nHToGIfw3LbgPm9kPBcMkGujVnTKs2fUYqjaT8DlyNqKmJEzQTLTuUdJBBRgibJ5437n7YL9IyYpUTysGzcfk6c9fGwHbGgfzQykfjOv0i1ZFlo86j9Zk4b5z-kztMLbb5our8oOWDCPSKRoRKZook3l3oG2YRvaM1xX3vTYFiIVwDI6N4DN4UrtKsKkjGDcJCQAyriCCut9IwPoreP6VtpTh81BIFT-1WrcBKwNBBqSKSAkTg3ljWSiUWYLljL9N_VQ",
+          "enc": "RSA-OAEP",
+          "kid": "zb5pkc2oefehd4cxve7linvmri"
+        }
+      }
+    ],
+    "memberships": [
+      {
+        "groupUuid": "3vsps52ae4au7wmr4wshmp2r4m",
+        "memberUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "createdAt": "2026-04-01T18:14:30Z",
+        "updatedAt": "2026-04-01T18:14:30Z",
+        "version": 1,
+        "state": "A",
+        "role": "A",
+        "keyset": {
+          "uuid": "3cahzchvndscx5gjm4jdfcxmca",
+          "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+          "sn": 1,
+          "encSymKey": {
+            "cty": "b5+jwk+json",
+            "data": "JjNfqBYigQpS1OX1uEsESf3HwJh9o1ljcHo8BC6ZQZb04lkjx5MklESfVaRTX5X37IkGSSss2I9Mm0SJ5vgx-FA1Sq3Js0l40mS-QvQB6JRCuiVxx-gVqYczpJ7yt9t_5-DLOmOG-GkmSwoHOn5XgcOvjybWNlknvwUyaNi4PpEbDIRvYXHweQzvBUWCTPnvTrlsL6_JITd97nDKcUS6No4Vx0UyO1N-3vH96USmB3wVdw3k8ZAnARYhcdLYT9RYojGxOQ2vv8UQThghMG6cxPZbkmCj7I4daFWNspsbccNtUxgy0spLjV9gprbJZzwDBY2jjAi74MEqbIOLwI9Tyg",
+            "enc": "RSA-OAEP",
+            "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+          },
+          "encPriKey": {
+            "cty": "b5+jwk+json",
+            "data": "Q3LXqdfy6Kh4_lsOfPwAK3MzECG5cs9qmCSkLyubN-u87g79jjBZZiKLMPl8BZ-1KM4LTgtlOjDnDluWZIFkXJ78mDfIFJnUbzEds8Mq-UYvbiRap63Rngs6c4Fj2q8UaunjjJWNcqYGhcbmlE0vpkMb-sP1k9jAhs5nPDY9bMWUO4IBcuuGDdyOVcLNZtYFFShKh9xgpVJY-LrOsNgEsNwYYuDZNCGGN6pXn_FgXw63DquwzzIgA9Ofz1w44tpscX8-AqW1yFnILKc8XoSxUwagULmCQpfQtCH3OSqMIwKZWGghvg1LUrqetN78SL-VwRRtLOjl34GZRflN1rsHnqExnL6e5YBQQ_CTSeZ8xOpcfe2TI42jK1s9jyuoEwuJPJky-kPKhyQVNaxn8sEUzNAl0MPOPvrclifnOU_BgXA8s7rrHiC5s4SikkgBB8aBH9942SMVCakNc2icFv3PyA3lyhmQv55YSL-2mEt9F2UXb8SfCAekjQr2Kd4A32rGM0nljjzLMlC3VLgpbKRzkbzh_0acN5yuuR3w-RERiBVDLOErA_HN1l6Kl0BuqCoikRHlJJFB5pQ-KEh_sZBMvtKC7MuL5-rZlsCamS2jsp5KZKAZTkK49UXGsjM17AU-MmWTaTaNkHsKUXFyguU5Nf7JBQ3PG59Z3SH5Me_biAtkpn26p9XNOP7MMLgsGeweqNUMSDOWuOhwFAk-KGt5xsEQr_u3wGPN8XaSG1rLjMlN65gCrPf2ZErZ-LFEJjSu4zJek54Xk_xDay--wEnZ_HcGJiOA7eG6hM9-zEJrmzxRetFnR5tzyeAAtdprkSYEEr4jML0syWT8SrFaHlywrBAUsUdZQ0-NwTTTO7u1xlM_crAD6UJAbI2F2aCchJ4fBOJaLG9mtexumDAFplENaJFJ3iWXyivrDKFzGH60NKSUyTiS1edNghK-0kmk2vEYgY0vXCbtoQFhw7Sh3vLmf09ZL5xcdNSvH6XPkk_dWouZpDRNA-xaWN5mRhEKLyKITTvmUfxpnxFCz63xmV-3tEMc1iDzAuRYCAsiPIUFPz9hAQ4zTxMETQMilhpxUVL6s_lZgXkGNyekAs5R0CW0MhobETswddU-H0gYyx5vn4YTKtbKN66g2Cio9OvEzLc5ACjitve5JGTA9X7LMygKAPyMuE5zuH-Np8gTHpfbNmw0j1wQHj1ZaiQy02zPmW1sQwCE7XhQpnHbNMFvPzPXSsf1MBmoLr5D7DNKhgCCpo2_QLcu-DIIKFktJowBlPi7n72knxsK_p664cGKSg5F_4HSE5jQWNlaZX1hAxQUuaSGGT4pmaxeuVtVUTZ7-BtkBIhKBMBF8cIv0roigS_pp_0CBmF4jHZWIMUKm7_V1pBfuWwe4vsKQA66M7-Y2JexDBqxhq-Nc83rcHdJOifd4ATHmkfXc4F72fsTUqZkE_thUkM7WBRnY1AXqCVITdVVkrgzcKFXyfrI-jrrpRUsNm6nRtB8QgprAUi8nU9Pbqbd5ffKyVz_CqOcK5ldaQnODbFQdouGuYoLk8bWd02EzvRIRDNcaPwKYna0u7IicCt3yygx1zzIQURTTWVz1m26cOAdsYgpfEatryDNEfPakT0QuWX4jKgMlHidnt94l0fnSmeTIMty8ke6Pc7ZKIH1yUJEWpO2D1HdgQz4LsC2KwE8zZQxTUk2aTutAd6dHX3GMkCYqqfX6n8n5AAd6GqeWEJ84QuTSQoYRASiIAwKc-6_CySfcziezIrb7d0EVntPzVYhDDCQjYpuoitsnjiHmT4C5ZGzsvn4s7A0dXCoDVC4vReFpm6kQSjZ2-Ykr9O5Ix-UMIcS3vFmVoFliEphVXsyj6btEe6kY9U_eb20ZpTL7oSuXF-6PWUJSULTWFr9AGpakggn2rlwv4kv0V04hPovkTybZ4gHogfYfGkRlwv3iITrNpTKhoVN8l8agkPaODM5fu7-QdozZA4OpEVKyWiLbj58XtMZu8Hvv2JUOOKpt7TGWpJ0XI4mKh4Whil6C2aEBWLD5lEQxSPaTjUN-xxOVGGZEjj7J-MbCej-Z-JvbLByxQBRzY9RqhwkSZhe24A_HwJIPCWvUAVZAgJb1zu4IjKms_xj_lFSGIcVyA2qbyf0ufmTNSAUJrFui5AgpSh9MfOhwiWFusjXuc2qkLCZhF_WPVATgMEBJxKNfZUVKh_k8h4eLJkZxBk7lX_EFG9Q-RHgNH-nRp6R1PvxCCvlotkE_2Kdxn-iNJVx9mfdZapaiswE4oixHxwESf6Bs3ed",
+            "enc": "A256GCM",
+            "iv": "DXuXsf2AURNUWWY3",
+            "kid": "3cahzchvndscx5gjm4jdfcxmca"
+          },
+          "pubKey": {
+            "kid": "3cahzchvndscx5gjm4jdfcxmca",
+            "kty": "RSA",
+            "alg": "RSA-OAEP",
+            "key_ops": ["encrypt"],
+            "ext": true,
+            "e": "AQAB",
+            "n": "vHbshhRozH0_VdkCeC88-M7MYQUpFhheAJt6LenG3ZEj-adenVoaFkDBqOvKj9YjGy5wilKYIqpfgg4VtBgl-njeXRzHTYhJr31rcgAZtkEo4LMdKnTrWKDQ_foESa7dPJZYvkIwE4zY2Xyaa8Mr803Wg-6IWKdO_mis99YVRgCqr4rqdgeO8CZzk382zffHZ3d3xreJQzKx0Lhrr_sA8qUnDtYABfxkRGmVi3wBpwH_ZvRwnds4BgpgYVEI1n401trbDg2KRedHtPSDkmFnpXanpuMJXPazRGRxQc4iKovAioZFe-4rzTySPcqgAZLB5jeNRq2PPY5bBk8YdALf7Q"
+          }
+        }
+      },
+      {
+        "groupUuid": "fqz5jmlrpdnnbjkggqpm5x2d4q",
+        "memberUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "createdAt": "2026-04-01T18:14:30Z",
+        "updatedAt": "2026-04-01T18:14:30Z",
+        "version": 1,
+        "state": "A",
+        "role": "A",
+        "keyset": {
+          "uuid": "zb5pkc2oefehd4cxve7linvmri",
+          "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+          "sn": 1,
+          "encSymKey": {
+            "cty": "b5+jwk+json",
+            "data": "BAYpLgYoRYWVTHdXnkXqJfRMbCRO6Bs41dE9Fv3rEvptyRag6Oxu0ei-q4xdtD4-fMBiyw_YIF6M7eUqOC45Jx2Gn8tkeNddkWTwCRyyi4V0v0aOMH1c3ckeGYKWu5M3Snoz_kQ5YVe9HrUVGwG_FVrFXT9z9yv82QWSv97dh17i_cdHZD_2kmQDsqQV7B8GlYX8R2FFYoJNPowC95x8qoFn7h0JrDNhbS1oOGO18CqBweiHehMyw2EWPZy5xvKV4k5S3vJaFzpZ5rXsQxycK-9qXApHx-_ZFvNs6g6IdSoBX3qsHipMIvrPUXKJ7V11yyNVH-mG-ti5lgKCF7cBPQ",
+            "enc": "RSA-OAEP",
+            "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+          },
+          "encPriKey": {
+            "cty": "b5+jwk+json",
+            "data": "yq5Zp1S7UK0ubGKTgDuvQT8bj33lduZYL-WYObU7KCUzAR41Qaa31kMmt-p61jW3-mQokNqAiIEayoDRlWqVhkRWihonvBM67sbfh2bfyBZWrSb9P8YCO-KbP0VWXVuIIfiN77HEc36BPgxR2n4FZrtsEaHmIfhGzYyjpX0PL6PuOTagRUjKVkN7juz9f4PfV08vRyikmIdRXYR4MMFjPi35qxn2B3RPQMiLGAsvNjCkwRkdQUJTIwjbbWfu3q6M2oELCTr23Ot4crHlBFg5LwrhMRQ0AYrnfjlKc5_xlmgb1S_r1M91roJHp9I4EUpnBTiRa8Aalvp3mJu47FodCjWMFOPlhDwvaDRC3807aEqJkjU2qlMXS9mlJI7QVhWpTbDF3j7s4byj9GkPPL-AvfoUgcroxMPXyRftllg9FJCWLHfHB86seKpM_sYj_vWvOPPUQx-EEXaDNWp3U7lb6v3jkPgd3wjxz8ec8U-u2C4fdlrBePBwKp_ocsR7ZLKhIvCs_A---Dli79yVWeDM4ALWziKAvX9Q7AAX8ZpppTCzMw2SiaFfcpQskCdAWiKmRnicqNxoyDzVCIkz-l6qAHL7NRu2Tp3jX3L4k5uiqb5RUWCoHx2hTcO39aW0jtMFLNyh-1QTRdZkEaG8YwbtJ3o3Rgv-n4iOPiENPhjKZEbjq5DHamgIZ0SfNFZjCTAQXQLSNhHfLxygTEzMfyNsZ4KKHJ7VRbV1h8AOBl5VvdZzHAlAtcgvpEdNANRgLiSv41kqx-urgnIf_FtOJV23Kv6bikh-4OhyxdHBtIDPH54f0vmGQGBigXK5IgQda5TQX0Vtyr_jmhd_kDQlwfaQzKxI8pvPst8uWS0XdjNoF4ZVRxh8HBU4oM3BYms0rwSRNp7QYgPN_DFyn_bSPqJ2DnBkMvPr-IYHzfipiURmeH1zb8GbmEIwVKp8CfaCL-Y29GIWitesKmJy6gMZvOoOtKIGbWXNUB3bfFRZo2eZpv0eAXE6PSKbWFWxslDsmX4sUxqXwQNdYzCK1jfAC69-8OXIHUa0lauTU2VKfjkY9FoiyScQyoeUfoKr-WuOjNfawfd1JGSnJwlReRCU82JyqmFxnQOKdUa7naPCFh9hPXIpV6U_79Ehkw7myhAGRMaXp1bo6C32Y2t7YiDKOfp2y-WYEwJnfKFyO8FPIA6zu54yfoFJnoh19-wisZYFkosDT-e--vkoHGo5d9oPZr8TMTUXdoLkpjD790bRUocTI3hbgxzUiy05lcwfAaIdkIt-lin9jfzqMhcAWwGib507WMDbwhe1U_iJmAR4goTn1aOnikABpeHBwGf0nKLrJsU60knihxzYJYJxuwHUBqnwm8uP2pl4neu3G_PQNVSXz1aJ0oLTYipS2TR9jf2tDY7ORv47r5sQAZI6Afeg-Yc4CzP3YhiKiya1zdoRjUZgvpCQhFpVjNUGju11nyq3ckBxpIEkRXBwco6I_TJBDsaygRKdbh4s7qhstO23jyTido8EgLHIg6osKAgQ7ySpurBIFi1mjTTJSEsurkJM5IgboIIAQ9pQiNtqGML2FMsK6crfkpUGV3pWqvnXccEDz88vKeSDtA5av60CsydKB2aUacH5UzVNVG7VfOXXpoOgS0e3iO9MGu8aB_DPPimoExPY3OL1NtiMiliK7lKdh-U--DzRFVGBi9uLQmYoy1oY5NcTZFlDYQOzrREVya5MwyvDyPQDOIa4qPotUpODj1r2knL0IvQa4yieAYcOdwrPZ_cnVPDEQDlPMEBNYpdXDc5GVacQLSNA2WZLvAC3UwUcu-y6WtEBBK-SjD_JKkI3AZfEAwUwprhKRLfNvLkn5WaTPkqUnr0HhVXkDPwjw5Fkz-cUg7ygH8mXZy0ssrcUan4ARpLNuspY4j-IL5AE5vSGViOaZGGs2AxxM_OVwc9BKNXo75vQrxsj0YTnakz1CYKR5zSDtYbUj7YJawPVDfs79rHm7DPJ78sIo9fgh7ZrTVySMWmYhHE6EWqAmGw40BnaaqrgDPL30r4kfhLTC8f1PCfvU-cNk8rfRB4b2lDFUXy90pMIdAUYiX86SnbDsPsNR_eXcSRaaAYx4fNGilM3w3araxY23t7ARnq_2R5rszljTHftexW9ySVHWOHrLx3q3Q8iihADhBQLCUe_1CLut4RTOHYJW2hyvNK4_Fvf45WjR9eq2AkO73dd-K8bKLOG7HIBwInVjb4D4Fq2betqaTYt3TK7hGBt8l8zU4lP63QwkPgXVsvPi5bvRGcYFg87kQeQ",
+            "enc": "A256GCM",
+            "iv": "IozFE_pB23YNi98x",
+            "kid": "zb5pkc2oefehd4cxve7linvmri"
+          },
+          "pubKey": {
+            "kid": "zb5pkc2oefehd4cxve7linvmri",
+            "kty": "RSA",
+            "alg": "RSA-OAEP",
+            "key_ops": ["encrypt"],
+            "ext": true,
+            "e": "AQAB",
+            "n": "r6sR3Z06WOv1ruXIjPrTG5oIq-e8ffwdbZiks3SK4_pfg7UGAh_WCsDkWeZ8WkvydHvQnl94yg5sNGsV3N-FDXJbvT1DuJhB5e4NjccWTkdZnFppHKtGTDaRnt8AB9XaTeAgzLnYKoHvDiuEQK2DQMXF-MbJDBE2OgI96GxaMxPRXdWsq9q5tBC6O6woZhrmsxBBFqLCqhP_cGkhemKfy5OjLuGJY8otjkEEmKSRtBY31-_Mw9VUxeN4l2knj7rip8EoGfS66HdRqm9DTuehRUph4RUat_1eAtUCBah4u2puvCVb6JhPOkK7-FNm3uKXoGSqtilDNV8e2J-VMoEcmQ"
+          }
+        }
+      }
+    ],
+    "combinedPermissions": 68719476486,
+    "newsletterPrefs": 0,
+    "preferences": 48,
+    "hasMFAEnabled": true
+  },
+  "users": [
+    {
+      "uuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+      "firstName": "LastPass Ruby",
+      "lastName": "",
+      "name": "LastPass Ruby",
+      "email": "lastpass.ruby+01-april-2026@gmail.com",
+      "avatar": "",
+      "state": "A",
+      "type": "R"
+    }
+  ],
+  "groups": [
+    {
+      "uuid": "54yncirff4iv2qssoafd4glpce",
+      "type": "R",
+      "name": "Recovery",
+      "desc": "Can reset user passwords if account recovery is enabled.",
+      "createdAt": "2026-04-01T18:14:30Z",
+      "updatedAt": "2026-04-01T18:14:29Z",
+      "activeKeysetUuid": "q53e7fdanjpbgjxydpdoqitcry",
+      "attrVersion": 1,
+      "state": "A",
+      "permissions": 4872,
+      "recoveryKeyset": {
+        "uuid": "q53e7fdanjpbgjxydpdoqitcry",
+        "encryptedBy": "q53e7fdanjpbgjxydpdoqitcry",
+        "sn": 1,
+        "encSymKey": {
+          "cty": "b5+jwk+json",
+          "data": "z99j_B60JLZsI-ncwwX90FDU8zQe9atqE2B4ZzepEr_N51Bc0GeMzQEB5EsxH1ePc4gndFS0XVwWcwXESRDdIm55-cjMTYQnHycMiDVSXHwGAGypKWl3Cb-D5Q_UsaxouOnwlOubHV0OgWtZm6NL9-8NPf6HfemZ340pgSJf4i1vKeB6hvX56J2xLNeeDHn2V5fyGaRIMdHBCC1fjMlAsuPZE1jArbqG_QOCakPEon2Snyy4PLi787n6XXVf32wHe1UN-YXBAjw15vBG3e2wNZ4QEdiq8pZf4E5FuDSMvwweGZNaZy8IcS8XPxEigp6Uu1xuxKb3hL4x-3gIx3aQag",
+          "enc": "RSA-OAEP",
+          "kid": "q53e7fdanjpbgjxydpdoqitcry"
+        },
+        "encPriKey": {
+          "cty": "b5+jwk+json",
+          "data": "yEoKa8tj0HpUj_Q-Zsnaq99cvdC71_VLGFh16X_GHdXm1ugOsSgWTZZbY0SOEwiLAlSSsE6einjPcmDR-dkbECIBn8LNOSbkelJmPCWU2_rPHWi_iomjahlZByLY3htw7DZ6ShISMtH7rGU4PEYtWGTQBQjbeyfEHhJ_d_RxsmjPjOVRECta-A5EdLZVvVGfBprNeBTf05UNtjEXkF2yTRaE9ZOCxn5xtLbf0WlLiNTBlVwarEcpW4B5vOhRbvxrcpMgYZ8pNkzOqZodYmXvOF3ugB7GxP5Tn2I37rRizqgoyJ03Wq1Ip1YcusnJcZ_Ksfu4L9qYCIkXLBgVl6faaFIvO0ptdRI3OVdnPT-K4QdhJ5m4ked9krg2RcHGXDBrfQPYTLb0Vc1JPlHnOyD4ahZNstfnOkNS_v93bajcJW3NO8bKHwFmlkg3wSz5ChS-Y0wQOTntxEQsMW_Pk6XX2qXhqJ_Di4q7_7uTelI_5VGGp0YaoWrRXa_sbNwgHNzMM9rtdF_p-ffWaWKuZ2budu0g20Q2_uu8Gwf3LcQ3AEeyfhD_jlJd5weHXPZrjh0H_cRFAnozBhsHsTag5SM2Y5THCTecxtK_RefObiNvwq1dW4TGBG-NxDb6cmBWpzbIdSjvq1dYGi1iXDnT_t4y_6yaZ_q1suPjD3xjSrTUAYvrzwuGTKlqP3578BwjPgNGc01rsxrYcwYbag6jUh8wlN8mjiSEer-ZxowiBzgIuoiOqYEbXOOCp8jBIgIc3R_G3TflbNSXDC5wvB4UX0pKWqT3V1fON3qPltcM-qvZjHtGD4NIpwl76vsojrUZtI0gTCR82cHd5CMaERvuB0Ht765bm_LL6sG_rZDf_BFu5YaYp1vUmIKY0KAHWn4uEBCeuW0QazwTP2MGs6QgHqCmfHoGyL5anpborhp5PGnEex1HEH5ax6CUarPB0kJkc2k3nCMbPDJ1g-RAswwEGO3_AoANFcU9pcMrTyP-K_NdhK9GMUqQAVvXjzbDOTt65CH34VkTDBhnjy5T584J109WrTiEd8Fp3Pg3VexAVH30aJtGnheMF2QtriZkZOWS2VfA3L9Ukj6bF9lvtJAhRvcTLGJ6K8sd-3NKeOmJhezuMw2W7LLHjzzMUxif99hoI3NPnd6ykIrMR2E-Yp69nK_z3s1Y3rdH-_T7YRW7Rvl_Xn-od86vt01MHSP280oclVeHsNhEWTZoAu586AFAed-iSFKNONhzrnm7RBZdrGN0wn8YJygTXQgI8DmTEMr7RNi5hMl5pf_sH1uXp9ob23sl_hn9aFU49xVd7B-C3_eF_Dy-cUObD3BQlJUAzNRQDECqDzuMf4Nn70Rp-4dyTaPL_n__dR_336V9kVw2unXLeA4I-yMTMSxAoUX9hFdwriXbRGZ6THcJ04vZyvLTAMeUTCyIMIia7Xy7UltNFcXGMzS-w5PRh1lDbX4VdUhJV-tAL-ONskUXeai30Ehhf0wIMa6U1B2gw1nv5qVxmkDR_YaR_RrmcGCPAM1J865Jbqbaw7DkkyRMUH6BgeA2ru8h9eF7LpXvkdwrH-jdID4lbAsfJeLFUmjUlDTGbJPup3IReZJP2hSs3yfVB7vOv561Y4vXB20olMHnmPWH15VAJbawjYDSwMBCREeCjMh7EPqY_iK9_-hL-Zu4ELSrdJlTTjMPeqnu4FRlmAPOciBLQBYl1_tQYEA-oh724IFGs-OpnTVLkIXCazk9tNfLpFMNOHzpA-jzOHeZA1jAZqFHg4-MzMIRDTh421F8ixSUWrU-dnap2HwEo9KRshcjRnQ_KtMh_5TtAFwS4tFIa7x39QL_96J-TzL6w76LZHomZ3uxXk20_QiOqVIXjxkQLjz8fQ03v_q29_wSg2uCUj3K72_J-KWM_oDuJY7DMWwz7Cp41qnLk70RVHJImjRjRb28pOvVv1S9aWD7GUmjdvQB5frieZptt6WSkL6f2M44bSHuPxp7SDc7DPftqv3GRrz9mwKcWb2wwkVKiNsZkjO2CWyHz31nElzRl-p5OjtauHdho9asM7WLXIk2PeNDlAOTz5Ogp2Sfbb9lTLGspzQaInxCYBw3iQnRvHw2ODX7PheNGhUEKZxn4yRDWRkzsGkk3OJXzhuKw3m1zm_Fjpiwy24ykSrb_DC71tRWUNPPWPxnv3tPiF8qc7iagzARt_z6OToAjbiIXJCci-8GHfKLML3rjE5tMJ-wSNxin1o7o3LBuiwOkDL7yNDs67HexrgkBIzSx0C1q7gzSIA7kP8FjQkQTkW3",
+          "enc": "A256GCM",
+          "iv": "YVQadLf3sMUx39aj",
+          "kid": "q53e7fdanjpbgjxydpdoqitcry"
+        },
+        "pubKey": {
+          "kid": "q53e7fdanjpbgjxydpdoqitcry",
+          "kty": "RSA",
+          "alg": "RSA-OAEP",
+          "key_ops": ["encrypt"],
+          "ext": true,
+          "e": "AQAB",
+          "n": "62z6cRI7QISiYabaWCv2r9Fy6lQQi_BnrJLIcaHyCKccTe_7Pbl5EsiTnnu4EmOEK0jUVNhvXp7-FUNUg4qyARFy3gFTb3fXieVy49duQG5vXwCVBQHlwe7nmmw1avhDV9HK3S_aCNjNvzJtnjrdz_D9tnQ-CWMxA4IWTYyPUU1MFOoXBaIJzvfDefCyckkoqGwawo_K1CxzUpIYnAWNLRqWUXdAG3dQk5eB-sW7PMUaUyDjoccFPN-I8L3MF8loE3XVQ0SSjKm4FP82cup-RuzYZRZPCb_khiPmZCrCZNXZesV3ryiaUyrcoan_QBrgp7V6Vwv4YgcHB6iBuRzrFQ"
+        }
+      }
+    },
+    {
+      "uuid": "3vsps52ae4au7wmr4wshmp2r4m",
+      "type": "O",
+      "name": "Owners",
+      "desc": "Access to billing and account administration.",
+      "createdAt": "2026-04-01T18:14:30Z",
+      "updatedAt": "2026-04-01T18:14:29Z",
+      "activeKeysetUuid": "3cahzchvndscx5gjm4jdfcxmca",
+      "attrVersion": 1,
+      "state": "A",
+      "permissions": 68719476482,
+      "userMembership": {
+        "groupUuid": "3vsps52ae4au7wmr4wshmp2r4m",
+        "memberUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "createdAt": "2026-04-01T18:14:30Z",
+        "updatedAt": "2026-04-01T18:14:30Z",
+        "version": 1,
+        "state": "A",
+        "role": "A",
+        "keyset": {
+          "uuid": "3cahzchvndscx5gjm4jdfcxmca",
+          "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+          "sn": 1,
+          "encSymKey": {
+            "cty": "b5+jwk+json",
+            "data": "JjNfqBYigQpS1OX1uEsESf3HwJh9o1ljcHo8BC6ZQZb04lkjx5MklESfVaRTX5X37IkGSSss2I9Mm0SJ5vgx-FA1Sq3Js0l40mS-QvQB6JRCuiVxx-gVqYczpJ7yt9t_5-DLOmOG-GkmSwoHOn5XgcOvjybWNlknvwUyaNi4PpEbDIRvYXHweQzvBUWCTPnvTrlsL6_JITd97nDKcUS6No4Vx0UyO1N-3vH96USmB3wVdw3k8ZAnARYhcdLYT9RYojGxOQ2vv8UQThghMG6cxPZbkmCj7I4daFWNspsbccNtUxgy0spLjV9gprbJZzwDBY2jjAi74MEqbIOLwI9Tyg",
+            "enc": "RSA-OAEP",
+            "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+          },
+          "encPriKey": {
+            "cty": "b5+jwk+json",
+            "data": "Q3LXqdfy6Kh4_lsOfPwAK3MzECG5cs9qmCSkLyubN-u87g79jjBZZiKLMPl8BZ-1KM4LTgtlOjDnDluWZIFkXJ78mDfIFJnUbzEds8Mq-UYvbiRap63Rngs6c4Fj2q8UaunjjJWNcqYGhcbmlE0vpkMb-sP1k9jAhs5nPDY9bMWUO4IBcuuGDdyOVcLNZtYFFShKh9xgpVJY-LrOsNgEsNwYYuDZNCGGN6pXn_FgXw63DquwzzIgA9Ofz1w44tpscX8-AqW1yFnILKc8XoSxUwagULmCQpfQtCH3OSqMIwKZWGghvg1LUrqetN78SL-VwRRtLOjl34GZRflN1rsHnqExnL6e5YBQQ_CTSeZ8xOpcfe2TI42jK1s9jyuoEwuJPJky-kPKhyQVNaxn8sEUzNAl0MPOPvrclifnOU_BgXA8s7rrHiC5s4SikkgBB8aBH9942SMVCakNc2icFv3PyA3lyhmQv55YSL-2mEt9F2UXb8SfCAekjQr2Kd4A32rGM0nljjzLMlC3VLgpbKRzkbzh_0acN5yuuR3w-RERiBVDLOErA_HN1l6Kl0BuqCoikRHlJJFB5pQ-KEh_sZBMvtKC7MuL5-rZlsCamS2jsp5KZKAZTkK49UXGsjM17AU-MmWTaTaNkHsKUXFyguU5Nf7JBQ3PG59Z3SH5Me_biAtkpn26p9XNOP7MMLgsGeweqNUMSDOWuOhwFAk-KGt5xsEQr_u3wGPN8XaSG1rLjMlN65gCrPf2ZErZ-LFEJjSu4zJek54Xk_xDay--wEnZ_HcGJiOA7eG6hM9-zEJrmzxRetFnR5tzyeAAtdprkSYEEr4jML0syWT8SrFaHlywrBAUsUdZQ0-NwTTTO7u1xlM_crAD6UJAbI2F2aCchJ4fBOJaLG9mtexumDAFplENaJFJ3iWXyivrDKFzGH60NKSUyTiS1edNghK-0kmk2vEYgY0vXCbtoQFhw7Sh3vLmf09ZL5xcdNSvH6XPkk_dWouZpDRNA-xaWN5mRhEKLyKITTvmUfxpnxFCz63xmV-3tEMc1iDzAuRYCAsiPIUFPz9hAQ4zTxMETQMilhpxUVL6s_lZgXkGNyekAs5R0CW0MhobETswddU-H0gYyx5vn4YTKtbKN66g2Cio9OvEzLc5ACjitve5JGTA9X7LMygKAPyMuE5zuH-Np8gTHpfbNmw0j1wQHj1ZaiQy02zPmW1sQwCE7XhQpnHbNMFvPzPXSsf1MBmoLr5D7DNKhgCCpo2_QLcu-DIIKFktJowBlPi7n72knxsK_p664cGKSg5F_4HSE5jQWNlaZX1hAxQUuaSGGT4pmaxeuVtVUTZ7-BtkBIhKBMBF8cIv0roigS_pp_0CBmF4jHZWIMUKm7_V1pBfuWwe4vsKQA66M7-Y2JexDBqxhq-Nc83rcHdJOifd4ATHmkfXc4F72fsTUqZkE_thUkM7WBRnY1AXqCVITdVVkrgzcKFXyfrI-jrrpRUsNm6nRtB8QgprAUi8nU9Pbqbd5ffKyVz_CqOcK5ldaQnODbFQdouGuYoLk8bWd02EzvRIRDNcaPwKYna0u7IicCt3yygx1zzIQURTTWVz1m26cOAdsYgpfEatryDNEfPakT0QuWX4jKgMlHidnt94l0fnSmeTIMty8ke6Pc7ZKIH1yUJEWpO2D1HdgQz4LsC2KwE8zZQxTUk2aTutAd6dHX3GMkCYqqfX6n8n5AAd6GqeWEJ84QuTSQoYRASiIAwKc-6_CySfcziezIrb7d0EVntPzVYhDDCQjYpuoitsnjiHmT4C5ZGzsvn4s7A0dXCoDVC4vReFpm6kQSjZ2-Ykr9O5Ix-UMIcS3vFmVoFliEphVXsyj6btEe6kY9U_eb20ZpTL7oSuXF-6PWUJSULTWFr9AGpakggn2rlwv4kv0V04hPovkTybZ4gHogfYfGkRlwv3iITrNpTKhoVN8l8agkPaODM5fu7-QdozZA4OpEVKyWiLbj58XtMZu8Hvv2JUOOKpt7TGWpJ0XI4mKh4Whil6C2aEBWLD5lEQxSPaTjUN-xxOVGGZEjj7J-MbCej-Z-JvbLByxQBRzY9RqhwkSZhe24A_HwJIPCWvUAVZAgJb1zu4IjKms_xj_lFSGIcVyA2qbyf0ufmTNSAUJrFui5AgpSh9MfOhwiWFusjXuc2qkLCZhF_WPVATgMEBJxKNfZUVKh_k8h4eLJkZxBk7lX_EFG9Q-RHgNH-nRp6R1PvxCCvlotkE_2Kdxn-iNJVx9mfdZapaiswE4oixHxwESf6Bs3ed",
+            "enc": "A256GCM",
+            "iv": "DXuXsf2AURNUWWY3",
+            "kid": "3cahzchvndscx5gjm4jdfcxmca"
+          },
+          "pubKey": {
+            "kid": "3cahzchvndscx5gjm4jdfcxmca",
+            "kty": "RSA",
+            "alg": "RSA-OAEP",
+            "key_ops": ["encrypt"],
+            "ext": true,
+            "e": "AQAB",
+            "n": "vHbshhRozH0_VdkCeC88-M7MYQUpFhheAJt6LenG3ZEj-adenVoaFkDBqOvKj9YjGy5wilKYIqpfgg4VtBgl-njeXRzHTYhJr31rcgAZtkEo4LMdKnTrWKDQ_foESa7dPJZYvkIwE4zY2Xyaa8Mr803Wg-6IWKdO_mis99YVRgCqr4rqdgeO8CZzk382zffHZ3d3xreJQzKx0Lhrr_sA8qUnDtYABfxkRGmVi3wBpwH_ZvRwnds4BgpgYVEI1n401trbDg2KRedHtPSDkmFnpXanpuMJXPazRGRxQc4iKovAioZFe-4rzTySPcqgAZLB5jeNRq2PPY5bBk8YdALf7Q"
+          }
+        }
+      },
+      "recoveryKeyset": {
+        "uuid": "q53e7fdanjpbgjxydpdoqitcry",
+        "encryptedBy": "3cahzchvndscx5gjm4jdfcxmca",
+        "sn": 1,
+        "encSymKey": {
+          "cty": "b5+jwk+json",
+          "data": "upxdDPtyISviCj1BzyK8Lj6YdtJZsxbO9PtTq2RSuLVl_c94QYuKfb8IrSiJ3E3xI8VOMbKZpWIUT_ZuGIeMYfbjcBREeAEJxn8nHIjKmb3DTdCp2BKGk8vXA7ECtqsCCHqQm4AKj3oiAsU0n3CdnMLcjwBaQPhajOyUgu4QUNuf0prhS_AQd_b5D2jQVe1pvIB_Z8NILbQ6eygEDzORCe5t87KNgLyyAyh-BtuIorxt5N9kMR0uY6-86bghGlgsLzhi9B3rBgYwAgVd9O-Jfxodb_nDBDEOW6HvPcCM1IfWl-iJKJChlyjAEyC_5s_dNGOmqad2PKfxcyIQO2IqBw",
+          "enc": "RSA-OAEP",
+          "kid": "3cahzchvndscx5gjm4jdfcxmca"
+        },
+        "encPriKey": {
+          "cty": "b5+jwk+json",
+          "data": "UxUReWA_zRHUH36-4ypAADkjUWnJTynzc9PiHNkToMZlhHcnXpBdgLBM60zii_b9ahSe7mVEmmyxXtSGcPE0INgS2j6Zcl7xefTNc0HkwEHkA9QHWBYsD7vwMVhhrHsYRgqtEnUDgcVIvLPQnkTsD8FDtMkOucwLrcTqBAsrzqf1XCa3ueod6WTGYBOAXFfsu_mRlE0POCXtNNd_XocH_OzsE3FxoKLb87Dxssw6xuY8KT2OsyuHBPwcA9aPbM_2x95HqAkjBeRMCJVOG60Z33tomBwzFyZIFuRyTmcC7wXa67sxODNq-lCfoWJGfM1XM4pEqLv80lQGxmLjJxPO4T3tkj58XiI1neAJ8TA3kCtjL67OQiQOnGYoR2Hmopy03iyj4QAXhB-jsGW3Vjafh_WywU8bcQ7BkfAenmHKauVSqqOGPg3L2CN5zv_Fwa-Agy5BhAxcLTSow2S1eBSScI7aPr26CM7jonJXfuBJYB5EiaMaqtokceFp2LxK6ssfgy86nQjIu-bUVWthJZeZ8idKMrnuEJJ-LYxS2q_SamCV9KAuX2vTujgtNIYm9iOKycbn597LZWlY9XISWodYn8d3pTHQv5_sMPtY5DvWGwrOkuXwOrZlaU-uV5GZjEZNfgL4y4qBUyjQpMY9AxDEvXEEXrZqK73lRHDLlPYJU-qtphaY_dZ4occqAePKnAY3ZzhfBCBzp3vew6VyShhdbrO0jIUPj5lcUW_bad0vjQvmJQtlpFep60qRLRQAlebzgo8ROsK1m1HSYepZv9xf8ffYkM7XtW8Rsv5WEpgbHeKx4b-dzbrljMnumrpHhhWsyOY0OpwhLQj7TW7oUo_T_fm3p6KoMwpmeobM9ZRtC-neaCI4kK0KHGFsW_4DLTg6a-bsQwnqAr1VzSL9Xrocc_UTlbsc_SWuzfRVHLLyI2QXe3pzGb8V_fWJ7g_zhv6AnpUqpiLzO7QxlhXFJoiribMfG_ZKp6oS0DbVqGjNnRH1UGCQCbtoJWbdudEZlt91CRYmvSPloT3den9DYdxI5YxuN4-X-Q5MGadEWmoEXdgc9_HueefuC-z4T4FH84SM4zme1sFkcUWLBjkmlwwavVqZtIxy0vDixqzYUegqXpccHhyXQ9qWDEGgQxKVYxJOULFmxePdLIJbSnbzAc9B7XoMxOcB1hUZ14FeM6FS3-rDhORWlKjCMgrplxPfvmlYTGIC3rNGIpKo6O9huoo6VGU4wUhSsXxYt54pN_W2QIxNe7HcpjKtOprecD7cFmZQ58CgFuLdS--ceCJ-oefJXL6h9twA81u_ZOeBhrPzWx4sacSg9sXWhf2oNc4Ic10HpRudZck8k-v8GW4JnPfzBSdZU_mRgrWblxBH_8xqy9ehPd8x5mFu7UTYx1DoOWLVGiZ0QkwigABajwUEbvLAeQYfCpgQD5NpOC1SUhiceWF16xwk94qMecGxyFRV0nLmtCYsulPctL1xCEp0fq0dcNwNkpMGZMUll4zNVEiXE_QQQD4cskAwLgMF-rhEpZcDz-WJngT6pv4xNG9_T3qg0x9FUG_1djGzDMSb8uSmAWSIXxS8D7-2RIP1vElyV7WHF3WZWgCRzHAoL75B1FH61L-YzkRzZ2qafQNQMuHp5tq4aTEVmqKU-VuHbQ5FGkcpnp7lVby5L3mBwhB3evLP-WYB2l7zGbEATQU0fk6dmTOvXo9oamfnputBH97_VoY_ePQBCT6fHfS9D8cUf1ufeMF6PD4APqJAHwWCVIqi6SSeXwfjDGDWu-0ad41RjBiV9ta3oJbdnETehOOVzyBv37UjtuaGngj799amAfgBBc3LhjOqhxhEn1Xm3OdP97I5uNbi6lI3JVto2kmMz71v316y9ZPFOeKg8TP_PDFty1zakNKUySc6Lu5a4_hMfbcFNt0IBj241MA8BYOScz4YYPX1RPFe7VLjETuSU9yzACTxXR7aYVSAKzfwhKF9Y4OnszHk7a8k9YlavK57uoi1ba7jgw5U0FxzMxovoEMYas1-ogMtCc5QZOl71wIdfaAmDW13Sx3D4FzthzeLP1eAR35eObjWE-zMV1f-83gXmzoEf1vnM2MUu37K2F3UILsYHaIf3dFiZm8OM2PnBrc4HOJG7_eTrlhdVJIu_veZF1L_bqFoT5P02Ocx3ajCCwM_iRpHjkTl76LJq74ObJG2WPGTfzSlHawMeg0aZg4tN6LpAkbulGPULsLjf8TnfSVe-xnXYbiCdSeWSwaoNecRBpvjtEdQIsNjdQLeoq21qGfOQ1R1",
+          "enc": "A256GCM",
+          "iv": "Rj1acEI5cCoFLLEs",
+          "kid": "q53e7fdanjpbgjxydpdoqitcry"
+        },
+        "pubKey": {
+          "kid": "q53e7fdanjpbgjxydpdoqitcry",
+          "kty": "RSA",
+          "alg": "RSA-OAEP",
+          "key_ops": ["encrypt"],
+          "ext": true,
+          "e": "AQAB",
+          "n": "62z6cRI7QISiYabaWCv2r9Fy6lQQi_BnrJLIcaHyCKccTe_7Pbl5EsiTnnu4EmOEK0jUVNhvXp7-FUNUg4qyARFy3gFTb3fXieVy49duQG5vXwCVBQHlwe7nmmw1avhDV9HK3S_aCNjNvzJtnjrdz_D9tnQ-CWMxA4IWTYyPUU1MFOoXBaIJzvfDefCyckkoqGwawo_K1CxzUpIYnAWNLRqWUXdAG3dQk5eB-sW7PMUaUyDjoccFPN-I8L3MF8loE3XVQ0SSjKm4FP82cup-RuzYZRZPCb_khiPmZCrCZNXZesV3ryiaUyrcoan_QBrgp7V6Vwv4YgcHB6iBuRzrFQ"
+        }
+      }
+    },
+    {
+      "uuid": "fqz5jmlrpdnnbjkggqpm5x2d4q",
+      "type": "A",
+      "name": "Administrators",
+      "desc": "Administration of users, groups, and vaults.",
+      "createdAt": "2026-04-01T18:14:30Z",
+      "updatedAt": "2026-04-01T18:14:29Z",
+      "activeKeysetUuid": "zb5pkc2oefehd4cxve7linvmri",
+      "attrVersion": 1,
+      "state": "A",
+      "permissions": 268435204,
+      "userMembership": {
+        "groupUuid": "fqz5jmlrpdnnbjkggqpm5x2d4q",
+        "memberUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "createdAt": "2026-04-01T18:14:30Z",
+        "updatedAt": "2026-04-01T18:14:30Z",
+        "version": 1,
+        "state": "A",
+        "role": "A",
+        "keyset": {
+          "uuid": "zb5pkc2oefehd4cxve7linvmri",
+          "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+          "sn": 1,
+          "encSymKey": {
+            "cty": "b5+jwk+json",
+            "data": "BAYpLgYoRYWVTHdXnkXqJfRMbCRO6Bs41dE9Fv3rEvptyRag6Oxu0ei-q4xdtD4-fMBiyw_YIF6M7eUqOC45Jx2Gn8tkeNddkWTwCRyyi4V0v0aOMH1c3ckeGYKWu5M3Snoz_kQ5YVe9HrUVGwG_FVrFXT9z9yv82QWSv97dh17i_cdHZD_2kmQDsqQV7B8GlYX8R2FFYoJNPowC95x8qoFn7h0JrDNhbS1oOGO18CqBweiHehMyw2EWPZy5xvKV4k5S3vJaFzpZ5rXsQxycK-9qXApHx-_ZFvNs6g6IdSoBX3qsHipMIvrPUXKJ7V11yyNVH-mG-ti5lgKCF7cBPQ",
+            "enc": "RSA-OAEP",
+            "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+          },
+          "encPriKey": {
+            "cty": "b5+jwk+json",
+            "data": "yq5Zp1S7UK0ubGKTgDuvQT8bj33lduZYL-WYObU7KCUzAR41Qaa31kMmt-p61jW3-mQokNqAiIEayoDRlWqVhkRWihonvBM67sbfh2bfyBZWrSb9P8YCO-KbP0VWXVuIIfiN77HEc36BPgxR2n4FZrtsEaHmIfhGzYyjpX0PL6PuOTagRUjKVkN7juz9f4PfV08vRyikmIdRXYR4MMFjPi35qxn2B3RPQMiLGAsvNjCkwRkdQUJTIwjbbWfu3q6M2oELCTr23Ot4crHlBFg5LwrhMRQ0AYrnfjlKc5_xlmgb1S_r1M91roJHp9I4EUpnBTiRa8Aalvp3mJu47FodCjWMFOPlhDwvaDRC3807aEqJkjU2qlMXS9mlJI7QVhWpTbDF3j7s4byj9GkPPL-AvfoUgcroxMPXyRftllg9FJCWLHfHB86seKpM_sYj_vWvOPPUQx-EEXaDNWp3U7lb6v3jkPgd3wjxz8ec8U-u2C4fdlrBePBwKp_ocsR7ZLKhIvCs_A---Dli79yVWeDM4ALWziKAvX9Q7AAX8ZpppTCzMw2SiaFfcpQskCdAWiKmRnicqNxoyDzVCIkz-l6qAHL7NRu2Tp3jX3L4k5uiqb5RUWCoHx2hTcO39aW0jtMFLNyh-1QTRdZkEaG8YwbtJ3o3Rgv-n4iOPiENPhjKZEbjq5DHamgIZ0SfNFZjCTAQXQLSNhHfLxygTEzMfyNsZ4KKHJ7VRbV1h8AOBl5VvdZzHAlAtcgvpEdNANRgLiSv41kqx-urgnIf_FtOJV23Kv6bikh-4OhyxdHBtIDPH54f0vmGQGBigXK5IgQda5TQX0Vtyr_jmhd_kDQlwfaQzKxI8pvPst8uWS0XdjNoF4ZVRxh8HBU4oM3BYms0rwSRNp7QYgPN_DFyn_bSPqJ2DnBkMvPr-IYHzfipiURmeH1zb8GbmEIwVKp8CfaCL-Y29GIWitesKmJy6gMZvOoOtKIGbWXNUB3bfFRZo2eZpv0eAXE6PSKbWFWxslDsmX4sUxqXwQNdYzCK1jfAC69-8OXIHUa0lauTU2VKfjkY9FoiyScQyoeUfoKr-WuOjNfawfd1JGSnJwlReRCU82JyqmFxnQOKdUa7naPCFh9hPXIpV6U_79Ehkw7myhAGRMaXp1bo6C32Y2t7YiDKOfp2y-WYEwJnfKFyO8FPIA6zu54yfoFJnoh19-wisZYFkosDT-e--vkoHGo5d9oPZr8TMTUXdoLkpjD790bRUocTI3hbgxzUiy05lcwfAaIdkIt-lin9jfzqMhcAWwGib507WMDbwhe1U_iJmAR4goTn1aOnikABpeHBwGf0nKLrJsU60knihxzYJYJxuwHUBqnwm8uP2pl4neu3G_PQNVSXz1aJ0oLTYipS2TR9jf2tDY7ORv47r5sQAZI6Afeg-Yc4CzP3YhiKiya1zdoRjUZgvpCQhFpVjNUGju11nyq3ckBxpIEkRXBwco6I_TJBDsaygRKdbh4s7qhstO23jyTido8EgLHIg6osKAgQ7ySpurBIFi1mjTTJSEsurkJM5IgboIIAQ9pQiNtqGML2FMsK6crfkpUGV3pWqvnXccEDz88vKeSDtA5av60CsydKB2aUacH5UzVNVG7VfOXXpoOgS0e3iO9MGu8aB_DPPimoExPY3OL1NtiMiliK7lKdh-U--DzRFVGBi9uLQmYoy1oY5NcTZFlDYQOzrREVya5MwyvDyPQDOIa4qPotUpODj1r2knL0IvQa4yieAYcOdwrPZ_cnVPDEQDlPMEBNYpdXDc5GVacQLSNA2WZLvAC3UwUcu-y6WtEBBK-SjD_JKkI3AZfEAwUwprhKRLfNvLkn5WaTPkqUnr0HhVXkDPwjw5Fkz-cUg7ygH8mXZy0ssrcUan4ARpLNuspY4j-IL5AE5vSGViOaZGGs2AxxM_OVwc9BKNXo75vQrxsj0YTnakz1CYKR5zSDtYbUj7YJawPVDfs79rHm7DPJ78sIo9fgh7ZrTVySMWmYhHE6EWqAmGw40BnaaqrgDPL30r4kfhLTC8f1PCfvU-cNk8rfRB4b2lDFUXy90pMIdAUYiX86SnbDsPsNR_eXcSRaaAYx4fNGilM3w3araxY23t7ARnq_2R5rszljTHftexW9ySVHWOHrLx3q3Q8iihADhBQLCUe_1CLut4RTOHYJW2hyvNK4_Fvf45WjR9eq2AkO73dd-K8bKLOG7HIBwInVjb4D4Fq2betqaTYt3TK7hGBt8l8zU4lP63QwkPgXVsvPi5bvRGcYFg87kQeQ",
+            "enc": "A256GCM",
+            "iv": "IozFE_pB23YNi98x",
+            "kid": "zb5pkc2oefehd4cxve7linvmri"
+          },
+          "pubKey": {
+            "kid": "zb5pkc2oefehd4cxve7linvmri",
+            "kty": "RSA",
+            "alg": "RSA-OAEP",
+            "key_ops": ["encrypt"],
+            "ext": true,
+            "e": "AQAB",
+            "n": "r6sR3Z06WOv1ruXIjPrTG5oIq-e8ffwdbZiks3SK4_pfg7UGAh_WCsDkWeZ8WkvydHvQnl94yg5sNGsV3N-FDXJbvT1DuJhB5e4NjccWTkdZnFppHKtGTDaRnt8AB9XaTeAgzLnYKoHvDiuEQK2DQMXF-MbJDBE2OgI96GxaMxPRXdWsq9q5tBC6O6woZhrmsxBBFqLCqhP_cGkhemKfy5OjLuGJY8otjkEEmKSRtBY31-_Mw9VUxeN4l2knj7rip8EoGfS66HdRqm9DTuehRUph4RUat_1eAtUCBah4u2puvCVb6JhPOkK7-FNm3uKXoGSqtilDNV8e2J-VMoEcmQ"
+          }
+        }
+      },
+      "recoveryKeyset": {
+        "uuid": "q53e7fdanjpbgjxydpdoqitcry",
+        "encryptedBy": "zb5pkc2oefehd4cxve7linvmri",
+        "sn": 1,
+        "encSymKey": {
+          "cty": "b5+jwk+json",
+          "data": "D2hoM8o9tM8hBjKlvDpsWqu7HnFrmz62KODt90Dm7lydIVVZwsMmZYSgCwWS-IA9Rd3yVFRKGoEt_kl-6NbhdCfv816AiORW8zzrd8g5ZD-rQxKHrrWDE0AWVkEArRQMGzVzHe4gaGOKFZ9rh5Ka78vdrKuy7038NpZKUQci56KhiPm3C76uskM5L_7fcwkgQlLu-vlmZcJWWfWhYTKqxKNDg4teeV3mwlu9nclkz5q_uifOnmaTPWJe1z9CKi8rsCQOLTq4OdEt_SgtR3n0VlxXFJAmaKlftSA5oCXzt9BNKDTyM-Na3IvQ6VXrIFl3nfpGRtxJB-HsxAAr2NHdKw",
+          "enc": "RSA-OAEP",
+          "kid": "zb5pkc2oefehd4cxve7linvmri"
+        },
+        "encPriKey": {
+          "cty": "b5+jwk+json",
+          "data": "Mwtbj9j4BmnhPym5g5S6rkHUsMAUy-2y2cxWcla7yc6ND5zpYiGcphL3jWFFFtw6kK1rp8pXiMZDgEe3seostwnCrQEEWcQctastUeCd4KcDBdXZQduVh-rTV1g5gD5MJ6SoojkOjrh8ef_ce3kkNFSRQF3q9l6IiLOJi3nV_NVI6ZgEqp8FORhh67fTToRxUAablQ-Cflf7etLQzLx7CH7J-5kMS-wohj-ZG0CdmnnS9mOE12oFXcy9GVqqrrccFqS6X7N3BTbi28TNTFjvaEWdo4xRZXMcUPYWzh3_n-rQLgHBbE2REgclRbWcaPtyfTF4s4B0b5SeOQ1Ce1NRc2-xFLdvwqy6snFCoYuzC8_BDpiXW92rM35DwMu1SCzI-Q8zCkPkbtHcy4PJL2aF5b6IgiSuYjZQLLyxJN4h2lI3_XwYDVQPA2jkNLHykliuLkIoBavUz88R5ea9DKOA67zyBfR9Uc73bsnaffDttOI2pXXfvTCeBDggjVRhviEf--t65VtLnZ6S0IdElUrwq4mybtvQJ9sBp2b3IjyA7B0vQkPZtTfvxesaLYgHkIiSUwa2zNuwgWhhrxsMUrYnDadwdvmdUwOG2MwiXhC88tie7AQXOtMEog3tZyST_WTMrk0nbtM6nf1xyoR7sN6n04zwSgLSI3t8laIP155dpS6jdWVBEjGxMJCS9eOtY9UqUixmBudCydpM2zAAjSEf06g9aXML6TJelaDxORrNlAeMPFRslKOmrWk0dF4CZvuIkClRbRuEUpsEBsJ1leuH1bug_tcsfkx-PjzEfEz1Z0gNbvMVnCQDjGbUZqWVWnzCMcB3qGeeegsE-JUWiO5xUNjqRuwdfjqLZlGSH3y4pkg5bO6pYYFpResZEvjzOpFB830pXX03q-RGSCs2ec851ajKrPjrsyK5SggC6PgU1CHl0EZBRqrHU9rmCyFaY6M3rGet4zA3CeIYI0nMOesykGDTjZLk7MUrsruNnqEhf0H9x7xs7v-hMIL_YxBsS81ShNTtjREBYT1mZRHIFZJwO7PvuoscFiTlATDATd3eJuMciqxrRDMLd2QpyQIP87a_0-kh8bY8reHtr9Hke6rW8JOnaI9bIZsnDLhVZgm1iaC192Uykg8-0wtzNgTNvm98kdbrVkUL50xFOOpV_0IsyPj0Le_29k5ro3vwQZLl3gItAx9w1YzEJ3aEjA_fBmLw6S2IvWcE8tC2NRrUdmbxxkBuyHZHmvrTUGMzXPUIiwTDtvx9mxqig-fuexiddioivYkSRVsp9QWH0yCivDwve41jUdxOnBpLfht-FnB2AxFvg1HRmr_WaL_uvCFXtaopGo3oiNjZfCbzYsw7gSbO13c57FNdHglmWqC5-WaQueQmljXAohGf9pOc60ZunFc1hBWmVRSm66Y8V9z7V9Dao2a0Jd2vVOzUPuh4nJpUeMtcvqYpx_o4IN6XjKvS3BUTctGYbLh_xm-pb4iTM_AKD1IT6Ba2vgla3gHeWjdPnLhH_bkVFC5w0j3iYwGoZz2P_GhskLNPFRpjRvqGIRYAffZhVdC3JCk3ko2qdKytDhAlu96R9x-tjlIXCQytmkgLSAn_6BSrK0qt-O8vTpx0xfuAOaHWiB_lVpkRI-u8tFwBngFmS9SHj8vi0cOj1yD-OXw60pYgjupo-bd7fxwYWe58n6oi3yp5ze0qN86Zs3f9rjAomlDC4V3bfrMsP-pRYme3W2_5JFfxE1lRKbvwvJmSQkPvEN96EaccA_FxYr9wVLSL2dIyk_cnHj0WAJypumTPDZVwg0cUO1TjloAQvQpMAOKSP3m8RgaxuAeF-7Mril0xNqwRMYdw-pDDK_denCmja2BT1qlw6Wi99mbIvgHdcBNUuB1xTHMv9Y0fxEo3SZfEumlgH3EbvkBKhts3RajbwWA0-farlPQ7yQQ2iFu_Tahjpou9OdC7StRkYozrTkB_WyaJ9fJNcwVack1YUkSuqH4x0CUB5eKfcNVcw1mqgMqcW_zCmvF150ML9xcbbsNVpS5YFGUbzEz7DXs9xfIXFlRmW2sLRiqyX3Q3ZW5Hu7WNQtU-JgeFgbC4Zugk8KZ3q9zkjaDTjIOYRIGoGPoFgWNM-byHZD6vIoohNqLXw8RPG7-3v4BfPYGCLaGkcwcv2hIsS4ESri_Vyh-nRvKFQmvrYx1zZXvG--9Ts05FsRUzehzlQ9vasni2JFXT3NaNP72kPrhjzrbJvfR5PKukNZe3xI17mgpDhj7v9Z2IGyW_TL0PvA4m2RmlCKcSkTCx",
+          "enc": "A256GCM",
+          "iv": "JU1PBdldRgZkhMRb",
+          "kid": "q53e7fdanjpbgjxydpdoqitcry"
+        },
+        "pubKey": {
+          "kid": "q53e7fdanjpbgjxydpdoqitcry",
+          "kty": "RSA",
+          "alg": "RSA-OAEP",
+          "key_ops": ["encrypt"],
+          "ext": true,
+          "e": "AQAB",
+          "n": "62z6cRI7QISiYabaWCv2r9Fy6lQQi_BnrJLIcaHyCKccTe_7Pbl5EsiTnnu4EmOEK0jUVNhvXp7-FUNUg4qyARFy3gFTb3fXieVy49duQG5vXwCVBQHlwe7nmmw1avhDV9HK3S_aCNjNvzJtnjrdz_D9tnQ-CWMxA4IWTYyPUU1MFOoXBaIJzvfDefCyckkoqGwawo_K1CxzUpIYnAWNLRqWUXdAG3dQk5eB-sW7PMUaUyDjoccFPN-I8L3MF8loE3XVQ0SSjKm4FP82cup-RuzYZRZPCb_khiPmZCrCZNXZesV3ryiaUyrcoan_QBrgp7V6Vwv4YgcHB6iBuRzrFQ"
+        }
+      }
+    }
+  ],
+  "vaults": [
+    {
+      "uuid": "wv2hn4jgomxwvfh4oiubyjppym",
+      "type": "P",
+      "createdAt": "2026-04-01T18:14:30Z",
+      "updatedAt": "2026-08-31T13:20:30Z",
+      "attrVersion": 1,
+      "contentVersion": 93,
+      "encAttrs": {
+        "cty": "b5+jwk+json",
+        "data": "PhdC7RMZLT0Dmps_yOGoYfwY9vqk7OZ1IsMyqjEcwbuiG3PSHHt-fdlF0GI8RtcpWcoI648BB1k0ZQqulzit6wLb8DQoj6XbYNOewiJObxrXv66niX_MymEe_32ihPjoe0bvYekkdPt-_--pRj4wen8urfxOcwis",
+        "enc": "A256GCM",
+        "iv": "xWreHj5rNMZDPqZM",
+        "kid": "dpukpj4nztvgvjyz4b2p4dzv3m"
+      },
+      "activeKeyUuid": "",
+      "activeItemCount": 1,
+      "clientAccess": 4294967295,
+      "userUUIDs": ["HVE53ZQITRE4LDVGUZZXPY23PY"],
+      "accessorCount": 1,
+      "access": [
+        {
+          "vaultUuid": "",
+          "accessorType": "user",
+          "accessorUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+          "acl": 15730674,
+          "leaseTimeout": 0,
+          "vaultKeySN": 1,
+          "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+          "encVaultKey": {
+            "cty": "b5+jwk+json",
+            "data": "AsSNVgJJm2Ws3Jte8G_VzURjM5LjH3mI6krva1Nb7FdOyYowjGlCR_2ybTMcGyf2tHKdGq2rNqSWTAH-8dXe3_MtxxR2g0yt6aHzBhnYgilNWXJ5Li4V6kN5csoeBWFyVmNE-GyLk5wKKn3gZqRNYeojzNkfEL8bXKsx4otm-LT1305L5meO_sFeyGp-P5kSKMgjk5luZoSed3m2WRxj6lbwCwK17sq_QBsqAd4QaAUy8P3uh9bd-g91LZQIrrYeNwDhb6sIC-vRujecfiXc4w3VY4sNKPvA5MiqZDXjgr_XiCPDdit5O69v9DRlNUIouA0CpLsSACCIJptjkiAb2Q",
+            "enc": "RSA-OAEP",
+            "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+          }
+        }
+      ],
+      "combinedAccess": {
+        "vaultUuid": "wv2hn4jgomxwvfh4oiubyjppym",
+        "accessorType": "user",
+        "accessorUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "accessVersion": 1,
+        "acl": 15730674,
+        "leaseTimeout": 0,
+        "vaultKeySN": 1,
+        "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+        "encVaultKey": {
+          "cty": "b5+jwk+json",
+          "data": "AsSNVgJJm2Ws3Jte8G_VzURjM5LjH3mI6krva1Nb7FdOyYowjGlCR_2ybTMcGyf2tHKdGq2rNqSWTAH-8dXe3_MtxxR2g0yt6aHzBhnYgilNWXJ5Li4V6kN5csoeBWFyVmNE-GyLk5wKKn3gZqRNYeojzNkfEL8bXKsx4otm-LT1305L5meO_sFeyGp-P5kSKMgjk5luZoSed3m2WRxj6lbwCwK17sq_QBsqAd4QaAUy8P3uh9bd-g91LZQIrrYeNwDhb6sIC-vRujecfiXc4w3VY4sNKPvA5MiqZDXjgr_XiCPDdit5O69v9DRlNUIouA0CpLsSACCIJptjkiAb2Q",
+          "enc": "RSA-OAEP",
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+        }
+      }
+    },
+    {
+      "uuid": "d7z3byaorasfq5xixos3tgaddu",
+      "type": "U",
+      "createdAt": "2026-08-31T13:07:44Z",
+      "updatedAt": "2026-08-31T20:58:34Z",
+      "attrVersion": 1,
+      "contentVersion": 36,
+      "encAttrs": {
+        "cty": "b5+jwk+json",
+        "data": "X_4MwOIygdUsqpwtJg1iLI3Ua4dsrOFXWf93Z5_Xj-rNgbAgGFpFmpAGlNuXUyEgwgX2sLvWC1HMtbd2p_ZX9CtxCsrIRH8i1Lei_X-ke92w9bhJMRDPrWzvgs8kVgbsQyR6Hx70r4VUufN_yzN68dFL4X_T-w-5m-kgxwlwKAabX6uXKOqKYsWw7fkzZ3tvclOwW3Lw0eP9yPmBAkcrWNxtlN4wRWH77SvhjNkvUL-4ZQ",
+        "enc": "A256GCM",
+        "iv": "UOZ5kzMibXZC88dp",
+        "kid": "er2hz3idctundugolb6xi3znii"
+      },
+      "activeKeyUuid": "",
+      "activeItemCount": 27,
+      "clientAccess": 4294967295,
+      "userUUIDs": ["HVE53ZQITRE4LDVGUZZXPY23PY"],
+      "accessorCount": 1,
+      "access": [
+        {
+          "vaultUuid": "",
+          "accessorType": "user",
+          "accessorUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+          "acl": 2147483647,
+          "leaseTimeout": 0,
+          "vaultKeySN": 1,
+          "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+          "encVaultKey": {
+            "cty": "b5+jwk+json",
+            "data": "O3qcQnuLaeo4gE0b_RZxrNLsBZPvJ74It3VEkfMjRDEvGPHUZdoIZdnn9u1R3NxcuRPrbdy7PsjjJ5z-T3pwpyf81DR5LDarj5EFwDXI6qEMPO7sM1LxkRLIoiuL4A3OzVVEtyhRfAKM-kufdaDzh23y93bXz3j-p2eOHk385HjMIjlBw95kjWqFeiGKSN5dUKcQdCnMHwEpVgKOiQGT6lqSRnloZQ2YOmX6A2EbgG2pekX1iYb88yZIfaYkyhsgAky5ABc5zF8ptZEYsunCsOvTBl-RwUojQ-grVS76nPsILjzwtfmNHeFxAfxdi1VqSHzrLVOpBUXAZ5-rMJgdQw",
+            "enc": "RSA-OAEP",
+            "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+          }
+        },
+        {
+          "vaultUuid": "",
+          "accessorType": "group",
+          "accessorUuid": "3vsps52ae4au7wmr4wshmp2r4m",
+          "acl": 2,
+          "leaseTimeout": 0,
+          "vaultKeySN": 1,
+          "encryptedBy": "3cahzchvndscx5gjm4jdfcxmca",
+          "encVaultKey": {
+            "cty": "b5+jwk+json",
+            "data": "m34lD8MgAtgsydrHxnHvM5lmcLN5qxpBuJHdJOQ6xZusnaRJsy3M7EC_RhKSNUuw0ctSZsTqc96BEO4pPjbn4S1YTBRLG9vW4uGhkAwKF5o_Y4KdsyPysDjA-38wcL1uaW1IcXLRCebmbJ2hCcDTdz3G-XkSfURzwjla-RpxhhqVSC-2n1S44Tr8xMzYlnbVSpGOGdUl6L8kiUabdRoRw-QkhHgWuvG3SMDoM117SP15i79T4YMBtYmVlIiGNSMCKX993B1MgPVRVdoBKoYWCEnJPUnsc8n_VN8hYsC_BchOTenQ63gq6k6zc6ICGeHeief1_3w0L7CxdAWMp3a9lg",
+            "enc": "RSA-OAEP",
+            "kid": "3cahzchvndscx5gjm4jdfcxmca"
+          }
+        },
+        {
+          "vaultUuid": "",
+          "accessorType": "group",
+          "accessorUuid": "fqz5jmlrpdnnbjkggqpm5x2d4q",
+          "acl": 2,
+          "leaseTimeout": 0,
+          "vaultKeySN": 1,
+          "encryptedBy": "zb5pkc2oefehd4cxve7linvmri",
+          "encVaultKey": {
+            "cty": "b5+jwk+json",
+            "data": "mhAO8PwLfHaXeKesRRkprXjj5-Z58k_hYmVFXz3KGSG1Naf5fUaw1bH24dGQtoFqacdFG3KrA9WTYfJGB8nHToGIfw3LbgPm9kPBcMkGujVnTKs2fUYqjaT8DlyNqKmJEzQTLTuUdJBBRgibJ5437n7YL9IyYpUTysGzcfk6c9fGwHbGgfzQykfjOv0i1ZFlo86j9Zk4b5z-kztMLbb5our8oOWDCPSKRoRKZook3l3oG2YRvaM1xX3vTYFiIVwDI6N4DN4UrtKsKkjGDcJCQAyriCCut9IwPoreP6VtpTh81BIFT-1WrcBKwNBBqSKSAkTg3ljWSiUWYLljL9N_VQ",
+            "enc": "RSA-OAEP",
+            "kid": "zb5pkc2oefehd4cxve7linvmri"
+          }
+        }
+      ],
+      "combinedAccess": {
+        "vaultUuid": "d7z3byaorasfq5xixos3tgaddu",
+        "accessorType": "user",
+        "accessorUuid": "HVE53ZQITRE4LDVGUZZXPY23PY",
+        "accessVersion": 5,
+        "acl": 2147483647,
+        "leaseTimeout": 0,
+        "vaultKeySN": 1,
+        "encryptedBy": "vkpeayor2tsxlnxo5vahqz2jee",
+        "encVaultKey": {
+          "cty": "b5+jwk+json",
+          "data": "O3qcQnuLaeo4gE0b_RZxrNLsBZPvJ74It3VEkfMjRDEvGPHUZdoIZdnn9u1R3NxcuRPrbdy7PsjjJ5z-T3pwpyf81DR5LDarj5EFwDXI6qEMPO7sM1LxkRLIoiuL4A3OzVVEtyhRfAKM-kufdaDzh23y93bXz3j-p2eOHk385HjMIjlBw95kjWqFeiGKSN5dUKcQdCnMHwEpVgKOiQGT6lqSRnloZQ2YOmX6A2EbgG2pekX1iYb88yZIfaYkyhsgAky5ABc5zF8ptZEYsunCsOvTBl-RwUojQ-grVS76nPsILjzwtfmNHeFxAfxdi1VqSHzrLVOpBUXAZ5-rMJgdQw",
+          "enc": "RSA-OAEP",
+          "kid": "vkpeayor2tsxlnxo5vahqz2jee"
+        }
+      }
+    }
+  ],
+  "tier": {
+    "tierId": 8,
+    "name": "20160727_i_standard",
+    "successorTierName": null,
+    "accountType": "I",
+    "isPublic": true,
+    "sortOrder": 100,
+    "trialDays": 14,
+    "backupDays": 365,
+    "guestsIncluded": 0,
+    "maxGuests": 0,
+    "membersIncluded": 1,
+    "maxMembers": 0,
+    "minQuantity": 1,
+    "storagePerAccount": 0,
+    "storagePerUser": 1024,
+    "marketingText": {
+      "defaultPriceDisplayFrequency": "Y",
+      "localizedFeatures": [
+        {
+          "title": "Title 1",
+          "desc": "Password generator"
+        },
+        {
+          "title": "Title 2",
+          "desc": "Login autofill and sharing"
+        },
+        {
+          "title": "Title 3",
+          "desc": "Use on all of your devices"
+        },
+        {
+          "title": "Title 4",
+          "desc": "Watchtower security breach checker"
+        },
+        {
+          "title": "Title 5",
+          "desc": "Friendly, 24/7 support"
+        }
+      ],
+      "name": "Individual",
+      "viewDetailsURL": "https://1password.com/pricing?currency=usd"
+    },
+    "features": [
+      "itemSharingFiles",
+      "deferActiveUserSubscriptionDowngrade",
+      "integrationHubUserManagedServiceAccounts",
+      "automatedQuest",
+      "integrationHubEmailAlias",
+      "serviceAccounts",
+      "shareService",
+      "phantomIntegration"
+    ],
+    "gatedFeatures": [],
+    "plans": [
+      {
+        "frequency": "Y",
+        "sortOrder": 3,
+        "stripePlanUid": "price_1SPsIEHBax7L5HDfbtrKUdPB",
+        "currency": "USD",
+        "display": {
+          "currency": "USD",
+          "amount": 4788,
+          "isPerUser": false,
+          "monthlyRate": "3.99",
+          "priceDescription": "per month//billed annually"
+        },
+        "marketingText": {
+          "currency": "",
+          "monthlyRate": "",
+          "priceDescription": ""
+        }
+      },
+      {
+        "frequency": "M",
+        "sortOrder": 4,
+        "stripePlanUid": "price_1SPsIsHBax7L5HDfaAUPNkZc",
+        "currency": "USD",
+        "display": {
+          "currency": "USD",
+          "amount": 499,
+          "isPerUser": false,
+          "monthlyRate": "4.99",
+          "priceDescription": "per month//billed monthly"
+        },
+        "marketingText": {
+          "currency": "",
+          "monthlyRate": "",
+          "priceDescription": ""
+        }
+      }
+    ],
+    "tierChangeRestrictions": []
+  },
+  "userFlags": {
+    "hasPackages": false,
+    "hasNativeClient": true,
+    "hasNonSafariClient": true,
+    "hasMspConsoleAccess": false,
+    "mustMigrate": false
+  },
+  "billing": {
+    "trialStartedAt": "2026-04-01T18:14:26.599046Z",
+    "trialDays": 14,
+    "status": "F",
+    "provider": "U",
+    "freezesAt": "2026-04-16T04:00:37.385241Z",
+    "isUbpEnrolled": true,
+    "members": 1,
+    "guests": 0,
+    "settings": {}
+  },
+  "invite": {
+    "inviteSecret": "V7LCITMYLJGTFHRW5GCV2FFLC4"
+  },
+  "counts": {
+    "users": 1,
+    "vaults": 2,
+    "groups": 3,
+    "invitations": 0,
+    "activeGuests": 0,
+    "activeUsers": 1,
+    "activeManagedAccounts": 0
+  }
+}

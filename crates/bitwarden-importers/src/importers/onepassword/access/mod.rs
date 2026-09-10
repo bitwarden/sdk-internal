@@ -20,6 +20,8 @@ mod login;
 mod mac;
 pub mod model;
 mod opdata;
+#[cfg(test)]
+pub(in crate::importers::onepassword) mod replay;
 mod rest;
 mod rsa;
 mod session;
