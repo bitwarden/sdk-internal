@@ -1,6 +1,7 @@
 // The client side of a test: the state a real client persists, plus the two operations that move an
 // account into it — a sync from the server, and an unlock.
 
+import { IpcClient, type Source, type SymmetricKey } from "@bitwarden/sdk-internal";
 import type {
   InitUserCryptoMethod,
   PasswordManagerClient,
@@ -13,6 +14,7 @@ import { API_URL } from "../server-emulator/urls";
 import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
 import { LocalState, SETTINGS } from "./local-state";
+import { DESKTOP_RENDERER, type IpcBus } from "./transport";
 
 import { makePasswordManagerClient } from "../tests/utils";
 
@@ -21,7 +23,43 @@ export class ClientEmulator {
 
   private client: PasswordManagerClient | undefined;
 
+  private ipcClient: IpcClient | undefined;
+
+  /** Which client on the device this is, and therefore where peers address it. */
+  private source: Source = DESKTOP_RENDERER;
+
   constructor(private readonly server: ServerEmulator) {}
+
+  /** Names which client on the device this is. Call before attaching to a bus. */
+  setIpcSource(source: Source): void {
+    if (this.ipcClient !== undefined) {
+      throw new Error("already attached to a bus; the source is fixed once it is addressable");
+    }
+
+    this.source = source;
+  }
+
+  /** The IPC client this emulator talks to its peers over. Throws before {@link attachIpc}. */
+  get ipc(): IpcClient {
+    if (this.ipcClient === undefined) {
+      throw new Error("no ipc client; attach to a bus first");
+    }
+
+    return this.ipcClient;
+  }
+
+  /** Puts this client on `bus` under its own source, and starts its IPC client. */
+  async attachIpc(bus: IpcBus): Promise<IpcClient> {
+    if (this.ipcClient !== undefined) {
+      throw new Error("already attached to a bus");
+    }
+
+    const ipc = IpcClient.newWithSdkInMemorySessions(bus.attach(this.source));
+    await ipc.start();
+    this.ipcClient = ipc;
+
+    return ipc;
+  }
 
   /** The state bridge this client persists to. */
   get bridge(): WasmStateBridge {
@@ -124,6 +162,19 @@ export class ClientEmulator {
     }
 
     return this.client;
+  }
+
+  /**
+   * The unlocked account's user key.
+   *
+   * This is the material biometric unlock and shared unlock hand between clients, so tests use it
+   * rather than a stand-in: a key that does not decrypt this account's vault would pass a test
+   * written against a placeholder.
+   */
+  async userKey(): Promise<SymmetricKey> {
+    const key = await this.getPasswordManagerClient().crypto().get_user_encryption_key();
+
+    return key as unknown as SymmetricKey;
   }
 
   /** Unlocks from a user key the client already holds, as a keyless login leaves it. */
