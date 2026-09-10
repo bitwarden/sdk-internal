@@ -103,7 +103,7 @@ pub enum BitwardenError {
     #[error(transparent)]
     CredentialsForAutofill(#[from] bitwarden_fido::CredentialsForAutofillError),
     #[error(transparent)]
-    DecryptFido2AutofillCredentials(#[from] bitwarden_fido::DecryptFido2AutofillCredentialsError),
+    GetFido2AutofillCredentials(#[from] bitwarden_fido::GetFido2AutofillCredentialsError),
     #[error(transparent)]
     Fido2Client(#[from] bitwarden_fido::Fido2ClientError),
     #[error(transparent)]

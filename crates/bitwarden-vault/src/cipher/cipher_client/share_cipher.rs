@@ -448,8 +448,6 @@ mod tests {
             size_name: Some("2 KB".to_string()),
             file_name: Some("test2.txt".to_string()),
             key: None, // No key!
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
         }]);
 
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();

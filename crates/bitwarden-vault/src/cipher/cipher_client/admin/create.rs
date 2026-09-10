@@ -114,8 +114,7 @@ impl CipherAdminClient {
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the CompositeEncryptable implementation.
         if self.client.flags().get().await.enable_cipher_key_encryption {
-            let key = view.key_identifier();
-            view.upgrade_to_cipher_key_encryption(&mut key_store.context(), key)?;
+            view.upgrade_to_cipher_key_encryption(&mut key_store.context())?;
         }
 
         let use_blob = should_use_blob_encryption(&key_store.context(), view.organization_id);

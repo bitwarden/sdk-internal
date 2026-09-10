@@ -53,14 +53,14 @@ impl ClientFido2 {
         )))
     }
 
-    pub fn decrypt_fido2_autofill_credentials(
+    pub fn get_fido2_autofill_credentials(
         &self,
         cipher_view: CipherView,
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
         let result = self
             .0
-            .decrypt_fido2_autofill_credentials(cipher_view)
-            .map_err(Error::DecryptFido2AutofillCredentials)?;
+            .get_fido2_autofill_credentials(cipher_view)
+            .map_err(Error::GetFido2AutofillCredentials)?;
 
         Ok(result)
     }

@@ -1,7 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_core::key_management::KeySlotIds;
-use bitwarden_crypto::KeyStoreContext;
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
@@ -26,7 +24,7 @@ pub use authenticator::{
     SilentlyDiscoverCredentialsError,
 };
 pub use client::{Fido2Client, Fido2ClientError};
-pub use client_fido::{ClientFido2, ClientFido2Ext, DecryptFido2AutofillCredentialsError};
+pub use client_fido::{ClientFido2, ClientFido2Ext, GetFido2AutofillCredentialsError};
 pub use device_auth_key::{
     DeviceAuthKeyAuthenticator, DeviceAuthKeyError, DeviceAuthKeyGetAssertionResult,
     DeviceAuthKeyMetadata, DeviceAuthKeyRecord, DeviceAuthKeyStore,
@@ -73,8 +71,12 @@ pub(crate) struct CipherViewContainer {
 }
 
 impl CipherViewContainer {
-    fn new(cipher: CipherView, ctx: &mut KeyStoreContext<KeySlotIds>) -> Result<Self, CipherError> {
-        let fido2_credentials = cipher.get_fido2_credentials(ctx)?;
+    fn new(cipher: CipherView) -> Result<Self, CipherError> {
+        let fido2_credentials = cipher
+            .get_fido2_credentials()
+            .into_iter()
+            .map(Fido2CredentialFullView::from)
+            .collect();
         Ok(Self {
             cipher,
             fido2_credentials,
