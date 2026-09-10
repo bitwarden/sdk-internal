@@ -2,6 +2,9 @@
 //!
 //! Every client runs exactly one [`SharedUnlockPeer`]. A peer syncs its lock state to the peer it
 //! recognizes as its leader and to the peers that sync to it.
+//!
+//! A web peer is scoped to the origin it was validated against: it is only ever told about the
+//! users whose vault URL is that origin, in either direction.
 
 use std::{
     collections::HashMap,
@@ -20,7 +23,7 @@ use tracing::warn;
 
 use crate::{
     DeviceEvent, LockState, SharedUnlockSync, TimestampedLockState,
-    active_peers::ActivePeerTracker,
+    active_peers::{ActivePeerTracker, SyncTarget},
     drivers::SharedUnlockDriver,
     timing::{SharedUnlockTiming, now_millis},
 };
@@ -191,8 +194,8 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             return Ok(());
         }
 
-        let endpoint: Endpoint = source.into();
-        let from_leader = self.0.driver.discover_leader().await.as_ref() == Some(&endpoint);
+        let target = SyncTarget::from_source(&source);
+        let from_leader = self.0.driver.discover_leader().await.as_ref() == Some(&target.endpoint);
         if from_leader {
             // Suppressed before applying, so a lock or unlock that takes seconds to settle cannot
             // let the previously granted suppression lapse in the meantime.
@@ -205,11 +208,11 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 .await;
         }
 
-        let first_contact = self.0.active_peers.upsert(endpoint.clone());
+        let first_contact = self.0.active_peers.upsert(&target);
         self.apply_remote_state(user_id, state).await?;
 
         if first_contact {
-            self.sync_all_users_to(endpoint).await;
+            self.sync_all_users_to(&target).await;
         }
 
         Ok(())
@@ -292,32 +295,70 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
 
     async fn sync_user(&self, user_id: UserId) {
         for target in self.sync_targets().await {
-            self.sync_user_to(user_id, target).await;
+            self.sync_user_to(user_id, &target).await;
         }
     }
 
     /// Sends this peer's state for every logged-in user to one specific peer.
-    async fn sync_all_users_to(&self, target: Endpoint) {
+    async fn sync_all_users_to(&self, target: &SyncTarget) {
         for user_id in self.0.driver.list_users().await {
-            self.sync_user_to(user_id, target.clone()).await;
+            self.sync_user_to(user_id, target).await;
         }
     }
 
-    async fn sync_user_to(&self, user_id: UserId, target: Endpoint) {
+    async fn sync_user_to(&self, user_id: UserId, target: &SyncTarget) {
+        if !self.may_sync_user_to(user_id, target).await {
+            return;
+        }
+
         let message = SharedUnlockSync {
             user_id,
             state: self.advertised_state(user_id),
         };
-        self.send_message(message, target).await;
+        self.send_message(message, target.endpoint.clone()).await;
+    }
+
+    /// Whether a user's state may be sent to a peer.
+    ///
+    /// A web peer is entitled only to the users whose vault URL is the origin it was validated
+    /// against — the same rule [`SharedUnlockPeer::receive_message`] applies to incoming syncs,
+    /// applied outbound so a page served by one vault is never handed another vault's key material.
+    /// A web peer with no recorded origin fails closed.
+    async fn may_sync_user_to(&self, user_id: UserId, target: &SyncTarget) -> bool {
+        if !matches!(target.endpoint, Endpoint::Web { .. }) {
+            return true;
+        }
+
+        let Some(origin) = target.origin.as_deref() else {
+            warn!(
+                ?target,
+                "Web peer has no validated origin, not syncing to it"
+            );
+            return false;
+        };
+
+        match self.0.driver.get_vault_url(user_id).await {
+            Some(user_vault_url) if user_vault_url == origin => true,
+            Some(user_vault_url) => {
+                warn!(%origin, %user_vault_url, %user_id, "Web peer's origin does not match the user's vault URL, not syncing that user to it");
+                false
+            }
+            None => {
+                warn!(%origin, %user_id, "No vault URL found for user, not syncing that user to a web peer");
+                false
+            }
+        }
     }
 
     /// This peer's leader, if it has one, plus every peer that syncs to it.
-    async fn sync_targets(&self) -> Vec<Endpoint> {
-        let mut targets = self.0.active_peers.endpoints();
+    async fn sync_targets(&self) -> Vec<SyncTarget> {
+        let mut targets = self.0.active_peers.targets();
         if let Some(leader) = self.0.driver.discover_leader().await
-            && !targets.contains(&leader)
+            && !targets.iter().any(|target| target.endpoint == leader)
         {
-            targets.push(leader);
+            // A leader is discovered rather than validated, so it carries no origin. In practice it
+            // is never a web endpoint; if it ever were, `may_sync_user_to` fails it closed.
+            targets.push(SyncTarget::without_origin(leader));
         }
         targets
     }

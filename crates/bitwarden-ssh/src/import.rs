@@ -2,6 +2,7 @@ use ed25519;
 use pem_rfc7468::PemLabel;
 use pkcs8::{DecodePrivateKey, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5};
 use ssh_key::{
+    Algorithm,
     private::{Ed25519Keypair, RsaKeypair},
     sec1,
 };
@@ -155,6 +156,10 @@ fn import_openssh_key(
             _ => SshKeyImportError::Parsing,
         })?;
 
+    if !is_supported_algorithm(&private_key.algorithm()) {
+        return Err(SshKeyImportError::UnsupportedKeyType);
+    }
+
     let private_key = if private_key.is_encrypted() {
         let password = password.ok_or(SshKeyImportError::PasswordRequired)?;
         private_key
@@ -165,6 +170,14 @@ fn import_openssh_key(
     };
 
     ssh_private_key_to_data(private_key).map_err(|_| SshKeyImportError::Parsing)
+}
+
+/// True if a key of this algorithm can be used once it is in the vault.
+fn is_supported_algorithm(algorithm: &Algorithm) -> bool {
+    matches!(
+        algorithm,
+        Algorithm::Ed25519 | Algorithm::Rsa { .. } | Algorithm::Ecdsa { .. }
+    )
 }
 
 fn import_ecdsa_pkcs8_der(encoded_key: &[u8]) -> Result<ssh_key::PrivateKey, SshKeyImportError> {
@@ -361,5 +374,49 @@ mod tests {
         let public_key = include_str!("../resources/import/ed25519_regression_17028.pub").trim();
         let result = import_key(private_key.to_string(), None).unwrap();
         assert_eq!(result.public_key, public_key);
+    }
+
+    #[test]
+    fn import_sk_ed25519_openssh_unencrypted_is_unsupported() {
+        let private_key = include_str!("../resources/import/sk_ed25519_openssh_unencrypted");
+        let result = import_key(private_key.to_string(), None);
+        assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
+    }
+
+    #[test]
+    fn supported_algorithms_are_accepted() {
+        for algorithm in [
+            Algorithm::Ed25519,
+            Algorithm::Rsa { hash: None },
+            Algorithm::Ecdsa {
+                curve: ssh_key::EcdsaCurve::NistP256,
+            },
+            Algorithm::Ecdsa {
+                curve: ssh_key::EcdsaCurve::NistP384,
+            },
+            Algorithm::Ecdsa {
+                curve: ssh_key::EcdsaCurve::NistP521,
+            },
+        ] {
+            assert!(
+                is_supported_algorithm(&algorithm),
+                "{algorithm:?} should be supported"
+            );
+        }
+    }
+
+    #[test]
+    fn unsupported_algorithms_are_rejected() {
+        for algorithm in [
+            Algorithm::Dsa,
+            Algorithm::SkEd25519,
+            Algorithm::SkEcdsaSha2NistP256,
+            Algorithm::new("bogus@example.com").expect("unknown names map to Algorithm::Other"),
+        ] {
+            assert!(
+                !is_supported_algorithm(&algorithm),
+                "{algorithm:?} should not be supported"
+            );
+        }
     }
 }

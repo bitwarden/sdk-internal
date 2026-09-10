@@ -33,7 +33,7 @@ pub(crate) async fn send_identity_connect_request(
 ) -> Result<IdentityTokenResponse, LoginError> {
     let response = identity_config
         .client
-        .post(format!("{}/connect/token", &identity_config.base_path))
+        .post(format!("{}/connect/token", identity_config.base_path))
         .header(
             reqwest::header::CONTENT_TYPE,
             "application/x-www-form-urlencoded; charset=utf-8",

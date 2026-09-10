@@ -568,6 +568,7 @@ mod tests {
         EncryptionContext {
             cipher,
             encrypted_for: user_id,
+            encrypted_by_key_id: None,
         }
     }
 
@@ -841,6 +842,7 @@ mod tests {
                     },
                     master_key_wrapped_user_key: "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap(),
                     salt: "test@bitwarden.com".to_owned(),
+                    contained_key_id: None,
                 },
             },
             upgrade_token: None,

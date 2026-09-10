@@ -16,7 +16,7 @@ pub(crate) async fn send_login_request(
     identity_config: &bitwarden_api_identity::apis::configuration::Configuration,
     api_request: &LoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
 ) -> Result<LoginResponse, LoginErrorApiResponse> {
-    let url: String = format!("{}/connect/token", &identity_config.base_path);
+    let url: String = format!("{}/connect/token", identity_config.base_path);
 
     let request: reqwest_middleware::RequestBuilder = identity_config
         .client

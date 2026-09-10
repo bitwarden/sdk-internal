@@ -1,7 +1,6 @@
 use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, IdentifyKey, KeyStoreContext,
-    PrimitiveEncryptable,
 };
 use bitwarden_logging::instrument;
 use thiserror::Error;
@@ -104,9 +103,6 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     let attachments = view.attachments.encrypt_composite(ctx, cipher_key)?;
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
 
-    // TODO: Remove this field once the server no longer requires it
-    let name = "".encrypt(ctx, cipher_key)?;
-
     Ok(Cipher {
         // Metadata
         id: view.id,
@@ -132,8 +128,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
         local_data,
 
         // Obsolete fields — sensitive data lives in the blob
-        // TODO: Remove `name` once the server no longer requires it
-        name: Some(name),
+        name: None,
         notes: None,
         login: None,
         identity: None,
@@ -220,7 +215,7 @@ pub(crate) fn decrypt_blob_cipher(
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::IdentifyKey;
+    use bitwarden_crypto::{IdentifyKey, PrimitiveEncryptable};
     use uuid::Uuid;
 
     use super::*;

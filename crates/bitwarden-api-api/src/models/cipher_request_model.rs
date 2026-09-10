@@ -21,6 +21,15 @@ pub struct CipherRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub encrypted_for: Option<uuid::Uuid>,
+    /// Hex-encoded key id of the user key the client held when it encrypted this cipher. Absent
+    /// for clients that predate the field. When present, it must match the acting user's current
+    /// user key id.
+    #[serde(
+        rename = "encryptedByKeyId",
+        alias = "EncryptedByKeyId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub encrypted_by_key_id: Option<String>,
     #[serde(
         rename = "type",
         alias = "R#type",
@@ -158,6 +167,7 @@ impl CipherRequestModel {
     pub fn new(name: String) -> CipherRequestModel {
         CipherRequestModel {
             encrypted_for: None,
+            encrypted_by_key_id: None,
             r#type: None,
             organization_id: None,
             folder_id: None,

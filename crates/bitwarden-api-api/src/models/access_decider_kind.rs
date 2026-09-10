@@ -11,11 +11,9 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Visitor};
 
 use crate::models;
-/// DeciderKind : What produced a decision on an access request, as it appears on the wire: `0 =
-/// automatic`, `1 = human`. What produced a decision on an access request, as it appears on the
-/// wire: `0 = automatic`, `1 = human`.
+///
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum DeciderKind {
+pub enum AccessDeciderKind {
     Automatic,
     Human,
 
@@ -23,7 +21,7 @@ pub enum DeciderKind {
     __Unknown(i64),
 }
 
-impl DeciderKind {
+impl AccessDeciderKind {
     pub fn as_i64(&self) -> i64 {
         match self {
             Self::Automatic => 0,
@@ -41,43 +39,43 @@ impl DeciderKind {
     }
 }
 
-impl serde::Serialize for DeciderKind {
+impl serde::Serialize for AccessDeciderKind {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_i64(self.as_i64())
     }
 }
 
-impl<'de> serde::Deserialize<'de> for DeciderKind {
+impl<'de> serde::Deserialize<'de> for AccessDeciderKind {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct DeciderKindVisitor;
+        struct AccessDeciderKindVisitor;
 
-        impl Visitor<'_> for DeciderKindVisitor {
-            type Value = DeciderKind;
+        impl Visitor<'_> for AccessDeciderKindVisitor {
+            type Value = AccessDeciderKind;
 
             fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 f.write_str("an integer")
             }
 
             fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
-                Ok(DeciderKind::from_i64(v))
+                Ok(AccessDeciderKind::from_i64(v))
             }
 
             fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
-                Ok(DeciderKind::from_i64(v as i64))
+                Ok(AccessDeciderKind::from_i64(v as i64))
             }
         }
 
-        deserializer.deserialize_i64(DeciderKindVisitor)
+        deserializer.deserialize_i64(AccessDeciderKindVisitor)
     }
 }
 
-impl std::fmt::Display for DeciderKind {
+impl std::fmt::Display for AccessDeciderKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_i64())
     }
 }
-impl Default for DeciderKind {
-    fn default() -> DeciderKind {
+impl Default for AccessDeciderKind {
+    fn default() -> AccessDeciderKind {
         Self::Automatic
     }
 }

@@ -7,7 +7,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use bitwarden_crypto::{EncString, Kdf, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope};
+use bitwarden_crypto::{
+    EncString, Kdf, KeyId, SymmetricCryptoKey, safe::PasswordProtectedKeyEnvelope,
+};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -142,6 +144,7 @@ impl StateBridgeClient {
 // containing an `InMemoryStateBridge` test fixture.
 bitwarden_state_bridge_macro::state_bridge! {
     user_key: SymmetricCryptoKey as ts "SymmetricKey",
+    user_key_id: KeyId as ts "KeyId",
     persistent_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     ephemeral_pin_envelope: PasswordProtectedKeyEnvelope as ts "PasswordProtectedKeyEnvelope",
     encrypted_pin: EncString as ts "EncString",

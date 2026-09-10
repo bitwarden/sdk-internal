@@ -14,7 +14,7 @@ use crate::models;
 
 /// AccessDecisionRequestModel : An approver's decision on a pending access request.
 /// Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Verdict is the
-/// Bit.Services.Pam.Api.Models.AccessDecisionVerdict value on the wire (`0` = deny, `1` = approve);
+/// Bit.Pam.Enums.AccessDecisionVerdict value on the wire (`0` = deny, `1` = approve);
 /// Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Comment is optional.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessDecisionRequestModel {
@@ -33,9 +33,8 @@ pub struct AccessDecisionRequestModel {
 impl AccessDecisionRequestModel {
     /// An approver's decision on a pending access request.
     /// Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Verdict is the
-    /// Bit.Services.Pam.Api.Models.AccessDecisionVerdict value on the wire (`0` = deny, `1` =
-    /// approve); Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Comment is
-    /// optional.
+    /// Bit.Pam.Enums.AccessDecisionVerdict value on the wire (`0` = deny, `1` = approve);
+    /// Bit.Services.Pam.Api.Models.Request.AccessDecisionRequestModel.Comment is optional.
     pub fn new(verdict: models::AccessDecisionVerdict) -> AccessDecisionRequestModel {
         AccessDecisionRequestModel {
             verdict,

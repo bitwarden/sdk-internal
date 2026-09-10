@@ -316,6 +316,12 @@ pub struct ProfileOrganizationResponseModel {
     )]
     pub access_secrets_manager: Option<bool>,
     #[serde(
+        rename = "accessPam",
+        alias = "AccessPam",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub access_pam: Option<bool>,
+    #[serde(
         rename = "userId",
         alias = "UserId",
         skip_serializing_if = "Option::is_none"
@@ -453,6 +459,7 @@ impl ProfileOrganizationResponseModel {
             key_connector_url: None,
             sso_member_decryption_type: None,
             access_secrets_manager: None,
+            access_pam: None,
             user_id: None,
             status: None,
             r#type: None,

@@ -56,6 +56,7 @@ let MISMATCHED_UPGRADE_TOKEN_WRAPPED_UK2 =
 /// from the WASM integration tests.
 actor InMemoryStateBridge: StateBridgeForeignImpl {
     private var userKey: SymmetricCryptoKey?
+    private var userKeyId: KeyId?
     private var persistentPinEnvelope: PasswordProtectedKeyEnvelope?
     private var ephemeralPinEnvelope: PasswordProtectedKeyEnvelope?
     private var encryptedPin: EncString?
@@ -68,6 +69,10 @@ actor InMemoryStateBridge: StateBridgeForeignImpl {
     func setUserKey(value: SymmetricCryptoKey) { userKey = value }
     func getUserKey() -> SymmetricCryptoKey? { userKey }
     func clearUserKey() { userKey = nil }
+
+    func setUserKeyId(value: KeyId) { userKeyId = value }
+    func getUserKeyId() -> KeyId? { userKeyId }
+    func clearUserKeyId() { userKeyId = nil }
 
     func setPersistentPinEnvelope(value: PasswordProtectedKeyEnvelope) { persistentPinEnvelope = value }
     func getPersistentPinEnvelope() -> PasswordProtectedKeyEnvelope? { persistentPinEnvelope }

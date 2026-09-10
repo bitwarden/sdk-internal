@@ -921,6 +921,23 @@ mod tests {
             }
         }
 
+        /// A second request type whose response is a unit enum, which serde serializes to a bare
+        /// JSON string. Deserializing it as [`TestResponse`] fails, which is what makes it a
+        /// faithful stand-in for the real `GetBiometricsStatus` / `UnlockBiometrics` pair.
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        struct OtherRequest;
+
+        #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+        enum OtherResponse {
+            Available,
+        }
+
+        impl RpcRequest for OtherRequest {
+            type Response = OtherResponse;
+
+            const NAME: &str = "OtherRequest";
+        }
+
         #[tokio::test]
         async fn request_sends_message_and_returns_response() {
             let crypto_provider = NoEncryptionCryptoProvider;
@@ -977,6 +994,107 @@ mod tests {
             // Wait for the response
             let result = result_handle.await.unwrap();
             assert_eq!(result.unwrap().result, 3);
+        }
+
+        /// A response belonging to one in-flight request must not disturb another. Both requests
+        /// subscribe to the same topic (every RPC response shares one payload type name), so each
+        /// one sees the other's response; correlating on `request_id` before deserializing the body
+        /// is what keeps `OtherResponse::Available` -- a bare JSON string -- from being force-fit
+        /// into `TestResponse` and failing the unrelated request.
+        #[tokio::test]
+        async fn concurrent_request_of_a_different_type_does_not_disturb_a_pending_request() {
+            let crypto_provider = NoEncryptionCryptoProvider;
+            let communication_provider = TestCommunicationBackend::new();
+            let session_map = InMemorySessionRepository::default();
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
+            let _ = client.start(None).await;
+
+            // Put both requests in flight at the same time.
+            let test_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<TestRequest>(
+                            TestRequest { a: 1, b: 2 },
+                            Endpoint::BrowserBackground { id: HostId::Own },
+                            None,
+                        )
+                        .await
+                })
+            };
+            let other_handle = {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    client
+                        .request::<OtherRequest>(
+                            OtherRequest,
+                            Endpoint::BrowserBackground { id: HostId::Own },
+                            None,
+                        )
+                        .await
+                })
+            };
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // Recover both request ids from the wire.
+            let outgoing = communication_provider.outgoing().await;
+            let request_ids: HashMap<String, String> = outgoing
+                .iter()
+                .map(|message| {
+                    let partial: RpcRequestMessage<serde_json::Value> =
+                        serde_utils::from_slice(&message.payload)
+                            .expect("Deserialization should not fail");
+                    (partial.request_type, partial.request_id)
+                })
+                .collect();
+
+            let respond = |payload: Vec<u8>| {
+                communication_provider.push_incoming(IncomingMessage {
+                    payload,
+                    source: Source::BrowserBackground { id: HostId::Own },
+                    destination: Endpoint::Web {
+                        tab_id: 9001,
+                        document_id: "doc-1".to_string(),
+                    },
+                    topic: Some(IncomingRpcResponseMessage::<()>::PAYLOAD_TYPE_NAME.to_owned()),
+                });
+            };
+
+            // Answer `OtherRequest` first, while `TestRequest` is still waiting.
+            respond(
+                serde_utils::to_vec(&IncomingRpcResponseMessage {
+                    result: Ok(OtherResponse::Available),
+                    request_id: request_ids["OtherRequest"].clone(),
+                    request_type: "OtherRequest".to_string(),
+                })
+                .expect("Serialization should not fail"),
+            );
+
+            // `TestRequest` must have ignored the message above and still be waiting for its own.
+            respond(
+                serde_utils::to_vec(&IncomingRpcResponseMessage {
+                    result: Ok(TestResponse { result: 3 }),
+                    request_id: request_ids["TestRequest"].clone(),
+                    request_type: "TestRequest".to_string(),
+                })
+                .expect("Serialization should not fail"),
+            );
+
+            assert_eq!(
+                other_handle
+                    .await
+                    .unwrap()
+                    .expect("OtherRequest should succeed"),
+                OtherResponse::Available
+            );
+            assert_eq!(
+                test_handle
+                    .await
+                    .unwrap()
+                    .expect("TestRequest should succeed"),
+                TestResponse { result: 3 }
+            );
         }
 
         #[tokio::test]

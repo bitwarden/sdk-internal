@@ -18,6 +18,7 @@ use crate::{
         RotateUserKeysError,
         crypto::rotate_account_cryptographic_state_to_request_model,
         data::{check_for_old_attachments, reencrypt_data},
+        rotate_user_keys::UpgradeTokenAction,
         rotation_context::make_rotation_context,
         sync::{SyncedAccountData, sync_current_account_data},
         unlock::{
@@ -92,6 +93,7 @@ async fn internal_password_change_and_rotate_user_keys(
             &sync,
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
+            UpgradeTokenAction::Skip,
             &mut ctx,
         )?;
 
@@ -149,6 +151,10 @@ async fn internal_password_change_and_rotate_user_keys(
             account_keys: Box::new(account_keys_model),
             account_data: Box::new(account_data_model),
             account_unlock_data: Box::new(unlock_data_model),
+            // Only V2 (COSE-encoded) user keys carry a key id; V1 rotations omit the field.
+            new_user_key_id: ctx
+                .get_symmetric_key_id(rotation_context.new_user_key_id)
+                .map(|id| id.to_string()),
         }
     };
 

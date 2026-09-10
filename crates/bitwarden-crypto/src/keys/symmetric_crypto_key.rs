@@ -16,12 +16,15 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use sha2::Digest;
 use subtle::{Choice, ConstantTimeEq};
-use typenum::U32;
+use typenum::{U32, U64};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi, OptionFromWasmAbi};
-use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{key_encryptable::CryptoKey, key_id::KeyId};
+use super::{
+    key_encryptable::CryptoKey,
+    key_id::{KEY_ID_SIZE, KeyId},
+};
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CoseKeyThumbprint, CryptoError, cose,
     cose::{
@@ -123,31 +126,108 @@ impl PartialEq for Aes256CbcKey {
     }
 }
 
+/// The size of the encryption half of an [`Aes256CbcHmacKey`].
+pub(crate) const AES256_CBC_HMAC_ENC_KEY_SIZE: usize = 32;
+/// The size of the MAC half of an [`Aes256CbcHmacKey`].
+pub(crate) const AES256_CBC_HMAC_MAC_KEY_SIZE: usize = 32;
+/// The size of the composite `enc_key || mac_key` buffer of an [`Aes256CbcHmacKey`].
+pub(crate) const AES256_CBC_HMAC_KEY_SIZE: usize =
+    AES256_CBC_HMAC_ENC_KEY_SIZE + AES256_CBC_HMAC_MAC_KEY_SIZE;
+
 /// [Aes256CbcHmacKey] is a symmetric encryption key consisting
 /// of two 256-bit keys, one for encryption and one for MAC
 #[derive(ZeroizeOnDrop, Clone)]
 pub struct Aes256CbcHmacKey {
+    /// The encryption and MAC keys, stored contiguously as `enc_key || mac_key`.
+    ///
+    /// They are kept in one buffer rather than two so that the 64-byte composite form — the layout
+    /// used by the byte serialization, by the
+    /// [`Aes256CbcHmacSha256Aead`](crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256Aead)
+    /// cipher, and by this key's COSE key view — can be borrowed instead of copied. Use
+    /// [`Aes256CbcHmacKey::enc_key`] and [`Aes256CbcHmacKey::mac_key`] for zero-copy views of the
+    /// individual halves.
+    ///
     /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-    pub(crate) enc_key: Pin<Box<Array<u8, U32>>>,
-    /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
-    pub(crate) mac_key: Pin<Box<Array<u8, U32>>>,
+    pub(crate) key: Pin<Box<Array<u8, U64>>>,
 }
 
 impl ConstantTimeEq for Aes256CbcHmacKey {
     fn ct_eq(&self, other: &Self) -> Choice {
-        self.enc_key.ct_eq(&other.enc_key) & self.mac_key.ct_eq(&other.mac_key)
+        self.key.ct_eq(&other.key)
     }
 }
 
 impl Aes256CbcHmacKey {
-    /// Returns the 64-byte composite key (`enc_key || mac_key`) in the layout expected by the
-    /// [`Aes256CbcHmacSha256`](crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256) cipher.
-    pub(crate) fn to_composite_key(&self) -> Zeroizing<[u8; 64]> {
-        let mut key = Zeroizing::new([0u8; 64]);
-        key[..32].copy_from_slice(&self.enc_key);
-        key[32..].copy_from_slice(&self.mac_key);
-        key
+    /// Builds a key from its two halves.
+    pub(crate) fn new(
+        enc_key: &[u8; AES256_CBC_HMAC_ENC_KEY_SIZE],
+        mac_key: &[u8; AES256_CBC_HMAC_MAC_KEY_SIZE],
+    ) -> Self {
+        let mut key = Box::pin(Array::<u8, U64>::default());
+        let (enc, mac) = key.split_at_mut(AES256_CBC_HMAC_ENC_KEY_SIZE);
+        enc.copy_from_slice(enc_key);
+        mac.copy_from_slice(mac_key);
+        Self { key }
     }
+
+    /// Returns the 64-byte composite key (`enc_key || mac_key`), which is the layout expected by
+    /// the [`Aes256CbcHmacSha256`](crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256) and
+    /// [`Aes256CbcHmacSha256Aead`](crate::hazmat::symmetric_encryption::Aes256CbcHmacSha256Aead)
+    /// ciphers.
+    pub(crate) fn as_composite_key(&self) -> &[u8; AES256_CBC_HMAC_KEY_SIZE] {
+        &self.key.0
+    }
+
+    /// Returns the composite key as a slice. This is also this key's legacy byte serialization.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        self.key.as_slice()
+    }
+
+    /// Returns a zero-copy view of the 256-bit encryption key.
+    pub(crate) fn enc_key(&self) -> &[u8; AES256_CBC_HMAC_ENC_KEY_SIZE] {
+        let (enc_key, _) = self.key.split_at(AES256_CBC_HMAC_ENC_KEY_SIZE);
+        enc_key
+            .try_into()
+            .expect("first half of a 64-byte key is always 32 bytes")
+    }
+
+    /// Returns a zero-copy view of the 256-bit MAC key.
+    pub(crate) fn mac_key(&self) -> &[u8; AES256_CBC_HMAC_MAC_KEY_SIZE] {
+        let (_, mac_key) = self.key.split_at(AES256_CBC_HMAC_ENC_KEY_SIZE);
+        mac_key
+            .try_into()
+            .expect("second half of a 64-byte key is always 32 bytes")
+    }
+
+    /// Returns the key ID of this key.
+    ///
+    /// Unlike the other COSE key types, this key has no field to store a key ID in — it is
+    /// serialized as a bare 64-byte blob with no `kid`. The ID is therefore *derived*: it is the
+    /// key's own [RFC 9679](https://www.rfc-editor.org/rfc/rfc9679) thumbprint truncated to
+    /// [`KEY_ID_SIZE`] bytes. Two keys with identical key material consequently share an ID, and a
+    /// key's ID is stable across serialization round-trips.
+    pub(crate) fn key_id(&self) -> KeyId {
+        let thumbprint = symmetric_key_thumbprint(self.as_slice());
+        let mut key_id = [0u8; KEY_ID_SIZE];
+        key_id.copy_from_slice(&thumbprint.as_bytes()[..KEY_ID_SIZE]);
+        KeyId::from(key_id)
+    }
+}
+
+/// Computes the [RFC 9679](https://www.rfc-editor.org/rfc/rfc9679) thumbprint of a COSE `Symmetric`
+/// key with the given `k` bytes. `kty` and `k` are the only required parameters for this key type,
+/// so they are the only ones hashed.
+fn symmetric_key_thumbprint(key_bytes: &[u8]) -> CoseKeyThumbprint {
+    thumbprint_from_required_params(vec![
+        (
+            KeyParameter::Kty.to_i64(),
+            Value::Integer(Integer::from(KeyType::Symmetric.to_i64())),
+        ),
+        (
+            SymmetricKeyParameter::K.to_i64(),
+            Value::Bytes(key_bytes.to_vec()),
+        ),
+    ])
 }
 
 impl PartialEq for Aes256CbcHmacKey {
@@ -295,27 +375,37 @@ impl PartialEq for XAes256GcmKey {
     }
 }
 
-/// A borrowed view over a symmetric key that is encoded as a COSE key.
+/// A borrowed view over a symmetric key that can be used as a COSE content-encryption key.
 pub(crate) enum CoseKeyView<'a> {
     Aes256Gcm(&'a Aes256GcmKey),
     XChaCha20Poly1305(&'a XChaCha20Poly1305Key),
     XAes256Gcm(&'a XAes256GcmKey),
+    Aes256CbcHmac(&'a Aes256CbcHmacKey),
 }
 
 impl CoseKeyView<'_> {
-    pub(crate) fn key_id(&self) -> &KeyId {
+    /// Returns the key ID of the viewed key.
+    ///
+    /// This is returned by value rather than by reference because
+    /// [`CoseKeyView::Aes256CbcHmac`] derives its ID from the key material instead of storing one;
+    /// see [`Aes256CbcHmacKey::key_id`].
+    pub(crate) fn key_id(&self) -> KeyId {
         match self {
-            CoseKeyView::Aes256Gcm(k) => &k.key_id,
-            CoseKeyView::XChaCha20Poly1305(k) => &k.key_id,
-            CoseKeyView::XAes256Gcm(k) => &k.key_id,
+            CoseKeyView::Aes256Gcm(k) => k.key_id.clone(),
+            CoseKeyView::XChaCha20Poly1305(k) => k.key_id.clone(),
+            CoseKeyView::XAes256Gcm(k) => k.key_id.clone(),
+            CoseKeyView::Aes256CbcHmac(k) => k.key_id(),
         }
     }
 
+    /// Returns the key material in the layout the corresponding [`algorithm`](Self::algorithm)
+    /// expects as its content-encryption key.
     pub(crate) fn key_bytes(&self) -> &[u8] {
         match self {
             CoseKeyView::Aes256Gcm(k) => k.enc_key.as_slice(),
             CoseKeyView::XChaCha20Poly1305(k) => k.enc_key.as_slice(),
             CoseKeyView::XAes256Gcm(k) => k.enc_key.as_slice(),
+            CoseKeyView::Aes256CbcHmac(k) => k.as_slice(),
         }
     }
 
@@ -324,6 +414,7 @@ impl CoseKeyView<'_> {
             CoseKeyView::Aes256Gcm(_) => CoseContentEncryptionAlgorithm::Aes256Gcm,
             CoseKeyView::XChaCha20Poly1305(_) => CoseContentEncryptionAlgorithm::XChaCha20Poly1305,
             CoseKeyView::XAes256Gcm(_) => CoseContentEncryptionAlgorithm::XAes256Gcm,
+            CoseKeyView::Aes256CbcHmac(_) => CoseContentEncryptionAlgorithm::Aes256CbcHmacSha256,
         }
     }
 }
@@ -358,13 +449,14 @@ impl SymmetricCryptoKey {
     /// have a good reason for using this function, use
     /// [SymmetricCryptoKey::make_aes256_cbc_hmac_key] instead.
     pub(crate) fn make_aes256_cbc_hmac_key_internal(mut rng: impl rand::CryptoRng) -> Self {
-        let mut enc_key = Box::pin(Array::<u8, U32>::default());
-        let mut mac_key = Box::pin(Array::<u8, U32>::default());
+        let mut key = Box::pin(Array::<u8, U64>::default());
+        // Drawn as two separate 32-byte fills, matching the order and sizes used before the two
+        // halves shared one buffer, so seeded generation stays byte-for-byte identical.
+        let (enc_key, mac_key) = key.split_at_mut(AES256_CBC_HMAC_ENC_KEY_SIZE);
+        rng.fill(enc_key);
+        rng.fill(mac_key);
 
-        rng.fill(enc_key.as_mut_slice());
-        rng.fill(mac_key.as_mut_slice());
-
-        Self::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+        Self::Aes256CbcHmacKey(Aes256CbcHmacKey { key })
     }
 
     /// Make a new [SymmetricCryptoKey] for the specified algorithm
@@ -429,13 +521,13 @@ impl SymmetricCryptoKey {
     pub fn generate_seeded_for_unit_tests(seed: &str) -> Self {
         // Keep this separate from the other generate function to not break test vectors.
         let mut seeded_rng = ChaChaRng::from_seed(sha2::Sha256::digest(seed.as_bytes()).into());
-        let mut enc_key = Box::pin(Array::<u8, U32>::default());
-        let mut mac_key = Box::pin(Array::<u8, U32>::default());
+        let mut key = Box::pin(Array::<u8, U64>::default());
+        // Two separate 32-byte fills, as above, so the generated key is unchanged.
+        let (enc_key, mac_key) = key.split_at_mut(AES256_CBC_HMAC_ENC_KEY_SIZE);
+        seeded_rng.fill(enc_key);
+        seeded_rng.fill(mac_key);
 
-        seeded_rng.fill(enc_key.as_mut_slice());
-        seeded_rng.fill(mac_key.as_mut_slice());
-
-        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+        SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey { key })
     }
 
     /// Creates the byte representation of the key, without any padding. This should not
@@ -456,10 +548,7 @@ impl SymmetricCryptoKey {
                 EncodedSymmetricKey::BitwardenLegacyKey(key.enc_key.to_vec().into())
             }
             Self::Aes256CbcHmacKey(key) => {
-                let mut buf = Vec::with_capacity(64);
-                buf.extend_from_slice(&key.enc_key);
-                buf.extend_from_slice(&key.mac_key);
-                EncodedSymmetricKey::BitwardenLegacyKey(buf.into())
+                EncodedSymmetricKey::BitwardenLegacyKey(key.as_slice().to_vec().into())
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
@@ -525,25 +614,32 @@ impl SymmetricCryptoKey {
         B64::from(self.to_encoded().as_ref())
     }
 
-    /// Returns the key ID of the key, if it has one. COSE-serialized key variants have a key ID.
+    /// Returns the key ID of the key, if it has one. Every authenticated key variant has a key ID;
+    /// only the unauthenticated [`SymmetricCryptoKey::Aes256CbcKey`] does not.
+    ///
+    /// [`SymmetricCryptoKey::Aes256CbcHmacKey`] has no field to store a key ID in, and derives one
+    /// from its key material instead: its RFC 9679 thumbprint, truncated to the key ID length. Two
+    /// such keys with identical key material therefore share an ID.
     pub fn key_id(&self) -> Option<KeyId> {
         match self {
             Self::Aes256CbcKey(_) => None,
-            Self::Aes256CbcHmacKey(_) => None,
+            Self::Aes256CbcHmacKey(key) => Some(key.key_id()),
             Self::XChaCha20Poly1305Key(key) => Some(key.key_id.clone()),
             Self::Aes256GcmKey(key) => Some(key.key_id.clone()),
             Self::XAes256GcmKey(key) => Some(key.key_id.clone()),
         }
     }
 
-    /// Returns a [`CoseKeyView`] for COSE-encoded symmetric key variants.
-    /// Legacy AES-CBC variants return `None`.
+    /// Returns a [`CoseKeyView`] for every symmetric key variant usable as a COSE
+    /// content-encryption key. Only the unauthenticated [`SymmetricCryptoKey::Aes256CbcKey`]
+    /// returns `None`.
     pub(crate) fn as_cose_key_view(&self) -> Option<CoseKeyView<'_>> {
         match self {
             Self::Aes256GcmKey(k) => Some(CoseKeyView::Aes256Gcm(k)),
             Self::XChaCha20Poly1305Key(k) => Some(CoseKeyView::XChaCha20Poly1305(k)),
             Self::XAes256GcmKey(k) => Some(CoseKeyView::XAes256Gcm(k)),
-            Self::Aes256CbcKey(_) | Self::Aes256CbcHmacKey(_) => None,
+            Self::Aes256CbcHmacKey(k) => Some(CoseKeyView::Aes256CbcHmac(k)),
+            Self::Aes256CbcKey(_) => None,
         }
     }
 }
@@ -551,25 +647,15 @@ impl SymmetricCryptoKey {
 impl CoseKeyThumbprintExt for SymmetricCryptoKey {
     /// Computes the RFC 9679 thumbprint of this symmetric key.
     ///
-    /// Returns an error for legacy AES-CBC keys, which are not currently representable as COSE
-    /// keys.
+    /// Returns an error for the unauthenticated legacy AES-CBC key, which is not representable as
+    /// a COSE key.
     fn thumbprint(&self) -> Result<CoseKeyThumbprint, CryptoError> {
         let view = self
             .as_cose_key_view()
             .ok_or(EncodingError::UnsupportedValue(
-                "legacy AES-CBC keys are not COSE keys and have no thumbprint",
+                "unauthenticated AES-CBC keys are not COSE keys and have no thumbprint",
             ))?;
-        let params = vec![
-            (
-                KeyParameter::Kty.to_i64(),
-                Value::Integer(Integer::from(KeyType::Symmetric.to_i64())),
-            ),
-            (
-                SymmetricKeyParameter::K.to_i64(),
-                Value::Bytes(view.key_bytes().to_vec()),
-            ),
-        ];
-        Ok(thumbprint_from_required_params(params))
+        Ok(symmetric_key_thumbprint(view.key_bytes()))
     }
 }
 
@@ -658,15 +744,12 @@ impl TryFrom<EncodedSymmetricKey> for SymmetricCryptoKey {
             EncodedSymmetricKey::BitwardenLegacyKey(key)
                 if key.as_ref().len() == Self::AES256_CBC_HMAC_KEY_LEN =>
             {
-                let mut enc_key = Box::pin(Array::<u8, U32>::default());
-                enc_key.copy_from_slice(&key.as_ref()[..32]);
-
-                let mut mac_key = Box::pin(Array::<u8, U32>::default());
-                mac_key.copy_from_slice(&key.as_ref()[32..]);
+                // The legacy byte serialization is defined as `enc_key || mac_key`
+                let mut composite_key = Box::pin(Array::<u8, U64>::default());
+                composite_key.copy_from_slice(key.as_ref());
 
                 Ok(Self::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                    enc_key,
-                    mac_key,
+                    key: composite_key,
                 }))
             }
             EncodedSymmetricKey::CoseKey(key) => Self::try_from_cose(key.as_ref()),
@@ -704,8 +787,8 @@ impl std::fmt::Debug for Aes256CbcHmacKey {
         let mut debug_struct = f.debug_struct("SymmetricKey::Aes256CbcHmac");
         #[cfg(feature = "dangerous-crypto-debug")]
         debug_struct
-            .field("enc_key", &hex::encode(self.enc_key.as_slice()))
-            .field("mac_key", &hex::encode(self.mac_key.as_slice()));
+            .field("enc_key", &hex::encode(self.enc_key()))
+            .field("mac_key", &hex::encode(self.mac_key()));
         debug_struct.finish()
     }
 }
@@ -866,7 +949,10 @@ mod tests {
     use hybrid_array::Array;
     use typenum::U32;
 
-    use super::{EncodedSymmetricKey, SymmetricCryptoKey, derive_symmetric_key};
+    use super::{
+        AES256_CBC_HMAC_ENC_KEY_SIZE, EncodedSymmetricKey, KEY_ID_SIZE, SymmetricCryptoKey,
+        derive_symmetric_key,
+    };
     use crate::{
         Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, CoseKeyThumbprintExt,
         SymmetricKeyAlgorithm, XAes256GcmKey, XChaCha20Poly1305Key,
@@ -1034,18 +1120,9 @@ mod tests {
 
     #[test]
     fn test_eq_variant_aes256_cbc_hmac() {
-        let key1 = Aes256CbcHmacKey {
-            enc_key: Box::pin(Array::from([1u8; 32])),
-            mac_key: Box::pin(Array::from([2u8; 32])),
-        };
-        let key2 = Aes256CbcHmacKey {
-            enc_key: Box::pin(Array::from([1u8; 32])),
-            mac_key: Box::pin(Array::from([2u8; 32])),
-        };
-        let key3 = Aes256CbcHmacKey {
-            enc_key: Box::pin(Array::from([3u8; 32])),
-            mac_key: Box::pin(Array::from([4u8; 32])),
-        };
+        let key1 = Aes256CbcHmacKey::new(&[1u8; 32], &[2u8; 32]);
+        let key2 = Aes256CbcHmacKey::new(&[1u8; 32], &[2u8; 32]);
+        let key3 = Aes256CbcHmacKey::new(&[3u8; 32], &[4u8; 32]);
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
     }
@@ -1171,10 +1248,7 @@ mod tests {
             SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
                 enc_key: Box::pin(Array::default()),
             }),
-            SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey {
-                enc_key: Box::pin(Array::default()),
-                mac_key: Box::pin(Array::default()),
-            }),
+            SymmetricCryptoKey::Aes256CbcHmacKey(Aes256CbcHmacKey::new(&[0u8; 32], &[0u8; 32])),
             SymmetricCryptoKey::Aes256GcmKey(crate::Aes256GcmKey::make()),
             SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key::make()),
         ] {
@@ -1258,12 +1332,118 @@ mod tests {
         assert_eq!(key.thumbprint().unwrap(), key.thumbprint().unwrap());
     }
 
+    /// The unauthenticated AES-CBC key is the only variant with no COSE key view, and so the only
+    /// one without a thumbprint.
     #[test]
-    fn test_thumbprint_errors_for_legacy_aes_cbc() {
-        assert!(
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key()
-                .thumbprint()
-                .is_err()
+    fn test_thumbprint_errors_for_unauthenticated_aes_cbc() {
+        let key = SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
+            enc_key: Box::pin(Array::from([1u8; 32])),
+        });
+        assert!(key.thumbprint().is_err());
+    }
+
+    const AES256_CBC_HMAC_KEY_THUMBPRINT: &str =
+        "ac4ecffb2e087a59180d1dd19950b8e9e634997f47bbfd7a2bb829edf7a9f900";
+    const AES256_CBC_HMAC_KEY_ID: &str = "ac4ecffb2e087a59180d1dd19950b8e9";
+
+    /// A fixed AES-256-CBC-HMAC key: `enc_key` is `0x00..0x1f`, `mac_key` is `0x20..0x3f`.
+    fn fixed_aes_cbc_hmac_key_inner() -> Aes256CbcHmacKey {
+        Aes256CbcHmacKey::new(
+            &std::array::from_fn(|i| i as u8),
+            &std::array::from_fn(|i| (i + 32) as u8),
+        )
+    }
+
+    fn fixed_aes_cbc_hmac_key() -> SymmetricCryptoKey {
+        SymmetricCryptoKey::Aes256CbcHmacKey(fixed_aes_cbc_hmac_key_inner())
+    }
+
+    #[test]
+    #[ignore = "Generates test vectors; run manually"]
+    fn generate_aes256_cbc_hmac_thumbprint_vectors() {
+        let key = fixed_aes_cbc_hmac_key();
+        println!(
+            "const AES256_CBC_HMAC_KEY_THUMBPRINT: &str = \"{}\";",
+            key.thumbprint().unwrap().to_hex()
         );
+        println!(
+            "const AES256_CBC_HMAC_KEY_ID: &str = \"{}\";",
+            hex::encode(key.key_id().unwrap().as_slice())
+        );
+    }
+
+    /// Locks in the thumbprint of an AES-256-CBC-HMAC key: the RFC 9679 thumbprint of a COSE
+    /// `Symmetric` key whose `k` is the 64-byte `enc_key || mac_key` composite. The derived key ID
+    /// depends on this, so it must never change.
+    #[test]
+    fn test_thumbprint_aes256_cbc_hmac_vector() {
+        assert_eq!(
+            fixed_aes_cbc_hmac_key().thumbprint().unwrap().to_hex(),
+            AES256_CBC_HMAC_KEY_THUMBPRINT
+        );
+    }
+
+    #[test]
+    fn test_key_id_aes256_cbc_hmac_vector() {
+        let key_id = fixed_aes_cbc_hmac_key().key_id().unwrap();
+        assert_eq!(hex::encode(key_id.as_slice()), AES256_CBC_HMAC_KEY_ID);
+    }
+
+    /// Locks in the derivation rule itself: the key ID is the leading `KEY_ID_SIZE` bytes of the
+    /// key's thumbprint.
+    #[test]
+    fn test_key_id_is_thumbprint_prefix() {
+        let key = fixed_aes_cbc_hmac_key();
+        let thumbprint = key.thumbprint().unwrap();
+        assert_eq!(
+            key.key_id().unwrap().as_slice(),
+            &thumbprint.as_bytes()[..KEY_ID_SIZE]
+        );
+    }
+
+    #[test]
+    fn test_key_id_aes256_cbc_hmac_is_deterministic() {
+        assert_eq!(
+            fixed_aes_cbc_hmac_key().key_id(),
+            fixed_aes_cbc_hmac_key().key_id()
+        );
+    }
+
+    /// Both halves of the key must feed the ID, or two keys differing only in their MAC key would
+    /// collide.
+    #[test]
+    fn test_key_id_aes256_cbc_hmac_covers_both_halves() {
+        let key = fixed_aes_cbc_hmac_key();
+
+        // Flip the first byte of the encryption half, then of the MAC half.
+        let mut different_enc = fixed_aes_cbc_hmac_key_inner();
+        different_enc.key[0] ^= 1;
+        assert_ne!(
+            key.key_id(),
+            SymmetricCryptoKey::Aes256CbcHmacKey(different_enc).key_id()
+        );
+
+        let mut different_mac = fixed_aes_cbc_hmac_key_inner();
+        different_mac.key[AES256_CBC_HMAC_ENC_KEY_SIZE] ^= 1;
+        assert_ne!(
+            key.key_id(),
+            SymmetricCryptoKey::Aes256CbcHmacKey(different_mac).key_id()
+        );
+    }
+
+    /// Having a COSE key view must not change how these keys are serialized: they remain the raw
+    /// 64-byte legacy encoding. Changing this would break every existing user key.
+    #[test]
+    fn test_aes256_cbc_hmac_still_encodes_as_legacy_64_bytes() {
+        let key = fixed_aes_cbc_hmac_key();
+
+        let EncodedSymmetricKey::BitwardenLegacyKey(raw) = key.to_encoded_raw() else {
+            panic!("expected legacy key encoding");
+        };
+        assert_eq!(raw.as_ref().len(), 64);
+        assert_eq!(raw.as_ref(), (0u8..64).collect::<Vec<_>>());
+
+        assert_eq!(key.to_encoded().as_ref().len(), 64);
+        assert_eq!(SymmetricCryptoKey::try_from(key.to_base64()).unwrap(), key);
     }
 }

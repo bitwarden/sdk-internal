@@ -346,6 +346,12 @@ pub struct OrganizationSubscriptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub upcoming_invoice: Option<Box<models::BillingSubscriptionUpcomingInvoice>>,
+    #[serde(
+        rename = "pendingAnnualUpgrade",
+        alias = "PendingAnnualUpgrade",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub pending_annual_upgrade: Option<Box<models::PendingAnnualUpgradeResponseModel>>,
     /// The count of permanently-free Secrets Manager service accounts granted beyond the plan
     /// baseline during a pricing migration. Clients subtract this from
     /// Bit.Api.AdminConsole.Models.Response.Organizations.OrganizationResponseModel.
@@ -439,6 +445,7 @@ impl OrganizationSubscriptionResponseModel {
             customer_discount: None,
             subscription: None,
             upcoming_invoice: None,
+            pending_annual_upgrade: None,
             sm_service_accounts_grace: None,
             expiration_without_grace_period: None,
             expiration: None,

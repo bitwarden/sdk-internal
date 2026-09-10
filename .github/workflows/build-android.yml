@@ -11,6 +11,14 @@ on:
         description: "Update Android Repo - Opens a PR updating the SDK in bitwarden/android"
         type: boolean
         default: false
+  workflow_call:
+    secrets:
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_CLIENT_ID:
+        required: true
 
 defaults:
   run:
@@ -33,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -69,6 +77,7 @@ jobs:
     name: Combine
     runs-on: ubuntu-24.04
     needs: build
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     outputs:
       sdk-package-id: ${{ steps.publish.outputs.sdk-package-id }}
       sdk-version: ${{ steps.publish.outputs.sdk-version }}
@@ -78,15 +87,16 @@ jobs:
 
     steps:
       - name: Checkout repo (PR)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
 
       - name: Checkout repo (Push or manual run)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         with:
           fetch-depth: 0
@@ -141,7 +151,7 @@ jobs:
 
   check-android-breaking-changes:
     name: Check for Android breaking changes
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: combine
     permissions:
       contents: read

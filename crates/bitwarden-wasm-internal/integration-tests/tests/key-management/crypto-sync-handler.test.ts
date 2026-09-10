@@ -1,7 +1,7 @@
 import { PasswordManagerClient, init_sdk } from "@bitwarden/sdk-internal";
 
 import { makeStateBridge, makeV2AccountClient } from "../utils";
-import { CHANGED_KDF_PARAMS, SYNC_VECTOR } from "./crypto-sync-fixtures";
+import { CHANGED_KDF_PARAMS, SYNC_VECTOR, SYNC_VECTOR_USER_KEY_ID } from "./crypto-sync-fixtures";
 
 describe("crypto sync handler", () => {
   describe("state", () => {
@@ -27,6 +27,21 @@ describe("crypto sync handler", () => {
       expect(await bridge.get_webauthn_prf_unlock_data()).toEqual({
         options: SYNC_VECTOR.userDecryption!.webAuthnPrfOptions,
       });
+      expect(await bridge.get_user_key_id()).toEqual(SYNC_VECTOR_USER_KEY_ID);
+    });
+
+    it("clears the stored user key id when the server reports none", async () => {
+      const bridge = makeStateBridge();
+      const client = await makeV2AccountClient(bridge);
+      await client.crypto_sync_handler().on_sync(SYNC_VECTOR);
+      expect(await bridge.get_user_key_id()).toBeTruthy();
+
+      // An absent key id means the server has none recorded for this user key, so a previously
+      // stored one no longer describes anything.
+      const { userKeyId: _dropped, ...userDecryption } = SYNC_VECTOR.userDecryption!;
+      await client.crypto_sync_handler().on_sync({ ...SYNC_VECTOR, userDecryption });
+
+      expect(await bridge.get_user_key_id()).toBeFalsy();
     });
 
     it("clears stored webauthn prf options when the server reports none", async () => {

@@ -25,6 +25,8 @@ pub enum AccessLeaseStatus {
     Expired,
     /// The lease was revoked before its window closed.
     Revoked,
+    /// The lease was cancelled by its requester before its window closed.
+    Canceled,
     /// A status value this SDK version does not recognize. Kept as a distinct variant so listing
     /// leases never fails on a newer server's status.
     Unknown,
@@ -36,6 +38,7 @@ impl From<ApiAccessLeaseStatus> for AccessLeaseStatus {
             ApiAccessLeaseStatus::Active => Self::Active,
             ApiAccessLeaseStatus::Expired => Self::Expired,
             ApiAccessLeaseStatus::Revoked => Self::Revoked,
+            ApiAccessLeaseStatus::Cancelled => Self::Canceled,
             ApiAccessLeaseStatus::__Unknown(_) => Self::Unknown,
         }
     }

@@ -4,7 +4,7 @@ use bitwarden_sensitive_value::ExposeSensitive;
 use bitwarden_uniffi_error::convert_result;
 
 use crate::{
-    CryptoError, EncString, EncodingError, PublicKey, SignedPublicKey, SymmetricCryptoKey,
+    CryptoError, EncString, EncodingError, KeyId, PublicKey, SignedPublicKey, SymmetricCryptoKey,
     UnsignedSharedKey,
     safe::{
         DataEnvelope, HighEntropySecret, PasswordProtectedKeyEnvelope, SecretProtectedKeyEnvelope,
@@ -30,6 +30,13 @@ uniffi::custom_type!(SymmetricCryptoKey, String, {
 uniffi::custom_type!(EncString, String, {
     try_lift: |val| {
         convert_result(EncString::from_str(&val))
+    },
+    lower: |obj| obj.to_string(),
+});
+
+uniffi::custom_type!(KeyId, String, {
+    try_lift: |val| {
+        convert_result(KeyId::from_str(&val))
     },
     lower: |obj| obj.to_string(),
 });

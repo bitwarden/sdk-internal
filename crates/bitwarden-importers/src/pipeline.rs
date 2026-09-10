@@ -58,10 +58,8 @@ pub(crate) async fn submit_import(
         let cipher_models = ciphers
             .into_iter()
             .map(|c| {
-                let cipher = encrypt_import(&mut ctx, c, options.organization_id)?;
-                let mut model: CipherRequestModel = cipher.try_into()?;
-                model.encrypted_for = Some(user_id.into());
-                Ok::<_, ImportError>(model)
+                let encrypted = encrypt_import(&mut ctx, c, options.organization_id, user_id)?;
+                Ok::<_, ImportError>(CipherRequestModel::from(encrypted))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -451,8 +449,11 @@ mod tests {
             totp: None,
             fido2_credentials: None,
         }));
-        let cipher = encrypt_import(&mut ctx, importing("GitHub", login), None).unwrap();
+        let user_id = client.internal.get_user_id().unwrap();
+        let encrypted =
+            encrypt_import(&mut ctx, importing("GitHub", login), None, user_id).unwrap();
 
-        assert_ne!(cipher.name.unwrap().to_string(), "GitHub");
+        assert_eq!(encrypted.encrypted_for, user_id);
+        assert_ne!(encrypted.cipher.name.unwrap().to_string(), "GitHub");
     }
 }

@@ -181,9 +181,14 @@ impl DataEnvelope {
         // AES-256-GCM (current), XAES-256-GCM, and XChaCha20-Poly1305 (legacy)
         // content-encryption keys are accepted. The typed key's algorithm must match the algorithm
         // in the envelope's protected header.
-        let view = cek
-            .as_cose_key_view()
-            .ok_or(DataEnvelopeError::UnsupportedContentFormat)?;
+        let view = match cek {
+            SymmetricCryptoKey::Aes256CbcKey(_) | SymmetricCryptoKey::Aes256CbcHmacKey(_) => {
+                return Err(DataEnvelopeError::UnsupportedContentFormat);
+            }
+            cek => cek
+                .as_cose_key_view()
+                .ok_or(DataEnvelopeError::UnsupportedContentFormat)?,
+        };
         self.unseal_ref(T::NAMESPACE, view)
     }
 

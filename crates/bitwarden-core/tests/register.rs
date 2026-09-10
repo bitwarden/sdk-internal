@@ -55,6 +55,7 @@ async fn test_register_initialize_crypto() {
                     kdf,
                     master_key_wrapped_user_key: register_response.encrypted_user_key,
                     salt: email.to_owned(),
+                    contained_key_id: None,
                 },
             },
             upgrade_token: None,
