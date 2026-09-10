@@ -174,11 +174,12 @@ fn derive_master_key(
         decode64_loose(info.p2s.as_deref().ok_or_else(|| {
             OnePasswordError::Internal("master keyset is missing the salt".into())
         })?)?;
-    // `pbkdf2` runs `1..rounds`, so a missing count would stretch the password exactly once.
-    if info.p2c == 0 {
-        return Err(OnePasswordError::Internal(
-            "master keyset is missing the iteration count".into(),
-        ));
+    if info.p2c < kdf::MIN_PBKDF2_ITERATIONS {
+        return Err(OnePasswordError::Unsupported(format!(
+            "master keyset asks for {} iterations, below the minimum of {}",
+            info.p2c,
+            kdf::MIN_PBKDF2_ITERATIONS
+        )));
     }
     let key = kdf::derive_master_key(algorithm, info.p2c, &salt, username, password, account_key)?;
 

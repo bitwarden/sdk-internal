@@ -22,7 +22,7 @@ pub(super) struct EncryptedEnvelope {
 ///
 /// Extra JWK members (`dp`, `dq`, `qi`, `alg`, `kty`, `ext`) are ignored: the CRT values are
 /// recomputed from `p` and `q` when the key is built.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub(super) struct RsaKeyJwk {
     pub kid: String,
     pub e: String,
@@ -240,7 +240,7 @@ pub(super) struct VaultAccess {
 }
 
 /// Decrypted vault attributes.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub(super) struct VaultAttributes {
     pub name: Option<String>,
     pub desc: Option<String>,
@@ -270,7 +270,7 @@ pub(super) struct VaultItem {
 }
 
 /// A decrypted item overview.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemOverview {
     pub title: Option<String>,
     pub ainfo: Option<String>,
@@ -281,7 +281,7 @@ pub struct VaultItemOverview {
 }
 
 /// A URL entry in an item overview.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemUrl {
     #[serde(rename = "l")]
     pub name: Option<String>,
@@ -290,7 +290,7 @@ pub struct VaultItemUrl {
 }
 
 /// Decrypted item details.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemDetails {
     #[serde(rename = "notesPlain")]
     pub note: Option<String>,
@@ -303,14 +303,14 @@ pub struct VaultItemDetails {
 }
 
 /// A superseded password and the unix time it was replaced, oldest first.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemPasswordHistory {
     pub value: Option<String>,
     pub time: Option<i64>,
 }
 
 /// A designation-based login field (username/password).
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemField {
     pub designation: Option<String>,
     pub value: Option<String>,
@@ -321,7 +321,7 @@ pub struct VaultItemField {
 }
 
 /// A titled section of fields.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemSection {
     /// The section's stable id, such as `Section_l2bagl3iupehvr7jvrc62mjhee`.
     #[serde(rename = "name")]
@@ -332,7 +332,7 @@ pub struct VaultItemSection {
 }
 
 /// A field inside a section. The value `v` can be any JSON type.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemSectionField {
     #[serde(rename = "n")]
     pub id: Option<String>,
@@ -358,7 +358,7 @@ pub struct VaultItemInputTraits {
 }
 
 /// Extra attributes on a section field.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct VaultItemFieldAttributes {
     pub guarded: Option<String>,
     #[serde(rename = "sshKeyAttributes")]
@@ -366,7 +366,7 @@ pub struct VaultItemFieldAttributes {
 }
 
 /// The SSH key material carried on a `sshKey` field.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct SshKeyAttributes {
     #[serde(rename = "privateKey")]
     pub private_key: Option<String>,

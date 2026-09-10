@@ -25,10 +25,20 @@ instance. It should only contain:
      token management
 4. **Storage state**:
    - Database/state repository registration
+5. **Host-injected configuration**:
+   - `ManagementProfile` cell - administrator-forced settings the host application acquires from the
+     operating system's device-management (UEM/MDM) channel
 
 **Plain data** (tokens, flags, login info, profile data) should be accessed through `Repository`
 implementations, not stored directly in `Client`. Historical fields exist due to incremental
 migration - they will be moved to repositories over time.
+
+The `ManagementProfile` cell is a deliberate exception to that rule rather than a historical one. It
+is shared mutable state owned by the _host_, which pushes profiles in and updates them as the OS
+profile changes, while the SDK only ever reads. It must also be readable before login and before
+unlock, since it can carry pre-authentication configuration such as the environment URL. Since a
+`Repository` models storage the SDK owns, that abstraction is incompatible with the shared mutable
+state owned by the host.
 
 ### `Client` vs `InternalClient`
 

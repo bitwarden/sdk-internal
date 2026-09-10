@@ -123,6 +123,7 @@ dependencies = [
  "bitwarden_repr_with_tsify",
  "bitwarden_tracing_instrument",
  "bitwarden_uniffi_async_export",
+ "bitwarden_uniffi_config",
  "dylint_linting",
 ]
 
@@ -155,6 +156,15 @@ dependencies = [
 
 [[package]]
 name = "bitwarden_uniffi_async_export"
+version = "0.1.0"
+dependencies = [
+ "clippy_utils",
+ "dylint_linting",
+ "dylint_testing",
+]
+
+[[package]]
+name = "bitwarden_uniffi_config"
 version = "0.1.0"
 dependencies = [
  "clippy_utils",

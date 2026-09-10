@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use bitwarden_collections::{
-    collection::{Collection, CollectionId, CollectionView},
-    tree::{NodeItem, Tree},
-};
-use bitwarden_core::Client;
+use bitwarden_core::{Client, FromClient};
 #[cfg(feature = "wasm")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -12,7 +8,11 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{DecryptError, EncryptError};
+use crate::{
+    collection::{Collection, CollectionId, CollectionView},
+    error::{CollectionDecryptError, CollectionEncryptError},
+    tree::{NodeItem, Tree},
+};
 
 /// Represents the result of decrypting a list of collections.
 ///
@@ -39,10 +39,21 @@ pub struct CollectionsClient {
     pub(crate) client: Client,
 }
 
+impl FromClient for CollectionsClient {
+    fn from_client(client: &Client) -> Self {
+        Self {
+            client: client.clone(),
+        }
+    }
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CollectionsClient {
     /// Encrypts a [CollectionView] into an encrypted [Collection] using the organization key.
-    pub fn encrypt(&self, collection_view: CollectionView) -> Result<Collection, EncryptError> {
+    pub fn encrypt(
+        &self,
+        collection_view: CollectionView,
+    ) -> Result<Collection, CollectionEncryptError> {
         let key_store = self.client.internal.get_key_store();
         let collection = key_store.encrypt(collection_view)?;
         Ok(collection)
@@ -53,14 +64,17 @@ impl CollectionsClient {
     pub fn encrypt_list(
         &self,
         collection_views: Vec<CollectionView>,
-    ) -> Result<Vec<Collection>, EncryptError> {
+    ) -> Result<Vec<Collection>, CollectionEncryptError> {
         let key_store = self.client.internal.get_key_store();
         let collections = key_store.encrypt_list(&collection_views)?;
         Ok(collections)
     }
 
     #[allow(missing_docs)]
-    pub fn decrypt(&self, collection: Collection) -> Result<CollectionView, DecryptError> {
+    pub fn decrypt(
+        &self,
+        collection: Collection,
+    ) -> Result<CollectionView, CollectionDecryptError> {
         let key_store = self.client.internal.get_key_store();
         let view = key_store.decrypt(&collection)?;
         Ok(view)
@@ -70,7 +84,7 @@ impl CollectionsClient {
     pub fn decrypt_list(
         &self,
         collections: Vec<Collection>,
-    ) -> Result<Vec<CollectionView>, DecryptError> {
+    ) -> Result<Vec<CollectionView>, CollectionDecryptError> {
         let key_store = self.client.internal.get_key_store();
         let views = key_store.decrypt_list(&collections)?;
         Ok(views)
@@ -178,11 +192,10 @@ impl CollectionViewTree {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_collections::collection::CollectionType;
     use bitwarden_core::{OrganizationId, client::test_accounts::test_bitwarden_com_account};
 
     use super::*;
-    use crate::VaultClientExt;
+    use crate::collection::CollectionType;
 
     fn test_collection() -> Collection {
         Collection {
@@ -198,40 +211,34 @@ mod tests {
         }
     }
 
+    async fn test_collections_client() -> CollectionsClient {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        CollectionsClient::from_client(&client)
+    }
+
     #[tokio::test]
     async fn test_decrypt_list() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let collections = test_collections_client().await;
 
-        let dec = client
-            .vault()
-            .collections()
-            .decrypt_list(vec![test_collection()])
-            .unwrap();
+        let dec = collections.decrypt_list(vec![test_collection()]).unwrap();
 
         assert_eq!(dec[0].name, "Default collection");
     }
 
     #[tokio::test]
     async fn test_decrypt() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let collections = test_collections_client().await;
 
-        let dec = client
-            .vault()
-            .collections()
-            .decrypt(test_collection())
-            .unwrap();
+        let dec = collections.decrypt(test_collection()).unwrap();
 
         assert_eq!(dec.name, "Default collection");
     }
 
     #[tokio::test]
     async fn test_decrypt_list_with_failures_all_success() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let collections = test_collections_client().await;
 
-        let result = client
-            .vault()
-            .collections()
-            .decrypt_list_with_failures(vec![test_collection()]);
+        let result = collections.decrypt_list_with_failures(vec![test_collection()]);
 
         assert_eq!(result.successes.len(), 1);
         assert!(result.failures.is_empty());
@@ -240,7 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_decrypt_list_with_failures_mixed_results() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = test_collections_client().await;
 
         let valid_collection = test_collection();
         let mut invalid_collection = test_collection();
@@ -250,10 +257,7 @@ mod tests {
 
         let collections = vec![valid_collection, invalid_collection.clone()];
 
-        let result = client
-            .vault()
-            .collections()
-            .decrypt_list_with_failures(collections);
+        let result = client.decrypt_list_with_failures(collections);
 
         assert_eq!(result.successes.len(), 1);
         assert_eq!(result.successes[0].name, "Default collection");
@@ -267,12 +271,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_decrypt_list_with_failures_empty_list() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let collections = test_collections_client().await;
 
-        let result = client
-            .vault()
-            .collections()
-            .decrypt_list_with_failures(vec![]);
+        let result = collections.decrypt_list_with_failures(vec![]);
 
         assert!(result.successes.is_empty());
         assert!(result.failures.is_empty());
@@ -280,21 +281,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_encrypt_decrypt_roundtrip() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let collections = test_collections_client().await;
 
-        let view = client
-            .vault()
-            .collections()
-            .decrypt(test_collection())
-            .unwrap();
+        let view = collections.decrypt(test_collection()).unwrap();
 
         assert_eq!(view.name, "Default collection");
 
         // Re-encrypt the decrypted view, then decrypt again
         let expected_id = view.id;
         let expected_org_id = view.organization_id;
-        let re_encrypted = client.vault().collections().encrypt(view).unwrap();
-        let re_decrypted = client.vault().collections().decrypt(re_encrypted).unwrap();
+        let re_encrypted = collections.encrypt(view).unwrap();
+        let re_decrypted = collections.decrypt(re_encrypted).unwrap();
 
         assert_eq!(re_decrypted.name, "Default collection");
         assert_eq!(re_decrypted.id, expected_id);
@@ -303,13 +300,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_encrypt_list_decrypt_list_roundtrip() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let collections = test_collections_client().await;
 
-        let views = client
-            .vault()
-            .collections()
-            .decrypt_list(vec![test_collection()])
-            .unwrap();
+        let views = collections.decrypt_list(vec![test_collection()]).unwrap();
 
         assert_eq!(views.len(), 1);
         assert_eq!(views[0].name, "Default collection");
@@ -317,15 +310,11 @@ mod tests {
         let expected_id = views[0].id;
         let expected_org_id = views[0].organization_id;
 
-        let re_encrypted = client.vault().collections().encrypt_list(views).unwrap();
+        let re_encrypted = collections.encrypt_list(views).unwrap();
 
         assert_eq!(re_encrypted.len(), 1);
 
-        let re_decrypted = client
-            .vault()
-            .collections()
-            .decrypt_list(re_encrypted)
-            .unwrap();
+        let re_decrypted = collections.decrypt_list(re_encrypted).unwrap();
 
         assert_eq!(re_decrypted.len(), 1);
         assert_eq!(re_decrypted[0].name, "Default collection");

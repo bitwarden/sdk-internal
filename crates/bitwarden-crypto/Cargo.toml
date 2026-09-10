@@ -37,7 +37,7 @@ test-utils = []
 
 [dependencies]
 aes = { workspace = true }
-aes-gcm = { version = "0.11.0-rc.4", features = ["zeroize"] }
+aes-gcm = { workspace = true }
 argon2 = { version = "=0.6.0-rc.8", features = [
     "kdf",
     "zeroize",
@@ -55,7 +55,7 @@ ciborium = { workspace = true }
 coset = { version = ">=0.4.2, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
 hex = { version = ">=0.4.0, <0.5" }
-hkdf = "0.13.0"
+hkdf = { workspace = true }
 hmac = { workspace = true, features = ["zeroize"] }
 hybrid-array = { version = "0.4.10", features = ["alloc", "serde", "zeroize"] }
 js-sys = { workspace = true, optional = true }

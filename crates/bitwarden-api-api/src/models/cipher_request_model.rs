@@ -64,8 +64,12 @@ pub struct CipherRequestModel {
     pub reprompt: Option<models::CipherRepromptType>,
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "name", alias = "Name")]
-    pub name: String,
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub name: Option<String>,
     #[serde(
         rename = "notes",
         alias = "Notes",
@@ -174,7 +178,7 @@ pub struct CipherRequestModel {
 }
 
 impl CipherRequestModel {
-    pub fn new(name: String) -> CipherRequestModel {
+    pub fn new() -> CipherRequestModel {
         CipherRequestModel {
             encrypted_for: None,
             encrypted_by_key_id: None,
@@ -184,7 +188,7 @@ impl CipherRequestModel {
             favorite: None,
             reprompt: None,
             key: None,
-            name,
+            name: None,
             notes: None,
             fields: None,
             password_history: None,

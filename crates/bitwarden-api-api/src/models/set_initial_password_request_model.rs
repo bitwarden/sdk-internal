@@ -22,12 +22,6 @@ pub struct SetInitialPasswordRequestModel {
     pub master_password_hash: Option<String>,
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(
-        rename = "keys",
-        alias = "Keys",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub keys: Option<Box<models::KeysRequestModel>>,
     #[serde(rename = "kdf", alias = "Kdf", skip_serializing_if = "Option::is_none")]
     pub kdf: Option<models::KdfType>,
     #[serde(
@@ -48,6 +42,12 @@ pub struct SetInitialPasswordRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub kdf_parallelism: Option<i32>,
+    #[serde(
+        rename = "keys",
+        alias = "Keys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub keys: Option<Box<models::KeysRequestModel>>,
     #[serde(
         rename = "masterPasswordAuthentication",
         alias = "MasterPasswordAuthentication",
@@ -82,11 +82,11 @@ impl SetInitialPasswordRequestModel {
         SetInitialPasswordRequestModel {
             master_password_hash: None,
             key: None,
-            keys: None,
             kdf: None,
             kdf_iterations: None,
             kdf_memory: None,
             kdf_parallelism: None,
+            keys: None,
             master_password_authentication: None,
             master_password_unlock: None,
             account_keys: None,

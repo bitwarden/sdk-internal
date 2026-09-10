@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
-    FromClient,
+    ClientBuilder, FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
+    client::tracing_middleware::ReqwestTracingMiddleware,
 };
 use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClientExt as _;
 #[cfg(not(target_arch = "wasm32"))]
@@ -17,9 +18,10 @@ use bitwarden_crypto_sync_handler::CryptoSyncHandlerClientExt as _;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
+use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt as _};
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
-use bitwarden_send::SendClientExt as _;
+use bitwarden_send::{SendClientExt as _, SendSyncHandler, SendSyncHandlerClientExt as _};
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_unlock::UnlockClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
@@ -31,6 +33,7 @@ uniffi::setup_scaffolding!();
 /// Re-export subclients for easier access
 pub mod clients {
     pub use bitwarden_auth::AuthClient;
+    pub use bitwarden_collections::collection_client::CollectionsClient;
     pub use bitwarden_core::key_management::CryptoClient;
     pub use bitwarden_crypto_cipher_suite::CryptoCipherSuiteClient;
     pub use bitwarden_crypto_sync_handler::CryptoSyncHandlerClient;
@@ -39,7 +42,7 @@ pub mod clients {
     pub use bitwarden_importers::ImporterClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
     pub use bitwarden_policies::PolicyClient;
-    pub use bitwarden_send::SendClient;
+    pub use bitwarden_send::{SendClient, SendSyncHandlerClient};
     pub use bitwarden_sync::SyncClient;
     pub use bitwarden_unlock::UnlockClient;
     pub use bitwarden_vault::VaultClient;
@@ -71,15 +74,25 @@ impl PasswordManagerClient {
         PasswordManagerClientBuilder::new()
     }
 
-    /// Initialize a new instance of the SDK client with client-managed tokens
+    /// Initialize a new instance of the SDK client with client-managed tokens and a shared
+    /// managed-settings handle.
+    ///
+    /// `managed_settings` is owned by the host application, which acquires a management profile
+    /// from the operating system's device-management channel and pushes it in. Only its cell is
+    /// captured, so profiles the host pushes later are visible to this client.
     pub fn new_with_client_tokens(
         settings: Option<bitwarden_core::ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
+        managed_settings: &ManagedSettingsClient,
     ) -> Self {
-        Self(bitwarden_core::Client::new_with_token_handler(
-            settings,
-            ClientManagedTokenHandler::new(tokens),
-        ))
+        let mut builder = ClientBuilder::new()
+            .with_token_handler(ClientManagedTokenHandler::new(tokens))
+            .with_middleware(vec![Arc::new(ReqwestTracingMiddleware)])
+            .with_managed_profile(managed_settings.cell());
+        if let Some(s) = settings {
+            builder = builder.with_settings(s);
+        }
+        Self(builder.build())
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
@@ -93,6 +106,7 @@ impl PasswordManagerClient {
         #[cfg(not(target_arch = "wasm32"))]
         sync.register_sync_handler(Arc::new(CryptoSyncHandler::new(client.0.clone())));
         sync.register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
+        sync.register_sync_handler(Arc::new(SendSyncHandler::from_client(&client.0)));
 
         // TODO: Add more sync handlers here!
 
@@ -102,6 +116,11 @@ impl PasswordManagerClient {
     /// Platform operations
     pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
         self.0.platform()
+    }
+
+    /// Administrator-enforced settings operations.
+    pub fn managed_settings(&self) -> ManagedSettingsClient {
+        self.0.managed_settings()
     }
 
     /// Auth operations
@@ -147,6 +166,15 @@ impl PasswordManagerClient {
         self.0.vault()
     }
 
+    /// Collection related operations.
+    ///
+    /// This is registered directly on the top-level client in addition to being nested under
+    /// [`vault`](Self::vault); once all consumers have migrated to this accessor, the nested one
+    /// will be removed.
+    pub fn collections(&self) -> bitwarden_collections::collection_client::CollectionsClient {
+        bitwarden_collections::collection_client::CollectionsClient::from_client(&self.0)
+    }
+
     /// Exporter operations
     pub fn exporters(&self) -> bitwarden_exporters::ExporterClient {
         self.0.exporters()
@@ -165,6 +193,11 @@ impl PasswordManagerClient {
     /// Send operations
     pub fn sends(&self) -> bitwarden_send::SendClient {
         self.0.sends()
+    }
+
+    /// Send sync handler operations
+    pub fn send_sync_handler(&self) -> bitwarden_send::SendSyncHandlerClient {
+        self.0.send_sync_handler()
     }
 
     /// Policy operations

@@ -9,6 +9,10 @@ use sha2::{Digest, Sha256};
 
 use super::{account_key::AccountKey, error::OnePasswordError};
 
+/// The floor the web client enforces inside its PBKDF2 primitive, so a server cannot talk us into
+/// deriving a weaker key than the client would.
+pub(super) const MIN_PBKDF2_ITERATIONS: u32 = 10_000;
+
 /// HKDF-SHA256 producing 32 bytes, with `method` as the `info` parameter.
 pub(super) fn hkdf_sha256(method: &str, ikm: &[u8], salt: &[u8]) -> [u8; 32] {
     let hk = Hkdf::<Sha256>::new(Some(salt), ikm);
@@ -107,7 +111,7 @@ mod tests {
 
     use super::*;
 
-    /// Vectors from `fixtures/generate-master-key-vectors.mjs`, which mirrors the 1P web client.
+    /// Vectors generated from the 1P web client itself, see the fixture's `note`.
     #[derive(Deserialize)]
     struct Vectors {
         params: VectorParams,
