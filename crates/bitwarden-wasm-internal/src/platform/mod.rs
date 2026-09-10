@@ -1,4 +1,5 @@
 use bitwarden_core::Client;
+use bitwarden_fido::{ClientFido2Ext, wasm::WasmFido2Client};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
@@ -30,6 +31,11 @@ impl PlatformClient {
 impl PlatformClient {
     pub fn state(&self) -> StateClient {
         StateClient::new(self.0.clone())
+    }
+
+    /// FIDO2 credential provider operations.
+    pub fn fido2(&self) -> WasmFido2Client {
+        WasmFido2Client::new(self.0.fido2())
     }
 
     /// Load feature flags into the client
