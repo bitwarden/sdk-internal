@@ -14,7 +14,7 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_ipc::{
     Endpoint, IpcClient, IpcClientImpl, NoiseCryptoProvider, NoiseCryptoProviderState, Source,
 };
-use bitwarden_shared_unlock::{DeviceEvent, SharedUnlockPeer};
+use bitwarden_shared_unlock::{DeviceEvent, SharedUnlockClient, SharedUnlockPeer};
 use bitwarden_threading::{cancellation_token::CancellationToken, time::sleep};
 
 use super::{
@@ -26,6 +26,14 @@ use super::{
     },
     store::{LockDelays, LockStateStore},
 };
+
+/// The client kinds every simulated device shares its users with. No scenario is about the
+/// destination gate itself, so nothing here narrows it.
+const ALL_DESTINATIONS: [SharedUnlockClient; 3] = [
+    SharedUnlockClient::Browser,
+    SharedUnlockClient::Desktop,
+    SharedUnlockClient::Web,
+];
 
 /// Behaviours real clients exhibit that a plain protocol test does not model.
 #[derive(Clone, Copy, Debug, Default)]
@@ -241,6 +249,13 @@ impl SimulatedDevice {
             self.0.timing.vault_timeout_grace_period,
             self.0.timing.peer_stale_after,
         );
+        // A peer shares nothing until its client opts each user in, so every user this device
+        // holds is opted in to every client kind; which peers actually reach each other is the
+        // topology's business, not the destination gate's.
+        for user_id in &self.0.users {
+            peer.set_destinations(*user_id, ALL_DESTINATIONS.to_vec());
+        }
+
         peer.start(Some(token.clone()))
             .await
             .expect("Peer should start");

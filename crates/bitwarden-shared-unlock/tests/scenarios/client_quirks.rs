@@ -43,9 +43,11 @@ async fn replayed_lock_changes_nothing() {
     let replays = events_matching(&topology, |event| {
         event.field("detail") == Some(REPLAYED_MANUAL_LOCK)
     });
-    assert!(
-        !replays.is_empty(),
-        "The quirk should have replayed the lock"
+    assert_eq!(
+        replays.len(),
+        1,
+        "The quirk should have replayed the lock exactly once; more than once is the replay \
+         feeding back into the peer and being re-applied"
     );
     assert_eq!(replays[0].device(), "browser");
 
