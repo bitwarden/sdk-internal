@@ -19,6 +19,11 @@ The emulator hooks the wasm sdk's fetch implementation to simulate the HTTP requ
 `client-emulator/` emulates platform services. Accounts can be loaded into the emulator's local
 state.
 
+## Test vectors
+
+`test-vectors/` records recorded test vectors. These can be loaded and tested against to ensure
+compatibility with al cryptographic versions.
+
 ## Writing Tests
 
 Tests should be written similar to how you would use the sdk in a real client. Do not mock
