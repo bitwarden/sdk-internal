@@ -4,14 +4,14 @@ use bitwarden_core::FromClient;
 use bitwarden_state::repository::{Repository, RepositoryOption};
 use bitwarden_sync::{SyncHandler, SyncHandlerError};
 
-use crate::{PolicyId, PolicyView};
+use crate::{Policy, PolicyId};
 
 /// Sync handler for policies.
 ///
 /// This handler persists organization policies to SDK-managed storage.
 #[derive(FromClient)]
 pub struct PolicySyncHandler {
-    repository: Option<Arc<dyn Repository<PolicyView>>>,
+    repository: Option<Arc<dyn Repository<Policy>>>,
 }
 
 #[async_trait::async_trait]
@@ -27,10 +27,10 @@ impl SyncHandler for PolicySyncHandler {
             .as_ref()
             .ok_or_else(|| SyncHandlerError::from("Sync response contained no policies"))?;
 
-        let policies: Vec<(PolicyId, PolicyView)> = api_policies
+        let policies: Vec<(PolicyId, Policy)> = api_policies
             .iter()
             .filter_map(|p| {
-                PolicyView::try_from(p.clone())
+                Policy::try_from(p.clone())
                     .inspect_err(
                         |e| tracing::error!(id = ?p.id, error = ?e, "Failed to deserialize policy"),
                     )
@@ -69,7 +69,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_on_sync_replaces_existing_policies() {
-        let repository = Arc::new(MemoryRepository::<PolicyView>::default());
+        let repository = Arc::new(MemoryRepository::<Policy>::default());
         let handler = PolicySyncHandler {
             repository: Some(repository.clone()),
         };
@@ -99,7 +99,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_on_sync_no_policies_returns_error() {
-        let repository = Arc::new(MemoryRepository::<PolicyView>::default());
+        let repository = Arc::new(MemoryRepository::<Policy>::default());
         let handler = PolicySyncHandler {
             repository: Some(repository.clone()),
         };

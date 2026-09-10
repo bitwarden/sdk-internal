@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Password Generator policy.
 pub struct PasswordGeneratorPolicy;
 
-impl Policy for PasswordGeneratorPolicy {
+impl PolicyDefinition for PasswordGeneratorPolicy {
     type Data = PasswordGeneratorPolicyData;
 
     fn policy_type(&self) -> PolicyType {

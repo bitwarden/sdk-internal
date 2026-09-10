@@ -2,12 +2,12 @@ use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Master Password policy.
 pub struct MasterPasswordPolicy;
 
-impl Policy for MasterPasswordPolicy {
+impl PolicyDefinition for MasterPasswordPolicy {
     type Data = MasterPasswordPolicyData;
 
     fn policy_type(&self) -> PolicyType {

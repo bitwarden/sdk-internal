@@ -1,7 +1,7 @@
 //! Manages repository migrations for the Bitwarden SDK.
 
 use bitwarden_core::client::persisted_state::OrganizationSharedKey;
-use bitwarden_policies::PolicyView;
+use bitwarden_policies::Policy;
 use bitwarden_send::Send;
 use bitwarden_state::{
     SettingItem,
@@ -20,7 +20,7 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
         Add(SettingItem::data()),
         Add(OrganizationSharedKey::data()),
         Add(Send::data()),
-        Add(PolicyView::data()),
+        Add(Policy::data()),
     ])
 }
 
@@ -40,7 +40,7 @@ macro_rules! create_client_managed_repositories {
             ::bitwarden_core::key_management::LocalUserDataKeyState, LocalUserDataKeyState, local_user_data_key_state, LocalUserDataKeyStateRepository;
             ::bitwarden_core::client::persisted_state::OrganizationSharedKey, OrganizationSharedKey, organization_shared_key, OrganizationSharedKeyRepository;
             ::bitwarden_send::Send, Send, send, SendRepository;
-            ::bitwarden_policies::PolicyView, PolicyView, policy, PolicyRepository;
+            ::bitwarden_policies::Policy, Policy, policy, PolicyRepository;
         }
     };
 }

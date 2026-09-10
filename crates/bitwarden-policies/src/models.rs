@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::{Policy, PolicyView, policy_type::PolicyDataType};
+use crate::{Policy, PolicyDefinition, policy_type::PolicyDataType};
 
 /// A minimal set of data for a user in an organization. This provides
 /// the context needed to evaluate the policies that are applied to the
@@ -35,16 +35,16 @@ pub struct OrganizationUserPolicyContext {
 
 /// A per-organization enforcement decision for a single policy type.
 ///
-/// Unlike [`PolicyView`] (the server-side record), this carries only the
+/// Unlike [`Policy`] (the server-side record), this carries only the
 /// fields relevant to an enforcement decision: `enforced` reflects the
 /// user-specific evaluation rather than the policy's raw `enabled` flag, and
-/// `data` is strongly typed via [`Policy::Data`].
+/// `data` is strongly typed via [`PolicyDefinition::Data`].
 ///
 /// `data` is always populated. It is [`Default::default()`] whenever the policy
 /// is not enforced against the user, when no matching policy is found, or when
 /// the policy record's data could not be parsed.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct EnforcedPolicy<P: Policy> {
+pub(crate) struct PolicyDecision<P: PolicyDefinition> {
     /// The organization this enforcement decision is for.
     pub organization_id: OrganizationId,
     /// The policy data, if any.
@@ -54,7 +54,7 @@ pub(crate) struct EnforcedPolicy<P: Policy> {
     pub enforced: bool,
 }
 
-impl<P: Policy> EnforcedPolicy<P> {
+impl<P: PolicyDefinition> PolicyDecision<P> {
     /// The decision for an organization that has no matching policy: not
     /// enforced, with [`Default`] data.
     pub(crate) fn not_enforced(organization_id: OrganizationId) -> Self {
@@ -66,9 +66,9 @@ impl<P: Policy> EnforcedPolicy<P> {
     }
 
     /// Consumes this decision into its FFI-friendly form, erasing the
-    /// strongly-typed `data` into a [`PolicyDataType`] via [`Policy::to_erased`].
-    pub(crate) fn into_erased(self, policy: &P) -> EnforcedPolicyErased {
-        EnforcedPolicyErased {
+    /// strongly-typed `data` into a [`PolicyDataType`] via [`PolicyDefinition::to_erased`].
+    pub(crate) fn into_erased(self, policy: &P) -> PolicyDecisionErased {
+        PolicyDecisionErased {
             organization_id: self.organization_id,
             data: policy.to_erased(self.data),
             enforced: self.enforced,
@@ -76,14 +76,14 @@ impl<P: Policy> EnforcedPolicy<P> {
     }
 }
 
-/// The FFI-facing counterpart of the native `EnforcedPolicy`, with its
+/// The FFI-facing counterpart of the native `PolicyDecision`, with its
 /// strongly-typed `data` erased to [`PolicyDataType`] so it can cross the
 /// binding boundary.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct EnforcedPolicyErased {
+pub struct PolicyDecisionErased {
     /// The organization this enforcement decision is for.
     pub organization_id: OrganizationId,
     /// The policy data, if any.
@@ -93,19 +93,24 @@ pub struct EnforcedPolicyErased {
     pub enforced: bool,
 }
 
-/// A [`PolicyView`] resolved against the concrete [`Policy`] that handles it.
+/// A [`Policy`] resolved against the concrete [`PolicyDefinition`] that handles it.
 ///
-/// This is the typed domain value the untyped wire [`PolicyView`] transforms into
-/// at the boundary: the `r#type` discriminant has been matched and the untyped
-/// `data` blob parsed into [`Policy::Data`], so a policy can only ever be paired
+/// This is the typed domain value the untyped wire [`Policy`] transforms into at
+/// the boundary: the `r#type` discriminant has been matched and the untyped `data`
+/// blob parsed into [`PolicyDefinition::Data`], so a policy can only ever be paired
 /// with its own data type.
-pub(crate) struct ResolvedPolicyView<P: Policy> {
+///
+/// Note: despite the `View` suffix, this is internal enforcement machinery, not a
+/// client-facing DTO. It is generic over the `pub(crate)` [`PolicyDefinition`] trait
+/// and stays `pub(crate)`. This inverts the `Cipher`/`CipherView` convention (where
+/// the `View` is the client-facing type) — a deliberate, documented divergence.
+pub(crate) struct PolicyView<P: PolicyDefinition> {
     organization_id: OrganizationId,
     enabled: bool,
     data: P::Data,
 }
 
-impl<P: Policy> ResolvedPolicyView<P> {
+impl<P: PolicyDefinition> PolicyView<P> {
     /// Resolves `view` against `policy`, returning `Some` only when the view is
     /// the type handled by `policy`.
     ///
@@ -115,7 +120,7 @@ impl<P: Policy> ResolvedPolicyView<P> {
     /// By default, a single unrecognised value within `P::Data` will fail
     /// parsing of the entire struct. Individual policies should provide their
     /// own handling at the field level if this is unacceptable.
-    pub(crate) fn resolve(policy: &P, view: &PolicyView) -> Option<Self> {
+    pub(crate) fn resolve(policy: &P, view: &Policy) -> Option<Self> {
         if view.r#type != policy.policy_type() {
             return None;
         }
@@ -149,7 +154,7 @@ impl<P: Policy> ResolvedPolicyView<P> {
         })
     }
 
-    /// Consumes the resolved view into an [`EnforcedPolicy`], evaluating whether
+    /// Consumes the resolved view into a [`PolicyDecision`], evaluating whether
     /// `policy` is enforced against the user.
     ///
     /// Pass in all organization contexts for this user; the specific context is looked
@@ -160,7 +165,7 @@ impl<P: Policy> ResolvedPolicyView<P> {
         self,
         policy: &P,
         organization_user_policy_contexts: &HashMap<OrganizationId, &OrganizationUserPolicyContext>,
-    ) -> EnforcedPolicy<P> {
+    ) -> PolicyDecision<P> {
         let context = organization_user_policy_contexts.get(&self.organization_id);
 
         let enforced = self.enabled
@@ -173,13 +178,13 @@ impl<P: Policy> ResolvedPolicyView<P> {
             });
 
         if enforced {
-            EnforcedPolicy {
+            PolicyDecision {
                 organization_id: self.organization_id,
                 data: self.data,
                 enforced,
             }
         } else {
-            EnforcedPolicy::not_enforced(self.organization_id)
+            PolicyDecision::not_enforced(self.organization_id)
         }
     }
 }

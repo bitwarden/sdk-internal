@@ -1,12 +1,12 @@
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Fill Assist policy.
 pub struct FillAssistPolicy;
 
-impl Policy for FillAssistPolicy {
+impl PolicyDefinition for FillAssistPolicy {
     type Data = FillAssistPolicyData;
 
     fn policy_type(&self) -> PolicyType {
