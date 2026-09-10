@@ -13,7 +13,6 @@ use crate::prelude::*;
 async fn unlock_follower_works_while_leader_offline() {
     let user = test_user(TestUserId::A);
     let simple = SimpleTopology::make(harness::FAST_DELAYS).await;
-    let timing = fast_timing();
 
     // 1. Take the leader offline.
     simple.leader.go_offline();
@@ -24,8 +23,10 @@ async fn unlock_follower_works_while_leader_offline() {
     simple.follower.manual_unlock(user.id, &user.key).await;
     assert_eq!(simple.follower.store().peek(user.id), user.unlocked());
 
-    // 3. Assert the follower keeps trying across ticks rather than giving up or dying.
-    bitwarden_threading::time::sleep(timing.sync_interval * 3).await;
+    // 3. Assert the follower keeps trying across ticks rather than giving up or dying. Waiting
+    //    out the whole grace period, rather than just a few ticks, is what gives step 4 a log long
+    //    enough to see a late self-relock in; the extra ticks only add sync attempts.
+    bitwarden_threading::time::sleep(grace(&simple.topology)).await;
     assert!(
         count_unreachable(&simple.topology, "browser") > 1,
         "The follower should keep attempting to sync across ticks"
