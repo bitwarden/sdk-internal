@@ -32,6 +32,9 @@ import {
 
 import type { StoredMasterPasswordUnlock, UserEntity } from "./entities";
 
+/** How long an issued access token stays valid, as the identity service reports it. */
+const TOKEN_LIFETIME_SECONDS = 3600;
+
 /** The server's numeric `KdfType`. */
 export const KdfType = { pbkdf2Sha256: 0, argon2id: 1 } as const;
 export type KdfTypeValue = (typeof KdfType)[keyof typeof KdfType];
@@ -604,6 +607,73 @@ export class MasterPasswordUnlockResponse {
       ...(unlock.containedKeyId === undefined ? {} : { containedKeyId: unlock.containedKeyId }),
     };
   }
+}
+
+/** `PasswordPreloginRequestModel` — the body of `POST /accounts/prelogin/password`. */
+export class PasswordPreloginRequest {
+  email!: string;
+}
+
+/**
+ * `PasswordPreloginResponseModel` — what a client learns before deriving its master key.
+ *
+ * `kdfSettings` is required: the SDK maps an absent one to a missing-field error rather than
+ * reading the legacy flat `kdf`/`kdfIterations` fields.
+ */
+export class PasswordPreloginResponse {
+  kdfSettings!: KdfModel;
+  salt!: string;
+
+  /** An account's prelogin data. The KDF is the account's own, not its unlock data's. */
+  static fromUser(user: UserEntity): PasswordPreloginResponse {
+    return {
+      kdfSettings: KdfModel.fromKdf(user.kdf),
+      salt: user.masterPasswordUnlock?.salt ?? user.email,
+    };
+  }
+}
+
+/**
+ * `LoginSuccessResponseModel` — a successful `POST /connect/token`.
+ *
+ * The access token is the account's user id, the same convention every other service in the
+ * emulator reads, so a token issued here authenticates against them unchanged.
+ */
+export class TokenResponse {
+  access_token!: string;
+  expires_in!: number;
+  token_type!: string;
+  scope!: string;
+  Key?: string;
+  PrivateKey?: string;
+  AccountKeys?: AccountKeysResponse;
+  // Unlike the api server's models, the token endpoint's user decryption options carry no
+  // camelCase alias, so the key has to be PascalCase to be read at all.
+  UserDecryptionOptions!: { MasterPasswordUnlock?: MasterPasswordUnlockResponse };
+
+  static forUser(user: UserEntity): TokenResponse {
+    const unlock = user.masterPasswordUnlock;
+
+    return {
+      access_token: user.userId,
+      expires_in: TOKEN_LIFETIME_SECONDS,
+      token_type: "Bearer",
+      scope: "api offline_access",
+      ...(unlock === null ? {} : { Key: String(unlock.masterKeyWrappedUserKey) }),
+      PrivateKey: AccountKeysResponse.wrappedPrivateKeyOf(user),
+      AccountKeys: AccountKeysResponse.fromUser(user),
+      UserDecryptionOptions:
+        unlock === null
+          ? {}
+          : { MasterPasswordUnlock: MasterPasswordUnlockResponse.fromStored(unlock) },
+    };
+  }
+}
+
+/** `ErrorResponseModel` as the token endpoint answers it: OAuth2, not the api server's shape. */
+export class OAuth2ErrorResponse {
+  error!: string;
+  error_description!: string;
 }
 
 /** `V2UpgradeTokenResponseModel`. */
