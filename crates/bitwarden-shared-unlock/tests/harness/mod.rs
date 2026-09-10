@@ -17,7 +17,7 @@
 //!
 //! ```text
 //! RUST_LOG=debug cargo test -p bitwarden-shared-unlock \
-//!     --test shared_unlock simple_topology::unlock_from_a_follower_reaches_its_leader -- --nocapture
+//!     --test shared_unlock simple_topology::unlock_follower_unlocks_leader -- --nocapture
 //! ```
 //!
 //! Filter by target to narrow it down: `bitwarden_shared_unlock=debug` for the protocol's own
@@ -92,12 +92,12 @@ pub(crate) struct TestUser {
 
 impl TestUser {
     /// The state this user is in when its vault is locked.
-    pub(crate) fn to_locked_lock_state(&self) -> LockState {
+    pub(crate) fn locked(&self) -> LockState {
         LockState::Locked
     }
 
     /// The state this user is in when its vault is unlocked with its own key.
-    pub(crate) fn to_unlocked_lock_state(&self) -> LockState {
+    pub(crate) fn unlocked(&self) -> LockState {
         LockState::Unlocked {
             user_key: self.key.clone(),
         }

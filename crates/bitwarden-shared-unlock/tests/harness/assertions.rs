@@ -9,10 +9,15 @@ use bitwarden_threading::time::sleep;
 use web_time::Instant;
 
 use super::{
+    TestUser,
     device::SimulatedDevice,
     logs::{CapturedEvent, TEST_MANUAL_LOCK, TopologyId, events_for, kind},
     topology::SharedUnlockTopology,
 };
+
+/// Generous relative to the millisecond timings the tests run at; a scenario that needs the whole
+/// budget has genuinely failed to converge rather than merely been slow.
+pub(crate) const CONVERGE_TIMEOUT: Duration = Duration::from_secs(10);
 
 fn fail(message: String, topology: &SharedUnlockTopology) -> ! {
     panic!("{message}{}", topology.captured_log());
@@ -41,8 +46,78 @@ pub(crate) fn events_matching(
         .collect()
 }
 
+/// The state a scenario expects a user to settle on across the topology.
+pub(crate) enum TargetLockState {
+    Locked,
+    Unlocked,
+}
+
+/// Waits until every device that has an account for `user` settles on `target`.
+pub(crate) async fn wait_for_devices_reaching_state(
+    target: TargetLockState,
+    topology: &SharedUnlockTopology,
+    user: &TestUser,
+) {
+    let expected = match target {
+        TargetLockState::Locked => user.locked(),
+        TargetLockState::Unlocked => user.unlocked(),
+    };
+
+    wait_for_topology_reaching_state(topology, user.id, &expected, CONVERGE_TIMEOUT).await;
+}
+
+/// Fails unless every device that has an account for `user` is already in `target`. Unlike
+/// [`wait_for_devices_reaching_state`] this does not wait, so it states that a change elsewhere
+/// left this user alone.
+pub(crate) fn assert_user_state(
+    target: TargetLockState,
+    topology: &SharedUnlockTopology,
+    user: &TestUser,
+) {
+    let expected = match target {
+        TargetLockState::Locked => user.locked(),
+        TargetLockState::Unlocked => user.unlocked(),
+    };
+
+    for device in devices_holding(topology, user.id) {
+        let actual = device.store().peek(user.id);
+        if actual == expected {
+            continue;
+        }
+        fail(
+            format!(
+                "\"{}\" reports user {} as {}, expected {}",
+                device.name(),
+                user.id,
+                describe(&actual),
+                describe(&expected)
+            ),
+            topology,
+        );
+    }
+}
+
+/// The devices an assertion covers: booted, and holding an account for `user_id`. Empty means the
+/// scenario is asserting nothing, which is always a bug in the scenario.
+fn devices_holding(topology: &SharedUnlockTopology, user_id: UserId) -> Vec<SimulatedDevice> {
+    let devices: Vec<_> = topology
+        .devices()
+        .into_iter()
+        .filter(|device| device.has_peer() && device.store().knows(user_id))
+        .collect();
+
+    if devices.is_empty() {
+        fail(
+            format!("No booted device holds user {user_id}, so there is nothing to assert"),
+            topology,
+        );
+    }
+
+    devices
+}
+
 /// Waits until every device that has an account for `user_id` reports `expected`.
-pub(crate) async fn wait_for_topology_reaching_state(
+async fn wait_for_topology_reaching_state(
     topology: &SharedUnlockTopology,
     user_id: UserId,
     expected: &LockState,
@@ -50,11 +125,7 @@ pub(crate) async fn wait_for_topology_reaching_state(
 ) {
     let deadline = Instant::now() + timeout;
     loop {
-        let devices: Vec<_> = topology
-            .devices()
-            .into_iter()
-            .filter(|device| device.has_peer() && device.store().knows(user_id))
-            .collect();
+        let devices = devices_holding(topology, user_id);
         let converged = devices
             .iter()
             .all(|device| &device.store().peek(user_id) == expected);
@@ -78,35 +149,6 @@ pub(crate) async fn wait_for_topology_reaching_state(
                     "Timed out after {timeout:?} waiting for user {user_id} to be {} everywhere. \
                      Actual: {actual}",
                     describe(expected)
-                ),
-                topology,
-            );
-        }
-        sleep(Duration::from_millis(5)).await;
-    }
-}
-
-/// Waits until one device reports `expected` for a user.
-pub(crate) async fn wait_for_device_reaching_state(
-    topology: &SharedUnlockTopology,
-    device: &SimulatedDevice,
-    user_id: UserId,
-    expected: &LockState,
-    timeout: Duration,
-) {
-    let deadline = Instant::now() + timeout;
-    loop {
-        if &device.store().peek(user_id) == expected {
-            return;
-        }
-        if Instant::now() >= deadline {
-            fail(
-                format!(
-                    "Timed out after {timeout:?} waiting for \"{}\" to report user {user_id} as \
-                     {}; it is {}",
-                    device.name(),
-                    describe(expected),
-                    describe(&device.store().peek(user_id))
                 ),
                 topology,
             );

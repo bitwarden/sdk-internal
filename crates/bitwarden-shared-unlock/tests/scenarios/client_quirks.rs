@@ -2,8 +2,15 @@
 
 use crate::prelude::*;
 
+/// A follower replaying an applied lock as a manual lock changes nothing
+///
+/// ```text
+/// follower 🔓 --> 🔒 --replay as manual lock--> stays 🔒
+///     |
+/// leader 🔓 --> 🔒
+/// ```
 #[tokio::test]
-async fn replaying_a_protocol_lock_as_a_manual_lock_changes_nothing() {
+async fn replayed_lock_changes_nothing() {
     let user = test_user(TestUserId::A);
     let topology = SharedUnlockTopology::new(fast_timing());
     let leader = topology.add_device(
@@ -21,28 +28,18 @@ async fn replaying_a_protocol_lock_as_a_manual_lock_changes_nothing() {
     );
     topology.start().await;
 
+    // 1. Unlock the follower; all devices must become unlocked.
     follower.manual_unlock(user.id, &user.key).await;
-    wait_for_topology_reaching_state(
-        &topology,
-        user.id,
-        &user.to_unlocked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology, &user).await;
 
-    // Locking on the leader propagates down, and the follower reports that lock back into its
-    // own peer as if the user had locked it locally. The peer already recorded the lock
-    // when it applied it, so the replay must not disturb anything.
+    // 2. Lock the leader; all devices must become locked. The lock propagates down and the follower
+    //    replays it into its own peer; the peer already recorded it when it applied it, so the
+    //    replay must not disturb anything.
     leader.manual_lock(user.id).await;
-    wait_for_topology_reaching_state(
-        &topology,
-        user.id,
-        &user.to_locked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Locked, &topology, &user).await;
     bitwarden_threading::time::sleep(grace(&topology)).await;
 
+    // 3. Assert the quirk fired, and that nothing bounced back to unlocked.
     let replays = events_matching(&topology, |event| {
         event.field("detail") == Some(REPLAYED_MANUAL_LOCK)
     });
@@ -52,13 +49,18 @@ async fn replaying_a_protocol_lock_as_a_manual_lock_changes_nothing() {
     );
     assert_eq!(replays[0].device(), "browser");
 
-    // Everything is still locked, and nothing bounced back to unlocked.
-    assert_eq!(leader.store().peek(user.id), user.to_locked_lock_state());
-    assert_eq!(follower.store().peek(user.id), user.to_locked_lock_state());
+    assert_user_state(TargetLockState::Locked, &topology, &user);
 }
 
+/// A follower that restarts its process on every lock still converges, reloading exactly once
+///
+/// ```text
+/// follower 🔓 --> 🔒 --reload--> 🔒  (exactly one reload)
+///     |
+/// leader 🔓 --> 🔒
+/// ```
 #[tokio::test]
-async fn a_client_that_reloads_after_every_lock_still_converges() {
+async fn reload_after_lock_converges() {
     let user = test_user(TestUserId::A);
     let topology = SharedUnlockTopology::new(fast_timing());
     let leader = topology.add_device(
@@ -76,19 +78,13 @@ async fn a_client_that_reloads_after_every_lock_still_converges() {
     );
     topology.start().await;
 
+    // 1. Unlock the follower; all devices must become unlocked.
     follower.manual_unlock(user.id, &user.key).await;
-    wait_for_topology_reaching_state(
-        &topology,
-        user.id,
-        &user.to_unlocked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology, &user).await;
 
+    // 2. Lock the leader, then wait for the follower's reload to finish rather than sleeping a
+    //    fixed amount: these tests share a runtime, so when the quirk fires varies.
     leader.manual_lock(user.id).await;
-
-    // Wait for the reload to finish rather than sleeping a fixed amount: these tests share a
-    // runtime, so when the quirk fires varies.
     wait_for_event(
         &topology,
         "the browser's process reload to complete",
@@ -99,7 +95,7 @@ async fn a_client_that_reloads_after_every_lock_still_converges() {
         },
     )
     .await;
-    // Then give it several ticks to prove it does not reload again.
+    // 3. Give it several ticks and assert it reloaded exactly once.
     bitwarden_threading::time::sleep(fast_timing().sync_interval * 6).await;
 
     let reloads: Vec<String> = events_matching(&topology, |event| {
@@ -114,8 +110,7 @@ async fn a_client_that_reloads_after_every_lock_still_converges() {
         "The quirk should have reloaded the process exactly once"
     );
 
-    // The reloaded process is a fresh one, wired up and locked, and the leader agrees.
+    // 4. Assert the reloaded process is a fresh one, wired up and locked, and the leader agrees.
     assert!(follower.has_peer());
-    assert_eq!(follower.store().peek(user.id), user.to_locked_lock_state());
-    assert_eq!(leader.store().peek(user.id), user.to_locked_lock_state());
+    assert_user_state(TargetLockState::Locked, &topology, &user);
 }

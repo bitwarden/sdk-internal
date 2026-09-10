@@ -13,7 +13,8 @@ struct VShapedTopology {
     topology: SharedUnlockTopology,
     browser: SimulatedDevice,
     web_1: SimulatedDevice,
-    web_2: SimulatedDevice,
+    /// Not addressed directly by any test; asserted through the topology-wide wait.
+    _web_2: SimulatedDevice,
 }
 
 impl VShapedTopology {
@@ -51,12 +52,12 @@ impl VShapedTopology {
             topology,
             browser,
             web_1,
-            web_2,
+            _web_2: web_2,
         }
     }
 }
 
-/// An unlock on a leaf travels up to the browser and back down to the sibling:
+/// Unlocking one web client unlocks its sibling, via the browser between them
 ///
 /// ```text
 /// web-1 🔓    web-2 🔒 --> 🔓
@@ -65,23 +66,17 @@ impl VShapedTopology {
 ///      browser 🔒 --> 🔓
 /// ```
 #[tokio::test]
-async fn an_unlock_in_one_web_client_reaches_the_other() {
+async fn unlock_web_unlocks_sibling_web() {
     let user = test_user(TestUserId::A);
     let topology = VShapedTopology::make().await;
 
+    // 1. Unlock web-1; all devices must become unlocked. Two hops: up to the browser, which applies
+    //    it, then back down to the sibling tab.
     topology.web_1.manual_unlock(user.id, &user.key).await;
-
-    // Two hops: up to the browser, which applies it, then back down to the sibling tab.
-    wait_for_topology_reaching_state(
-        &topology.topology,
-        user.id,
-        &user.to_unlocked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology.topology, &user).await;
 }
 
-/// Same two hops in reverse, once the whole topology is unlocked:
+/// Locking one web client locks its sibling, via the browser between them
 ///
 /// ```text
 /// everyone 🔓 first, then web-1 locks
@@ -92,31 +87,20 @@ async fn an_unlock_in_one_web_client_reaches_the_other() {
 ///      browser 🔓 --> 🔒
 /// ```
 #[tokio::test]
-async fn a_lock_in_one_web_client_reaches_the_other() {
+async fn lock_web_locks_sibling_web() {
     let user = test_user(TestUserId::A);
     let topology = VShapedTopology::make().await;
 
+    // 1. Unlock web-1; all devices must become unlocked.
     topology.web_1.manual_unlock(user.id, &user.key).await;
-    wait_for_topology_reaching_state(
-        &topology.topology,
-        user.id,
-        &user.to_unlocked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology.topology, &user).await;
 
+    // 2. Lock web-1; all devices must become locked.
     topology.web_1.manual_lock(user.id).await;
-
-    wait_for_topology_reaching_state(
-        &topology.topology,
-        user.id,
-        &user.to_locked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Locked, &topology.topology, &user).await;
 }
 
-/// An unlock at the hub fans out one hop to both leaves:
+/// Unlocking the browser unlocks both web clients below it
 ///
 /// ```text
 /// web-1 🔒 --> 🔓    web-2 🔒 --> 🔓
@@ -125,22 +109,16 @@ async fn a_lock_in_one_web_client_reaches_the_other() {
 ///            browser 🔓
 /// ```
 #[tokio::test]
-async fn an_unlock_in_the_browser_reaches_both_web_clients() {
+async fn unlock_browser_unlocks_both_webs() {
     let user = test_user(TestUserId::A);
     let topology = VShapedTopology::make().await;
 
+    // 1. Unlock the browser; all devices must become unlocked.
     topology.browser.manual_unlock(user.id, &user.key).await;
-
-    wait_for_topology_reaching_state(
-        &topology.topology,
-        user.id,
-        &user.to_unlocked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology.topology, &user).await;
 }
 
-/// A lock at the hub fans out one hop to both leaves:
+/// Locking the browser locks both web clients below it
 ///
 /// ```text
 /// everyone 🔓 first, then the browser locks
@@ -151,26 +129,15 @@ async fn an_unlock_in_the_browser_reaches_both_web_clients() {
 ///            browser 🔒
 /// ```
 #[tokio::test]
-async fn a_lock_in_the_browser_reaches_both_web_clients() {
+async fn lock_browser_locks_both_webs() {
     let user = test_user(TestUserId::A);
     let topology = VShapedTopology::make().await;
 
+    // 1. Unlock the browser; all devices must become unlocked.
     topology.browser.manual_unlock(user.id, &user.key).await;
-    wait_for_topology_reaching_state(
-        &topology.topology,
-        user.id,
-        &user.to_unlocked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Unlocked, &topology.topology, &user).await;
 
+    // 2. Lock the browser; all devices must become locked.
     topology.browser.manual_lock(user.id).await;
-
-    wait_for_topology_reaching_state(
-        &topology.topology,
-        user.id,
-        &user.to_locked_lock_state(),
-        CONVERGE_TIMEOUT,
-    )
-    .await;
+    wait_for_devices_reaching_state(TargetLockState::Locked, &topology.topology, &user).await;
 }
