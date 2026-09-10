@@ -30,11 +30,11 @@ const ACCOUNT_KEY: &str = "A3-ABCDEF-GHJKLM-NPQRS-TVWXY-Z2345-6789A";
 const VAULTS: [(&str, &str); 2] = [
     (
         "wv2hn4jgomxwvfh4oiubyjppym",
-        include_str!("../fixtures/vault-wv2hn4jgomxwvfh4oiubyjppym-items-response.json"),
+        include_str!("fixtures/account/vault-wv2hn4jgomxwvfh4oiubyjppym-items-response.json"),
     ),
     (
         "d7z3byaorasfq5xixos3tgaddu",
-        include_str!("../fixtures/vault-d7z3byaorasfq5xixos3tgaddu-items-response.json"),
+        include_str!("fixtures/account/vault-d7z3byaorasfq5xixos3tgaddu-items-response.json"),
     ),
 ];
 
@@ -77,13 +77,13 @@ pub(in crate::importers::onepassword) async fn download_captured_account() -> Ve
     mock_encrypted(
         &server,
         "/api/v1/account".to_string(),
-        include_str!("../fixtures/account-response.json"),
+        include_str!("fixtures/account/account-response.json"),
     )
     .await;
     mock_encrypted(
         &server,
         "/api/v1/account/keysets".to_string(),
-        include_str!("../fixtures/keysets-response.json"),
+        include_str!("fixtures/account/keysets-response.json"),
     )
     .await;
     for (vault_id, items) in VAULTS {

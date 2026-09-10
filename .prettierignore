@@ -10,6 +10,7 @@ crates/bitwarden-uniffi/swift/*
 # Test fixtures
 crates/bitwarden-exporters/resources/*
 crates/bitwarden-importers/src/importers/onepassword/access/fixtures/*
+!crates/bitwarden-importers/src/importers/onepassword/access/fixtures/scripts
 
 # CI output
 clippy_result.sarif
