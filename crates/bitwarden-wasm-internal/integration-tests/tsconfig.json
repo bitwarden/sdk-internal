@@ -11,5 +11,11 @@
     "allowImportingTsExtensions": false,
     "types": ["jest", "node"]
   },
-  "include": ["*.ts"]
+  "include": [
+    "*.ts",
+    "tests/**/*.ts",
+    "client-emulator/**/*.ts",
+    "server-emulator/**/*.ts",
+    "vectors/**/*.ts"
+  ]
 }
