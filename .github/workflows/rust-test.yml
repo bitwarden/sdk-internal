@@ -53,6 +53,12 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-features
 
+      # The rotation daemon's script launchers have a few tests that need a real child
+      # process and real files, so they are #[ignore]d and skipped by the run above. All
+      # three runner images ship pwsh, so these run on each of them.
+      - name: Test (integration, requires pwsh)
+        run: cargo test -p bitwarden-rotation-daemon --all-features -- --ignored
+
   test-wasm:
     name: WASM
     runs-on: ubuntu-24.04

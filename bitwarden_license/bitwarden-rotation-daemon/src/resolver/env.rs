@@ -1,16 +1,12 @@
 //! Environment-variable-based credential resolver.
-//!
-//! [`EnvCredentialResolver`] reads variables named `<TARGET_ID_UPPER_UNDERSCORE>_<SUFFIX>`;
-//! see [`required_suffixes`] for the required suffixes per kind.
-//!
-//! A missing required variable returns [`ResolveError::Missing`] with the variable name (safe
-//! to log). Extras matching the prefix are forwarded via `ctx.creds.get("<SUFFIX>")`.
+
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use uuid::Uuid;
 
 use super::{CredentialResolver, ResolveError, ResolvedCredentials};
-use crate::api::models::TargetKind;
+use crate::{api::models::TargetKind, sys::EnvSource};
 
 /// Environment variable suffixes required per target kind.
 pub(crate) fn required_suffixes(kind: TargetKind) -> &'static [&'static str] {
@@ -36,12 +32,17 @@ pub(crate) fn prefix_for(id: Uuid) -> String {
 }
 
 /// A credential resolver that reads values from the process environment.
-///
-/// Thread-safe, shared behind an `Arc`. The production resolver is
-/// [`super::config::ConfigCredentialResolver`], which falls back to this for any key not in
-/// the config file; kept as a testable standalone reference for the naming scheme.
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct EnvCredentialResolver;
+pub(crate) struct EnvCredentialResolver {
+    env: Arc<dyn EnvSource>,
+}
+
+impl EnvCredentialResolver {
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn new(env: Arc<dyn EnvSource>) -> Self {
+        Self { env }
+    }
+}
 
 #[async_trait]
 impl CredentialResolver for EnvCredentialResolver {
@@ -57,7 +58,7 @@ impl CredentialResolver for EnvCredentialResolver {
         let mut missing: Vec<String> = Vec::new();
 
         // Collect ALL matching env vars into the map.
-        for (name, value) in std::env::vars() {
+        for (name, value) in self.env.vars() {
             if let Some(suffix) = name.strip_prefix(&prefix)
                 && !suffix.is_empty()
             {
@@ -87,33 +88,24 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::api::models::TargetKind;
+    use crate::{api::models::TargetKind, sys::FakeEnv};
 
-    // Sets vars under a mutex (std::env::set_var is not thread-safe); namespaced by UUID
-    // so parallel crate tests don't collide.
+    /// Runs the resolver against exactly `vars` and nothing else. No process state is
+    /// touched, so these tests need no lock and cannot collide with each other.
     fn run_resolver_with_env(
         id: Uuid,
         kind: TargetKind,
         vars: &HashMap<String, String>,
     ) -> Result<ResolvedCredentials, ResolveError> {
-        // Set vars.
-        for (k, v) in vars {
-            // SAFETY: test-only; single-threaded test runtime.
-            unsafe { std::env::set_var(k, v) };
-        }
+        let env = vars
+            .iter()
+            .fold(FakeEnv::empty(), |env, (k, v)| env.with(k, v));
+        let resolver = EnvCredentialResolver::new(Arc::new(env));
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
-        let result = rt.block_on(EnvCredentialResolver.resolve(id, kind));
-
-        // Unset vars.
-        for k in vars.keys() {
-            // SAFETY: test-only.
-            unsafe { std::env::remove_var(k) };
-        }
-
-        result
+        rt.block_on(resolver.resolve(id, kind))
     }
 
     #[test]
@@ -181,7 +173,6 @@ mod tests {
     #[test]
     fn entra_missing_all_reports_full_names() {
         let id: Uuid = "ec2c1d46-6a4b-4751-a310-af9601317f2d".parse().unwrap();
-        // Ensure the vars are not set (no prefix match).
         let err = run_resolver_with_env(id, TargetKind::Entra, &HashMap::new()).unwrap_err();
         match err {
             ResolveError::Missing(names) => {

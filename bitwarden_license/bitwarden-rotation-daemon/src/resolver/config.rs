@@ -9,7 +9,7 @@
 //! `client_secret` is deliberately absent from [`TargetEntry`]; secrets must come from
 //! environment variables only, since the config file is typically checked into a repo.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use uuid::Uuid;
@@ -18,6 +18,7 @@ use super::{CredentialResolver, ResolveError, ResolvedCredentials};
 use crate::{
     api::models::TargetKind,
     resolver::env::{prefix_for, required_suffixes},
+    sys::EnvSource,
 };
 
 /// Per-target credential overrides from the `[targets]` TOML section.
@@ -30,6 +31,8 @@ use crate::{
 pub(crate) struct TargetEntry {
     /// Path to the custom-script executable (`SCRIPT` suffix).
     pub(crate) script: Option<String>,
+    /// How to launch the script (`SCRIPT_TYPE` suffix).
+    pub(crate) script_type: Option<crate::integrations::scripting::ScriptType>,
     /// Azure AD tenant identifier (`TENANT_ID` suffix).
     pub(crate) tenant_id: Option<String>,
     /// Application (client) ID of the service principal (`CLIENT_ID` suffix).
@@ -41,6 +44,7 @@ impl TargetEntry {
     fn overrides(&self) -> impl Iterator<Item = (&'static str, &str)> {
         [
             ("SCRIPT", self.script.as_deref()),
+            ("SCRIPT_TYPE", self.script_type.map(|t| t.as_str())),
             ("TENANT_ID", self.tenant_id.as_deref()),
             ("CLIENT_ID", self.client_id.as_deref()),
         ]
@@ -56,12 +60,14 @@ impl TargetEntry {
 /// var names.
 pub(crate) struct ConfigCredentialResolver {
     targets: HashMap<Uuid, TargetEntry>,
+    env: Arc<dyn EnvSource>,
 }
 
 impl ConfigCredentialResolver {
-    /// Create a new resolver with the given per-target config entries.
-    pub(crate) fn new(targets: HashMap<Uuid, TargetEntry>) -> Self {
-        Self { targets }
+    /// Create a new resolver with the given per-target config entries, falling back to `env`
+    /// for any key the config file does not set.
+    pub(crate) fn new(targets: HashMap<Uuid, TargetEntry>, env: Arc<dyn EnvSource>) -> Self {
+        Self { targets, env }
     }
 }
 
@@ -77,7 +83,7 @@ impl CredentialResolver for ConfigCredentialResolver {
 
         // Step 1: collect all matching env vars.
         let mut creds = ResolvedCredentials::new();
-        for (name, value) in std::env::vars() {
+        for (name, value) in self.env.vars() {
             if let Some(suffix) = name.strip_prefix(&prefix)
                 && !suffix.is_empty()
             {
@@ -114,33 +120,25 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::{api::models::TargetKind, resolver::env::prefix_for};
+    use crate::{api::models::TargetKind, resolver::env::prefix_for, sys::FakeEnv};
 
-    /// Run the `ConfigCredentialResolver` with a synthetic env by setting vars in the process
-    /// environment.  Uses UUID namespacing to avoid collisions with concurrent tests.
+    /// Runs the resolver against exactly `vars` and nothing else. No process state is
+    /// touched, so these tests need no lock and cannot collide with each other.
     fn run_resolver_with_env(
         id: Uuid,
         kind: TargetKind,
         targets: HashMap<Uuid, TargetEntry>,
         vars: &HashMap<String, String>,
     ) -> Result<ResolvedCredentials, ResolveError> {
-        for (k, v) in vars {
-            // SAFETY: test-only; UUID-namespaced to avoid test collisions.
-            unsafe { std::env::set_var(k, v) };
-        }
+        let env = vars
+            .iter()
+            .fold(FakeEnv::empty(), |env, (k, v)| env.with(k, v));
+        let resolver = ConfigCredentialResolver::new(targets, Arc::new(env));
 
-        let resolver = ConfigCredentialResolver::new(targets);
         let rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
-        let result = rt.block_on(resolver.resolve(id, kind));
-
-        for k in vars.keys() {
-            // SAFETY: test-only.
-            unsafe { std::env::remove_var(k) };
-        }
-
-        result
+        rt.block_on(resolver.resolve(id, kind))
     }
 
     #[test]
@@ -151,6 +149,7 @@ mod tests {
             id,
             TargetEntry {
                 script: Some("/opt/scripts/rotate.sh".to_string()),
+                script_type: None,
                 tenant_id: None,
                 client_id: None,
             },
@@ -176,6 +175,7 @@ mod tests {
             id,
             TargetEntry {
                 script: None,
+                script_type: None,
                 tenant_id: Some("config-tenant".to_string()),
                 client_id: None,
             },
@@ -234,6 +234,7 @@ mod tests {
             id,
             TargetEntry {
                 script: None,
+                script_type: None,
                 tenant_id: Some("my-tenant".to_string()),
                 client_id: None,
             },
