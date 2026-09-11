@@ -106,4 +106,11 @@ export class Database {
   readonly ciphers = new Table<CipherEntity>(new SequentialUuidGenerator("ciphers"));
   readonly folders = new Table<FolderEntity>(new SequentialUuidGenerator("folders"));
   readonly sends = new Table<Send>(new SequentialUuidGenerator("sends"));
+  /**
+   * Ids for devices, which have no table of their own.
+   *
+   * A trusted device's keys live on the account that trusts it, but the device routes still answer
+   * with an id, and the client parses it as a UUID.
+   */
+  readonly deviceIds = new SequentialUuidGenerator("devices");
 }
