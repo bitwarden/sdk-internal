@@ -271,6 +271,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                     _ => return Err(CryptoError::InvalidKey),
                 }
             }
+            (EncString::Unparseable { .. }, _) => return Err(CryptoError::UnparseableEncString),
             _ => {
                 tracing::warn!(
                     "Unsupported unwrap operation for the given key and data {:?}, {:?}",
@@ -793,6 +794,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
                 )?;
                 Ok(data)
             }
+            (EncString::Unparseable { .. }, _) => Err(CryptoError::UnparseableEncString),
             _ => {
                 tracing::warn!("Unsupported decryption operation for the given key and data");
                 Err(CryptoError::InvalidKey)
@@ -1324,6 +1326,28 @@ mod tests {
             ),
             "Expected decrypt to fail when using deprecated type 0 keys",
         );
+    }
+
+    /// An unparseable `EncString` must fail at decryption time, with a precise error.
+    #[test]
+    fn test_decrypt_and_unwrap_fail_for_unparseable_enc_string() {
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+
+        let key_id = TestSymmKey::A(0);
+        ctx.set_symmetric_key_internal(key_id, SymmetricCryptoKey::make_aes256_cbc_hmac_key())
+            .unwrap();
+
+        let unparseable: EncString = "2.AAECAw==|Y3Q=|AAECAw==".parse().unwrap();
+
+        assert!(matches!(
+            ctx.decrypt_data_with_symmetric_key(key_id, &unparseable),
+            Err(CryptoError::UnparseableEncString)
+        ));
+        assert!(matches!(
+            ctx.unwrap_symmetric_key(key_id, &unparseable),
+            Err(CryptoError::UnparseableEncString)
+        ));
     }
 
     #[test]
