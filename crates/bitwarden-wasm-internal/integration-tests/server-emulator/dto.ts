@@ -30,7 +30,6 @@ import {
   asString,
 } from "../tests/type-assertion-helpers";
 
-import type { Database } from "./database";
 import type { StoredMasterPasswordUnlock, UserEntity } from "./entities";
 
 /** The server's numeric `KdfType`. */
@@ -159,9 +158,6 @@ export class AccountDataRequest {
 
 /**
  * `KeyRegenerationRequestModel` — the body of `POST /accounts/key-management/regenerate-keys`.
- *
- * A V1 account whose stored public key does not match its private key gets a fresh key pair before
- * a rotation, so a corrupt pair cannot block one.
  */
 export class KeyRegenerationRequest {
   userPublicKey!: string;
@@ -241,9 +237,6 @@ export class AccountKeysResponse {
 
   /**
    * These keys as an instance, from the fields alone.
-   *
-   * The fields are all a response body carries — over the wire, or built from an account — and the
-   * class carries a conversion, so the two have to be joined up somewhere.
    */
   static fromAccountKeysResponse(body: AccountKeysBody): AccountKeysResponse {
     return Object.assign(new AccountKeysResponse(), body);
@@ -382,9 +375,6 @@ export interface CipherServerFields {
 
 /**
  * `CipherRequestModel` — the body of `POST /ciphers` and `PUT /ciphers/:id`.
- *
- * The encrypted sub-objects are structurally the domain model's, so they are typed off `Cipher`
- * rather than re-declared. Only the top level differs, and only the top level needs pinning.
  */
 export class CipherRequest {
   type!: CipherType;
@@ -577,9 +567,6 @@ export class FolderResponse {
 
 /**
  * `MasterPasswordUnlockResponseModel`.
- *
- * The wrapped key is `masterKeyEncryptedUserKey` here, not the request models'
- * `masterKeyWrappedUserKey`. The two spellings are not interchangeable.
  */
 export class MasterPasswordUnlockResponse {
   kdf!: KdfModel;
