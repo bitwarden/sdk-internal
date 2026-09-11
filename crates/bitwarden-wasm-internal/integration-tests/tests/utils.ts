@@ -16,14 +16,6 @@ import {
   init_sdk,
   TokenProvider,
   UserId,
-  IpcClient,
-  IpcCommunicationBackend,
-  IpcCommunicationBackendSender,
-  IncomingMessage,
-  OutgoingMessage,
-  Source,
-  BiometricsUnlock,
-  BiometricsStatus,
   InitUserCryptoMethod,
   ClientSettings,
 } from "@bitwarden/sdk-internal";
@@ -339,95 +331,6 @@ export async function makeOrgInitializedClient(
     organizationKeys: new Map([[TEST_ORGANIZATION_ID, TEST_ORGANIZATION_KEY]]),
   });
   return client;
-}
-
-/**
- * Hook surface for re-pointing where each side of `makeMockTransportPair`
- * delivers its outgoing messages. Used by `reloadFollower` to attach a fresh
- * follower-side backend to an existing leader.
- */
-export interface MockTransportRouter {
-  setFirstReceiver(receive: (m: IncomingMessage) => void): void;
-  setSecondReceiver(receive: (m: IncomingMessage) => void): void;
-  firstSource: Source;
-  secondSource: Source;
-}
-
-/**
- * Creates two paired in-memory `IpcCommunicationBackend`s for tests. Anything one
- * peer sends is delivered to the other peer's incoming queue, with the
- * sender's `Source` identity. Mirrors `TestTwoWayCommunicationBackend` from the
- * Rust IPC crate.
- */
-export function makeMockTransportPair(
-  firstSource: Source = "DesktopMain",
-  secondSource: Source = "DesktopRenderer",
-): [IpcCommunicationBackend, IpcCommunicationBackend, MockTransportRouter] {
-  let receiveOnFirst: (m: IncomingMessage) => void;
-  let receiveOnSecond: (m: IncomingMessage) => void;
-
-  const firstSender: IpcCommunicationBackendSender = {
-    send: async (outgoing: OutgoingMessage) => {
-      receiveOnSecond(
-        new IncomingMessage(outgoing.payload, outgoing.destination, firstSource, outgoing.topic),
-      );
-    },
-  };
-  const secondSender: IpcCommunicationBackendSender = {
-    send: async (outgoing: OutgoingMessage) => {
-      receiveOnFirst(
-        new IncomingMessage(outgoing.payload, outgoing.destination, secondSource, outgoing.topic),
-      );
-    },
-  };
-
-  const first = new IpcCommunicationBackend(firstSender);
-  const second = new IpcCommunicationBackend(secondSender);
-  receiveOnFirst = (m) => first.receive(m);
-  receiveOnSecond = (m) => second.receive(m);
-
-  const router: MockTransportRouter = {
-    setFirstReceiver: (fn) => {
-      receiveOnFirst = fn;
-    },
-    setSecondReceiver: (fn) => {
-      receiveOnSecond = fn;
-    },
-    firstSource,
-    secondSource,
-  };
-
-  return [first, second, router];
-}
-
-export function testSymmetricKey(fill: number = 0x42): SymmetricKey {
-  return Buffer.alloc(64, fill).toString("base64") as unknown as SymmetricKey;
-}
-
-/**
- * Configuration options for the in-memory biometrics driver.
- */
-export interface MockBiometricsDriverOptions {
-  status: BiometricsStatus;
-  userKey: SymmetricKey | undefined;
-  uvResult: boolean;
-}
-
-/**
- * In-memory implementation of the `BiometricsUnlock` JS interface for tests.
- */
-export function makeMockBiometricsDriver(
-  options: MockBiometricsDriverOptions = {
-    status: BiometricsStatus.Available,
-    userKey: testSymmetricKey(),
-    uvResult: true,
-  },
-): BiometricsUnlock {
-  return {
-    get_biometrics_status: async () => options.status,
-    unlock_biometrics: async () => options.userKey,
-    authenticate_biometrics: async () => options.uvResult,
-  };
 }
 
 export async function sleep(ms: number): Promise<void> {

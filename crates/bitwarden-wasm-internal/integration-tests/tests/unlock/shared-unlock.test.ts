@@ -1,176 +1,220 @@
-/**
- * Boundary tests for the shared-unlock WASM surface.
- *
- * The protocol itself is covered in Rust, in `bitwarden-shared-unlock/tests`.
- * This test suite just tests basic wasm functionality / crossing the FFI boundary.
- */
+// Shared unlock across the clients on one device.
+//
+// The protocol's own rules are covered in Rust, in `bitwarden-shared-unlock`. What is proven here
+// is the end of the chain the SDK cannot see: that the key a peer receives over IPC, hands to the
+// device driver, and unlocks with, actually opens that client's vault.
+
+import { SharedUnlockPeer, init_sdk, type SharedUnlockClient } from "@bitwarden/sdk-internal";
+
+import { expectedVaultOf, validateLocalState } from "../../client-emulator/validate";
+import { BROWSER_BACKGROUND, DESKTOP_RENDERER, IpcBus, WEB } from "../../client-emulator/transport";
+import { testHarness, type TestHarness } from "../../test-harness";
+import { loadUserVectors, toSeedAccount, userVector } from "../../vectors/load";
+
 import {
-  IpcClient,
-  SharedUnlockDriver,
-  SharedUnlockPeer,
-  SymmetricKey,
-  UserId,
-  init_sdk,
-} from "@bitwarden/sdk-internal";
+  delay,
+  isUnlocked,
+  joinDevice,
+  PEER_TIMEOUT,
+  SYNC_INTERVAL_MS,
+  userKeyOf,
+  waitFor,
+  type Device,
+} from "./peer-support";
 
-import { makeMockTransportPair, testSymmetricKey } from "../utils";
+/** The cheapest master-password account to unlock; the propagation is what a case pays for. */
+const VECTOR = userVector(loadUserVectors(), "v1-pbkdf2-min-iterations");
+const ACCOUNT = toSeedAccount(VECTOR);
+const PASSWORD = VECTOR.account.password;
 
-const USER_A = "00000000-0000-0000-0000-000000000001" as unknown as UserId;
-const USER_KEY = testSymmetricKey(0x11);
+describe("shared unlock", () => {
+  let harness: TestHarness;
+  let bus: IpcBus;
+  let email: string;
+  let desktop: Device;
+  let browser: Device;
 
-/** Matches `SYNC_INTERVAL` in `bitwarden-shared-unlock/src/lib.rs`. */
-const SYNC_INTERVAL_MS = 5000;
+  const peers: SharedUnlockPeer[] = [];
+  const running: AbortController[] = [];
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+  /**
+   * Brings a peer up for one user.
+   *
+   * A peer sends nothing for a user until it is told which clients that user may be shared with,
+   * so the destinations are part of starting it rather than an afterthought.
+   */
+  async function startPeer(device: Device, destinations: SharedUnlockClient[]) {
+    const peer = new SharedUnlockPeer(device.client.ipc, device.driver);
+    peer.set_destinations(device.userId, destinations);
 
-interface MockDriver {
-  driver: SharedUnlockDriver;
-  /** `undefined` means locked. */
-  getUserKey(): SymmetricKey | undefined;
-  suppressions: number[];
-}
+    const abort = new AbortController();
+    running.push(abort);
+    peers.push(peer);
 
-/**
- * Minimal `SharedUnlockDriver` implementation. Every method here exists to be called across the
- * binding, so an adapter that stops marshalling one of them shows up as a failure below.
- */
-function makeDriver(
-  clientName: "browser" | "desktop",
-  initialKey: SymmetricKey | undefined,
-): MockDriver {
-  let key = initialKey;
-  const suppressions: number[] = [];
+    await peer.start(abort);
 
-  return {
-    driver: {
-      lock_user: async () => {
-        key = undefined;
-      },
-      unlock_user: async (_user_id, user_key) => {
-        key = user_key;
-      },
-      list_users: async () => [USER_A],
-      suppress_vault_timeout: async (_user_id, suppression_duration) => {
-        suppressions.push(suppression_duration);
-      },
-      get_client_name: async () => clientName,
-      get_vault_url: async () => undefined,
-    },
-    getUserKey: () => key,
-    suppressions,
-  };
-}
-
-/**
- * A browser peer that syncs up to a desktop peer. `get_client_name` is what feeds
- * `discover_leader`, so the desktop reporting `"desktop"` is what makes it the top of the hierarchy.
- */
-async function setupPair(options: {
-  leaderKey: SymmetricKey | undefined;
-  followerKey: SymmetricKey | undefined;
-}) {
-  init_sdk();
-
-  const [followerBackend, leaderBackend] = makeMockTransportPair(
-    { BrowserBackground: { id: "Own" } },
-    "DesktopRenderer",
-  );
-
-  const leaderIpc = IpcClient.newWithSdkInMemorySessions(leaderBackend);
-  const followerIpc = IpcClient.newWithSdkInMemorySessions(followerBackend);
-  await leaderIpc.start();
-  await followerIpc.start();
-
-  const leaderDriver = makeDriver("desktop", options.leaderKey);
-  const followerDriver = makeDriver("browser", options.followerKey);
-
-  const leader = new SharedUnlockPeer(leaderIpc, leaderDriver.driver);
-  const follower = new SharedUnlockPeer(followerIpc, followerDriver.driver);
-
-  // A peer sends nothing for a user until told which clients that user may be shared with: the
-  // desktop leader serves the browser below it, the browser follower syncs up to the desktop.
-  leader.set_destinations(USER_A, ["Browser"]);
-  follower.set_destinations(USER_A, ["Desktop"]);
-
-  const leaderAbort = new AbortController();
-  const followerAbort = new AbortController();
-  await leader.start(leaderAbort);
-  await follower.start(followerAbort);
-
-  return {
-    leader,
-    follower,
-    leaderDriver,
-    followerDriver,
-    cleanup: () => {
-      leaderAbort.abort();
-      followerAbort.abort();
-    },
-  };
-}
-
-/** Polls, because how quickly a sync lands depends on where in the tick it is reported. */
-async function waitForKey(
-  read: () => SymmetricKey | undefined,
-  expected: SymmetricKey | undefined,
-  timeoutMs = 20000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  const describe = (key: SymmetricKey | undefined) => (key === undefined ? "locked" : "unlocked");
-
-  for (;;) {
-    if (read() === expected) {
-      return;
-    }
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `Timed out after ${timeoutMs}ms waiting for ${describe(expected)}; it is ${describe(read())}`,
-      );
-    }
-    await delay(25);
+    return peer;
   }
-}
 
-describe("shared unlock wasm bindings", () => {
-  let cleanup: (() => void) | undefined;
+  beforeEach(async () => {
+    init_sdk();
+
+    harness = testHarness();
+    email = harness.server.seedUser(ACCOUNT).email;
+    bus = new IpcBus();
+
+    desktop = await joinDevice(harness, bus, email, DESKTOP_RENDERER, "desktop");
+    browser = await joinDevice(harness, bus, email, BROWSER_BACKGROUND, "browser");
+  }, PEER_TIMEOUT);
 
   afterEach(async () => {
-    cleanup?.();
-    cleanup = undefined;
+    for (const abort of running) {
+      abort.abort();
+    }
+    running.length = 0;
+    peers.length = 0;
+
+    harness.restore();
+
+    // Lets the aborted sync loops settle before the next test replaces the fetch hook.
     await delay(100);
   });
 
-  it("constructs and starts a peer over the generated bindings", async () => {
-    const pair = await setupPair({ leaderKey: undefined, followerKey: undefined });
-    cleanup = pair.cleanup;
+  it(
+    "unlocks the browser with a key that opens its vault when the desktop unlocks",
+    async () => {
+      // 1. The desktop unlocks; the browser is logged in but locked
+      await desktop.client.unlock(PASSWORD);
+      expect(await isUnlocked(browser.client)).toBe(false);
 
-    expect(pair.leader).toBeInstanceOf(SharedUnlockPeer);
-    expect(pair.follower).toBeInstanceOf(SharedUnlockPeer);
-  }, 30000);
+      const desktopPeer = await startPeer(desktop, ["Browser"]);
+      await startPeer(browser, ["Desktop"]);
 
-  it("shares unlock from follower to leader", async () => {
-    const pair = await setupPair({ leaderKey: undefined, followerKey: undefined });
-    cleanup = pair.cleanup;
+      // 2. Report the unlock to the shared-unlock system
+      await desktopPeer.handle_device_event({
+        ManualUnlock: { user_id: desktop.userId, user_key: await desktop.client.userKey() },
+      });
 
-    await pair.follower.handle_device_event({
-      ManualUnlock: { user_id: USER_A, user_key: USER_KEY },
-    });
+      // 3. The browser is unlocked by its driver, not by the test
+      await waitFor(() => isUnlocked(browser.client), "the browser to be unlocked");
 
-    await waitForKey(() => pair.leaderDriver.getUserKey(), USER_KEY);
-  }, 30000);
+      // 4. The key the browser was left holding decrypts the vault it synced down. Reading it back
+      //    out of the browser's own state is the point: a validation against the vector's key would
+      //    pass even if the propagated key were wrong.
+      const propagated = await userKeyOf(browser.client);
+      if (propagated === undefined) {
+        throw new Error("the browser reports unlocked but holds no user key");
+      }
 
-  it("calls suppress_vault_timeout with a duration in milliseconds", async () => {
-    const pair = await setupPair({ leaderKey: undefined, followerKey: undefined });
-    cleanup = pair.cleanup;
+      await validateLocalState(
+        browser.client.local,
+        { decryptedKey: { decrypted_user_key: propagated } },
+        expectedVaultOf(ACCOUNT),
+      );
+    },
+    PEER_TIMEOUT,
+  );
 
-    await delay(SYNC_INTERVAL_MS + 1000);
+  it(
+    "unlocks the desktop with a key that opens its vault when the browser unlocks",
+    async () => {
+      // 1. This time the follower is the one that unlocks, and the leader is the one that follows
+      await browser.client.unlock(PASSWORD);
+      expect(await isUnlocked(desktop.client)).toBe(false);
 
-    expect(pair.followerDriver.suppressions.length).toBeGreaterThan(0);
-    for (const suppression of pair.followerDriver.suppressions) {
-      expect(typeof suppression).toBe("number");
-      expect(suppression).toBeGreaterThan(0);
-    }
-  }, 30000);
+      await startPeer(desktop, ["Browser"]);
+      const browserPeer = await startPeer(browser, ["Desktop"]);
+
+      // 2. Report the unlock to the shared-unlock system
+      await browserPeer.handle_device_event({
+        ManualUnlock: { user_id: browser.userId, user_key: await browser.client.userKey() },
+      });
+
+      // 3. The desktop is unlocked, and what it holds decrypts its vault
+      await waitFor(() => isUnlocked(desktop.client), "the desktop to be unlocked");
+
+      const propagated = await userKeyOf(desktop.client);
+      if (propagated === undefined) {
+        throw new Error("the desktop reports unlocked but holds no user key");
+      }
+
+      await validateLocalState(
+        desktop.client.local,
+        { decryptedKey: { decrypted_user_key: propagated } },
+        expectedVaultOf(ACCOUNT),
+      );
+    },
+    PEER_TIMEOUT,
+  );
+
+  it(
+    "locks the browser when the desktop locks",
+    async () => {
+      // 1. Get both clients unlocked through the protocol
+      await desktop.client.unlock(PASSWORD);
+
+      const desktopPeer = await startPeer(desktop, ["Browser"]);
+      await startPeer(browser, ["Desktop"]);
+
+      await desktopPeer.handle_device_event({
+        ManualUnlock: { user_id: desktop.userId, user_key: await desktop.client.userKey() },
+      });
+      await waitFor(() => isUnlocked(browser.client), "the browser to be unlocked");
+
+      // 2. Lock the desktop
+      await desktopPeer.handle_device_event({ ManualLock: { user_id: desktop.userId } });
+
+      // 3. The browser drops the key it was given
+      await waitFor(async () => !(await isUnlocked(browser.client)), "the browser to be locked");
+    },
+    PEER_TIMEOUT,
+  );
+
+  it(
+    "withholds the unlock from a web client the user is not shared with",
+    async () => {
+      // 1. A third client joins the bus below the browser, and is origin-valid for this account
+      const web = await joinDevice(harness, bus, email, WEB, "web");
+
+      await desktop.client.unlock(PASSWORD);
+
+      const desktopPeer = await startPeer(desktop, ["Browser"]);
+      // The browser relays upward only: the web client may sync to it, but is not a destination.
+      await startPeer(browser, ["Desktop"]);
+      await startPeer(web, ["Browser"]);
+
+      // 2. Unlock, and let it propagate as far as it is going to
+      await desktopPeer.handle_device_event({
+        ManualUnlock: { user_id: desktop.userId, user_key: await desktop.client.userKey() },
+      });
+      await waitFor(() => isUnlocked(browser.client), "the browser to be unlocked");
+
+      // 3. A full interval later — enough for a periodic sync, not just the event — the web client
+      //    is still locked, because it is not in anyone's destinations for this user.
+      await delay(SYNC_INTERVAL_MS + 1000);
+
+      expect(await isUnlocked(web.client)).toBe(false);
+    },
+    PEER_TIMEOUT,
+  );
+
+  it(
+    "suppresses the follower's vault timeout while the session is shared",
+    async () => {
+      await desktop.client.unlock(PASSWORD);
+
+      await startPeer(desktop, ["Browser"]);
+      await startPeer(browser, ["Desktop"]);
+
+      // Only syncs arriving from a peer's leader suppress a timeout, so this is the browser's
+      // evidence that the desktop is still there.
+      await delay(SYNC_INTERVAL_MS + 1000);
+
+      expect(browser.suppressions.length).toBeGreaterThan(0);
+      for (const suppression of browser.suppressions) {
+        expect(suppression).toBeGreaterThan(0);
+      }
+    },
+    PEER_TIMEOUT,
+  );
 });
