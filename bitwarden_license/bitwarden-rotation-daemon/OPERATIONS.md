@@ -21,6 +21,7 @@ never sees a plaintext password.
 - [Per-target credentials](#per-target-credentials)
 - [Supported target systems](#supported-target-systems)
 - [Writing a custom rotation script](#writing-a-custom-rotation-script)
+- [PowerShell scripts](#powershell-scripts)
 - [Running in production](#running-in-production)
 - [Observability](#observability)
 - [Troubleshooting](#troubleshooting)
@@ -139,7 +140,7 @@ Target credentials live in the daemon's environment, or in its config file for n
 
 |                     |                                                                              |
 | ------------------- | ---------------------------------------------------------------------------- |
-| **Platform**        | Linux or macOS (x86-64 or ARM64). Custom scripts require a Unix host.        |
+| **Platform**        | Linux (x86-64 or ARM64), macOS (ARM64), or Windows (x86-64).                 |
 | **Privileges**      | No root required for the daemon itself. Scripts may need their own.          |
 | **Inbound network** | None.                                                                        |
 | **Bitwarden**       | Organisation licence active, PAM enabled, daemon registered and not revoked. |
@@ -265,6 +266,9 @@ script_timeout     = 60   # seconds before a custom script is killed
 
 script_root = "/opt/bwrd/scripts"   # restrict scripts to this directory (recommended)
 
+powershell_execution_policy = "Bypass"   # see "PowerShell scripts" below
+# powershell_path = 'C:\Program Files\PowerShell\7\pwsh.exe'   # else discovered on PATH
+
 entra_verify_probe = false          # see "Microsoft Entra ID" below
 
 [environment]
@@ -278,16 +282,18 @@ script = "/opt/bwrd/scripts/rotate-appliance.sh"
 
 #### Setting reference
 
-| Key                  | Default   | Notes                                                       |
-| -------------------- | --------- | ----------------------------------------------------------- |
-| `poll_interval`      | `15`      | Seconds. Values below 15 are rejected at startup.           |
-| `heartbeat_interval` | `30`      | Seconds. Must be < 120. Only active during a rotation.      |
-| `offline_grace`      | `60`      | Seconds a rotation may proceed after losing server contact. |
-| `max_retry_attempts` | `5`       | Total tries, not extra retries. `5` means 4 backoff sleeps. |
-| `retry_base_delay`   | `1`       | Seconds. Doubles each retry, capped at 32×.                 |
-| `script_timeout`     | `60`      | Seconds. The script is `SIGKILL`ed at this point.           |
-| `script_root`        | _(unset)_ | If set, scripts must resolve under this directory.          |
-| `entra_verify_probe` | `false`   | Enables an authoritative Entra verify probe.                |
+| Key                           | Default   | Notes                                                                            |
+| ----------------------------- | --------- | -------------------------------------------------------------------------------- |
+| `poll_interval`               | `15`      | Seconds. Values below 15 are rejected at startup.                                |
+| `heartbeat_interval`          | `30`      | Seconds. Must be < 120. Only active during a rotation.                           |
+| `offline_grace`               | `60`      | Seconds a rotation may proceed after losing server contact.                      |
+| `max_retry_attempts`          | `5`       | Total tries, not extra retries. `5` means 4 backoff sleeps.                      |
+| `retry_base_delay`            | `1`       | Seconds. Doubles each retry, capped at 32×.                                      |
+| `script_timeout`              | `60`      | Seconds. The script is `SIGKILL`ed at this point.                                |
+| `script_root`                 | _(unset)_ | If set, scripts must resolve under this directory.                               |
+| `powershell_path`             | _(unset)_ | PowerShell host. Unset discovers `pwsh`, then `powershell.exe`, on `PATH`.       |
+| `powershell_execution_policy` | `Bypass`  | `-ExecutionPolicy` for the PowerShell host. Use `AllSigned` if you sign scripts. |
+| `entra_verify_probe`          | `false`   | Enables an authoritative Entra verify probe.                                     |
 
 #### URL precedence
 
@@ -339,9 +345,13 @@ tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
 ```
 
-Only `script`, `tenant_id`, and `client_id` are accepted. `client_secret` is deliberately excluded,
-because config files end up in repositories. Anything else, including any extra credentials your
-script needs, must come from the environment.
+Only `script`, `script_type`, `tenant_id`, and `client_id` are accepted. `client_secret` is
+deliberately excluded, because config files end up in repositories. Anything else, including any
+extra credentials your script needs, must come from the environment.
+
+`script_type` is `direct` or `powershell`, and you rarely need it: a `.ps1` is launched through a
+PowerShell host automatically. Set it only for a script whose filename cannot say what it is. See
+[PowerShell scripts](#powershell-scripts).
 
 Precedence is per key: a value in `[targets]` wins; otherwise the environment variable is used.
 Missing-value errors always name the environment variable, since that is the option that always
@@ -350,8 +360,8 @@ works.
 ### A note on UUIDs starting with a digit
 
 POSIX `/bin/sh` cannot `export` a variable whose name begins with a digit, and most target UUIDs do.
-The `[targets]` section sidesteps this for `script`, `tenant_id`, and `client_id`. For everything
-else, use a mechanism that does not go through a shell: systemd's `Environment=` and
+The `[targets]` section sidesteps this for `script`, `script_type`, `tenant_id`, and `client_id`.
+For everything else, use a mechanism that does not go through a shell: systemd's `Environment=` and
 `EnvironmentFile=` both work, as does Docker's `--env-file`.
 
 ---
@@ -394,6 +404,10 @@ if you know the rotated accounts are exempt.
 
 For everything else (Linux and Windows servers, network appliances, databases, SaaS admin APIs),
 write a script. See the next section.
+
+A `.ps1` is run through a PowerShell host automatically, so a Windows target can be rotated with
+PowerShell directly rather than through a wrapper executable. See
+[PowerShell scripts](#powershell-scripts).
 
 ---
 
@@ -532,8 +546,9 @@ esac
 
 ### Checklist
 
-- [ ] The file is executable and has a shebang. The daemon executes it directly, so `SCRIPT` must be
-      a path, not a command line with arguments.
+- [ ] The file is executable and has a shebang, or it is a `.ps1` (see
+      [PowerShell scripts](#powershell-scripts)). `SCRIPT` must be a path, not a command line with
+      arguments.
 - [ ] `PATH` is set explicitly, or every external tool is called by absolute path.
 - [ ] `rotate` performs an administrative reset and never needs the old password.
 - [ ] Running `rotate` twice with the same password succeeds, because in-attempt retries reuse it.
@@ -543,8 +558,130 @@ esac
 - [ ] No `set -x`, and nothing writes `newPassword` to a log file.
 - [ ] The script finishes well within `script_timeout`.
 
-Four minimal reference scripts live in `tests/fixtures/`. `copy_stdin.sh` is useful during
-development: point a test target at it and it will dump a real payload to a file.
+Minimal reference scripts live in `tests/fixtures/`, in both shell and PowerShell. `copy_stdin.sh`
+and `copy_stdin.ps1` are useful during development: point a test target at one and it will dump a
+real payload to a file.
+
+---
+
+## PowerShell scripts
+
+A `.ps1` is not an executable, so the daemon launches a PowerShell host to run it. Nothing else
+changes. The contract in [Writing a custom rotation script](#writing-a-custom-rotation-script)
+applies exactly as written: the stdin payload, the exit codes, the timeout, `script_root`.
+
+### When PowerShell is used
+
+The file decides rather than the operating system. A `.ps1` is launched through a host; anything
+else is executed directly, as before. So a PowerShell script rotates from a Linux daemon running
+PowerShell 7, and a native `.exe` target on Windows is unaffected.
+
+```toml
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = 'C:\bwrd\rotate-sqlsa.ps1'          # no other configuration needed
+```
+
+Set `script_type` only when the filename cannot say what the file is:
+
+```toml
+[targets.00000000-0000-0000-0000-000000000003]
+script      = "/opt/bwrd/rotate-appliance"   # no extension
+script_type = "powershell"
+```
+
+`script_type` accepts `direct` or `powershell`. A value that is neither fails the rotation rather
+than falling back.
+
+### Which host is used
+
+In order: `powershell_path` from the config file, then `pwsh` / `pwsh.exe` on `PATH`, then
+`powershell.exe`. PowerShell 7 is preferred over Windows PowerShell 5.1.
+
+A `powershell_path` you set is used exactly as given and never quietly replaced by a discovered
+host. If no host is found at all the rotation fails with `credentials_unresolved`; the daemon still
+starts, so a machine without PowerShell can serve its other targets.
+
+The host is invoked as:
+
+```
+<host> -NoProfile -NonInteractive -ExecutionPolicy <policy> -File <script> <operation>
+```
+
+Windows PowerShell 5.1 requires a `.ps1` extension for `-File`, so forcing `script_type` on an
+extensionless script works only under `pwsh`.
+
+### Execution policy
+
+`powershell_execution_policy` defaults to `Bypass`, because Windows Server ships `RemoteSigned` and
+will refuse to run an unsigned `.ps1`; the first rotation on a new host would otherwise fail with
+nothing but `exit code 1`. The script is one you installed at a path already pinned by
+`script_root`, so the policy check is largely redundant here. If you sign your rotation scripts, set
+`AllSigned`.
+
+### What the script inherits
+
+A directly executed script gets an empty environment. A PowerShell host cannot start that way, so it
+receives a fixed allowlist instead: `SystemRoot`, `windir`, `PATH`, `PATHEXT`, `COMSPEC`,
+`PSModulePath`, `PROGRAMFILES`, `PROGRAMFILES(X86)`, `PROGRAMDATA`, `APPDATA`, `LOCALAPPDATA`,
+`USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`, and on Unix `HOME`, `TMPDIR`, `LANG`.
+
+Nothing else crosses. The daemon token, every target credential, and the new password are all absent
+from the child environment; secrets still arrive only in the stdin payload.
+
+### Getting the exit code right
+
+The exit code is what tells Bitwarden whether the target changed, and PowerShell's defaults work
+against you in two specific ways.
+
+**Always set `$ErrorActionPreference = 'Stop'` as the first line.** The default is `Continue`: a
+cmdlet that fails writes an error record and execution carries on to your `exit 0`. A rotation that
+failed would be reported as a success, and the vault would then hold a password the target never
+accepted.
+
+**Exit 2, not 1, if anything fails after the password was already reset.** An uncaught exception
+exits 1, and 1 means "target unchanged". If the reset succeeded and a later step threw, the target
+has changed, and saying otherwise leaves the vault out of sync with it:
+
+```powershell
+Reset-MyAccountPassword -Identity $account -NewPassword $password
+try {
+    Confirm-MyReset -Identity $account
+} catch {
+    exit 2      # the target was updated, we just could not finish
+}
+```
+
+Use exit 4 for anything a retry might fix: throttling, a timeout, an endpoint that was briefly
+unreachable.
+
+### Example
+
+```powershell
+# rotate.ps1, invoked as: rotate.ps1 <rotate|verify|terminate>
+param([Parameter(Mandatory)][string]$Operation)
+
+$ErrorActionPreference = 'Stop'
+
+$payload  = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$account  = $payload.accountIdentity
+$password = $payload.newPassword          # absent for 'terminate'
+
+switch ($Operation) {
+    'rotate' {
+        Reset-MyAccountPassword -Identity $account -NewPassword $password
+    }
+    'verify' {
+        if (-not (Test-MyAccountPassword -Identity $account -Password $password)) {
+            exit 1
+        }
+    }
+    'terminate' {
+        Revoke-MySessions -Identity $account
+    }
+}
+
+exit 0
+```
 
 ---
 
@@ -696,6 +833,16 @@ write to a log file instead, never logging `newPassword`, or point the target te
 
 The most common script failure is a missing `PATH`: the daemon clears the environment, so tools in
 `/usr/local/bin` or `/opt/homebrew/bin` are not found unless you say where they are.
+
+For a PowerShell script, `script_failed` with `exit code 1` and no other detail is usually a
+host-level failure that happened before your code ran: an execution-policy block, an unsigned
+script, a syntax error, or a module that would not load. None of those can reach the failure report,
+because the host writes them to stderr. Reproduce it by hand as the account the daemon runs under,
+which also reproduces the environment allowlist:
+
+```
+runas /user:svc_bwrd "pwsh -NoProfile -NonInteractive -File C:\bwrd\rotate-sqlsa.ps1 rotate"
+```
 
 ---
 

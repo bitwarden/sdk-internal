@@ -71,6 +71,10 @@ script_timeout     = 60   # seconds
 
 # script_root = "/opt/scripts"   # uncomment to restrict custom script paths
 
+# PowerShell host, used for any script the daemon launches through PowerShell.
+powershell_execution_policy = "Bypass"   # set "AllSigned" if you sign your scripts
+# powershell_path = "C:\\Program Files\\PowerShell\\7\\pwsh.exe"   # else discovered on PATH
+
 entra_verify_probe = false   # set true only with MFA exemption for the service principal
 
 [environment]
@@ -98,11 +102,12 @@ client_id  = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
 
 #### Accepted keys per target entry
 
-| Key         | Overrides env suffix | Applicable kinds |
-| ----------- | -------------------- | ---------------- |
-| `script`    | `SCRIPT`             | `CustomScript`   |
-| `tenant_id` | `TENANT_ID`          | `Entra`          |
-| `client_id` | `CLIENT_ID`          | `Entra`          |
+| Key           | Overrides env suffix | Applicable kinds |
+| ------------- | -------------------- | ---------------- |
+| `script`      | `SCRIPT`             | `CustomScript`   |
+| `script_type` | `SCRIPT_TYPE`        | `CustomScript`   |
+| `tenant_id`   | `TENANT_ID`          | `Entra`          |
+| `client_id`   | `CLIENT_ID`          | `Entra`          |
 
 #### `client_secret` is env-only
 
@@ -200,7 +205,7 @@ source was expected to provide the value.
 
 | Kind           | Accepted config keys     |
 | -------------- | ------------------------ |
-| `CustomScript` | `script`                 |
+| `CustomScript` | `script`, `script_type`  |
 | `Entra`        | `tenant_id`, `client_id` |
 
 ### `client_secret` is env-only
@@ -245,7 +250,7 @@ ABC_1234_5678_ABCD_000000000001_CLIENT_SECRET=...
 | Kind           | Required env-var suffixes                         |
 | -------------- | ------------------------------------------------- |
 | `Entra`        | `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`         |
-| `CustomScript` | `SCRIPT`                                          |
+| `CustomScript` | `SCRIPT` (`SCRIPT_TYPE` optional)                 |
 | `Mssql`        | `HOST`, `USER`, `SECRET` (unsupported this build) |
 
 Any additional variables matching the prefix are collected and forwarded to the integration as extra
@@ -369,6 +374,158 @@ case "$operation" in
     ;;
 esac
 exit 0
+```
+
+---
+
+## PowerShell scripts
+
+A `.ps1` is not an executable; it needs a PowerShell host to interpret it. The daemon launches one
+for you. Everything else about the integration is unchanged, so the contract above (stdin payload,
+exit codes, timeouts, `script_root`) applies verbatim.
+
+### When PowerShell is used
+
+| `script_type` | Script path   | Launcher          |
+| ------------- | ------------- | ----------------- |
+| _unset_       | `*.ps1`       | PowerShell host   |
+| _unset_       | anything else | executed directly |
+| `powershell`  | any           | PowerShell host   |
+| `direct`      | any           | executed directly |
+
+The extension decides by default, so the common case needs no configuration:
+
+```toml
+[targets.85808642-baba-4b8e-8c34-b48000d60a0a]
+script = 'C:\bwrd\rotate-sqlsa.ps1'
+```
+
+Set `script_type` only when the filename cannot say what the file is: an extensionless script that
+needs PowerShell, or a `.ps1` that must run some other way:
+
+```toml
+[targets.00000000-0000-0000-0000-000000000003]
+script      = "/opt/bwrd/rotate-appliance"
+script_type = "powershell"
+```
+
+The file decides rather than the host OS, so a `.ps1` rotates from a Linux or macOS daemon running
+PowerShell 7, and a native `.exe` target on Windows keeps executing directly.
+
+An unrecognised `script_type` fails the rotation with `credentials_unresolved` rather than falling
+back to direct execution.
+
+### Host discovery
+
+In order: the `powershell_path` config key, then `pwsh` / `pwsh.exe` on `PATH`, then
+`powershell.exe` on `PATH`. PowerShell 7 is preferred over Windows PowerShell 5.1.
+
+`powershell_path` is used exactly as given and never falls back to a discovered host; a mistyped
+path fails loudly instead of silently running your script under a different interpreter. If no host
+is found at all, the rotation fails with `credentials_unresolved`; the daemon still starts, so a box
+with no PowerShell can serve non-PowerShell targets.
+
+### Invocation
+
+```
+<host> -NoProfile -NonInteractive -ExecutionPolicy <policy> -File <script> <operation>
+```
+
+`-NoProfile` keeps an operator profile from changing rotation behaviour and `-NonInteractive` stops
+the host blocking on a prompt. `-File` is used rather than `-Command` so the operation arrives as a
+real argument instead of being interpolated into a command string.
+
+Windows PowerShell 5.1 requires a `.ps1` extension for `-File`; PowerShell 7 does not. An
+extensionless script forced to PowerShell therefore works only under `pwsh`.
+
+### Execution policy
+
+`powershell_execution_policy` defaults to `Bypass`. Windows Server ships `RemoteSigned`, which
+refuses to run an unsigned `.ps1`; without the flag the first rotation on a fresh host fails with a
+bare exit 1. The script is one you installed at a path already pinned by `script_root`, so the
+policy check is largely redundant here. If you sign your rotation scripts, set `AllSigned`.
+
+### Environment
+
+Directly executed scripts get a completely empty environment. A PowerShell host cannot start that
+way. On Windows it needs `SystemRoot` to locate system assemblies and `PSModulePath` to find
+modules, so it receives a fixed allowlist instead: `SystemRoot`, `windir`, `PATH`, `PATHEXT`,
+`COMSPEC`, `PSModulePath`, `PROGRAMFILES`, `PROGRAMFILES(X86)`, `PROGRAMDATA`, `APPDATA`,
+`LOCALAPPDATA`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`, and on Unix `HOME`, `TMPDIR`,
+`LANG`.
+
+Nothing else is forwarded. The daemon token, every per-target credential, and the new password are
+all absent from the child environment; secrets still reach your script only through the stdin
+payload.
+
+### Example script skeleton
+
+```powershell
+# rotate.ps1, invoked as: rotate.ps1 <rotate|verify|terminate>
+param([Parameter(Mandatory)][string]$Operation)
+
+# Required. PowerShell's default is 'Continue', which would let a failed reset fall through to
+# `exit 0` and be reported as a success. See "Reporting the right exit code" below.
+$ErrorActionPreference = 'Stop'
+
+$payload  = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$account  = $payload.accountIdentity
+$password = $payload.newPassword          # absent for 'terminate'
+
+switch ($Operation) {
+    'rotate' {
+        # An administrative reset, never a change-password call.
+        Reset-MyAccountPassword -Identity $account -NewPassword $password
+    }
+    'verify' {
+        if (-not (Test-MyAccountPassword -Identity $account -Password $password)) {
+            exit 1
+        }
+    }
+    'terminate' {
+        Revoke-MySessions -Identity $account
+    }
+}
+
+exit 0
+```
+
+### Reporting the right exit code
+
+The exit-code table is what tells Bitwarden whether the target actually changed, and PowerShell
+makes it easier to get wrong than a shell script does:
+
+- **Set `$ErrorActionPreference = 'Stop'` as the first line.** Under the default `Continue`, a
+  cmdlet that fails writes an error and execution carries on to your `exit 0`, reporting a failed
+  rotation as a success.
+- **Anything that throws after the password was already reset must exit 2, not 1.** An uncaught
+  exception exits 1, which means "target unchanged". If the reset succeeded and a later step blew
+  up, the target has changed, and reporting otherwise leaves the vault out of sync with it. Wrap the
+  post-reset work:
+
+  ```powershell
+  Reset-MyAccountPassword -Identity $account -NewPassword $password
+  try {
+      Confirm-MyReset -Identity $account
+  } catch {
+      exit 2      # target updated, but we could not finish
+  }
+  ```
+
+- **Use exit 4 for anything worth retrying**: a timeout, a throttling response, an unreachable
+  endpoint.
+
+### Troubleshooting
+
+The daemon discards script stdout and stderr, because either can echo the credentials it just handed
+you. That also means a host-level failure (an execution-policy block, an unsigned script, a parse
+error, a module that will not load) arrives as `script_failed` with nothing but `exit code 1`.
+
+To see the actual error, run the script by hand as the account the daemon runs under, which also
+reproduces the environment allowlist:
+
+```
+runas /user:svc_bwrd "pwsh -NoProfile -NonInteractive -File C:\bwrd\rotate-sqlsa.ps1 rotate"
 ```
 
 ---
