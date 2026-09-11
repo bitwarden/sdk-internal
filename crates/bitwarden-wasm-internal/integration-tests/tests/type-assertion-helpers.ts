@@ -8,6 +8,8 @@ import type {
   OrganizationId,
   PublicKey,
   SendId,
+  SignedPublicKey,
+  SignedSecurityState,
   UnsignedSharedKey,
   UserId,
   Uuid,
@@ -25,6 +27,8 @@ export const asKeyId = (value: string): KeyId => typeAssert(value);
 export const asEncString = (value: string): EncString => typeAssert(value);
 export const asB64 = (value: string): B64 => typeAssert(value);
 export const asPublicKey = (value: string): PublicKey => typeAssert(value);
+export const asSignedPublicKey = (value: string): SignedPublicKey => typeAssert(value);
+export const asSignedSecurityState = (value: string): SignedSecurityState => typeAssert(value);
 export const asUnsignedSharedKey = (value: string): UnsignedSharedKey => typeAssert(value);
 export const asUuid = (value: string): string => typeAssert(value);
 export const fromUuid = (value: Uuid): string => typeAssert(value as unknown as string);
