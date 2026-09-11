@@ -27,7 +27,7 @@
 //! | `NoTargetActionPastSessionLoss`    | `executor::rotation::make_gate` + gated retry  |
 //! | `VerifiedBeforeSuccess`            | proof tokens in `executor::rotation`           |
 //! | `TerminationNeverFailsRotation`    | step 6 returns `SessionTermination` value      |
-//! | `RotationByAdministrativeReset`    | integration contracts (custom_script, entra)   |
+//! | `RotationByAdministrativeReset`    | integration contracts (scripting, entra)       |
 //! | `ServerZeroKnowledge`              | token / crypto / safe-detail secret handling   |
 //! | `AtMostOneActiveSession`           | singleton `SessionManager` by construction     |
 //! | `ReportOutcomeToServer`            | step 7 + report finality rules                 |
@@ -47,6 +47,7 @@ pub mod executor;
 pub(crate) mod integrations;
 pub(crate) mod policy;
 pub(crate) mod resolver;
+pub(crate) mod sys;
 /// Token parsing, key derivation, and C1 constants (exposed for `examples/register.rs`).
 pub mod token;
 

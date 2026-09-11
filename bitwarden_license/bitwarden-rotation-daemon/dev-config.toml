@@ -16,6 +16,10 @@
 # script_timeout     = 60    # seconds
 # script_root        = "/opt/scripts"
 # entra_verify_probe = false
+#
+# PowerShell host, used for any .ps1 script (or script_type = "powershell").
+# powershell_execution_policy = "Bypass"
+# powershell_path             = "/usr/local/bin/pwsh"   # else discovered on PATH
 
 [environment]
 base = "https://localhost:8080"
@@ -39,3 +43,9 @@ script = "/tmp/bwrd-dev-rotate.sh"
 # [targets.00000000-0000-0000-0000-000000000001]
 # tenant_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 # client_id = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
+#
+# A .ps1 needs no extra configuration; script_type is only for a script whose
+# filename cannot say what it is.
+# [targets.00000000-0000-0000-0000-000000000002]
+# script      = "/tmp/bwrd-dev-rotate"
+# script_type = "powershell"
