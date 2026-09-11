@@ -43,6 +43,48 @@ pub struct AccessPreCheckResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub has_active_lease: Option<bool>,
+    /// The duration, in seconds, the request form should pre-select — the governing rule's default
+    /// when it sets one, otherwise the global default, clamped to `maxDurationSeconds`.
+    #[serde(
+        rename = "defaultDurationSeconds",
+        alias = "DefaultDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_duration_seconds: Option<i32>,
+    /// The longest duration (automatic path) or window span (human path), in seconds, that a
+    /// request for this cipher may ask for: the governing rule's cap narrowed by the global
+    /// ceiling. Clients should offer nothing above it — submit enforces the same number.
+    #[serde(
+        rename = "maxDurationSeconds",
+        alias = "MaxDurationSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_duration_seconds: Option<i32>,
+    /// Whether access could be started right now, implementing the spec's `RuleAllowsLease`. False
+    /// only when the per-cipher single-active-lease constraint binds for this caller and another
+    /// member holds the slot; a caller with an ungated or non-singleton path to the cipher is
+    /// unconstrained and reads true regardless.  A current-state hint, re-checked for real at
+    /// start — the request is still worth submitting, it just cannot be activated until the
+    /// slot frees. Clients that do not understand this field must treat its absence as true.
+    /// Answers about *now*. Reported for both approval modes, because the singleton is
+    /// re-checked at start whichever path approved the request — but on the human path the
+    /// requester is choosing a future window, which the current slot state does not predict,
+    /// so surfacing it there tells them nothing. Present clients render it on the automatic
+    /// path only.
+    #[serde(
+        rename = "canStartLease",
+        alias = "CanStartLease",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub can_start_lease: Option<bool>,
+    /// When the lease currently holding the slot ends, so the requester can be given a retry time.
+    /// Null whenever `canStartLease` is true. Carries no holder identity by design.
+    #[serde(
+        rename = "slotFreesAt",
+        alias = "SlotFreesAt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub slot_frees_at: Option<String>,
 }
 
 impl AccessPreCheckResponseModel {
@@ -55,6 +97,10 @@ impl AccessPreCheckResponseModel {
             cipher_id: None,
             approval_mode: None,
             has_active_lease: None,
+            default_duration_seconds: None,
+            max_duration_seconds: None,
+            can_start_lease: None,
+            slot_frees_at: None,
         }
     }
 }

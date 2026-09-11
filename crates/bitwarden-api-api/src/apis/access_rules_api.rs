@@ -42,6 +42,13 @@ pub trait AccessRulesApi: Send + Sync {
         org_id: uuid::Uuid,
     ) -> Result<models::AccessRuleResponseModelListResponseModel, Error>;
 
+    /// GET /organizations/{orgId}/access-rules/{id}/bypassable-ciphers
+    async fn get_bypassable_ciphers<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+    ) -> Result<models::RuleBypassableCiphersResponseModel, Error>;
+
     /// POST /organizations/{orgId}/access-rules
     async fn post<'a>(
         &self,
@@ -125,6 +132,29 @@ impl AccessRulesApi for AccessRulesApiClient {
             "{}/organizations/{orgId}/access-rules",
             local_var_configuration.base_path,
             orgId = org_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
+
+    async fn get_bypassable_ciphers<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+    ) -> Result<models::RuleBypassableCiphersResponseModel, Error> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/access-rules/{id}/bypassable-ciphers",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
