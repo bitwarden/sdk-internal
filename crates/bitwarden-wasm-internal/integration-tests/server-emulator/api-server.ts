@@ -33,6 +33,7 @@ import {
   FolderRequest,
   FolderResponse,
   KdfType,
+  KeyConnectorEnrollmentRequest,
   KeyRegenerationRequest,
   KeyRotationDataResponse,
   MasterPasswordUnlockDataModel,
@@ -58,6 +59,10 @@ export class ApiServer {
 
       "POST /accounts/kdf": authenticatedRoute(this.db, (user, request) =>
         this.changeKdf(user, request.json<ChangeKdfRequest>()),
+      ),
+
+      "POST /accounts/key-connector/enroll": authenticatedRoute(this.db, (user, request) =>
+        this.enrollToKeyConnector(user, request.json<KeyConnectorEnrollmentRequest>()),
       ),
 
       "POST /accounts/key-management/user-key-id": authenticatedRoute(this.db, (user, request) =>
@@ -168,6 +173,25 @@ export class ApiServer {
     user.masterPasswordUnlock = MasterPasswordUnlockDataModel.toStored(posted.unlockData);
     user.kdf = user.masterPasswordUnlock.kdf;
     this.db.revisions.next();
+    return {};
+  }
+
+  /**
+   * Moves an account onto key-connector unlock.
+   *
+   * The key-connector-wrapped user key replaces the master-password unlock data: an enrolled
+   * account no longer has a master password, so `GET /sync` must stop reporting one. The KDF
+   * settings stay, since the account still needs them to initialize.
+   */
+  private enrollToKeyConnector(user: UserEntity, posted: KeyConnectorEnrollmentRequest): MockReply {
+    if (posted.keyConnectorKeyWrappedUserKey === "") {
+      return error(HTTP_BAD_REQUEST, "key-connector-wrapped user key required");
+    }
+
+    user.keyConnectorKeyWrappedUserKey = asEncString(posted.keyConnectorKeyWrappedUserKey);
+    user.masterPasswordUnlock = null;
+    this.db.revisions.next();
+
     return {};
   }
 
