@@ -35,5 +35,41 @@
     "zxcvbn"
   ],
   "rust-analyzer.cargo.targetDir": true,
-  "rust-analyzer.cargo.features": "all"
+  // Show the shared-unlock protocol's debug tracing when running its tests from the editor. The
+  // value is target-scoped rather than a bare `debug`, so running any other crate's tests is
+  // unaffected — nothing else matches these targets, so nothing else prints.
+  //
+  // `rust-analyzer.runnables.extraTestBinaryArgs` is deliberately not set: its default
+  // (`--show-output`) already prints a passing test's captured output, which is where these lines
+  // land. A failing assertion prints the captured log on its own, with or without this.
+  "rust-analyzer.runnables.extraEnv": {
+    "RUST_LOG": "bitwarden_shared_unlock=debug,shared_unlock_harness=debug"
+  },
+  // Every workspace feature except `wasm`. Enabling `wasm` on a native target makes
+  // rust-analyzer analyze (and run tests against) the wasm-bindgen code paths, which do not
+  // compile/run off wasm32. Keep this list in sync with:
+  //   cargo metadata --no-deps --format-version 1 | jq -r '.packages[].features | keys[]' | sort -u
+  "rust-analyzer.cargo.features": [
+    "bitwarden-license",
+    "bitwarden-test",
+    "browser-tests",
+    "cli",
+    "dangerous-crypto-debug",
+    "dangerous-seeded-rng-for-testing",
+    "default",
+    "getrandom2",
+    "getrandom3",
+    "getrandom4",
+    "internal",
+    "internal-test-utils",
+    "mockall",
+    "no-memory-hardening",
+    "performance-tracing",
+    "secrets",
+    "snow",
+    "test-fixtures",
+    "test-support",
+    "test-utils",
+    "uniffi"
+  ]
 }
