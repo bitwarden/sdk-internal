@@ -92,6 +92,14 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     ctx: &mut KeyStoreContext<KeySlotIds>,
     wrapping_key: SymmetricKeySlotId,
 ) -> Result<Cipher, BlobEncryptionError> {
+    // Fail closed: a restricted (partial) view has all secret fields stripped; re-encrypting it
+    // would overwrite the item's secrets with empty values. See `decrypt_restricted_cipher_view`.
+    if view.partial {
+        return Err(BlobEncryptionError::Crypto(
+            CryptoError::EncryptRestrictedView,
+        ));
+    }
+
     if view.key.is_none() {
         view.upgrade_to_cipher_key_encryption(ctx, wrapping_key)?;
     }
@@ -104,6 +112,7 @@ pub(crate) fn encrypt_blob_cipher_with_wrapping_key(
     let local_data = view.local_data.encrypt_composite(ctx, cipher_key)?;
 
     Ok(Cipher {
+        partial_data: None,
         // Metadata
         id: view.id,
         organization_id: view.organization_id,
@@ -170,6 +179,7 @@ pub(crate) fn decrypt_blob_cipher(
     let local_data = cipher.local_data.decrypt(ctx, cipher_key).ok().flatten();
 
     let mut view = CipherView {
+        partial: false,
         // Metadata
         id: cipher.id,
         organization_id: cipher.organization_id,
@@ -245,6 +255,7 @@ mod tests {
             )
             .unwrap();
         Cipher {
+            partial_data: None,
             id: None,
             organization_id: None,
             folder_id: None,
