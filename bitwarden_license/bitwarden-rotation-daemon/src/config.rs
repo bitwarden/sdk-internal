@@ -88,6 +88,14 @@ struct FileConfig {
     script_root: Option<PathBuf>,
     /// Custom-script timeout in seconds.
     script_timeout: u64,
+    /// Explicit PowerShell host path.  `None` discovers `pwsh`, then `powershell.exe`, on `PATH`.
+    powershell_path: Option<PathBuf>,
+    /// `-ExecutionPolicy` value passed to the PowerShell host.
+    ///
+    /// Defaults to `Bypass`, because Windows Server ships `RemoteSigned` and refuses to run
+    /// an unsigned `.ps1`.  The script path is already pinned by `script_root`, so little is
+    /// given up.  Sites that sign their rotation scripts should set `AllSigned`.
+    powershell_execution_policy: String,
     /// Whether the Entra ROPC verify probe is enabled.
     entra_verify_probe: bool,
     /// Per-target credential overrides from the `[targets]` section.
@@ -108,6 +116,8 @@ impl Default for FileConfig {
             retry_base_delay: 1,
             script_root: None,
             script_timeout: 60,
+            powershell_path: None,
+            powershell_execution_policy: "Bypass".to_string(),
             entra_verify_probe: false,
             targets: HashMap::new(),
         }
@@ -249,6 +259,8 @@ impl Config {
                 },
                 script_root: file.script_root,
                 script_timeout: Duration::from_secs(file.script_timeout),
+                powershell_path: file.powershell_path,
+                powershell_execution_policy: file.powershell_execution_policy,
                 entra_verify_probe: file.entra_verify_probe,
                 targets: file.targets,
             },
