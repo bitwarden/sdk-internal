@@ -2,6 +2,10 @@
 # mode for each supported platform and uploads it as a workflow artifact, so the daemon can be
 # picked up for QA / self-hosted testing without a local Rust toolchain.
 #
+# Each archive holds the binary and the installer script for that platform. Unpack it on the
+# target host and run the installer; it uses the binary sitting next to it, so nothing has to
+# be downloaded or pointed at separately.
+#
 # Unit and integration tests for the crate already run in rust-test.yml as part of
 # `cargo test --workspace`; this workflow only produces the binaries.
 
@@ -37,15 +41,23 @@ jobs:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             binary: bw-rotation-daemon
+            installer: install-rotation-daemon.sh
+            templates: "*.in"
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             binary: bw-rotation-daemon
+            installer: install-rotation-daemon.sh
+            templates: "*.in"
           - os: macos-14
             target: aarch64-apple-darwin
             binary: bw-rotation-daemon
+            installer: install-rotation-daemon.sh
+            templates: "*.in"
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             binary: bw-rotation-daemon.exe
+            installer: Install-RotationDaemon.ps1
+            templates: bw-rotation-daemon-launcher.ps1
 
     steps:
       - name: Checkout
@@ -88,13 +100,92 @@ jobs:
           "${BINARY}" --version
           "${BINARY}" run --help
 
-      # actions/upload-artifact drops file permissions, so a bare binary would come back
-      # without its executable bit. Archive it first to keep the download runnable as-is.
-      - name: Package binary
+      # The installer now ships to operators inside the archive, so a syntax error in it
+      # would be published rather than caught at review time. These parse it without
+      # running it; each platform uses the interpreter the script will actually run under.
+      - name: Check the bundled installer parses - shell
+        if: endsWith(matrix.installer, '.sh')
+        run: bash -n "bitwarden_license/bitwarden-rotation-daemon/scripts/${{ matrix.installer }}"
+
+      - name: Check the bundled installer parses - PowerShell
+        if: endsWith(matrix.installer, '.ps1')
+        shell: powershell
+        run: |
+          $path = "bitwarden_license\bitwarden-rotation-daemon\scripts\${{ matrix.installer }}"
+          $errors = $null
+          $tokens = $null
+          [void] [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path, [ref] $tokens, [ref] $errors)
+          if ($errors) {
+              $errors | ForEach-Object {
+                  Write-Host "::error file=$path,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              }
+              exit 1
+          }
+          Write-Host "$path parses clean"
+
+      # The templates ship to operators too, and a malformed unit or plist only shows up
+      # when someone runs the installer. Each is checked by the tool that will consume it.
+      - name: Check the systemd unit template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sed -e 's|@SERVICE_USER@|root|g' \
+              -e 's|@ENV_FILE@|/etc/bwrd/daemon.env|g' \
+              -e 's|@BINARY_PATH@|/bin/true|g' \
+              -e 's|@CONFIG_FILE@|/etc/bwrd/config.toml|g' \
+              -e 's|@STATE_DIR@|/var/lib/bwrd|g' \
+              bitwarden_license/bitwarden-rotation-daemon/scripts/templates/bw-rotation-daemon.service.in \
+              > /tmp/bw-rotation-daemon.service
+          systemd-analyze verify /tmp/bw-rotation-daemon.service
+
+      - name: Check the launchd plist template
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          cp bitwarden_license/bitwarden-rotation-daemon/scripts/templates/launchd.plist.in \
+              /tmp/bw-rotation-daemon.plist
+          plutil -lint /tmp/bw-rotation-daemon.plist
+
+      - name: Check the config template
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          python3 -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb')); print(sys.argv[1], 'is valid TOML')" \
+              bitwarden_license/bitwarden-rotation-daemon/scripts/templates/config.toml.in
+
+      - name: Check the launcher template parses
+        if: endsWith(matrix.templates, '.ps1')
+        shell: powershell
+        run: |
+          $path = "bitwarden_license\bitwarden-rotation-daemon\scripts\templates\${{ matrix.templates }}"
+          $errors = $null
+          $tokens = $null
+          [void] [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path).Path, [ref] $tokens, [ref] $errors)
+          if ($errors) {
+              $errors | ForEach-Object {
+                  Write-Host "::error file=$path,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              }
+              exit 1
+          }
+          Write-Host "$path parses clean"
+
+      # actions/upload-artifact drops file permissions, so the binary and the installer
+      # would both come back without their executable bit. Archive them first to keep the
+      # download runnable as-is.
+      - name: Package binary, installer, and templates
         env:
           BINARY: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          SCRIPTS: bitwarden_license/bitwarden-rotation-daemon/scripts
           ARCHIVE: bw-rotation-daemon-${{ matrix.target }}.tar.gz
-        run: tar -czf "${ARCHIVE}" -C "$(dirname "${BINARY}")" "$(basename "${BINARY}")"
+        run: |
+          # Staged into one directory first: the pieces come from different places, and a
+          # single `tar -C` can only enter one of them. The installer reads templates/
+          # relative to itself, so the layout here is the layout it expects.
+          mkdir -p package/templates
+          cp "${BINARY}" "${SCRIPTS}/${{ matrix.installer }}" package/
+          cp ${SCRIPTS}/templates/${{ matrix.templates }} package/templates/
+          chmod +x "package/${{ matrix.binary }}" "package/${{ matrix.installer }}"
+          tar -czf "${ARCHIVE}" -C package \
+              "${{ matrix.binary }}" "${{ matrix.installer }}" templates
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
