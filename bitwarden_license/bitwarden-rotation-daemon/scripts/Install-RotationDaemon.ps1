@@ -69,7 +69,7 @@
     Your Bitwarden server, for example https://bitwarden.example.com.
 
 .EXAMPLE
-    $env:BWRD_TOKEN = '0.daemon.<id>.<secret>:<key>'
+    $env:BWRD_TOKEN = '0.access-connector.<id>.<secret>:<key>'
     .\Install-RotationDaemon.ps1 https://bitwarden.example.com
 
 .EXAMPLE
@@ -184,9 +184,9 @@ function Get-DaemonToken {
 
     $token = ($token -replace '\s', '')
     if (-not $token) { Fail 'The token is empty.' }
-    if (-not $token.StartsWith('0.daemon.')) {
-        Fail ("The token does not start '0.daemon.'. This looks like a different kind of " +
-            'Bitwarden key, not a rotation daemon token.')
+    if (-not $token.StartsWith('0.access-connector.')) {
+        Fail ("The token does not start '0.access-connector.'. This looks like a different " +
+            'kind of Bitwarden key, not a rotation daemon token.')
     }
     $colon = $token.IndexOf(':')
     if ($colon -lt 0 -or $colon -eq $token.Length - 1) {
