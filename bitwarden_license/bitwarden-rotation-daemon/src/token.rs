@@ -1,8 +1,8 @@
 //! Daemon token parsing and key derivation.
 //!
 //! Operator-provisioned format:
-//! `0.daemon.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`, deriving the
-//! key via [`bitwarden_crypto::derive_shareable_key`] with `DERIVE_NAME`/`DERIVE_INFO`.
+//! `0.access-connector.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`, deriving
+//! the key via [`bitwarden_crypto::derive_shareable_key`] with `DERIVE_NAME`/`DERIVE_INFO`.
 
 use std::{fmt, str::FromStr};
 
@@ -12,6 +12,13 @@ use bitwarden_sensitive_value::SensitiveString;
 use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
+
+/// The token's client-kind segment, and the prefix of the OAuth `client_id`.
+///
+/// Three components must agree on this string: here, `TOKEN_CLIENT_KIND` in
+/// `bitwarden-pam`'s `rotation::registration` (which issues the token), and
+/// `PamDaemonClientProvider.AccessConnectorPrefix` on the server (which resolves the client).
+pub const TOKEN_CLIENT_KIND: &str = "access-connector";
 
 /// CONTRACT ITEM C1: key-derivation name constant.
 ///
@@ -46,7 +53,7 @@ pub enum DaemonTokenInvalidError {
 /// A parsed and validated daemon credential token.
 ///
 /// Parsed from the operator-provisioned token string:
-/// `0.daemon.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`
+/// `0.access-connector.<api-key-id-uuid>.<client-secret>:<b64-16-byte-encryption-key>`
 pub struct DaemonToken {
     /// The API key identifier used to construct the OAuth `client_id`.
     pub api_key_id: Uuid,
@@ -69,9 +76,9 @@ impl fmt::Debug for DaemonToken {
 impl DaemonToken {
     /// Returns the OAuth `client_id` for this daemon token.
     ///
-    /// Format: `daemon.<api_key_id>`.
+    /// Format: `<TOKEN_CLIENT_KIND>.<api_key_id>`.
     pub fn client_id(&self) -> String {
-        format!("daemon.{}", self.api_key_id)
+        format!("{TOKEN_CLIENT_KIND}.{}", self.api_key_id)
     }
 }
 
@@ -95,7 +102,7 @@ impl FromStr for DaemonToken {
             return Err(DaemonTokenInvalidError::WrongVersion);
         }
 
-        if prefix != "daemon" {
+        if prefix != TOKEN_CLIENT_KIND {
             return Err(DaemonTokenInvalidError::WrongPrefix);
         }
 
@@ -131,13 +138,13 @@ mod tests {
 
     use bitwarden_sensitive_value::ExposeSensitive;
 
-    use super::{DaemonToken, DaemonTokenInvalidError};
+    use super::{DaemonToken, DaemonTokenInvalidError, TOKEN_CLIENT_KIND};
 
     /// Token built from the SM test vector's key material, adapted to the 4-part daemon format.
     ///
     /// Original SM vector (access_token.rs): key `X8vbvA0bduihIDe/qrzIQQ==`, uuid
     /// `ec2c1d46-6a4b-4751-a310-af9601317f2d`, secret `C2IgxjjLF7qSshsbwe8JGcbM075YXw`.
-    const VALID_TOKEN: &str = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+    const VALID_TOKEN: &str = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
 
     /// Known-answer derived key for the SM test vector (same C1 constants as access_token.rs).
     const EXPECTED_KEY_B64: &str =
@@ -161,19 +168,37 @@ mod tests {
         );
     }
 
+    /// The one thing three components have to agree on. If this fails, check
+    /// `bitwarden-pam`'s `TOKEN_CLIENT_KIND` and the server's
+    /// `PamDaemonClientProvider.AccessConnectorPrefix` before changing it here: a daemon that
+    /// parses a token it cannot then authenticate with is the failure this guards.
+    #[test]
+    fn client_kind_matches_the_issuer_and_the_server() {
+        assert_eq!(TOKEN_CLIENT_KIND, "access-connector");
+
+        let token = DaemonToken::from_str(VALID_TOKEN).expect("valid token must parse");
+        assert!(
+            token
+                .client_id()
+                .starts_with(&format!("{TOKEN_CLIENT_KIND}.")),
+            "client_id must be built from the same constant the parser accepts: {}",
+            token.client_id()
+        );
+    }
+
     #[test]
     fn client_id_format() {
         let token = DaemonToken::from_str(VALID_TOKEN).expect("valid token must parse");
         assert_eq!(
             token.client_id(),
-            "daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d"
+            "access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d"
         );
     }
 
     #[test]
     fn base64_without_padding_is_accepted() {
         // The SM test shows padding-free b64 is accepted.
-        let t = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ";
+        let t = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ";
         assert!(DaemonToken::from_str(t).is_ok());
     }
 
@@ -217,7 +242,7 @@ mod tests {
 
     #[test]
     fn too_many_dot_parts_gives_wrong_parts() {
-        let t = "0.daemon.extra.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+        let t = "0.access-connector.extra.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
         assert!(matches!(
             DaemonToken::from_str(t),
             Err(DaemonTokenInvalidError::WrongParts)
@@ -226,7 +251,8 @@ mod tests {
 
     #[test]
     fn invalid_uuid_is_rejected() {
-        let t = "0.daemon.not-a-uuid.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
+        let t =
+            "0.access-connector.not-a-uuid.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==";
         assert!(matches!(
             DaemonToken::from_str(t),
             Err(DaemonTokenInvalidError::InvalidUuid)
@@ -236,7 +262,7 @@ mod tests {
     #[test]
     fn invalid_base64_is_rejected() {
         // '!' is not a valid base64 character.
-        let t = "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:!!!notbase64!!!";
+        let t = "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:!!!notbase64!!!";
         assert!(matches!(
             DaemonToken::from_str(t),
             Err(DaemonTokenInvalidError::InvalidBase64(_))
@@ -248,7 +274,8 @@ mod tests {
         // 15-byte key (too short).
         use bitwarden_encoding::B64;
         let short_key = B64::from([0u8; 15].as_slice()).to_string();
-        let t = format!("0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.secret:{short_key}");
+        let t =
+            format!("0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.secret:{short_key}");
         assert!(matches!(
             DaemonToken::from_str(&t),
             Err(DaemonTokenInvalidError::InvalidLength {
