@@ -175,7 +175,7 @@ POST  /access-connectors/rotation/attempts/{id}/failure
 An organisation admin registers a rotation daemon and receives a daemon token. It looks like this:
 
 ```
-0.daemon.<api-key-id>.<client-secret>:<encryption-key>
+0.access-connector.<api-key-id>.<client-secret>:<encryption-key>
 ```
 
 The token is shown once. Copy the whole string, including everything after the `:`.
@@ -202,7 +202,7 @@ For Bitwarden Cloud, set `api` and `identity` explicitly instead of `base`.
 `/etc/bwrd/env` (root-owned, mode `0400`):
 
 ```sh
-BWRD_TOKEN=0.daemon.…:…
+BWRD_TOKEN=0.access-connector.…:…
 ```
 
 See [Per-target credentials](#per-target-credentials) for the target entries that go alongside it.
