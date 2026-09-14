@@ -15,7 +15,8 @@ pub(super) fn render_value(kind: Option<&str>, value: &serde_json::Value) -> Opt
         (Some("monthYear"), serde_json::Value::Number(number)) => Some(
             number
                 .as_i64()
-                .and_then(render_month_year)
+                .and_then(month_year)
+                .map(|(year, month)| format!("{year:04}-{month:02}"))
                 .unwrap_or_else(|| value.to_string()),
         ),
         (_, other) => Some(other.to_string()),
@@ -33,12 +34,10 @@ fn render_date(seconds: i64) -> String {
         .unwrap_or_else(|| seconds.to_string())
 }
 
-/// `202112` is December 2021.
-fn render_month_year(value: i64) -> Option<String> {
+/// Splits a month/year into year and month: `202112` is December 2021.
+pub(super) fn month_year(value: i64) -> Option<(i64, i64)> {
     let (year, month) = (value / 100, value % 100);
-    (1..=12)
-        .contains(&month)
-        .then(|| format!("{year:04}-{month:02}"))
+    (1..=12).contains(&month).then_some((year, month))
 }
 
 pub(super) fn non_blank(value: &str) -> Option<&str> {

@@ -1,28 +1,39 @@
 //! Maps downloaded 1Password vaults onto the importer's [`ParsedImport`].
 //!
-//! Vaults become folders, every item keeps its title and note, and a Login item picks up its
-//! username, password, website addresses and one-time password. Everything a category mapping does
-//! not claim survives as a custom field, with dates, month/year values and addresses rendered as
-//! text. Typed mappings for the remaining categories follow in a later step.
+//! Vaults become folders and every item keeps its title and note. Login and the categories built
+//! around a credential land on a login; Credit Card, Identity and SSH Key on their own types.
+//! Everything else becomes a secure note. Whatever a mapping does not claim survives as a custom
+//! field, with dates, month/year values and addresses rendered as text.
 //!
-//! This module drives the walk; `category` holds the per-category mappings, `field` the
-//! leftover pass that keeps whatever they did not claim, and `claimed` the bookkeeping that
-//! joins the two.
+//! This module drives the walk and picks each item's mapping; `login`, `credential`, `card`,
+//! `identity` and `ssh_key` hold the mappings, `field` the leftover pass that keeps whatever they
+//! did not claim, and `claimed` the bookkeeping that joins the two.
 
-mod category;
+mod card;
 mod claimed;
+mod credential;
 mod field;
+mod identity;
+mod login;
+mod ssh_key;
 #[cfg(test)]
 mod tests;
 mod value;
 
-use bitwarden_exporters::{CipherType, Field, ImportingCipher};
+use bitwarden_exporters::{CipherType, Field, ImportingCipher, SecureNote, SecureNoteType};
 use chrono::Utc;
 
 use self::{
-    category::{login, secure_note},
+    card::card,
     claimed::Claimed,
+    credential::{
+        API_CREDENTIAL_FIELDS, CredentialFields, DATABASE_FIELDS, EMAIL_ACCOUNT_FIELDS,
+        SERVER_FIELDS, WIRELESS_ROUTER_FIELDS, credential_login, password,
+    },
     field::{TEXT_FIELD, fields_from_details},
+    identity::identity,
+    login::login,
+    ssh_key::ssh_key,
     value::non_blank,
 };
 use crate::{
@@ -129,14 +140,48 @@ fn tags_field(overview: &VaultItemOverview) -> Option<Field> {
 }
 
 /// Picks the Bitwarden cipher type for an item's 1Password category, and reports which of the
-/// item's fields it read. A category without a mapping yet becomes a secure note, which loses
-/// nothing because every field then becomes a custom field.
+/// item's fields it read. A category without a mapping becomes a secure note, which loses nothing
+/// because every field then becomes a custom field.
 fn cipher_type(item: &Item) -> (CipherType, Claimed) {
+    let (overview, details) = (&item.overview, &item.details);
+    let credential = |fields: &CredentialFields| {
+        typed(
+            credential_login(overview, details, fields),
+            CipherType::Login,
+        )
+    };
+
     match item.category {
-        ItemCategory::Login => {
-            let (login, claimed) = login(&item.overview, &item.details);
-            (CipherType::Login(Box::new(login)), claimed)
+        ItemCategory::Login => typed(login(overview, details), CipherType::Login),
+        ItemCategory::Password => typed(password(overview, details), CipherType::Login),
+        ItemCategory::Server => credential(&SERVER_FIELDS),
+        ItemCategory::Database => credential(&DATABASE_FIELDS),
+        ItemCategory::ApiCredential => credential(&API_CREDENTIAL_FIELDS),
+        ItemCategory::EmailAccount => credential(&EMAIL_ACCOUNT_FIELDS),
+        ItemCategory::WirelessRouter => credential(&WIRELESS_ROUTER_FIELDS),
+        ItemCategory::CreditCard => typed(card(details), CipherType::Card),
+        ItemCategory::Identity => typed(identity(details), CipherType::Identity),
+        // A key the vault cannot use stays a note, with its material kept in the fields.
+        ItemCategory::SshKey => {
+            ssh_key(details).map_or_else(secure_note, |key| typed(key, CipherType::SshKey))
         }
         _ => secure_note(),
     }
+}
+
+/// Wraps what a mapping read in the cipher type it belongs to.
+fn typed<T>(
+    (mapped, claimed): (T, Claimed),
+    cipher_type: fn(Box<T>) -> CipherType,
+) -> (CipherType, Claimed) {
+    (cipher_type(Box::new(mapped)), claimed)
+}
+
+fn secure_note() -> (CipherType, Claimed) {
+    (
+        CipherType::SecureNote(Box::new(SecureNote {
+            r#type: SecureNoteType::Generic,
+        })),
+        Claimed::default(),
+    )
 }
