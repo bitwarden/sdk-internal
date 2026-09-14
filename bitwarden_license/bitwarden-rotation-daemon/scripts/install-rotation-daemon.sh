@@ -122,7 +122,7 @@ Installs bw-rotation-daemon as a system service.
 The URL is your Bitwarden server, for example https://bitwarden.example.com. The
 daemon token comes from BWRD_TOKEN, or is prompted for with the input hidden:
 
-    BWRD_TOKEN='0.daemon.<id>.<secret>:<key>' sudo -E ./$PROGRAM https://bitwarden.example.com
+    BWRD_TOKEN='0.access-connector.<id>.<secret>:<key>' sudo -E ./$PROGRAM https://bitwarden.example.com
 
 There are no other options. The comments at the top of this script list the layout
 it installs and how to remove it; OPERATIONS.md covers everything else.
@@ -191,10 +191,10 @@ acquire_token() {
     TOKEN="$(printf '%s' "$TOKEN" | tr -d '[:space:]')"
 
     case "$TOKEN" in
-        '')         die "the token is empty" ;;
-        0.daemon.*) ;;
-        *)          die "the token does not start '0.daemon.'. This looks like a different
-       kind of Bitwarden key, not a rotation daemon token." ;;
+        '')                   die "the token is empty" ;;
+        0.access-connector.*) ;;
+        *)                    die "the token does not start '0.access-connector.'. This looks
+       like a different kind of Bitwarden key, not a rotation daemon token." ;;
     esac
     case "$TOKEN" in
         *:?*) ;;
