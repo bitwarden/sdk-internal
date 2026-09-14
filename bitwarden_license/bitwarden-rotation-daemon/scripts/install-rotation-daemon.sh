@@ -32,8 +32,9 @@
 #     EnvironmentFile=, and most target UUIDs begin with a digit, which no POSIX shell
 #     can export; launchd sets the dict without a shell, so digits are fine there.
 #
-# Re-running replaces the binary and leaves config.toml, the env file and the plist
-# alone, so upgrading cannot lose credentials you added to them.
+# Re-running replaces the binary and leaves config.toml, the env file, the systemd
+# unit and the plist alone, so upgrading cannot lose credentials or hardening you
+# added to them.
 #
 # To remove it, on Linux:
 #
@@ -289,11 +290,16 @@ write_env_file() {
 
 install_systemd_unit() {
     step "systemd unit"
-    render bw-rotation-daemon.service.in | write_file "$UNIT_FILE" 0644
+    if [ -f "$UNIT_FILE" ]; then
+        info "$UNIT_FILE exists; left alone (edit it to change the hardening)"
+    else
+        render bw-rotation-daemon.service.in | write_file "$UNIT_FILE" 0644
+        info "$UNIT_FILE"
+    fi
 
     systemctl daemon-reload
     systemctl enable --now "$SYSTEMD_UNIT"
-    info "$UNIT_FILE, enabled and started"
+    info "enabled and started"
 }
 
 install_launchd_plist() {
