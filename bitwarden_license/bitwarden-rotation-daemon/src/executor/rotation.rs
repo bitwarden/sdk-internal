@@ -808,7 +808,7 @@ mod tests {
             .mount(&server).await;
 
         let token = DaemonToken::from_str(
-            "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
+            "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
         ).unwrap();
         let identity = IdentityClient::new(server.uri()).unwrap();
         let session = SessionManager::new(identity, token).await.unwrap();
@@ -883,7 +883,7 @@ mod tests {
             .mount(&server).await;
 
         let token = DaemonToken::from_str(
-            "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
+            "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
         ).unwrap();
         let identity = IdentityClient::new(server.uri()).unwrap();
         let session = SessionManager::new(identity, token).await.unwrap();
@@ -1109,7 +1109,7 @@ mod tests {
             .await;
 
         let token = DaemonToken::from_str(
-            "0.daemon.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
+            "0.access-connector.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ=="
         ).unwrap();
         let identity = IdentityClient::new(identity_server.uri()).unwrap();
         let session = SessionManager::new(identity, token).await.unwrap();
