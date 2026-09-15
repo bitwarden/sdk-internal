@@ -1,9 +1,5 @@
-//! Shared request and response handling for the bulk member operations, which all post the same
-//! list of member ids and return one outcome row per member.
-
 use bitwarden_api_api::models::{
-    OrganizationUserBulkRequestModel, OrganizationUserBulkResponseModel,
-    OrganizationUserBulkResponseModelListResponseModel,
+    OrganizationUserBulkResponseModel, OrganizationUserBulkResponseModelListResponseModel,
 };
 use bitwarden_core::{MissingFieldError, require};
 use bitwarden_organizations::OrganizationUserId;
@@ -50,19 +46,44 @@ impl TryFrom<OrganizationUserBulkResponseModel> for OrganizationUserBulkResponse
     }
 }
 
-/// Builds the request body shared by the bulk member endpoints.
-pub(crate) fn bulk_request(
-    organization_user_ids: Vec<OrganizationUserId>,
-) -> OrganizationUserBulkRequestModel {
-    OrganizationUserBulkRequestModel::new(
-        organization_user_ids.into_iter().map(Into::into).collect(),
-    )
+/// Builders for the rows the bulk member endpoints return, shared by the tests in this crate.
+#[cfg(test)]
+pub(crate) mod fixtures {
+    use super::*;
+
+    /// Builds the row the server emits for one member. Success is an empty error string.
+    pub(crate) fn row(id: Option<&str>, error: &str) -> OrganizationUserBulkResponseModel {
+        OrganizationUserBulkResponseModel {
+            object: Some("organizationUserBulkResponseModel".to_owned()),
+            id: id.map(|id| id.parse().unwrap()),
+            error: Some(error.to_owned()),
+        }
+    }
+
+    pub(crate) fn list(
+        data: Option<Vec<OrganizationUserBulkResponseModel>>,
+    ) -> OrganizationUserBulkResponseModelListResponseModel {
+        OrganizationUserBulkResponseModelListResponseModel {
+            object: Some("list".to_owned()),
+            data,
+            continuation_token: None,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::organization_users_client::test_fixtures::{MEMBER_A, MEMBER_B, list, member, row};
+    use super::{
+        fixtures::{list, row},
+        *,
+    };
+
+    const MEMBER_A: &str = "1c4d9d5a-0000-4000-8000-00000000000a";
+    const MEMBER_B: &str = "1c4d9d5a-0000-4000-8000-00000000000b";
+
+    fn member(id: &str) -> OrganizationUserId {
+        id.parse().unwrap()
+    }
 
     #[test]
     fn maps_each_row_and_normalizes_empty_errors() {
@@ -97,18 +118,5 @@ mod tests {
     fn fails_when_a_row_has_no_id() {
         let result = OrganizationUserBulkResponse::from_list(list(Some(vec![row(None, "")])));
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn request_carries_the_member_ids_in_order() {
-        let request = bulk_request(vec![member(MEMBER_A), member(MEMBER_B)]);
-
-        let ids: Vec<OrganizationUserId> = request
-            .ids
-            .into_iter()
-            .map(OrganizationUserId::new)
-            .collect();
-        assert_eq!(ids, vec![member(MEMBER_A), member(MEMBER_B)]);
-        assert!(request.default_user_collection_name.is_none());
     }
 }
