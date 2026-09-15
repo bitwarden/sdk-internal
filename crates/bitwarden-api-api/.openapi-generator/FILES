@@ -192,6 +192,7 @@ src/models/cipher_with_id_request_model.rs
 src/models/claimable_rotation_job_response_model.rs
 src/models/claimable_rotation_job_response_model_list_response_model.rs
 src/models/client_type.rs
+src/models/collection.rs
 src/models/collection_access_details_response_model.rs
 src/models/collection_access_details_response_model_list_response_model.rs
 src/models/collection_bulk_delete_request_model.rs
