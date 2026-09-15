@@ -40,6 +40,14 @@ export interface UserEntity {
   /** `null` for an account with no master password. */
   masterPasswordUnlock: StoredMasterPasswordUnlock | null;
   /**
+   * The master password authentication hash the identity service expects, or `null` for an account
+   * with no master password.
+   *
+   * Recorded in the account's vector rather than derived here: the server never sees a password,
+   * so it can only compare against what it was given.
+   */
+  masterPasswordAuthenticationHash: string | null;
+  /**
    * The user key wrapped with the account's key-connector key.
    *
    * Set for an account that unlocks through key connector. The key itself lives on the

@@ -48,6 +48,12 @@ export interface SeedAccount {
     organizationKeys?: Record<string, string>;
   };
   unlockMethods: InitUserCryptoMethod[];
+  /**
+   * The master password authentication hash the identity service compares against.
+   *
+   * Absent for an account with no master password.
+   */
+  masterPasswordAuthenticationHash?: string;
   /** Plaintext the account is defined by, and which must therefore never reach the server. */
   rawCryptographicState: {
     userKey: string;
@@ -156,6 +162,7 @@ export class ServerEmulator {
       kdf: account.kdf,
       ...(account.userKeyId === undefined ? {} : { userKeyId: account.userKeyId }),
       masterPasswordUnlock: toMasterPasswordUnlock(vector),
+      masterPasswordAuthenticationHash: vector.masterPasswordAuthenticationHash ?? null,
       ...(account.upgradeToken === undefined ? {} : { upgradeToken: account.upgradeToken }),
       organizationKeys: account.organizationKeys ?? {},
     };
