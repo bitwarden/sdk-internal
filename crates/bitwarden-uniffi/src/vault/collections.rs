@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_collections::{
     collection::{Collection, CollectionId, CollectionView},
-    collection_client::AncestorMap,
+    collection_client::{AncestorMap, DecryptCollectionListResult},
     tree::{NodeItem, Tree},
 };
 
@@ -34,6 +34,15 @@ impl CollectionsClient {
     /// Decrypt collection list
     pub fn decrypt_list(&self, collections: Vec<Collection>) -> Result<Vec<CollectionView>> {
         Ok(self.0.decrypt_list(collections)?)
+    }
+
+    /// Decrypt collection list with failures
+    /// Returns both successfully decrypted collections and any that failed to decrypt
+    pub fn decrypt_list_with_failures(
+        &self,
+        collections: Vec<Collection>,
+    ) -> DecryptCollectionListResult {
+        self.0.decrypt_list_with_failures(collections)
     }
 
     ///

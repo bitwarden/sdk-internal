@@ -41,6 +41,7 @@ pub enum DeviceType {
     MacOsCLI,
     LinuxCLI,
     DuckDuckGoBrowser,
+    DuckDuckGoExtension,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -76,6 +77,7 @@ impl DeviceType {
             Self::MacOsCLI => 24,
             Self::LinuxCLI => 25,
             Self::DuckDuckGoBrowser => 26,
+            Self::DuckDuckGoExtension => 27,
             Self::__Unknown(v) => *v,
         }
     }
@@ -109,6 +111,7 @@ impl DeviceType {
             24 => Self::MacOsCLI,
             25 => Self::LinuxCLI,
             26 => Self::DuckDuckGoBrowser,
+            27 => Self::DuckDuckGoExtension,
             v => Self::__Unknown(v),
         }
     }

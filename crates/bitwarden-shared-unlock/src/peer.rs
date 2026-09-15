@@ -433,10 +433,10 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                     );
                 }
                 RequestError::Timeout(_) => {
-                    tracing::warn!(?error, "Timeout sending shared unlock sync");
+                    tracing::debug!(?error, "Timeout sending shared unlock sync");
                 }
                 _ => {
-                    tracing::error!(?error, "Failed to send shared unlock IPC message");
+                    tracing::debug!(?error, "Failed to send shared unlock IPC message");
                 }
             }
         }

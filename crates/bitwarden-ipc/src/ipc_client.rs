@@ -215,7 +215,7 @@ where
                 ErrorKind::Unreachable => {}
                 // Every other recoverable send failure is still surfaced.
                 ErrorKind::Other => {
-                    tracing::warn!(
+                    tracing::debug!(
                         ?error,
                         "Recoverable error sending message, IPC client will continue running"
                     );

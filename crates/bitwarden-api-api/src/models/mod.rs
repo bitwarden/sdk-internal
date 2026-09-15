@@ -224,6 +224,8 @@ pub mod claimable_rotation_job_response_model_list_response_model;
 pub use self::claimable_rotation_job_response_model_list_response_model::ClaimableRotationJobResponseModelListResponseModel;
 pub mod client_type;
 pub use self::client_type::ClientType;
+pub mod collection;
+pub use self::collection::Collection;
 pub mod collection_access_details_response_model;
 pub use self::collection_access_details_response_model::CollectionAccessDetailsResponseModel;
 pub mod collection_access_details_response_model_list_response_model;

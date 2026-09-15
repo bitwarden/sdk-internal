@@ -31,10 +31,11 @@ consume the _effective_ policy settings that they actually care about.
 1. Add your policy to `policy_type.rs`. This must match the corresponding `PolicyType` enum
    definition on the server. This identifies your policy over the wire.
 
-2. Add your policy definition to `policies.rs`. This is a strongly typed representation of your
-   policy for rust consumers. It must implement the `Policy` trait, which defines enforcement
-   behavior and any corresponding configuration data. Make sure to update the
-   `PolicyType.resolve_policy` match arm to return this struct.
+2. Add your policy definition in a new module under `policies/`, one per policy, alongside its data
+   struct (for policies that carry data). This is a strongly typed representation of your policy for
+   rust consumers. It must implement the `Policy` trait, which defines enforcement behavior and any
+   corresponding configuration data. Make sure to update the `PolicyType.resolve_policy` match arm
+   to return this struct.
 
 3. Add your policy to the `PolicyDataType` enum. This is a type-erased representation of your policy
    for FFI consumers. The enum should wrap your configuration data, if any. Make sure to update your
