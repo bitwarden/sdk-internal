@@ -887,6 +887,8 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-threading",
  "bitwarden-vault",
  "chrono",
  "coset",
@@ -900,8 +902,11 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tsify",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -1599,6 +1604,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-crypto-sync-handler",
  "bitwarden-error",
+ "bitwarden-fido",
  "bitwarden-ipc",
  "bitwarden-logging",
  "bitwarden-managed-settings",

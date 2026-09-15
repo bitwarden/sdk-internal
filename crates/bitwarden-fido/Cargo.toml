@@ -16,6 +16,16 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
+wasm = [
+    "bitwarden-core/wasm",
+    "bitwarden-encoding/wasm",
+    "bitwarden-error/wasm",
+    "bitwarden-threading/wasm",
+    "bitwarden-vault/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+] # WASM support
 
 [dependencies]
 async-trait = { workspace = true }
@@ -23,6 +33,8 @@ bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
+bitwarden-error = { workspace = true }
+bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 coset = ">=0.3.7, <0.5"
@@ -37,8 +49,11 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
