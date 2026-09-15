@@ -80,6 +80,22 @@ export function toMasterPasswordUnlock(vector: SeedAccount): StoredMasterPasswor
   return null;
 }
 
+/**
+ * The key-connector key an account's deployment holds, or `null` when it uses no key connector.
+ *
+ * The key travels in the vector's `keyConnector` unlock method, where it stands in for what a real
+ * client fetches from the deployment.
+ */
+export function toKeyConnectorKey(vector: SeedAccount): string | null {
+  for (const method of vector.unlockMethods) {
+    if ("keyConnector" in method) {
+      return method.keyConnector.master_key;
+    }
+  }
+
+  return null;
+}
+
 export interface SeedVault {
   ciphers?: { id: string; encrypted: Cipher; decrypted?: CipherView }[];
   folders?: { id: string; encrypted: Folder; decrypted?: FolderView }[];
@@ -145,6 +161,12 @@ export class ServerEmulator {
     };
 
     this.db.users.set(user.userId, user);
+
+    // A key-connector account's deployment already holds its key, as it would for a real account.
+    const keyConnectorKey = toKeyConnectorKey(vector);
+    if (keyConnectorKey !== null) {
+      this.keyConnector.seedUserKey(user.email, keyConnectorKey);
+    }
 
     for (const cipher of vector.vault?.ciphers ?? []) {
       this.db.ciphers.set(cipher.id, {
