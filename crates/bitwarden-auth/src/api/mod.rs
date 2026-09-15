@@ -3,3 +3,5 @@
 //! server.
 
 pub mod enums;
+pub(crate) mod request;
+pub(crate) mod response;
