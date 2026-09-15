@@ -24,6 +24,12 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type EncString = Tagged<string, "EncString">;
 "#;
 
+/// Numerical representation of each [EncString] variant, as used in both the string and the binary
+/// format.
+const AES256_CBC_TYPE: u8 = 0;
+const AES256_CBC_HMAC_TYPE: u8 = 2;
+const COSE_ENCRYPT0_TYPE: u8 = 7;
+
 /// # Encrypted string primitive
 ///
 /// [EncString] is a Bitwarden specific primitive that represents a symmetrically encrypted piece of
@@ -80,6 +86,11 @@ pub enum EncString {
     Cose_Encrypt0_B64 {
         data: Vec<u8>,
     },
+    /// A string that matches no known [EncString] forma. This could be an unimplemented
+    /// variant, or a malformed variant such as an encstring with invalid length of iv/mac.
+    Unparseable {
+        raw: String,
+    },
 }
 
 #[cfg(feature = "wasm")]
@@ -134,43 +145,63 @@ impl TryFrom<wasm_bindgen::JsValue> for EncString {
 impl FromStr for EncString {
     type Err = CryptoError;
 
+    /// Never returns an error: anything that does not match a known format becomes
+    /// [EncString::Unparseable]. Use [EncString::parse_strict] to reject those instead.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (enc_type, parts) = split_enc_string(s);
-        match (enc_type, parts.len()) {
-            ("0", 2) => {
-                let iv = from_b64(parts[0])?;
-                let data = from_b64_vec(parts[1])?;
+        Ok(Self::parse_known_format(s)
+            .unwrap_or_else(|| EncString::Unparseable { raw: s.to_owned() }))
+    }
+}
 
-                Ok(EncString::Aes256Cbc_B64 { iv, data })
-            }
-            ("2", 3) => {
-                let iv = from_b64(parts[0])?;
-                let data = from_b64_vec(parts[1])?;
-                let mac = from_b64(parts[2])?;
+/// Infallible conversion, since parsing never fails: unknown formats become
+/// [EncString::Unparseable].
+impl From<&str> for EncString {
+    fn from(s: &str) -> Self {
+        Self::parse_known_format(s).unwrap_or_else(|| EncString::Unparseable { raw: s.to_owned() })
+    }
+}
 
-                Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
-            }
-            ("7", 1) => {
-                let buffer = from_b64_vec(parts[0])?;
-
-                Ok(EncString::Cose_Encrypt0_B64 { data: buffer })
-            }
-            (enc_type, parts) => Err(EncStringParseError::InvalidTypeSymm {
-                enc_type: enc_type.to_string(),
-                parts,
-            }
-            .into()),
-        }
+/// Infallible conversion, since parsing never fails: unknown formats become
+/// [EncString::Unparseable].
+impl From<String> for EncString {
+    fn from(s: String) -> Self {
+        Self::parse_known_format(&s).unwrap_or(EncString::Unparseable { raw: s })
     }
 }
 
 impl EncString {
+    /// Parses one of the known [EncString] formats, or [None] if the string matches none of them.
+    fn parse_known_format(s: &str) -> Option<Self> {
+        let (enc_type, parts) = split_enc_string(s);
+        match (enc_type, parts.len()) {
+            ("0", 2) => Some(EncString::Aes256Cbc_B64 {
+                iv: from_b64(parts[0]).ok()?,
+                data: from_b64_vec(parts[1]).ok()?,
+            }),
+            ("2", 3) => Some(EncString::Aes256Cbc_HmacSha256_B64 {
+                iv: from_b64(parts[0]).ok()?,
+                data: from_b64_vec(parts[1]).ok()?,
+                mac: from_b64(parts[2]).ok()?,
+            }),
+            ("7", 1) => Some(EncString::Cose_Encrypt0_B64 {
+                data: from_b64_vec(parts[0]).ok()?,
+            }),
+            _ => None,
+        }
+    }
+
+    /// Parses an [EncString], rejecting invalid values
+    pub fn parse_strict(s: &str) -> Result<Self, CryptoError> {
+        Self::parse_known_format(s).ok_or(CryptoError::UnparseableEncString)
+    }
+
     /// Synthetic sugar for mapping `Option<String>` to `Result<Option<EncString>>`
     pub fn try_from_optional(s: Option<String>) -> Result<Option<EncString>, CryptoError> {
         s.map(|s| s.parse()).transpose()
     }
 
-    #[allow(missing_docs)]
+    /// Parses the binary [EncString] representation. Unlike [FromStr], this stays strict and
+    /// errors on malformed input
     pub fn from_buffer(buf: &[u8]) -> Result<Self> {
         if buf.is_empty() {
             return Err(EncStringParseError::NoType.into());
@@ -178,14 +209,14 @@ impl EncString {
         let enc_type = buf[0];
 
         match enc_type {
-            0 => {
+            AES256_CBC_TYPE => {
                 check_length(buf, 18)?;
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let data = buf[17..].to_vec();
 
                 Ok(EncString::Aes256Cbc_B64 { iv, data })
             }
-            2 => {
+            AES256_CBC_HMAC_TYPE => {
                 check_length(buf, 50)?;
                 let iv = buf[1..17].try_into().expect("Valid length");
                 let mac = buf[17..49].try_into().expect("Valid length");
@@ -193,7 +224,7 @@ impl EncString {
 
                 Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
             }
-            7 => Ok(EncString::Cose_Encrypt0_B64 {
+            COSE_ENCRYPT0_TYPE => Ok(EncString::Cose_Encrypt0_B64 {
                 data: buf[1..].to_vec(),
             }),
             _ => Err(EncStringParseError::InvalidTypeSymm {
@@ -207,26 +238,28 @@ impl EncString {
     #[allow(missing_docs)]
     pub fn to_buffer(&self) -> Result<Vec<u8>> {
         let mut buf;
+        let enc_type = self.enc_type().ok_or(CryptoError::UnparseableEncString)?;
 
         match self {
             EncString::Aes256Cbc_B64 { iv, data } => {
                 buf = Vec::with_capacity(1 + 16 + data.len());
-                buf.push(self.enc_type());
+                buf.push(enc_type);
                 buf.extend_from_slice(iv);
                 buf.extend_from_slice(data);
             }
             EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
                 buf = Vec::with_capacity(1 + 16 + 32 + data.len());
-                buf.push(self.enc_type());
+                buf.push(enc_type);
                 buf.extend_from_slice(iv);
                 buf.extend_from_slice(mac);
                 buf.extend_from_slice(data);
             }
             EncString::Cose_Encrypt0_B64 { data } => {
                 buf = Vec::with_capacity(1 + data.len());
-                buf.push(self.enc_type());
+                buf.push(enc_type);
                 buf.extend_from_slice(data);
             }
+            EncString::Unparseable { .. } => return Err(CryptoError::UnparseableEncString),
         }
 
         Ok(buf)
@@ -248,13 +281,13 @@ impl ToString for EncString {
             format!("{}.{}", enc_type, encoded_parts.join("|"))
         }
 
-        let enc_type = self.enc_type();
         match &self {
-            EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(enc_type, &[iv, data]),
+            EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(AES256_CBC_TYPE, &[iv, data]),
             EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
-                fmt_parts(enc_type, &[iv, data, mac])
+                fmt_parts(AES256_CBC_HMAC_TYPE, &[iv, data, mac])
             }
-            EncString::Cose_Encrypt0_B64 { data } => fmt_parts(enc_type, &[data]),
+            EncString::Cose_Encrypt0_B64 { data } => fmt_parts(COSE_ENCRYPT0_TYPE, &[data]),
+            EncString::Unparseable { raw } => raw.clone(),
         }
     }
 }
@@ -289,6 +322,16 @@ impl std::fmt::Debug for EncString {
                     _ = iv;
                     _ = data;
                     _ = mac;
+                }
+                debug_struct.finish()
+            }
+            EncString::Unparseable { raw } => {
+                let mut debug_struct = f.debug_struct("EncString::Unparseable");
+                #[cfg(feature = "dangerous-crypto-debug")]
+                debug_struct.field("raw", raw);
+                #[cfg(not(feature = "dangerous-crypto-debug"))]
+                {
+                    _ = raw;
                 }
                 debug_struct.finish()
             }
@@ -385,12 +428,14 @@ impl EncString {
         })
     }
 
-    /// The numerical representation of the encryption type of the [EncString].
-    const fn enc_type(&self) -> u8 {
+    /// The numerical representation of the encryption type of the [EncString], or [None] for an
+    /// [EncString::Unparseable], which has no known type.
+    const fn enc_type(&self) -> Option<u8> {
         match self {
-            EncString::Aes256Cbc_B64 { .. } => 0,
-            EncString::Aes256Cbc_HmacSha256_B64 { .. } => 2,
-            EncString::Cose_Encrypt0_B64 { .. } => 7,
+            EncString::Aes256Cbc_B64 { .. } => Some(AES256_CBC_TYPE),
+            EncString::Aes256Cbc_HmacSha256_B64 { .. } => Some(AES256_CBC_HMAC_TYPE),
+            EncString::Cose_Encrypt0_B64 { .. } => Some(COSE_ENCRYPT0_TYPE),
+            EncString::Unparseable { .. } => None,
         }
     }
 }
@@ -458,6 +503,7 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 )?;
                 Ok(decrypted)
             }
+            (EncString::Unparseable { .. }, _) => Err(CryptoError::UnparseableEncString),
             (_, SymmetricCryptoKey::XAes256GcmKey(_)) => Err(CryptoError::WrongKeyType),
             _ => Err(CryptoError::WrongKeyType),
         }
@@ -732,7 +778,7 @@ mod tests {
         let serialized = format!("{{\"key\":\"{cipher}\"}}");
 
         let t = serde_json::from_str::<Test>(&serialized).unwrap();
-        assert_eq!(t.key.enc_type(), 2);
+        assert_eq!(t.key.enc_type(), Some(2));
         assert_eq!(t.key.to_string(), cipher);
         assert_eq!(serde_json::to_string(&t).unwrap(), serialized);
     }
@@ -764,7 +810,7 @@ mod tests {
         let enc_str = "0.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==";
         let enc_string: EncString = enc_str.parse().unwrap();
 
-        assert_eq!(enc_string.enc_type(), 0);
+        assert_eq!(enc_string.enc_type(), Some(0));
         if let EncString::Aes256Cbc_B64 { iv, data } = &enc_string {
             assert_eq!(
                 iv,
@@ -790,7 +836,7 @@ mod tests {
 
         let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
         let enc_string: EncString = enc_str.parse().unwrap();
-        assert_eq!(enc_string.enc_type(), 0);
+        assert_eq!(enc_string.enc_type(), Some(0));
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
         assert!(
@@ -816,7 +862,7 @@ mod tests {
         // <enc_string>
         let enc_str = "0.NQfjHLr6za7VQVAbrpL81w==|wfrjmyJ0bfwkQlySrhw8dA==";
         let enc_string: EncString = enc_str.parse().unwrap();
-        assert_eq!(enc_string.enc_type(), 0);
+        assert_eq!(enc_string.enc_type(), Some(0));
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
         assert!(matches!(result, Err(CryptoError::WrongKeyType)));
@@ -844,16 +890,112 @@ mod tests {
         );
     }
 
+    /// Malformed strings must not fail while parsing, so that the failure surfaces at decryption
+    /// time instead of at the FFI boundary. The raw value must round-trip unchanged.
     #[test]
-    fn test_from_str_invalid() {
-        let enc_str = "8.ABC";
-        let enc_string: Result<EncString, _> = enc_str.parse();
+    fn test_from_str_unparseable_roundtrips() {
+        let cases = [
+            "2.AAECAw==|Y3Q=|AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=", // 4 byte iv
+            "2.AAECAwQFBgcICQoLDA0ODw==|Y3Q=|AAECAw==",                     // 4 byte mac
+            "0.AAECAw==|Y3Q=",                                              // 4 byte iv
+            "2.!!!!|Y3Q=|AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",     // invalid base64
+            "8.ABC",                                                        // unknown type
+            "7.ABC|DEF",                                                    // wrong part count
+        ];
 
-        let err = enc_string.unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "EncString error, Invalid symmetric type, got type 8 with 1 parts"
-        );
+        for enc_str in cases {
+            let enc_string: EncString = enc_str.parse().expect("parsing never fails");
+            assert!(
+                matches!(enc_string, EncString::Unparseable { .. }),
+                "Expected {enc_str} to parse as unparseable",
+            );
+            assert_eq!(enc_string.to_string(), enc_str);
+            assert_eq!(enc_string.enc_type(), None);
+        }
+    }
+
+    #[test]
+    fn test_from_string_and_str() {
+        let known = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        let unknown = "8.ABC";
+
+        assert_eq!(EncString::from(known).enc_type(), Some(2));
+        assert_eq!(EncString::from(known.to_owned()).enc_type(), Some(2));
+
+        assert!(matches!(
+            EncString::from(unknown),
+            EncString::Unparseable { .. }
+        ));
+        assert_eq!(EncString::from(unknown.to_owned()).to_string(), unknown);
+    }
+
+    #[test]
+    fn test_parse_strict_rejects_unparseable() {
+        let cases = [
+            "2.AAECAw==|Y3Q=|AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=", // 4 byte iv
+            "2.AAECAwQFBgcICQoLDA0ODw==|Y3Q=|AAECAw==",                     // 4 byte mac
+            "8.ABC",                                                        // unknown type
+        ];
+
+        for enc_str in cases {
+            assert!(
+                matches!(
+                    EncString::parse_strict(enc_str),
+                    Err(CryptoError::UnparseableEncString)
+                ),
+                "Expected {enc_str} to be rejected",
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_strict_accepts_known_formats() {
+        let enc_str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        let enc_string = EncString::parse_strict(enc_str).unwrap();
+
+        assert_eq!(enc_string.enc_type(), Some(2));
+        assert_eq!(enc_string.to_string(), enc_str);
+    }
+
+    #[test]
+    fn test_unparseable_serde_roundtrip() {
+        #[derive(serde::Serialize, serde::Deserialize)]
+        struct Test {
+            key: EncString,
+        }
+
+        let cipher = "2.AAECAw==|Y3Q=|AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+        let serialized = format!("{{\"key\":\"{cipher}\"}}");
+
+        let t = serde_json::from_str::<Test>(&serialized).unwrap();
+        assert!(matches!(t.key, EncString::Unparseable { .. }));
+        assert_eq!(serde_json::to_string(&t).unwrap(), serialized);
+    }
+
+    #[test]
+    fn test_unparseable_decrypt_fails() {
+        let key = SymmetricCryptoKey::Aes256CbcHmacKey(derive_symmetric_key("test"));
+        let enc_string: EncString = "2.AAECAw==|Y3Q=|AAECAw==".parse().unwrap();
+
+        let result: Result<Vec<u8>, CryptoError> = enc_string.decrypt_with_key(&key);
+        assert!(matches!(result, Err(CryptoError::UnparseableEncString)));
+    }
+
+    #[test]
+    fn test_unparseable_to_buffer_fails() {
+        let enc_string: EncString = "2.AAECAw==|Y3Q=|AAECAw==".parse().unwrap();
+
+        assert!(matches!(
+            enc_string.to_buffer(),
+            Err(CryptoError::UnparseableEncString)
+        ));
+    }
+
+    #[test]
+    fn test_from_buffer_stays_strict() {
+        assert!(EncString::from_buffer(&[]).is_err());
+        assert!(EncString::from_buffer(&[2, 0, 0]).is_err());
+        assert!(EncString::from_buffer(&[8, 0, 0]).is_err());
     }
 
     #[test]

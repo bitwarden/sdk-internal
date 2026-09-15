@@ -148,10 +148,10 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
     type Error = AccountKeysResponseParseError;
 
     fn try_from(response: &PrivateKeysResponseModel) -> Result<Self, Self::Error> {
-        let private_key: EncString =
-            require!(&response.public_key_encryption_key_pair.wrapped_private_key)
-                .parse()
-                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+        let private_key: EncString = EncString::parse_strict(require!(
+            &response.public_key_encryption_key_pair.wrapped_private_key
+        ))
+        .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
 
         let is_v2_encryption = matches!(private_key, EncString::Cose_Encrypt0_B64 { .. });
 
@@ -161,9 +161,9 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
                 .as_ref()
                 .ok_or(AccountKeysResponseParseError::InconsistentState)?;
 
-            let signing_key: EncString = require!(&signature_key_pair.wrapped_signing_key)
-                .parse()
-                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+            let signing_key: EncString =
+                EncString::parse_strict(require!(&signature_key_pair.wrapped_signing_key))
+                    .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
 
             let signed_public_key: Option<SignedPublicKey> = response
                 .public_key_encryption_key_pair
