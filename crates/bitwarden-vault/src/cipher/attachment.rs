@@ -75,46 +75,8 @@ pub struct AttachmentView {
     pub size: Option<String>,
     pub size_name: Option<String>,
     pub file_name: Option<String>,
-    pub key: Option<EncString>,
-    /// The decrypted attachmentkey in base64 format.
-    ///
-    /// **TEMPORARY FIELD**: This field is a temporary workaround to provide
-    /// decrypted attachment keys to the TypeScript client during the migration
-    /// process. It will be removed once the encryption/decryption logic is
-    /// fully migrated to the SDK.
-    ///
-    /// **Ticket**: <https://bitwarden.atlassian.net/browse/PM-23005>
-    ///
-    /// Do not rely on this field for long-term use.
-    #[cfg(feature = "wasm")]
-    pub decrypted_key: Option<String>,
-}
-
-impl AttachmentView {
-    pub(crate) fn reencrypt_key(
-        &mut self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        old_key: SymmetricKeySlotId,
-        new_key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
-        if let Some(attachment_key) = &mut self.key {
-            let tmp_attachment_key_id = ctx.unwrap_symmetric_key(old_key, attachment_key)?;
-            *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn reencrypt_keys(
-        attachment_views: &mut Vec<AttachmentView>,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        old_key: SymmetricKeySlotId,
-        new_key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
-        for attachment in attachment_views {
-            attachment.reencrypt_key(ctx, old_key, new_key)?;
-        }
-        Ok(())
-    }
+    #[cfg_attr(feature = "wasm", tsify(type = "SymmetricKey | undefined"))]
+    pub key: Option<SymmetricCryptoKey>,
 }
 
 #[allow(missing_docs)]
@@ -173,7 +135,9 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, AttachmentEncryptResul
         let attachment_key = ctx.generate_symmetric_key();
         let encrypted_contents =
             OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
-        attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
+        #[allow(deprecated)]
+        let raw_attachment_key = ctx.dangerous_get_symmetric_key(attachment_key)?.clone();
+        attachment.key = Some(raw_attachment_key);
 
         let contents = encrypted_contents.to_buffer()?;
 
@@ -204,30 +168,9 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<Vec<u8>, CryptoError> {
-        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.cipher.key).map_err(|e| {
-            tracing::warn!(
-                attachment_id = ?self.attachment.id,
-                cipher_id = ?self.cipher.id,
-                has_cipher_key = self.cipher.key.is_some(),
-                error = %e,
-                "Failed to decrypt cipher key for attachment"
-            );
-            e
-        })?;
-
-        // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
+        // Version 2 or 3: attachment view already holds the raw attachment key
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key = ctx
-                .unwrap_symmetric_key(ciphers_key, attachment_key)
-                .map_err(|e| {
-                    tracing::warn!(
-                        attachment_id = ?self.attachment.id,
-                        cipher_id = ?self.cipher.id,
-                        error = %e,
-                        "Failed to unwrap attachment key (v2/v3)"
-                    );
-                    e
-                })?;
+            let content_key = ctx.add_local_symmetric_key(attachment_key.clone());
             self.contents.decrypt(ctx, content_key).map_err(|e| {
                 tracing::warn!(
                     attachment_id = ?self.attachment.id,
@@ -252,10 +195,6 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, Vec<u8>> for AttachmentFile {
     }
 }
 
-// ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::CompositeEncryptable`: `AttachmentView` retains
-// key-bound ciphertext (`key`, the attachment content key wrapped under the cipher key) and copies
-// it through unchanged (`key: self.key.clone()` below) instead of re-wrapping it under `key`. As a
-// result decrypt(K) -> encrypt(K1) -> decrypt(K1) does NOT round-trip.
 impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Attachment> for AttachmentView {
     fn encrypt_composite(
         &self,
@@ -268,9 +207,14 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Attachment> for Attach
             size: self.size.clone(),
             size_name: self.size_name.clone(),
             file_name: self.file_name.encrypt(ctx, key)?,
-            // ⚠️ pass-through of wrapped key-bound ciphertext — see the contract-violation note
-            // above.
-            key: self.key.clone(),
+            key: self
+                .key
+                .as_ref()
+                .map(|k| {
+                    let slot = ctx.add_local_symmetric_key(k.clone());
+                    ctx.wrap_symmetric_key(key, slot)
+                })
+                .transpose()?,
         })
     }
 }
@@ -281,17 +225,12 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, AttachmentView> for Attachment 
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
     ) -> Result<AttachmentView, CryptoError> {
-        // Decrypt the file name or return an error if decryption fails
         let file_name = self.file_name.decrypt(ctx, key)?;
 
-        #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
             let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
-
             #[allow(deprecated)]
-            let actual_key = ctx.dangerous_get_symmetric_key(content_key_id)?;
-
-            Some(actual_key.to_base64())
+            Some(ctx.dangerous_get_symmetric_key(content_key_id)?.clone())
         } else {
             None
         };
@@ -302,14 +241,7 @@ impl Decryptable<KeySlotIds, SymmetricKeySlotId, AttachmentView> for Attachment 
             size: self.size.clone(),
             size_name: self.size_name.clone(),
             file_name,
-            // ⚠️ CONTRACT VIOLATION of `bitwarden_crypto::Decryptable`: the resulting
-            // `AttachmentView` is a decrypted DTO, yet `key` (the attachment content key wrapped
-            // under the cipher key) is copied through still encrypted (`self.key.clone()`) rather
-            // than decrypted. The wrapped key is therefore key-bound to the original cipher key,
-            // which is what makes the `CompositeEncryptable` pass-through above non-round-tripping.
-            key: self.key.clone(),
-            #[cfg(feature = "wasm")]
-            decrypted_key: decrypted_key.map(|k| k.to_string()),
+            key: decrypted_key,
         })
     }
 }
@@ -330,15 +262,18 @@ pub(crate) fn decrypt_attachments_with_failures(
             Ok(decrypted) => successes.push(decrypted),
             Err(e) => {
                 tracing::warn!(attachment_id = ?attachment.id, error = %e, "Failed to decrypt attachment");
+                let recovered_key = attachment.key.as_ref().and_then(|attachment_key| {
+                    let slot = ctx.unwrap_symmetric_key(key, attachment_key).ok()?;
+                    #[allow(deprecated)]
+                    Some(ctx.dangerous_get_symmetric_key(slot).ok()?.clone())
+                });
                 failures.push(AttachmentView {
                     id: attachment.id.clone(),
                     url: attachment.url.clone(),
                     size: attachment.size.clone(),
                     size_name: attachment.size_name.clone(),
                     file_name: None,
-                    key: attachment.key.clone(),
-                    #[cfg(feature = "wasm")]
-                    decrypted_key: None,
+                    key: recovered_key,
                 });
             }
         }
@@ -399,8 +334,6 @@ mod tests {
             size_name: Some("100 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
         };
 
         let contents = b"This is a test file that we will encrypt. It's 100 bytes long, the encrypted version will be longer!";
@@ -455,15 +388,32 @@ mod tests {
         let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
         let key_store = create_test_crypto_with_user_key(user_key);
 
+        let attachment_key = {
+            let mut ctx = key_store.context();
+            let cipher_key_enc: EncString = "2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap();
+            let cipher_key_slot = Cipher::decrypt_cipher_key(
+                &mut ctx,
+                bitwarden_core::key_management::SymmetricKeySlotId::User,
+                &Some(cipher_key_enc),
+            )
+            .unwrap();
+            let att_key_enc: EncString = "2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap();
+            let att_key_slot = ctx
+                .unwrap_symmetric_key(cipher_key_slot, &att_key_enc)
+                .unwrap();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(att_key_slot)
+                .unwrap()
+                .clone()
+        };
+
         let attachment = AttachmentView {
             id: None,
             url: None,
             size: Some("161".into()),
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
-            key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap()),
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
+            key: Some(attachment_key),
         };
 
         let cipher  = Cipher {
@@ -526,8 +476,6 @@ mod tests {
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
-            #[cfg(feature = "wasm")]
-            decrypted_key: None,
         };
 
         let cipher  = Cipher {

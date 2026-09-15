@@ -1,5 +1,4 @@
-use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
-use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
+use bitwarden_crypto::CryptoError;
 
 use super::v1::*;
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
         drivers_license::DriversLicenseView,
         field::FieldView,
         identity::IdentityView,
-        login::{Fido2CredentialFullView, LoginUriView, LoginView},
+        login::{Fido2CredentialFullView, Fido2CredentialView, LoginUriView, LoginView},
         passport::PassportView,
         secure_note::SecureNoteView,
         ssh_key::SshKeyView,
@@ -57,11 +56,7 @@ mod secure_note;
 mod ssh_key;
 
 impl CipherBlobV1 {
-    pub(crate) fn from_cipher_view(
-        view: &CipherView,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<Self, CryptoError> {
+    pub(crate) fn from_cipher_view(view: &CipherView) -> Result<Self, CryptoError> {
         let type_data = match view.r#type {
             CipherType::Login => {
                 let login = view
@@ -69,14 +64,19 @@ impl CipherBlobV1 {
                     .as_ref()
                     .ok_or(CryptoError::MissingField("login"))?;
 
-                let fido2_credentials: Vec<Fido2CredentialDataV1> = login
+                let fido2_credentials = login
                     .fido2_credentials
-                    .as_ref()
-                    .map(|creds| -> Result<Vec<_>, CryptoError> {
-                        let full_views: Vec<Fido2CredentialFullView> = creds.decrypt(ctx, key)?;
-                        Ok(full_views.iter().map(Fido2CredentialDataV1::from).collect())
+                    .as_deref()
+                    .map(|creds| {
+                        creds
+                            .iter()
+                            .map(|v| {
+                                Fido2CredentialDataV1::from(&Fido2CredentialFullView::from(
+                                    v.clone(),
+                                ))
+                            })
+                            .collect()
                     })
-                    .transpose()?
                     .unwrap_or_default();
 
                 CipherTypeDataV1::Login(LoginDataV1 {
@@ -161,12 +161,7 @@ impl CipherBlobV1 {
         })
     }
 
-    pub(crate) fn apply_to_cipher_view(
-        &self,
-        view: &mut CipherView,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<(), CryptoError> {
+    pub(crate) fn apply_to_cipher_view(&self, view: &mut CipherView) -> Result<(), CryptoError> {
         view.name = self.name.clone();
         view.notes = self.notes.clone();
         view.fields = none_if_empty(self.fields.iter().map(FieldView::from).collect());
@@ -191,12 +186,13 @@ impl CipherBlobV1 {
                 let fido2_credentials = if login_data.fido2_credentials.is_empty() {
                     None
                 } else {
-                    let full_views: Vec<Fido2CredentialFullView> = login_data
-                        .fido2_credentials
-                        .iter()
-                        .map(Fido2CredentialFullView::from)
-                        .collect();
-                    Some(full_views.encrypt_composite(ctx, key)?)
+                    Some(
+                        login_data
+                            .fido2_credentials
+                            .iter()
+                            .map(|d| Fido2CredentialView::from(Fido2CredentialFullView::from(d)))
+                            .collect::<Vec<_>>(),
+                    )
                 };
 
                 view.r#type = CipherType::Login;
@@ -314,9 +310,6 @@ mod tests {
 
     #[test]
     fn test_option_vec_normalization_none_to_empty_to_none() {
-        let (key_store, key_id) = create_test_key_store();
-        let mut ctx = key_store.context_mut();
-
         let original = crate::CipherView {
             name: "Minimal Note".to_string(),
             notes: None,
@@ -329,23 +322,19 @@ mod tests {
             ..create_shell_cipher_view(CipherType::SecureNote)
         };
 
-        let blob = CipherBlobV1::from_cipher_view(&original, &mut ctx, key_id).unwrap();
+        let blob = CipherBlobV1::from_cipher_view(&original).unwrap();
 
         assert!(blob.fields.is_empty());
         assert!(blob.password_history.is_empty());
 
         let mut restored = create_shell_cipher_view(CipherType::SecureNote);
-        blob.apply_to_cipher_view(&mut restored, &mut ctx, key_id)
-            .unwrap();
+        blob.apply_to_cipher_view(&mut restored).unwrap();
         assert!(restored.fields.is_none());
         assert!(restored.password_history.is_none());
     }
 
     #[test]
     fn test_login_none_uris_and_fido2_normalization() {
-        let (key_store, key_id) = create_test_key_store();
-        let mut ctx = key_store.context_mut();
-
         let original = crate::CipherView {
             name: "Simple Login".to_string(),
             notes: None,
@@ -362,7 +351,7 @@ mod tests {
             ..create_shell_cipher_view(CipherType::Login)
         };
 
-        let blob = CipherBlobV1::from_cipher_view(&original, &mut ctx, key_id).unwrap();
+        let blob = CipherBlobV1::from_cipher_view(&original).unwrap();
 
         if let CipherTypeDataV1::Login(ref login_data) = blob.type_data {
             assert!(login_data.uris.is_empty());
@@ -372,8 +361,7 @@ mod tests {
         }
 
         let mut restored = create_shell_cipher_view(CipherType::Login);
-        blob.apply_to_cipher_view(&mut restored, &mut ctx, key_id)
-            .unwrap();
+        blob.apply_to_cipher_view(&mut restored).unwrap();
 
         let login = restored.login.unwrap();
         assert!(login.uris.is_none());
