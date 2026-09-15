@@ -51,8 +51,10 @@ fn credentials() -> Credentials {
         username: USERNAME.to_string(),
         password: PASSWORD.to_string(),
         account_key: ACCOUNT_KEY.to_string(),
-        sign_in_address: SignInAddress::new("my", SignInDomain::Global).expect("valid address"),
-        device_uuid: "replay-device".to_string(),
+        sign_in_address: SignInAddress {
+            subdomain: "my".into(),
+            domain: SignInDomain::Global,
+        },
     }
 }
 

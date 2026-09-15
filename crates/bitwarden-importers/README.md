@@ -8,6 +8,10 @@ Exposes `client.importers()` ([`ImporterClient`]) with:
 - `import_kdbx` — parses a KeePass KDBX (`.kdbx`) database (3.1 + 4, via the `keepass` crate),
   encrypts the entries for the user's personal vault or a given organization, and submits them to
   the server's import endpoint. Returns per-type counts.
+- `import_onepassword` — signs in to a 1Password account with its email, master password and Secret
+  Key, asking a caller-supplied prompt for a TOTP code when the account requires one, downloads and
+  decrypts every vault the account can open, and submits them the same way. Each vault becomes a
+  folder.
 
 ## Keeper direct importer
 

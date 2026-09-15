@@ -7,13 +7,14 @@ use super::error::OnePasswordError;
 /// The longest a DNS label may be.
 const MAX_SUBDOMAIN_LENGTH: usize = 63;
 
-/// One of the domains 1Password serves accounts on, the set its clients offer in the sign-in form.
+/// One of the domains 1Password serves accounts on, as offered in its sign-in form.
 ///
 /// The first three are regions, each storing its accounts in a different jurisdiction; an account
 /// belongs to exactly one of them. Enterprise accounts sit on their own domain instead.
 ///
 /// See <https://support.1password.com/regions/>.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum SignInDomain {
     /// `1password.com`, the default. Data hosted in the United States.
     Global,
@@ -40,29 +41,51 @@ impl SignInDomain {
 /// Where an account signs in, such as `my.1password.com`.
 ///
 /// An individual account uses `my`; a team or business account uses its own name. The domain is a
-/// closed set, so only the subdomain needs checking, and [`SignInAddress::new`] is the only way to
-/// build one.
+/// closed set, so only the subdomain needs checking. The access client normalizes and validates the
+/// record before using it because foreign bindings construct records directly.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SignInAddress {
-    subdomain: String,
-    domain: SignInDomain,
+    /// The account-specific DNS label, such as `my`.
+    pub subdomain: String,
+    /// The 1Password domain on which the account is hosted.
+    pub domain: SignInDomain,
 }
 
 impl SignInAddress {
-    /// Builds an address from an account subdomain, rejecting anything that is not a DNS label.
-    ///
-    /// The subdomain is trimmed and lowercased first, so what a user typed into a sign-in form
-    /// goes through unchanged.
-    pub fn new(subdomain: &str, domain: SignInDomain) -> Result<SignInAddress, OnePasswordError> {
-        let subdomain = subdomain.trim().to_lowercase();
-        validate_subdomain(&subdomain)?;
-
-        Ok(SignInAddress { subdomain, domain })
+    pub(crate) fn normalize(&mut self) -> Result<(), OnePasswordError> {
+        self.subdomain = self.subdomain.trim().to_lowercase();
+        self.validate()
     }
 
-    /// The domain half of the address.
-    pub fn domain(&self) -> SignInDomain {
-        self.domain
+    fn validate(&self) -> Result<(), OnePasswordError> {
+        let invalid = |reason: &str| {
+            Err(OnePasswordError::InvalidSignInAddress(format!(
+                "subdomain '{}': {reason}",
+                self.subdomain
+            )))
+        };
+
+        if self.subdomain.is_empty() {
+            return invalid("it is empty");
+        }
+        if self.subdomain.len() > MAX_SUBDOMAIN_LENGTH {
+            return invalid(&format!(
+                "it is longer than {MAX_SUBDOMAIN_LENGTH} characters"
+            ));
+        }
+        if !self
+            .subdomain
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        {
+            return invalid("only letters, digits and dashes are allowed");
+        }
+        if self.subdomain.starts_with('-') || self.subdomain.ends_with('-') {
+            return invalid("it starts or ends with a dash");
+        }
+
+        Ok(())
     }
 }
 
@@ -72,42 +95,17 @@ impl fmt::Display for SignInAddress {
     }
 }
 
-/// Rejects a subdomain that is not a DNS label, which is what keeps a stray `/`, `@` or `?` from
-/// pointing the whole session at another host.
-fn validate_subdomain(subdomain: &str) -> Result<(), OnePasswordError> {
-    let invalid = |reason: &str| {
-        Err(OnePasswordError::Internal(format!(
-            "invalid subdomain '{subdomain}': {reason}"
-        )))
-    };
-
-    if subdomain.is_empty() {
-        return invalid("it is empty");
-    }
-    if subdomain.len() > MAX_SUBDOMAIN_LENGTH {
-        return invalid(&format!(
-            "it is longer than {MAX_SUBDOMAIN_LENGTH} characters"
-        ));
-    }
-    if !subdomain
-        .bytes()
-        .all(|b| b.is_ascii_alphanumeric() || b == b'-')
-    {
-        return invalid("only letters, digits and dashes are allowed");
-    }
-    if subdomain.starts_with('-') || subdomain.ends_with('-') {
-        return invalid("it starts or ends with a dash");
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn address(subdomain: &str) -> Result<SignInAddress, OnePasswordError> {
-        SignInAddress::new(subdomain, SignInDomain::Global)
+        let mut address = SignInAddress {
+            subdomain: subdomain.into(),
+            domain: SignInDomain::Global,
+        };
+        address.normalize()?;
+        Ok(address)
     }
 
     #[test]
@@ -118,9 +116,12 @@ mod tests {
             (SignInDomain::Canada, "my.1password.ca"),
             (SignInDomain::Enterprise, "my.ent.1password.com"),
         ] {
-            let address = SignInAddress::new("my", domain).expect("a valid subdomain");
+            let address = SignInAddress {
+                subdomain: "my".into(),
+                domain,
+            };
             assert_eq!(address.to_string(), expected);
-            assert_eq!(address.domain(), domain);
+            assert_eq!(address.domain, domain);
         }
     }
 
@@ -152,7 +153,7 @@ mod tests {
         ] {
             let error = address(subdomain).expect_err("not a DNS label");
             assert!(
-                error.to_string().contains("invalid subdomain"),
+                matches!(&error, OnePasswordError::InvalidSignInAddress(_)),
                 "unexpected error for '{subdomain}': {error}"
             );
         }
@@ -161,5 +162,18 @@ mod tests {
     #[test]
     fn address_accepts_the_longest_label() {
         address(&"m".repeat(MAX_SUBDOMAIN_LENGTH)).expect("63 characters is a valid label");
+    }
+
+    #[test]
+    fn address_constructed_as_a_record_is_still_validated() {
+        let mut address = SignInAddress {
+            subdomain: "evil.com/x".into(),
+            domain: SignInDomain::Global,
+        };
+
+        assert!(matches!(
+            address.normalize(),
+            Err(OnePasswordError::InvalidSignInAddress(_))
+        ));
     }
 }
