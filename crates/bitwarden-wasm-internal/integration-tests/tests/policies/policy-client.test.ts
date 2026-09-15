@@ -1,6 +1,6 @@
 import {
   PasswordManagerClient,
-  PolicyView,
+  Policy,
   OrganizationUserPolicyContext,
   PolicyType,
   OrganizationUserType,
@@ -20,18 +20,14 @@ const POLICY_ID = uuid("1c4d9d5a-0000-4000-8000-000000000000");
 const ORG_A = uuid("1c4d9d5a-0000-4000-8000-00000000000a");
 const ORG_B = uuid("1c4d9d5a-0000-4000-8000-00000000000b");
 
-interface PolicyViewOptions {
+interface PolicyOptions {
   id?: Uuid;
   enabled?: boolean;
   data?: string;
   revisionDate?: string;
 }
 
-function policyView(
-  organizationId: Uuid,
-  type: PolicyType,
-  options: PolicyViewOptions = {},
-): PolicyView {
+function policy(organizationId: Uuid, type: PolicyType, options: PolicyOptions = {}): Policy {
   return {
     id: options.id ?? POLICY_ID,
     organizationId,
@@ -39,7 +35,7 @@ function policyView(
     data: options.data,
     enabled: options.enabled ?? true,
     // The generated type is `DateTime<Utc>`, but at runtime it is an ISO string.
-    revisionDate: options.revisionDate as unknown as PolicyView["revisionDate"],
+    revisionDate: options.revisionDate as unknown as Policy["revisionDate"],
   };
 }
 
@@ -74,7 +70,7 @@ describe("PolicyClient", () => {
       const result = client
         .policies()
         .filter_by_type(
-          [policyView(ORG_A, PolicyType.MasterPassword)],
+          [policy(ORG_A, PolicyType.MasterPassword)],
           [orgContext(ORG_A)],
           PolicyType.MasterPassword,
         );
@@ -83,7 +79,7 @@ describe("PolicyClient", () => {
       expect(result[0].type).toBe(PolicyType.MasterPassword);
     });
 
-    it("round-trips every PolicyView field unchanged", () => {
+    it("round-trips every Policy field unchanged", () => {
       const id = uuid("1c4d9d5a-0000-4000-8000-0000000000ff");
       const data = JSON.stringify({ minComplexity: 3, minLength: 12 });
       const revisionDate = "2024-01-01T00:00:00.000Z";
@@ -91,27 +87,27 @@ describe("PolicyClient", () => {
       const result = client
         .policies()
         .filter_by_type(
-          [policyView(ORG_A, PolicyType.MasterPassword, { id, data, revisionDate })],
+          [policy(ORG_A, PolicyType.MasterPassword, { id, data, revisionDate })],
           [orgContext(ORG_A)],
           PolicyType.MasterPassword,
         );
 
       expect(result).toHaveLength(1);
-      const view = result[0];
-      expect(view.id).toBe(id);
-      expect(view.organizationId).toBe(ORG_A);
-      expect(view.type).toBe(PolicyType.MasterPassword);
+      const record = result[0];
+      expect(record.id).toBe(id);
+      expect(record.organizationId).toBe(ORG_A);
+      expect(record.type).toBe(PolicyType.MasterPassword);
       // `data` is an opaque JSON string and must cross unparsed.
-      expect(view.data).toBe(data);
-      expect(view.enabled).toBe(true);
-      expect(new Date(view.revisionDate as unknown as string).toISOString()).toBe(revisionDate);
+      expect(record.data).toBe(data);
+      expect(record.enabled).toBe(true);
+      expect(new Date(record.revisionDate as unknown as string).toISOString()).toBe(revisionDate);
     });
 
     it("maps omitted optional fields to undefined, not null", () => {
       const result = client
         .policies()
         .filter_by_type(
-          [policyView(ORG_A, PolicyType.MasterPassword)],
+          [policy(ORG_A, PolicyType.MasterPassword)],
           [orgContext(ORG_A)],
           PolicyType.MasterPassword,
         );
@@ -125,7 +121,7 @@ describe("PolicyClient", () => {
   // `get_enforced` / `get_all_enforced` are the new type-erased enforcement interfaces. As with
   // `filter_by_type`, these tests prove the FFI round trip rather than re-proving the enforcement
   // logic (which is covered by the crate's Rust unit tests). The load-bearing new shape is the
-  // `EnforcedPolicyErased` struct and the internally-tagged `PolicyDataType` union: unit variants
+  // `PolicyDecisionErased` struct and the internally-tagged `PolicyDataType` union: unit variants
   // cross as `{ _policyType: "..." }`, and data variants flatten their `...PolicyData` struct beside
   // the `_policyType` discriminant. The discriminant is `_policyType` (not `type`) specifically so
   // it cannot collide with a policy data field named `type` (e.g. MaximumVaultTimeout) — see the
@@ -146,7 +142,7 @@ describe("PolicyClient", () => {
         .get_enforced(
           PolicyType.MasterPassword,
           ORG_A,
-          [policyView(ORG_A, PolicyType.MasterPassword, { data })],
+          [policy(ORG_A, PolicyType.MasterPassword, { data })],
           [orgContext(ORG_A)],
         );
 
@@ -166,7 +162,7 @@ describe("PolicyClient", () => {
         .get_enforced(
           PolicyType.SingleOrg,
           ORG_A,
-          [policyView(ORG_A, PolicyType.SingleOrg)],
+          [policy(ORG_A, PolicyType.SingleOrg)],
           [orgContext(ORG_A)],
         );
 
@@ -184,7 +180,7 @@ describe("PolicyClient", () => {
         .get_enforced(
           PolicyType.MaximumVaultTimeout,
           ORG_A,
-          [policyView(ORG_A, PolicyType.MaximumVaultTimeout, { data })],
+          [policy(ORG_A, PolicyType.MaximumVaultTimeout, { data })],
           [orgContext(ORG_A)],
         );
 
@@ -203,7 +199,7 @@ describe("PolicyClient", () => {
         .get_enforced(
           PolicyType.MasterPassword,
           ORG_B,
-          [policyView(ORG_A, PolicyType.MasterPassword)],
+          [policy(ORG_A, PolicyType.MasterPassword)],
           [orgContext(ORG_B)],
         );
 
@@ -220,7 +216,7 @@ describe("PolicyClient", () => {
         .get_enforced(
           PolicyType.MasterPassword,
           ORG_A,
-          [policyView(ORG_A, PolicyType.MasterPassword, { data })],
+          [policy(ORG_A, PolicyType.MasterPassword, { data })],
           [orgContext(ORG_A, { status: OrganizationUserStatusType.Revoked })],
         );
 
@@ -245,10 +241,7 @@ describe("PolicyClient", () => {
         .policies()
         .get_all_enforced(
           PolicyType.MasterPassword,
-          [
-            policyView(ORG_A, PolicyType.MasterPassword),
-            policyView(ORG_A, PolicyType.PasswordGenerator),
-          ],
+          [policy(ORG_A, PolicyType.MasterPassword), policy(ORG_A, PolicyType.PasswordGenerator)],
           [orgContext(ORG_A)],
         );
 
@@ -262,10 +255,10 @@ describe("PolicyClient", () => {
       const result = client.policies().get_all_enforced(
         PolicyType.MaximumVaultTimeout,
         [
-          policyView(ORG_A, PolicyType.MaximumVaultTimeout, {
+          policy(ORG_A, PolicyType.MaximumVaultTimeout, {
             id: uuid("1c4d9d5a-0000-4000-8000-0000000000a1"),
           }),
-          policyView(ORG_B, PolicyType.MaximumVaultTimeout, {
+          policy(ORG_B, PolicyType.MaximumVaultTimeout, {
             id: uuid("1c4d9d5a-0000-4000-8000-0000000000b1"),
           }),
         ],
