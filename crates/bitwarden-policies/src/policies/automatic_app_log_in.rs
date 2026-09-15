@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Automatic App Log-in policy.
 pub struct AutomaticAppLogInPolicy;
 
-impl Policy for AutomaticAppLogInPolicy {
+impl PolicyDefinition for AutomaticAppLogInPolicy {
     type Data = AutomaticAppLogInPolicyData;
 
     fn policy_type(&self) -> PolicyType {

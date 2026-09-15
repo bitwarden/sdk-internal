@@ -1,12 +1,12 @@
 use bitwarden_organizations::OrganizationUserType;
 use serde::{Deserialize, Serialize};
 
-use crate::{Policy, PolicyType, policy_type::PolicyDataType};
+use crate::{PolicyDefinition, PolicyType, policy_type::PolicyDataType};
 
 /// Organization User Notification policy.
 pub struct OrganizationUserNotificationPolicy;
 
-impl Policy for OrganizationUserNotificationPolicy {
+impl PolicyDefinition for OrganizationUserNotificationPolicy {
     type Data = OrganizationUserNotificationPolicyData;
 
     fn policy_type(&self) -> PolicyType {
