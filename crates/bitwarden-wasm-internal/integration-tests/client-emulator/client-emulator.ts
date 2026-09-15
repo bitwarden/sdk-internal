@@ -2,13 +2,15 @@
 // account into it — a sync from the server, and an unlock.
 
 import type {
-  CryptoSyncData,
   InitUserCryptoMethod,
   PasswordManagerClient,
   WasmStateBridge,
 } from "@bitwarden/sdk-internal";
 
+import { AccountKeysResponse, toKdf, type SyncResponse } from "../server-emulator/dto";
 import type { ServerEmulator } from "../server-emulator/server-emulator";
+import { API_URL } from "../server-emulator/urls";
+import { asEncString, asKeyId } from "../tests/type-assertion-helpers";
 
 import { LocalState, SETTINGS } from "./local-state";
 
@@ -27,7 +29,7 @@ export class ClientEmulator {
   }
 
   /**
-   * Simulates a sync from server to client
+   * Simulates a sync from server to client.
    */
   async sync(email: string): Promise<void> {
     const user = this.server.getUser(email);
@@ -35,29 +37,52 @@ export class ClientEmulator {
     this.local.setIdentity({ userId: user.userId, email: user.email });
     this.local.organizationKeys = user.organizationKeys;
 
-    const data: CryptoSyncData = {
-      accountCryptographicState: user.accountCryptographicState,
+    const response = await fetch(`${API_URL}/sync`, {
+      headers: { Authorization: `Bearer ${user.userId}` },
+    });
+    if (!response.ok) {
+      throw new Error(`sync for ${email} answered ${response.status}`);
+    }
+
+    const synced: SyncResponse = await response.json();
+    const unlock = synced.userDecryption.masterPasswordUnlock;
+
+    const accountKeys = AccountKeysResponse.fromAccountKeysResponse(synced.profile.accountKeys);
+
+    const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
+    await locked.crypto_sync_handler().on_sync({
+      accountCryptographicState: accountKeys.toAccountCryptographicState(),
       userDecryption: {
-        ...(user.masterPasswordUnlock === null
+        ...(unlock === undefined
           ? {}
           : {
               masterPasswordUnlock: {
-                masterKeyWrappedUserKey: user.masterPasswordUnlock.masterKeyWrappedUserKey,
-                salt: user.masterPasswordUnlock.salt,
-                kdf: user.masterPasswordUnlock.kdf,
+                masterKeyWrappedUserKey: asEncString(unlock.masterKeyEncryptedUserKey),
+                salt: unlock.salt,
+                kdf: toKdf(unlock.kdf),
               },
             }),
-        ...(user.upgradeToken === undefined ? {} : { v2UpgradeToken: user.upgradeToken }),
-        ...(user.userKeyId === undefined ? {} : { userKeyId: user.userKeyId }),
+        ...(synced.userDecryption.v2UpgradeToken === undefined
+          ? {}
+          : {
+              v2UpgradeToken: {
+                wrapped_user_key_1: asEncString(
+                  synced.userDecryption.v2UpgradeToken.wrappedUserKey1,
+                ),
+                wrapped_user_key_2: asEncString(
+                  synced.userDecryption.v2UpgradeToken.wrappedUserKey2,
+                ),
+              },
+            }),
+        ...(synced.userDecryption.userKeyId === undefined
+          ? {}
+          : { userKeyId: asKeyId(synced.userDecryption.userKeyId) }),
       },
-    };
-
-    const locked = makePasswordManagerClient(this.local.bridge, SETTINGS, user.userId);
-    await locked.crypto_sync_handler().on_sync(data);
+    });
 
     // Quirk, the crypto sync handler writes the kdf only when the account has no master-password
-    // but clients always write it.
-    if (user.masterPasswordUnlock === null) {
+    // but clients always write it. The KDF a real client learns at `POST /accounts/prelogin`.
+    if (unlock === undefined) {
       await this.local.bridge.set_kdf_config(user.kdf);
     }
 
