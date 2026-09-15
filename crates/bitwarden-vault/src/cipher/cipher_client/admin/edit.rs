@@ -70,9 +70,9 @@ async fn edit_cipher(
     let folder_id = request.folder_id;
     let favorite = request.favorite;
 
-    // A partial original has every secret field stripped: password history diffed against it
-    // would drop the item's real history. The encrypt of the merge original below would also
-    // refuse it (EncryptRestrictedView), but only incidentally — fail clearly and first.
+    // A partial original has every secret field stripped, dropping real password history on
+    // a diff; the merge encrypt below would also refuse it (EncryptRestrictedView), but only
+    // incidentally, so fail clearly here first.
     if original_cipher_view.partial {
         return Err(EditCipherAdminError::PartialOriginal);
     }

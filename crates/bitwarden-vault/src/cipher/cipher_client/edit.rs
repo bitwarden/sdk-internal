@@ -188,12 +188,8 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
 
     let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
 
-    // A PAM-gated cipher is only ever stored partial — the server withholds its secrets from
-    // every bulk read and from write-returns alike — so the original below would carry blanks
-    // where the withheld fields belong. `update_password_history` would then drop the item's
-    // whole history (a partial view has none to chain) and stamp a fresh `password_revision_date`,
-    // and the PUT would persist both. Refuse rather than corrupt; `edit_gated` takes the full
-    // original from a lease-authorised read.
+    // A PAM-gated cipher is only ever stored partial: using it as the original would let
+    // `update_password_history` corrupt the real history. `edit_gated` takes a full original.
     if original_cipher.partial_data.is_some() {
         return Err(EditCipherError::GatedCipher);
     }
@@ -219,13 +215,11 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     .await
 }
 
-/// The body both edit paths share: request → view, fold in password history against
-/// `original_cipher_view`, encrypt, PUT, and merge the write-return over `stored_cipher` before
-/// persisting it.
+/// The body both edit paths share: request → view, fold in password history, encrypt, PUT,
+/// and merge the write-return over `stored_cipher`.
 ///
-/// The paths differ only in where the original comes from — local state for [`edit_cipher`], the
-/// caller for [`edit_gated_cipher`], because a gated cipher has no full copy in state — so that is
-/// all either one is left holding.
+/// The paths differ only in where the original comes from: local state for [`edit_cipher`],
+/// the caller for [`edit_gated_cipher`].
 // `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
 // short-lived feature-rollout flags that will be removed once their migrations
 // complete, at which point the argument count drops back under the limit.
@@ -278,14 +272,8 @@ async fn submit_cipher_edit<R: Repository<Cipher> + ?Sized>(
         .merge_with_cipher(Some(stored_cipher))?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
 
-    // Never let a write-return un-gate the stored copy. The server withholds secrets from a gated
-    // write-return, so a full response here should be impossible — but persisting one would put
-    // lease-scoped secrets into durable state, outliving the lease that justified them. Skip the
-    // write and let the next sync reconcile: the server already applied the change, so reporting
-    // a failure would be the worse lie.
-    //
-    // A no-op for [`edit_cipher`], which refuses a gated cipher outright, so nothing it stores is
-    // ever gated to begin with.
+    // Never let a write-return un-gate the stored copy: persisting a full response would put
+    // lease-scoped secrets into durable state. Skip the write and let the next sync reconcile.
     if !stored_gated || cipher.partial_data.is_some() {
         repository.set(cipher_id, cipher.clone()).await?;
     }
@@ -299,11 +287,9 @@ async fn submit_cipher_edit<R: Repository<Cipher> + ?Sized>(
 
 /// Edit a PAM-gated cipher against a full original supplied by the caller.
 ///
-/// [`edit_cipher`] reads its original out of the repository, which for a gated cipher only ever
-/// holds the partial copy. This path takes the full view the caller obtained from a
-/// lease-authorised single-cipher read instead, so password history carries forward correctly.
-/// It mirrors the admin edit path, which takes its original as an argument for the same reason:
-/// no usable copy exists in local state.
+/// [`edit_cipher`]'s original comes from the repository, which for a gated cipher holds only
+/// the partial copy; this path takes a full view from a lease-authorised read so password
+/// history carries forward.
 // `use_strict_decryption`, `enable_cipher_key_encryption`, and `use_blob` are
 // short-lived feature-rollout flags that will be removed once their migrations
 // complete, at which point the argument count drops back under the limit.
@@ -321,8 +307,8 @@ async fn edit_gated_cipher<R: Repository<Cipher> + ?Sized>(
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
-    // The point of this path is the full original. A partial one lands us back in exactly the
-    // case `edit_cipher` refuses, only with the blanks handed in by the caller.
+    // The point of this path is the full original; a partial one is exactly the case
+    // `edit_cipher` refuses.
     if original_cipher_view.partial {
         return Err(EditCipherError::PartialOriginal);
     }
@@ -414,13 +400,11 @@ impl CiphersClient {
 
     /// Edit a PAM-gated [`Cipher`] whose secrets were revealed under an active lease.
     ///
-    /// [`CiphersClient::edit`] builds its original from local state, which for a gated cipher only
-    /// ever holds the partial copy, and so refuses. Pass the full view obtained from the
-    /// lease-authorised read as `original_cipher_view` — it is what password history is diffed
-    /// against.
+    /// [`CiphersClient::edit`] refuses a gated cipher since its local-state original only ever
+    /// holds the partial copy; pass the full view from the lease-authorised read as
+    /// `original_cipher_view` instead.
     ///
-    /// The returned view reflects what was persisted, so it is partial: the server withholds
-    /// secrets from a gated write-return. The caller keeps its own full copy in memory.
+    /// The returned view stays partial: the server withholds secrets from a gated write-return.
     pub async fn edit_gated(
         &self,
         request: CipherEditRequest,
@@ -746,7 +730,7 @@ mod tests {
         assert_eq!(result.collection_ids, vec![collection_id]);
     }
 
-    /// Fixed org id + key for the PAM-gated fixtures — a partial is always org-owned — with a
+    /// Fixed org id + key for the PAM-gated fixtures (a partial is always org-owned), with a
     /// `partial_data` envelope encrypted under that key. Same vectors as the ones pinned in
     /// `cipher.rs`, so both sides exercise identical ciphertext.
     const GATED_ORG_UUID: &str = "3cf0d3ba-3ded-4bf3-a51c-b03fd9ac6e07";
@@ -765,7 +749,7 @@ mod tests {
         (org, key_store)
     }
 
-    /// The copy local state holds for a gated cipher: the reduced envelope and nothing else.
+    /// The copy local state holds for a gated cipher: only the reduced envelope.
     fn gated_stored_cipher(cipher_id: CipherId, organization_id: OrganizationId) -> Cipher {
         Cipher {
             partial_data: Some(GATED_LOGIN_ENVELOPE.to_string()),
@@ -816,8 +800,8 @@ mod tests {
     }
 
     /// The regular edit path builds its original from local state, which for a gated cipher only
-    /// ever holds the partial copy. Editing on that would blank every withheld field and drop the
-    /// item's password history, so it must refuse — before it reaches the server.
+    /// ever holds the partial copy. Editing on that would blank every withheld field and drop
+    /// password history, so it must refuse first.
     #[tokio::test]
     async fn test_edit_refuses_a_gated_stored_cipher() {
         let (org, store) = gated_key_store();
@@ -886,8 +870,8 @@ mod tests {
     }
 
     /// The whole reason this path exists: password history is diffed against the caller's full
-    /// original, not against the partial copy in state. The partial has no history at all, so a
-    /// wrong original shows up as a short array in the request body.
+    /// original, not the partial copy in state, which has no history and would show up as a
+    /// short array in the request body.
     #[tokio::test]
     async fn test_edit_gated_carries_history_from_the_supplied_original() {
         let (org, store) = gated_key_store();
@@ -929,16 +913,16 @@ mod tests {
         .await
         .unwrap();
 
-        // The server withholds secrets from a gated write-return, so what comes back — and what
-        // is persisted — is still the reduced shape.
+        // The server withholds secrets from a gated write-return, so what comes back and what
+        // is persisted are both still the reduced shape.
         assert!(result.partial);
         let stored = repository.get(cipher_id).await.unwrap().unwrap();
         assert!(stored.partial_data.is_some());
     }
 
     /// Defence in depth for the durable-state property: the server strips a gated write-return, so
-    /// a full one should be unreachable — but were it ever to arrive, persisting it would put
-    /// lease-scoped secrets on disk, outliving the lease that justified them.
+    /// a full one should be unreachable, but persisting one would put lease-scoped secrets on
+    /// disk, outliving the lease that justified them.
     #[tokio::test]
     async fn test_edit_gated_does_not_persist_a_full_write_return() {
         let (org, store) = gated_key_store();
@@ -983,7 +967,7 @@ mod tests {
         .await
         .unwrap();
 
-        // The caller still gets the full view in memory — it is the write to disk that is refused.
+        // The caller still gets the full view in memory; it is the write to disk that is refused.
         assert!(!result.partial);
         let stored = repository.get(cipher_id).await.unwrap().unwrap();
         assert!(stored.partial_data.is_some(), "local state must stay gated");

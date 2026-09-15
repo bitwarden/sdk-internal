@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  bw-rotation-daemon. Mode 0600 because EnvironmentVariables holds the daemon token.
+
+  Per-target credentials go in that dict, keyed by target system UUID: uppercase the
+  UUID, replace hyphens with underscores, append the suffix (TENANT_ID, CLIENT_ID and
+  CLIENT_SECRET for Entra; SCRIPT for a custom script). launchd sets these without a
+  shell, so a name beginning with a digit works here where it would not in a
+  shell-sourced env file. For example:
+
+    <key>85808642_BABA_4B8E_8C34_B48000D60A0A_CLIENT_SECRET</key>
+    <string>...</string>
+
+  Apply an edit with:
+    launchctl bootout system/@LAUNCHD_LABEL@
+    launchctl bootstrap system @PLIST_FILE@
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>@LAUNCHD_LABEL@</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>@BINARY_PATH@</string>
+		<string>run</string>
+		<string>--config</string>
+		<string>@CONFIG_FILE@</string>
+	</array>
+
+	<key>UserName</key>
+	<string>@SERVICE_USER@</string>
+	<key>GroupName</key>
+	<string>@SERVICE_USER@</string>
+
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+
+	<key>WorkingDirectory</key>
+	<string>@STATE_DIR@</string>
+
+	<!-- The daemon logs to stderr, and launchd has no journal to send it to. -->
+	<key>StandardErrorPath</key>
+	<string>@LOG_DIR@/@BINARY_NAME@.log</string>
+	<key>StandardOutPath</key>
+	<string>@LOG_DIR@/@BINARY_NAME@.log</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>BWRD_TOKEN</key>
+		<string>@TOKEN@</string>
+	</dict>
+</dict>
+</plist>

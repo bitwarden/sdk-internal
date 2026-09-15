@@ -36,6 +36,7 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
 # Team-owned crates
 bitwarden_license/bitwarden-pam/** @bitwarden/team-pam-dev
+bitwarden_license/bitwarden-rotation-daemon/** @bitwarden/team-pam-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev
 crates/bitwarden-collections/** @bitwarden/team-admin-console-dev
