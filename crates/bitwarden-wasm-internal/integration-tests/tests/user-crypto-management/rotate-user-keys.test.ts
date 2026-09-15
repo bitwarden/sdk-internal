@@ -1,14 +1,17 @@
 import {
   SecureNoteType,
-  isDecryptError,
   type CipherViewType,
   type PasswordManagerClient,
 } from "@bitwarden/sdk-internal";
 
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
-import { MASTER_PASSWORD_ACCOUNT } from "../../vectors/accounts";
-import { rejection, TEST_EMAIL, TEST_PASSWORD } from "../utils";
+import { loadUserVectors, toSeedAccount, userVector } from "../../vectors/load";
+
+/** A V1 master-password account, cheap to unlock, so a case costs the rotation rather than the KDF. */
+const VECTOR = userVector(loadUserVectors(), "v1-pbkdf2-min-iterations");
+const ACCOUNT = toSeedAccount(VECTOR);
+const PASSWORD = VECTOR.account.password;
 
 const TIMEOUT = 120_000;
 
@@ -22,11 +25,11 @@ describe("rotate user keys", () => {
 
   beforeEach(async () => {
     harness = testHarness();
-    email = harness.server.seedUser(MASTER_PASSWORD_ACCOUNT).email;
+    email = harness.server.seedUser(ACCOUNT).email;
 
     client = harness.newClientEmulator();
     await client.login(email);
-    await client.unlock(TEST_PASSWORD);
+    await client.unlock(PASSWORD);
     passwordManagerClient = client.getPasswordManagerClient();
   }, TIMEOUT);
 
@@ -38,7 +41,7 @@ describe("rotate user keys", () => {
     upgradeTokenAction: "CreateIfNeeded" | "Skip",
   ): Promise<void> {
     return sdk.user_crypto_management().rotate_user_keys({
-      key_rotation_method: { Password: { password: TEST_PASSWORD } },
+      key_rotation_method: { Password: { password: PASSWORD } },
       trusted_emergency_access_public_keys: [],
       trusted_organization_public_keys: [],
       upgrade_token_action: upgradeTokenAction,
@@ -60,41 +63,41 @@ describe("rotate user keys", () => {
     });
   }
 
-  /** The single cipher a client's local state holds. */
-  function syncedCipher(emulator: ClientEmulator) {
-    const [cipher] = emulator.local.ciphers.dump();
+  /** The named cipher in a client's local state. The account also holds the vector's own items. */
+  function syncedCipher(emulator: ClientEmulator, id: string) {
+    const cipher = emulator.local.ciphers.dump().find((candidate) => String(candidate.id) === id);
     if (cipher === undefined) {
-      throw new Error("the sync handed the client no ciphers");
+      throw new Error(`the sync handed the client no cipher ${id}`);
     }
 
     return cipher;
   }
 
-  /** Logs a client in from nothing and decrypts the single cipher the account holds. */
-  async function returningView() {
+  /** Logs a client in from nothing and decrypts one of the ciphers the account holds. */
+  async function returningView(id: string) {
     const returning = harness.newClientEmulator();
     await returning.login(email);
-    await returning.unlock(TEST_PASSWORD);
+    await returning.unlock(PASSWORD);
 
     return await returning
       .getPasswordManagerClient()
       .vault()
       .ciphers()
-      .decrypt(syncedCipher(returning));
+      .decrypt(syncedCipher(returning, id));
   }
 
   it(
     "upgrades a V1 account to V2",
     async () => {
       const created = await createNote("before the upgrade");
-      const before = harness.server.getUser(TEST_EMAIL);
+      const before = harness.server.getUser(email);
       const unlockBefore = before.masterPasswordUnlock;
 
       // 1. Rotate, asking for an upgrade token
       await rotate(passwordManagerClient, "CreateIfNeeded");
 
       // 2. Verify the server holds a V2 account
-      const stored = harness.server.getUser(TEST_EMAIL);
+      const stored = harness.server.getUser(email);
       expect(stored.accountCryptographicState).toHaveProperty("V2");
       expect(stored.userKeyId).toMatch(/^[0-9a-f]{32}$/);
       expect(stored.masterPasswordUnlock?.masterKeyWrappedUserKey).not.toBe(
@@ -111,7 +114,7 @@ describe("rotate user keys", () => {
       expect(await client.bridge.get_v2_upgrade_token()).toEqual(stored.upgradeToken);
 
       // 5. Verify a returning client still reads the vault
-      expect((await returningView()).name).toBe(created.name);
+      expect((await returningView(String(created.id))).name).toBe(created.name);
     },
     TIMEOUT,
   );
@@ -123,7 +126,7 @@ describe("rotate user keys", () => {
 
       // 1. Upgrade to V2, so the second rotation starts from a V2 key
       await rotate(passwordManagerClient, "CreateIfNeeded");
-      const upgraded = harness.server.getUser(TEST_EMAIL);
+      const upgraded = harness.server.getUser(email);
       const stateAfterUpgrade = upgraded.accountCryptographicState;
       const keyIdAfterUpgrade = upgraded.userKeyId;
 
@@ -131,13 +134,13 @@ describe("rotate user keys", () => {
       //    which is exactly what the next one starts from.
       const upgradedClient = harness.newClientEmulator();
       await upgradedClient.login(email);
-      await upgradedClient.unlock(TEST_PASSWORD);
+      await upgradedClient.unlock(PASSWORD);
 
       // 3. Rotate again, this time without an upgrade token
       await rotate(upgradedClient.getPasswordManagerClient(), "Skip");
 
       // 4. Verify the account moved on again
-      const stored = harness.server.getUser(TEST_EMAIL);
+      const stored = harness.server.getUser(email);
       expect(stored.accountCryptographicState).not.toEqual(stateAfterUpgrade);
       expect(stored.userKeyId).not.toEqual(keyIdAfterUpgrade);
 
@@ -145,7 +148,7 @@ describe("rotate user keys", () => {
       expect(stored.upgradeToken).toBeUndefined();
 
       // 6. Verify a returning client still reads the vault
-      expect((await returningView()).name).toBe(created.name);
+      expect((await returningView(String(created.id))).name).toBe(created.name);
     },
     TIMEOUT,
   );
@@ -158,7 +161,7 @@ describe("rotate user keys", () => {
         const created = await createNote("read again after unlocking");
         const second = harness.newClientEmulator();
         await second.login(email);
-        await second.unlock(TEST_PASSWORD);
+        await second.unlock(PASSWORD);
 
         await rotate(passwordManagerClient, "CreateIfNeeded");
         // Sync is triggered by a push notification usually. In this case we do it manually
@@ -171,14 +174,14 @@ describe("rotate user keys", () => {
         // 2. The second session locks and unlocks, picking up the new key from the unlock data and
         //    upgrade token the sync brought down
         await second.lock();
-        await second.unlock(TEST_PASSWORD);
+        await second.unlock(PASSWORD);
 
         // 3. Verify the vault reads again, with the plaintext unchanged
         const view = await second
           .getPasswordManagerClient()
           .vault()
           .ciphers()
-          .decrypt(syncedCipher(second));
+          .decrypt(syncedCipher(second, String(created.id)));
         expect(view.name).toBe(created.name);
         expect(view.notes).toBe(created.notes);
       },

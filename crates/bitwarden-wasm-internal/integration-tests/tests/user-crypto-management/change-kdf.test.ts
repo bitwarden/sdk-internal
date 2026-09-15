@@ -2,15 +2,24 @@ import {
   Kdf,
   SecureNoteType,
   isChangeKdfError,
+  type CipherId,
   type CipherViewType,
   type PasswordManagerClient,
 } from "@bitwarden/sdk-internal";
 
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
 
+import { expectedVaultOf, validateLocalState } from "../../client-emulator/validate";
 import { testHarness, type TestHarness } from "../../test-harness";
-import { MASTER_PASSWORD_ACCOUNT } from "../../vectors/accounts";
-import { rejection, TEST_EMAIL, TEST_KDF_PARAMS, TEST_PASSWORD } from "../utils";
+import { loadUserVectors, toSeedAccount, userVector } from "../../vectors/load";
+import { asString } from "../type-assertion-helpers";
+import { rejection } from "../utils";
+
+/** The cheapest master-password account to unlock, so a case costs the KDF it changes *to*. */
+const VECTOR = userVector(loadUserVectors(), "v1-pbkdf2-min-iterations");
+const ACCOUNT = toSeedAccount(VECTOR);
+const PASSWORD = VECTOR.account.password;
+const ORIGINAL_KDF = VECTOR.account.kdf;
 
 const NEW_PBKDF2: Kdf = { pBKDF2: { iterations: 700_000 } };
 const NEW_ARGON2: Kdf = { argon2id: { iterations: 3, memory: 16, parallelism: 4 } };
@@ -28,11 +37,11 @@ describe("change kdf", () => {
 
   beforeEach(async () => {
     harness = testHarness();
-    email = harness.server.seedUser(MASTER_PASSWORD_ACCOUNT).email;
+    email = harness.server.seedUser(ACCOUNT).email;
 
     client = harness.newClientEmulator();
     await client.login(email);
-    await client.unlock(TEST_PASSWORD);
+    await client.unlock(PASSWORD);
     passwordManagerClient = client.getPasswordManagerClient();
   }, TIMEOUT);
 
@@ -53,11 +62,15 @@ describe("change kdf", () => {
     });
   }
 
-  /** The single cipher a client's local state holds. */
-  function syncedCipher(emulator: ClientEmulator) {
-    const [cipher] = emulator.local.ciphers.dump();
-    if (cipher === undefined) {
-      throw new Error("the sync handed the client no ciphers");
+  /** The cipher a client's local state holds under `id`, as the sync left it. */
+  async function syncedCipher(emulator: ClientEmulator, id: CipherId | undefined) {
+    if (id === undefined) {
+      throw new Error("the created cipher came back without an id");
+    }
+
+    const cipher = await emulator.local.ciphers.get(asString(id));
+    if (cipher === null) {
+      throw new Error(`the sync handed the client no cipher ${id}`);
     }
 
     return cipher;
@@ -72,18 +85,18 @@ describe("change kdf", () => {
       const userKey = await passwordManagerClient.crypto().get_user_encryption_key();
 
       // 1. Change the KDF
-      await passwordManagerClient.user_crypto_management().change_kdf(TEST_PASSWORD, kdf);
+      await passwordManagerClient.user_crypto_management().change_kdf(PASSWORD, kdf);
 
       // 2. Verify local state is fine: Lock & unlock
       await client.lock();
-      await client.unlock(TEST_PASSWORD);
+      await client.unlock(PASSWORD);
       const lockUnlockSdk = client.getPasswordManagerClient();
       expect(await client.bridge.get_kdf_config()).toEqual(kdf);
 
       // 3. Verify server state is fine: Sync from new cliend and unlock
       const reloginClient = harness.newClientEmulator();
       await reloginClient.login(email);
-      await reloginClient.unlock(TEST_PASSWORD);
+      await reloginClient.unlock(PASSWORD);
       const reloginSdk = reloginClient.getPasswordManagerClient();
 
       // 4. Verify the new KDF values reached the new client through the sync
@@ -92,6 +105,20 @@ describe("change kdf", () => {
       // 5. Verify the encryption key has not changed
       expect(await lockUnlockSdk.crypto().get_user_encryption_key()).toBe(userKey);
       expect(await reloginSdk.crypto().get_user_encryption_key()).toBe(userKey);
+
+      // 6. Verify the vault the returning client synced still decrypts to what the vector records.
+      //    The unlock data comes from that client's own state, not the vector's: the change rewrote
+      //    it, and unlocking from the recorded copy would prove nothing about what was written.
+      const unlockData = await reloginClient.local.bridge.get_masterpassword_unlock_data();
+      if (unlockData === null) {
+        throw new Error("the returning client holds no master-password unlock data");
+      }
+
+      await validateLocalState(
+        reloginClient.local,
+        { masterPasswordUnlock: { password: PASSWORD, master_password_unlock: unlockData } },
+        expectedVaultOf(ACCOUNT),
+      );
     },
     TIMEOUT,
   );
@@ -102,7 +129,7 @@ describe("change kdf", () => {
       async () => {
         // 1. Change the KDF to settings the SDK must refuse before asking the server
         const error = await rejection(
-          passwordManagerClient.user_crypto_management().change_kdf(TEST_PASSWORD, BELOW_MINIMUM),
+          passwordManagerClient.user_crypto_management().change_kdf(PASSWORD, BELOW_MINIMUM),
           isChangeKdfError,
         );
 
@@ -110,8 +137,8 @@ describe("change kdf", () => {
         expect(error.variant).toBe("MasterPassword");
 
         // 3. Verify neither side moved
-        expect(harness.server.getUser(TEST_EMAIL).kdf).toEqual(TEST_KDF_PARAMS);
-        expect(await client.bridge.get_kdf_config()).toEqual(TEST_KDF_PARAMS);
+        expect(harness.server.getUser(email).kdf).toEqual(ORIGINAL_KDF);
+        expect(await client.bridge.get_kdf_config()).toEqual(ORIGINAL_KDF);
       },
       TIMEOUT,
     );
@@ -125,9 +152,9 @@ describe("change kdf", () => {
         const created = await createNote("read again after the kdf change");
         const second = harness.newClientEmulator();
         await second.login(email);
-        await second.unlock(TEST_PASSWORD);
+        await second.unlock(PASSWORD);
 
-        await passwordManagerClient.user_crypto_management().change_kdf(TEST_PASSWORD, NEW_PBKDF2);
+        await passwordManagerClient.user_crypto_management().change_kdf(PASSWORD, NEW_PBKDF2);
         // Sync is triggered by a push notification usually. In this case we do it manually
         // because push notifications are not implemented in the emulator.
         await second.sync(email);
@@ -135,7 +162,7 @@ describe("change kdf", () => {
         // 2. The second session locks and unlocks, picking up the new kdf and unlock data the sync
         //    brought down
         await second.lock();
-        await second.unlock(TEST_PASSWORD);
+        await second.unlock(PASSWORD);
 
         // 3. Verify the vault reads, with the plaintext unchanged. A kdf change re-wraps the user
         //    key without replacing it, so nothing in the vault had to be re-encrypted.
@@ -143,7 +170,7 @@ describe("change kdf", () => {
           .getPasswordManagerClient()
           .vault()
           .ciphers()
-          .decrypt(syncedCipher(second));
+          .decrypt(await syncedCipher(second, created.id));
         expect(view.name).toBe(created.name);
         expect(view.notes).toBe(created.notes);
         expect(await second.bridge.get_kdf_config()).toEqual(NEW_PBKDF2);

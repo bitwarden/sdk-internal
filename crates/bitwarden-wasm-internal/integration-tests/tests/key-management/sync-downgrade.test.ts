@@ -4,14 +4,20 @@ import type { PasswordManagerClient } from "@bitwarden/sdk-internal";
 
 import type { ClientEmulator } from "../../client-emulator/client-emulator";
 import { testHarness, type TestHarness } from "../../test-harness";
-import { V2_ACCOUNT } from "../../vectors/accounts";
-import { asEncString, asKeyId } from "../type-assertion-helpers";
-import { PRIVATE_KEY, TEST_EMAIL } from "../utils";
-import { V2_DECRYPTED_USER_KEY } from "../v2-fixtures";
+import { loadUserVectors, toSeedAccount, userVector } from "../../vectors/load";
+import { asKeyId } from "../type-assertion-helpers";
+
+const users = loadUserVectors();
+
+const V2_VECTOR = userVector(users, "v2-pbkdf2-blob");
+const V2_ACCOUNT = toSeedAccount(V2_VECTOR);
+const V2_USER_KEY = V2_VECTOR.rawCryptographicState.userKey;
+
+/** A real V1 state, for the server to try to hand a V2 account. */
+const V1_STATE = userVector(users, "v1-pbkdf2-min-iterations").account.accountCryptographicState;
 
 const TIMEOUT = 60_000;
 
-/** A key id the account never had, to tell "refused the downgrade" from "ignored the payload". */
 const SERVER_KEY_ID = asKeyId("0f0e0d0c0b0a09080706050403020100");
 
 describe("sync downgrade prevention", () => {
@@ -26,7 +32,7 @@ describe("sync downgrade prevention", () => {
 
     client = harness.newClientEmulator();
     await client.login(email);
-    await client.unlockWithUserKey(V2_DECRYPTED_USER_KEY);
+    await client.unlockWithUserKey(V2_USER_KEY);
     passwordManagerClient = client.getPasswordManagerClient();
   }, TIMEOUT);
 
@@ -38,8 +44,8 @@ describe("sync downgrade prevention", () => {
       const v2State = await client.bridge.get_account_cryptographic_state();
 
       // 1. The server starts reporting a V1 state for a V2 account
-      const stored = harness.server.getUser(TEST_EMAIL);
-      stored.accountCryptographicState = { V1: { private_key: asEncString(PRIVATE_KEY) } };
+      const stored = harness.server.getUser(email);
+      stored.accountCryptographicState = V1_STATE;
       stored.userKeyId = SERVER_KEY_ID;
 
       // 2. Sync
@@ -61,14 +67,12 @@ describe("sync downgrade prevention", () => {
       const userKey = await passwordManagerClient.crypto().get_user_encryption_key();
 
       // 1. The server starts reporting a V1 state, and the client syncs it
-      harness.server.getUser(TEST_EMAIL).accountCryptographicState = {
-        V1: { private_key: asEncString(PRIVATE_KEY) },
-      };
+      harness.server.getUser(email).accountCryptographicState = V1_STATE;
       await client.sync(email);
 
       // 2. Lock and reopen from the state the refusal left behind
       await client.lock();
-      await client.unlockWithUserKey(V2_DECRYPTED_USER_KEY);
+      await client.unlockWithUserKey(V2_USER_KEY);
 
       // 3. Verify the account came back up on the same user key
       expect(await client.getPasswordManagerClient().crypto().get_user_encryption_key()).toBe(
