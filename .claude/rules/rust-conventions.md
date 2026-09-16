@@ -44,12 +44,7 @@ wasm32.
 - WASM: `#[derive(Serialize, Deserialize)]` plus
   `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`.
 - Errors: annotate with `bitwarden-error` (`basic`/`flat`/`full` modes) to generate the WASM,
-  TypeScript, and UniFFI error bindings. A UniFFI-exported function must live in `bitwarden-uniffi`
-  as part of a wrapper client and must return `BitwardenError`; see
-  [`bitwarden-uniffi-error`](../../crates/bitwarden-uniffi-error/README.md) for why.
-- `uniffi::custom_type!`: route the `try_lift` result through
-  `bitwarden_uniffi_error::convert_result` rather than returning the crate's own error or relying on
-  the default `TryFrom`-based lift.
+  TypeScript, and UniFFI error bindings.
 
 ## Security
 
