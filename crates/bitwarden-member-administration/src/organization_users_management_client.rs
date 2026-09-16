@@ -12,10 +12,10 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::OrganizationUserBulkResponse;
 
-/// Errors returned from [`OrganizationUsersClient`] operations.
+/// Errors returned from [`OrganizationUsersManagementClient`] operations.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-pub enum OrganizationUsersError {
+pub enum OrganizationUsersManagementError {
     /// The request failed as a whole.
     #[error(transparent)]
     Api(#[from] ApiError),
@@ -24,16 +24,15 @@ pub enum OrganizationUsersError {
     MissingField(#[from] MissingFieldError),
 }
 
-/// Client for administering the members of an organization. Every operation requires the caller
-/// to be permitted to manage the organization's members.
+/// Client for administering the members of an organization.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(FromClient)]
-pub struct OrganizationUsersClient {
+pub struct OrganizationUsersManagementClient {
     pub(crate) api_configurations: Arc<ApiConfigurations>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl OrganizationUsersClient {
+impl OrganizationUsersManagementClient {
     /// Sends invites to the given staged members, promoting them to invited and consuming a seat.
     ///
     /// Returns an `Err` if the entire request fails. Otherwise returns `Ok` containing success or
@@ -42,7 +41,7 @@ impl OrganizationUsersClient {
         &self,
         organization_id: OrganizationId,
         organization_user_ids: Vec<OrganizationUserId>,
-    ) -> Result<Vec<OrganizationUserBulkResponse>, OrganizationUsersError> {
+    ) -> Result<Vec<OrganizationUserBulkResponse>, OrganizationUsersManagementError> {
         let response = self
             .api_configurations
             .api_client
@@ -53,7 +52,13 @@ impl OrganizationUsersClient {
             )
             .await?;
 
-        OrganizationUserBulkResponse::from_list(response).map_err(Into::into)
+        // A missing list is treated as empty, matching how the clients parse list responses.
+        response
+            .data
+            .unwrap_or_default()
+            .into_iter()
+            .map(|row| OrganizationUserBulkResponse::try_from(row).map_err(Into::into))
+            .collect()
     }
 
     /// Re-sends the invitation email to the given invited members.
@@ -64,7 +69,7 @@ impl OrganizationUsersClient {
         &self,
         organization_id: OrganizationId,
         organization_user_ids: Vec<OrganizationUserId>,
-    ) -> Result<Vec<OrganizationUserBulkResponse>, OrganizationUsersError> {
+    ) -> Result<Vec<OrganizationUserBulkResponse>, OrganizationUsersManagementError> {
         let response = self
             .api_configurations
             .api_client
@@ -75,7 +80,13 @@ impl OrganizationUsersClient {
             )
             .await?;
 
-        OrganizationUserBulkResponse::from_list(response).map_err(Into::into)
+        // A missing list is treated as empty, matching how the clients parse list responses.
+        response
+            .data
+            .unwrap_or_default()
+            .into_iter()
+            .map(|row| OrganizationUserBulkResponse::try_from(row).map_err(Into::into))
+            .collect()
     }
 
     /// Re-sends the invitation email to a single invited member.
@@ -83,7 +94,7 @@ impl OrganizationUsersClient {
         &self,
         organization_id: OrganizationId,
         organization_user_id: OrganizationUserId,
-    ) -> Result<(), OrganizationUsersError> {
+    ) -> Result<(), OrganizationUsersManagementError> {
         self.api_configurations
             .api_client
             .organization_users_api()
@@ -103,14 +114,14 @@ fn bulk_request(
     )
 }
 
-/// Extension trait exposing [`OrganizationUsersClient`] on [`Client`].
-pub trait OrganizationUsersClientExt {
+/// Extension trait exposing [`OrganizationUsersManagementClient`] on [`Client`].
+pub trait OrganizationUsersManagementClientExt {
     /// Organization member administration operations.
-    fn organization_users(&self) -> OrganizationUsersClient;
+    fn organization_users_management(&self) -> OrganizationUsersManagementClient;
 }
 
-impl OrganizationUsersClientExt for Client {
-    fn organization_users(&self) -> OrganizationUsersClient {
-        OrganizationUsersClient::from_client(self)
+impl OrganizationUsersManagementClientExt for Client {
+    fn organization_users_management(&self) -> OrganizationUsersManagementClient {
+        OrganizationUsersManagementClient::from_client(self)
     }
 }

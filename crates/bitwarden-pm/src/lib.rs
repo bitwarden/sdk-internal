@@ -19,7 +19,7 @@ use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
 use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt as _};
-use bitwarden_member_administration::OrganizationUsersClientExt as _;
+use bitwarden_member_administration::OrganizationUsersManagementClientExt as _;
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::{SendClientExt as _, SendSyncHandler, SendSyncHandlerClientExt as _};
@@ -41,7 +41,7 @@ pub mod clients {
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
-    pub use bitwarden_member_administration::OrganizationUsersClient;
+    pub use bitwarden_member_administration::OrganizationUsersManagementClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::{SendClient, SendSyncHandlerClient};
@@ -213,8 +213,10 @@ impl PasswordManagerClient {
     }
 
     /// Organization member administration operations.
-    pub fn organization_users(&self) -> bitwarden_member_administration::OrganizationUsersClient {
-        self.0.organization_users()
+    pub fn organization_users_management(
+        &self,
+    ) -> bitwarden_member_administration::OrganizationUsersManagementClient {
+        self.0.organization_users_management()
     }
 
     /// Sync operations

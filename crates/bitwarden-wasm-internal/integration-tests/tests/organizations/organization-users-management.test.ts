@@ -36,7 +36,7 @@ function bulkList(rows: { id: OrganizationUserId; error: string }[]): MockReply 
 // The Rust unit tests cover the mapping in detail. These tests exist to prove the FFI-specific
 // concerns: the client is reachable, the ids cross the boundary as plain strings, and the
 // per-member outcome — including the absence of an error — survives the trip back.
-describe("organization users client", () => {
+describe("organization users management client", () => {
   // Every command here is a plain API call with no crypto, so the client needs no unlock.
   let client: PasswordManagerClient;
   let mock: HttpMock;
@@ -61,7 +61,7 @@ describe("organization users client", () => {
       });
 
       const results = await client
-        .organization_users()
+        .organization_users_management()
         .send_staged_invites(TEST_ORGANIZATION_ID, [MEMBER_A, MEMBER_B]);
 
       expect(mock.routes()).toEqual([SEND_INVITE]);
@@ -83,8 +83,10 @@ describe("organization users client", () => {
       });
 
       await expect(
-        client.organization_users().send_staged_invites(TEST_ORGANIZATION_ID, [MEMBER_A]),
-      ).rejects.toMatchObject({ name: "OrganizationUsersError", variant: "Api" });
+        client
+          .organization_users_management()
+          .send_staged_invites(TEST_ORGANIZATION_ID, [MEMBER_A]),
+      ).rejects.toMatchObject({ name: "OrganizationUsersManagementError", variant: "Api" });
     });
   });
 
@@ -99,7 +101,7 @@ describe("organization users client", () => {
       });
 
       const results = await client
-        .organization_users()
+        .organization_users_management()
         .bulk_reinvite(TEST_ORGANIZATION_ID, [MEMBER_A, MEMBER_B]);
 
       expect(mock.routes()).toEqual([REINVITE]);
@@ -120,7 +122,7 @@ describe("organization users client", () => {
       mock = installHttpMock({ [reinviteOne(MEMBER_A)]: () => ({}) });
 
       await expect(
-        client.organization_users().reinvite(TEST_ORGANIZATION_ID, MEMBER_A),
+        client.organization_users_management().reinvite(TEST_ORGANIZATION_ID, MEMBER_A),
       ).resolves.toBeUndefined();
 
       expect(mock.routes()).toEqual([reinviteOne(MEMBER_A)]);
@@ -133,8 +135,8 @@ describe("organization users client", () => {
       });
 
       await expect(
-        client.organization_users().reinvite(TEST_ORGANIZATION_ID, MEMBER_A),
-      ).rejects.toMatchObject({ name: "OrganizationUsersError", variant: "Api" });
+        client.organization_users_management().reinvite(TEST_ORGANIZATION_ID, MEMBER_A),
+      ).rejects.toMatchObject({ name: "OrganizationUsersManagementError", variant: "Api" });
     });
   });
 });
