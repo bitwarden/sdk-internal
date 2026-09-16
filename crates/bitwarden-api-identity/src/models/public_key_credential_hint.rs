@@ -14,29 +14,32 @@ use crate::models;
 
 ///
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum PublicKeyCredentialType {
-    #[serde(rename = "public-key")]
-    PublicKey,
-    #[serde(rename = "invalid")]
-    Invalid,
+pub enum PublicKeyCredentialHint {
+    #[serde(rename = "security-key")]
+    SecurityKey,
+    #[serde(rename = "client-device")]
+    ClientDevice,
+    #[serde(rename = "hybrid")]
+    Hybrid,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     #[serde(untagged)]
     __Unknown(String),
 }
 
-impl std::fmt::Display for PublicKeyCredentialType {
+impl std::fmt::Display for PublicKeyCredentialHint {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::PublicKey => write!(f, "public-key"),
-            Self::Invalid => write!(f, "invalid"),
+            Self::SecurityKey => write!(f, "security-key"),
+            Self::ClientDevice => write!(f, "client-device"),
+            Self::Hybrid => write!(f, "hybrid"),
             Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }
 
-impl Default for PublicKeyCredentialType {
-    fn default() -> PublicKeyCredentialType {
-        Self::PublicKey
+impl Default for PublicKeyCredentialHint {
+    fn default() -> PublicKeyCredentialHint {
+        Self::SecurityKey
     }
 }

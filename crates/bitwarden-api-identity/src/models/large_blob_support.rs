@@ -14,29 +14,29 @@ use crate::models;
 
 ///
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum PublicKeyCredentialType {
-    #[serde(rename = "public-key")]
-    PublicKey,
-    #[serde(rename = "invalid")]
-    Invalid,
+pub enum LargeBlobSupport {
+    #[serde(rename = "required")]
+    Required,
+    #[serde(rename = "preferred")]
+    Preferred,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     #[serde(untagged)]
     __Unknown(String),
 }
 
-impl std::fmt::Display for PublicKeyCredentialType {
+impl std::fmt::Display for LargeBlobSupport {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::PublicKey => write!(f, "public-key"),
-            Self::Invalid => write!(f, "invalid"),
+            Self::Required => write!(f, "required"),
+            Self::Preferred => write!(f, "preferred"),
             Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }
 
-impl Default for PublicKeyCredentialType {
-    fn default() -> PublicKeyCredentialType {
-        Self::PublicKey
+impl Default for LargeBlobSupport {
+    fn default() -> LargeBlobSupport {
+        Self::Required
     }
 }
