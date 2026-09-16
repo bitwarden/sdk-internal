@@ -164,7 +164,7 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
-    /// Organization member operations.
+    /// Organization member administration operations.
     pub fn organization_users(&self) -> OrganizationUsersClient {
         self.0.organization_users()
     }

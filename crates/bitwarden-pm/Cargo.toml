@@ -44,8 +44,8 @@ wasm = [
     "bitwarden-generators/wasm",
     "bitwarden-importers/wasm",
     "bitwarden-managed-settings/wasm",
+    "bitwarden-member-administration/wasm",
     "bitwarden-organization-invite-link/wasm",
-    "bitwarden-organization-users/wasm",
     "bitwarden-pam?/wasm",
     "bitwarden-policies/wasm",
     "bitwarden-send/wasm",
@@ -72,8 +72,8 @@ bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-importers = { workspace = true }
 bitwarden-managed-settings = { workspace = true }
+bitwarden-member-administration = { workspace = true }
 bitwarden-organization-invite-link = { workspace = true }
-bitwarden-organization-users = { workspace = true }
 bitwarden-pam = { workspace = true, optional = true }
 bitwarden-policies = { workspace = true }
 bitwarden-send = { workspace = true }

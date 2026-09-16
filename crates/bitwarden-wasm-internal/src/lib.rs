@@ -10,8 +10,8 @@ mod ssh;
 
 pub use bitwarden_ipc::wasm::*;
 pub use bitwarden_managed_settings::ManagedSettingsClient;
+pub use bitwarden_member_administration::*;
 pub use bitwarden_organization_invite_link::*;
-pub use bitwarden_organization_users::*;
 pub use bitwarden_server_communication_config::wasm::*;
 pub use bitwarden_shared_unlock::wasm::*;
 pub use client::PasswordManagerClient;

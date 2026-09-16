@@ -14,7 +14,7 @@ use tsify::Tsify;
 pub struct OrganizationUserBulkResponse {
     /// The organization membership this outcome refers to.
     pub id: OrganizationUserId,
-    /// Why the operation was skipped for this member. Absent when it succeeded.
+    /// Why the operation failed for this member. Absent when it succeeded.
     pub error: Option<String>,
 }
 
@@ -46,13 +46,19 @@ impl TryFrom<OrganizationUserBulkResponseModel> for OrganizationUserBulkResponse
     }
 }
 
-/// Builders for the rows the bulk member endpoints return, shared by the tests in this crate.
 #[cfg(test)]
-pub(crate) mod fixtures {
+mod tests {
     use super::*;
 
+    const MEMBER_A: &str = "1c4d9d5a-0000-4000-8000-00000000000a";
+    const MEMBER_B: &str = "1c4d9d5a-0000-4000-8000-00000000000b";
+
+    fn member(id: &str) -> OrganizationUserId {
+        id.parse().unwrap()
+    }
+
     /// Builds the row the server emits for one member. Success is an empty error string.
-    pub(crate) fn row(id: Option<&str>, error: &str) -> OrganizationUserBulkResponseModel {
+    fn row(id: Option<&str>, error: &str) -> OrganizationUserBulkResponseModel {
         OrganizationUserBulkResponseModel {
             object: Some("organizationUserBulkResponseModel".to_owned()),
             id: id.map(|id| id.parse().unwrap()),
@@ -60,7 +66,7 @@ pub(crate) mod fixtures {
         }
     }
 
-    pub(crate) fn list(
+    fn list(
         data: Option<Vec<OrganizationUserBulkResponseModel>>,
     ) -> OrganizationUserBulkResponseModelListResponseModel {
         OrganizationUserBulkResponseModelListResponseModel {
@@ -68,21 +74,6 @@ pub(crate) mod fixtures {
             data,
             continuation_token: None,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        fixtures::{list, row},
-        *,
-    };
-
-    const MEMBER_A: &str = "1c4d9d5a-0000-4000-8000-00000000000a";
-    const MEMBER_B: &str = "1c4d9d5a-0000-4000-8000-00000000000b";
-
-    fn member(id: &str) -> OrganizationUserId {
-        id.parse().unwrap()
     }
 
     #[test]
