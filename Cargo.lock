@@ -828,6 +828,7 @@ dependencies = [
 name = "bitwarden-encoding"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-ffi",
  "bitwarden-uniffi-error",
  "data-encoding",
  "data-encoding-macro",
@@ -1048,6 +1049,7 @@ dependencies = [
 name = "bitwarden-logging"
 version = "4.0.0"
 dependencies = [
+ "bitwarden-ffi",
  "bitwarden-logging-macro",
  "chrono",
  "criterion",
@@ -1074,6 +1076,7 @@ name = "bitwarden-managed-settings"
 version = "4.0.0"
 dependencies = [
  "bitwarden-core",
+ "bitwarden-ffi",
  "bitwarden-managed-settings-types",
  "tracing",
  "wasm-bindgen",
@@ -1084,6 +1087,7 @@ name = "bitwarden-managed-settings-types"
 version = "4.0.0"
 dependencies = [
  "bitwarden-error",
+ "bitwarden-ffi",
  "serde",
  "serde_json",
  "thiserror",
@@ -1219,6 +1223,7 @@ dependencies = [
  "bitwarden-crypto-sync-handler",
  "bitwarden-emergency-access",
  "bitwarden-exporters",
+ "bitwarden-ffi",
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-importers",

@@ -3,7 +3,6 @@
 use bitwarden_logging::{
     FlightRecorderEvent, flight_recorder_count, read_flight_recorder, write_flight_recorder,
 };
-use wasm_bindgen::prelude::*;
 
 use crate::init::{LogLevel, convert_level};
 
@@ -11,10 +10,10 @@ use crate::init::{LogLevel, convert_level};
 ///
 /// The underlying buffer is global (initialized in [`init_sdk`](crate::init_sdk)),
 /// so this client is a stateless handle for WASM access.
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_object]
 pub struct FlightRecorderClient;
 
-#[wasm_bindgen]
+#[bitwarden_ffi::wasm_export]
 impl FlightRecorderClient {
     /// Create a new `FlightRecorderClient`.
     #[wasm_bindgen(constructor)]

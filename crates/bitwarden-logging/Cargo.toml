@@ -16,9 +16,10 @@ license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
 keywords.workspace = true
 
 [features]
-wasm = ["dep:tsify", "dep:wasm-bindgen"]
+wasm = ["bitwarden-ffi/wasm", "dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
+bitwarden-ffi = { workspace = true }
 bitwarden-logging-macro = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
