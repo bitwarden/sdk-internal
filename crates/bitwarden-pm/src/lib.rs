@@ -20,6 +20,7 @@ use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_importers::ImporterClientExt as _;
 use bitwarden_managed_settings::{ManagedSettingsClient, ManagedSettingsClientExt as _};
 use bitwarden_organization_invite_link::InviteLinkClientExt as _;
+use bitwarden_organizations::OrganizationDomainsClientExt as _;
 use bitwarden_policies::PoliciesClientExt as _;
 use bitwarden_send::{SendClientExt as _, SendSyncHandler, SendSyncHandlerClientExt as _};
 use bitwarden_sync::SyncClientExt as _;
@@ -41,6 +42,7 @@ pub mod clients {
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_importers::ImporterClient;
     pub use bitwarden_organization_invite_link::InviteLinkClient;
+    pub use bitwarden_organizations::OrganizationDomainsClient;
     pub use bitwarden_policies::PolicyClient;
     pub use bitwarden_send::{SendClient, SendSyncHandlerClient};
     pub use bitwarden_sync::SyncClient;
@@ -208,6 +210,11 @@ impl PasswordManagerClient {
     /// Organization invite link operations
     pub fn invite_link(&self) -> bitwarden_organization_invite_link::InviteLinkClient {
         self.0.invite_link()
+    }
+
+    /// Organization claimed domain operations
+    pub fn organization_domains(&self) -> bitwarden_organizations::OrganizationDomainsClient {
+        self.0.organization_domains()
     }
 
     /// Sync operations

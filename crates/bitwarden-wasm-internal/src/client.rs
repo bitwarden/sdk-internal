@@ -164,6 +164,11 @@ impl PasswordManagerClient {
         self.0.invite_link()
     }
 
+    /// Organization claimed domain operations.
+    pub fn organization_domains(&self) -> OrganizationDomainsClient {
+        self.0.organization_domains()
+    }
+
     /// Crypto cipher suite operations.
     pub fn crypto_cipher_suite(&self) -> CryptoCipherSuiteClient {
         self.0.crypto_cipher_suite()
