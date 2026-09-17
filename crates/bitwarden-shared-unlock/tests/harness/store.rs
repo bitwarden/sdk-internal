@@ -9,7 +9,7 @@ use std::{
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_ipc::Endpoint;
-use bitwarden_shared_unlock::{LockState, SharedUnlockDriver};
+use bitwarden_shared_unlock::{LockState, PeerLockState, SharedUnlockDriver};
 use bitwarden_threading::time::sleep;
 
 use super::logs::{TopologyId, emit_log, kind};
@@ -249,6 +249,8 @@ impl SharedUnlockDriver for LockStateStore {
             &format!("{}ms", suppression_duration.as_millis()),
         );
     }
+
+    async fn on_peer_state(&self, _user_id: UserId, _lock_state: PeerLockState) {}
 
     async fn discover_leader(&self) -> Option<Endpoint> {
         self.0.leader.clone()
