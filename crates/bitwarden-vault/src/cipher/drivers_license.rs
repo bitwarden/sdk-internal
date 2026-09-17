@@ -6,8 +6,6 @@ use bitwarden_crypto::{
 };
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::cipher::CipherKind;
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
@@ -15,7 +13,7 @@ use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct DriversLicense {
     pub first_name: Option<EncString>,
     pub middle_name: Option<EncString>,
@@ -34,7 +32,7 @@ pub struct DriversLicense {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct DriversLicenseView {
     pub first_name: Option<String>,
     pub middle_name: Option<String>,

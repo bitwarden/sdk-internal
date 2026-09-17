@@ -5,8 +5,6 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm")]
-use tsify::Tsify;
 
 use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
@@ -14,7 +12,7 @@ use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct BankAccount {
     pub bank_name: Option<EncString>,
     pub name_on_account: Option<EncString>,
@@ -32,7 +30,7 @@ pub struct BankAccount {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct BankAccountView {
     pub bank_name: Option<String>,
     pub name_on_account: Option<String>,
@@ -50,7 +48,7 @@ pub struct BankAccountView {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct BankAccountListView {
     /// The account number of the bank account.
     pub account_number: Option<String>,

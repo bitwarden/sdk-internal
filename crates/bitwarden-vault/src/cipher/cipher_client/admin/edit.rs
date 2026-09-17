@@ -10,8 +10,6 @@ use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use super::CipherAdminClient;
 use crate::{
@@ -157,7 +155,7 @@ pub async fn add_to_collections(
 }
 
 #[allow(deprecated)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_export]
 impl CipherAdminClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(

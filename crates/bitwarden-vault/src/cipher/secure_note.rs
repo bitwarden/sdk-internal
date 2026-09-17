@@ -7,8 +7,6 @@ use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreC
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::Serialize_repr;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
-#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
@@ -20,7 +18,7 @@ use crate::{
 #[derive(Clone, Copy, Serialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[bitwarden_ffi::wasm_object]
 pub enum SecureNoteType {
     Generic = 0,
 }
@@ -28,7 +26,7 @@ pub enum SecureNoteType {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SecureNote {
     r#type: SecureNoteType,
 }
@@ -55,7 +53,7 @@ impl<'de> Deserialize<'de> for SecureNoteType {
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[bitwarden_ffi::wasm_record]
 pub struct SecureNoteView {
     pub r#type: SecureNoteType,
 }
