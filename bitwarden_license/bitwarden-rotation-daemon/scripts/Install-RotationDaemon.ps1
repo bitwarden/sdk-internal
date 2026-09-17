@@ -3,29 +3,45 @@
 
 <#
 .SYNOPSIS
-    Installs bw-rotation-daemon as a scheduled task that starts at boot. One argument,
-    no options.
+    Installs bw-rotation-daemon as a scheduled task that starts at boot. A URL, and an
+    optional name.
 
 .DESCRIPTION
         .\Install-RotationDaemon.ps1 https://bitwarden.example.com
+        .\Install-RotationDaemon.ps1 https://bitwarden.example.com acme
 
     The binary is the bw-rotation-daemon.exe sitting next to this script, which is how
     the release archive is laid out. The layout it installs is fixed:
 
         C:\Program Files\Bitwarden\bw-rotation-daemon\
-            bw-rotation-daemon.exe          the daemon
-            Start-RotationDaemon.ps1        launcher (see below)
+            bw-rotation-daemon.exe          the daemon; shared
+            Start-RotationDaemon.ps1        launcher (see below); shared
         C:\ProgramData\Bitwarden\bwrd\
             config.toml                     settings; never secrets
             env                             token and per-target credentials, ACL-locked
             scripts\                        script_root; the daemon reads, cannot write
             logs\                           stderr, rolled at 10 MB
 
+    A name is only needed to run more than one daemon on one host, which a host rotating
+    for more than one organisation has to do, since a daemon token belongs to a single
+    organisation. It moves everything the daemon writes, or reads its token from, into a
+    directory of its own, and leaves the shared pieces alone:
+
+        C:\ProgramData\Bitwarden\bwrd\<name>\
+            config.toml
+            env
+            logs\
+
+    with the task named 'Bitwarden PAM rotation daemon (<name>)'. The binary, the
+    launcher and scripts\ stay shared: the daemon cannot write to the script directory,
+    so there is nothing to keep apart there, and one script can serve every daemon.
+    Point that daemon's script_root elsewhere if you would rather they were separate.
+
     None of that is configurable. If you want a different layout, a different task
     principal, or Bitwarden Cloud's separate api and identity URLs, install by hand:
     the config file and the task this registers show you every piece.
 
-    Three things here are not arbitrary:
+    Four things here are not arbitrary:
 
     * It registers a scheduled task, not a Windows service. bw-rotation-daemon is an
       ordinary console program with no service control handler, so sc.exe would start
@@ -45,11 +61,18 @@
       that can call Get-CimInstance Win32_Process -- the same reason the daemon itself
       refuses --token.
 
+    * Windows locks a running image, so the binary cannot be replaced while any daemon
+      on the host is running from it. Nothing has to stop when the bundled binary is the
+      one already installed, which is the usual case when a second daemon comes from the
+      same archive; an actual upgrade means stopping the other tasks first, and the
+      installer says so rather than failing obscurely.
+
     OPERATIONS.md lists Windows among the supported platforms. Entra ID targets work
     here, and a CustomScript target runs a .ps1 through a PowerShell host.
 
     Re-running replaces the binary and the launcher and leaves config.toml and the env
-    file alone, so upgrading cannot lose credentials you added.
+    file alone, so upgrading cannot lose credentials you added. Every daemon on the host
+    runs the one binary, so replacing it replaces it for all of them.
 
     Stopping the task terminates the daemon rather than asking it to shut down, because
     Windows has no SIGTERM. A rotation interrupted that way is abandoned without a
@@ -61,11 +84,19 @@
         Remove-Item -Recurse 'C:\Program Files\Bitwarden\bw-rotation-daemon'
         Remove-Item -Recurse 'C:\ProgramData\Bitwarden\bwrd'
 
-    Rotation scripts under that last path are yours; move them out first if you want
-    to keep them.
+    A named daemon comes off the same way, with '(<name>)' on the task name and
+    C:\ProgramData\Bitwarden\bwrd\<name> in place of that last path. Leave the install
+    directory until the last daemon on the host is gone.
+
+    Rotation scripts under C:\ProgramData\Bitwarden\bwrd\scripts are yours; move them out
+    first if you want to keep them.
 
 .PARAMETER ServerUrl
     Your Bitwarden server, for example https://bitwarden.example.com.
+
+.PARAMETER Name
+    Which daemon on this host is being installed, for a host that runs more than one.
+    Lowercase letters, digits, '-' and '_'. Leave it out for the single-daemon layout.
 
 .EXAMPLE
     $env:BWRD_TOKEN = '0.access-connector.<id>.<secret>:<key>'
@@ -74,12 +105,19 @@
 .EXAMPLE
     # Prompts for the token, with the input hidden.
     .\Install-RotationDaemon.ps1 https://bitwarden.example.com
+
+.EXAMPLE
+    # A second daemon on the same host, kept separate from the first.
+    .\Install-RotationDaemon.ps1 https://bitwarden.example.com acme
 #>
 
 param(
     [Parameter(Mandatory = $true, Position = 0)]
     [ValidatePattern('^https?://')]
-    [string] $ServerUrl
+    [string] $ServerUrl,
+
+    [Parameter(Position = 1)]
+    [string] $Name = ''
 )
 
 Set-StrictMode -Version Latest
@@ -92,19 +130,28 @@ $ProgressPreference = 'SilentlyContinue'
 
 $BinaryName   = 'bw-rotation-daemon.exe'
 $LauncherName = 'Start-RotationDaemon.ps1'
-$TaskName     = 'Bitwarden PAM rotation daemon'
+$TaskPrefix   = 'Bitwarden PAM rotation daemon'
 $RunAsUser    = 'NT AUTHORITY\NETWORK SERVICE'
 
 $InstallDir   = Join-Path $env:ProgramFiles 'Bitwarden\bw-rotation-daemon'
 $DataDir      = Join-Path $env:ProgramData 'Bitwarden\bwrd'
 $ScriptDir    = Join-Path $DataDir 'scripts'
-$LogDir       = Join-Path $DataDir 'logs'
 
 $ExePath      = Join-Path $InstallDir $BinaryName
 $LauncherPath = Join-Path $InstallDir $LauncherName
-$ConfigPath   = Join-Path $DataDir 'config.toml'
-$EnvPath      = Join-Path $DataDir 'env'
-$LogPath      = Join-Path $LogDir 'bw-rotation-daemon.log'
+
+# Names that would land on top of something already sitting beside a named daemon's
+# directory.
+$ReservedNames = @('scripts', 'logs', 'env')
+
+# Set by Resolve-Layout, once the name has been checked. An unnamed daemon gets the data
+# directory itself, which is the layout every install had before names existed.
+$TaskName   = $null
+$DaemonDir  = $null
+$LogDir     = $null
+$ConfigPath = $null
+$EnvPath    = $null
+$LogPath    = $null
 
 # Well-known SIDs, so the ACLs are the same on a localised Windows.
 $SidSystem         = '*S-1-5-18'
@@ -138,6 +185,34 @@ function Write-TextFile {
 }
 
 # ---------------------------------------------------------------------------
+
+# Checks the name and settles everything that depends on it: the task, and the directory
+# holding this daemon's config, token and logs. The name becomes part of a scheduled task
+# name, a systemd unit file name on the other platforms, and a path, so it is kept to a
+# plain lowercase word.
+function Resolve-Layout {
+    param([string] $Name)
+
+    if ($Name) {
+        # -cnotmatch, because -notmatch would accept 'ACME' and the shell installer does not.
+        if ($Name -cnotmatch '^[a-z0-9][a-z0-9_-]*$') {
+            Fail ("The name '$Name' must be lowercase letters, digits, '-' or '_', and " +
+                'start with a letter or a digit.')
+        }
+        if ($Name.Length -gt 32) { Fail "The name '$Name' is longer than 32 characters." }
+        if ($ReservedNames -contains $Name) {
+            Fail ("'$Name' is taken: the layout already uses that name next to the " +
+                'directory this daemon would get. Pick another.')
+        }
+    }
+
+    $script:TaskName   = if ($Name) { "$TaskPrefix ($Name)" } else { $TaskPrefix }
+    $script:DaemonDir  = if ($Name) { Join-Path $DataDir $Name } else { $DataDir }
+    $script:LogDir     = Join-Path $script:DaemonDir 'logs'
+    $script:ConfigPath = Join-Path $script:DaemonDir 'config.toml'
+    $script:EnvPath    = Join-Path $script:DaemonDir 'env'
+    $script:LogPath    = Join-Path $script:LogDir 'bw-rotation-daemon.log'
+}
 
 # Windows locks a running image, and Stop-ScheduledTask returns before the process is gone.
 # -MultipleInstances IgnoreNew then makes a too-early Start-ScheduledTask a silent no-op, so
@@ -175,12 +250,27 @@ function Install-DaemonBinary {
     & $bundled run --help 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "$bundled does not accept 'run --help'; is it really $BinaryName?" }
 
+    # Nothing has to stop if the installed binary is already this build, which is the
+    # usual case when another daemon on this host came from the same archive.
+    if ((Test-Path -LiteralPath $ExePath) -and
+        (Get-FileHash -LiteralPath $bundled).Hash -eq (Get-FileHash -LiteralPath $ExePath).Hash) {
+        Write-Item "$ExePath is already this build ($version); left in place"
+        return
+    }
+
     Stop-DaemonTask
     if (-not (Test-Path -LiteralPath $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
 
-    Copy-Item -LiteralPath $bundled -Destination $ExePath -Force
+    try {
+        Copy-Item -LiteralPath $bundled -Destination $ExePath -Force
+    } catch {
+        # Windows locks a running image, and every daemon on this host runs this one.
+        Fail ("Cannot replace $ExePath while another daemon on this host is running " +
+            "from it. Stop the other tasks, run this again, and start them afterwards:`n" +
+            "         Get-ScheduledTask -TaskName '$TaskPrefix*' | Stop-ScheduledTask")
+    }
     Write-Item "$ExePath ($version)"
 }
 
@@ -224,14 +314,15 @@ function Initialize-Layout {
         Fail "Cannot resolve '$RunAsUser' to a SID: $($_.Exception.Message)"
     }
 
-    foreach ($dir in @($InstallDir, $DataDir, $ScriptDir, $LogDir)) {
+    foreach ($dir in @($InstallDir, $DataDir, $ScriptDir, $DaemonDir, $LogDir)) {
         if (-not (Test-Path -LiteralPath $dir)) {
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
     }
 
     # InstallDir sits under Program Files and inherits the right thing already:
-    # administrators and SYSTEM can write, everyone else reads and executes.
+    # administrators and SYSTEM can write, everyone else reads and executes. A named
+    # daemon's directory inherits this one, which is read-only for the task principal.
     Set-ExplicitAcl -Path $DataDir -What 'the data directory' -Grants @(
         "$($SidAdministrators):(OI)(CI)F", "$($SidSystem):(OI)(CI)F", "*$($sid):(OI)(CI)R")
 
@@ -240,7 +331,8 @@ function Initialize-Layout {
     Set-ExplicitAcl -Path $ScriptDir -What 'the script directory' -Grants @(
         "$($SidAdministrators):(OI)(CI)F", "$($SidSystem):(OI)(CI)F", "*$($sid):(OI)(CI)RX")
 
-    # The launcher writes the log, so this one directory is writable.
+    # The launcher writes the log, so this one directory is writable. It belongs to this
+    # daemon alone, named or not.
     Set-ExplicitAcl -Path $LogDir -What 'the log directory' -Grants @(
         "$($SidAdministrators):(OI)(CI)F", "$($SidSystem):(OI)(CI)F", "*$($sid):(OI)(CI)M")
 
@@ -362,6 +454,7 @@ function Register-DaemonTask {
 # ---------------------------------------------------------------------------
 
 try {
+    Resolve-Layout -Name $Name
     Install-DaemonBinary
     $token = Get-DaemonToken
     $sid = Initialize-Layout

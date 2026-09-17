@@ -734,7 +734,29 @@ logs make it obvious when one is in progress.
 ### Running several daemons
 
 Run as many as you need. They share nothing and race safely for jobs. Give each one only the target
-credentials it needs, which also limits what a single compromised host exposes.
+credentials it needs, which also limits what a single compromised host exposes — though daemons on
+one host do share a service account, so that keeps each one's blast radius small rather than
+dividing them from each other.
+
+A host rotating for more than one organisation has to run more than one daemon, since a daemon token
+belongs to a single organisation. Both installers take an optional name for that, as a second
+argument:
+
+```sh
+BWRD_TOKEN='0.access-connector.…:…' \
+    sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com acme
+```
+
+The name keeps that daemon's config, token, state, log and service to itself:
+`/etc/bwrd/acme/config.toml` and `bw-rotation-daemon-acme.service` on Linux,
+`com.bitwarden.bw-rotation-daemon.acme` on macOS, `C:\ProgramData\Bitwarden\bwrd\acme\` and the task
+`Bitwarden PAM rotation daemon (acme)` on Windows. Leave it out and the daemon installs to the
+single-daemon layout instead. The binary, the service account and the script directory stay shared
+either way; a daemon that wants scripts of its own points `script_root` elsewhere.
+
+Windows locks a running image, so the binary there cannot be replaced while another daemon is
+running from it: upgrading means stopping the other tasks first. On Linux and macOS the running
+daemons keep the binary they started with until they are restarted.
 
 ---
 
