@@ -131,6 +131,7 @@ describe("change kdf", () => {
         // Sync is triggered by a push notification usually. In this case we do it manually
         // because push notifications are not implemented in the emulator.
         await second.sync(email);
+        expect(await second.bridge.get_kdf_config()).toEqual(NEW_PBKDF2);
 
         // 2. The second session locks and unlocks, picking up the new kdf and unlock data the sync
         //    brought down
@@ -146,7 +147,6 @@ describe("change kdf", () => {
           .decrypt(syncedCipher(second));
         expect(view.name).toBe(created.name);
         expect(view.notes).toBe(created.notes);
-        expect(await second.bridge.get_kdf_config()).toEqual(NEW_PBKDF2);
       },
       TIMEOUT,
     );

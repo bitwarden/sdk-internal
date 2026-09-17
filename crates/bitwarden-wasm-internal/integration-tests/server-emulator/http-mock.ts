@@ -162,6 +162,10 @@ async function readBody(input: RequestInfo | URL, init?: RequestInit): Promise<s
   return typeof init?.body === "string" ? init.body : "";
 }
 
+// Captured once, before any mock is installed, so a test that forgets to `restore()` cannot leave
+// the next install stacking a mock on top of a mock.
+const originalFetch = globalThis.fetch;
+
 export interface HttpMockOptions {
   /**
    * Called for every request before it is routed, matched or not.
@@ -181,7 +185,6 @@ export interface HttpMockOptions {
  * disguises the missing route as an ordinary API error.
  */
 export function installHttpMock(routes: Routes, options: HttpMockOptions = {}): HttpMock {
-  const originalFetch = globalThis.fetch;
   const requests: MockRequest[] = [];
   const unmatched: MockRequest[] = [];
   const patterns = compilePatterns(routes);

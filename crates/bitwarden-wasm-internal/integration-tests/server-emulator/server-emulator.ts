@@ -126,6 +126,13 @@ export class ServerEmulator {
     return user;
   }
 
+  /**
+   * Inserts an account and the vault it owns: its profile and cryptographic state, plus every
+   * cipher and folder the vector carries, each owned by that account and in no organization.
+   *
+   * Returns handles onto the stored rows, so a test reads what the server holds now rather than
+   * what the vector held at seed time.
+   */
   seedUser(vector: SeedAccount): SeededAccount {
     const { account } = vector;
     const raw = vector.rawCryptographicState;
@@ -138,7 +145,7 @@ export class ServerEmulator {
       verifyingKey: raw.verifyingKey ?? null,
       securityVersion: account.securityVersion,
       kdf: account.kdf,
-      ...(account.userKeyId === undefined ? {} : { userKeyId: account.userKeyId }),
+      userKeyId: account.userKeyId,
       masterPasswordUnlock: toMasterPasswordUnlock(vector),
       ...(account.upgradeToken === undefined ? {} : { upgradeToken: account.upgradeToken }),
       organizationKeys: account.organizationKeys ?? {},
