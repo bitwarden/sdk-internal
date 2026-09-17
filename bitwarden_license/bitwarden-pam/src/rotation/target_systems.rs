@@ -169,7 +169,7 @@ pub struct TargetSystemUpdateRequest {
     pub password_policy: PasswordPolicy,
     /// Whether the integration can terminate the account's sessions after rotating.
     ///
-    /// Applies only to automatic targets; the server ignores it for a manual one. A caller
+    /// Applies only to automatic targets; the server rejects a manual one that claims it. A caller
     /// should warn before flipping this to `false`, since a live config depending on it can be
     /// rejected.
     pub supports_session_termination: bool,
