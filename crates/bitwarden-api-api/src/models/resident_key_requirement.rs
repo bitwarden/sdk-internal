@@ -14,35 +14,32 @@ use crate::models;
 
 ///
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum AttestationConveyancePreference {
-    #[serde(rename = "none")]
-    None,
-    #[serde(rename = "indirect")]
-    Indirect,
-    #[serde(rename = "direct")]
-    Direct,
-    #[serde(rename = "enterprise")]
-    Enterprise,
+pub enum ResidentKeyRequirement {
+    #[serde(rename = "required")]
+    Required,
+    #[serde(rename = "preferred")]
+    Preferred,
+    #[serde(rename = "discouraged")]
+    Discouraged,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     #[serde(untagged)]
     __Unknown(String),
 }
 
-impl std::fmt::Display for AttestationConveyancePreference {
+impl std::fmt::Display for ResidentKeyRequirement {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::None => write!(f, "none"),
-            Self::Indirect => write!(f, "indirect"),
-            Self::Direct => write!(f, "direct"),
-            Self::Enterprise => write!(f, "enterprise"),
+            Self::Required => write!(f, "required"),
+            Self::Preferred => write!(f, "preferred"),
+            Self::Discouraged => write!(f, "discouraged"),
             Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }
 
-impl Default for AttestationConveyancePreference {
-    fn default() -> AttestationConveyancePreference {
-        Self::None
+impl Default for ResidentKeyRequirement {
+    fn default() -> ResidentKeyRequirement {
+        Self::Required
     }
 }

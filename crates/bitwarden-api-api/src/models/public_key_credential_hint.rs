@@ -14,35 +14,32 @@ use crate::models;
 
 ///
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-pub enum AttestationConveyancePreference {
-    #[serde(rename = "none")]
-    None,
-    #[serde(rename = "indirect")]
-    Indirect,
-    #[serde(rename = "direct")]
-    Direct,
-    #[serde(rename = "enterprise")]
-    Enterprise,
+pub enum PublicKeyCredentialHint {
+    #[serde(rename = "security-key")]
+    SecurityKey,
+    #[serde(rename = "client-device")]
+    ClientDevice,
+    #[serde(rename = "hybrid")]
+    Hybrid,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     #[serde(untagged)]
     __Unknown(String),
 }
 
-impl std::fmt::Display for AttestationConveyancePreference {
+impl std::fmt::Display for PublicKeyCredentialHint {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::None => write!(f, "none"),
-            Self::Indirect => write!(f, "indirect"),
-            Self::Direct => write!(f, "direct"),
-            Self::Enterprise => write!(f, "enterprise"),
+            Self::SecurityKey => write!(f, "security-key"),
+            Self::ClientDevice => write!(f, "client-device"),
+            Self::Hybrid => write!(f, "hybrid"),
             Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }
 
-impl Default for AttestationConveyancePreference {
-    fn default() -> AttestationConveyancePreference {
-        Self::None
+impl Default for PublicKeyCredentialHint {
+    fn default() -> PublicKeyCredentialHint {
+        Self::SecurityKey
     }
 }

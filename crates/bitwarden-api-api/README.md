@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 3.0.0
 - Server Git commit:
-  [`f0a3e8c282864dce18409a59e4062ad43e35793f`](https://github.com/bitwarden/server/commit/f0a3e8c282864dce18409a59e4062ad43e35793f)
+  [`343b7a47c37be4eb21b1fc5702fdbab1e1cffb05`](https://github.com/bitwarden/server/commit/343b7a47c37be4eb21b1fc5702fdbab1e1cffb05)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -290,6 +290,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationConnectionsApi_                 | [**update_connection**](docs/OrganizationConnectionsApi.md#organization_connections_update_connection)                                                           | **PUT** /organizations/connections/{organizationConnectionId}                                            |
 | _OrganizationDomainApi_                      | [**get**](docs/OrganizationDomainApi.md#organization_domain_get)                                                                                                 | **GET** /organizations/{orgId}/domain/{id}                                                               |
 | _OrganizationDomainApi_                      | [**get_all**](docs/OrganizationDomainApi.md#organization_domain_get_all)                                                                                         | **GET** /organizations/{orgId}/domain                                                                    |
+| _OrganizationDomainApi_                      | [**get_all_mini**](docs/OrganizationDomainApi.md#organization_domain_get_all_mini)                                                                               | **GET** /organizations/{orgId}/domain/mini                                                               | Returns the name and verification status of every domain claimed by the organization. This is available to members who can manage users as well as those who can manage SSO, because the member invite flow needs to read claimed domains. It omits the DNS verification token and the verification job metadata returned by M:Bit.Api.AdminConsole.Controllers.OrganizationDomainController.GetAll(System.Guid), so it discloses nothing about the organization's SSO configuration.                                           |
 | _OrganizationDomainApi_                      | [**get_verified_org_domain_sso_details**](docs/OrganizationDomainApi.md#organization_domain_get_verified_org_domain_sso_details)                                 | **POST** /organizations/domain/sso/verified                                                              |
 | _OrganizationDomainApi_                      | [**post**](docs/OrganizationDomainApi.md#organization_domain_post)                                                                                               | **POST** /organizations/{orgId}/domain                                                                   |
 | _OrganizationDomainApi_                      | [**remove_domain**](docs/OrganizationDomainApi.md#organization_domain_remove_domain)                                                                             | **DELETE** /organizations/{orgId}/domain/{id}                                                            |
@@ -632,6 +633,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [AttachmentResponseModel](docs/AttachmentResponseModel.md)
 - [AttachmentUploadDataResponseModel](docs/AttachmentUploadDataResponseModel.md)
 - [AttestationConveyancePreference](docs/AttestationConveyancePreference.md)
+- [AttestationResponse](docs/AttestationResponse.md)
+- [AttestationStatementFormatIdentifier](docs/AttestationStatementFormatIdentifier.md)
 - [AuthRequestCreateRequestModel](docs/AuthRequestCreateRequestModel.md)
 - [AuthRequestResponseModel](docs/AuthRequestResponseModel.md)
 - [AuthRequestResponseModelListResponseModel](docs/AuthRequestResponseModelListResponseModel.md)
@@ -640,6 +643,11 @@ All URIs are relative to *https://api.bitwarden.com*
 - [AuthType](docs/AuthType.md)
 - [AuthenticationExtensionsClientInputs](docs/AuthenticationExtensionsClientInputs.md)
 - [AuthenticationExtensionsClientOutputs](docs/AuthenticationExtensionsClientOutputs.md)
+- [AuthenticationExtensionsLargeBlobInputs](docs/AuthenticationExtensionsLargeBlobInputs.md)
+- [AuthenticationExtensionsLargeBlobOutputs](docs/AuthenticationExtensionsLargeBlobOutputs.md)
+- [AuthenticationExtensionsPrfInputs](docs/AuthenticationExtensionsPrfInputs.md)
+- [AuthenticationExtensionsPrfOutputs](docs/AuthenticationExtensionsPrfOutputs.md)
+- [AuthenticationExtensionsPrfValues](docs/AuthenticationExtensionsPrfValues.md)
 - [AuthenticatorAssertionRawResponse](docs/AuthenticatorAssertionRawResponse.md)
 - [AuthenticatorAttachment](docs/AuthenticatorAttachment.md)
 - [AuthenticatorAttestationRawResponse](docs/AuthenticatorAttestationRawResponse.md)
@@ -727,6 +735,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CreatePremiumCheckoutSessionRequest](docs/CreatePremiumCheckoutSessionRequest.md)
 - [CreateRotationConfigRequestModel](docs/CreateRotationConfigRequestModel.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
+- [CredentialPropertiesOutput](docs/CredentialPropertiesOutput.md)
+- [CredentialProtectionPolicy](docs/CredentialProtectionPolicy.md)
 - [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
 - [DeleteRecoverRequestModel](docs/DeleteRecoverRequestModel.md)
 - [DeviceAuthRequestResponseModel](docs/DeviceAuthRequestResponseModel.md)
@@ -811,6 +821,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [KeyRotationDataResponseModel](docs/KeyRotationDataResponseModel.md)
 - [KeysRequestModel](docs/KeysRequestModel.md)
 - [KeysResponseModel](docs/KeysResponseModel.md)
+- [LargeBlobSupport](docs/LargeBlobSupport.md)
 - [LicenseType](docs/LicenseType.md)
 - [MasterPasswordAuthenticationDataRequestModel](docs/MasterPasswordAuthenticationDataRequestModel.md)
 - [MasterPasswordPolicyResponseModel](docs/MasterPasswordPolicyResponseModel.md)
@@ -841,6 +852,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationConnectionType](docs/OrganizationConnectionType.md)
 - [OrganizationCountsResponseModel](docs/OrganizationCountsResponseModel.md)
 - [OrganizationCreateRequestModel](docs/OrganizationCreateRequestModel.md)
+- [OrganizationDomainMiniResponseModel](docs/OrganizationDomainMiniResponseModel.md)
+- [OrganizationDomainMiniResponseModelListResponseModel](docs/OrganizationDomainMiniResponseModelListResponseModel.md)
 - [OrganizationDomainRequestModel](docs/OrganizationDomainRequestModel.md)
 - [OrganizationDomainResponseModel](docs/OrganizationDomainResponseModel.md)
 - [OrganizationDomainResponseModelListResponseModel](docs/OrganizationDomainResponseModelListResponseModel.md)
@@ -1027,6 +1040,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ProviderVerifyDeleteRecoverRequestModel](docs/ProviderVerifyDeleteRecoverRequestModel.md)
 - [PubKeyCredParam](docs/PubKeyCredParam.md)
 - [PublicKeyCredentialDescriptor](docs/PublicKeyCredentialDescriptor.md)
+- [PublicKeyCredentialHint](docs/PublicKeyCredentialHint.md)
 - [PublicKeyCredentialRpEntity](docs/PublicKeyCredentialRpEntity.md)
 - [PublicKeyCredentialType](docs/PublicKeyCredentialType.md)
 - [PublicKeyEncryptionKeyPairRequestModel](docs/PublicKeyEncryptionKeyPairRequestModel.md)
@@ -1047,7 +1061,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ReportRotationFailedRequestModel](docs/ReportRotationFailedRequestModel.md)
 - [ReportRotationSucceededRequestModel](docs/ReportRotationSucceededRequestModel.md)
 - [RequestSmAccessRequestModel](docs/RequestSmAccessRequestModel.md)
-- [ResponseData](docs/ResponseData.md)
+- [ResidentKeyRequirement](docs/ResidentKeyRequirement.md)
 - [RestartSubscriptionRequest](docs/RestartSubscriptionRequest.md)
 - [RestoreSecretVersionRequestModel](docs/RestoreSecretVersionRequestModel.md)
 - [RevocationReason](docs/RevocationReason.md)
@@ -1130,6 +1144,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [Storage](docs/Storage.md)
 - [StorageRequestModel](docs/StorageRequestModel.md)
 - [StorageUpdateRequest](docs/StorageUpdateRequest.md)
+- [StringAuthenticationExtensionsPrfValuesKeyValuePair](docs/StringAuthenticationExtensionsPrfValuesKeyValuePair.md)
 - [SubmitCipherUpdateRequestModel](docs/SubmitCipherUpdateRequestModel.md)
 - [SubscriptionCancellationRequestModel](docs/SubscriptionCancellationRequestModel.md)
 - [SubscriptionPreview](docs/SubscriptionPreview.md)

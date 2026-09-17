@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SecretVersionResponseModelListResponseModel {
+pub struct OrganizationDomainMiniResponseModelListResponseModel {
     #[serde(
         rename = "object",
         alias = "Object",
@@ -25,7 +25,7 @@ pub struct SecretVersionResponseModelListResponseModel {
         alias = "Data",
         skip_serializing_if = "Option::is_none"
     )]
-    pub data: Option<Vec<models::SecretVersionResponseModel>>,
+    pub data: Option<Vec<models::OrganizationDomainMiniResponseModel>>,
     #[serde(
         rename = "continuationToken",
         alias = "ContinuationToken",
@@ -34,9 +34,9 @@ pub struct SecretVersionResponseModelListResponseModel {
     pub continuation_token: Option<String>,
 }
 
-impl SecretVersionResponseModelListResponseModel {
-    pub fn new() -> SecretVersionResponseModelListResponseModel {
-        SecretVersionResponseModelListResponseModel {
+impl OrganizationDomainMiniResponseModelListResponseModel {
+    pub fn new() -> OrganizationDomainMiniResponseModelListResponseModel {
+        OrganizationDomainMiniResponseModelListResponseModel {
             object: None,
             data: None,
             continuation_token: None,
