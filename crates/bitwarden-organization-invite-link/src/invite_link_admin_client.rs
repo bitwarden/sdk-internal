@@ -203,6 +203,35 @@ impl InviteLinkAdminClient {
         OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
     }
 
+    /// Updates whether an existing invite link supports confirmation.
+    ///
+    /// If supports_confirmation is true, users gain immediate access to the organization.
+    /// If supports_confirmation is false, admins need to confirm all new users.
+    ///
+    /// Does not break the URL of the existing invite link.
+    pub async fn update_confirmation(
+        &self,
+        organization_id: OrganizationId,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLinkView, InviteLinkError> {
+        // Update the existing Invite blob rather than making a new one. We fetch this from the
+        // server so that the client doesn't have to handle the Invite blob directly to pass
+        // it back in.
+        let existing_link = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .get(organization_id.into())
+            .await?;
+        let invite: Invite = require!(existing_link.invite).parse()?;
+
+        let result = self
+            .set_invite_confirmation(organization_id, invite, supports_confirmation)
+            .await?;
+        let mut ctx = self.key_store.context();
+        result.to_view(&mut ctx)
+    }
+
     /// Updates whether an existing invite link supports confirmation, re-sealing the given invite
     /// accordingly and persisting it to the server.
     ///
@@ -213,6 +242,9 @@ impl InviteLinkAdminClient {
     ///
     /// # Security
     /// Only the re-sealed invite is posted to the server; the invite secret is never sent.
+    #[deprecated(
+        note = "Use `update_confirmation`, which returns an `OrganizationInviteLinkView`, instead"
+    )]
     pub async fn set_invite_confirmation(
         &self,
         organization_id: OrganizationId,

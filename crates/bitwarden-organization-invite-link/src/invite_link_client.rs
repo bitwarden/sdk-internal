@@ -83,7 +83,7 @@ impl InviteLinkClient {
 
     /// Updates whether an existing invite link supports confirmation, re-sealing the given invite
     /// accordingly and persisting it to the server.
-    #[deprecated(note = "Use `invite_link().admin().set_invite_confirmation(...)` instead")]
+    #[deprecated(note = "Use `invite_link().admin().update_confirmation(...)` instead")]
     pub async fn set_invite_confirmation(
         &self,
         organization_id: OrganizationId,
