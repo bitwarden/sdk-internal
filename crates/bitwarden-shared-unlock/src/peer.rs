@@ -246,7 +246,11 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
         }
 
         let first_contact = self.0.active_peers.upsert(&target);
+
+        // Read before applying, which consumes the state.
+        let reported = state.lock_state.peer_state();
         self.apply_remote_state(user_id, state).await?;
+        self.0.driver.on_peer_state(user_id, reported).await;
 
         if first_contact {
             self.sync_all_users_to(&target).await;

@@ -5,7 +5,7 @@ use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
-use crate::SharedUnlockDriver;
+use crate::{PeerLockState, SharedUnlockDriver};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -16,6 +16,7 @@ export interface SharedUnlockDriver {
     suppress_vault_timeout(user_id: UserId, suppression_duration: number): Promise<void>;
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
+    on_peer_state(user_id: UserId, lock_state: PeerLockState): Promise<void>;
 }
 "#;
 
@@ -55,6 +56,14 @@ extern "C" {
         this: &RawJsSharedUnlockDriver,
         user_id: UserId,
     ) -> Result<JsValue, JsValue>;
+
+    /// Report a peer's lock state for a user, as carried by a sync this device accepted.
+    #[wasm_bindgen(method, catch)]
+    async fn on_peer_state(
+        this: &RawJsSharedUnlockDriver,
+        user_id: UserId,
+        lock_state: PeerLockState,
+    ) -> Result<(), JsValue>;
 }
 
 pub(super) struct JsSharedUnlockDriver {
@@ -152,6 +161,25 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
                     "Failed to suppress vault timeout for user_id: {}",
                     user_id
                 )
+            }
+        }
+    }
+
+    async fn on_peer_state(&self, user_id: UserId, lock_state: PeerLockState) {
+        let result = self
+            .runner
+            .run_in_thread(
+                move |driver| async move { driver.on_peer_state(user_id, lock_state).await },
+            )
+            .await;
+
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                tracing::error!(?error, %user_id, "Failed to report a peer's lock state")
+            }
+            Err(error) => {
+                tracing::error!(?error, %user_id, "Failed to report a peer's lock state")
             }
         }
     }
