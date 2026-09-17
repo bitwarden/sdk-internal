@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Installs bw-rotation-daemon as a system service. One argument, no options.
+# Installs bw-rotation-daemon as a system service. A URL, and an optional name.
 #
 #   sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com
+#   sudo -E ./install-rotation-daemon.sh https://bitwarden.example.com acme
 #
 #   Linux  -> systemd unit    /etc/systemd/system/bw-rotation-daemon.service
 #   macOS  -> launchd daemon  /Library/LaunchDaemons/com.bitwarden.bw-rotation-daemon.plist
@@ -10,12 +11,26 @@
 # The binary is the one sitting next to this script, which is how the release archive
 # is laid out. The layout it installs is fixed, and is the one OPERATIONS.md documents:
 #
-#   /usr/local/bin/bw-rotation-daemon   binary            root  0755
+#   /usr/local/bin/bw-rotation-daemon   binary            root  0755  (shared)
 #   /etc/bwrd/config.toml               settings          root  0644  (never secrets)
 #   /etc/bwrd/env                       token + creds     root  0400  (Linux only)
-#   /opt/bwrd/scripts                   rotation scripts  root  0755  (daemon cannot write)
+#   /opt/bwrd/scripts                   rotation scripts  root  0755  (shared, daemon cannot write)
 #   /var/lib/bwrd                       state             bwrd  0700
 #   /var/log/bwrd                       daemon log        bwrd  0750  (macOS only)
+#
+# A name is only needed to run more than one daemon on one host, which a host rotating
+# for more than one organisation has to do, since a daemon token belongs to a single
+# organisation. It moves everything the daemon writes, or reads its token from, one
+# level down, and leaves the shared pieces alone:
+#
+#   /etc/bwrd/<name>/config.toml, /etc/bwrd/<name>/env, /var/lib/bwrd/<name>,
+#   /var/log/bwrd/<name>, and the service becomes bw-rotation-daemon-<name>.service
+#   or com.bitwarden.bw-rotation-daemon.<name>.
+#
+# The binary, the service account and /opt/bwrd/scripts stay shared: the daemon cannot
+# write to the script directory, so there is nothing to keep apart there, and one script
+# can serve every daemon. Point that daemon's script_root elsewhere if you would rather
+# they were separate.
 #
 # None of that is configurable. If you want a different layout, a different service
 # account, or Bitwarden Cloud's separate api and identity URLs, install by hand: the
@@ -32,9 +47,10 @@
 #     EnvironmentFile=, and most target UUIDs begin with a digit, which no POSIX shell
 #     can export; launchd sets the dict without a shell, so digits are fine there.
 #
-# Re-running replaces the binary and leaves config.toml, the env file, the systemd
-# unit and the plist alone, so upgrading cannot lose credentials or hardening you
-# added to them.
+# Re-running replaces the binary and leaves config.toml, the env file, the systemd unit
+# and the plist alone, so upgrading cannot lose credentials or hardening you added to
+# them. Every daemon on the host runs the one binary, so replacing it replaces it for
+# all of them, and the ones already running keep the old one until they are restarted.
 #
 # To remove it, on Linux:
 #
@@ -49,24 +65,41 @@
 #   rm -rf /etc/bwrd /var/lib/bwrd /var/log/bwrd /usr/local/bin/bw-rotation-daemon
 #   dscl . -delete /Users/_bwrd; dscl . -delete /Groups/_bwrd
 #
+# A named daemon comes off the same way, with -<name> on the unit or .<name> on the
+# label, and /etc/bwrd/<name>, /var/lib/bwrd/<name> and /var/log/bwrd/<name> in place of
+# the directories above. Leave the binary, the service account and /opt/bwrd/scripts
+# until the last daemon on the host is gone.
+#
 # Rotation scripts in /opt/bwrd/scripts are yours; nothing above deletes them.
 
 set -euo pipefail
 
 readonly PROGRAM="${0##*/}"
 readonly BINARY_NAME="bw-rotation-daemon"
-readonly LAUNCHD_LABEL="com.bitwarden.bw-rotation-daemon"
-readonly SYSTEMD_UNIT="bw-rotation-daemon.service"
+readonly LABEL_PREFIX="com.bitwarden.bw-rotation-daemon"
 
 readonly BINARY_PATH="/usr/local/bin/$BINARY_NAME"
-readonly CONFIG_DIR="/etc/bwrd"
-readonly CONFIG_FILE="$CONFIG_DIR/config.toml"
-readonly ENV_FILE="$CONFIG_DIR/env"
 readonly SCRIPT_ROOT="/opt/bwrd/scripts"
-readonly STATE_DIR="/var/lib/bwrd"
-readonly LOG_DIR="/var/log/bwrd"
-readonly UNIT_FILE="/etc/systemd/system/$SYSTEMD_UNIT"
-readonly PLIST_FILE="/Library/LaunchDaemons/$LAUNCHD_LABEL.plist"
+readonly CONFIG_ROOT="/etc/bwrd"
+readonly STATE_ROOT="/var/lib/bwrd"
+readonly LOG_ROOT="/var/log/bwrd"
+
+# Names that would land on top of something already sitting beside a named daemon's
+# directory: the env file here, and the scripts and logs directories on Windows.
+readonly RESERVED_NAMES="env logs scripts"
+
+# Set by set_paths. An unnamed daemon gets the roots above as they are, which is the
+# layout every install had before names existed.
+NAME=""
+LAUNCHD_LABEL=""
+SYSTEMD_UNIT=""
+CONFIG_DIR=""
+CONFIG_FILE=""
+ENV_FILE=""
+STATE_DIR=""
+LOG_DIR=""
+UNIT_FILE=""
+PLIST_FILE=""
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SELF_DIR/templates"
@@ -118,16 +151,63 @@ usage() {
     cat <<HELP
 Installs bw-rotation-daemon as a system service.
 
-    $PROGRAM <bitwarden-url>
+    $PROGRAM <bitwarden-url> [name]
 
-The URL is your Bitwarden server, for example https://bitwarden.example.com. The
-daemon token comes from BWRD_TOKEN, or is prompted for with the input hidden:
+The URL is your Bitwarden server, for example https://bitwarden.example.com. The daemon
+token comes from BWRD_TOKEN, or is prompted for with the input hidden:
 
     BWRD_TOKEN='0.access-connector.<id>.<secret>:<key>' sudo -E ./$PROGRAM https://bitwarden.example.com
 
-There are no other options. The comments at the top of this script list the layout
-it installs and how to remove it; OPERATIONS.md covers everything else.
+The name is optional, and only needed to run a second daemon on this host: it keeps that
+daemon's config, token, state, log and service separate from the others. Leave it out and
+the daemon installs to the single-daemon layout.
+
+There are no other options. The comments at the top of this script list the layout it
+installs and how to remove it; OPERATIONS.md covers everything else.
 HELP
+}
+
+# The name becomes part of a systemd unit file name, a launchd label and a path on three
+# operating systems, so it is kept to a plain lowercase word.
+validate_name() {
+    local reserved
+
+    case "$1" in
+        '')            die "the name is empty; leave it out entirely for a single daemon" ;;
+        *[!a-z0-9_-]*) die "name '$1' must be lowercase letters, digits, '-' or '_'" ;;
+        [!a-z0-9]*)    die "name '$1' must start with a letter or a digit" ;;
+    esac
+    [ "${#1}" -le 32 ] || die "name '$1' is longer than 32 characters"
+
+    for reserved in $RESERVED_NAMES; do
+        [ "$1" != "$reserved" ] || die "'$1' is taken: the layout already uses that name
+       next to the directory this daemon would get. Pick another."
+    done
+}
+
+# Everything a second daemon on this host must not share with the first: its config, its
+# token, its state, its log and its service.
+set_paths() {
+    NAME="$1"
+
+    if [ -n "$NAME" ]; then
+        SYSTEMD_UNIT="$BINARY_NAME-$NAME.service"
+        LAUNCHD_LABEL="$LABEL_PREFIX.$NAME"
+        CONFIG_DIR="$CONFIG_ROOT/$NAME"
+        STATE_DIR="$STATE_ROOT/$NAME"
+        LOG_DIR="$LOG_ROOT/$NAME"
+    else
+        SYSTEMD_UNIT="$BINARY_NAME.service"
+        LAUNCHD_LABEL="$LABEL_PREFIX"
+        CONFIG_DIR="$CONFIG_ROOT"
+        STATE_DIR="$STATE_ROOT"
+        LOG_DIR="$LOG_ROOT"
+    fi
+
+    CONFIG_FILE="$CONFIG_DIR/config.toml"
+    ENV_FILE="$CONFIG_DIR/env"
+    UNIT_FILE="/etc/systemd/system/$SYSTEMD_UNIT"
+    PLIST_FILE="/Library/LaunchDaemons/$LAUNCHD_LABEL.plist"
 }
 
 detect_platform() {
@@ -222,7 +302,7 @@ create_service_account() {
             [ -x "$candidate" ] && { shell_path="$candidate"; break; }
         done
         getent group "$SERVICE_USER" >/dev/null 2>&1 || groupadd --system "$SERVICE_USER"
-        useradd --system --gid "$SERVICE_USER" --home-dir "$STATE_DIR" --no-create-home \
+        useradd --system --gid "$SERVICE_USER" --home-dir "$STATE_ROOT" --no-create-home \
             --shell "$shell_path" --comment "Bitwarden PAM rotation daemon" "$SERVICE_USER"
     else
         # macOS has no useradd. Hidden service accounts go straight into the local
@@ -250,12 +330,24 @@ create_service_account() {
 create_directories() {
     step "Directories"
 
+    # A named daemon's directories sit inside these, which are the unnamed daemon's own
+    # if there is one on this host. Created when missing rather than installed, so that
+    # daemon's mode and owner are left as they are.
+    if [ -n "$NAME" ]; then
+        [ -d "$CONFIG_ROOT" ] || install -d -m 0755 -o root -g "$ROOT_GROUP" "$CONFIG_ROOT"
+        [ -d "$STATE_ROOT" ] || install -d -m 0755 -o root -g "$ROOT_GROUP" "$STATE_ROOT"
+        if [ "$PLATFORM" = macos ] && [ ! -d "$LOG_ROOT" ]; then
+            install -d -m 0750 -o "$SERVICE_USER" -g "$ROOT_GROUP" "$LOG_ROOT"
+        fi
+    fi
+
     # config.toml is read by the daemon user and holds no secrets; the daemon rejects
     # a config that tries to.
     install -d -m 0755 -o root -g "$ROOT_GROUP" "$CONFIG_DIR"
 
     # script_root: the daemon reads and executes what is here and cannot write to it,
-    # so it cannot install a new script for itself to run.
+    # so it cannot install a new script for itself to run. Shared by every daemon on
+    # the host.
     install -d -m 0755 -o root -g "$ROOT_GROUP" "$SCRIPT_ROOT"
 
     install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$STATE_DIR"
@@ -311,7 +403,8 @@ install_launchd_plist() {
         info "$PLIST_FILE"
     fi
 
-    # bootout first, so a re-install starts the binary we just wrote.
+    # bootout first, so a re-install starts the binary we just wrote. Only this daemon's
+    # label is touched; any other daemon on the host keeps running.
     launchctl bootout "system/$LAUNCHD_LABEL" 2>/dev/null || true
     launchctl bootstrap system "$PLIST_FILE"
     info "loaded and started"
@@ -353,13 +446,20 @@ main() {
         -h|--help)          usage; exit 0 ;;
         '')                 usage >&2; die "missing the Bitwarden server URL" ;;
         http://*|https://*) SERVER_URL="$1" ;;
-        *)                  usage >&2; die "'$1' is not an http(s) URL; this script takes only a URL" ;;
+        *)                  usage >&2; die "'$1' is not an http(s) URL; this script takes a URL
+       and, for a second daemon on this host, a name" ;;
     esac
-    [ "$#" -eq 1 ] || die "unexpected extra arguments after '$1'"
+    [ "$#" -le 2 ] || die "unexpected extra arguments after '$2'"
     readonly SERVER_URL
 
+    if [ "$#" -eq 2 ]; then
+        validate_name "$2"
+    fi
+    set_paths "${2:-}"
+
     detect_platform
-    [ "$(id -u)" -eq 0 ] || die "must run as root (try: sudo -E $PROGRAM $SERVER_URL)"
+    [ "$(id -u)" -eq 0 ] \
+        || die "must run as root (try: sudo -E $PROGRAM $SERVER_URL${NAME:+ $NAME})"
 
     install_binary
     acquire_token
