@@ -81,6 +81,20 @@ impl InviteLinkClient {
             .await
     }
 
+    /// Updates whether an existing invite link supports confirmation, re-sealing the given invite
+    /// accordingly and persisting it to the server.
+    #[deprecated(note = "Use `invite_link().admin().set_invite_confirmation(...)` instead")]
+    pub async fn set_invite_confirmation(
+        &self,
+        organization_id: OrganizationId,
+        invite: Invite,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        self.admin_client()
+            .set_invite_confirmation(organization_id, invite, supports_confirmation)
+            .await
+    }
+
     /// Using the organization key, recovers the [`InviteSecret`] from the invite carried in the
     /// given [`OrganizationInviteLink`] so an admin can reconstruct the invite link.
     #[deprecated(

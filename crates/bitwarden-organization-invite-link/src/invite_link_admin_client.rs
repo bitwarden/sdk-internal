@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_api_api::models::{
     CreateOrganizationInviteLinkRequestModel, RefreshOrganizationInviteLinkRequestModel,
-    UpdateOrganizationInviteLinkRequestModel,
+    UpdateInviteSupportConfirmRequestModel, UpdateOrganizationInviteLinkRequestModel,
 };
 use bitwarden_core::{
     ApiError, FromClient, OrganizationId,
@@ -203,6 +203,52 @@ impl InviteLinkAdminClient {
         OrganizationInviteLink::try_from(response)?.to_view(&mut ctx)
     }
 
+    /// Updates whether an existing invite link supports confirmation, re-sealing the given invite
+    /// accordingly and persisting it to the server.
+    ///
+    /// Enabling confirmation re-seals the organization key under the invite's existing invite key;
+    /// disabling it strips that envelope. Either way the invite key, code, and secret are left
+    /// untouched, so links already handed out stay valid. Use
+    /// [`InviteLinkAdminClient::refresh`] instead when the code and secret must be rotated.
+    ///
+    /// # Security
+    /// Only the re-sealed invite is posted to the server; the invite secret is never sent.
+    pub async fn set_invite_confirmation(
+        &self,
+        organization_id: OrganizationId,
+        invite: Invite,
+        supports_confirmation: bool,
+    ) -> Result<OrganizationInviteLink, InviteLinkError> {
+        let mut invite = invite;
+
+        // Confine the (non-Send) key store context to a synchronous scope; the re-sealed invite it
+        // produces is consumed by the request posted after the `.await` below.
+        {
+            let mut ctx = self.key_store.context();
+            let org_key = SymmetricKeySlotId::Organization(organization_id);
+            if supports_confirmation {
+                invite.enable_confirmation(org_key, &mut ctx)?;
+            } else {
+                invite.disable_confirmation();
+            }
+        }
+
+        let response = self
+            .api_configurations
+            .api_client
+            .organization_invite_links_api()
+            .update_invite_support_confirm(
+                organization_id.into(),
+                Some(UpdateInviteSupportConfirmRequestModel {
+                    invite: String::from(&invite),
+                    supports_confirmation: invite.supports_confirmation(),
+                }),
+            )
+            .await?;
+
+        OrganizationInviteLink::try_from(response)
+    }
+
     /// Helper function to make a new Invite to be included in a request model.
     async fn make_invite(
         &self,
@@ -287,6 +333,27 @@ mod tests {
             supports_confirmation: Some(supports_confirmation),
             creation_date: Some("2024-01-01T00:00:00Z".to_string()),
         }
+    }
+
+    /// Builds an invite + its secret and the organization public key it binds, all consistent with
+    /// the client's org key.
+    fn build_invite(
+        client: &InviteLinkAdminClient,
+        org_id: OrganizationId,
+    ) -> (InviteSecret, Invite, B64) {
+        let mut ctx = client.key_store.context();
+        let org_key = SymmetricKeySlotId::Organization(org_id);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let org_public_key = B64::from(
+            ctx.get_public_key(private_key)
+                .unwrap()
+                .to_der()
+                .unwrap()
+                .as_ref(),
+        );
+        let wrapped = ctx.wrap_private_key(org_key, private_key).unwrap();
+        let (secret, invite) = Invite::make_for_private_key(org_key, &wrapped, &mut ctx).unwrap();
+        (secret, invite, org_public_key)
     }
 
     /// Regenerates the invite-link fixtures used by the WASM integration tests in
@@ -570,6 +637,151 @@ mod tests {
         let result = client
             .create(org_id, vec![String::from("example.com")], false)
             .await;
+
+        assert!(matches!(result, Err(InviteLinkError::Api(_))));
+    }
+
+    #[tokio::test]
+    async fn set_invite_confirmation_enables_confirmation_on_an_existing_invite() {
+        let org_id = OrganizationId::new_v4();
+        // Captures the invite posted to the server so it can be checked independently of the
+        // echoed response.
+        let posted = Arc::new(std::sync::Mutex::new(None::<String>));
+        let for_mock = posted.clone();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(move |mock| {
+                mock.organization_invite_links_api
+                    .expect_update_invite_support_confirm()
+                    .returning(move |org, model| {
+                        let model = model.unwrap();
+                        *for_mock.lock().unwrap() = Some(model.invite.clone());
+                        Ok(echo_link_response(
+                            org,
+                            vec![],
+                            model.invite,
+                            model.supports_confirmation,
+                        ))
+                    })
+                    .once();
+            }),
+        );
+
+        // Start from an invite with confirmation stripped; the invite key is still sealed under the
+        // organization key, so confirmation can be re-enabled from it.
+        let (_secret, mut invite, _org_public_key) = build_invite(&client, org_id);
+        invite.disable_confirmation();
+        assert!(!invite.supports_confirmation());
+
+        let link = client
+            .set_invite_confirmation(org_id, invite, true)
+            .await
+            .unwrap();
+
+        assert!(link.supports_confirmation);
+        assert!(link.invite.supports_confirmation());
+        let posted: Invite = posted.lock().unwrap().clone().unwrap().parse().unwrap();
+        assert!(posted.supports_confirmation());
+    }
+
+    #[tokio::test]
+    async fn set_invite_confirmation_disables_confirmation_on_an_existing_invite() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_update_invite_support_confirm()
+                    .returning(|org, model| {
+                        let model = model.unwrap();
+                        Ok(echo_link_response(
+                            org,
+                            vec![],
+                            model.invite,
+                            model.supports_confirmation,
+                        ))
+                    })
+                    .once();
+            }),
+        );
+
+        let (_secret, invite, _org_public_key) = build_invite(&client, org_id);
+        assert!(invite.supports_confirmation());
+
+        let link = client
+            .set_invite_confirmation(org_id, invite, false)
+            .await
+            .unwrap();
+
+        assert!(!link.supports_confirmation);
+        assert!(!link.invite.supports_confirmation());
+    }
+
+    #[tokio::test]
+    async fn set_invite_confirmation_preserves_the_invite_secret() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_update_invite_support_confirm()
+                    .returning(|org, model| {
+                        let model = model.unwrap();
+                        Ok(echo_link_response(
+                            org,
+                            vec![],
+                            model.invite,
+                            model.supports_confirmation,
+                        ))
+                    })
+                    .once();
+            }),
+        );
+
+        // Toggling confirmation must not rotate the invite key, so already-distributed links (which
+        // carry the secret) keep working.
+        let (secret, invite, _org_public_key) = build_invite(&client, org_id);
+        let link = client
+            .set_invite_confirmation(org_id, invite, false)
+            .await
+            .unwrap();
+
+        let recovered = client.get_invite_secret(org_id, link.invite).unwrap();
+        assert_eq!(String::from(&recovered), String::from(&secret));
+    }
+
+    #[tokio::test]
+    async fn set_invite_confirmation_with_unknown_organization_id_fails() {
+        let org_id = OrganizationId::new_v4();
+        let other_org_id = OrganizationId::new_v4();
+        let client = make_client(org_id, ApiClient::new_mocked(|_| {}));
+
+        // The invite key is sealed to the client's own org key; re-sealing under a different
+        // organization's key slot (which is absent from the store) must fail before any request.
+        let (_secret, mut invite, _org_public_key) = build_invite(&client, org_id);
+        invite.disable_confirmation();
+
+        let result = client
+            .set_invite_confirmation(other_org_id, invite, true)
+            .await;
+
+        assert!(matches!(result, Err(InviteLinkError::Invite(_))));
+    }
+
+    #[tokio::test]
+    async fn set_invite_confirmation_surfaces_api_errors() {
+        let org_id = OrganizationId::new_v4();
+        let client = make_client(
+            org_id,
+            ApiClient::new_mocked(|mock| {
+                mock.organization_invite_links_api
+                    .expect_update_invite_support_confirm()
+                    .returning(|_org, _model| Err(std::io::Error::other("boom").into()));
+            }),
+        );
+
+        let (_secret, invite, _org_public_key) = build_invite(&client, org_id);
+        let result = client.set_invite_confirmation(org_id, invite, false).await;
 
         assert!(matches!(result, Err(InviteLinkError::Api(_))));
     }

@@ -12,6 +12,7 @@ pub mod registry;
 /// Type-safe settings repository for storing application configuration and state.
 pub mod settings;
 
+pub(crate) mod any_map;
 pub(crate) mod sdk_managed;
 
 pub use sdk_managed::{DatabaseConfiguration, DatabaseError};

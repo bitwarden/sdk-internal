@@ -1,4 +1,4 @@
-// Happy-path stand-ins for the seven endpoints `InviteLinkClient` calls.
+// Happy-path stand-ins for the eight endpoints `InviteLinkClient` calls.
 
 import { Routes } from "../http-mock";
 import {
@@ -16,6 +16,7 @@ export const ROUTES = {
   publicKey: `GET /organizations/${ORG}/public-key`,
   create: `POST /organizations/${ORG}/invite-link`,
   refresh: `POST /organizations/${ORG}/invite-link/refresh`,
+  supportConfirm: `PUT /organizations/${ORG}/invite-link/support-confirm`,
   getInvite: "POST /organizations/users/invite-link/invite",
   confirm: "POST /organizations/users/invite-link/confirm",
   accept: "POST /organizations/users/invite-link/accept",
@@ -33,7 +34,10 @@ export interface InviteLinkServerOptions {
   invite?: string | (() => string);
   /** The organization public key, i.e. the account-recovery key an invitee enrolls into. */
   publicKey?: string;
-  /** Called with the invite posted to create/refresh, standing in for the server persisting it. */
+  /**
+   * Called with the invite posted to create/refresh/support-confirm, standing in for the server
+   * persisting it.
+   */
   onCreate?: (invite: string) => void;
 }
 
@@ -78,6 +82,7 @@ export function inviteLinkRoutes(options: InviteLinkServerOptions = {}): Routes 
     [ROUTES.publicKey]: () => ({ json: { object: "organizationPublicKey", publicKey } }),
     [ROUTES.create]: (request) => link(request.json()),
     [ROUTES.refresh]: (request) => link(request.json()),
+    [ROUTES.supportConfirm]: (request) => link(request.json()),
     [ROUTES.getInvite]: () => ({ json: { invite: invite() } }),
     [ROUTES.confirm]: () => ({}),
     [ROUTES.accept]: () => ({}),
