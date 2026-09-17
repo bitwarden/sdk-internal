@@ -1,6 +1,7 @@
 use bitwarden_api_api::models::{
-    AuthenticatorAttestationRawResponse, CredentialCreateOptions, PublicKeyCredentialType,
-    ResponseData, SecretVerificationRequestModel, UserVerificationRequirement,
+    AttestationResponse, AuthenticationExtensionsClientOutputs,
+    AuthenticatorAttestationRawResponse, AuthenticatorTransport, CredentialCreateOptions,
+    PublicKeyCredentialType, SecretVerificationRequestModel, UserVerificationRequirement,
     WebAuthnCredentialCreateOptionsResponseModel, WebAuthnLoginCredentialCreateRequestModel,
 };
 use bitwarden_core::{
@@ -159,14 +160,24 @@ impl DeviceAuthKeyAuthenticator<'_> {
         let credential_id = result.credential_id.clone();
         let create_request = WebAuthnLoginCredentialCreateRequestModel {
             device_response: Box::new(AuthenticatorAttestationRawResponse {
-                id: Some(result.credential_id.clone()),
-                raw_id: Some(result.credential_id),
-                r#type: Some(PublicKeyCredentialType::PublicKey),
-                response: Some(Box::new(ResponseData {
+                // The WebAuthn `id` is the base64url encoding of the raw credential ID.
+                id: bitwarden_encoding::B64Url::from(result.credential_id.as_slice()).to_string(),
+                raw_id: result.credential_id,
+                r#type: PublicKeyCredentialType::PublicKey,
+                response: Box::new(AttestationResponse {
                     attestation_object: Some(result.attestation_object),
                     client_data_json: Some(client_data_json.into_bytes()),
-                })),
+                    // The device auth key lives in device-bound storage, so the credential is
+                    // only reachable through the platform authenticator.
+                    transports: vec![AuthenticatorTransport::Internal],
+                }),
+                // Deprecated alias for client_extension_results. Both deserialize into the same
+                // value with no precedence, so only client_extension_results is populated.
                 extensions: None,
+                // The authenticator's PRF output is consumed locally for the rotateable key set,
+                // and PRF support is reported through supports_prf, so the server needs no client
+                // extension outputs here.
+                client_extension_results: Box::new(AuthenticationExtensionsClientOutputs::new()),
             }),
             name: client_name,
             token,
@@ -374,12 +385,6 @@ fn convert_creation_options(
     origin: String,
 ) -> Result<(passkey::types::ctap2::make_credential::Request, String), WebAuthnEntityError> {
     let mut missing_fields = Vec::with_capacity(0);
-    if options.rp.is_none() {
-        missing_fields.push("rp".to_string());
-    }
-    if options.user.is_none() {
-        missing_fields.push("user".to_string());
-    }
     if options.challenge.is_none() {
         missing_fields.push("challenge".to_string());
     }
@@ -391,8 +396,8 @@ fn convert_creation_options(
     }
 
     let CredentialCreateOptions {
-        rp: Some(rp),
-        user: Some(user),
+        rp,
+        user,
         challenge: Some(challenge),
         pub_key_cred_params: Some(pub_key_cred_params),
         authenticator_selection,
@@ -405,10 +410,7 @@ fn convert_creation_options(
         unreachable!("Missing required fields on options");
     };
 
-    let challenge_b64 = bitwarden_encoding::B64Url::from(challenge.as_ref())
-        .to_string()
-        .trim_end_matches('=')
-        .to_string();
+    let challenge_b64 = bitwarden_encoding::B64Url::from(challenge.as_ref()).to_string();
     let client_data_json = format!(
         r#"{{"type":"webauthn.create","challenge":"{}","origin":"{}","crossOrigin":false}}"#,
         challenge_b64, origin
@@ -444,6 +446,9 @@ fn convert_creation_options(
     let authenticator_options = authenticator_selection
         .as_ref()
         .map(|o| Options {
+            // TODO: Consider deriving `rk` from `resident_key` instead. Fido2NetLib marks
+            // `RequireResidentKey` obsolete in favor of `ResidentKey`. The device auth key must
+            // be discoverable, so options that carry only `residentKey` would leave `rk` false.
             rk: o.require_resident_key.unwrap_or_default(),
             uv: !matches!(
                 o.user_verification,
