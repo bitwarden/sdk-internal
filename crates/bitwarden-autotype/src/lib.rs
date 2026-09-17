@@ -1,7 +1,4 @@
-//! # Bitwarden Autotype
-//!
-//! This crate provides encrypted IPC channels for the Bitwarden Desktop Autotype GA implementation,
-//! using [`bitwarden_ipc`] within sdk-internal.
+#![doc = include_str!("../README.md")]
 
 pub mod echo;
 
