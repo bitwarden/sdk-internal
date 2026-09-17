@@ -19,24 +19,6 @@ pub const INSTANT_EVENT_DURATION_MS: f64 = 50.0;
 /// Property flagging an entry whose duration is nominal rather than measured.
 pub const INSTANT_EVENT_PROPERTY: &str = "instant";
 
-/// Starts a timed event. The caller holds on to the returned event, optionally marks intermediate
-/// steps on it, and lets it drop once the operation is done — which writes the measurement.
-pub fn start_event(descriptor: PerformanceEventDescriptor) -> PerformanceEvent {
-    PerformanceEvent::start(descriptor)
-}
-
-/// Records a point-in-time event — a message arriving, a session being torn down.
-///
-/// Because a zero-length entry is invisible in the DevTools performance panel, the event is written
-/// with a fixed, nominal duration and flagged with the [`INSTANT_EVENT_PROPERTY`] property so it is
-/// not mistaken for a real measurement.
-pub fn log_event(descriptor: PerformanceEventDescriptor) {
-    let start = timeline::now();
-    let end = timeline::Instant(start.0 + INSTANT_EVENT_DURATION_MS);
-
-    timeline::measure(descriptor.prop(INSTANT_EVENT_PROPERTY, true), start, end);
-}
-
 /// Records a standalone named point on the timeline, for a step that belongs to no one event.
 ///
 /// Prefer [`PerformanceEvent::mark`], which scopes the mark to the event it belongs to.
@@ -56,7 +38,7 @@ mod tests {
     /// after-the-fact properties and is written exactly once.
     #[test]
     fn event_writes_on_drop() {
-        let mut event = start_event(descriptor().prop("method", "pin"));
+        let mut event = descriptor().prop("method", "pin").start();
         event.mark("halfway");
         event.prop("outcome", "ok");
     }
@@ -64,7 +46,7 @@ mod tests {
     #[test]
     fn event_writes_on_early_return() {
         fn traced() -> Option<()> {
-            let _event = start_event(descriptor());
+            let _event = descriptor().start();
             None?
         }
 
@@ -73,13 +55,13 @@ mod tests {
 
     #[test]
     fn finish_writes_before_the_scope_ends() {
-        let event = start_event(descriptor());
+        let event = descriptor().start();
         event.finish();
     }
 
     #[test]
     fn record_result_only_reports_failures() {
-        let mut event = start_event(descriptor());
+        let mut event = descriptor().start();
 
         event.record_result(&Ok::<(), &str>(()));
         assert!(properties(&event).is_empty());
@@ -100,7 +82,7 @@ mod tests {
             vec![(INSTANT_EVENT_PROPERTY.to_owned(), "true".to_owned())]
         );
 
-        log_event(descriptor());
+        descriptor().log();
     }
 
     fn properties(event: &PerformanceEvent) -> Vec<(String, String)> {

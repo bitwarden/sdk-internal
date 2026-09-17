@@ -122,6 +122,7 @@ pub use message::*;
 mod peer;
 pub use peer::*;
 mod timing;
+mod trace;
 
 /// Wasm support module for shared unlock
 #[cfg(feature = "wasm")]

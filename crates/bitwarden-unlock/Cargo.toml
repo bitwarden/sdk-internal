@@ -34,6 +34,7 @@ uniffi = [
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-performance-tracking = { workspace = true }
 bitwarden-state = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

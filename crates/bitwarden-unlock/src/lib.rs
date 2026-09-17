@@ -5,6 +5,8 @@
 uniffi::setup_scaffolding!();
 
 mod session_key;
+#[cfg(feature = "cli")]
+mod trace;
 mod unlock_client;
 
 pub use session_key::SessionKey;

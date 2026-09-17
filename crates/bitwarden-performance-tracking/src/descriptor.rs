@@ -2,6 +2,12 @@
 
 use std::borrow::Cow;
 
+use crate::{
+    INSTANT_EVENT_DURATION_MS, INSTANT_EVENT_PROPERTY,
+    event::PerformanceEvent,
+    timeline::{self, Instant},
+};
+
 /// The three names identifying an event, plus the properties known before it runs.
 ///
 /// The names form a hierarchy in the DevTools performance panel: `namespace` is the track group,
@@ -44,6 +50,25 @@ impl PerformanceEventDescriptor {
     pub fn prop(mut self, key: &str, value: impl std::fmt::Display) -> Self {
         self.properties.push((key.to_owned(), value.to_string()));
         self
+    }
+
+    /// Starts a timed event. The caller holds on to the returned event, optionally marks
+    /// intermediate steps on it, and lets it drop once the operation is done — which writes the
+    /// measurement spanning the work.
+    pub fn start(self) -> PerformanceEvent {
+        PerformanceEvent::start(self)
+    }
+
+    /// Records the event as a point in time — a message arriving, a session being torn down.
+    ///
+    /// Because a zero-length entry is invisible in the DevTools performance panel, the event is
+    /// written with a fixed, nominal duration and flagged with the [`INSTANT_EVENT_PROPERTY`]
+    /// property so it is not mistaken for a real measurement.
+    pub fn log(self) {
+        let start = timeline::now();
+        let end = Instant(start.0 + INSTANT_EVENT_DURATION_MS);
+
+        timeline::measure(self.prop(INSTANT_EVENT_PROPERTY, true), start, end);
     }
 
     /// The label DevTools shows on the entry, which names the track it sits on so an entry stays

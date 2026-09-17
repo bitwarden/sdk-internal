@@ -18,6 +18,7 @@ use std::{num::TryFromIntError, str::FromStr};
 
 use argon2::Params;
 use bitwarden_encoding::{B64, FromStrVisitor};
+use bitwarden_performance_tracking::PerformanceEventDescriptor;
 use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::Rng;
@@ -43,6 +44,7 @@ use crate::{
         helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
         set_contained_key_id,
     },
+    trace,
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:
@@ -564,13 +566,40 @@ impl TryInto<Pbkdf2RawSettings> for &Header {
 }
 
 /// Derives the envelope key from the password using the configured KDF.
+///
+/// Traced on the slow crypto track — sealing and unsealing an envelope is dominated by this call.
 fn derive_key(
     kdf: &EnvelopeKdf,
     password: &str,
 ) -> Result<[u8; ENVELOPE_ARGON2_OUTPUT_KEY_SIZE], PasswordProtectedKeyEnvelopeError> {
-    match kdf {
+    // Measure the heavy crypto on the devtools
+    let mut event = track_entry_for_kdf(kdf).start();
+
+    let result = match kdf {
         EnvelopeKdf::Argon2id(settings) => derive_argon2_key(settings, password),
         EnvelopeKdf::Pbkdf2(settings) => derive_pbkdf2_key(settings, password),
+    };
+    event.record_result(&result);
+
+    result
+}
+
+fn track_entry_for_kdf(kdf: &EnvelopeKdf) -> PerformanceEventDescriptor {
+    match kdf {
+        EnvelopeKdf::Argon2id(settings) => PerformanceEventDescriptor::new(
+            trace::GROUP,
+            trace::ARGON2_TRACK,
+            "Derive envelope key",
+        )
+        .prop("iterations", settings.iterations)
+        .prop("memory_kib", settings.memory)
+        .prop("parallelism", settings.parallelism),
+        EnvelopeKdf::Pbkdf2(settings) => PerformanceEventDescriptor::new(
+            trace::GROUP,
+            trace::PBKDF2_TRACK,
+            "Derive envelope key",
+        )
+        .prop("iterations", settings.iterations),
     }
 }
 

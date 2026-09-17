@@ -61,7 +61,7 @@ pub fn start_performance_event(
     properties: Option<Array>,
 ) -> JsPerformanceEvent {
     JsPerformanceEvent {
-        inner: crate::start_event(descriptor(namespace, category, name, properties)),
+        inner: descriptor(namespace, category, name, properties).start(),
     }
 }
 
@@ -73,7 +73,7 @@ pub fn log_performance_event(
     name: String,
     properties: Option<Array>,
 ) {
-    crate::log_event(descriptor(namespace, category, name, properties));
+    descriptor(namespace, category, name, properties).log();
 }
 
 /// Records a standalone named point on the timeline.

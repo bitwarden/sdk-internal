@@ -33,6 +33,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true, optional = true }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true }
+bitwarden-performance-tracking = { workspace = true }
 bitwarden-threading = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

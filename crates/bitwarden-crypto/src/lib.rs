@@ -27,6 +27,7 @@ mod rsa;
 pub use crate::rsa::RsaKeyPair;
 mod stream;
 pub use stream::*;
+mod trace;
 mod util;
 pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
 mod wordlist;

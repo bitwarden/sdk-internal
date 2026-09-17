@@ -24,6 +24,7 @@ test-support = [] # Expose test utilities (InMemoryCommunicationBackend) for dow
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true }
+bitwarden-performance-tracking = { workspace = true }
 bitwarden-random = { workspace = true, features = ["snow"] }
 bitwarden-threading = { workspace = true }
 ciborium = { workspace = true }

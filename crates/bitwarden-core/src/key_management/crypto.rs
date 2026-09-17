@@ -21,6 +21,7 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{SymmetricKeyAlgorithm, safe::PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
+use bitwarden_performance_tracking::PerformanceEventDescriptor;
 #[cfg(feature = "uniffi")]
 pub(super) use reinit_user_crypto::reinit_user_crypto;
 #[cfg(feature = "uniffi")]
@@ -53,6 +54,7 @@ use crate::{
         },
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
         pin_lock_system::{PinLockSystem, UnlockError},
+        trace,
     },
 };
 
@@ -198,6 +200,9 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
+///
+/// Traced on the `Key Management` track: this is an unlock, so it is the span every other cost
+/// during startup hangs off.
 #[bitwarden_logging::instrument(err)]
 pub(super) async fn initialize_user_crypto(
     client: &Client,
@@ -206,6 +211,11 @@ pub(super) async fn initialize_user_crypto(
     use bitwarden_crypto::{DeviceKey, PinKey};
 
     use crate::auth::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
+
+    // Held for the whole function, so the entry is drawn on every exit path, `?` included.
+    let _event = PerformanceEventDescriptor::new(trace::GROUP, trace::USER_CRYPTO_TRACK, "Unlock")
+        .prop("method", trace::method_name(&req.method))
+        .start();
 
     if let Some(user_id) = req.user_id {
         client.internal.init_user_id(user_id).await?;
@@ -434,6 +444,17 @@ pub(super) async fn initialize_org_crypto(
     req: InitOrgCryptoRequest,
 ) -> Result<(), EncryptionSettingsError> {
     let organization_keys: Vec<_> = req.organization_keys.into_iter().collect();
+
+    // Spans the unwrapping of every organization key plus persisting them, which is the part that
+    // grows with the number of organizations a user belongs to.
+    let _event = PerformanceEventDescriptor::new(
+        trace::GROUP,
+        trace::ORG_CRYPTO_TRACK,
+        "Initialize organization keys",
+    )
+    .prop("organizations", organization_keys.len())
+    .start();
+
     client
         .internal
         .initialize_org_crypto(organization_keys.clone())?;
