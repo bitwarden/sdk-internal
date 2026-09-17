@@ -171,8 +171,8 @@ impl DeviceAuthKeyAuthenticator<'_> {
                     // only reachable through the platform authenticator.
                     transports: vec![AuthenticatorTransport::Internal],
                 }),
-                // Deprecated alias for client_extension_results; the server writes both to the
-                // same field, so only one is populated.
+                // Deprecated alias for client_extension_results. Both deserialize into the same
+                // value with no precedence, so only client_extension_results is populated.
                 extensions: None,
                 // The authenticator's PRF output is consumed locally for the rotateable key set,
                 // and PRF support is reported through supports_prf, so the server needs no client
