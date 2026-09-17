@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use bitwarden_logging::devtools_trace::TrackEntry;
 use bitwarden_threading::cancellation_token::CancellationToken;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
@@ -17,7 +18,7 @@ use crate::{
         request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
         response_message::OutgoingRpcResponseMessage,
     },
-    serde_utils,
+    serde_utils, trace,
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
 
@@ -146,6 +147,10 @@ where
                         break;
                     }
                     received = inner.crypto.receive(&com_receiver, &inner.communication, &inner.sessions) => {
+                        if let Ok(ref message) = received {
+                            trace_incoming(message);
+                        }
+
                         match received {
                             Ok(message) if message.topic == Some(rpc_topic) => {
                                 handle_rpc_request(&inner, message)
@@ -199,11 +204,27 @@ where
     }
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError> {
+        // Spans the encryption and the handshake it may trigger, not just the transport write.
+        let mut timed = TrackEntry::new(
+            trace::GROUP,
+            trace::MESSAGES_TRACK,
+            format!("Send → {:?}", message.destination),
+        )
+        .prop("destination", format!("{:?}", message.destination))
+        .prop("topic", message.topic.as_deref().unwrap_or("-"))
+        .prop("bytes", message.payload.len())
+        .timed();
+
         let result = self
             .inner
             .crypto
             .send(&self.inner.communication, &self.inner.sessions, message)
             .await;
+
+        match result {
+            Ok(()) => timed.prop("outcome", "sent"),
+            Err(ref error) => timed.prop("outcome", format!("{:?}", error.kind())),
+        }
 
         if let Err(ref error) = result {
             match error.kind() {
@@ -252,6 +273,21 @@ where
             .register_erased(name.to_owned(), handler)
             .await;
     }
+}
+
+/// Draws a decrypted incoming message on the IPC messages track. Zero-length: the receive loop only
+/// learns of the message once it is already decrypted, so there is no start to span from — the
+/// decryption itself is spanned on the Noise track by the crypto provider.
+fn trace_incoming(message: &IncomingMessage) {
+    TrackEntry::new(
+        trace::GROUP,
+        trace::MESSAGES_TRACK,
+        format!("Receive ← {:?}", message.source),
+    )
+    .prop("source", format!("{:?}", message.source))
+    .prop("topic", message.topic.as_deref().unwrap_or("-"))
+    .prop("bytes", message.payload.len())
+    .emit();
 }
 
 fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)

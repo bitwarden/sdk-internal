@@ -1,5 +1,6 @@
 use std::{num::NonZeroU32, pin::Pin};
 
+use bitwarden_logging::devtools_trace::TrackEntry;
 use hybrid_array::Array;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,7 @@ use tsify::Tsify;
 use typenum::U32;
 use zeroize::Zeroize;
 
-use crate::CryptoError;
+use crate::{CryptoError, trace};
 
 const PBKDF2_MIN_ITERATIONS: u32 = 5000;
 
@@ -28,13 +29,44 @@ const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 #[cfg_attr(feature = "dangerous-crypto-debug", derive(Debug))]
 pub struct KdfDerivedKeyMaterial(pub(super) Pin<Box<Array<u8, U32>>>);
 
+/// Draws a derivation on the slow crypto track for the algorithm in use, carrying the parameters
+/// that decide how long it takes.
+fn kdf_entry(kdf: &Kdf) -> TrackEntry {
+    match kdf {
+        Kdf::PBKDF2 { iterations } => {
+            TrackEntry::new(trace::GROUP, trace::PBKDF2_TRACK, "Derive key")
+                .prop("iterations", iterations)
+        }
+        Kdf::Argon2id {
+            iterations,
+            memory,
+            parallelism,
+        } => TrackEntry::new(trace::GROUP, trace::ARGON2_TRACK, "Derive key")
+            .prop("iterations", iterations)
+            .prop("memory_mib", memory)
+            .prop("parallelism", parallelism),
+    }
+}
+
 impl KdfDerivedKeyMaterial {
     /// Derive a key from a secret and salt using the provided KDF.
+    ///
+    /// Traced on the slow crypto track: this is deliberately the slowest operation in the crate,
+    /// and on a profile it is usually the only thing worth looking at.
     pub(super) fn derive_kdf_key(
         secret: &[u8],
         salt: &[u8],
         kdf: &Kdf,
     ) -> Result<Self, CryptoError> {
+        let mut timed = kdf_entry(kdf).timed();
+
+        let result = Self::run_kdf(secret, salt, kdf);
+        timed.record_result(&result);
+
+        result
+    }
+
+    fn run_kdf(secret: &[u8], salt: &[u8], kdf: &Kdf) -> Result<Self, CryptoError> {
         match kdf {
             Kdf::PBKDF2 { iterations } => {
                 let iterations = iterations.get();

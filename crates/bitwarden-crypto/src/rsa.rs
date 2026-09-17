@@ -1,4 +1,5 @@
 use bitwarden_encoding::B64;
+use bitwarden_logging::devtools_trace::TrackEntry;
 use rsa::{
     Oaep, RsaPrivateKey, RsaPublicKey,
     pkcs8::{EncodePrivateKey, EncodePublicKey},
@@ -8,6 +9,7 @@ use sha1::Sha1;
 use crate::{
     CryptoError, EncString, SymmetricCryptoKey,
     error::{Result, RsaError, UnsupportedOperationError},
+    trace,
 };
 
 /// RSA Key Pair
@@ -21,11 +23,24 @@ pub struct RsaKeyPair {
     pub private: EncString,
 }
 
+/// Modulus size of every RSA key pair the SDK generates.
+pub(crate) const RSA_KEY_BITS: usize = 2048;
+
+/// Draws an RSA operation on the slow crypto track.
+pub(crate) fn rsa_entry(name: &'static str) -> TrackEntry {
+    TrackEntry::new(trace::GROUP, trace::RSA_TRACK, name)
+}
+
 /// Generate a new RSA key pair of 2048 bits
 pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
     let mut rng = bitwarden_random::rng();
-    let bits = 2048;
-    let priv_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
+    let priv_key = {
+        let _timed = rsa_entry("Generate key pair")
+            .prop("bits", RSA_KEY_BITS)
+            .timed();
+
+        RsaPrivateKey::new(&mut rng, RSA_KEY_BITS).expect("failed to generate a key")
+    };
     let pub_key = RsaPublicKey::from(&priv_key);
 
     let spki = pub_key
@@ -65,7 +80,12 @@ pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) 
     let mut rng = bitwarden_random::rng();
 
     let padding = Oaep::<Sha1>::new();
-    public_key
+    let mut timed = rsa_entry("Encrypt").prop("padding", "OAEP-SHA1").timed();
+
+    let result = public_key
         .encrypt(&mut rng, padding, data)
-        .map_err(|e| CryptoError::Rsa(e.into()))
+        .map_err(|e| CryptoError::Rsa(e.into()));
+    timed.record_result(&result);
+
+    result
 }

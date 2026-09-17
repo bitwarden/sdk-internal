@@ -28,6 +28,12 @@ tracing-subscriber = { workspace = true }
 tsify = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
+# The DevTools performance tracks are drawn through the browser Performance API directly, so they
+# are available to every wasm consumer rather than gated behind the `wasm` bindings feature.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = { workspace = true }
+wasm-bindgen = { workspace = true }
+
 [dev-dependencies]
 criterion = "0.8.0"
 trybuild = "1.0.101"

@@ -17,6 +17,7 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_ipc::{
     Endpoint, IpcClient, IpcClientExt, RequestError, Source, SubscribeError, TypedIncomingMessage,
 };
+use bitwarden_logging::devtools_trace::TrackEntry;
 use bitwarden_threading::{cancellation_token, time::sleep};
 use thiserror::Error;
 use tracing::warn;
@@ -26,7 +27,36 @@ use crate::{
     active_peers::{ActivePeerTracker, SyncTarget},
     drivers::SharedUnlockDriver,
     timing::{SharedUnlockTiming, now_millis},
+    trace,
 };
+
+/// Draws an announce on the shared unlock announces track.
+fn announce_entry(
+    name: impl Into<String>,
+    user_id: UserId,
+    peer: &impl std::fmt::Debug,
+) -> TrackEntry {
+    TrackEntry::new(trace::GROUP, trace::ANNOUNCES_TRACK, name)
+        .prop("user_id", user_id)
+        .prop("peer", format!("{peer:?}"))
+}
+
+/// What became of an incoming sync, as reported on the announces track.
+enum SyncOutcome {
+    /// Rejected before reconciliation, for the given reason.
+    Dropped(&'static str),
+    /// Reconciled against this device's record, which may or may not have changed anything.
+    Reconciled,
+}
+
+impl SyncOutcome {
+    fn describe(&self) -> &'static str {
+        match self {
+            SyncOutcome::Dropped(reason) => reason,
+            SyncOutcome::Reconciled => "reconciled",
+        }
+    }
+}
 
 /// Error type for failure to start a shared unlock peer.
 #[bitwarden_error(basic)]
@@ -192,10 +222,39 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
     }
 
     /// Handles a sync from another peer.
+    ///
+    /// Traced as one entry spanning the whole handling, which for a state that differs includes the
+    /// driver's lock or unlock — the expensive part of a shared unlock.
     pub async fn receive_message(
         &self,
         incoming_message: TypedIncomingMessage<SharedUnlockSync>,
     ) -> Result<(), ()> {
+        let mut timed = announce_entry(
+            "Sync ←",
+            incoming_message.payload.user_id,
+            &incoming_message.source,
+        )
+        .prop(
+            "lock_state",
+            incoming_message.payload.state.lock_state.describe(),
+        )
+        .prop("changed_at", incoming_message.payload.state.changed_at)
+        .timed();
+
+        let result = self.handle_incoming(incoming_message).await;
+
+        match &result {
+            Ok(outcome) => timed.prop("outcome", outcome.describe()),
+            Err(()) => timed.prop("outcome", "failed"),
+        }
+
+        result.map(|_| ())
+    }
+
+    async fn handle_incoming(
+        &self,
+        incoming_message: TypedIncomingMessage<SharedUnlockSync>,
+    ) -> Result<SyncOutcome, ()> {
         let source = incoming_message.source;
         let SharedUnlockSync { user_id, state } = incoming_message.payload;
 
@@ -205,7 +264,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 %user_id,
                 "Ignoring shared unlock sync from a client this user is not shared with"
             );
-            return Ok(());
+            return Ok(SyncOutcome::Dropped("not a destination"));
         }
 
         // Validate the origin of web sources against the user's vault URL
@@ -214,11 +273,11 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 Some(user_vault_url) if origin == &user_vault_url => {}
                 Some(user_vault_url) => {
                     warn!(%origin, %user_vault_url, "IPC message origin does not match user's vault URL, ignoring message");
-                    return Ok(());
+                    return Ok(SyncOutcome::Dropped("origin mismatch"));
                 }
                 None => {
                     warn!(%origin, "No vault URL found for user, ignoring message");
-                    return Ok(());
+                    return Ok(SyncOutcome::Dropped("no vault url"));
                 }
             }
         }
@@ -228,7 +287,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
                 %user_id,
                 "Ignoring shared unlock sync for a user this device has no account for"
             );
-            return Ok(());
+            return Ok(SyncOutcome::Dropped("unknown user"));
         }
 
         let target = SyncTarget::from_source(&source);
@@ -252,7 +311,7 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             self.sync_all_users_to(&target).await;
         }
 
-        Ok(())
+        Ok(SyncOutcome::Reconciled)
     }
 
     /// Records a lock state change made on this device and syncs it to every peer immediately.
@@ -416,12 +475,24 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> SharedUnlockPeer<D> {
             "Sending a shared unlock sync"
         );
 
-        if let Err(error) = self
+        let mut timed = announce_entry("Sync →", message.user_id, &recipient)
+            .prop("lock_state", message.state.lock_state.describe())
+            .prop("changed_at", message.state.changed_at)
+            .timed();
+
+        let result = self
             .0
             .ipc_client
             .send_typed(message, recipient.clone())
-            .await
-        {
+            .await;
+
+        match &result {
+            Ok(()) => timed.prop("outcome", "sent"),
+            Err(RequestError::Unreachable) => timed.prop("outcome", "unreachable"),
+            Err(error) => timed.prop("outcome", format!("{error:?}")),
+        }
+
+        if let Err(error) = result {
             match error {
                 RequestError::Unreachable => {
                     // Expected whenever a peer is not running — a device with no desktop app syncs

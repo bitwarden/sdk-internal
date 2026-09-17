@@ -40,11 +40,14 @@ pub use signing_key::SigningKey;
 mod verifying_key;
 pub use verifying_key::VerifyingKey;
 mod message;
+use bitwarden_logging::devtools_trace::TrackEntry;
 pub use message::SerializedMessage;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
+
+use crate::trace;
 
 /// The type of key / signature scheme used for signing and verifying.
 #[derive(Serialize, Deserialize, Debug, JsonSchema, PartialEq)]
@@ -66,6 +69,19 @@ impl SignatureAlgorithm {
     pub fn default_algorithm() -> Self {
         SignatureAlgorithm::MlDsa44
     }
+
+    /// The slow crypto track this algorithm's operations are drawn on.
+    fn trace_track(&self) -> &'static str {
+        match self {
+            SignatureAlgorithm::Ed25519 => trace::ED25519_TRACK,
+            SignatureAlgorithm::MlDsa44 => trace::ML_DSA_TRACK,
+        }
+    }
+}
+
+/// Draws a signature operation on the slow crypto track of the scheme in use.
+fn signature_entry(algorithm: SignatureAlgorithm, name: &'static str) -> TrackEntry {
+    TrackEntry::new(trace::GROUP, algorithm.trace_track(), name)
 }
 
 impl std::fmt::Display for SignatureAlgorithm {

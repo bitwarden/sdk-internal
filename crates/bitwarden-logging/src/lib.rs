@@ -2,6 +2,7 @@
 
 mod circular_buffer;
 mod config;
+pub mod devtools_trace;
 mod event;
 mod global;
 mod layer;

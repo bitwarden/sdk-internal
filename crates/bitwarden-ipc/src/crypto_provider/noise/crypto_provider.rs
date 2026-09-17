@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use bitwarden_logging::devtools_trace::TrackEntry;
 use bitwarden_threading::time::timeout;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
@@ -12,8 +13,10 @@ use crate::{
         },
         transport_state::{PersistentTransportState, TransportFrame},
     },
+    endpoint::Endpoint,
     error::{ErrorKind, IpcErrorKind},
     message::{IncomingMessage, OutgoingMessage},
+    trace,
     traits::{
         CommunicationBackend, CommunicationBackendReceiver, CryptoProvider, SessionRepository,
     },
@@ -86,11 +89,40 @@ fn transport_send_error<E: IpcErrorKind>(e: E) -> NoiseCryptoProviderError {
     }
 }
 
+/// Draws a Noise session event on the IPC noise track.
+fn noise_entry(name: impl Into<String>, endpoint: &Endpoint) -> TrackEntry {
+    TrackEntry::new(trace::GROUP, trace::NOISE_TRACK, name).prop("peer", format!("{endpoint:?}"))
+}
+
 impl NoiseCryptoProvider {
+    /// Wraps [`NoiseCryptoProvider::run_handshake`] so the whole handshake — including the up to
+    /// [`HANDSHAKE_TIMEOUT_SECS`] spent waiting for the peer's reply — shows up as one entry,
+    /// whichever way it ends.
     async fn perform_handshake<Com, Ses>(
         communication: &Com,
         sessions: &Ses,
-        destination: crate::endpoint::Endpoint,
+        destination: Endpoint,
+    ) -> Result<(), NoiseCryptoProviderError>
+    where
+        Com: CommunicationBackend,
+        Ses: SessionRepository<NoiseCryptoProviderState>,
+    {
+        let mut timed = noise_entry("Handshake (initiator)", &destination).timed();
+
+        let result = Self::run_handshake(communication, sessions, destination).await;
+
+        match result {
+            Ok(()) => timed.prop("outcome", "established"),
+            Err(ref error) => timed.prop("outcome", format!("{error:?}")),
+        }
+
+        result
+    }
+
+    async fn run_handshake<Com, Ses>(
+        communication: &Com,
+        sessions: &Ses,
+        destination: Endpoint,
     ) -> Result<(), NoiseCryptoProviderError>
     where
         Com: CommunicationBackend,
@@ -219,6 +251,9 @@ where
                 "Noise session with {:?} is older than {}s, re-handshaking",
                 destination, REHANDSHAKE_INTERVAL_SECS
             );
+            noise_entry("Session expired", &destination)
+                .prop("after_secs", REHANDSHAKE_INTERVAL_SECS)
+                .emit();
             sessions
                 .remove(destination.clone())
                 .await
@@ -331,11 +366,18 @@ where
             // Decode outer transport frame from wire
             let Ok(transport_frame) = Frame::from_cbor(&message.payload) else {
                 warn!("Received malformed cbor message, ignoring");
+                noise_entry("Malformed frame ←", &source_endpoint).emit();
                 continue;
             };
 
             match transport_frame {
                 Frame::HandshakeStart(handshake_start) => {
+                    // Guarded rather than emitted at the end, so a handshake that fails partway
+                    // through still shows up on the track.
+                    let mut timed = noise_entry("Handshake (responder)", &source_endpoint)
+                        .prop("ciphersuite", handshake_start.ciphersuite)
+                        .timed();
+
                     let mut responder = HandshakeResponder::new(&handshake_start.ciphersuite);
                     responder
                         .read_start_message(&handshake_start)
@@ -360,8 +402,16 @@ where
                         .save(source_endpoint, crypto_state)
                         .await
                         .expect("Save session should not fail");
+
+                    timed.prop("outcome", "established");
                 }
                 Frame::TransportFrame(transport_frame) => {
+                    // Started once the bytes are off the wire, so the entry spans the session
+                    // lookup and the decryption rather than the idle wait for traffic.
+                    let mut timed = noise_entry("Decrypt ←", &source_endpoint)
+                        .prop("bytes", message.payload.len())
+                        .timed();
+
                     let _crypto_state_guard = self.crypto_state_guard.lock().await;
                     let crypto_state = sessions
                         .get(source_endpoint.clone())
@@ -369,6 +419,7 @@ where
                         .expect("Get session should not fail");
                     let Some(mut state) = crypto_state else {
                         debug!("No session for {:?}, waiting for handshake", message.source);
+                        timed.prop("outcome", "no session; invalidating peer");
                         let frame = Frame::CryptoInvalidated.to_cbor();
                         communication
                             .send(OutgoingMessage {
@@ -384,6 +435,7 @@ where
                     let payload = state.state.receive(&transport_frame);
                     let Ok(payload) = payload else {
                         info!("Failed to decrypt message from {:?}", message.source);
+                        timed.prop("outcome", "decryption failed");
                         continue;
                     };
 
@@ -391,6 +443,8 @@ where
                         .save(source_endpoint, state)
                         .await
                         .expect("Save session should not fail");
+
+                    timed.prop("outcome", "decrypted");
 
                     return Ok(IncomingMessage {
                         payload: payload.as_ref().to_vec(),
@@ -400,6 +454,7 @@ where
                     });
                 }
                 Frame::CryptoInvalidated => {
+                    noise_entry("Session invalidated by peer", &source_endpoint).emit();
                     info!(
                         "Invalidated session for {:?} due to crypto error, deleting session and waiting for handshake",
                         message.source

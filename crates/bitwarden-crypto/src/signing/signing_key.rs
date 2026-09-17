@@ -13,7 +13,7 @@ use ml_dsa::{B32, MlDsa44};
 use rand::Rng;
 
 use super::{
-    SignatureAlgorithm, ed25519_signing_key, key_id, mldsa_seed,
+    SignatureAlgorithm, ed25519_signing_key, key_id, mldsa_seed, signature_entry,
     verifying_key::{RawVerifyingKey, VerifyingKey},
 };
 use crate::{
@@ -80,18 +80,26 @@ impl SigningKey {
     /// Makes a new signing key for the given signature scheme.
     pub fn make(algorithm: SignatureAlgorithm) -> Self {
         match algorithm {
-            SignatureAlgorithm::Ed25519 => SigningKey {
-                id: KeyId::make(),
-                inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
-                    &mut bitwarden_random::rng(),
-                ))),
-            },
+            SignatureAlgorithm::Ed25519 => {
+                let _timed = signature_entry(algorithm, "Generate key pair").timed();
+
+                SigningKey {
+                    id: KeyId::make(),
+                    inner: RawSigningKey::Ed25519(Box::pin(ed25519_dalek::SigningKey::generate(
+                        &mut bitwarden_random::rng(),
+                    ))),
+                }
+            }
             SignatureAlgorithm::MlDsa44 => {
                 // This is heap allocated from the start, so will be zeroized on drop
                 let mut seed = Box::pin(Array::from([0u8; 32]));
                 bitwarden_random::rng().fill_bytes(&mut seed);
 
-                let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
+                let kp = {
+                    let _timed = signature_entry(algorithm, "Generate key pair").timed();
+
+                    ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed)
+                };
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa44 {
@@ -130,6 +138,8 @@ impl SigningKey {
     /// This should not be used directly other than for generating namespace separated signatures or
     /// signed objects.
     pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
+        let _timed = signature_entry(self.algorithm(), "Sign").timed();
+
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
             RawSigningKey::MlDsa44 { signing_key, .. } => signing_key
@@ -138,6 +148,14 @@ impl SigningKey {
                 .encode()
                 .as_slice()
                 .to_vec(),
+        }
+    }
+
+    /// The signature scheme of this key.
+    fn algorithm(&self) -> SignatureAlgorithm {
+        match &self.inner {
+            RawSigningKey::Ed25519(_) => SignatureAlgorithm::Ed25519,
+            RawSigningKey::MlDsa44 { .. } => SignatureAlgorithm::MlDsa44,
         }
     }
 }
@@ -199,7 +217,13 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 RegisteredLabel::Assigned(KeyType::AKP),
             ) => {
                 let seed = mldsa_seed(&cose_key)?;
-                let kp = ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed);
+                // Expanding the seed is the whole cost of deserializing an ML-DSA key.
+                let kp = {
+                    let _timed =
+                        signature_entry(SignatureAlgorithm::MlDsa44, "Expand signing key").timed();
+
+                    ml_dsa::ExpandedSigningKey::<MlDsa44>::from_seed(&seed)
+                };
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
                     inner: RawSigningKey::MlDsa44 {

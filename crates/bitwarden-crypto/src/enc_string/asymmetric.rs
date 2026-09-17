@@ -12,7 +12,7 @@ use crate::{
     BitwardenLegacyKeyBytes, KeySlotIds, KeyStoreContext, PrivateKey, PublicKey, RawPrivateKey,
     RawPublicKey, SymmetricCryptoKey,
     error::{CryptoError, EncStringParseError, Result},
-    rsa::encrypt_rsa2048_oaep_sha1,
+    rsa::{encrypt_rsa2048_oaep_sha1, rsa_entry},
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
@@ -259,6 +259,18 @@ impl UnsignedSharedKey {
             UnsignedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { .. } => 6,
         }
     }
+
+    /// The OAEP hash function of this variant, for the trace entry.
+    const fn padding_name(&self) -> &'static str {
+        match self {
+            UnsignedSharedKey::Rsa2048_OaepSha256_B64 { .. } => "OAEP-SHA256",
+            UnsignedSharedKey::Rsa2048_OaepSha1_B64 { .. } => "OAEP-SHA1",
+            #[allow(deprecated)]
+            UnsignedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { .. } => "OAEP-SHA256",
+            #[allow(deprecated)]
+            UnsignedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { .. } => "OAEP-SHA1",
+        }
+    }
 }
 
 impl UnsignedSharedKey {
@@ -289,7 +301,11 @@ impl UnsignedSharedKey {
         match decapsulation_key.inner() {
             RawPrivateKey::RsaOaepSha1(rsa_private_key) => {
                 use UnsignedSharedKey::*;
-                let key_data = match self {
+                let mut timed = rsa_entry("Decrypt")
+                    .prop("padding", self.padding_name())
+                    .timed();
+
+                let decrypted = match self {
                     Rsa2048_OaepSha256_B64 { data } => {
                         rsa_private_key.decrypt(Oaep::<sha2::Sha256>::new(), data)
                     }
@@ -304,8 +320,10 @@ impl UnsignedSharedKey {
                     Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
                         rsa_private_key.decrypt(Oaep::<sha1::Sha1>::new(), data)
                     }
-                }
-                .map_err(|_| CryptoError::KeyDecrypt)?;
+                };
+                timed.record_result(&decrypted);
+
+                let key_data = decrypted.map_err(|_| CryptoError::KeyDecrypt)?;
                 SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_data))
             }
         }

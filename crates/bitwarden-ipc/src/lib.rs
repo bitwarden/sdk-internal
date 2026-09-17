@@ -11,6 +11,7 @@ mod ipc_client_trait;
 mod message;
 mod rpc;
 mod serde_utils;
+mod trace;
 mod traits;
 
 /// Re-export types to make sure wasm_bindgen picks them up

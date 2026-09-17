@@ -11,12 +11,34 @@ use std::str::FromStr;
 use bitwarden_core::UserId;
 use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest};
+use bitwarden_logging::devtools_trace::{TimedGuard, TrackEntry};
 use bitwarden_threading::{
     ThreadBoundRunner,
     cancellation_token::wasm::{AbortSignal, AbortSignalExt},
 };
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
+
+use crate::trace;
+
+/// Closes out a requester-side entry. The response itself is never reported — an unlock response
+/// carries a user key.
+fn trace_request_result<T>(timed: &mut TimedGuard, result: &Result<T, RequestError>) {
+    match result {
+        Ok(_) => timed.prop("outcome", "answered"),
+        Err(error) => timed.prop("outcome", format!("{error:?}")),
+    }
+}
+
+/// Draws a biometrics operation on the shared unlock biometrics track. `direction` distinguishes
+/// the client asking (`→`) from the device running the platform prompt (`←`).
+fn biometrics_entry(operation: &str, direction: &str) -> TrackEntry {
+    TrackEntry::new(
+        trace::GROUP,
+        trace::BIOMETRICS_TRACK,
+        format!("{operation} {direction}"),
+    )
+}
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_BIOMETRICS_TYPES: &'static str = r#"
@@ -216,9 +238,18 @@ impl RpcHandler for GetBiometricsStatusHandler {
     type Request = GetBiometricsStatusRequest;
 
     async fn handle(&self, request: Self::Request) -> BiometricsStatus {
-        self.biometrics_unlock
+        let mut timed = biometrics_entry("GetStatus", "←")
+            .prop("user_id", request.user_id)
+            .timed();
+
+        let status = self
+            .biometrics_unlock
             .get_biometrics_status(request.user_id)
-            .await
+            .await;
+
+        timed.prop("status", format!("{status:?}"));
+
+        status
     }
 }
 
@@ -238,10 +269,21 @@ impl RpcHandler for UnlockBiometricsHandler {
     type Request = UnlockBiometricsRequest;
 
     async fn handle(&self, request: Self::Request) -> UnlockBiometricsResponse {
+        let mut timed = biometrics_entry("Unlock", "←")
+            .prop("user_id", request.user_id)
+            .timed();
+
         let user_key = self
             .biometrics_unlock
             .unlock_biometrics(request.user_id)
             .await;
+
+        // Only whether a key came back is reported; the key itself never leaves this scope.
+        match user_key {
+            Some(_) => timed.prop("outcome", "unlocked"),
+            None => timed.prop("outcome", "canceled or failed"),
+        }
+
         UnlockBiometricsResponse { user_key }
     }
 }
@@ -262,7 +304,16 @@ impl RpcHandler for AuthenticateBiometricsHandler {
     type Request = AuthenticateBiometricsRequest;
 
     async fn handle(&self, _: Self::Request) -> bool {
-        self.biometrics_unlock.authenticate_biometrics().await
+        let mut timed = biometrics_entry("Authenticate", "←").timed();
+
+        let succeeded = self.biometrics_unlock.authenticate_biometrics().await;
+
+        match succeeded {
+            true => timed.prop("outcome", "verified"),
+            false => timed.prop("outcome", "rejected"),
+        }
+
+        succeeded
     }
 }
 
@@ -300,14 +351,22 @@ pub async fn ipc_request_get_biometrics_status(
     user_id: UserId,
     abort_signal: Option<AbortSignal>,
 ) -> Result<BiometricsStatus, RequestError> {
-    ipc_client
+    let mut timed = biometrics_entry("GetStatus", "→")
+        .prop("user_id", user_id)
+        .prop("destination", format!("{:?}", Endpoint::DesktopRenderer))
+        .timed();
+
+    let result = ipc_client
         .client
         .request(
             GetBiometricsStatusRequest { user_id },
             Endpoint::DesktopRenderer,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
-        .await
+        .await;
+
+    trace_request_result(&mut timed, &result);
+    result
 }
 
 /// Sends an `UnlockBiometrics` RPC request to the desktop renderer.
@@ -317,14 +376,22 @@ pub async fn ipc_request_unlock_biometrics(
     user_id: UserId,
     abort_signal: Option<AbortSignal>,
 ) -> Result<UnlockBiometricsResponse, RequestError> {
-    ipc_client
+    let mut timed = biometrics_entry("Unlock", "→")
+        .prop("user_id", user_id)
+        .prop("destination", format!("{:?}", Endpoint::DesktopRenderer))
+        .timed();
+
+    let result = ipc_client
         .client
         .request(
             UnlockBiometricsRequest { user_id },
             Endpoint::DesktopRenderer,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
-        .await
+        .await;
+
+    trace_request_result(&mut timed, &result);
+    result
 }
 
 /// Sends an `AuthenticateBiometrics` RPC request to the desktop renderer.
@@ -333,12 +400,19 @@ pub async fn ipc_request_authenticate_biometrics(
     ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     abort_signal: Option<AbortSignal>,
 ) -> Result<bool, RequestError> {
-    ipc_client
+    let mut timed = biometrics_entry("Authenticate", "→")
+        .prop("destination", format!("{:?}", Endpoint::DesktopRenderer))
+        .timed();
+
+    let result = ipc_client
         .client
         .request(
             AuthenticateBiometricsRequest,
             Endpoint::DesktopRenderer,
             abort_signal.map(|signal| signal.to_cancellation_token()),
         )
-        .await
+        .await;
+
+    trace_request_result(&mut timed, &result);
+    result
 }
