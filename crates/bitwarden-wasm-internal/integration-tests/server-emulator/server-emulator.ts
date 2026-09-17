@@ -73,7 +73,7 @@ export function toMasterPasswordUnlock(vector: SeedAccount): StoredMasterPasswor
       masterKeyWrappedUserKey: asEncString(unlock.masterKeyWrappedUserKey),
       salt: unlock.salt,
       kdf: unlock.kdf,
-      ...(unlock.containedKeyId === undefined ? {} : { containedKeyId: unlock.containedKeyId }),
+      containedKeyId: unlock.containedKeyId,
     };
   }
 
@@ -147,7 +147,7 @@ export class ServerEmulator {
       kdf: account.kdf,
       userKeyId: account.userKeyId,
       masterPasswordUnlock: toMasterPasswordUnlock(vector),
-      ...(account.upgradeToken === undefined ? {} : { upgradeToken: account.upgradeToken }),
+      upgradeToken: account.upgradeToken,
       organizationKeys: account.organizationKeys ?? {},
     };
 
@@ -186,9 +186,7 @@ export class ServerEmulator {
       members.push({
         userId: user.userId,
         organizationKeySealedToMember: member.organizationKeySealedToMember,
-        ...(member.accountRecoveryKey === undefined
-          ? {}
-          : { accountRecoveryKey: member.accountRecoveryKey }),
+        accountRecoveryKey: member.accountRecoveryKey,
       });
     }
 

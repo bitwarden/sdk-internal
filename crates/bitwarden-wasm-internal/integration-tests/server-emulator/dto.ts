@@ -97,7 +97,7 @@ export class MasterPasswordUnlockDataModel {
       masterKeyWrappedUserKey: asEncString(posted.masterKeyWrappedUserKey),
       salt: posted.salt,
       kdf: toKdf(posted.kdf),
-      ...(posted.containedKeyId === undefined ? {} : { containedKeyId: posted.containedKeyId }),
+      containedKeyId: posted.containedKeyId,
     };
   }
 }

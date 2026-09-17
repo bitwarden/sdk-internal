@@ -47,8 +47,8 @@ export class ClientEmulator {
                 kdf: user.masterPasswordUnlock.kdf,
               },
             }),
-        ...(user.upgradeToken === undefined ? {} : { v2UpgradeToken: user.upgradeToken }),
-        ...(user.userKeyId === undefined ? {} : { userKeyId: user.userKeyId }),
+        v2UpgradeToken: user.upgradeToken,
+        userKeyId: user.userKeyId,
       },
     };
 
