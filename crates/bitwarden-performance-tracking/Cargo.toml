@@ -1,0 +1,36 @@
+[package]
+name = "bitwarden-performance-tracking"
+description = """
+Performance tracing primitives drawing onto custom Chrome DevTools performance tracks.
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Bitwarden-SDK"
+keywords.workspace = true
+
+[features]
+# Exposes the tracking API to JavaScript, so the clients draw their entries through this crate.
+wasm = ["dep:js-sys", "dep:wasm-bindgen"]
+
+[dependencies]
+# Optional here for the bindings, which are compiled for every target so `--all-features` checks
+# them, and unconditional below for the browser backend.
+js-sys = { workspace = true, optional = true }
+tracing = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+
+# Tracks are drawn through the browser Performance API directly, so they are available to every
+# wasm consumer rather than gated behind the `wasm` bindings feature.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = { workspace = true }
+wasm-bindgen = { workspace = true }
+
+[lints]
+workspace = true
