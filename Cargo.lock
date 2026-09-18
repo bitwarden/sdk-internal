@@ -951,6 +951,7 @@ dependencies = [
  "hkdf 0.13.0",
  "hmac 0.13.0",
  "icu_normalizer",
+ "itertools 0.15.0",
  "keepass",
  "p256 0.14.0",
  "pbkdf2",
