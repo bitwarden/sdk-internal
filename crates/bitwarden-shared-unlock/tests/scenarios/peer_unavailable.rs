@@ -176,14 +176,18 @@ async fn independent_unlocks_settle_on_one_date() {
     simple.leader.go_offline();
     simple.follower.manual_unlock(user.id, &user.key).await;
     bitwarden_threading::time::sleep(Duration::from_millis(30)).await;
-    simple.leader.come_online().await;
-    simple.leader.manual_unlock(user.id, &user.key).await;
 
-    // 2. Assert the two dates really are different.
+    // Read the follower's date while the leader is still down: once the two can see each other,
+    // the leader's later date can reach the follower at any tick and overwrite it.
     let follower_date = simple
         .follower
         .recorded_date(user.id)
         .expect("The follower recorded its own unlock");
+
+    simple.leader.come_online().await;
+    simple.leader.manual_unlock(user.id, &user.key).await;
+
+    // 2. Assert the two dates really are different.
     let leader_date = simple
         .leader
         .recorded_date(user.id)
@@ -228,14 +232,18 @@ async fn independent_locks_settle_on_one_date() {
     simple.leader.go_offline();
     simple.follower.manual_lock(user.id).await;
     bitwarden_threading::time::sleep(Duration::from_millis(30)).await;
-    simple.leader.come_online().await;
-    simple.leader.manual_lock(user.id).await;
 
-    // 3. Assert the two dates really are different.
+    // Read the follower's date while the leader is still down: once the two can see each other,
+    // the leader's later date can reach the follower at any tick and overwrite it.
     let follower_date = simple
         .follower
         .recorded_date(user.id)
         .expect("The follower recorded its own lock");
+
+    simple.leader.come_online().await;
+    simple.leader.manual_lock(user.id).await;
+
+    // 3. Assert the two dates really are different.
     let leader_date = simple
         .leader
         .recorded_date(user.id)
