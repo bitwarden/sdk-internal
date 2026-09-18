@@ -330,11 +330,12 @@ impl TryFrom<AccessPreCheckResponseModel> for AccessPreCheckView {
     type Error = PamDecodeError;
 
     fn try_from(response: AccessPreCheckResponseModel) -> Result<Self, Self::Error> {
-        // Both bounds fall back rather than `require!`: a predating server omits both, and
-        // falling back to the global constants reproduces the pre-per-rule-cap behaviour.
+        // Absent and non-positive both mean "no cap", which resolves to the ceiling exactly as the
+        // server's own `EffectiveMax` does for a rule storing none.
         let max_duration_seconds = positive_u32(response.max_duration_seconds)
-            .unwrap_or(MAX_REQUEST_ACCESS_WINDOW_SECONDS)
-            .min(MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+            .map_or(MAX_REQUEST_ACCESS_WINDOW_SECONDS, |max| {
+                max.min(MAX_REQUEST_ACCESS_WINDOW_SECONDS)
+            });
 
         Ok(Self {
             cipher_id: CipherId::new(require!(response.cipher_id)),
@@ -845,8 +846,6 @@ mod tests {
 
     #[test]
     fn pre_check_view_falls_back_when_bounds_are_absent() {
-        // A server predating the bounds omits both; the view reproduces the previous global-only
-        // behaviour rather than failing to decode.
         let view = AccessPreCheckView::try_from(pre_check_response(None, None)).unwrap();
 
         assert_eq!(
@@ -867,17 +866,24 @@ mod tests {
     }
 
     #[test]
-    fn pre_check_view_clamps_max_to_the_global_ceiling() {
-        let view =
-            AccessPreCheckView::try_from(pre_check_response(None, Some(7 * 86_400))).unwrap();
+    fn pre_check_view_publishes_the_rule_cap_narrowed_only_by_the_global_ceiling() {
+        let ceiling = i32::try_from(MAX_REQUEST_ACCESS_WINDOW_SECONDS).unwrap();
+        for (sent, expected) in [
+            // The ceiling used to sit at 24h, narrowing every multi-day cap before the requester
+            // ever saw it.
+            (7 * 86_400, 7 * 86_400),
+            (ceiling + 1, MAX_REQUEST_ACCESS_WINDOW_SECONDS),
+        ] {
+            let view = AccessPreCheckView::try_from(pre_check_response(None, Some(sent))).unwrap();
 
-        assert_eq!(view.max_duration_seconds, MAX_REQUEST_ACCESS_WINDOW_SECONDS);
+            assert_eq!(view.max_duration_seconds, expected, "cap {sent}");
+        }
     }
 
     #[test]
     fn pre_check_view_treats_non_positive_bounds_as_absent() {
-        // Zero means "no cap", never a real bound; a negative value only comes from
-        // a malformed response. Neither should collapse the picker to nothing.
+        // Zero means "no cap" and a negative only comes from a malformed response; neither should
+        // collapse the picker.
         let view = AccessPreCheckView::try_from(pre_check_response(Some(0), Some(-1))).unwrap();
 
         assert_eq!(

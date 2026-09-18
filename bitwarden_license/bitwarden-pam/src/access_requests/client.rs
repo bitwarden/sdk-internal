@@ -158,7 +158,10 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{AccessApprovalMode, AccessLeaseStatus, AccessRequestStatus};
+    use crate::{
+        AccessApprovalMode, AccessLeaseStatus, AccessRequestStatus,
+        access_requests::MAX_REQUEST_ACCESS_WINDOW_SECONDS,
+    };
 
     fn request_id() -> AccessRequestId {
         AccessRequestId::new(uuid!("44444444-4444-4444-4444-444444444444"))
@@ -403,7 +406,7 @@ mod tests {
         });
 
         let request = AccessRequestCreateRequest {
-            duration_seconds: NonZeroU32::new(86_401),
+            duration_seconds: NonZeroU32::new(MAX_REQUEST_ACCESS_WINDOW_SECONDS + 1),
             ..Default::default()
         };
 
